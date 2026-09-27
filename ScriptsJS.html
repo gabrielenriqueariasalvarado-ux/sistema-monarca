@@ -1,0 +1,1253 @@
+<script>
+    // ==========================================================================
+    // CONTROLADOR CLIENTE (SISTEMA DEL MONARCA - SOLO LEVELING)
+    // ==========================================================================
+
+    // Estado global de la aplicación en el cliente (Caché local en memoria)
+    var APP_STATE = {
+        cargado: false,
+        jugador: null,
+        perfil: null,
+        misiones: null,
+        habilidades: null,
+        fatiga: null,
+        gym: null,
+        salud: null,
+        finanzas: null,
+        ideas: null,
+        ejercicios: null,
+        rutinas: null
+    };
+
+    // --------------------------------------------------------------------------
+    // INICIALIZACIÓN DEL SISTEMA
+    // --------------------------------------------------------------------------
+    window.onload = function() {
+        cargarSistemaCompleto();
+    };
+
+    /**
+     * Carga todo el estado del sistema en una sola llamada de red ultrarrápida.
+     */
+    function cargarSistemaCompleto() {
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) {
+                    APP_STATE.cargado = true;
+                    APP_STATE.jugador = res.jugador;
+                    APP_STATE.perfil = res.perfil;
+                    APP_STATE.misiones = res.misiones;
+                    APP_STATE.habilidades = res.habilidades;
+                    APP_STATE.fatiga = res.fatiga;
+                    APP_STATE.gym = res.gym;
+                    APP_STATE.salud = res.salud;
+                    APP_STATE.finanzas = res.finanzas;
+                    APP_STATE.ideas = res.ideas;
+                    APP_STATE.ejercicios = res.ejercicios || [];
+                    APP_STATE.rutinas = res.rutinas || [];
+
+                    // Renderizar componentes principales
+                    renderizarJugador(APP_STATE.jugador);
+                    renderizarBarrasFatiga(APP_STATE.fatiga);
+                } else {
+                    // Fallback a llamadas individuales si la carga masiva falla
+                    actualizarTodo();
+                }
+            })
+            .withFailureHandler(function(error) {
+                console.warn("Fallo en carga inicial por lotes, usando llamadas estándar:", error);
+                actualizarTodo();
+            })
+            .obtenerEstadoInicial();
+    }
+
+    // --------------------------------------------------------------------------
+    // NAVEGACIÓN ENTRE VISTAS
+    // --------------------------------------------------------------------------
+    function cambiarVista(vistaId) {
+        var tabs = document.getElementsByClassName('tab-content');
+        for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('active');
+        }
+        
+        var vistaActiva = document.getElementById(vistaId);
+        if (vistaActiva) {
+            vistaActiva.classList.add('active');
+        }
+
+        // Renderizado instantáneo desde memoria si ya está cargado
+        switch(vistaId) {
+            case 'vista-menu':
+                if (APP_STATE.jugador) renderizarJugador(APP_STATE.jugador);
+                else actualizarTodo();
+                break;
+            case 'vista-perfil':
+                cargarPerfil();
+                break;
+            case 'vista-estado-personal':
+                cargarEstadoPersonal();
+                break;
+            case 'vista-misiones':
+                cargarMisiones();
+                break;
+            case 'vista-habilidades':
+                cargarHabilidades();
+                break;
+            case 'vista-gym':
+                cargarGym();
+                break;
+            case 'vista-mente':
+                cargarMente();
+                break;
+            case 'vista-finanzas':
+                cargarFinanzas();
+                break;
+            case 'vista-ideas':
+                cargarIdeas();
+                break;
+            case 'vista-calendario':
+                renderizarCalendario();
+                break;
+            case 'vista-detalle-rutina-dinamica':
+                // La vista ya fue preparada antes de la llamada, no hay que recargar
+                break;
+        }
+    }
+
+    // --------------------------------------------------------------------------
+    // JUGADOR Y PERFIL
+    // --------------------------------------------------------------------------
+    function renderizarJugador(datos) {
+        if (!datos) return;
+        var tituloElem = document.getElementById('player-title');
+        var nivelElem = document.getElementById('player-level');
+        if (tituloElem) tituloElem.innerText = datos.titulo || "Monarca de las Sombras";
+        if (nivelElem) nivelElem.innerText = "Nivel: " + (datos.nivel || 1) + " | EXP: " + (datos.exp || 0) + " / " + (datos.expMax || 100);
+    }
+
+    function actualizarTodo() {
+        google.script.run
+            .withSuccessHandler(function(datos) {
+                APP_STATE.jugador = datos;
+                renderizarJugador(datos);
+            })
+            .withFailureHandler(function(err) {
+                console.error("Error al obtener jugador:", err);
+            })
+            .getDatosJugador();
+    }
+
+    function cargarPerfil(forzarRefresco) {
+        if (APP_STATE.perfil && !forzarRefresco) {
+            renderizarPerfil(APP_STATE.perfil);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(perfil) {
+                APP_STATE.perfil = perfil;
+                renderizarPerfil(perfil);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-perfil').innerHTML = "<p style='color:#ef4444;'>Error cargando perfil: " + err.message + "</p>";
+            })
+            .getPerfilJugador();
+    }
+
+    function renderizarPerfil(perfil) {
+        var p = perfil || { str: 10, int: 10, vit: 10, mp: 100 };
+        var html = `<table>
+            <tr><th>Atributo</th><th>Valor</th></tr>
+            <tr><td>Fuerza (STR)</td><td><strong style="color:#60a5fa;">${p.str || 10}</strong></td></tr>
+            <tr><td>Inteligencia (INT)</td><td><strong style="color:#60a5fa;">${p.int || 10}</strong></td></tr>
+            <tr><td>Vitalidad (VIT)</td><td><strong style="color:#60a5fa;">${p.vit || 10}</strong></td></tr>
+            <tr><td>Maná (MP)</td><td><strong style="color:#fbbf24;">${p.mp || 100}</strong></td></tr>
+        </table>`;
+        var cont = document.getElementById('contenedor-perfil');
+        if (cont) cont.innerHTML = html;
+    }
+
+    // --------------------------------------------------------------------------
+    // MISIONES Y HÁBITOS
+    // --------------------------------------------------------------------------
+    function cargarMisiones(forzarRefresco) {
+        if (APP_STATE.misiones && !forzarRefresco) {
+            renderizarMisiones(APP_STATE.misiones);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(misiones) {
+                APP_STATE.misiones = misiones;
+                renderizarMisiones(misiones);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-misiones').innerHTML = "<p style='color:#ef4444;'>Error cargando misiones: " + err.message + "</p>";
+            })
+            .getMisiones();
+    }
+
+    function renderizarMisiones(misiones) {
+        var html = "";
+        if (misiones && misiones.length > 0) {
+            misiones.forEach(function(m) {
+                var esCompletado = m.estado === "Completado";
+                var estiloTarjeta = esCompletado 
+                    ? "background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%); border: 1px solid #334155; opacity: 0.75;" 
+                    : "background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid #fbbf24; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);";
+                
+                var estiloBoton = esCompletado 
+                    ? "background-color: #334155; color: #94a3b8; border: 1px solid #475569; cursor: not-allowed; box-shadow: none;" 
+                    : "background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: 1px solid #60a5fa; cursor: pointer; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);";
+                
+                var textoBoton = esCompletado ? "✓ Completado" : "Completar";
+                var accionClick = esCompletado ? "" : `onclick="marcarCompletado(${m.fila})"`;
+
+                html += `
+                <div style="${estiloTarjeta} border-radius: 12px; padding: 18px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s ease;">
+                    <div style="flex-grow: 1; padding-right: 15px;">
+                        <div style="color: #f8fafc; font-weight: bold; font-size: 16px; margin-bottom: 6px; letter-spacing: 0.5px;">
+                            <span style="color: #fbbf24; font-size: 13px; background: rgba(251, 191, 36, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(251, 191, 36, 0.3); margin-right: 8px;">[${m.frecuencia}]</span> 
+                            ${m.nombre}
+                        </div>
+                        <div style="color: #94a3b8; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: #fbbf24;">+${m.exp} EXP (${m.atributo})</span>
+                            <span style="color: #475569;">|</span>
+                            <span>Racha: <strong style="color: #60a5fa; background: rgba(59, 130, 246, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2);">${m.diasRestantes} días</strong></span>
+                        </div>
+                    </div>
+                    <div>
+                        <button style="border-radius: 8px; padding: 10px 20px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; ${estiloBoton}" ${accionClick}>
+                            ${textoBoton}
+                        </button>
+                    </div>
+                </div>`;
+            });
+        } else {
+            html = "<p style='text-align: center; color: #94a3b8; padding: 20px;'>No hay misiones activas en el sistema.</p>";
+        }
+        var cont = document.getElementById('contenedor-misiones');
+        if (cont) cont.innerHTML = html;
+    }
+
+    function marcarCompletado(fila) {
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.subioNivel) {
+                    alert("¡LEVEL UP! Has subido al Nivel " + res.nuevoNivel + ". Tus estadísticas se han incrementado.");
+                }
+                cargarMisiones(true);
+                actualizarTodo();
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al completar misión: " + err.message);
+            })
+            .completarMision(fila);
+    }
+
+    // --------------------------------------------------------------------------
+    // HABILIDADES
+    // --------------------------------------------------------------------------
+    function cargarHabilidades(forzarRefresco) {
+        if (APP_STATE.habilidades && !forzarRefresco) {
+            renderizarHabilidades(APP_STATE.habilidades);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(skills) {
+                APP_STATE.habilidades = skills;
+                renderizarHabilidades(skills);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-habilidades').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+            })
+            .getHabilidades();
+    }
+
+    function renderizarHabilidades(skills) {
+        var html = "";
+        if (skills && skills.length > 0) {
+            skills.forEach(function(s) {
+                var porcentaje = Math.min(Math.max(s.porcentaje, 0), 100);
+
+                html += `
+                <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div>
+                            <span style="color: #60a5fa; font-size: 12px; background: rgba(59, 130, 246, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.3); text-transform: uppercase; font-weight: bold;">${s.rango}</span>
+                            <h3 style="color: #f8fafc; margin: 6px 0 0 0; font-size: 18px; letter-spacing: 0.5px;">${s.nombre}</h3>
+                        </div>
+                        <div>
+                            <button onclick="sumarHora(${s.fila})" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: 1px solid #34d399; padding: 8px 14px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);">
+                                +1 Hora ⚡
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #0f172a; border-radius: 6px; height: 12px; width: 100%; border: 1px solid #334155; overflow: hidden; margin: 12px 0 8px 0;">
+                        <div style="background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%); height: 100%; width: ${porcentaje}%; transition: width 0.4s ease;"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; color: #94a3b8; font-size: 12px;">
+                        <span>Progreso Nivel: <strong style="color: #fbbf24;">${s.horasEnNivel} / ${s.horasReqNivel} hrs</strong> (Totales: ${s.horasTotales})</span>
+                        <span>${s.infoSiguiente} (${porcentaje}%)</span>
+                    </div>
+                    <div style="margin-top: 8px; color: #cbd5e1; font-size: 12px; border-top: 1px solid rgba(51, 65, 85, 0.5); padding-top: 6px;">
+                        🎁 <em>Beneficio:</em> ${s.beneficio}
+                    </div>
+                </div>`;
+            });
+        } else {
+            html = "<p style='text-align: center; color: #94a3b8; padding: 20px;'>No hay habilidades registradas en el sistema.</p>";
+        }
+        var cont = document.getElementById('contenedor-habilidades');
+        if (cont) cont.innerHTML = html;
+    }
+
+    function sumarHora(fila) {
+        google.script.run
+            .withSuccessHandler(function() {
+                cargarHabilidades(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al registrar hora: " + err.message);
+            })
+            .sumarHoraHabilidad(fila);
+    }
+
+    // --------------------------------------------------------------------------
+    // ESTADO PERSONAL Y FATIGA
+    // --------------------------------------------------------------------------
+    function cargarEstadoPersonal(fatigaData) {
+        if (fatigaData) {
+            APP_STATE.fatiga = fatigaData;
+            renderizarBarrasFatiga(fatigaData);
+            return;
+        }
+        if (APP_STATE.fatiga) {
+            renderizarBarrasFatiga(APP_STATE.fatiga);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(dataServidor) {
+                var f = dataServidor || { brazos: 0, pecho: 0, espalda: 0, abdominales: 0, piernas: 0, mente: 0 };
+                APP_STATE.fatiga = f;
+                renderizarBarrasFatiga(f);
+            })
+            .obtenerUltimaFatiga();
+    }
+
+    function renderizarBarrasFatiga(f) {
+        var fatiga = f || {};
+
+        // 19 Canales anatómicos organizados de la cabeza a los pies con Mente en la cima
+        var zonasAnatomicas = [
+            {
+                id: "zona-mente",
+                titulo: "🧠 SISTEMA NEURAL & MENTE",
+                esMente: true,
+                musculos: [
+                    { key: "mente", nombre: "Mente & Concentración (Enfoque)", icono: "🧠" }
+                ]
+            },
+            {
+                id: "zona-hombros",
+                titulo: "🛡️ HOMBROS (DELTOIDES)",
+                musculos: [
+                    { key: "delt_ant", nombre: "Deltoides Anterior (Frontal)", icono: "🛡️" },
+                    { key: "delt_lat", nombre: "Deltoides Lateral (Anchura)", icono: "🛡️" },
+                    { key: "delt_post", nombre: "Deltoides Posterior (Trasero)", icono: "🛡️" },
+                    { key: "manguito", nombre: "Manguito Rotador (Estabilizadores)", icono: "🔄" }
+                ]
+            },
+            {
+                id: "zona-pecho",
+                titulo: "⚔️ PECHO (PECTORALES)",
+                musculos: [
+                    { key: "pect_mayor", nombre: "Pectoral Mayor (Superior / Medio)", icono: "⚔️" },
+                    { key: "pect_menor", nombre: "Pectoral Menor (Inferior)", icono: "⚔️" }
+                ]
+            },
+            {
+                id: "zona-brazos",
+                titulo: "💪 BRAZOS & ANTEBRAZOS",
+                musculos: [
+                    { key: "biceps", nombre: "Bíceps Braquial & Anterior", icono: "💪" },
+                    { key: "triceps", nombre: "Tríceps Braquial (3 Cabezas)", icono: "💪" },
+                    { key: "antebrazos", nombre: "Antebrazos (Flexores / Agarre)", icono: "✊" }
+                ]
+            },
+            {
+                id: "zona-espalda",
+                titulo: "🦅 ESPALDA & POSTURA",
+                musculos: [
+                    { key: "trapecios", nombre: "Trapecios y Romboides", icono: "🦅" },
+                    { key: "dorsales", nombre: "Dorsales y Redondos (Anchura 'V')", icono: "🦅" },
+                    { key: "lumbares", nombre: "Erectores Espinales (Zona Lumbar)", icono: "🏛️" }
+                ]
+            },
+            {
+                id: "zona-core",
+                titulo: "⚡ CORE & ABDOMEN",
+                musculos: [
+                    { key: "core", nombre: "Recto Abdominal, Oblicuos & Transverso", icono: "⚡" }
+                ]
+            },
+            {
+                id: "zona-cadera-gluteos",
+                titulo: "🥋 CADERA & GLÚTEOS",
+                musculos: [
+                    { key: "gluteos", nombre: "Glúteos (Mayor, Medio y Menor)", icono: "🍑" },
+                    { key: "cadera", nombre: "Cadera / Aductores e Iliopsoas", icono: "🥋" }
+                ]
+            },
+            {
+                id: "zona-piernas",
+                titulo: "🦵 MUSLOS (PIERNAS)",
+                musculos: [
+                    { key: "cuadriceps", nombre: "Cuádriceps (Recto & Vastos)", icono: "🦵" },
+                    { key: "isquios", nombre: "Isquiotibiales (Cadena Posterior)", icono: "🦵" }
+                ]
+            },
+            {
+                id: "zona-pantorrillas",
+                titulo: "🦶 PANTORRILLAS & TOBILLOS",
+                musculos: [
+                    { key: "pantorrillas", nombre: "Pantorrillas (Gemelos & Sóleo)", icono: "🦶" }
+                ]
+            }
+        ];
+
+        var html = '<div class="anatomical-container">';
+
+        zonasAnatomicas.forEach(function(zona) {
+            var claseCard = zona.esMente ? 'anatomical-zone-card mental-zone-card' : 'anatomical-zone-card';
+            
+            var sumaZona = 0;
+            zona.musculos.forEach(function(m) {
+                sumaZona += (Number(fatiga[m.key]) || 0);
+            });
+            var promZona = Math.round(sumaZona / zona.musculos.length);
+
+            html += `<div class="${claseCard}">
+                <div class="zone-header">
+                    <span class="zone-title">${zona.titulo}</span>
+                    <span class="zone-badge-avg">${promZona}% Carga</span>
+                </div>
+                <div>`;
+
+            zona.musculos.forEach(function(m) {
+                var val = Math.min(100, Math.max(0, Number(fatiga[m.key]) || 0));
+                
+                var colorClase = 'val-low';
+                var barClase = 'bar-dyn-low';
+                if (val >= 70) {
+                    colorClase = 'val-high';
+                    barClase = 'bar-dyn-high';
+                } else if (val >= 40) {
+                    colorClase = 'val-mid';
+                    barClase = 'bar-dyn-mid';
+                }
+
+                html += `
+                <div class="muscle-bar-item">
+                    <div class="muscle-bar-info">
+                        <span>${m.icono} ${m.nombre}</span>
+                        <span class="fatigue-val-badge ${colorClase}">${val}% Fatiga</span>
+                    </div>
+                    <div class="muscle-bar-track">
+                        <div class="muscle-bar-fill-dyn ${barClase}" style="width: ${val}%;"></div>
+                    </div>
+                </div>`;
+            });
+
+            html += `</div></div>`;
+        });
+
+        html += '</div>';
+
+        var contenedor = document.getElementById('contenedor-grafica-fatiga');
+        if (contenedor) contenedor.innerHTML = html;
+
+        // Actualizar promedio diario y último cierre en el widget superior
+        var promedioElem = document.getElementById('promedio-hoy-display');
+        var cierreElem = document.getElementById('ultimo-cierre-display');
+        if (promedioElem) {
+            promedioElem.innerText = (fatiga.promedioHoy !== undefined ? fatiga.promedioHoy : 0) + "%";
+        }
+        if (cierreElem) {
+            cierreElem.innerText = fatiga.ultimoCierre || "Sin registros previos";
+        }
+    }
+
+    // --------------------------------------------------------------------------
+    // CONDICIÓN FÍSICA (GYM Y RUTINAS DINÁMICAS DESDE SHEETS)
+    // --------------------------------------------------------------------------
+
+    // Paleta de colores/iconos para las rutinas (asignación cíclica)
+    var RUTINA_PALETA = [
+        { color: '#fbbf24', glow: 'rgba(251,191,36,0.35)',  icono: '🌅', rankLabel: 'DIARIA · ACTIVACIÓN' },
+        { color: '#f87171', glow: 'rgba(239,68,68,0.35)',   icono: '🔥', rankLabel: 'FUERZA · INTENSIDAD' },
+        { color: '#60a5fa', glow: 'rgba(59,130,246,0.35)',  icono: '🦵', rankLabel: 'POTENCIA · RESISTENCIA' },
+        { color: '#c084fc', glow: 'rgba(168,85,247,0.35)',  icono: '🛡️', rankLabel: 'TRACCIÓN · TÉCNICA' },
+        { color: '#34d399', glow: 'rgba(52,211,153,0.35)',  icono: '⚡', rankLabel: 'EXPLOSIVA · CORE' },
+        { color: '#fb923c', glow: 'rgba(251,146,60,0.35)',  icono: '🏋️', rankLabel: 'FUNCIONAL · MIXTA' },
+    ];
+
+    // Rutina actualmente seleccionada para ver detalle
+    var RUTINA_ACTIVA = null;
+
+    function cargarGym(forzarRefresco) {
+        if (APP_STATE.rutinas && APP_STATE.rutinas.length > 0 && !forzarRefresco) {
+            renderizarPortalesRutinas(APP_STATE.rutinas);
+            renderizarGym(APP_STATE.gym);
+            return;
+        }
+        // Cargar rutinas y ejercicios del servidor
+        google.script.run
+            .withSuccessHandler(function(res) {
+                APP_STATE.rutinas = res.rutinas || [];
+                APP_STATE.ejercicios = res.ejercicios || [];
+                APP_STATE.gym = res.gym || [];
+                renderizarPortalesRutinas(APP_STATE.rutinas);
+                renderizarGym(APP_STATE.gym);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-portales-rutinas').innerHTML =
+                    "<p style='color:#ef4444;'>Error al cargar rutinas: " + err.message + "</p>";
+            })
+            .obtenerDatosGym();
+    }
+
+    function renderizarPortalesRutinas(rutinas) {
+        var cont = document.getElementById('contenedor-portales-rutinas');
+        if (!cont) return;
+
+        if (!rutinas || rutinas.length === 0) {
+            cont.innerHTML = "<p style='color:#94a3b8;text-align:center;padding:20px;'>No hay rutinas programadas en la hoja Rutinas.</p>";
+            return;
+        }
+
+        var html = '';
+        rutinas.forEach(function(rut, idx) {
+            var paleta = RUTINA_PALETA[idx % RUTINA_PALETA.length];
+            var numEj = rut.ejercicios ? rut.ejercicios.length : 0;
+            var badgeEj = numEj > 0
+                ? numEj + ' Ejercicio' + (numEj !== 1 ? 's' : '')
+                : 'Rutina Vacía';
+            var badgeColor = numEj > 0 ? paleta.color : '#64748b';
+            var badgeBorder = numEj > 0 ? ('rgba(' + paleta.color.replace('#','') + ',0.4)') : 'rgba(100,116,139,0.4)';
+
+            html += '<div class="quest-card" onclick="abrirDetalleRutina(' + idx + ')" style="box-shadow: 0 0 12px ' + paleta.glow + ';">' +
+                '<div style="display:flex;align-items:center;flex:1;">' +
+                  '<div class="quest-icon-box" style="border-color:' + paleta.color + ';color:' + paleta.color + ';">' + paleta.icono + '</div>' +
+                  '<div style="flex:1;">' +
+                    '<span class="quest-badge-rank" style="background:rgba(0,0,0,0.3);border:1px solid ' + paleta.color + ';color:' + paleta.color + ';">' +
+                      paleta.rankLabel +
+                    '</span>' +
+                    '<h4 style="margin:4px 0 6px 0;color:#f8fafc;font-size:16px;letter-spacing:0.5px;">' + rut.nombre + '</h4>' +
+                    '<div class="muscle-tags-row">' +
+                      '<span class="muscle-tag" style="color:#94a3b8;">' + rut.codigo + '</span>' +
+                      '<span class="muscle-tag" style="color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + badgeEj + '</span>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="text-align:right;padding-left:10px;">' +
+                  '<span style="color:' + paleta.color + ';font-size:18px;font-weight:bold;">▶</span>' +
+                '</div>' +
+              '</div>';
+        });
+        cont.innerHTML = html;
+    }
+
+    /**
+     * Abre la vista de detalle dinámica de una rutina por su índice en APP_STATE.rutinas.
+     */
+    function abrirDetalleRutina(idx) {
+        var rutina = APP_STATE.rutinas[idx];
+        if (!rutina) return;
+        RUTINA_ACTIVA = { rutina: rutina, idx: idx };
+
+        var paleta = RUTINA_PALETA[idx % RUTINA_PALETA.length];
+        var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
+        var tituloEl = document.getElementById('detalle-rutina-titulo');
+        var badgeEl = document.getElementById('detalle-rutina-badge');
+
+        if (tituloEl) { tituloEl.innerText = rutina.nombre; tituloEl.style.color = paleta.color; }
+        if (badgeEl)  { badgeEl.innerText = paleta.rankLabel; badgeEl.style.borderColor = paleta.color; badgeEl.style.color = paleta.color; }
+
+        // Renderizar ejercicios o mensaje de vacío
+        if (!cont) return;
+
+        if (rutina.vacia || !rutina.ejercicios || rutina.ejercicios.length === 0) {
+            cont.innerHTML =
+                '<div style="text-align:center;padding:40px 20px;">' +
+                  '<div style="font-size:48px;margin-bottom:12px;">📭</div>' +
+                  '<h3 style="color:#fbbf24;margin:0 0 8px 0;">Rutina Vacía</h3>' +
+                  '<p style="color:#94a3b8;font-size:14px;line-height:1.5;">' +
+                    'Esta rutina aún no tiene ejercicios asignados.<br>' +
+                    'Agrega ejercicios en la hoja <strong style="color:#60a5fa;">Rutinas</strong> usando los códigos de la hoja <strong style="color:#60a5fa;">Ejercicios</strong>.' +
+                  '</p>' +
+                '</div>';
+            // Ocultar botón de registrar
+            var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
+            var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
+            if (btnReg) btnReg.style.display = 'none';
+            if (progrCont) progrCont.style.display = 'none';
+        } else {
+            var numEj = rutina.ejercicios.length;
+            var claseCheck = 'check-rutina-din-' + idx;
+
+            // Barra de progreso
+            var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
+            var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
+            var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
+            var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
+
+            if (progrCont) progrCont.style.display = 'block';
+            if (progrBarra) { progrBarra.style.width = '0%'; progrBarra.style.background = 'linear-gradient(90deg,' + paleta.color + ' 0%,' + paleta.color + 'cc 100%)'; }
+            if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
+            if (btnReg) { btnReg.style.display = 'block'; btnReg.disabled = true; btnReg.classList.remove('btn-ready-pulse'); }
+
+            // Lista de ejercicios como checkboxes RPG
+            var html = '';
+            rutina.ejercicios.forEach(function(ej, i) {
+                html += '<label class="exercise-item-rpg">' +
+                    '<div>' +
+                      '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<h4 style="margin:0;color:#f8fafc;font-size:15px;">' + (i + 1) + '. ' + ej.nombre + '</h4>' +
+                        '<span class="badge-status-item">PENDIENTE</span>' +
+                      '</div>' +
+                      (ej.descripcion ? '<span class="badge-reps">' + ej.descripcion + '</span>' : '') +
+                    '</div>' +
+                    '<input type="checkbox" class="' + claseCheck + '" style="display:none;" ' +
+                      'onchange="actualizarProgresoRutinaDinamica(\'' + claseCheck + '\', ' + numEj + ', ' + idx + ')">' +
+                    '<div class="custom-check-box">✓</div>' +
+                  '</label>';
+            });
+            cont.innerHTML = html;
+        }
+
+        // Cambiar vista al detalle
+        iniciarRutinaConEstiramiento('vista-detalle-rutina-dinamica', rutina.nombre);
+    }
+
+    /**
+     * Actualiza la barra de progreso de la rutina dinámica activa.
+     */
+    function actualizarProgresoRutinaDinamica(claseCheck, total, rutinaIdx) {
+        var paleta = RUTINA_PALETA[rutinaIdx % RUTINA_PALETA.length];
+        var checkboxes = document.querySelectorAll('.' + claseCheck);
+        var marcados = 0;
+
+        checkboxes.forEach(function(chk) {
+            var label = chk.closest('label');
+            var badgeStatus = label ? label.querySelector('.badge-status-item') : null;
+            if (chk.checked) {
+                marcados++;
+                if (label) label.classList.add('checked-active');
+                if (badgeStatus) badgeStatus.innerText = '✓ LISTO';
+            } else {
+                if (label) label.classList.remove('checked-active');
+                if (badgeStatus) badgeStatus.innerText = 'PENDIENTE';
+            }
+        });
+
+        var porcentaje = total > 0 ? Math.round((marcados / total) * 100) : 0;
+        var barra = document.getElementById('progreso-barra-rutina-dinamica');
+        var texto = document.getElementById('progreso-texto-rutina-dinamica');
+        var boton = document.getElementById('btn-registrar-rutina-dinamica');
+
+        if (barra) barra.style.width = porcentaje + '%';
+        if (texto) texto.innerText = marcados + ' / ' + total + ' (' + porcentaje + '%)';
+
+        if (boton) {
+            if (marcados === total && total > 0) {
+                boton.disabled = false;
+                boton.classList.add('btn-ready-pulse');
+            } else {
+                boton.disabled = true;
+                boton.classList.remove('btn-ready-pulse');
+            }
+        }
+    }
+
+    /**
+     * Registra la rutina dinámica activa (llama a la función de rutina genérica del servidor).
+     */
+    function ejecutarRutinaDinamica() {
+        if (!RUTINA_ACTIVA) return;
+        var rutina = RUTINA_ACTIVA.rutina;
+        var boton = document.getElementById('btn-registrar-rutina-dinamica');
+        if (boton) { boton.innerText = 'Registrando...'; boton.disabled = true; boton.classList.remove('btn-ready-pulse'); }
+
+        // Construir mapa de incrementos de fatiga sumando todos los ejercicios
+        var incrementos = {};
+        rutina.ejercicios.forEach(function(ej) {
+            if (ej.fatiga) {
+                Object.keys(ej.fatiga).forEach(function(letra) {
+                    incrementos[letra] = (incrementos[letra] || 0) + (ej.fatiga[letra] || 0);
+                });
+            }
+        });
+
+        google.script.run
+            .withSuccessHandler(function(response) {
+                if (boton) { boton.innerText = 'Completar y Registrar Rutina'; boton.disabled = true; boton.classList.remove('btn-ready-pulse'); }
+
+                // Resetear checkboxes
+                if (RUTINA_ACTIVA) {
+                    var claseCheck = 'check-rutina-din-' + RUTINA_ACTIVA.idx;
+                    document.querySelectorAll('.' + claseCheck).forEach(function(chk) {
+                        chk.checked = false;
+                        var label = chk.closest('label');
+                        if (label) { label.classList.remove('checked-active'); }
+                        var bs = label ? label.querySelector('.badge-status-item') : null;
+                        if (bs) bs.innerText = 'PENDIENTE';
+                    });
+                }
+
+                var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
+                var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
+                if (progrBarra) progrBarra.style.width = '0%';
+                if (progrTexto && RUTINA_ACTIVA) progrTexto.innerText = '0 / ' + RUTINA_ACTIVA.rutina.ejercicios.length + ' (0%)';
+
+                if (response && response.success) {
+                    alert('¡' + rutina.nombre + ' completada con éxito! Estado del avatar actualizado.');
+                    if (response.fatiga) {
+                        APP_STATE.fatiga = response.fatiga;
+                        renderizarBarrasFatiga(response.fatiga);
+                    }
+                    cambiarVista('vista-estado-personal');
+                    cargarGym(true);
+                } else {
+                    alert('Error: ' + (response ? response.error : 'No se pudo registrar la rutina'));
+                }
+            })
+            .withFailureHandler(function(error) {
+                if (boton) { boton.innerText = 'Completar y Registrar Rutina'; boton.disabled = false; }
+                alert('Error de conexión: ' + error.message);
+            })
+            .registrarRutinaGenerica(rutina.nombre, incrementos);
+    }
+
+    function renderizarGym(gymData) {
+        var htmlTabla = "<table><tr><th>Fecha</th><th>Rutina / Detalle</th></tr>";
+        if (gymData && gymData.length > 0) {
+            gymData.forEach(function(g) {
+                htmlTabla += `<tr><td>${g.fecha}</td><td>${g.detalle}</td></tr>`;
+            });
+        } else {
+            htmlTabla += "<tr><td colspan='2'>Sin registros de entrenamiento recientes.</td></tr>";
+        }
+        htmlTabla += "</table>";
+
+        var contenedorGym = document.getElementById('contenedor-gym');
+        if (contenedorGym) contenedorGym.innerHTML = htmlTabla;
+    }
+
+    /**
+     * Validador dinámico para checklists de ejercicios en rutinas RPG.
+     * Actualiza porcentaje en tiempo real, estados de tarjeta y botón de acción.
+     */
+    function actualizarProgresoRutina(claseCheckboxes, idBarra, idTexto, idBoton) {
+        var checkboxes = document.querySelectorAll('.' + claseCheckboxes);
+        var barra = document.getElementById(idBarra);
+        var texto = document.getElementById(idTexto);
+        var boton = document.getElementById(idBoton);
+
+        var total = checkboxes.length;
+        var marcados = 0;
+
+        checkboxes.forEach(function(chk) {
+            var label = chk.closest('label');
+            var badgeStatus = label ? label.querySelector('.badge-status-item') : null;
+
+            if (chk.checked) {
+                marcados++;
+                if (label) label.classList.add('checked-active');
+                if (badgeStatus) badgeStatus.innerText = "✓ LISTO";
+            } else {
+                if (label) label.classList.remove('checked-active');
+                if (badgeStatus) badgeStatus.innerText = "PENDIENTE";
+            }
+        });
+
+        var porcentaje = total > 0 ? Math.round((marcados / total) * 100) : 0;
+
+        if (texto) texto.innerText = marcados + " / " + total + " (" + porcentaje + "%)";
+        if (barra) barra.style.width = porcentaje + "%";
+
+        if (boton) {
+            if (marcados === total && total > 0) {
+                boton.disabled = false;
+                boton.classList.add('btn-ready-pulse');
+            } else {
+                boton.disabled = true;
+                boton.classList.remove('btn-ready-pulse');
+            }
+        }
+    }
+
+    /**
+     * Alias de compatibilidad para verificación estándar.
+     */
+    function verificarRutina(claseCheckboxes, idBoton) {
+        var checkboxes = document.querySelectorAll('.' + claseCheckboxes);
+        var boton = document.getElementById(idBoton);
+        if (!boton) return;
+
+        var todosListos = checkboxes.length > 0;
+        checkboxes.forEach(function(chk) {
+            if (!chk.checked) todosListos = false;
+        });
+
+        boton.disabled = !todosListos;
+    }
+
+    /**
+     * Ejecutor centralizado para registrar rutinas en el servidor.
+     */
+    function ejecutarRutina(tipo) {
+        var mapConfig = {
+            mananera: {
+                botonId: 'btn-registrar-mananera',
+                checkClase: 'check-mananera',
+                barraId: 'progreso-barra-mananera',
+                textoId: 'progreso-texto-mananera',
+                total: 4,
+                serverFunc: 'enviarRutinaMananera',
+                titulo: 'Rutina Mañanera'
+            },
+            empuje: {
+                botonId: 'btn-registrar-empuje',
+                checkClase: 'check-empuje',
+                barraId: 'progreso-barra-empuje',
+                textoId: 'progreso-texto-empuje',
+                total: 3,
+                serverFunc: 'registrarRutinaEmpuje',
+                titulo: 'Rutina de Empuje'
+            },
+            pierna: {
+                botonId: 'btn-registrar-pierna',
+                checkClase: 'check-pierna',
+                barraId: 'progreso-barra-pierna',
+                textoId: 'progreso-texto-pierna',
+                total: 3,
+                serverFunc: 'registrarRutinaPierna',
+                titulo: 'Rutina de Pierna'
+            },
+            arrastre: {
+                botonId: 'btn-registrar-arrastre',
+                checkClase: 'check-arrastre',
+                barraId: 'progreso-barra-arrastre',
+                textoId: 'progreso-texto-arrastre',
+                total: 3,
+                serverFunc: 'registrarRutinaArrastre',
+                titulo: 'Rutina de Arrastre'
+            }
+        };
+
+        var config = mapConfig[tipo];
+        if (!config) return;
+
+        var boton = document.getElementById(config.botonId);
+        if (boton) {
+            boton.innerText = "Registrando en el Sistema...";
+            boton.disabled = true;
+            boton.classList.remove('btn-ready-pulse');
+        }
+
+        google.script.run
+            .withSuccessHandler(function(response) {
+                if (boton) {
+                    boton.innerText = "Completar y Registrar Rutina";
+                    boton.disabled = true;
+                    boton.classList.remove('btn-ready-pulse');
+                }
+
+                // Limpiar checkboxes y resetear estados visuales
+                document.querySelectorAll('.' + config.checkClase).forEach(function(chk) {
+                    chk.checked = false;
+                    var label = chk.closest('label');
+                    if (label) label.classList.remove('checked-active');
+                    var badgeStatus = label ? label.querySelector('.badge-status-item') : null;
+                    if (badgeStatus) badgeStatus.innerText = "PENDIENTE";
+                });
+
+                // Resetear barra de progreso de la rutina
+                var barra = document.getElementById(config.barraId);
+                var texto = document.getElementById(config.textoId);
+                if (barra) barra.style.width = "0%";
+                if (texto) texto.innerText = "0 / " + config.total + " (0%)";
+
+                if (response && response.success) {
+                    alert("¡" + config.titulo + " completada con éxito! Estado del avatar actualizado.");
+                    if (response.fatiga) {
+                        APP_STATE.fatiga = response.fatiga;
+                        renderizarBarrasFatiga(response.fatiga);
+                    }
+                    cambiarVista('vista-estado-personal');
+                    cargarGym(true); // Refrescar historial
+                } else {
+                    alert("Error: " + (response ? response.error : "No se pudo registrar la rutina"));
+                }
+            })
+            .withFailureHandler(function(error) {
+                if (boton) {
+                    boton.innerText = "Completar y Registrar Rutina";
+                    boton.disabled = false;
+                }
+                alert("Error de conexión: " + error.message);
+            })[config.serverFunc]();
+    }
+
+    // ==========================================================================
+    // FASE DE ESTIRAMIENTO Y CALENTAMIENTO PREVIO (TEMPORIZADOR 30 SEGUNDOS)
+    // ==========================================================================
+    var STRETCHING_EXERCISES = [
+        {
+            nombre: "1. Apertura de Pecho & Deltoides",
+            icono: "🙆‍♂️",
+            descripcion: "Brazos hacia atrás entrelazando los dedos, expande el tórax y respira profundo para activar el tren superior."
+        },
+        {
+            nombre: "2. Movilidad de Espalda & Columna",
+            icono: "🔄",
+            descripcion: "Torsión suave de torso y estiramiento lateral para descomprimir vértebras y activar dorsales."
+        },
+        {
+            nombre: "3. Isquiotibiales & Cadera",
+            icono: "🦵",
+            descripcion: "Piernas rectas inclinando el torso al frente sin forzar, activando la cadena posterior y glúteos."
+        },
+        {
+            nombre: "4. Cuádriceps & Rotación Articular",
+            icono: "🏃",
+            descripcion: "Lleva el talón al glúteo (15s por pierna) y realiza giros circulares suaves de tobillos y muñecas."
+        }
+    ];
+
+    var STRETCH_SESSION = {
+        vistaDestino: '',
+        nombreRutina: '',
+        indiceActual: 0,
+        segundosRestantes: 30,
+        pausado: false,
+        intervalId: null
+    };
+
+    /**
+     * Abre el modal del sistema e inicia la fase de estiramientos previos.
+     */
+    function iniciarRutinaConEstiramiento(vistaDestino, nombreRutina) {
+        STRETCH_SESSION.vistaDestino = vistaDestino;
+        STRETCH_SESSION.nombreRutina = nombreRutina;
+        STRETCH_SESSION.indiceActual = 0;
+        STRETCH_SESSION.segundosRestantes = 30;
+        STRETCH_SESSION.pausado = false;
+
+        if (STRETCH_SESSION.intervalId) {
+            clearInterval(STRETCH_SESSION.intervalId);
+            STRETCH_SESSION.intervalId = null;
+        }
+
+        var modal = document.getElementById('modal-estiramientos');
+        var body = document.getElementById('modal-stretching-body');
+        var complete = document.getElementById('modal-stretching-complete');
+        var routineTitle = document.getElementById('stretch-routine-target');
+
+        if (routineTitle) routineTitle.innerText = "PREPARACIÓN: " + nombreRutina;
+        if (body) body.style.display = 'block';
+        if (complete) complete.style.display = 'none';
+        if (modal) modal.style.display = 'flex';
+
+        actualizarCardEstiramiento();
+        iniciarIntervaloEstiramiento();
+    }
+
+    function actualizarCardEstiramiento() {
+        var ex = STRETCHING_EXERCISES[STRETCH_SESSION.indiceActual];
+        if (!ex) return;
+
+        var iconElem = document.getElementById('stretch-icon');
+        var titleElem = document.getElementById('stretch-title');
+        var descElem = document.getElementById('stretch-desc');
+        var timerElem = document.getElementById('timer-countdown');
+        var barFill = document.getElementById('timer-bar-fill');
+        var btnToggle = document.getElementById('btn-timer-toggle');
+
+        if (iconElem) iconElem.innerText = ex.icono;
+        if (titleElem) titleElem.innerText = ex.nombre;
+        if (descElem) descElem.innerText = ex.descripcion;
+        if (timerElem) {
+            timerElem.innerText = STRETCH_SESSION.segundosRestantes;
+            timerElem.classList.remove('warning');
+        }
+        if (barFill) barFill.style.width = '100%';
+        if (btnToggle) btnToggle.innerText = "⏸ Pausar";
+
+        // Actualizar barra de pasos [1] [2] [3] [4]
+        var stepsIndicator = document.getElementById('stretch-steps-indicator');
+        if (stepsIndicator) {
+            var htmlSteps = '';
+            for (var i = 0; i < STRETCHING_EXERCISES.length; i++) {
+                var clase = 'stretch-step-pill';
+                if (i < STRETCH_SESSION.indiceActual) clase += ' completed';
+                else if (i === STRETCH_SESSION.indiceActual) clase += ' active';
+                htmlSteps += `<div class="${clase}"></div>`;
+            }
+            stepsIndicator.innerHTML = htmlSteps;
+        }
+    }
+
+    function iniciarIntervaloEstiramiento() {
+        if (STRETCH_SESSION.intervalId) {
+            clearInterval(STRETCH_SESSION.intervalId);
+        }
+
+        STRETCH_SESSION.intervalId = setInterval(function() {
+            if (STRETCH_SESSION.pausado) return;
+
+            STRETCH_SESSION.segundosRestantes--;
+
+            var timerElem = document.getElementById('timer-countdown');
+            var barFill = document.getElementById('timer-bar-fill');
+
+            if (timerElem) {
+                timerElem.innerText = STRETCH_SESSION.segundosRestantes;
+                if (STRETCH_SESSION.segundosRestantes <= 5) {
+                    timerElem.classList.add('warning');
+                } else {
+                    timerElem.classList.remove('warning');
+                }
+            }
+
+            if (barFill) {
+                var porcentaje = (STRETCH_SESSION.segundosRestantes / 30) * 100;
+                barFill.style.width = Math.max(0, porcentaje) + '%';
+            }
+
+            if (STRETCH_SESSION.segundosRestantes <= 0) {
+                clearInterval(STRETCH_SESSION.intervalId);
+                STRETCH_SESSION.intervalId = null;
+                // Siguiente ejercicio o finalizar con éxito
+                if (STRETCH_SESSION.indiceActual < STRETCHING_EXERCISES.length - 1) {
+                    siguienteEstiramiento();
+                } else {
+                    finalizarEstiramientosExito();
+                }
+            }
+        }, 1000);
+    }
+
+    function toggleTemporizadorEstiramiento() {
+        STRETCH_SESSION.pausado = !STRETCH_SESSION.pausado;
+        var btnToggle = document.getElementById('btn-timer-toggle');
+        if (btnToggle) {
+            btnToggle.innerText = STRETCH_SESSION.pausado ? "▶ Reanudar" : "⏸ Pausar";
+        }
+    }
+
+    function siguienteEstiramiento() {
+        if (STRETCH_SESSION.intervalId) {
+            clearInterval(STRETCH_SESSION.intervalId);
+            STRETCH_SESSION.intervalId = null;
+        }
+
+        STRETCH_SESSION.indiceActual++;
+        if (STRETCH_SESSION.indiceActual < STRETCHING_EXERCISES.length) {
+            STRETCH_SESSION.segundosRestantes = 30;
+            STRETCH_SESSION.pausado = false;
+            actualizarCardEstiramiento();
+            iniciarIntervaloEstiramiento();
+        } else {
+            finalizarEstiramientosExito();
+        }
+    }
+
+    function finalizarEstiramientosExito() {
+        if (STRETCH_SESSION.intervalId) {
+            clearInterval(STRETCH_SESSION.intervalId);
+            STRETCH_SESSION.intervalId = null;
+        }
+
+        var body = document.getElementById('modal-stretching-body');
+        var complete = document.getElementById('modal-stretching-complete');
+
+        if (body) body.style.display = 'none';
+        if (complete) complete.style.display = 'block';
+    }
+
+    function irARutinaDesbloqueada() {
+        cerrarModalEstiramientos();
+        if (STRETCH_SESSION.vistaDestino) {
+            cambiarVista(STRETCH_SESSION.vistaDestino);
+        }
+    }
+
+    function omitirEstiramientos() {
+        cerrarModalEstiramientos();
+        if (STRETCH_SESSION.vistaDestino) {
+            cambiarVista(STRETCH_SESSION.vistaDestino);
+        }
+    }
+
+    function cerrarModalEstiramientos() {
+        if (STRETCH_SESSION.intervalId) {
+            clearInterval(STRETCH_SESSION.intervalId);
+            STRETCH_SESSION.intervalId = null;
+        }
+        var modal = document.getElementById('modal-estiramientos');
+        if (modal) modal.style.display = 'none';
+    }
+
+    // --------------------------------------------------------------------------
+    // CONDICIÓN MENTAL (SUEÑO & DESCANSO)
+    // --------------------------------------------------------------------------
+    function cargarMente(forzarRefresco) {
+        if (APP_STATE.salud && !forzarRefresco) {
+            renderizarMente(APP_STATE.salud);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(salud) {
+                APP_STATE.salud = salud;
+                renderizarMente(salud);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-mente').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+            })
+            .getSalud();
+    }
+
+    function renderizarMente(salud) {
+        var html = "<table><tr><th>Fecha</th><th>Registro / Sueño</th></tr>";
+        if (salud && salud.length > 0) {
+            salud.forEach(function(s) {
+                html += `<tr><td>${s.fecha}</td><td>${s.valor}</td></tr>`;
+            });
+        } else {
+            html += "<tr><td colspan='2'>Sin registros de descanso o mente.</td></tr>";
+        }
+        html += "</table>";
+        var cont = document.getElementById('contenedor-mente');
+        if (cont) cont.innerHTML = html;
+    }
+
+    function guardarMente() {
+        var input = document.getElementById('input-nueva-mente');
+        var texto = input ? input.value.trim() : "";
+        if (!texto) return;
+        
+        google.script.run
+            .withSuccessHandler(function() {
+                if (input) input.value = '';
+                cargarMente(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al guardar: " + err.message);
+            })
+            .registrarSalud('Mente', texto);
+    }
+
+    // --------------------------------------------------------------------------
+    // FINANZAS
+    // --------------------------------------------------------------------------
+    function cargarFinanzas(forzarRefresco) {
+        if (APP_STATE.finanzas && !forzarRefresco) {
+            renderizarFinanzas(APP_STATE.finanzas);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(finanzas) {
+                APP_STATE.finanzas = finanzas;
+                renderizarFinanzas(finanzas);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-finanzas').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+            })
+            .getFinanzas();
+    }
+
+    function renderizarFinanzas(finanzas) {
+        var html = "<table><tr><th>Concepto</th><th>Monto</th></tr>";
+        if (finanzas && finanzas.length > 0) {
+            finanzas.forEach(function(f) {
+                html += `<tr><td>${f.concepto}</td><td>$${f.monto}</td></tr>`;
+            });
+        } else {
+            html += "<tr><td colspan='2'>Sin registros financieros disponibles.</td></tr>";
+        }
+        html += "</table>";
+        var cont = document.getElementById('contenedor-finanzas');
+        if (cont) cont.innerHTML = html;
+    }
+
+    // --------------------------------------------------------------------------
+    // BANCO DE IDEAS
+    // --------------------------------------------------------------------------
+    function cargarIdeas(forzarRefresco) {
+        if (APP_STATE.ideas && !forzarRefresco) {
+            renderizarIdeas(APP_STATE.ideas);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(ideas) {
+                APP_STATE.ideas = ideas;
+                renderizarIdeas(ideas);
+            })
+            .withFailureHandler(function(err) {
+                document.getElementById('contenedor-ideas').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+            })
+            .getIdeas();
+    }
+
+    function renderizarIdeas(ideas) {
+        var html = "<table><tr><th>Idea Fugaz</th></tr>";
+        if (ideas && ideas.length > 0) {
+            ideas.forEach(function(i) {
+                html += `<tr><td>${i.texto}</td></tr>`;
+            });
+        } else {
+            html += "<tr><td>No hay ideas guardadas aún.</td></tr>";
+        }
+        html += "</table>";
+        var cont = document.getElementById('contenedor-ideas');
+        if (cont) cont.innerHTML = html;
+    }
+
+    function guardarIdea() {
+        var input = document.getElementById('input-nueva-idea');
+        var texto = input ? input.value.trim() : "";
+        if (!texto) return;
+
+        google.script.run
+            .withSuccessHandler(function() {
+                if (input) input.value = '';
+                cargarIdeas(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al registrar idea: " + err.message);
+            })
+            .registrarIdea(texto);
+    }
+
+    // --------------------------------------------------------------------------
+    // CALENDARIO DEL SISTEMA
+    // --------------------------------------------------------------------------
+    function renderizarCalendario() {
+        var hoy = new Date();
+        var opcionesMes = { month: 'long', year: 'numeric' };
+        var nombreMes = hoy.toLocaleDateString('es-ES', opcionesMes);
+        var diaActual = hoy.getDate();
+
+        var html = `<div style="text-align: center; padding: 20px;">
+            <h3 style="color: #fbbf24; text-transform: capitalize; margin-bottom: 15px;">${nombreMes}</h3>
+            <p style="color: #94a3b8; margin-bottom: 20px;">Día del Sistema Activo: <strong style="color: #60a5fa; font-size: 20px;">${diaActual}</strong></p>
+            <div style="background-color: #0f172a; border: 1px solid #334155; padding: 15px; border-radius: 8px; display: inline-block;">
+                <p style="margin: 0; color: #f8fafc; font-size: 14px;">📅 Cronograma de Misiones y Hábitos sincronizado correctamente.</p>
+            </div>
+        </div>`;
+        var cont = document.getElementById('contenedor-calendario');
+        if (cont) cont.innerHTML = html;
+    }
+</script>

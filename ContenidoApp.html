@@ -1,0 +1,599 @@
+<div class="container">
+    <h1 style="letter-spacing: 2px; text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);">SISTEMA DEL MONARCA</h1>
+
+    <!-- VISTA 1: MENÚ PRINCIPAL -->
+    <div id="vista-menu" class="tab-content active">
+        <div class="card" style="text-align: center; border: 1px solid #fbbf24; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); box-shadow: 0 0 15px rgba(251, 191, 36, 0.15);">
+            <h2 id="player-title" style="color: #fbbf24; margin-top:0; text-transform: uppercase; letter-spacing: 1px;">Cargando Monarca...</h2>
+            <p id="player-level" style="margin-bottom:0; color: #94a3b8; font-weight: bold;">Nivel: -- | EXP: -- / --</p>
+        </div>
+
+        <div class="grid-menu">
+            <div class="menu-card" onclick="cambiarVista('vista-perfil')">
+                <div class="menu-icon">👤</div>
+                <h3>Perfil</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-acciones-progresion')">
+                <div class="menu-icon">⚡</div>
+                <h3>Acciones y Progresión</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-estado-personal')">
+                <div class="menu-icon">🛡️</div>
+                <h3>Estado Personal</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-finanzas')">
+                <div class="menu-icon">💰</div>
+                <h3>Finanzas</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-ideas')">
+                <div class="menu-icon">💡</div>
+                <h3>Ideas</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-calendario')">
+                <div class="menu-icon">📅</div>
+                <h3>Calendario</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA INTERMEDIA: ACCIONES Y PROGRESIÓN -->
+    <div id="vista-acciones-progresion" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        <div class="card" style="text-align: center; border-color: #3b82f6; margin-bottom: 20px;">
+            <h2 style="color: #60a5fa; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Acciones y Progresión</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin: 5px 0 0 0;">Selecciona un módulo para gestionar tu evolución</p>
+        </div>
+
+        <div class="grid-menu">
+            <div class="menu-card" onclick="cambiarVista('vista-misiones')">
+                <div class="menu-icon">⚔️</div>
+                <h3>Misiones</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-habilidades')">
+                <div class="menu-icon">🔮</div>
+                <h3>Skills</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA PRINCIPAL DE ESTADO PERSONAL -->
+    <div id="vista-estado-personal" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        
+        <div class="card" style="text-align: center; border-color: #3b82f6; margin-bottom: 20px;">
+            <h2 style="color: #60a5fa; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Estado Personal</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin: 5px 0 0 0;">Monitorea la condición física y mental de tu avatar</p>
+        </div>
+
+        <!-- GRÁFICA DE FATIGA -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 20px;">
+                <span style="font-size: 24px;">📊</span>
+                <h2 style="color: #60a5fa; margin: 0; text-transform: uppercase; font-size: 18px; letter-spacing: 1px;">Gráfica de Carga & Fatiga Diaria</h2>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Esquema de desgaste actual por grupos musculares y estado mental del avatar.</p>
+
+            <!-- RESUMEN DE PROMEDIO DIARIO Y CIERRE HISTÓRICO -->
+            <div class="daily-avg-widget">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 26px;">📈</span>
+                    <div>
+                        <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Carga Promedio de Hoy</div>
+                        <div id="promedio-hoy-display" style="color: #60a5fa; font-size: 20px; font-weight: 900; text-shadow: 0 0 10px rgba(96, 165, 250, 0.5);">0%</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Último Cierre Diario (Col. G)</div>
+                    <div id="ultimo-cierre-display" style="color: #fbbf24; font-size: 13px; font-weight: bold; background: rgba(251, 191, 36, 0.1); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(251, 191, 36, 0.3); display: inline-block; margin-top: 3px;">Cargando...</div>
+                </div>
+            </div>
+
+            <div id="contenedor-grafica-fatiga">
+                <!-- Se inyecta la gráfica mediante JavaScript -->
+            </div>
+        </div>
+
+        <!-- TARJETAS DE ACCESO A CUERPO Y MENTE -->
+        <div class="grid-menu">
+            <div class="menu-card" onclick="cambiarVista('vista-gym')">
+                <div class="menu-icon">🏋️‍♂️</div>
+                <h3>Cuerpo</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-mente')">
+                <div class="menu-icon">🧠</div>
+                <h3>Mente</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA: PERFIL -->
+    <div id="vista-perfil" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        <div class="card">
+            <h2>Estadísticas del Jugador</h2>
+            <div id="contenedor-perfil">Cargando perfil...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: MISIONES / HÁBITOS -->
+    <div id="vista-misiones" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
+            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
+        </button>
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 20px;">
+                <span style="font-size: 24px;">⚡</span>
+                <h2 style="color: #fbbf24; margin: 0; text-transform: uppercase; font-size: 18px; letter-spacing: 1px;">Misiones Diarias & Hábitos</h2>
+            </div>
+            <div id="contenedor-misiones">Cargando misiones...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: HABILIDADES (RANGOS POR HORAS) -->
+    <div id="vista-habilidades" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
+            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
+        </button>
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 20px;">
+                <span style="font-size: 24px;">🔮</span>
+                <h2 style="color: #fbbf24; margin: 0; text-transform: uppercase; font-size: 18px; letter-spacing: 1px;">Árbol de Habilidades (Rangos)</h2>
+            </div>
+            <div id="contenedor-habilidades">Cargando habilidades...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: CUERPO (GYM - MENÚ DE RUTINAS DINÁMICO DESDE SHEETS) -->
+    <div id="vista-gym" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
+            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
+        </button>
+        <div class="card">
+            <h2>Condición Física (Gym &amp; Rutinas)</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Selecciona tu rutina programada:</p>
+
+            <!-- Portales de rutinas: se renderizan dinámicamente desde la hoja "Rutinas" -->
+            <div id="contenedor-portales-rutinas">
+                <p style="color: #94a3b8; text-align: center; padding: 20px;">Cargando rutinas del sistema...</p>
+            </div>
+
+            <!-- Historial Gym -->
+            <h3 style="color: #fbbf24; margin-top: 25px; margin-bottom: 10px; font-size: 16px;">Historial de Entrenamientos Recientes</h3>
+            <div id="contenedor-gym">Cargando registros...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: DETALLE DE RUTINA DINÁMICA (cargada desde Sheets) -->
+    <div id="vista-detalle-rutina-dinamica" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        </button>
+        <div class="card" style="border-color: #fbbf24;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h2 id="detalle-rutina-titulo" style="color: #fbbf24; margin: 0;">Cargando rutina...</h2>
+                <span id="detalle-rutina-badge" class="quest-badge-rank" style="border: 1px solid #fbbf24; color: #fbbf24;"></span>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Marca cada casilla al completar el ejercicio para registrar tu avance:</p>
+
+            <!-- Barra de Progreso en Vivo -->
+            <div id="progreso-rutina-dinamica-cont" class="routine-progress-container" style="display: none;">
+                <div class="routine-progress-info">
+                    <span style="color: #60a5fa; font-weight: bold;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <strong id="progreso-texto-rutina-dinamica" style="color: #fbbf24;">0 / 0 (0%)</strong>
+                </div>
+                <div class="timer-bar-bg" style="margin: 8px 0 0 0;">
+                    <div id="progreso-barra-rutina-dinamica" class="timer-bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Lista de ejercicios: se inyecta por JavaScript según la rutina seleccionada -->
+            <div id="contenedor-detalle-rutina-dinamica">
+                <!-- Los ejercicios se renderizan aquí -->
+            </div>
+
+            <button id="btn-registrar-rutina-dinamica" class="btn-system" disabled
+                style="width: 100%; padding: 13px; margin-top: 10px; display: none;"
+                onclick="ejecutarRutinaDinamica()">
+                Completar y Registrar Rutina
+            </button>
+        </div>
+    </div>
+
+
+
+    <!-- VISTA: DETALLE DE RUTINA MAÑANERA -->
+    <div id="vista-detalle-mananera" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        </button>
+        <div class="card" style="border-color: #fbbf24;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h2 style="color: #fbbf24; margin: 0;">Rutina Mañanera</h2>
+                <span class="quest-badge-rank rank-mananera">DIARIA · ACTIVACIÓN</span>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Marca cada casilla al completar el ejercicio para registrar tu avance:</p>
+            
+            <!-- Barra de Progreso en Vivo -->
+            <div class="routine-progress-container">
+                <div class="routine-progress-info">
+                    <span style="color: #60a5fa; font-weight: bold;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <strong id="progreso-texto-mananera" style="color: #fbbf24;">0 / 4 (0%)</strong>
+                </div>
+                <div class="timer-bar-bg" style="margin: 8px 0 0 0;">
+                    <div id="progreso-barra-mananera" class="timer-bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">1. Flexiones</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">100 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">2. Abdominales</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">100 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">3. Sentadillas</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">100 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">4. Plancha</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">5 MINUTOS</span>
+                </div>
+                <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <button id="btn-registrar-mananera" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('mananera')">
+                Completar y Registrar Rutina
+            </button>
+        </div>
+    </div>
+
+    <!-- VISTA: DETALLE DE RUTINA DE EMPUJE -->
+    <div id="vista-detalle-empuje" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        </button>
+        <div class="card" style="border-color: #ef4444;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h2 style="color: #f87171; margin: 0;">Rutina de Empuje - Lunes</h2>
+                <span class="quest-badge-rank rank-empuje">LUNES · FUERZA</span>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de fuerza y marca las casillas:</p>
+            
+            <div class="routine-progress-container">
+                <div class="routine-progress-info">
+                    <span style="color: #f87171; font-weight: bold;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <strong id="progreso-texto-empuje" style="color: #fbbf24;">0 / 3 (0%)</strong>
+                </div>
+                <div class="timer-bar-bg" style="margin: 8px 0 0 0;">
+                    <div id="progreso-barra-empuje" class="timer-bar-fill" style="width: 0%; background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);"></div>
+                </div>
+            </div>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">1. Press de Banca Plano</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">4 SERIES × 8-10 REPS</span>
+                </div>
+                <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">2. Press Militar con Mancuernas</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">3 SERIES × 10 REPS</span>
+                </div>
+                <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">3. Extensiones de Tríceps en Polea</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">3 SERIES × 12 REPS</span>
+                </div>
+                <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <button id="btn-registrar-empuje" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('empuje')">
+                Completar y Registrar Rutina
+            </button>
+        </div>
+    </div>
+
+    <!-- VISTA: DETALLE DE RUTINA DE PIERNA -->
+    <div id="vista-detalle-pierna" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        </button>
+        <div class="card" style="border-color: #3b82f6;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h2 style="color: #60a5fa; margin: 0;">Rutina de Pierna - Miércoles</h2>
+                <span class="quest-badge-rank rank-pierna">MIÉRCOLES · POTENCIA</span>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de pierna y marca las casillas:</p>
+            
+            <div class="routine-progress-container">
+                <div class="routine-progress-info">
+                    <span style="color: #60a5fa; font-weight: bold;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <strong id="progreso-texto-pierna" style="color: #fbbf24;">0 / 3 (0%)</strong>
+                </div>
+                <div class="timer-bar-bg" style="margin: 8px 0 0 0;">
+                    <div id="progreso-barra-pierna" class="timer-bar-fill" style="width: 0%; background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);"></div>
+                </div>
+            </div>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">1. Bicicleta</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">CALENTAMIENTO / INTERVALOS</span>
+                </div>
+                <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">2. Agarre</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">ANTEBRAZOS Y FUERZA DE AGARRE</span>
+                </div>
+                <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">3. Sentadilla · Barra de pesas</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">4 SERIES × 12 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <button id="btn-registrar-pierna" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('pierna')">
+                Completar y Registrar Rutina
+            </button>
+        </div>
+    </div>
+
+    <!-- VISTA: DETALLE DE RUTINA DE ARRASTRE -->
+    <div id="vista-detalle-arrastre" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        </button>
+        <div class="card" style="border-color: #a855f7;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h2 style="color: #c084fc; margin: 0;">Rutina de Arrastre - Viernes</h2>
+                <span class="quest-badge-rank rank-arrastre">VIERNES · TRACCIÓN</span>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de espalda y bíceps y marca las casillas:</p>
+            
+            <div class="routine-progress-container">
+                <div class="routine-progress-info">
+                    <span style="color: #c084fc; font-weight: bold;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <strong id="progreso-texto-arrastre" style="color: #fbbf24;">0 / 3 (0%)</strong>
+                </div>
+                <div class="timer-bar-bg" style="margin: 8px 0 0 0;">
+                    <div id="progreso-barra-arrastre" class="timer-bar-fill" style="width: 0%; background: linear-gradient(90deg, #a855f7 0%, #c084fc 100%);"></div>
+                </div>
+            </div>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">1. Jalón al Pecho en Polea</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">3 SERIES × 10 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">2. Remo con Mancuerna</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">3 SERIES × 10 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <label class="exercise-item-rpg">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <h4 style="margin: 0; color: #f8fafc; font-size: 15px;">3. Curl de Bíceps</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <span class="badge-reps">3 SERIES × 12 REPETICIONES</span>
+                </div>
+                <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
+                <div class="custom-check-box">✓</div>
+            </label>
+
+            <button id="btn-registrar-arrastre" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('arrastre')">
+                Completar y Registrar Rutina
+            </button>
+        </div>
+    </div>
+        </div>
+    </div>
+
+    <!-- VISTA: MENTE -->
+    <div id="vista-mente" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
+            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
+        </button>
+        <div class="card">
+            <h2>Condición Mental (Sueño & Descanso)</h2>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Horas de Sueño / Estado Mental:</label>
+                <input type="text" id="input-nueva-mente" placeholder="Ej: 8 horas de sueño - Descanso óptimo">
+                <button class="btn-system" onclick="guardarMente()">Registrar Mente</button>
+            </div>
+            <div id="contenedor-mente">Cargando registros mentales...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: FINANZAS -->
+    <div id="vista-finanzas" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        <div class="card">
+            <h2>Control Financiero</h2>
+            <div id="contenedor-finanzas">Cargando finanzas...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: IDEAS -->
+    <div id="vista-ideas" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        <div class="card">
+            <h2>Banco de Ideas Fugaces</h2>
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="input-nueva-idea" placeholder="Escribe tu idea fugaz aquí...">
+                <button class="btn-system" onclick="guardarIdea()">Registrar Idea</button>
+            </div>
+            <div id="contenedor-ideas">Cargando ideas...</div>
+        </div>
+    </div>
+
+    <!-- VISTA: CALENDARIO -->
+    <div id="vista-calendario" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+        <div class="card">
+            <h2>Calendario del Sistema</h2>
+            <div id="contenedor-calendario">Cargando calendario...</div>
+        </div>
+    </div>
+
+    <!-- MODAL FLOTANTE DEL SISTEMA: FASE DE ESTIRAMIENTO Y CALENTAMIENTO PREVIO -->
+    <div id="modal-estiramientos" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 20px;">⚡</span>
+                    <span style="color: #fbbf24; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">SISTEMA · ACTIVACIÓN PREVIA</span>
+                </div>
+                <button onclick="cerrarModalEstiramientos()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <!-- CUERPO DEL TEMPORIZADOR Y ESTIRAMIENTO -->
+            <div id="modal-stretching-body">
+                <h3 id="stretch-routine-target" style="color: #60a5fa; margin: 12px 0 4px 0; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; text-align: center;">PREPARACIÓN PREVIA</h3>
+                <p style="color: #94a3b8; font-size: 12px; margin: 0 0 15px 0; text-align: center;">Realiza cada estiramiento durante 30 segundos antes de comenzar.</p>
+
+                <!-- Indicador visual de pasos [1] [2] [3] [4] -->
+                <div id="stretch-steps-indicator" class="stretch-steps-wrapper"></div>
+
+                <!-- Tarjeta del Ejercicio Activo -->
+                <div class="stretch-active-card">
+                    <div id="stretch-icon" style="font-size: 42px; margin-bottom: 6px;">🧘</div>
+                    <h2 id="stretch-title" style="color: #f8fafc; margin: 0 0 6px 0; font-size: 17px; letter-spacing: 0.5px;">Apertura de Pecho</h2>
+                    <p id="stretch-desc" style="color: #cbd5e1; font-size: 13px; line-height: 1.4; margin: 0 0 15px 0; min-height: 38px;">Brazos hacia atrás entrelazando los dedos, expandiendo el tórax y respirando profundo.</p>
+
+                    <!-- Temporizador Digital con Barra Dinámica -->
+                    <div class="timer-container">
+                        <div class="timer-countdown" id="timer-countdown">30</div>
+                        <div class="timer-unit">SEGUNDOS</div>
+                    </div>
+
+                    <div class="timer-bar-bg">
+                        <div id="timer-bar-fill" class="timer-bar-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Botones de Control de Temporizador -->
+                <div class="stretch-controls" style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button id="btn-timer-toggle" class="btn-system" style="flex: 1;" onclick="toggleTemporizadorEstiramiento()">
+                        ⏸ Pausar
+                    </button>
+                    <button class="btn-system" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-color: #60a5fa; flex: 1;" onclick="siguienteEstiramiento()">
+                        Siguiente ⏭
+                    </button>
+                </div>
+
+                <div style="text-align: center; margin-top: 14px;">
+                    <button onclick="omitirEstiramientos()" style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline; transition: color 0.2s;">
+                        Omitir estiramiento e ir a la rutina directamente
+                    </button>
+                </div>
+            </div>
+
+            <!-- PANTALLA DE ÉXITO: CALENTAMIENTO COMPLETADO -->
+            <div id="modal-stretching-complete" style="display: none; text-align: center; padding: 25px 15px;">
+                <div class="check-success-badge">✓</div>
+                <h2 style="color: #fbbf24; margin: 0 0 8px 0; letter-spacing: 1px; font-size: 20px;">¡CALENTAMIENTO COMPLETADO!</h2>
+                <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5; margin: 0 0 25px 0;">Articulaciones lubricadas y músculos activados (+Buff de Disciplina). El sistema ha desbloqueado la rutina.</p>
+
+                <button class="btn-system" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #34d399; width: 100%; padding: 14px; font-size: 14px; letter-spacing: 1px; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);" onclick="irARutinaDesbloqueada()">
+                    ENTRAR A LA RUTINA ⚔️
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
