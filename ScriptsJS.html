@@ -121,8 +121,9 @@
         if (!datos) return;
         var tituloElem = document.getElementById('player-title');
         var nivelElem = document.getElementById('player-level');
-        if (tituloElem) tituloElem.innerText = datos.titulo || "Monarca de las Sombras";
-        if (nivelElem) nivelElem.innerText = "Nivel: " + (datos.nivel || 1) + " | EXP: " + (datos.exp || 0) + " / " + (datos.expMax || 100);
+        var titulo = (datos.titulo && !datos.titulo.toLowerCase().includes("monarca")) ? datos.titulo : "Gabriel Arias";
+        if (tituloElem) tituloElem.innerText = titulo;
+        if (nivelElem) nivelElem.innerText = "Nivel: " + (datos.nivel || 1) + " · Progreso EXP: " + (datos.exp || 0) + " / " + (datos.expMax || 100);
     }
 
     function actualizarTodo() {
@@ -269,34 +270,32 @@
                 var porcentaje = Math.min(Math.max(s.porcentaje, 0), 100);
 
                 html += `
-                <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 18px; margin-bottom: 18px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div class="skill-card">
+                    <div class="skill-card-header">
                         <div>
-                            <span style="color: #60a5fa; font-size: 12px; background: rgba(59, 130, 246, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.3); text-transform: uppercase; font-weight: bold;">${s.rango}</span>
-                            <h3 style="color: #f8fafc; margin: 6px 0 0 0; font-size: 18px; letter-spacing: 0.5px;">${s.nombre}</h3>
+                            <span class="skill-rank-badge">${s.rango}</span>
+                            <h3 class="skill-name">${s.nombre}</h3>
                         </div>
-                        <div>
-                            <button onclick="sumarHora(${s.fila})" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: 1px solid #34d399; padding: 8px 14px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);">
-                                +1 Hora ⚡
-                            </button>
-                        </div>
+                        <button onclick="sumarHora(${s.fila})" class="btn-add-hora">
+                            +1 Hora
+                        </button>
                     </div>
 
-                    <div style="background-color: #0f172a; border-radius: 6px; height: 12px; width: 100%; border: 1px solid #334155; overflow: hidden; margin: 12px 0 8px 0;">
-                        <div style="background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%); height: 100%; width: ${porcentaje}%; transition: width 0.4s ease;"></div>
+                    <div class="skill-progress-track">
+                        <div class="skill-progress-fill" style="width: ${porcentaje}%;"></div>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; color: #94a3b8; font-size: 12px;">
-                        <span>Progreso Nivel: <strong style="color: #fbbf24;">${s.horasEnNivel} / ${s.horasReqNivel} hrs</strong> (Totales: ${s.horasTotales})</span>
+                    <div class="skill-progress-info">
+                        <span>Progreso: <strong>${s.horasEnNivel} / ${s.horasReqNivel} hrs</strong> &nbsp;·&nbsp; Total: ${s.horasTotales} hrs</span>
                         <span>${s.infoSiguiente} (${porcentaje}%)</span>
                     </div>
-                    <div style="margin-top: 8px; color: #cbd5e1; font-size: 12px; border-top: 1px solid rgba(51, 65, 85, 0.5); padding-top: 6px;">
+                    <div class="skill-benefit-row">
                         🎁 <em>Beneficio:</em> ${s.beneficio}
                     </div>
                 </div>`;
             });
         } else {
-            html = "<p style='text-align: center; color: #94a3b8; padding: 20px;'>No hay habilidades registradas en el sistema.</p>";
+            html = "<p style='text-align: center; color: #6b7280; padding: 20px;'>No hay habilidades registradas en el sistema.</p>";
         }
         var cont = document.getElementById('contenedor-habilidades');
         if (cont) cont.innerHTML = html;
@@ -482,14 +481,14 @@
     // CONDICIÓN FÍSICA (GYM Y RUTINAS DINÁMICAS DESDE SHEETS)
     // --------------------------------------------------------------------------
 
-    // Paleta de colores/iconos para las rutinas (asignación cíclica)
+    // Paleta de íconos para las rutinas (asignación cíclica)
     var RUTINA_PALETA = [
-        { color: '#fbbf24', glow: 'rgba(251,191,36,0.35)',  icono: '🌅', rankLabel: 'DIARIA · ACTIVACIÓN' },
-        { color: '#f87171', glow: 'rgba(239,68,68,0.35)',   icono: '🔥', rankLabel: 'FUERZA · INTENSIDAD' },
-        { color: '#60a5fa', glow: 'rgba(59,130,246,0.35)',  icono: '🦵', rankLabel: 'POTENCIA · RESISTENCIA' },
-        { color: '#c084fc', glow: 'rgba(168,85,247,0.35)',  icono: '🛡️', rankLabel: 'TRACCIÓN · TÉCNICA' },
-        { color: '#34d399', glow: 'rgba(52,211,153,0.35)',  icono: '⚡', rankLabel: 'EXPLOSIVA · CORE' },
-        { color: '#fb923c', glow: 'rgba(251,146,60,0.35)',  icono: '🏋️', rankLabel: 'FUNCIONAL · MIXTA' },
+        { icono: '🌅', rankLabel: 'DIARIA · ACTIVACIÓN' },
+        { icono: '🔥', rankLabel: 'FUERZA · INTENSIDAD' },
+        { icono: '🦵', rankLabel: 'POTENCIA · RESISTENCIA' },
+        { icono: '🛡️', rankLabel: 'TRACCIÓN · TÉCNICA' },
+        { icono: '⚡', rankLabel: 'EXPLOSIVA · CORE' },
+        { icono: '🏋️', rankLabel: 'FUNCIONAL · MIXTA' },
     ];
 
     // Rutina actualmente seleccionada para ver detalle
@@ -522,7 +521,7 @@
         if (!cont) return;
 
         if (!rutinas || rutinas.length === 0) {
-            cont.innerHTML = "<p style='color:#94a3b8;text-align:center;padding:20px;'>No hay rutinas programadas en la hoja Rutinas.</p>";
+            cont.innerHTML = "<p style='color:#6b7280;text-align:center;padding:20px;'>No hay rutinas programadas en la hoja Rutinas.</p>";
             return;
         }
 
@@ -533,26 +532,18 @@
             var badgeEj = numEj > 0
                 ? numEj + ' Ejercicio' + (numEj !== 1 ? 's' : '')
                 : 'Rutina Vacía';
-            var badgeColor = numEj > 0 ? paleta.color : '#64748b';
-            var badgeBorder = numEj > 0 ? ('rgba(' + paleta.color.replace('#','') + ',0.4)') : 'rgba(100,116,139,0.4)';
 
-            html += '<div class="quest-card" onclick="abrirDetalleRutina(' + idx + ')" style="box-shadow: 0 0 12px ' + paleta.glow + ';">' +
-                '<div style="display:flex;align-items:center;flex:1;">' +
-                  '<div class="quest-icon-box" style="border-color:' + paleta.color + ';color:' + paleta.color + ';">' + paleta.icono + '</div>' +
-                  '<div style="flex:1;">' +
-                    '<span class="quest-badge-rank" style="background:rgba(0,0,0,0.3);border:1px solid ' + paleta.color + ';color:' + paleta.color + ';">' +
-                      paleta.rankLabel +
-                    '</span>' +
-                    '<h4 style="margin:4px 0 6px 0;color:#f8fafc;font-size:16px;letter-spacing:0.5px;">' + rut.nombre + '</h4>' +
-                    '<div class="muscle-tags-row">' +
-                      '<span class="muscle-tag" style="color:#94a3b8;">' + rut.codigo + '</span>' +
-                      '<span class="muscle-tag" style="color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + badgeEj + '</span>' +
-                    '</div>' +
+            html += '<div class="quest-card" onclick="abrirDetalleRutina(' + idx + ')">' +
+                '<div class="quest-icon-box">' + paleta.icono + '</div>' +
+                '<div style="flex:1;">' +
+                  '<span class="quest-badge-rank">' + paleta.rankLabel + '</span>' +
+                  '<p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">' + rut.nombre + '</p>' +
+                  '<div class="muscle-tags-row">' +
+                    '<span class="muscle-tag">' + rut.codigo + '</span>' +
+                    '<span class="muscle-tag">' + badgeEj + '</span>' +
                   '</div>' +
                 '</div>' +
-                '<div style="text-align:right;padding-left:10px;">' +
-                  '<span style="color:' + paleta.color + ';font-size:18px;font-weight:bold;">▶</span>' +
-                '</div>' +
+                '<span class="quest-arrow">›</span>' +
               '</div>';
         });
         cont.innerHTML = html;
@@ -571,8 +562,8 @@
         var tituloEl = document.getElementById('detalle-rutina-titulo');
         var badgeEl = document.getElementById('detalle-rutina-badge');
 
-        if (tituloEl) { tituloEl.innerText = rutina.nombre; tituloEl.style.color = paleta.color; }
-        if (badgeEl)  { badgeEl.innerText = paleta.rankLabel; badgeEl.style.borderColor = paleta.color; badgeEl.style.color = paleta.color; }
+        if (tituloEl) { tituloEl.innerText = rutina.nombre; tituloEl.style.color = ''; }
+        if (badgeEl)  { badgeEl.innerText = paleta.rankLabel; badgeEl.style.borderColor = ''; badgeEl.style.color = ''; }
 
         // Renderizar ejercicios o mensaje de vacío
         if (!cont) return;
@@ -581,10 +572,10 @@
             cont.innerHTML =
                 '<div style="text-align:center;padding:40px 20px;">' +
                   '<div style="font-size:48px;margin-bottom:12px;">📭</div>' +
-                  '<h3 style="color:#fbbf24;margin:0 0 8px 0;">Rutina Vacía</h3>' +
-                  '<p style="color:#94a3b8;font-size:14px;line-height:1.5;">' +
+                  '<h3 style="color:#374151;margin:0 0 8px 0;">Rutina Vacía</h3>' +
+                  '<p style="color:#6b7280;font-size:14px;line-height:1.5;">' +
                     'Esta rutina aún no tiene ejercicios asignados.<br>' +
-                    'Agrega ejercicios en la hoja <strong style="color:#60a5fa;">Rutinas</strong> usando los códigos de la hoja <strong style="color:#60a5fa;">Ejercicios</strong>.' +
+                    'Agrega ejercicios en la hoja <strong style="color:#111827;">Rutinas</strong> usando los códigos de la hoja <strong style="color:#111827;">Ejercicios</strong>.' +
                   '</p>' +
                 '</div>';
             // Ocultar botón de registrar
@@ -603,17 +594,17 @@
             var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
 
             if (progrCont) progrCont.style.display = 'block';
-            if (progrBarra) { progrBarra.style.width = '0%'; progrBarra.style.background = 'linear-gradient(90deg,' + paleta.color + ' 0%,' + paleta.color + 'cc 100%)'; }
+            if (progrBarra) { progrBarra.style.width = '0%'; progrBarra.style.background = ''; }
             if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
             if (btnReg) { btnReg.style.display = 'block'; btnReg.disabled = true; btnReg.classList.remove('btn-ready-pulse'); }
 
-            // Lista de ejercicios como checkboxes RPG
+            // Lista de ejercicios como checkboxes
             var html = '';
             rutina.ejercicios.forEach(function(ej, i) {
                 html += '<label class="exercise-item-rpg">' +
                     '<div>' +
                       '<div style="display:flex;align-items:center;gap:6px;">' +
-                        '<h4 style="margin:0;color:#f8fafc;font-size:15px;">' + (i + 1) + '. ' + ej.nombre + '</h4>' +
+                        '<h4>' + (i + 1) + '. ' + ej.nombre + '</h4>' +
                         '<span class="badge-status-item">PENDIENTE</span>' +
                       '</div>' +
                       (ej.descripcion ? '<span class="badge-reps">' + ej.descripcion + '</span>' : '') +
@@ -1150,85 +1141,1429 @@
     }
 
     // --------------------------------------------------------------------------
-    // FINANZAS
+    // CONTROL FINANCIERO PERSONAL MONARCA (CLIENTE)
     // --------------------------------------------------------------------------
+
+    var ESTADO_FINANZAS = {
+        chartInstance: null,
+        mesOffset: 0
+    };
+
+    /**
+     * Carga o actualiza las finanzas desde el servidor.
+     */
     function cargarFinanzas(forzarRefresco) {
-        if (APP_STATE.finanzas && !forzarRefresco) {
+        if (APP_STATE.finanzas && !forzarRefresco && APP_STATE.finanzas.generales) {
             renderizarFinanzas(APP_STATE.finanzas);
             return;
         }
+
         google.script.run
-            .withSuccessHandler(function(finanzas) {
-                APP_STATE.finanzas = finanzas;
-                renderizarFinanzas(finanzas);
+            .withSuccessHandler(function(datos) {
+                APP_STATE.finanzas = datos;
+                renderizarFinanzas(datos);
             })
             .withFailureHandler(function(err) {
-                document.getElementById('contenedor-finanzas').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+                console.error("Error al cargar finanzas:", err);
+                if (APP_STATE.finanzas) renderizarFinanzas(APP_STATE.finanzas);
             })
             .getFinanzas();
     }
 
-    function renderizarFinanzas(finanzas) {
-        var html = "<table><tr><th>Concepto</th><th>Monto</th></tr>";
-        if (finanzas && finanzas.length > 0) {
-            finanzas.forEach(function(f) {
-                html += `<tr><td>${f.concepto}</td><td>$${f.monto}</td></tr>`;
-            });
-        } else {
-            html += "<tr><td colspan='2'>Sin registros financieros disponibles.</td></tr>";
+    /**
+     * Renderiza todo el panel financiero: Datos generales, Ingresos, Gastos,
+     * Regla 50/40/10, Deudas, Metas con cuotas de quince y último, y Gráfica.
+     */
+    function renderizarFinanzas(datos) {
+        if (!datos) return;
+
+        // 1. Datos Generales
+        if (datos.generales) {
+            var inputNombre = document.getElementById('finanzas-input-nombre');
+            var inputMes = document.getElementById('finanzas-input-mes');
+            var inputObj = document.getElementById('finanzas-input-objetivo');
+
+            if (inputNombre && datos.generales.nombre) inputNombre.value = datos.generales.nombre;
+            if (inputMes && datos.generales.mes) inputMes.value = datos.generales.mes;
+            if (inputObj && datos.generales.objetivo) inputObj.value = datos.generales.objetivo;
         }
-        html += "</table>";
-        var cont = document.getElementById('contenedor-finanzas');
-        if (cont) cont.innerHTML = html;
+
+        var ingresos = datos.ingresos || [];
+        var gastos = datos.gastos || [];
+        var deudas = datos.deudas || [];
+        var metas = datos.metas || [];
+
+        // 2. Renderizar Ingresos y calcular Total
+        var tbodyIng = document.getElementById('tbody-ingresos');
+        var totalIngresos = 0;
+        if (tbodyIng) {
+            var htmlIng = "";
+            if (ingresos.length === 0) {
+                htmlIng = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">Sin entradas de ingresos registradas aún.</td></tr>`;
+            } else {
+                ingresos.forEach(function(ing) {
+                    var m = Number(ing.monto) || 0;
+                    totalIngresos += m;
+                    htmlIng += `
+                        <tr>
+                            <td style="font-weight: 600; color: #f8fafc;">${ing.fuente}</td>
+                            <td style="text-align: center; color: #94a3b8;">Día ${ing.dia || 15}</td>
+                            <td style="text-align: right;" class="monto-positivo">$${m.toFixed(2)}</td>
+                            <td style="text-align: center;">
+                                <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${ing.id}', 'ingreso')" title="Eliminar entrada">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            tbodyIng.innerHTML = htmlIng;
+        }
+        var lblTotIng = document.getElementById('label-total-ingresos');
+        if (lblTotIng) lblTotIng.textContent = "$" + totalIngresos.toFixed(2);
+
+        // 3. Renderizar Gastos y calcular Total
+        var tbodyGas = document.getElementById('tbody-gastos');
+        var totalGastos = 0;
+        var gastosPorCat = {
+            "Vivienda": 0, "Alimentación": 0, "Moto": 0, 
+            "Servicios": 0, "Salud": 0, "Entretenimiento": 0, "Otros": 0
+        };
+
+        if (tbodyGas) {
+            var htmlGas = "";
+            if (gastos.length === 0) {
+                htmlGas = `<tr><td colspan="5" style="text-align: center; color: #64748b; font-style: italic;">Sin salidas de gastos registradas aún.</td></tr>`;
+            } else {
+                gastos.forEach(function(gas) {
+                    var m = Number(gas.monto) || 0;
+                    totalGastos += m;
+                    var cat = gas.categoria || "Otros";
+                    if (gastosPorCat.hasOwnProperty(cat)) {
+                        gastosPorCat[cat] += m;
+                    } else {
+                        gastosPorCat["Otros"] += m;
+                    }
+
+                    var catClass = "cat-" + cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    htmlGas += `
+                        <tr>
+                            <td style="font-weight: 600; color: #f8fafc;">${gas.fuente}</td>
+                            <td><span class="badge-cat ${catClass}">${cat}</span></td>
+                            <td style="text-align: center; color: #94a3b8;">Día ${gas.dia || 5}</td>
+                            <td style="text-align: right;" class="monto-negativo">$${m.toFixed(2)}</td>
+                            <td style="text-align: center;">
+                                <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${gas.id}', 'gasto')" title="Eliminar gasto">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            tbodyGas.innerHTML = htmlGas;
+        }
+        var lblTotGas = document.getElementById('label-total-gastos');
+        if (lblTotGas) lblTotGas.textContent = "$" + totalGastos.toFixed(2);
+
+        // 4. Regla 50/40/10 (Basada en Total Ingresos)
+        var regla50 = totalIngresos * 0.50;
+        var regla40 = totalIngresos * 0.40;
+        var regla10 = totalIngresos * 0.10;
+
+        var elRegla50 = document.getElementById('regla-monto-50');
+        var elRegla40 = document.getElementById('regla-monto-40');
+        var elRegla10 = document.getElementById('regla-monto-10');
+        if (elRegla50) elRegla50.textContent = "$" + regla50.toFixed(2);
+        if (elRegla40) elRegla40.textContent = "$" + regla40.toFixed(2);
+        if (elRegla10) elRegla10.textContent = "$" + regla10.toFixed(2);
+
+        // 5. Renderizar Deudas y calcular Total
+        var tbodyDeu = document.getElementById('tbody-deudas');
+        var totalDeudas = 0;
+        if (tbodyDeu) {
+            var htmlDeu = "";
+            if (deudas.length === 0) {
+                htmlDeu = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">No tienes deudas activas registradas. ¡Excelente!</td></tr>`;
+            } else {
+                deudas.forEach(function(deu) {
+                    var m = Number(deu.monto) || 0;
+                    totalDeudas += m;
+                    htmlDeu += `
+                        <tr>
+                            <td style="font-weight: 600; color: #f8fafc;">${deu.deuda}</td>
+                            <td style="text-align: center; color: #94a3b8;">Día ${deu.dia || 20}</td>
+                            <td style="text-align: right;" class="monto-deuda">$${m.toFixed(2)}</td>
+                            <td style="text-align: center;">
+                                <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${deu.id}', 'deuda')" title="Eliminar deuda">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            tbodyDeu.innerHTML = htmlDeu;
+        }
+        var lblTotDeu = document.getElementById('label-total-deudas');
+        if (lblTotDeu) lblTotDeu.textContent = "$" + totalDeudas.toFixed(2);
+
+        // 6. Renderizar Metas Financieras (Cuotas de quince y último)
+        var contMetas = document.getElementById('contenedor-metas-cards');
+        if (contMetas) {
+            var htmlMetas = "";
+            if (metas.length === 0) {
+                htmlMetas = `<div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 20px; font-style: italic;">No tienes metas financieras activas. ¡Crea una nueva meta con cuotas de quince y último!</div>`;
+            } else {
+                metas.forEach(function(meta) {
+                    var metaTot = Number(meta.metaTotal) || 0;
+                    var ahorrado = Number(meta.ahorrado) || 0;
+                    var faltante = Math.max(0, metaTot - ahorrado);
+                    var pct = metaTot > 0 ? Math.min(100, Math.round((ahorrado / metaTot) * 100)) : 0;
+                    var meses = Number(meta.meses) || 1;
+                    var cuotas = Number(meta.cuotas) || (meses * 2);
+                    var cuotaVal = Number(meta.cuotaQuincenal) || (cuotas > 0 ? (faltante / cuotas) : 0);
+                    var completada = pct >= 100;
+
+                    htmlMetas += `
+                        <div class="meta-card">
+                            <div>
+                                <div class="meta-card-header">
+                                    <h4 class="meta-card-title">${meta.nombre}</h4>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 13px; font-weight: 800; color: ${completada ? '#34d399' : '#60a5fa'};">${pct}%</span>
+                                        <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${meta.id}', 'meta')" title="Eliminar meta">✕</button>
+                                    </div>
+                                </div>
+
+                                <div class="meta-numbers-row">
+                                    <span>Ahorrado: <strong style="color: #34d399;">$${ahorrado.toFixed(2)}</strong></span>
+                                    <span>Faltante: <strong style="color: #f87171;">$${faltante.toFixed(2)}</strong></span>
+                                    <span>Meta: <strong>$${metaTot.toFixed(2)}</strong></span>
+                                </div>
+
+                                <div class="meta-progress-track">
+                                    <div class="meta-progress-fill" style="width: ${pct}%;"></div>
+                                </div>
+
+                                <div class="meta-cuotas-info">
+                                    📅 <strong>${meses} ${meses === 1 ? 'mes' : 'meses'} estimados</strong> · ${cuotas} cuotas quincenales de <strong style="color: #fbbf24;">$${cuotaVal.toFixed(2)}</strong> (quince y último)
+                                </div>
+                            </div>
+
+                            <div>
+                                ${!completada ? `
+                                    <button class="btn-sumar-cuota" onclick="abonarCuotaMetaUI('${meta.id}')">
+                                        ⚡ + Sumar Cuota de $${cuotaVal.toFixed(2)} a Ahorros
+                                    </button>
+                                ` : `
+                                    <div style="text-align: center; padding: 8px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 8px; color: #34d399; font-weight: 800; font-size: 13px;">
+                                        🏆 ¡OBJETIVO Y META LOGRADA!
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            contMetas.innerHTML = htmlMetas;
+        }
+
+        // 7. Resumen Financiero General y Métricas
+        var ahorroInversion50 = regla40 + regla10;
+        var balanceNeto = totalIngresos - totalGastos - totalDeudas;
+
+        var elResIng = document.getElementById('resumen-total-ingresos');
+        var elResGas = document.getElementById('resumen-total-gastos');
+        var elResDeu = document.getElementById('resumen-total-deudas');
+        var elResAho = document.getElementById('resumen-total-ahorro-inversion');
+        var elResNet = document.getElementById('resumen-flujo-neto');
+
+        if (elResIng) elResIng.textContent = "$" + totalIngresos.toFixed(2);
+        if (elResGas) elResGas.textContent = "$" + totalGastos.toFixed(2);
+        if (elResDeu) elResDeu.textContent = "$" + totalDeudas.toFixed(2);
+        if (elResAho) elResAho.textContent = "$" + ahorroInversion50.toFixed(2);
+        if (elResNet) {
+            elResNet.textContent = "$" + balanceNeto.toFixed(2);
+            elResNet.style.color = balanceNeto >= 0 ? "#60a5fa" : "#ef4444";
+        }
+
+        var badgeEstado = document.getElementById('badge-balance-estado');
+        if (badgeEstado) {
+            if (balanceNeto >= 0) {
+                badgeEstado.textContent = "FLUJO SALUDABLE (SUPERÁVIT)";
+                badgeEstado.style.background = "rgba(16, 185, 129, 0.2)";
+                badgeEstado.style.color = "#34d399";
+                badgeEstado.style.borderColor = "#10b981";
+            } else {
+                badgeEstado.textContent = "ALERTA DE DÉFICIT";
+                badgeEstado.style.background = "rgba(239, 68, 68, 0.2)";
+                badgeEstado.style.color = "#f87171";
+                badgeEstado.style.borderColor = "#ef4444";
+            }
+        }
+
+        // 8. Renderizar Gráfica Financiera Interactiva (Chart.js)
+        renderizarGraficoFinanzas(totalIngresos, totalGastos, totalDeudas, gastosPorCat);
+    }
+
+    /**
+     * Dibuja la gráfica financiera comparativa y de distribución de gastos con Chart.js.
+     */
+    function renderizarGraficoFinanzas(ingresos, gastos, deudas, gastosPorCat) {
+        var canvas = document.getElementById('graficoFinanzas');
+        if (!canvas) return;
+
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+        if (ESTADO_FINANZAS.chartInstance) {
+            ESTADO_FINANZAS.chartInstance.destroy();
+        }
+
+        var ctx = canvas.getContext('2d');
+        var catLabels = Object.keys(gastosPorCat);
+        var catValores = catLabels.map(function(k) { return gastosPorCat[k]; });
+
+        ESTADO_FINANZAS.chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Ingresos', 'Gastos Tot.', 'Deudas', 'Vivienda', 'Alimentación', 'Moto', 'Servicios', 'Otros'],
+                datasets: [{
+                    label: 'Monto ($)',
+                    data: [
+                        ingresos, 
+                        gastos, 
+                        deudas, 
+                        gastosPorCat['Vivienda'] || 0,
+                        gastosPorCat['Alimentación'] || 0,
+                        gastosPorCat['Moto'] || 0,
+                        gastosPorCat['Servicios'] || 0,
+                        (gastosPorCat['Salud'] || 0) + (gastosPorCat['Entretenimiento'] || 0) + (gastosPorCat['Otros'] || 0)
+                    ],
+                    backgroundColor: [
+                        '#111827', // Negro Carbón (Ingresos)
+                        '#4b5563', // Gris Oscuro (Gastos)
+                        '#6b7280', // Gris Medio (Deudas)
+                        '#9ca3af', // Gris Suave (Vivienda)
+                        '#1f2937', // Carbón (Alimentación)
+                        '#374151', // Grafito (Moto)
+                        '#6b7280', // Pizarra (Servicios)
+                        '#d1d5db'  // Gris Claro (Otros)
+                    ],
+                    borderColor: [
+                        '#111827', '#4b5563', '#6b7280',
+                        '#9ca3af', '#1f2937', '#374151', '#6b7280', '#d1d5db'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#111827',
+                        titleColor: '#ffffff',
+                        bodyColor: '#e5e7eb',
+                        borderColor: '#27272a',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return " $" + Number(context.raw).toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#6b7280',
+                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+                            callback: function(value) { return '$' + value; }
+                        },
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#374151',
+                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' }
+                        },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
     }
 
     // --------------------------------------------------------------------------
-    // BANCO DE IDEAS
+    // CONTROL DE MODALES FINANCIEROS
     // --------------------------------------------------------------------------
-    function cargarIdeas(forzarRefresco) {
-        if (APP_STATE.ideas && !forzarRefresco) {
-            renderizarIdeas(APP_STATE.ideas);
-            return;
-        }
+
+    // MODAL INGRESO
+    function abrirModalIngreso() {
+        var m = document.getElementById('modal-finanzas-ingreso');
+        if (m) m.style.display = 'flex';
+        var f = document.getElementById('modal-ingreso-fuente');
+        if (f) { f.value = ''; f.focus(); }
+        var mon = document.getElementById('modal-ingreso-monto');
+        if (mon) mon.value = '';
+    }
+
+    function cerrarModalIngreso() {
+        var m = document.getElementById('modal-finanzas-ingreso');
+        if (m) m.style.display = 'none';
+    }
+
+    function confirmarAgregarIngreso() {
+        var fuente = document.getElementById('modal-ingreso-fuente').value.trim();
+        var dia = Number(document.getElementById('modal-ingreso-dia').value) || 15;
+        var monto = Number(document.getElementById('modal-ingreso-monto').value) || 0;
+        var mes = document.getElementById('finanzas-input-mes').value;
+
+        if (!fuente) return alert("Por favor escribe el nombre de la entrada.");
+        if (monto <= 0) return alert("Por favor escribe un monto válido mayor a 0.");
+
+        cerrarModalIngreso();
+
+        // Actualización optimista local
+        var nuevo = { id: "ING-" + Date.now(), fuente: fuente, dia: dia, monto: monto };
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
+        if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
+        APP_STATE.finanzas.ingresos.push(nuevo);
+        renderizarFinanzas(APP_STATE.finanzas);
+
         google.script.run
-            .withSuccessHandler(function(ideas) {
-                APP_STATE.ideas = ideas;
-                renderizarIdeas(ideas);
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
             })
             .withFailureHandler(function(err) {
-                document.getElementById('contenedor-ideas').innerHTML = "<p style='color:#ef4444;'>Error: " + err.message + "</p>";
+                alert("Error al registrar ingreso: " + err.message);
+            })
+            .agregarIngreso(fuente, dia, monto, mes);
+    }
+
+    // MODAL GASTO
+    function abrirModalGasto() {
+        var m = document.getElementById('modal-finanzas-gasto');
+        if (m) m.style.display = 'flex';
+        var f = document.getElementById('modal-gasto-fuente');
+        if (f) { f.value = ''; f.focus(); }
+        var mon = document.getElementById('modal-gasto-monto');
+        if (mon) mon.value = '';
+    }
+
+    function cerrarModalGasto() {
+        var m = document.getElementById('modal-finanzas-gasto');
+        if (m) m.style.display = 'none';
+    }
+
+    function confirmarAgregarGasto() {
+        var fuente = document.getElementById('modal-gasto-fuente').value.trim();
+        var cat = document.getElementById('modal-gasto-categoria').value;
+        var dia = Number(document.getElementById('modal-gasto-dia').value) || 5;
+        var monto = Number(document.getElementById('modal-gasto-monto').value) || 0;
+        var mes = document.getElementById('finanzas-input-mes').value;
+
+        if (!fuente) return alert("Por favor escribe el nombre del gasto.");
+        if (monto <= 0) return alert("Por favor escribe un monto válido mayor a 0.");
+
+        cerrarModalGasto();
+
+        // Actualización optimista
+        var nuevo = { id: "GAS-" + Date.now(), fuente: fuente, categoria: cat, dia: dia, monto: monto };
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
+        if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
+        APP_STATE.finanzas.gastos.push(nuevo);
+        renderizarFinanzas(APP_STATE.finanzas);
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al registrar gasto: " + err.message);
+            })
+            .agregarGasto(fuente, cat, dia, monto, mes);
+    }
+
+    // MODAL DEUDA
+    function abrirModalDeuda() {
+        var m = document.getElementById('modal-finanzas-deuda');
+        if (m) m.style.display = 'flex';
+        var n = document.getElementById('modal-deuda-nombre');
+        if (n) { n.value = ''; n.focus(); }
+        var mon = document.getElementById('modal-deuda-monto');
+        if (mon) mon.value = '';
+    }
+
+    function cerrarModalDeuda() {
+        var m = document.getElementById('modal-finanzas-deuda');
+        if (m) m.style.display = 'none';
+    }
+
+    function confirmarAgregarDeuda() {
+        var deuda = document.getElementById('modal-deuda-nombre').value.trim();
+        var dia = Number(document.getElementById('modal-deuda-dia').value) || 20;
+        var monto = Number(document.getElementById('modal-deuda-monto').value) || 0;
+        var mes = document.getElementById('finanzas-input-mes').value;
+
+        if (!deuda) return alert("Por favor escribe el nombre de la deuda.");
+        if (monto <= 0) return alert("Por favor escribe un monto válido mayor a 0.");
+
+        cerrarModalDeuda();
+
+        // Actualización optimista
+        var nuevo = { id: "DEU-" + Date.now(), deuda: deuda, dia: dia, monto: monto };
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
+        if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
+        APP_STATE.finanzas.deudas.push(nuevo);
+        renderizarFinanzas(APP_STATE.finanzas);
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al registrar deuda: " + err.message);
+            })
+            .agregarDeuda(deuda, dia, monto, mes);
+    }
+
+    // MODAL META FINANCIERA (QUINCE Y ÚLTIMO)
+    function abrirModalMeta() {
+        var m = document.getElementById('modal-finanzas-meta');
+        if (m) m.style.display = 'flex';
+        var n = document.getElementById('modal-meta-nombre');
+        if (n) { n.value = ''; n.focus(); }
+        var tot = document.getElementById('modal-meta-total');
+        if (tot) tot.value = '';
+        var aho = document.getElementById('modal-meta-ahorrado');
+        if (aho) aho.value = '0';
+        actualizarCalculoCuotaMeta();
+    }
+
+    function cerrarModalMeta() {
+        var m = document.getElementById('modal-finanzas-meta');
+        if (m) m.style.display = 'none';
+    }
+
+    function actualizarCalculoCuotaMeta() {
+        var total = Number(document.getElementById('modal-meta-total').value) || 0;
+        var ahorrado = Number(document.getElementById('modal-meta-ahorrado').value) || 0;
+        var meses = Number(document.getElementById('modal-meta-meses').value) || 1;
+
+        var faltante = Math.max(0, total - ahorrado);
+        var cuotas = Math.max(1, meses * 2);
+        var cuotaVal = cuotas > 0 ? (faltante / cuotas) : 0;
+
+        var elFalt = document.getElementById('preview-meta-faltante');
+        var elCuot = document.getElementById('preview-meta-cuotas');
+        var elVal = document.getElementById('preview-meta-cuotavalor');
+
+        if (elFalt) elFalt.textContent = "$" + faltante.toFixed(2);
+        if (elCuot) elCuot.textContent = cuotas + " cuotas";
+        if (elVal) elVal.textContent = "$" + cuotaVal.toFixed(2);
+    }
+
+    function confirmarAgregarMeta() {
+        var nombre = document.getElementById('modal-meta-nombre').value.trim();
+        var total = Number(document.getElementById('modal-meta-total').value) || 0;
+        var ahorrado = Number(document.getElementById('modal-meta-ahorrado').value) || 0;
+        var meses = Number(document.getElementById('modal-meta-meses').value) || 1;
+        var mesPeriodo = document.getElementById('finanzas-input-mes').value;
+
+        if (!nombre) return alert("Por favor escribe el nombre de la meta.");
+        if (total <= 0) return alert("Por favor escribe un monto total objetivo mayor a 0.");
+
+        cerrarModalMeta();
+
+        var faltante = Math.max(0, total - ahorrado);
+        var cuotas = meses * 2;
+        var cuotaVal = Math.round((faltante / cuotas) * 100) / 100;
+
+        // Actualización optimista
+        var nuevo = {
+            id: "MET-" + Date.now(),
+            nombre: nombre,
+            metaTotal: total,
+            ahorrado: ahorrado,
+            faltante: faltante,
+            meses: meses,
+            cuotas: cuotas,
+            cuotaQuincenal: cuotaVal
+        };
+
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
+        if (!APP_STATE.finanzas.metas) APP_STATE.finanzas.metas = [];
+        APP_STATE.finanzas.metas.push(nuevo);
+        renderizarFinanzas(APP_STATE.finanzas);
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al crear meta: " + err.message);
+            })
+            .agregarMeta(nombre, total, ahorrado, meses, mesPeriodo);
+    }
+
+    /**
+     * Abona una cuota quincenal a la meta en tiempo real.
+     */
+    function abonarCuotaMetaUI(id) {
+        if (!APP_STATE.finanzas || !APP_STATE.finanzas.metas) return;
+
+        var target = null;
+        for (var i = 0; i < APP_STATE.finanzas.metas.length; i++) {
+            if (String(APP_STATE.finanzas.metas[i].id) === String(id)) {
+                target = APP_STATE.finanzas.metas[i];
+                break;
+            }
+        }
+
+        if (target) {
+            var cuota = Number(target.cuotaQuincenal) || 0;
+            target.ahorrado = Math.min(target.metaTotal, target.ahorrado + cuota);
+            target.faltante = Math.max(0, target.metaTotal - target.ahorrado);
+            renderizarFinanzas(APP_STATE.finanzas);
+        }
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
+            })
+            .withFailureHandler(function(err) {
+                console.error("Error al abonar cuota:", err);
+            })
+            .abonarCuotaMeta(id);
+    }
+
+    /**
+     * Elimina cualquier registro financiero (ingreso, gasto, deuda, meta).
+     */
+    function eliminarRegistroFinanzasUI(id, tipo) {
+        if (!confirm("¿Deseas eliminar este registro financiero?")) return;
+
+        if (APP_STATE.finanzas) {
+            if (tipo === 'ingreso' && APP_STATE.finanzas.ingresos) {
+                APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(x) { return x.id !== id; });
+            } else if (tipo === 'gasto' && APP_STATE.finanzas.gastos) {
+                APP_STATE.finanzas.gastos = APP_STATE.finanzas.gastos.filter(function(x) { return x.id !== id; });
+            } else if (tipo === 'deuda' && APP_STATE.finanzas.deudas) {
+                APP_STATE.finanzas.deudas = APP_STATE.finanzas.deudas.filter(function(x) { return x.id !== id; });
+            } else if (tipo === 'meta' && APP_STATE.finanzas.metas) {
+                APP_STATE.finanzas.metas = APP_STATE.finanzas.metas.filter(function(x) { return x.id !== id; });
+            }
+            renderizarFinanzas(APP_STATE.finanzas);
+        }
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) cargarFinanzas(true);
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al eliminar registro: " + err.message);
+            })
+            .eliminarRegistroFinanzas(id);
+    }
+
+    /**
+     * Guarda el nombre y el objetivo financiero en la hoja de cálculo al editar.
+     */
+    function alCambiarDatoGeneralFinanzas() {
+        var nombre = document.getElementById('finanzas-input-nombre').value;
+        var mes = document.getElementById('finanzas-input-mes').value;
+        var obj = document.getElementById('finanzas-input-objetivo').value;
+
+        google.script.run
+            .guardarDatosGeneralesFinanzas(nombre, mes, obj);
+    }
+
+    /**
+     * Navega entre meses en el control financiero.
+     */
+    function cambiarMesFinanzas(delta) {
+        ESTADO_FINANZAS.mesOffset += delta;
+        var fecha = new Date();
+        fecha.setMonth(fecha.getMonth() + ESTADO_FINANZAS.mesOffset);
+        var nombreMes = fecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        nombreMes = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+
+        var inputMes = document.getElementById('finanzas-input-mes');
+        if (inputMes) inputMes.value = nombreMes;
+
+        alCambiarDatoGeneralFinanzas();
+    }
+
+    /**
+     * Inicializa y asegura la hoja de cálculo "Finanzas" desde la interfaz.
+     */
+    function inicializarHojaFinanzasDesdeUI() {
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) {
+                    alert("✅ Hoja 'Finanzas' asegurada y formateada con éxito en Google Sheets con todos los datos y tablas.");
+                    cargarFinanzas(true);
+                } else {
+                    alert("Aviso: " + (res.error || "Operación realizada."));
+                }
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al inicializar hoja Finanzas: " + err.message);
+            })
+            .crearHojaFinanzasManual();
+    }
+
+    // --------------------------------------------------------------------------
+    // BANCO DE IDEAS MONARCA (ESTRUCTURA, SUBCATEGORÍAS, CASILLAS Y OPERATIVIDAD)
+    // --------------------------------------------------------------------------
+
+    var ESTRUCTURA_BANCO_IDEAS = {
+        "💭 Ideas y Pensamientos": {
+            icono: "💭",
+            subcategorias: [
+                "🧠 Mis Pensamientos (Filosofía, Mentalidad y Enfoque)",
+                "💬 Interacción Social y Dinámicas Personales",
+                "📜 Frases Populares / Citas Célebres"
+            ]
+        },
+        "🛒 Compras": {
+            icono: "🛒",
+            subcategorias: [
+                "👕 Ropa y Accesorios",
+                "🖥️ Tecnología y Electrónica",
+                "📚 Estudios y Papelería",
+                "🧴 Cuidado Personal y Salud",
+                "🏠 Hogar, Comida y Varios",
+                "💳 Gastos, Pagos y Deudas"
+            ]
+        },
+        "📊 Planes y Monitoreo de Ejecución": {
+            icono: "📊",
+            subcategorias: [
+                "👤 Vida Personal, Hábitos y Bienestar",
+                "💼 Trabajo, Programación y Proyectos Profesionales"
+            ]
+        },
+        "🧠 Cosas por Aprender": {
+            icono: "🧠",
+            subcategorias: [
+                "🧠 General y Mentalidad",
+                "💻 Programación y Tecnología",
+                "📚 Libros, Cursos y Habilidades"
+            ]
+        },
+        "✅ Tareas Pendientes": {
+            icono: "✅",
+            subcategorias: [
+                "🏠 Casa",
+                "🛣️ Calle (Trámites y Mandados)",
+                "💼 Trabajo (Estudios y Proyectos)"
+            ]
+        }
+    };
+
+    var ESTADO_IDEAS = {
+        contextoSeleccionado: "🏠 Casa",
+        subvistaActual: "categorias", // 'categorias', 'detalle', 'operatividad'
+        categoriaSeleccionada: null,
+        filtroContextoDetalle: "TODOS",
+        mesOperatividadOffset: 0,
+        graficoChartInstance: null,
+        inicializado: false
+    };
+
+    /**
+     * Inicializa los selectores dependientes y estado del Banco de Ideas.
+     */
+    function inicializarBancoDeIdeas() {
+        if (ESTADO_IDEAS.inicializado) return;
+
+        var catSelect = document.getElementById('select-categoria-idea');
+        if (catSelect) {
+            catSelect.value = "💭 Ideas y Pensamientos";
+            alCambiarCategoriaIdea();
+        }
+
+        var input = document.getElementById('input-nueva-idea');
+        if (input) {
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    guardarNuevaIdea();
+                }
+            });
+        }
+
+        ESTADO_IDEAS.inicializado = true;
+    }
+
+    // Alias de retrocompatibilidad
+    function guardarIdea() {
+        guardarNuevaIdea();
+    }
+
+    /**
+     * Evento al cambiar la categoría principal en el panel de creación.
+     * Actualiza el select de subcategorías dependiente.
+     */
+    function alCambiarCategoriaIdea() {
+        var catSelect = document.getElementById('select-categoria-idea');
+        var subSelect = document.getElementById('select-subcategoria-idea');
+        if (!catSelect || !subSelect) return;
+
+        var catActual = catSelect.value;
+        var info = ESTRUCTURA_BANCO_IDEAS[catActual];
+        subSelect.innerHTML = "";
+
+        if (info && info.subcategorias) {
+            info.subcategorias.forEach(function(sub) {
+                var opt = document.createElement('option');
+                opt.value = sub;
+                opt.textContent = sub;
+                subSelect.appendChild(opt);
+            });
+        }
+    }
+
+    /**
+     * Selecciona el contexto de ejecución de la idea (🏠 Casa, 🛣️ Calle, 💼 Trabajo).
+     */
+    function seleccionarContextoIdea(contexto) {
+        ESTADO_IDEAS.contextoSeleccionado = contexto;
+        var pills = [
+            { id: 'pill-context-casa', val: '🏠 Casa' },
+            { id: 'pill-context-calle', val: '🛣️ Calle' },
+            { id: 'pill-context-trabajo', val: '💼 Trabajo' }
+        ];
+
+        pills.forEach(function(p) {
+            var elem = document.getElementById(p.id);
+            if (elem) {
+                if (p.val === contexto) {
+                    elem.classList.add('active');
+                } else {
+                    elem.classList.remove('active');
+                }
+            }
+        });
+    }
+
+    /**
+     * Carga o actualiza las ideas desde el servidor.
+     */
+    function cargarIdeas(forzarRefresco) {
+        inicializarBancoDeIdeas();
+
+        if (APP_STATE.ideas && !forzarRefresco) {
+            renderizarBancoIdeas();
+            return;
+        }
+
+        google.script.run
+            .withSuccessHandler(function(ideas) {
+                APP_STATE.ideas = ideas || [];
+                renderizarBancoIdeas();
+            })
+            .withFailureHandler(function(err) {
+                console.error("Error al cargar banco de ideas:", err);
+                renderizarBancoIdeas();
             })
             .getIdeas();
     }
 
-    function renderizarIdeas(ideas) {
-        var html = "<table><tr><th>Idea Fugaz</th></tr>";
-        if (ideas && ideas.length > 0) {
-            ideas.forEach(function(i) {
-                html += `<tr><td>${i.texto}</td></tr>`;
-            });
-        } else {
-            html += "<tr><td>No hay ideas guardadas aún.</td></tr>";
+    /**
+     * Orquesta el renderizado de la subvista activa (Categorías, Detalle u Operatividad).
+     */
+    function renderizarBancoIdeas() {
+        actualizarBadgesIdeas();
+
+        if (ESTADO_IDEAS.subvistaActual === 'categorias') {
+            mostrarVistaCategoriasGrid();
+        } else if (ESTADO_IDEAS.subvistaActual === 'detalle') {
+            abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
+        } else if (ESTADO_IDEAS.subvistaActual === 'operatividad') {
+            mostrarVistaOperatividad();
         }
-        html += "</table>";
-        var cont = document.getElementById('contenedor-ideas');
-        if (cont) cont.innerHTML = html;
     }
 
-    function guardarIdea() {
+    /**
+     * Actualiza los contadores de los botones principales.
+     */
+    function actualizarBadgesIdeas() {
+        var ideas = APP_STATE.ideas || [];
+        var pendientes = ideas.filter(function(i) { return !i.hecha; }).length;
+
+        // Ideas hechas durante el mes actual seleccionado
+        var fechaActual = obtenerFechaObjetivoMes();
+        var hechasMes = ideas.filter(function(i) {
+            return i.hecha && esIdeaDelMes(i, fechaActual);
+        }).length;
+
+        var badgePendientes = document.getElementById('badge-total-pendientes');
+        if (badgePendientes) badgePendientes.textContent = pendientes;
+
+        var badgeHechas = document.getElementById('badge-total-hechas-mes');
+        if (badgeHechas) badgeHechas.textContent = hechasMes;
+    }
+
+    /**
+     * Alterna entre las dos subvistas principales: Categorías u Operatividad.
+     */
+    function alternarSubvistaIdeas(vista) {
+        ESTADO_IDEAS.subvistaActual = vista;
+
+        var btnCat = document.getElementById('btn-tab-categorias');
+        var btnOp = document.getElementById('btn-tab-operatividad');
+
+        if (vista === 'categorias') {
+            if (btnCat) btnCat.classList.add('active');
+            if (btnOp) btnOp.classList.remove('active');
+            mostrarVistaCategoriasGrid();
+        } else if (vista === 'operatividad') {
+            if (btnOp) btnOp.classList.add('active');
+            if (btnCat) btnCat.classList.remove('active');
+            mostrarVistaOperatividad();
+        }
+    }
+
+    /**
+     * Muestra la cuadrícula de las 5 categorías principales.
+     */
+    function mostrarVistaCategoriasGrid() {
+        ESTADO_IDEAS.subvistaActual = 'categorias';
+        var gridCont = document.getElementById('vista-ideas-categorias-grid');
+        var detalleCont = document.getElementById('vista-ideas-categoria-detalle');
+        var opCont = document.getElementById('vista-ideas-operatividad');
+
+        if (gridCont) gridCont.style.display = 'block';
+        if (detalleCont) detalleCont.style.display = 'none';
+        if (opCont) opCont.style.display = 'none';
+
+        var contenedor = document.getElementById('contenedor-grid-categorias');
+        if (!contenedor) return;
+
+        var ideas = APP_STATE.ideas || [];
+        var html = "";
+
+        Object.keys(ESTRUCTURA_BANCO_IDEAS).forEach(function(catNombre) {
+            var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
+            var pendientesCat = ideas.filter(function(i) {
+                return !i.hecha && i.categoria === catNombre;
+            }).length;
+
+            html += `
+                <div class="category-card" onclick="abrirDetalleCategoriaIdeas('${catNombre}')">
+                    <div class="category-card-header">
+                        <span class="category-card-icon">${info.icono}</span>
+                        <div class="category-card-title">${catNombre}</div>
+                    </div>
+                    <div class="category-card-footer">
+                        <span>${pendientesCat} ${pendientesCat === 1 ? 'idea pendiente' : 'ideas pendientes'}</span>
+                        <span style="color: #60a5fa; font-weight: bold;">Explorar ➔</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        contenedor.innerHTML = html;
+    }
+
+    /**
+     * Abre el detalle de una categoría específica con sus subcategorías, contextos y listas limpias.
+     */
+    function abrirDetalleCategoriaIdeas(catNombre) {
+        if (!catNombre) catNombre = Object.keys(ESTRUCTURA_BANCO_IDEAS)[0];
+        ESTADO_IDEAS.categoriaSeleccionada = catNombre;
+        ESTADO_IDEAS.subvistaActual = 'detalle';
+
+        var gridCont = document.getElementById('vista-ideas-categorias-grid');
+        var detalleCont = document.getElementById('vista-ideas-categoria-detalle');
+        var opCont = document.getElementById('vista-ideas-operatividad');
+
+        if (gridCont) gridCont.style.display = 'none';
+        if (detalleCont) detalleCont.style.display = 'block';
+        if (opCont) opCont.style.display = 'none';
+
+        var headerElem = document.getElementById('detalle-categoria-header');
+        var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
+        if (headerElem) {
+            headerElem.innerHTML = `
+                <h3 style="margin: 0; color: #fbbf24; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                    <span>${info ? info.icono : '💡'}</span>
+                    <span>${catNombre}</span>
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8;">
+                    Ideas pendientes organizadas cronológicamente de más viejas a más nuevas.
+                </p>
+            `;
+        }
+
+        var listCont = document.getElementById('contenedor-subcategorias-lista');
+        if (!listCont) return;
+
+        var ideas = APP_STATE.ideas || [];
+        var subcategorias = (info && info.subcategorias) ? info.subcategorias : ["General"];
+        var filtroContexto = ESTADO_IDEAS.filtroContextoDetalle;
+
+        var html = "";
+
+        subcategorias.forEach(function(subNombre) {
+            // Filtrar ideas no hechas de esta categoría y subcategoría
+            var subIdeas = ideas.filter(function(i) {
+                var coincideCat = (i.categoria === catNombre);
+                var coincideSub = (i.subcategoria === subNombre || (!i.subcategoria && subNombre.includes("General")));
+                var noHecha = !i.hecha;
+                var coincideContexto = (filtroContexto === 'TODOS' || i.contexto === filtroContexto);
+                return coincideCat && coincideSub && noHecha && coincideContexto;
+            });
+
+            // REGLA CRUCIAL: Orden cronológico estricto de más viejos (ejem: 06/06) a más nuevos (ejem: 07/06)
+            subIdeas.sort(function(a, b) {
+                return (a.timestamp || 0) - (b.timestamp || 0);
+            });
+
+            html += `
+                <div class="subcategory-section">
+                    <div class="subcategory-title">
+                        <span>${subNombre}</span>
+                        <span style="font-size: 11px; color: #60a5fa; font-weight: normal;">
+                            ${subIdeas.length} ${subIdeas.length === 1 ? 'pendiente' : 'pendientes'}
+                        </span>
+                    </div>
+                    <div class="idea-clean-list">
+            `;
+
+            if (subIdeas.length === 0) {
+                html += `
+                    <div style="font-size: 13px; color: #64748b; padding: 6px 10px; font-style: italic;">
+                        - (No hay ideas pendientes en esta subcategoría)
+                    </div>
+                `;
+            } else {
+                subIdeas.forEach(function(idea) {
+                    html += `
+                        <div class="idea-clean-item" id="idea-card-${idea.id}">
+                            <div class="idea-item-left">
+                                <span class="idea-dash">-</span>
+                                <div class="idea-item-content">
+                                    <div class="idea-text-line">
+                                        ${idea.texto}
+                                    </div>
+                                    <div class="idea-meta-badges">
+                                        <span class="idea-context-badge">${idea.contexto || '🏠 Casa'}</span>
+                                        ${idea.fecha ? `<span style="font-size: 10px; color: #64748b;">${idea.fecha}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="idea-btn-check" onclick="marcarIdeaHechaUI('${idea.id}', true)">
+                                    <span>○</span> Marcar Hecha
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        listCont.innerHTML = html;
+    }
+
+    /**
+     * Regresa a la vista de cuadrícula de las 5 categorías.
+     */
+    function volverACategoriasIdeas() {
+        mostrarVistaCategoriasGrid();
+    }
+
+    /**
+     * Filtra el contexto en la vista de detalle.
+     */
+    function alFiltrarContextoDetalle() {
+        var sel = document.getElementById('select-filtro-contexto-detalle');
+        if (sel) {
+            ESTADO_IDEAS.filtroContextoDetalle = sel.value;
+            abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
+        }
+    }
+
+    /**
+     * Registra y publica una nueva idea en el Banco de Ideas.
+     * Añade automáticamente la fecha al final en formato (DD/MM).
+     */
+    function guardarNuevaIdea() {
         var input = document.getElementById('input-nueva-idea');
+        var catSelect = document.getElementById('select-categoria-idea');
+        var subSelect = document.getElementById('select-subcategoria-idea');
+        var btn = document.getElementById('btn-publicar-idea');
+
         var texto = input ? input.value.trim() : "";
-        if (!texto) return;
+        if (!texto) {
+            alert("Por favor escribe el contenido de tu idea.");
+            if (input) input.focus();
+            return;
+        }
+
+        var categoria = catSelect ? catSelect.value : "💭 Ideas y Pensamientos";
+        var subcategoria = subSelect ? subSelect.value : "General";
+        var contexto = ESTADO_IDEAS.contextoSeleccionado || "🏠 Casa";
+
+        // Obtener fecha actual en formato DD/MM (ej: 06/06 o 28/09)
+        var hoy = new Date();
+        var dia = String(hoy.getDate()).padStart(2, '0');
+        var mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        var fechaCorta = dia + "/" + mes;
+
+        // REGLA CRUCIAL: A todas mis ideas creadas le colocarás la fecha al final de la idea
+        if (!/\d{1,2}\/\d{1,2}$/.test(texto)) {
+            texto += " " + fechaCorta;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = "Publicando...";
+        }
 
         google.script.run
-            .withSuccessHandler(function() {
+            .withSuccessHandler(function(res) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "⚡ Publicar";
+                }
                 if (input) input.value = '';
-                cargarIdeas(true);
+
+                if (res && res.success && res.idea) {
+                    if (!APP_STATE.ideas) APP_STATE.ideas = [];
+                    APP_STATE.ideas.push(res.idea);
+                    renderizarBancoIdeas();
+                } else {
+                    cargarIdeas(true);
+                }
             })
             .withFailureHandler(function(err) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "⚡ Publicar";
+                }
                 alert("Error al registrar idea: " + err.message);
             })
-            .registrarIdea(texto);
+            .registrarIdea(categoria, subcategoria, contexto, texto);
+    }
+
+    /**
+     * Marca una idea como hecha o pendiente. Al hacerse, pasa a Operatividad.
+     */
+    function marcarIdeaHechaUI(id, estado) {
+        var ideas = APP_STATE.ideas || [];
+        var targetIdea = null;
+
+        for (var i = 0; i < ideas.length; i++) {
+            if (String(ideas[i].id) === String(id)) {
+                targetIdea = ideas[i];
+                targetIdea.hecha = !!estado;
+                targetIdea.timestampHecha = estado ? Date.now() : 0;
+                var hoy = new Date();
+                targetIdea.fechaHecha = estado ? (hoy.toLocaleDateString() + " " + hoy.toLocaleTimeString()) : "";
+                break;
+            }
+        }
+
+        // Refrescar UI inmediatamente (optimistic UI)
+        renderizarBancoIdeas();
+
+        // Enviar al servidor para persistir en la hoja "Banco de Ideas"
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) {
+                    actualizarBadgesIdeas();
+                }
+            })
+            .withFailureHandler(function(err) {
+                console.error("Error al actualizar estado de la idea:", err);
+            })
+            .marcarIdeaHecha(id, estado);
+    }
+
+    /**
+     * Helper para obtener la fecha correspondiente al mes de Operatividad seleccionado.
+     */
+    function obtenerFechaObjetivoMes() {
+        var fecha = new Date();
+        fecha.setMonth(fecha.getMonth() + (ESTADO_IDEAS.mesOperatividadOffset || 0));
+        return fecha;
+    }
+
+    /**
+     * Determina si una idea fue ejecutada durante el mes objetivo.
+     */
+    function esIdeaDelMes(idea, fechaObjetivo) {
+        var d = null;
+        if (idea.timestampHecha) {
+            d = new Date(idea.timestampHecha);
+        } else if (idea.fechaHecha) {
+            var cleanStr = String(idea.fechaHecha).trim();
+            var parts = cleanStr.split(" ")[0].split("/");
+            if (parts.length === 3) {
+                d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            }
+        }
+        if (!d && idea.timestamp) {
+            d = new Date(idea.timestamp);
+        }
+        if (!d || isNaN(d.getTime())) return false;
+
+        return (d.getMonth() === fechaObjetivo.getMonth() && d.getFullYear() === fechaObjetivo.getFullYear());
+    }
+
+    /**
+     * Navega entre meses en la vista de Operatividad.
+     */
+    function cambiarMesOperatividad(delta) {
+        ESTADO_IDEAS.mesOperatividadOffset += delta;
+        mostrarVistaOperatividad();
+    }
+
+    /**
+     * Renderiza la vista de Operatividad: Métricas, Gráfico de Chart.js y lista de ideas ejecutadas.
+     */
+    function mostrarVistaOperatividad() {
+        ESTADO_IDEAS.subvistaActual = 'operatividad';
+
+        var gridCont = document.getElementById('vista-ideas-categorias-grid');
+        var detalleCont = document.getElementById('vista-ideas-categoria-detalle');
+        var opCont = document.getElementById('vista-ideas-operatividad');
+
+        if (gridCont) gridCont.style.display = 'none';
+        if (detalleCont) detalleCont.style.display = 'none';
+        if (opCont) opCont.style.display = 'block';
+
+        var fechaObjetivo = obtenerFechaObjetivoMes();
+        var opciones = { month: 'long', year: 'numeric' };
+        var nombreMes = fechaObjetivo.toLocaleDateString('es-ES', opciones);
+
+        var labelMes = document.getElementById('label-mes-operatividad');
+        if (labelMes) labelMes.textContent = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+
+        var ideas = APP_STATE.ideas || [];
+
+        // Filtrar ideas ejecutadas en este mes
+        var ideasHechasMes = ideas.filter(function(i) {
+            return i.hecha && esIdeaDelMes(i, fechaObjetivo);
+        });
+
+        // Conteo por categoría
+        var conteoPorCat = {};
+        Object.keys(ESTRUCTURA_BANCO_IDEAS).forEach(function(cat) {
+            conteoPorCat[cat] = 0;
+        });
+
+        ideasHechasMes.forEach(function(i) {
+            var cat = i.categoria || "💭 Ideas y Pensamientos";
+            if (!conteoPorCat[cat]) conteoPorCat[cat] = 0;
+            conteoPorCat[cat]++;
+        });
+
+        // Categoría top
+        var maxCat = "-";
+        var maxCount = 0;
+        Object.keys(conteoPorCat).forEach(function(cat) {
+            if (conteoPorCat[cat] > maxCount) {
+                maxCount = conteoPorCat[cat];
+                maxCat = cat;
+            }
+        });
+
+        // Actualizar métricas en pantalla
+        var metricHechas = document.getElementById('metric-ideas-hechas-mes');
+        if (metricHechas) metricHechas.textContent = ideasHechasMes.length;
+
+        var metricTop = document.getElementById('metric-ideas-categoria-top');
+        if (metricTop) metricTop.textContent = maxCat !== "-" ? maxCat : "Sin registros";
+
+        var totalIdeasMes = ideas.filter(function(i) {
+            return esIdeaDelMes(i, fechaObjetivo);
+        }).length;
+        var tasa = totalIdeasMes > 0 ? Math.round((ideasHechasMes.length / totalIdeasMes) * 100) : (ideasHechasMes.length > 0 ? 100 : 0);
+
+        var metricTasa = document.getElementById('metric-tasa-operatividad');
+        if (metricTasa) metricTasa.textContent = tasa + "%";
+
+        // Renderizar o actualizar Gráfico de Operatividad con Chart.js
+        renderizarGraficoOperatividad(conteoPorCat);
+
+        // Renderizar lista de ideas ejecutadas en el mes
+        renderizarListaOperatividad(ideasHechasMes);
+    }
+
+    /**
+     * Dibuja el gráfico de barras/operatividad usando Chart.js o canvas nativo.
+     */
+    function renderizarGraficoOperatividad(conteoPorCat) {
+        var canvas = document.getElementById('graficoOperatividad');
+        if (!canvas) return;
+
+        var labels = Object.keys(ESTRUCTURA_BANCO_IDEAS);
+        var datos = labels.map(function(l) { return conteoPorCat[l] || 0; });
+
+        // Si Chart.js está disponible
+        if (typeof Chart !== 'undefined') {
+            if (ESTADO_IDEAS.graficoChartInstance) {
+                ESTADO_IDEAS.graficoChartInstance.destroy();
+            }
+
+            var ctx = canvas.getContext('2d');
+            ESTADO_IDEAS.graficoChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(function(l) {
+                        // Abreviar o limpiar etiqueta para el gráfico
+                        return l.replace(/^[^\w\s]+/, '').trim();
+                    }),
+                    datasets: [{
+                        label: 'Ideas Ejecutadas',
+                        data: datos,
+                        backgroundColor: [
+                            '#111827', // Negro Carbón
+                            '#374151', // Gris Grafito
+                            '#4b5563', // Gris Medio
+                            '#6b7280', // Pizarra
+                            '#9ca3af'  // Gris Suave
+                        ],
+                        borderColor: [
+                            '#111827', '#374151', '#4b5563', '#6b7280', '#9ca3af'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#111827',
+                            titleColor: '#ffffff',
+                            bodyColor: '#e5e7eb',
+                            borderColor: '#27272a',
+                            borderWidth: 1,
+                            padding: 10,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#6b7280',
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+                                stepSize: 1,
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#374151',
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' }
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Fallback en caso de no cargar Chart.js
+            var ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = '14px sans-serif';
+            ctx.fillText('Módulo de Gráficos Operativos activo', 20, 50);
+        }
+    }
+
+    /**
+     * Renderiza la lista limpia de ideas ejecutadas en el mes con opción de desmarcar.
+     */
+    function renderizarListaOperatividad(ideasHechas) {
+        var listCont = document.getElementById('contenedor-lista-operatividad');
+        var badgeCont = document.getElementById('badge-contador-hechas-lista');
+        if (badgeCont) badgeCont.textContent = ideasHechas.length + (ideasHechas.length === 1 ? ' idea' : ' ideas');
+
+        if (!listCont) return;
+
+        if (ideasHechas.length === 0) {
+            listCont.innerHTML = `
+                <div style="font-size: 13px; color: #64748b; padding: 12px; text-align: center; font-style: italic;">
+                    No hay ideas marcadas como hechas en este mes aún.
+                </div>
+            `;
+            return;
+        }
+
+        // Ordenar de más recientes a más antiguas
+        ideasHechas.sort(function(a, b) {
+            return (b.timestampHecha || 0) - (a.timestampHecha || 0);
+        });
+
+        var html = "";
+        ideasHechas.forEach(function(i) {
+            html += `
+                <div class="idea-clean-item is-done">
+                    <div class="idea-item-left">
+                        <span class="idea-dash" style="color: #34d399;">✓</span>
+                        <div class="idea-item-content">
+                            <div class="idea-text-line" style="text-decoration: line-through; color: #94a3b8;">
+                                ${i.texto}
+                            </div>
+                            <div class="idea-meta-badges">
+                                <span class="idea-context-badge" style="border-color: #059669; color: #34d399;">
+                                    ${i.categoria}
+                                </span>
+                                <span class="idea-context-badge">${i.contexto || '🏠 Casa'}</span>
+                                ${i.fechaHecha ? `<span style="font-size: 11px; color: #10b981;">Hecha: ${i.fechaHecha}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="idea-btn-check checked" onclick="marcarIdeaHechaUI('${i.id}', false)" title="Desmarcar y devolver a pendientes">
+                            ✓ Hecha (Deshacer)
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        listCont.innerHTML = html;
+    }
+
+    /**
+     * Invocable desde la UI para asegurar y crear la hoja de cálculo "Banco de Ideas".
+     */
+    function inicializarHojaSheetsDesdeUI() {
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res && res.success) {
+                    alert("✅ Hoja 'Banco de Ideas' creada y formateada con casillas de verificación en Google Sheets.");
+                    cargarIdeas(true);
+                } else {
+                    alert("Aviso: " + (res.error || "Operación completada."));
+                }
+            })
+            .withFailureHandler(function(err) {
+                alert("Error al inicializar hoja en Sheets: " + err.message);
+            })
+            .crearHojaBancoDeIdeasManual();
     }
 
     // --------------------------------------------------------------------------
