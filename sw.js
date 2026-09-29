@@ -1,21 +1,21 @@
 // ==========================================================================
-// SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST)
+// SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST & CACHE-BUSTING)
 // ==========================================================================
 
-const CACHE_NAME = 'sistema-monarca-v3';
+const CACHE_NAME = 'sistema-monarca-v5.0';
 
 const STATIC_ASSETS = [
   './',
   'index.html',
-  'style.css',
+  'style.css?v=5.0',
   'app.js',
-  'js/core.js',
-  'js/perfil.js',
-  'js/progresion.js',
-  'js/estado-personal.js',
-  'js/finanzas.js',
-  'js/ideas.js',
-  'js/calendario.js',
+  'js/core.js?v=5.0',
+  'js/perfil.js?v=5.0',
+  'js/progresion.js?v=5.0',
+  'js/estado-personal.js?v=5.0',
+  'js/finanzas.js?v=5.0',
+  'js/ideas.js?v=5.0',
+  'js/calendario.js?v=5.0',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -35,12 +35,15 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activación: Limpieza de cachés antiguas y toma de control inmediata
+// Activación: Purga obligatoria de todas las cachés anteriores y control inmediato
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME).map((key) => {
+          console.log('[Service Worker] Purgando caché antigua:', key);
+          return caches.delete(key);
+        })
       );
     }).then(() => self.clients.claim())
   );

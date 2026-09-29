@@ -161,6 +161,7 @@ const MonarcaDB = {
             if (!data.rutinas) data.rutinas = DEFAULT_STATE.rutinas;
             if (!data.salud) data.salud = DEFAULT_STATE.salud;
             if (!data.finanzas) data.finanzas = DEFAULT_STATE.finanzas;
+            if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
             if (!data.ideas || !Array.isArray(data.ideas) || data.ideas.length === 0) {
                 data.ideas = JSON.parse(JSON.stringify(DEFAULT_STATE.ideas));
             } else {
