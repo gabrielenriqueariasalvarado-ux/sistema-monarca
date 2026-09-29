@@ -153,8 +153,8 @@
             </div>
         </div>
 
-        <!-- TARJETAS DE ACCESO A CUERPO Y MENTE -->
-        <div class="grid-menu">
+        <!-- TARJETAS DE ACCESO A CUERPO, MENTE Y EJERCICIOS -->
+        <div class="grid-menu" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
             <div class="menu-card" onclick="cambiarVista('vista-gym')">
                 <div class="menu-icon">🏋️‍♂️</div>
                 <h3>Cuerpo</h3>
@@ -162,6 +162,10 @@
             <div class="menu-card" onclick="cambiarVista('vista-mente')">
                 <div class="menu-icon">🧠</div>
                 <h3>Mente</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-ejercicios')">
+                <div class="menu-icon">⚡</div>
+                <h3>Ejercicios</h3>
             </div>
         </div>
     </div>
@@ -183,9 +187,14 @@
             <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
         </button>
         <div class="card">
-            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">⚡</span>
-                <h2 style="margin: 0;">Misiones Diarias &amp; Hábitos</h2>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">⚡</span>
+                    <h2 style="margin: 0;">Misiones Diarias &amp; Hábitos</h2>
+                </div>
+                <button class="btn-add-finanza" onclick="abrirModalNuevaMision()" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> Nueva Misión
+                </button>
             </div>
             <div id="contenedor-misiones">Cargando misiones...</div>
         </div>
@@ -197,11 +206,42 @@
             <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
         </button>
         <div class="card">
-            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">🔮</span>
-                <h2 style="margin: 0;">Árbol de Habilidades (Rangos)</h2>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">🔮</span>
+                    <h2 style="margin: 0;">Árbol de Habilidades (Rangos)</h2>
+                </div>
+                <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> Nueva Habilidad
+                </button>
             </div>
             <div id="contenedor-habilidades">Cargando habilidades...</div>
+        </div>
+    </div>
+
+    
+    <!-- VISTA: EJERCICIOS (BANCO DE EJERCICIOS PERSONALIZADOS) -->
+    <div id="vista-ejercicios" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
+            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
+        </button>
+        <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">⚡</span>
+                    <div>
+                        <h2 style="margin: 0;">Banco de Ejercicios</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Crea y administra tus ejercicios por series, zonas musculares y fatiga</span>
+                    </div>
+                </div>
+                <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> Nuevo Ejercicio
+                </button>
+            </div>
+
+            <div id="contenedor-ejercicios">
+                <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios...</p>
+            </div>
         </div>
     </div>
 
@@ -211,8 +251,15 @@
             <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
         </button>
         <div class="card">
-            <h2>Condición Física (Gym &amp; Rutinas)</h2>
-            <p style="color: #6b7280; font-size: 13px; margin-bottom: 15px;">Selecciona tu rutina programada:</p>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h2 style="margin: 0;">Condición Física (Gym &amp; Rutinas)</h2>
+                    <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Selecciona o crea tus rutinas programadas:</p>
+                </div>
+                <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> Nueva Rutina
+                </button>
+            </div>
 
             <!-- Portales de rutinas: se renderizan dinámicamente desde la hoja "Rutinas" -->
             <div id="contenedor-portales-rutinas">
@@ -956,6 +1003,256 @@
     </div>
 
     <!-- VISTA: IDEAS -->
+    <div 
+    <!-- ======================================================================
+         MODALES DE PROGRESIÓN (MISIONES Y HABILIDADES)
+         ====================================================================== -->
+
+    <!-- MODAL: NUEVA MISIÓN / HÁBITO -->
+    <div 
+    <!-- MODAL: NUEVO EJERCICIO -->
+    <div id="modal-nuevo-ejercicio" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⚡</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVO EJERCICIO</span>
+                </div>
+                <button onclick="cerrarModalNuevoEjercicio()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-form-group">
+                    <label>Nombre del Ejercicio:</label>
+                    <input type="text" id="modal-ejercicio-nombre" class="modal-input" placeholder="Ej: Press de Banca Plano, Sentadillas, Dominadas...">
+                </div>
+                <div class="modal-form-group">
+                    <label>En qué consiste (Descripción / Técnica):</label>
+                    <input type="text" id="modal-ejercicio-desc" class="modal-input" placeholder="Ej: Empuje horizontal con barra, agarre al ancho de hombros...">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="modal-form-group">
+                        <label>Series:</label>
+                        <input type="number" id="modal-ejercicio-series" class="modal-input" min="1" max="20" value="4">
+                    </div>
+                    <div class="modal-form-group">
+                        <label>Reps por serie:</label>
+                        <input type="text" id="modal-ejercicio-reps" class="modal-input" placeholder="Ej: 10-12 reps" value="10-12 reps">
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="margin-bottom: 6px; display: block;">Categorías / Zonas que trabaja (Selecciona una o más):</label>
+                    <div class="muscle-selector-chips" id="selector-chips-musculos">
+                        <button type="button" class="muscle-chip-btn" data-cat="Pecho" onclick="toggleChipMusculo(this)">⚔️ Pecho</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Hombros" onclick="toggleChipMusculo(this)">🛡️ Hombros</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Tríceps" onclick="toggleChipMusculo(this)">🦾 Tríceps</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Bíceps" onclick="toggleChipMusculo(this)">💪 Bíceps</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Dorsales" onclick="toggleChipMusculo(this)">🦅 Dorsales</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Trapecios" onclick="toggleChipMusculo(this)">🦅 Trapecios</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Lumbares" onclick="toggleChipMusculo(this)">🏛️ Lumbares</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Core" onclick="toggleChipMusculo(this)">⚡ Core</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Cuádriceps" onclick="toggleChipMusculo(this)">🦵 Cuádriceps</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Isquios" onclick="toggleChipMusculo(this)">🦵 Isquios</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Glúteos" onclick="toggleChipMusculo(this)">🍑 Glúteos</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Pantorrillas" onclick="toggleChipMusculo(this)">🧦 Pantorrillas</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Antebrazos" onclick="toggleChipMusculo(this)">✊ Antebrazos</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Cadera" onclick="toggleChipMusculo(this)">🥋 Cadera</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Mente" onclick="toggleChipMusculo(this)">🧠 Mente</button>
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label>Porcentaje de fatiga que agrega (% por zona):</label>
+                    <input type="number" id="modal-ejercicio-fatiga" class="modal-input" min="5" max="100" value="20" placeholder="Ej: 20">
+                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Se sumará al mapa de calor corporal al completar los ejercicios.</span>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEjercicio()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarEjercicio()">
+                        ✓ Guardar Ejercicio
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA RUTINA -->
+    <div id="modal-nueva-rutina" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏋️‍♂️</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVA RUTINA</span>
+                </div>
+                <button onclick="cerrarModalNuevaRutina()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-form-group">
+                    <label>Nombre de la Rutina:</label>
+                    <input type="text" id="modal-rutina-nombre" class="modal-input" placeholder="Ej: Rutina de Empuje, Torso / Pierna, etc.">
+                </div>
+                <div class="modal-form-group">
+                    <label>Descripción / Enfoque:</label>
+                    <input type="text" id="modal-rutina-desc" class="modal-input" placeholder="Ej: Desarrollo de fuerza máxima e hipertrofia...">
+                </div>
+                <div class="modal-form-group">
+                    <label>Etiqueta / Día programado:</label>
+                    <input type="text" id="modal-rutina-tag" class="modal-input" placeholder="Ej: LUNES · EMPUJE, MIÉRCOLES · PIERNA..." value="DIARIA · FUERZA">
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="margin-bottom: 6px; display: block;">Seleccionar Ejercicios para esta Rutina:</label>
+                    <div id="modal-rutina-checklist-ejercicios" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; max-height: 200px; overflow-y: auto;">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaRutina()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarRutina()">
+                        ✓ Crear Rutina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div 
+    <!-- MODAL: SINCRONIZACIÓN POR CÓDIGO (MULTI-DISPOSITIVO) -->
+    <div id="modal-sincronizar-codigo" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🔄</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">SINCRONIZAR DESDE OTRO DISPOSITIVO</span>
+                </div>
+                <button onclick="cerrarModalSincronizarCodigo()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #4b5563; font-size: 13px; margin: 0 0 14px 0;">
+                    Pega aquí el <strong>Código de Sincronización</strong> que copiaste desde tu laptop o teléfono para cargar tus datos de inmediato:
+                </p>
+
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                    <button type="button" class="btn-sync-action btn-sync-light" onclick="pegarDesdePortapapelesSync()" style="font-size: 11.5px; padding: 4px 10px;">
+                        📋 Pegar desde Portapapeles
+                    </button>
+                </div>
+
+                <div class="modal-form-group" style="margin-bottom: 12px;">
+                    <textarea id="modal-sync-input-codigo" class="modal-input" rows="4" 
+                        placeholder="Pega el código aquí (comienza con MONARCA_SYNC_...)" 
+                        style="font-family: monospace; font-size: 12px; resize: vertical;"
+                        oninput="analizarCodigoSincronizacion(this.value)"></textarea>
+                </div>
+
+                <!-- Vista previa de los datos antes de restaurar -->
+                <div id="modal-sync-preview-box" style="margin-bottom: 16px;">
+                    <span style="color: #9ca3af; font-size: 12px;">Pega tu código arriba para ver los datos a restaurar.</span>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalSincronizarCodigo()">
+                        Cancelar
+                    </button>
+                    <button id="btn-confirmar-sync-codigo" class="btn-system" style="flex: 1;" disabled>
+                        ✓ Confirmar y Sincronizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA MISIÓN / HÁBITO -->
+    <div id="modal-nueva-mision" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⚡</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVA MISIÓN / HÁBITO</span>
+                </div>
+                <button onclick="cerrarModalNuevaMision()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="modal-form-group">
+                    <label>Nombre de la Misión o Hábito:</label>
+                    <input type="text" id="modal-mision-nombre" class="modal-input" placeholder="Ej: Lectura profunda de 30 min, Rutina de estiramientos...">
+                </div>
+                <div class="modal-form-group">
+                    <label>Frecuencia de Cumplimiento:</label>
+                    <select id="modal-mision-frecuencia" class="modal-input">
+                        <option value="Diaria">Diaria</option>
+                        <option value="Semanal">Semanal</option>
+                    </select>
+                </div>
+                <div class="modal-form-group">
+                    <label>Atributo que Potencia:</label>
+                    <select id="modal-mision-atributo" class="modal-input">
+                        <option value="INT">INT · Inteligencia / Conocimiento</option>
+                        <option value="STR">STR · Fuerza / Condición Física</option>
+                        <option value="AGI">AGI · Agilidad / Productividad</option>
+                        <option value="VIT">VIT · Vitalidad / Salud</option>
+                        <option value="EXP">EXP · Experiencia General</option>
+                    </select>
+                </div>
+                <div class="modal-form-group">
+                    <label>Recompensa de Experiencia (EXP):</label>
+                    <input type="number" id="modal-mision-exp" class="modal-input" min="5" max="500" value="25" placeholder="Ej: 25">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaMision()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarMision()">
+                        ✓ Publicar Misión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA HABILIDAD -->
+    <div id="modal-nueva-habilidad" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🔮</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">REGISTRAR NUEVA HABILIDAD</span>
+                </div>
+                <button onclick="cerrarModalNuevaHabilidad()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="modal-form-group">
+                    <label>Nombre de la Habilidad:</label>
+                    <input type="text" id="modal-habilidad-nombre" class="modal-input" placeholder="Ej: Arquitectura de Software, Inglés Técnico...">
+                </div>
+                <div class="modal-form-group">
+                    <label>Beneficio / Recompensa al Desarrollarla:</label>
+                    <input type="text" id="modal-habilidad-beneficio" class="modal-input" placeholder="Ej: Construcción de sistemas escalables y autónomos...">
+                </div>
+                <div class="modal-form-group">
+                    <label>Horas Iniciales:</label>
+                    <input type="number" id="modal-habilidad-horas" class="modal-input" min="0" max="4" value="0">
+                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Toda habilidad nueva inicia estrictamente en <strong>Rango E</strong> (0 a 5 hrs).</span>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaHabilidad()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarHabilidad()">
+                        ✓ Guardar Habilidad
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA: IDEAS -->
     <div id="vista-ideas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
@@ -1205,7 +1502,14 @@
 
 
     <!-- Motor de la Aplicación y LocalStorage -->
-    <script src="app.js"></script>
+    <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
+    <script src="js/core.js"></script>
+    <script src="js/perfil.js"></script>
+    <script src="js/progresion.js"></script>
+    <script src="js/estado-personal.js"></script>
+    <script src="js/finanzas.js"></script>
+    <script src="js/ideas.js"></script>
+    <script src="js/calendario.js"></script>
 
     <!-- Registro de Service Worker PWA -->
     <script>

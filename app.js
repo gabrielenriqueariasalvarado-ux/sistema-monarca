@@ -1,4 +1,9 @@
 /**
+ * SISTEMA MONARCA · MÓDULO CENTRAL (CORE)
+ * Base de datos LocalStorage, Sistema de Niveles/EXP y Enrutador de Navegación.
+ */
+
+/**
  * SISTEMA MONARCA · MOTOR DE APLICACIÓN PWA (OFFLINE & LOCALSTORAGE)
  * Aplicación Web Progresiva Independiente de Google Apps Script.
  * Almacenamiento 100% Local, Rápido y Reactivo.
@@ -23,17 +28,8 @@ const DEFAULT_STATE = {
         vit: 10,
         mp: 100
     },
-    misiones: [
-        { id: 1, nombre: "Lectura y Formación (30 min)", frecuencia: "Diario", atributo: "INT", exp: 25, estado: "Pendiente" },
-        { id: 2, nombre: "Entrenamiento Físico", frecuencia: "Diario", atributo: "STR", exp: 50, estado: "Pendiente" },
-        { id: 3, nombre: "Revisión y Control de Finanzas", frecuencia: "Semanal", atributo: "INT", exp: 30, estado: "Pendiente" },
-        { id: 4, nombre: "Gestión y Ejecución de Ideas", frecuencia: "Diario", atributo: "EXP", exp: 20, estado: "Pendiente" }
-    ],
-    habilidades: [
-        { id: 1, nombre: "Edición de Video", horasTotales: 12, beneficio: "Renderizado rápido de clips" },
-        { id: 2, nombre: "Inglés Conversacional", horasTotales: 22, beneficio: "Fluidez en llamadas internacionales" },
-        { id: 3, nombre: "Finanzas Personales e Inversión", horasTotales: 8, beneficio: "Optimización de capital" }
-    ],
+    misiones: [],
+    habilidades: [],
     fatiga: {
         promedioHoy: 0,
         ultimoCierre: "Inicio del sistema",
@@ -142,8 +138,24 @@ const MonarcaDB = {
             // Asegurar que existan todas las estructuras esperadas
             if (!data.jugador) data.jugador = DEFAULT_STATE.jugador;
             if (!data.perfil) data.perfil = DEFAULT_STATE.perfil;
-            if (!data.misiones) data.misiones = DEFAULT_STATE.misiones;
-            if (!data.habilidades) data.habilidades = DEFAULT_STATE.habilidades;
+            // Purga automática de misiones y habilidades quemadas (estáticas) para modo dinámico
+            if (!data.v2_clean_defaults) {
+                data.misiones = [];
+                data.habilidades = [];
+                data.v2_clean_defaults = true;
+                this.save(data);
+            }
+            if (!data.misiones) data.misiones = [];
+            if (!data.habilidades) data.habilidades = [];
+            // Limpieza y soporte de ejercicios y rutinas dinámicas
+            if (!data.v3_clean_rutinas) {
+                data.rutinas = [];
+                data.ejercicios = [];
+                data.v3_clean_rutinas = true;
+                this.save(data);
+            }
+            if (!data.ejercicios) data.ejercicios = [];
+            if (!data.rutinas) data.rutinas = [];
             if (!data.fatiga) data.fatiga = DEFAULT_STATE.fatiga;
             if (!data.gym) data.gym = DEFAULT_STATE.gym;
             if (!data.rutinas) data.rutinas = DEFAULT_STATE.rutinas;
@@ -175,25 +187,133 @@ const MonarcaDB = {
         }
     },
     exportBackup: function() {
-        var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(APP_STATE, null, 2));
+        var now = new Date();
+        var fechaStr = now.getFullYear() + "-" + 
+            String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+            String(now.getDate()).padStart(2, '0') + "_" + 
+            String(now.getHours()).padStart(2, '0') + "h" + 
+            String(now.getMinutes()).padStart(2, '0');
+        var fileName = "sistema_monarca_backup_" + fechaStr + ".json";
+        var jsonText = JSON.stringify(APP_STATE, null, 2);
+        
+        var blob = new Blob([jsonText], { type: "application/json;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
         var downloadAnchor = document.createElement('a');
-        var fechaStr = new Date().toISOString().slice(0, 10);
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "sistema_monarca_backup_" + fechaStr + ".json");
+        downloadAnchor.setAttribute("href", url);
+        downloadAnchor.setAttribute("download", fileName);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
     },
+
+    shareBackup: async function() {
+        var now = new Date();
+        var fechaStr = now.getFullYear() + "-" + 
+            String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+            String(now.getDate()).padStart(2, '0') + "_" + 
+            String(now.getHours()).padStart(2, '0') + "h" + 
+            String(now.getMinutes()).padStart(2, '0');
+        var fileName = "sistema_monarca_backup_" + fechaStr + ".json";
+        var jsonText = JSON.stringify(APP_STATE, null, 2);
+        var blob = new Blob([jsonText], { type: "application/json" });
+        var file = new File([blob], fileName, { type: "application/json" });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: "Respaldo Sistema Monarca",
+                    text: "Datos actualizados de Sistema Monarca (" + fechaStr + ")",
+                    files: [file]
+                });
+                return true;
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.warn("Share failed, falling back to download:", err);
+                    MonarcaDB.exportBackup();
+                }
+                return false;
+            }
+        } else {
+            // Fallback: descarga directa y sugerencia de envío
+            MonarcaDB.exportBackup();
+            alert("Descargando archivo JSON... Puedes enviártelo a tu teléfono por WhatsApp, Telegram o Google Drive.");
+            return false;
+        }
+    },
+
+    generateSyncCode: function() {
+        try {
+            var rawStr = JSON.stringify(APP_STATE);
+            // Codificación UTF-8 segura en Base64
+            var utf8Bytes = encodeURIComponent(rawStr).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+                return String.fromCharCode('0x' + p1);
+            });
+            var b64 = btoa(utf8Bytes);
+            return "MONARCA_SYNC_" + b64;
+        } catch (e) {
+            console.error("Error generando código de sincronización:", e);
+            return JSON.stringify(APP_STATE);
+        }
+    },
+
+    decodeSyncCode: function(codigo) {
+        if (!codigo || typeof codigo !== 'string') {
+            throw new Error("El código de sincronización está vacío.");
+        }
+        var str = codigo.trim();
+        if (str.startsWith("MONARCA_SYNC_")) {
+            str = str.replace("MONARCA_SYNC_", "");
+            var decodedBytes = atob(str);
+            var jsonStr = decodeURIComponent(Array.prototype.map.call(decodedBytes, function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonStr);
+        } else {
+            return JSON.parse(str);
+        }
+    },
+
+    applySyncData: function(data) {
+        if (!data || typeof data !== 'object') {
+            throw new Error("Estructura de datos inválida.");
+        }
+        // Validar que tenga al menos uno de los campos nucleares
+        if (!data.jugador && !data.finanzas && !data.ideas && !data.misiones) {
+            throw new Error("Los datos no corresponden a una copia válida de Sistema Monarca.");
+        }
+
+        APP_STATE = data;
+        MonarcaDB.save(APP_STATE);
+        alert("🎉 ¡Sincronización completada con éxito! Tus datos se han actualizado.");
+        location.reload();
+    },
+
     importBackup: function(file) {
+        if (!file) return;
         var reader = new FileReader();
         reader.onload = function(e) {
             try {
                 var imported = JSON.parse(e.target.result);
-                if (imported && (imported.jugador || imported.finanzas || imported.ideas)) {
-                    APP_STATE = imported;
-                    MonarcaDB.save(APP_STATE);
-                    alert("¡Copia de seguridad restaurada con éxito!");
-                    location.reload();
+                if (imported && (imported.jugador || imported.finanzas || imported.ideas || imported.misiones)) {
+                    var nJugador = imported.jugador ? (imported.jugador.titulo + " (Nivel " + imported.jugador.nivel + ")") : "Sin perfil";
+                    var nFinanzas = (imported.finanzas && imported.finanzas.ingresos) ? imported.finanzas.ingresos.length : 0;
+                    var nIdeas = imported.ideas ? imported.ideas.length : 0;
+                    var nMis = imported.misiones ? imported.misiones.length : 0;
+
+                    var msg = "¿Confirmas restaurar este respaldo?\n\n" +
+                              "• Jugador: " + nJugador + "\n" +
+                              "• Misiones: " + nMis + "\n" +
+                              "• Finanzas: " + nFinanzas + " ingresos\n" +
+                              "• Ideas: " + nIdeas + "\n\n" +
+                              "Tus datos actuales en este dispositivo se reemplazarán con los de este archivo.";
+                    
+                    if (confirm(msg)) {
+                        APP_STATE = imported;
+                        MonarcaDB.save(APP_STATE);
+                        alert("¡Copia de seguridad restaurada con éxito!");
+                        location.reload();
+                    }
                 } else {
                     alert("El archivo seleccionado no tiene un formato válido de Sistema Monarca.");
                 }
@@ -203,11 +323,13 @@ const MonarcaDB = {
         };
         reader.readAsText(file);
     },
+
     resetDefault: function() {
-        if (confirm("¿Estás seguro de que deseas restablecer todos los datos a sus valores iniciales? Esta acción no se puede deshacer.")) {
+        if (confirm("⚠️ ¿Estás seguro de que deseas restablecer todos los datos a sus valores iniciales? Esta acción eliminará permanentemente los datos locales de este dispositivo.")) {
             localStorage.removeItem(MONARCA_STORAGE_KEY);
             APP_STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
             MonarcaDB.save(APP_STATE);
+            alert("Sistema restablecido a los valores por defecto.");
             location.reload();
         }
     }
@@ -262,6 +384,9 @@ function cambiarVista(vistaId) {
         case 'vista-gym':
             cargarGym();
             break;
+        case 'vista-ejercicios':
+            cargarEjercicios();
+            break;
         case 'vista-mente':
             cargarMente();
             break;
@@ -314,89 +439,336 @@ function sumarExp(cantidad) {
     }
 }
 
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE PERFIL DE USUARIO & CENTRO DE SINCRONIZACIÓN
+ * Estadísticas de Jugador, Sincronización Multi-Dispositivo (Laptop ↔ Teléfono) y Respaldos.
+ */
+
 function cargarPerfil() {
     renderizarPerfil(APP_STATE.perfil);
 }
 
 function renderizarPerfil(perfil) {
     var p = perfil || APP_STATE.perfil || { str: 10, int: 10, vit: 10, mp: 100 };
+    var j = APP_STATE.jugador || { titulo: "Gabriel Arias", nivel: 1, exp: 0, expMax: 100 };
+
     var html = `
-    <table>
-        <tr><th>Atributo</th><th>Valor</th></tr>
-        <tr><td>Fuerza (STR)</td><td><strong>${p.str || 10}</strong></td></tr>
-        <tr><td>Inteligencia (INT)</td><td><strong>${p.int || 10}</strong></td></tr>
-        <tr><td>Vitalidad (VIT)</td><td><strong>${p.vit || 10}</strong></td></tr>
-        <tr><td>Maná / Energía (MP)</td><td><strong>${p.mp || 100}</strong></td></tr>
-    </table>
+    <!-- 1. ATRIBUTOS DEL JUGADOR -->
+    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 15px; color: #111827;">⚔️ Atributos Principales</h3>
+            <span style="font-size: 12px; font-weight: 700; color: #4b5563; background: #f3f4f6; padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
+        </div>
+        <table class="table-finanzas" style="margin-bottom: 0;">
+            <tbody>
+                <tr><td><strong>Fuerza (STR)</strong></td><td style="text-align: right; font-weight: 700;">${p.str || 10}</td></tr>
+                <tr><td><strong>Inteligencia (INT)</strong></td><td style="text-align: right; font-weight: 700;">${p.int || 10}</td></tr>
+                <tr><td><strong>Vitalidad (VIT)</strong></td><td style="text-align: right; font-weight: 700;">${p.vit || 10}</td></tr>
+                <tr><td><strong>Maná / Energía (MP)</strong></td><td style="text-align: right; font-weight: 700;">${p.mp || 100}</td></tr>
+            </tbody>
+        </table>
+    </div>
     
-    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e7eb;">
-        <h3 style="font-size: 14px; margin-bottom: 12px; color: #111827;">Gestión de Datos Locales (PWA)</h3>
-        <p style="font-size: 12.5px; color: #6b7280; margin-bottom: 14px;">Todos tus datos se guardan automáticamente en tu dispositivo. Puedes exportar una copia o importarla en otro equipo.</p>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn-system" onclick="MonarcaDB.exportBackup()">
-                💾 Exportar Backup (JSON)
-            </button>
-            <label class="btn-back-system" style="cursor: pointer; margin-bottom: 0;">
-                📂 Importar Backup
-                <input type="file" accept=".json" style="display: none;" onchange="if(this.files[0]) MonarcaDB.importBackup(this.files[0])">
-            </label>
-            <button class="btn-delete-row" style="padding: 8px 14px; border-radius: 9999px;" onclick="MonarcaDB.resetDefault()">
+    <!-- 2. CENTRO DE SINCRONIZACIÓN MULTI-DISPOSITIVO -->
+    <div class="sync-hub-card">
+        <div class="sync-hub-header">
+            <div>
+                <span class="sync-badge-pill">MULTI-DISPOSITIVO</span>
+                <h3 class="sync-hub-title">🔄 Sincronización (Laptop ↔ Teléfono)</h3>
+                <p class="sync-hub-subtitle">
+                    Pasa tus datos de un dispositivo a otro al instante usando el método que te resulte más cómodo.
+                </p>
+            </div>
+        </div>
+
+        <div class="sync-grid-methods">
+            <!-- MÉTODO 1: COPIAR Y PEGAR CÓDIGO (EL MÁS RÁPIDO PARA WHATSAPP) -->
+            <div class="sync-method-card sync-method-highlight">
+                <div class="sync-method-icon">📋</div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <h4 style="margin: 0; font-size: 14px; color: #111827;">Sincronización Rápida por Código</h4>
+                        <span class="sync-tag-recommended">Recomendado</span>
+                    </div>
+                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                        Copia una clave con todos tus datos en 1 clic para enviártela a tu propio chat de WhatsApp o notas y pegarla en tu teléfono.
+                    </p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-sync-action btn-sync-dark" onclick="copiarCodigoSincronizacion()">
+                            📋 Copiar Código
+                        </button>
+                        <button class="btn-sync-action btn-sync-light" onclick="abrirModalSincronizarCodigo()">
+                            📥 Pegar y Sincronizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MÉTODO 2: COMPARTIR DIRECTO (WEB SHARE API) -->
+            <div class="sync-method-card">
+                <div class="sync-method-icon">📤</div>
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Compartir Directo (WhatsApp / Drive)</h4>
+                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                        Abre la hoja nativa de compartir de tu teléfono o laptop para mandar el respaldo directamente a WhatsApp, Telegram o Google Drive.
+                    </p>
+                    <button class="btn-sync-action btn-sync-light" onclick="MonarcaDB.shareBackup()">
+                        📤 Compartir Respaldo
+                    </button>
+                </div>
+            </div>
+
+            <!-- MÉTODO 3: ARCHIVO JSON TRADICIONAL -->
+            <div class="sync-method-card">
+                <div class="sync-method-icon">💾</div>
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Archivo de Respaldo (.JSON)</h4>
+                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                        Descarga una copia completa en tu equipo o carga un archivo JSON que hayas transferido previamente.
+                    </p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-sync-action btn-sync-light" onclick="MonarcaDB.exportBackup()">
+                            💾 Descargar JSON
+                        </button>
+                        <label class="btn-sync-action btn-sync-light" style="cursor: pointer; margin-bottom: 0;">
+                            📂 Cargar Archivo
+                            <input type="file" accept=".json" style="display: none;" onchange="if(this.files[0]) MonarcaDB.importBackup(this.files[0])">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ZONA DE RESTABLECIMIENTO -->
+        <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <span style="font-size: 11.5px; color: #9ca3af;">Almacenamiento Local PWA (Persistencia Segura Offline)</span>
+            <button class="btn-delete-row" style="font-size: 11.5px; padding: 6px 12px; border-radius: 9999px; background: #fff; border: 1px solid #e5e7eb;" onclick="MonarcaDB.resetDefault()">
                 Restablecer de Fábrica
             </button>
         </div>
     </div>`;
-    
+
     var cont = document.getElementById('contenedor-perfil');
     if (cont) cont.innerHTML = html;
 }
 
-// ==========================================================================
-// 4. MISIONES Y HÁBITOS
-// ==========================================================================
+// --- FUNCIONES DEL CENTRO DE SINCRONIZACIÓN ---
+
+function copiarCodigoSincronizacion() {
+    var codigo = MonarcaDB.generateSyncCode();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(codigo).then(function() {
+            alert("📋 ¡Código de sincronización copiado al portapapeles!\n\nAhora ve a tu WhatsApp o Telegram, envíatelo a ti mismo y en tu teléfono abre la app y selecciona '📥 Pegar y Sincronizar'.");
+        }).catch(function() {
+            mostrarPromptCodigo(codigo);
+        });
+    } else {
+        mostrarPromptCodigo(codigo);
+    }
+}
+
+function mostrarPromptCodigo(codigo) {
+    prompt("Copia este código de sincronización para llevar tus datos a tu teléfono:", codigo);
+}
+
+function abrirModalSincronizarCodigo() {
+    var inTexto = document.getElementById('modal-sync-input-codigo');
+    if (inTexto) inTexto.value = "";
+    var prev = document.getElementById('modal-sync-preview-box');
+    if (prev) prev.innerHTML = '<span style="color:#9ca3af; font-size:12px;">Pega tu código arriba para ver los datos a restaurar.</span>';
+    var btn = document.getElementById('btn-confirmar-sync-codigo');
+    if (btn) btn.disabled = true;
+
+    var m = document.getElementById('modal-sincronizar-codigo');
+    if (m) m.style.display = 'flex';
+}
+
+function cerrarModalSincronizarCodigo() {
+    var m = document.getElementById('modal-sincronizar-codigo');
+    if (m) m.style.display = 'none';
+}
+
+async function pegarDesdePortapapelesSync() {
+    var inTexto = document.getElementById('modal-sync-input-codigo');
+    try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+            var clipText = await navigator.clipboard.readText();
+            if (clipText && inTexto) {
+                inTexto.value = clipText.trim();
+                analizarCodigoSincronizacion(clipText.trim());
+                return;
+            }
+        }
+    } catch(err) {
+        console.warn("Clipboard access denied:", err);
+    }
+    if (inTexto) inTexto.focus();
+}
+
+function analizarCodigoSincronizacion(codigo) {
+    var prev = document.getElementById('modal-sync-preview-box');
+    var btn = document.getElementById('btn-confirmar-sync-codigo');
+    if (!prev) return;
+
+    if (!codigo || codigo.trim() === '') {
+        prev.innerHTML = '<span style="color:#9ca3af; font-size:12px;">Pega tu código arriba para ver los datos a restaurar.</span>';
+        if (btn) btn.disabled = true;
+        return;
+    }
+
+    try {
+        var data = MonarcaDB.decodeSyncCode(codigo);
+        if (data && typeof data === 'object') {
+            var nNom = data.jugador ? data.jugador.titulo : "Gabriel Arias";
+            var nNiv = data.jugador ? data.jugador.nivel : 1;
+            var nMis = data.misiones ? data.misiones.length : 0;
+            var nHab = data.habilidades ? data.habilidades.length : 0;
+            var nIng = (data.finanzas && data.finanzas.ingresos) ? data.finanzas.ingresos.length : 0;
+            var nGas = (data.finanzas && data.finanzas.gastos) ? data.finanzas.gastos.length : 0;
+            var nIde = data.ideas ? data.ideas.length : 0;
+            var nRut = data.rutinas ? data.rutinas.length : 0;
+            var nEj = data.ejercicios ? data.ejercicios.length : 0;
+
+            prev.innerHTML = `
+            <div style="color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 14px; font-size: 12.5px;">
+                <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <span>✓</span> Respaldo verificado con éxito
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; color: #047857; margin-top: 6px;">
+                    <div>• 👤 Jugador: <strong>${nNom} (Nivel ${nNiv})</strong></div>
+                    <div>• ⚡ Misiones: <strong>${nMis} hábitos</strong></div>
+                    <div>• 🔮 Habilidades: <strong>${nHab} activas</strong></div>
+                    <div>• 💰 Finanzas: <strong>${nIng} ingresos / ${nGas} gastos</strong></div>
+                    <div>• 💡 Ideas: <strong>${nIde} guardadas</strong></div>
+                    <div>• 🏋️‍♂️ Condición: <strong>${nRut} rutinas, ${nEj} ejercicios</strong></div>
+                </div>
+            </div>`;
+
+            if (btn) {
+                btn.disabled = false;
+                btn.onclick = function() {
+                    MonarcaDB.applySyncData(data);
+                };
+            }
+        }
+    } catch(err) {
+        prev.innerHTML = `
+        <div style="color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 12px;">
+            ⚠️ El código ingresado no tiene un formato válido o está incompleto.
+        </div>`;
+        if (btn) btn.disabled = true;
+    }
+}
+
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE ACCIONES Y PROGRESIÓN
+ * Misiones Diarias & Hábitos, Árbol de Habilidades con Rangos (E a SSS).
+ */
 
 function cargarMisiones() {
     renderizarMisiones(APP_STATE.misiones);
 }
 
+function abrirModalNuevaMision() {
+    var m = document.getElementById('modal-nueva-mision');
+    if (m) m.style.display = 'flex';
+}
+
+function cerrarModalNuevaMision() {
+    var m = document.getElementById('modal-nueva-mision');
+    if (m) m.style.display = 'none';
+}
+
+function confirmarAgregarMision() {
+    var inNombre = document.getElementById('modal-mision-nombre');
+    var inFreq = document.getElementById('modal-mision-frecuencia');
+    var inAtr = document.getElementById('modal-mision-atributo');
+    var inExp = document.getElementById('modal-mision-exp');
+
+    var nom = inNombre ? inNombre.value.trim() : "";
+    var freq = inFreq ? inFreq.value : "Diaria";
+    var atr = inAtr ? inAtr.value : "INT";
+    var exp = inExp ? (Number(inExp.value) || 25) : 25;
+
+    if (!nom) {
+        alert("Por favor ingresa un nombre para la misión o hábito.");
+        return;
+    }
+    if (exp <= 0) exp = 25;
+
+    if (!APP_STATE.misiones) APP_STATE.misiones = [];
+
+    var nuevaMision = {
+        id: "MIS-" + Date.now(),
+        nombre: nom,
+        frecuencia: freq,
+        atributo: atr,
+        exp: exp,
+        estado: "Pendiente",
+        fechaRegistro: new Date().toLocaleDateString('es-ES')
+    };
+
+    APP_STATE.misiones.unshift(nuevaMision);
+    MonarcaDB.save(APP_STATE);
+
+    if (inNombre) inNombre.value = "";
+    if (inExp) inExp.value = "25";
+
+    cerrarModalNuevaMision();
+    renderizarMisiones(APP_STATE.misiones);
+}
+
 function renderizarMisiones(misiones) {
+    var mList = misiones || APP_STATE.misiones || [];
     var html = "";
-    if (misiones && misiones.length > 0) {
-        misiones.forEach(function(m, idx) {
-            var esCompletado = m.estado === "Completado";
-            var estiloTarjeta = esCompletado 
-                ? "background: #f9fafb; border: 1px solid #e5e7eb; opacity: 0.7;" 
-                : "background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.02);";
-            
-            var estiloBoton = esCompletado 
-                ? "background-color: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; cursor: default;" 
-                : "background: #111827; color: white; border: 1px solid #111827; cursor: pointer;";
-            
-            var textoBoton = esCompletado ? "✓ Completado" : "Completar";
-            var accionClick = esCompletado ? "" : `onclick="marcarCompletado(${m.id})"`;
+
+    if (mList && mList.length > 0) {
+        mList.forEach(function(m) {
+            var esCompletado = (m.estado === "Completado" || m.estado === "Completada");
 
             html += `
-            <div style="${estiloTarjeta} border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;">
-                <div style="flex-grow: 1; padding-right: 15px;">
-                    <div style="color: #111827; font-weight: 700; font-size: 15px; margin-bottom: 4px;">
-                        <span style="font-size: 10.5px; font-weight: 700; background: #f3f4f6; color: #4b5563; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb; margin-right: 6px;">[${m.frecuencia}]</span> 
-                        ${m.nombre}
+            <div class="mision-card ${esCompletado ? 'completada' : ''}">
+                <div style="flex-grow: 1; padding-right: 14px;">
+                    <div style="color: #111827; font-weight: 700; font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="mision-frecuencia-badge">[${m.frecuencia || 'Diaria'}]</span>
+                        <span style="${esCompletado ? 'text-decoration: line-through; color: #6b7280;' : ''}">${m.nombre}</span>
                     </div>
-                    <div style="color: #6b7280; font-size: 12px; display: flex; align-items: center; gap: 8px;">
-                        <span style="color: #10b981; font-weight: 700;">+${m.exp} EXP (${m.atributo})</span>
+                    <div style="color: #6b7280; font-size: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="color: #10b981; font-weight: 700;">+${m.exp} EXP (${m.atributo || 'EXP'})</span>
                         <span style="color: #d1d5db;">|</span>
-                        <span>Estado: <strong style="${esCompletado ? 'color:#10b981;' : 'color:#d97706;'}">${m.estado}</strong></span>
+                        <span>Estado: <strong style="${esCompletado ? 'color:#10b981;' : 'color:#d97706;'}">${esCompletado ? 'Completada' : 'Pendiente'}</strong></span>
                     </div>
                 </div>
-                <div>
-                    <button ${accionClick} style="${estiloBoton} padding: 8px 16px; border-radius: 9999px; font-weight: 600; font-size: 12px; transition: all 0.2s;">
-                        ${textoBoton}
-                    </button>
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    ${!esCompletado ? `
+                        <button class="btn-completar-mision" onclick="marcarCompletado('${m.id}')">
+                            Completar
+                        </button>
+                    ` : `
+                        <button class="btn-completar-mision completado" onclick="marcarCompletado('${m.id}')" title="Haga clic para desmarcar o reiniciar">
+                            ✓ Hecho
+                        </button>
+                    `}
+                    <button class="btn-delete-row" title="Eliminar misión" onclick="eliminarMision('${m.id}')" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px;">✕</button>
                 </div>
             </div>`;
         });
     } else {
-        html = "<p style='text-align: center; color: #6b7280; padding: 20px;'>No hay misiones activas por el momento.</p>";
+        html = `
+        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
+            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes misiones activas</h4>
+            <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
+                Empieza a construir tu disciplina. Registra un nuevo hábito diario o semanal para comenzar a ganar EXP y subir de nivel.
+            </p>
+            <button class="btn-add-finanza" onclick="abrirModalNuevaMision()">
+                ➕ Crear Primera Misión
+            </button>
+        </div>`;
     }
+
     var cont = document.getElementById('contenedor-misiones');
     if (cont) cont.innerHTML = html;
 }
@@ -404,9 +776,15 @@ function renderizarMisiones(misiones) {
 function marcarCompletado(id) {
     if (!APP_STATE.misiones) return;
     for (var i = 0; i < APP_STATE.misiones.length; i++) {
-        if (APP_STATE.misiones[i].id === id) {
-            APP_STATE.misiones[i].estado = "Completado";
-            sumarExp(APP_STATE.misiones[i].exp || 25);
+        if (String(APP_STATE.misiones[i].id) === String(id)) {
+            var m = APP_STATE.misiones[i];
+            if (m.estado === "Completado" || m.estado === "Completada") {
+                // Alternar a pendiente
+                m.estado = "Pendiente";
+            } else {
+                m.estado = "Completado";
+                sumarExp(m.exp || 25);
+            }
             break;
         }
     }
@@ -414,67 +792,226 @@ function marcarCompletado(id) {
     renderizarMisiones(APP_STATE.misiones);
 }
 
+function eliminarMision(id) {
+    if (!confirm("¿Deseas eliminar esta misión de tu lista?")) return;
+    if (!APP_STATE.misiones) return;
+    APP_STATE.misiones = APP_STATE.misiones.filter(function(m) {
+        return String(m.id) !== String(id);
+    });
+    MonarcaDB.save(APP_STATE);
+    renderizarMisiones(APP_STATE.misiones);
+}
+
 // ==========================================================================
-// 5. HABILIDADES Y RANGOS
+// 5. ÁRBOL DE HABILIDADES (RANGOS POR HORAS DE PRÁCTICA)
 // ==========================================================================
 
-function calcularRangoYRequisito(horas) {
-    var h = Number(horas) || 0;
-    if (h >= 285) {
-        return { rango: "Rango SSS (Máximo)", horasEnNivel: h - 285, horasReqNivel: 0, porcentaje: 100, siguiente: "¡Rango Máximo Alcanzado!" };
+/**
+ * Escala exacta requerida por el usuario:
+ * Rango E (Mínimo): 0 - 5 horas (Entiendes la sintaxis básica y los "Hola mundo").
+ * Rango D: 5 - 10 horas (Puedes hacer scripts sencillos tú solo).
+ * Rango C: 10 - 20 horas (Empiezas a crear proyectos funcionales pequeños).
+ * Rango B: 20 - 30 horas (Dominas lógica avanzada y depuración).
+ * Rango A: 30 - 40 horas (Capaz de desarrollar software estructurado y eficiente).
+ * Rango S: 40 - 50 horas (Nivel profesional junior / resolución de problemas complejos).
+ * Rango SS: 50 - 60 horas (Dominio avanzado, arquitectura de sistemas) -> meta 70 hrs hacia SSS.
+ * Rango SSS (Máximo): 70+ horas (Maestría absoluta / Nivel experto).
+ */
+function calcularRangoYProgreso(horas) {
+    var h = Math.max(0, Number(horas) || 0);
+
+    if (h >= 70) {
+        return {
+            rango: "Rango SSS (Máximo)",
+            badgeClass: "badge-rank-sss",
+            descripcion: "Maestría absoluta / Nivel experto.",
+            horasEnNivel: h,
+            horasReqNivel: 70,
+            porcentaje: 100,
+            siguiente: "¡Maestría Absoluta Alcanzada!"
+        };
+    } else if (h >= 50) {
+        // Rango SS: 50 - 70 hrs (meta SSS en 70)
+        var enNivel = h - 50;
+        var req = 20;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 70 - h;
+        return {
+            rango: "Rango SS",
+            badgeClass: "badge-rank-ss",
+            descripcion: "Dominio avanzado, arquitectura de sistemas.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para SSS"
+        };
+    } else if (h >= 40) {
+        // Rango S: 40 - 50 hrs
+        var enNivel = h - 40;
+        var req = 10;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 50 - h;
+        return {
+            rango: "Rango S",
+            badgeClass: "badge-rank-s",
+            descripcion: "Nivel profesional junior / resolución de problemas complejos.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para SS"
+        };
+    } else if (h >= 30) {
+        // Rango A: 30 - 40 hrs
+        var enNivel = h - 30;
+        var req = 10;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 40 - h;
+        return {
+            rango: "Rango A",
+            badgeClass: "badge-rank-a",
+            descripcion: "Capaz de desarrollar software estructurado y eficiente.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para S"
+        };
+    } else if (h >= 20) {
+        // Rango B: 20 - 30 hrs
+        var enNivel = h - 20;
+        var req = 10;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 30 - h;
+        return {
+            rango: "Rango B",
+            badgeClass: "badge-rank-b",
+            descripcion: "Dominas lógica avanzada y depuración.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para A"
+        };
+    } else if (h >= 10) {
+        // Rango C: 10 - 20 hrs
+        var enNivel = h - 10;
+        var req = 10;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 20 - h;
+        return {
+            rango: "Rango C",
+            badgeClass: "badge-rank-c",
+            descripcion: "Empiezas a crear proyectos funcionales pequeños.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para B"
+        };
+    } else if (h >= 5) {
+        // Rango D: 5 - 10 hrs
+        var enNivel = h - 5;
+        var req = 5;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 10 - h;
+        return {
+            rango: "Rango D",
+            badgeClass: "badge-rank-d",
+            descripcion: "Puedes hacer scripts sencillos tú solo.",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para C"
+        };
+    } else {
+        // Rango E: 0 - 5 hrs
+        var enNivel = h;
+        var req = 5;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = 5 - h;
+        return {
+            rango: "Rango E",
+            badgeClass: "badge-rank-e",
+            descripcion: "Entiendes la sintaxis básica y los \"Hola mundo\".",
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + faltan + " hrs para D"
+        };
     }
-    if (h >= 215) {
-        var n1 = h - 215;
-        return { rango: "Rango SS", horasEnNivel: n1, horasReqNivel: 70, porcentaje: Math.min(100, Math.floor((n1 / 70) * 100)), siguiente: "Faltan " + (70 - n1) + " hrs para SSS" };
-    }
-    if (h >= 155) {
-        var n2 = h - 155;
-        return { rango: "Rango S", horasEnNivel: n2, horasReqNivel: 60, porcentaje: Math.min(100, Math.floor((n2 / 60) * 100)), siguiente: "Faltan " + (60 - n2) + " hrs para SS" };
-    }
-    if (h >= 105) {
-        var n3 = h - 105;
-        return { rango: "Rango A", horasEnNivel: n3, horasReqNivel: 50, porcentaje: Math.min(100, Math.floor((n3 / 50) * 100)), siguiente: "Faltan " + (50 - n3) + " hrs para S" };
-    }
-    if (h >= 65) {
-        var n4 = h - 65;
-        return { rango: "Rango B", horasEnNivel: n4, horasReqNivel: 40, porcentaje: Math.min(100, Math.floor((n4 / 40) * 100)), siguiente: "Faltan " + (40 - n4) + " hrs para A" };
-    }
-    if (h >= 35) {
-        var n5 = h - 35;
-        return { rango: "Rango C", horasEnNivel: n5, horasReqNivel: 30, porcentaje: Math.min(100, Math.floor((n5 / 30) * 100)), siguiente: "Faltan " + (30 - n5) + " hrs para B" };
-    }
-    if (h >= 15) {
-        var n6 = h - 15;
-        return { rango: "Rango D", horasEnNivel: n6, horasReqNivel: 20, porcentaje: Math.min(100, Math.floor((n6 / 20) * 100)), siguiente: "Faltan " + (20 - n6) + " hrs para C" };
-    }
-    if (h >= 5) {
-        var n7 = h - 5;
-        return { rango: "Rango E", horasEnNivel: n7, horasReqNivel: 10, porcentaje: Math.min(100, Math.floor((n7 / 10) * 100)), siguiente: "Faltan " + (10 - n7) + " hrs para D" };
-    }
-    return { rango: "Sin Rango", horasEnNivel: h, horasReqNivel: 5, porcentaje: Math.min(100, Math.floor((h / 5) * 100)), siguiente: "Faltan " + (5 - h) + " hrs para E" };
 }
 
 function cargarHabilidades() {
     renderizarHabilidades(APP_STATE.habilidades);
 }
 
+function abrirModalNuevaHabilidad() {
+    var m = document.getElementById('modal-nueva-habilidad');
+    if (m) m.style.display = 'flex';
+}
+
+function cerrarModalNuevaHabilidad() {
+    var m = document.getElementById('modal-nueva-habilidad');
+    if (m) m.style.display = 'none';
+}
+
+function confirmarAgregarHabilidad() {
+    var inNom = document.getElementById('modal-habilidad-nombre');
+    var inBen = document.getElementById('modal-habilidad-beneficio');
+    var inHrs = document.getElementById('modal-habilidad-horas');
+
+    var nom = inNom ? inNom.value.trim() : "";
+    var ben = inBen ? inBen.value.trim() : "";
+    var hrs = inHrs ? (Number(inHrs.value) || 0) : 0;
+
+    if (!nom) {
+        alert("Por favor ingresa el nombre de la habilidad.");
+        return;
+    }
+
+    // Comienza estrictamente en Rango E (0 a 4 horas)
+    var hrsClamped = Math.min(4, Math.max(0, hrs));
+
+    if (!APP_STATE.habilidades) APP_STATE.habilidades = [];
+
+    var nuevaHabilidad = {
+        id: "SKILL-" + Date.now(),
+        nombre: nom,
+        beneficio: ben || "Incremento de destreza y capacidad técnica",
+        horasTotales: hrsClamped
+    };
+
+    APP_STATE.habilidades.push(nuevaHabilidad);
+    MonarcaDB.save(APP_STATE);
+
+    if (inNom) inNom.value = "";
+    if (inBen) inBen.value = "";
+    if (inHrs) inHrs.value = "0";
+
+    cerrarModalNuevaHabilidad();
+    renderizarHabilidades(APP_STATE.habilidades);
+}
+
 function renderizarHabilidades(skills) {
+    var sList = skills || APP_STATE.habilidades || [];
     var html = "";
-    if (skills && skills.length > 0) {
-        skills.forEach(function(s) {
-            var calc = calcularRangoYRequisito(s.horasTotales);
+
+    if (sList && sList.length > 0) {
+        sList.forEach(function(s) {
+            var calc = calcularRangoYProgreso(s.horasTotales);
             var porcentaje = calc.porcentaje;
 
             html += `
             <div class="skill-card">
                 <div class="skill-card-header">
                     <div>
-                        <span class="skill-rank-badge">${calc.rango}</span>
+                        <span class="skill-rank-badge ${calc.badgeClass}">${calc.rango}</span>
                         <h3 class="skill-name">${s.nombre}</h3>
+                        <div class="skill-desc-tier">${calc.descripcion}</div>
                     </div>
-                    <button onclick="sumarHora(${s.id})" class="btn-add-hora">
-                        +1 Hora
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button onclick="sumarHora('${s.id}')" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">
+                            +1 Hora
+                        </button>
+                        <button class="btn-delete-row" title="Eliminar habilidad" onclick="eliminarHabilidad('${s.id}')" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px;">✕</button>
+                    </div>
                 </div>
 
                 <div class="skill-progress-track">
@@ -491,8 +1028,19 @@ function renderizarHabilidades(skills) {
             </div>`;
         });
     } else {
-        html = "<p style='text-align: center; color: #6b7280; padding: 20px;'>No hay habilidades registradas en el sistema.</p>";
+        html = `
+        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">🔮</span>
+            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No hay habilidades registradas</h4>
+            <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
+                Registra una nueva disciplina o tecnología. Comenzará en Rango E e irá ascendiendo automáticamente de rango a medida que acumules horas.
+            </p>
+            <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()">
+                ➕ Registrar Nueva Habilidad
+            </button>
+        </div>`;
     }
+
     var cont = document.getElementById('contenedor-habilidades');
     if (cont) cont.innerHTML = html;
 }
@@ -500,20 +1048,45 @@ function renderizarHabilidades(skills) {
 function sumarHora(id) {
     if (!APP_STATE.habilidades) return;
     for (var i = 0; i < APP_STATE.habilidades.length; i++) {
-        if (APP_STATE.habilidades[i].id === id) {
-            APP_STATE.habilidades[i].horasTotales = (APP_STATE.habilidades[i].horasTotales || 0) + 1;
+        if (String(APP_STATE.habilidades[i].id) === String(id)) {
+            var s = APP_STATE.habilidades[i];
+            var prevCalc = calcularRangoYProgreso(s.horasTotales);
+            s.horasTotales = (s.horasTotales || 0) + 1;
+            var newCalc = calcularRangoYProgreso(s.horasTotales);
+
+            // Recompensa de EXP
+            sumarExp(10);
+
+            if (newCalc.rango !== prevCalc.rango) {
+                setTimeout(function() {
+                    alert("🎖️ ¡ASCENSO DE RANGO! Has alcanzado " + newCalc.rango + " en " + s.nombre + ".");
+                }, 100);
+            }
             break;
         }
     }
-    sumarExp(10);
     MonarcaDB.save(APP_STATE);
     renderizarHabilidades(APP_STATE.habilidades);
 }
 
-// ==========================================================================
-// ==========================================================================
+function eliminarHabilidad(id) {
+    if (!confirm("¿Deseas eliminar esta habilidad y su progreso?")) return;
+    if (!APP_STATE.habilidades) return;
+    APP_STATE.habilidades = APP_STATE.habilidades.filter(function(s) {
+        return String(s.id) !== String(id);
+    });
+    MonarcaDB.save(APP_STATE);
+    renderizarHabilidades(APP_STATE.habilidades);
+}
+
 // 6. ESTADO PERSONAL Y MAPA DE CALOR CORPORAL ANATÓMICO
 // ==========================================================================
+
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE ESTADO PERSONAL
+ * Mapa de Calor Anatómico SVG, Banco de Ejercicios, Rutinas Dinámicas y Mente.
+ */
 
 var METADATOS_MUSCULOS = {
     "mente": { nombre: "Mente & Concentración", icono: "🧠", region: "Sistema Neural · Cabeza", descanso: "Descanso mental, desconexión y sueño reparador." },
@@ -824,39 +1397,311 @@ var RUTINA_PALETA = [
 
 var RUTINA_ACTIVA = null;
 
+// ==========================================================================
+// 7. EJERCICIOS, RUTINAS DINÁMICAS Y CONDICIÓN FÍSICA (GYM)
+// ==========================================================================
+
+var CHIPS_SELECCIONADOS_MUSCULOS = [];
+
+var MAPA_CATEGORIAS_A_MUSCULOS = {
+    "Mente": ["mente"],
+    "Hombros": ["delt_ant", "delt_lat", "delt_post"],
+    "Pecho": ["pect_mayor", "pect_menor"],
+    "Bíceps": ["biceps"],
+    "Tríceps": ["triceps"],
+    "Antebrazos": ["antebrazos"],
+    "Trapecios": ["trapecios"],
+    "Dorsales": ["dorsales"],
+    "Lumbares": ["lumbares"],
+    "Core": ["core"],
+    "Glúteos": ["gluteos"],
+    "Cadera": ["cadera"],
+    "Cuádriceps": ["cuadriceps"],
+    "Isquios": ["isquios"],
+    "Pantorrillas": ["pantorrillas"]
+};
+
+var RUTINA_ACTIVA = null;
+
+// --- GESTIÓN DE EJERCICIOS ---
+
+function cargarEjercicios() {
+    renderizarEjercicios(APP_STATE.ejercicios);
+}
+
+function toggleChipMusculo(btn) {
+    var cat = btn.getAttribute('data-cat');
+    if (btn.classList.contains('selected')) {
+        btn.classList.remove('selected');
+        CHIPS_SELECCIONADOS_MUSCULOS = CHIPS_SELECCIONADOS_MUSCULOS.filter(function(c) { return c !== cat; });
+    } else {
+        btn.classList.add('selected');
+        if (!CHIPS_SELECCIONADOS_MUSCULOS.includes(cat)) {
+            CHIPS_SELECCIONADOS_MUSCULOS.push(cat);
+        }
+    }
+}
+
+function abrirModalNuevoEjercicio() {
+    CHIPS_SELECCIONADOS_MUSCULOS = [];
+    var chips = document.querySelectorAll('.muscle-chip-btn');
+    chips.forEach(function(c) { c.classList.remove('selected'); });
+    var inNom = document.getElementById('modal-ejercicio-nombre');
+    var inDesc = document.getElementById('modal-ejercicio-desc');
+    if (inNom) inNom.value = "";
+    if (inDesc) inDesc.value = "";
+    var m = document.getElementById('modal-nuevo-ejercicio');
+    if (m) m.style.display = 'flex';
+}
+
+function cerrarModalNuevoEjercicio() {
+    var m = document.getElementById('modal-nuevo-ejercicio');
+    if (m) m.style.display = 'none';
+}
+
+function confirmarAgregarEjercicio() {
+    var inNom = document.getElementById('modal-ejercicio-nombre');
+    var inDesc = document.getElementById('modal-ejercicio-desc');
+    var inSeries = document.getElementById('modal-ejercicio-series');
+    var inReps = document.getElementById('modal-ejercicio-reps');
+    var inFat = document.getElementById('modal-ejercicio-fatiga');
+
+    var nom = inNom ? inNom.value.trim() : "";
+    var desc = inDesc ? inDesc.value.trim() : "";
+    var series = inSeries ? (Number(inSeries.value) || 4) : 4;
+    var reps = inReps ? inReps.value.trim() : "10-12 reps";
+    var fatigaPct = inFat ? (Number(inFat.value) || 20) : 20;
+
+    if (!nom) {
+        alert("Por favor ingresa el nombre del ejercicio.");
+        return;
+    }
+    if (CHIPS_SELECCIONADOS_MUSCULOS.length === 0) {
+        alert("Selecciona al menos una categoría o zona muscular que trabaja este ejercicio.");
+        return;
+    }
+
+    if (!APP_STATE.ejercicios) APP_STATE.ejercicios = [];
+
+    var nuevoEjercicio = {
+        id: "EJ-" + Date.now(),
+        nombre: nom,
+        descripcion: desc || "Ejercicio de desarrollo físico",
+        series: series,
+        repeticiones: reps,
+        categorias: [...CHIPS_SELECCIONADOS_MUSCULOS],
+        fatigaPorcentaje: fatigaPct
+    };
+
+    APP_STATE.ejercicios.push(nuevoEjercicio);
+    MonarcaDB.save(APP_STATE);
+
+    cerrarModalNuevoEjercicio();
+    renderizarEjercicios(APP_STATE.ejercicios);
+}
+
+function renderizarEjercicios(ejercicios) {
+    var eList = ejercicios || APP_STATE.ejercicios || [];
+    var cont = document.getElementById('contenedor-ejercicios');
+    if (!cont) return;
+
+    if (!eList || eList.length === 0) {
+        cont.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
+            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes ejercicios registrados</h4>
+            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+                Crea tus ejercicios especificando series, repeticiones, zonas musculares trabajadas y nivel de fatiga para armar tus rutinas.
+            </p>
+            <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()">
+                ➕ Crear Primer Ejercicio
+            </button>
+        </div>`;
+        return;
+    }
+
+    var html = '';
+    eList.forEach(function(ej) {
+        var muscleBadges = (ej.categorias || []).map(function(cat) {
+            return `<span class="badge-exercise-muscle">${cat}</span>`;
+        }).join('');
+
+        html += `
+        <div class="exercise-card">
+            <div class="exercise-card-header">
+                <div>
+                    <h3 class="exercise-card-name">${ej.nombre}</h3>
+                    <p class="exercise-card-desc">${ej.descripcion}</p>
+                </div>
+                <button class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;">✕</button>
+            </div>
+
+            <div class="exercise-badges-row">
+                <span class="badge-exercise-reps">${ej.series} Series × ${ej.repeticiones}</span>
+                <span class="badge-exercise-fatiga">+${ej.fatigaPorcentaje || 20}% Fatiga</span>
+                ${muscleBadges}
+            </div>
+        </div>`;
+    });
+
+    cont.innerHTML = html;
+}
+
+function eliminarEjercicio(id) {
+    if (!confirm("¿Deseas eliminar este ejercicio?")) return;
+    if (!APP_STATE.ejercicios) return;
+    APP_STATE.ejercicios = APP_STATE.ejercicios.filter(function(e) {
+        return String(e.id) !== String(id);
+    });
+    MonarcaDB.save(APP_STATE);
+    renderizarEjercicios(APP_STATE.ejercicios);
+}
+
+// --- GESTIÓN DE RUTINAS DINÁMICAS ---
+
 function cargarGym() {
     renderizarPortalesRutinas(APP_STATE.rutinas);
     renderizarGym(APP_STATE.gym);
+}
+
+function abrirModalNuevaRutina() {
+    var contCheck = document.getElementById('modal-rutina-checklist-ejercicios');
+    if (contCheck) {
+        var eList = APP_STATE.ejercicios || [];
+        if (eList.length === 0) {
+            contCheck.innerHTML = `
+            <div style="text-align: center; padding: 18px 10px; color: #6b7280; font-size: 13px;">
+                No tienes ejercicios creados todavía.<br>
+                <a href="javascript:void(0)" onclick="cerrarModalNuevaRutina(); cambiarVista('vista-ejercicios');" style="color: #111827; font-weight: 700; text-decoration: underline; margin-top: 6px; display: inline-block;">
+                    👉 Ir a Banco de Ejercicios
+                </a>
+            </div>`;
+        } else {
+            var html = '';
+            eList.forEach(function(ej) {
+                var cats = (ej.categorias || []).join(', ');
+                html += `
+                <label class="modal-checklist-item">
+                    <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}">
+                    <div style="flex: 1;">
+                        <strong style="color: #111827;">${ej.nombre}</strong>
+                        <div style="font-size: 11.5px; color: #6b7280;">${ej.series} series × ${ej.repeticiones} · [${cats}] (+${ej.fatigaPorcentaje || 20}% fatiga)</div>
+                    </div>
+                </label>`;
+            });
+            contCheck.innerHTML = html;
+        }
+    }
+    var inNom = document.getElementById('modal-rutina-nombre');
+    var inDesc = document.getElementById('modal-rutina-desc');
+    if (inNom) inNom.value = "";
+    if (inDesc) inDesc.value = "";
+    var m = document.getElementById('modal-nueva-rutina');
+    if (m) m.style.display = 'flex';
+}
+
+function cerrarModalNuevaRutina() {
+    var m = document.getElementById('modal-nueva-rutina');
+    if (m) m.style.display = 'none';
+}
+
+function confirmarAgregarRutina() {
+    var inNom = document.getElementById('modal-rutina-nombre');
+    var inDesc = document.getElementById('modal-rutina-desc');
+    var inTag = document.getElementById('modal-rutina-tag');
+
+    var nom = inNom ? inNom.value.trim() : "";
+    var desc = inDesc ? inDesc.value.trim() : "";
+    var tag = inTag ? inTag.value.trim() : "DIARIA · FUERZA";
+
+    if (!nom) {
+        alert("Por favor ingresa un nombre para la rutina.");
+        return;
+    }
+
+    var checkboxes = document.querySelectorAll('input[name="ejercicios_rutina_check"]:checked');
+    if (checkboxes.length === 0) {
+        alert("Selecciona al menos un ejercicio para esta rutina.");
+        return;
+    }
+
+    var selectedIds = Array.from(checkboxes).map(function(c) { return c.value; });
+    var selectedEjercicios = (APP_STATE.ejercicios || []).filter(function(e) {
+        return selectedIds.includes(String(e.id));
+    });
+
+    if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
+
+    var nuevaRutina = {
+        id: "RUT-" + Date.now(),
+        codigo: "RUT-" + (APP_STATE.rutinas.length + 1),
+        nombre: nom,
+        descripcion: desc || "Entrenamiento programado",
+        rankLabel: tag,
+        ejercicios: selectedEjercicios
+    };
+
+    APP_STATE.rutinas.push(nuevaRutina);
+    MonarcaDB.save(APP_STATE);
+
+    cerrarModalNuevaRutina();
+    renderizarPortalesRutinas(APP_STATE.rutinas);
+}
+
+function eliminarRutina(idx, event) {
+    if (event) event.stopPropagation();
+    if (!confirm("¿Deseas eliminar esta rutina programada?")) return;
+    if (!APP_STATE.rutinas) return;
+    APP_STATE.rutinas.splice(idx, 1);
+    MonarcaDB.save(APP_STATE);
+    renderizarPortalesRutinas(APP_STATE.rutinas);
 }
 
 function renderizarPortalesRutinas(rutinas) {
     var cont = document.getElementById('contenedor-portales-rutinas');
     if (!cont) return;
 
-    if (!rutinas || rutinas.length === 0) {
-        cont.innerHTML = "<p style='color:#6b7280;text-align:center;padding:20px;'>No hay rutinas programadas.</p>";
+    var rList = rutinas || APP_STATE.rutinas || [];
+
+    if (!rList || rList.length === 0) {
+        cont.innerHTML = `
+        <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
+            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes rutinas creadas</h4>
+            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+                Arma tus sesiones de entrenamiento personalizadas seleccionando los ejercicios que has creado.
+            </p>
+            <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
+                ➕ Crear Primera Rutina
+            </button>
+        </div>`;
         return;
     }
 
     var html = '';
-    rutinas.forEach(function(rut, idx) {
-        var paleta = RUTINA_PALETA[idx % RUTINA_PALETA.length];
+    rList.forEach(function(rut, idx) {
         var numEj = rut.ejercicios ? rut.ejercicios.length : 0;
-        var badgeEj = numEj > 0 ? numEj + ' Ejercicios' : 'Rutina Vacía';
+        var badgeEj = numEj > 0 ? numEj + ' Ejercicios' : 'Sin Ejercicios';
 
-        html += `<div class="quest-card" onclick="abrirDetalleRutina(${idx})">
-            <div class="quest-icon-box">${paleta.icono}</div>
+        html += `
+        <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative;">
+            <div class="quest-icon-box">🏋️‍♂️</div>
             <div style="flex:1;">
-              <span class="quest-badge-rank">${paleta.rankLabel}</span>
+              <span class="quest-badge-rank">${rut.rankLabel || 'PERSONALIZADA'}</span>
               <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
               <div class="muscle-tags-row">
-                <span class="muscle-tag">${rut.codigo}</span>
+                <span class="muscle-tag">${rut.codigo || ('RUT-' + (idx + 1))}</span>
                 <span class="muscle-tag">${badgeEj}</span>
+                ${rut.descripcion ? `<span class="muscle-tag" style="background:none; border:none; color:#6b7280;">${rut.descripcion}</span>` : ''}
               </div>
             </div>
-            <span class="quest-arrow">›</span>
-          </div>`;
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn-delete-row" title="Eliminar rutina" onclick="eliminarRutina(${idx}, event)" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 6px;">✕</button>
+                <span class="quest-arrow">›</span>
+            </div>
+        </div>`;
     });
+
     cont.innerHTML = html;
 }
 
@@ -865,24 +1710,17 @@ function abrirDetalleRutina(idx) {
     if (!rutina) return;
     RUTINA_ACTIVA = { rutina: rutina, idx: idx };
 
-    var paleta = RUTINA_PALETA[idx % RUTINA_PALETA.length];
-    var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
+    cambiarVista('vista-detalle-rutina-dinamica');
+
     var tituloEl = document.getElementById('detalle-rutina-titulo');
     var badgeEl = document.getElementById('detalle-rutina-badge');
-
     if (tituloEl) tituloEl.innerText = rutina.nombre;
-    if (badgeEl) badgeEl.innerText = paleta.rankLabel;
+    if (badgeEl) badgeEl.innerText = rutina.rankLabel || 'RUTINA ACTIVA';
 
+    var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
     if (!cont) return;
 
-    if (!rutina.ejercicios || rutina.ejercicios.length === 0) {
-        cont.innerHTML = '<div style="text-align:center;padding:40px 20px;"><p style="color:#6b7280;">Esta rutina no contiene ejercicios.</p></div>';
-        return;
-    }
-
-    var numEj = rutina.ejercicios.length;
-    var claseCheck = 'check-rutina-din-' + idx;
-
+    var numEj = rutina.ejercicios ? rutina.ejercicios.length : 0;
     var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
     var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
     var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
@@ -890,386 +1728,212 @@ function abrirDetalleRutina(idx) {
 
     if (progrCont) progrCont.style.display = 'block';
     if (progrBarra) progrBarra.style.width = '0%';
-    if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
-    if (btnReg) { btnReg.style.display = 'block'; btnReg.disabled = true; btnReg.classList.remove('btn-ready-pulse'); }
+    if (progrTexto) progrTexto.innerText = '0 / ' + (numEj + 1) + ' (0%)';
+    if (btnReg) {
+        btnReg.style.display = 'block';
+        btnReg.disabled = true;
+    }
 
-    var html = '';
-    rutina.ejercicios.forEach(function(ej, i) {
-        html += `<label class="exercise-item-rpg">
-            <div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <h4>${i + 1}. ${ej.nombre}</h4>
-                <span class="badge-status-item">PENDIENTE</span>
-              </div>
-              ${ej.descripcion ? `<span class="badge-reps">${ej.descripcion}</span>` : ''}
+    var html = `
+    <!-- FASE 1: CALENTAMIENTO Y ACTIVACIÓN -->
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;">
+        <label class="exercise-item-rpg" style="margin: 0; background: transparent; border: none; padding: 0;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 16px;">🔥</span>
+                    <h4 style="margin: 0; font-size: 14.5px; color: #111827;">Fase 1: Calentamiento & Activación Articular</h4>
+                    <span class="badge-status-item" id="badge-calentamiento">PENDIENTE</span>
+                </div>
+                <span class="badge-reps" style="margin-top: 4px; display: inline-block;">5 MINUTOS · MOVILIDAD ARTICULAR Y PULSO CARDIACO</span>
             </div>
-            <input type="checkbox" class="${claseCheck}" style="display:none;" 
-              onchange="actualizarProgresoRutinaDinamica('${claseCheck}', ${numEj}, ${idx})">
+            <input type="checkbox" class="check-rutina-din" style="display: none;" onchange="actualizarProgresoRutinaDinamica()">
             <div class="custom-check-box">✓</div>
-          </label>`;
-    });
-    cont.innerHTML = html;
+        </label>
+    </div>
 
-    iniciarRutinaConEstiramiento('vista-detalle-rutina-dinamica', rutina.nombre);
+    <!-- FASE 2: EJERCICIOS DE LA RUTINA -->
+    <h4 style="font-size: 13.5px; text-transform: uppercase; color: #4b5563; margin: 16px 0 10px 0; letter-spacing: 0.5px;">Fase 2: Ejercicios Principales</h4>
+    `;
+
+    if (rutina.ejercicios && rutina.ejercicios.length > 0) {
+        rutina.ejercicios.forEach(function(ej, ejIdx) {
+            var muscleList = (ej.categorias || []).join(' · ');
+            html += `
+            <label class="exercise-item-rpg">
+                <div style="flex: 1; padding-right: 10px;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <h4 style="margin: 0;">${ejIdx + 1}. ${ej.nombre}</h4>
+                        <span class="badge-status-item">PENDIENTE</span>
+                    </div>
+                    <div style="color: #6b7280; font-size: 12px; margin-top: 3px;">${ej.descripcion}</div>
+                    <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span class="badge-reps">${ej.series} SERIES × ${ej.repeticiones}</span>
+                        <span class="badge-exercise-fatiga">+${ej.fatigaPorcentaje || 20}% Fatiga</span>
+                        <span style="font-size: 11px; color: #6b7280;">Zonas: <strong>${muscleList}</strong></span>
+                    </div>
+                </div>
+                <input type="checkbox" class="check-rutina-din" style="display: none;" onchange="actualizarProgresoRutinaDinamica()">
+                <div class="custom-check-box">✓</div>
+            </label>`;
+        });
+    } else {
+        html += '<p style="color: #6b7280; text-align: center; padding: 20px;">Esta rutina no tiene ejercicios agregados.</p>';
+    }
+
+    cont.innerHTML = html;
 }
 
-function actualizarProgresoRutinaDinamica(claseCheck, total, rutinaIdx) {
-    var checkboxes = document.querySelectorAll('.' + claseCheck);
-    var marcados = 0;
+function actualizarProgresoRutinaDinamica() {
+    var checks = document.querySelectorAll('.check-rutina-din');
+    var total = checks.length;
+    var completados = 0;
 
-    checkboxes.forEach(function(chk) {
-        var label = chk.closest('label');
-        var badgeStatus = label ? label.querySelector('.badge-status-item') : null;
-        if (chk.checked) {
-            marcados++;
-            if (label) label.classList.add('checked-active');
-            if (badgeStatus) badgeStatus.innerText = '✓ LISTO';
+    checks.forEach(function(c) {
+        var parentLabel = c.closest('.exercise-item-rpg');
+        var badgeStatus = parentLabel ? parentLabel.querySelector('.badge-status-item') : null;
+
+        if (c.checked) {
+            completados++;
+            if (badgeStatus) {
+                badgeStatus.innerText = 'LISTO';
+                badgeStatus.style.background = '#111827';
+                badgeStatus.style.color = '#ffffff';
+            }
         } else {
-            if (label) label.classList.remove('checked-active');
-            if (badgeStatus) badgeStatus.innerText = 'PENDIENTE';
+            if (badgeStatus) {
+                badgeStatus.innerText = 'PENDIENTE';
+                badgeStatus.style.background = '#f3f4f6';
+                badgeStatus.style.color = '#6b7280';
+            }
         }
     });
 
-    var porcentaje = total > 0 ? Math.round((marcados / total) * 100) : 0;
-    var barra = document.getElementById('progreso-barra-rutina-dinamica');
-    var texto = document.getElementById('progreso-texto-rutina-dinamica');
-    var boton = document.getElementById('btn-registrar-rutina-dinamica');
+    var pct = total > 0 ? Math.round((completados / total) * 100) : 0;
+    var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
+    var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
+    var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
 
-    if (barra) barra.style.width = porcentaje + '%';
-    if (texto) texto.innerText = marcados + ' / ' + total + ' (' + porcentaje + '%)';
+    if (progrBarra) progrBarra.style.width = pct + '%';
+    if (progrTexto) progrTexto.innerText = completados + ' / ' + total + ' (' + pct + '%)';
 
-    if (boton) {
-        if (marcados === total && total > 0) {
-            boton.disabled = false;
-            boton.classList.add('btn-ready-pulse');
-        } else {
-            boton.disabled = true;
-            boton.classList.remove('btn-ready-pulse');
-        }
+    if (btnReg) {
+        btnReg.disabled = (completados < total);
     }
 }
 
 function ejecutarRutinaDinamica() {
     if (!RUTINA_ACTIVA) return;
     var rutina = RUTINA_ACTIVA.rutina;
-    
-    // Sumar fatiga a los músculos involucrados
+
+    if (!APP_STATE.fatiga) APP_STATE.fatiga = DEFAULT_STATE.fatiga;
+
+    // Sumar fatiga a los músculos involucrados según cada ejercicio
     if (rutina.ejercicios) {
         rutina.ejercicios.forEach(function(ej) {
-            if (ej.fatiga) {
-                Object.keys(ej.fatiga).forEach(function(mKey) {
+            var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
+            (ej.categorias || []).forEach(function(cat) {
+                var mKeys = MAPA_CATEGORIAS_A_MUSCULOS[cat] || [];
+                mKeys.forEach(function(mKey) {
                     var actual = Number(APP_STATE.fatiga[mKey]) || 0;
-                    APP_STATE.fatiga[mKey] = Math.min(100, actual + ej.fatiga[mKey]);
+                    APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
                 });
-            }
+            });
         });
     }
 
+    // Recalcular promedio de fatiga del cuerpo
+    var keysFatiga = Object.keys(METADATOS_MUSCULOS);
+    var sumaTotal = 0;
+    keysFatiga.forEach(function(k) {
+        sumaTotal += (Number(APP_STATE.fatiga[k]) || 0);
+    });
+    APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
+    APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + rutina.nombre;
+
+    // Registrar en Historial de Gym
     var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
     if (!APP_STATE.gym) APP_STATE.gym = [];
     APP_STATE.gym.unshift({
         fecha: fechaHoy,
-        detalle: rutina.nombre + " (100% completada)"
+        detalle: "Rutina completada: " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
     });
 
+    // Otorgar EXP
     sumarExp(60);
+
     MonarcaDB.save(APP_STATE);
 
-    alert("¡Excelente sesión! Has completado '" + rutina.nombre + "'. Ganaste +60 EXP.");
+    alert("🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\nLa fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.");
+
     cambiarVista('vista-estado-personal');
     renderizarBarrasFatiga(APP_STATE.fatiga);
 }
 
-function ejecutarRutina(tipo) {
-    var nombre = "Rutina";
-    if (tipo === 'mananera') nombre = "Rutina Mañanera";
-    else if (tipo === 'empuje') nombre = "Rutina de Empuje";
-    else if (tipo === 'pierna') nombre = "Rutina de Pierna";
-    else if (tipo === 'arrastre') nombre = "Rutina de Arrastre";
-
-    var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    if (!APP_STATE.gym) APP_STATE.gym = [];
-    APP_STATE.gym.unshift({ fecha: fechaHoy, detalle: nombre + " completada" });
-    sumarExp(50);
-    MonarcaDB.save(APP_STATE);
-
-    alert("¡" + nombre + " completada con éxito! +50 EXP recibidos.");
-    cambiarVista('vista-estado-personal');
-}
-
-function actualizarProgresoRutina(claseCheckboxes, idBarra, idTexto, idBoton) {
-    var checkboxes = document.querySelectorAll('.' + claseCheckboxes);
-    var barra = document.getElementById(idBarra);
-    var texto = document.getElementById(idTexto);
-    var boton = document.getElementById(idBoton);
-
-    var total = checkboxes.length;
-    var marcados = 0;
-
-    checkboxes.forEach(function(chk) {
-        var label = chk.closest('label');
-        var badgeStatus = label ? label.querySelector('.badge-status-item') : null;
-        if (chk.checked) {
-            marcados++;
-            if (label) label.classList.add('checked-active');
-            if (badgeStatus) badgeStatus.innerText = '✓ LISTO';
-        } else {
-            if (label) label.classList.remove('checked-active');
-            if (badgeStatus) badgeStatus.innerText = 'PENDIENTE';
-        }
-    });
-
-    var porcentaje = total > 0 ? Math.round((marcados / total) * 100) : 0;
-    if (barra) barra.style.width = porcentaje + '%';
-    if (texto) texto.innerText = marcados + ' / ' + total + ' (' + porcentaje + '%)';
-
-    if (boton) {
-        if (marcados === total && total > 0) {
-            boton.disabled = false;
-            boton.classList.add('btn-ready-pulse');
-        } else {
-            boton.disabled = true;
-            boton.classList.remove('btn-ready-pulse');
-        }
-    }
-}
-
-function renderizarGym(gymData) {
-    var htmlTabla = "<table><tr><th>Fecha</th><th>Rutina / Detalle</th></tr>";
-    var list = gymData || APP_STATE.gym || [];
-    if (list && list.length > 0) {
-        list.slice(0, 10).forEach(function(g) {
-            htmlTabla += `<tr><td>${g.fecha}</td><td>${g.detalle}</td></tr>`;
+function renderizarGym(registros) {
+    var cont = document.getElementById('contenedor-gym');
+    if (!cont) return;
+    var html = '';
+    if (registros && registros.length > 0) {
+        registros.forEach(function(reg) {
+            html += `<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;color:#111827;font-size:13.5px;">${reg.detalle}</span>
+                <span style="color:#6b7280;font-size:12px;">${reg.fecha}</span>
+            </div>`;
         });
     } else {
-        htmlTabla += "<tr><td colspan='2'>Sin registros de entrenamiento previos.</td></tr>";
+        html = '<p style="color:#6b7280;text-align:center;padding:15px;">No hay entrenamientos registrados aún.</p>';
     }
-    htmlTabla += "</table>";
-
-    var contenedorGym = document.getElementById('contenedor-gym');
-    if (contenedorGym) contenedorGym.innerHTML = htmlTabla;
+    cont.innerHTML = html;
 }
 
-// ==========================================================================
-// 8. FASE DE CALENTAMIENTO PREVIO (STRETCHING)
-// ==========================================================================
 
-var ESTIRAMIENTOS_CONFIG = [
-    {
-        nombre: "Apertura de Pecho & Deltoides",
-        descripcion: "Entrelaza los dedos detrás de la espalda, eleva el pecho y respira profundo para activar la articulación del hombro.",
-        icono: "🧘",
-        duracion: 30
-    },
-    {
-        nombre: "Movilidad de Cadera & Glúteos",
-        descripcion: "Zancada profunda alternando piernas, manteniendo el torso erguido para lubricar la cadera y flexores.",
-        icono: "🦵",
-        duracion: 30
-    },
-    {
-        nombre: "Rotación Torácica & Espalda",
-        descripcion: "Gira el tronco de lado a lado con control, abriendo brazos para activar los dorsales y la columna.",
-        icono: "🔄",
-        duracion: 30
-    },
-    {
-        nombre: "Elevación y Movilidad de Tobillos",
-        descripcion: "Círculos suaves de tobillo y elevaciones de talón para preparar pantorrillas y tendones de Aquiles.",
-        icono: "🦶",
-        duracion: 30
-    }
-];
-
-var ESTADO_ESTIRAMIENTOS = {
-    activo: false,
-    indiceActual: 0,
-    tiempoRestante: 30,
-    pausado: false,
-    intervaloId: null,
-    vistaDestino: null,
-    nombreRutina: null
-};
-
-function iniciarRutinaConEstiramiento(vistaDestino, nombreRutina) {
-    ESTADO_ESTIRAMIENTOS.vistaDestino = vistaDestino;
-    ESTADO_ESTIRAMIENTOS.nombreRutina = nombreRutina;
-    ESTADO_ESTIRAMIENTOS.indiceActual = 0;
-    ESTADO_ESTIRAMIENTOS.pausado = false;
-
-    var modal = document.getElementById('modal-estiramientos');
-    var modalBody = document.getElementById('modal-stretching-body');
-    var modalComplete = document.getElementById('modal-stretching-complete');
-
-    if (modal) modal.style.display = 'flex';
-    if (modalBody) modalBody.style.display = 'block';
-    if (modalComplete) modalComplete.style.display = 'none';
-
-    var targetTitle = document.getElementById('stretch-routine-target');
-    if (targetTitle) targetTitle.innerText = "PREPARACIÓN: " + (nombreRutina || "ENTRENAMIENTO");
-
-    actualizarCardEstiramiento();
-    iniciarIntervaloEstiramiento();
-}
-
-function actualizarCardEstiramiento() {
-    var ejercicio = ESTIRAMIENTOS_CONFIG[ESTADO_ESTIRAMIENTOS.indiceActual];
-    if (!ejercicio) return;
-
-    ESTADO_ESTIRAMIENTOS.tiempoRestante = ejercicio.duracion;
-
-    var iconoEl = document.getElementById('stretch-icon');
-    var tituloEl = document.getElementById('stretch-title');
-    var descEl = document.getElementById('stretch-desc');
-    var countdownEl = document.getElementById('timer-countdown');
-    var barFillEl = document.getElementById('timer-bar-fill');
-    var btnToggle = document.getElementById('btn-timer-toggle');
-
-    if (iconoEl) iconoEl.innerText = ejercicio.icono;
-    if (tituloEl) tituloEl.innerText = ejercicio.nombre;
-    if (descEl) descEl.innerText = ejercicio.descripcion;
-    if (countdownEl) countdownEl.innerText = ejercicio.duracion;
-    if (barFillEl) barFillEl.style.width = '100%';
-    if (btnToggle) btnToggle.innerText = '⏸ Pausar';
-
-    var stepsWrapper = document.getElementById('stretch-steps-indicator');
-    if (stepsWrapper) {
-        var stepsHtml = '';
-        for (var i = 0; i < ESTIRAMIENTOS_CONFIG.length; i++) {
-            var stepClass = 'stretch-step-pip';
-            if (i < ESTADO_ESTIRAMIENTOS.indiceActual) stepClass += ' pip-done';
-            else if (i === ESTADO_ESTIRAMIENTOS.indiceActual) stepClass += ' pip-active';
-            stepsHtml += `<div class="${stepClass}"></div>`;
-        }
-        stepsWrapper.innerHTML = stepsHtml;
-    }
-}
-
-function iniciarIntervaloEstiramiento() {
-    if (ESTADO_ESTIRAMIENTOS.intervaloId) clearInterval(ESTADO_ESTIRAMIENTOS.intervaloId);
-
-    ESTADO_ESTIRAMIENTOS.intervaloId = setInterval(function() {
-        if (ESTADO_ESTIRAMIENTOS.pausado) return;
-
-        ESTADO_ESTIRAMIENTOS.tiempoRestante--;
-
-        var countdownEl = document.getElementById('timer-countdown');
-        var barFillEl = document.getElementById('timer-bar-fill');
-
-        if (countdownEl) countdownEl.innerText = ESTADO_ESTIRAMIENTOS.tiempoRestante;
-
-        var duracionTotal = ESTIRAMIENTOS_CONFIG[ESTADO_ESTIRAMIENTOS.indiceActual].duracion;
-        var pct = Math.max(0, (ESTADO_ESTIRAMIENTOS.tiempoRestante / duracionTotal) * 100);
-        if (barFillEl) barFillEl.style.width = pct + '%';
-
-        if (ESTADO_ESTIRAMIENTOS.tiempoRestante <= 0) {
-            siguienteEstiramiento();
-        }
-    }, 1000);
-}
-
-function toggleTemporizadorEstiramiento() {
-    ESTADO_ESTIRAMIENTOS.pausado = !ESTADO_ESTIRAMIENTOS.pausado;
-    var btn = document.getElementById('btn-timer-toggle');
-    if (btn) btn.innerText = ESTADO_ESTIRAMIENTOS.pausado ? '▶ Reanudar' : '⏸ Pausar';
-}
-
-function siguienteEstiramiento() {
-    if (ESTADO_ESTIRAMIENTOS.indiceActual < ESTIRAMIENTOS_CONFIG.length - 1) {
-        ESTADO_ESTIRAMIENTOS.indiceActual++;
-        actualizarCardEstiramiento();
-    } else {
-        finalizarEstiramientosExito();
-    }
-}
-
-function finalizarEstiramientosExito() {
-    if (ESTADO_ESTIRAMIENTOS.intervaloId) clearInterval(ESTADO_ESTIRAMIENTOS.intervaloId);
-    var modalBody = document.getElementById('modal-stretching-body');
-    var modalComplete = document.getElementById('modal-stretching-complete');
-
-    if (modalBody) modalBody.style.display = 'none';
-    if (modalComplete) modalComplete.style.display = 'block';
-}
-
-function irARutinaDesbloqueada() {
-    cerrarModalEstiramientos();
-    if (ESTADO_ESTIRAMIENTOS.vistaDestino) {
-        cambiarVista(ESTADO_ESTIRAMIENTOS.vistaDestino);
-    }
-}
-
-function omitirEstiramientos() {
-    if (ESTADO_ESTIRAMIENTOS.intervaloId) clearInterval(ESTADO_ESTIRAMIENTOS.intervaloId);
-    cerrarModalEstiramientos();
-    if (ESTADO_ESTIRAMIENTOS.vistaDestino) {
-        cambiarVista(ESTADO_ESTIRAMIENTOS.vistaDestino);
-    }
-}
-
-function cerrarModalEstiramientos() {
-    if (ESTADO_ESTIRAMIENTOS.intervaloId) clearInterval(ESTADO_ESTIRAMIENTOS.intervaloId);
-    var modal = document.getElementById('modal-estiramientos');
-    if (modal) modal.style.display = 'none';
-}
-
-// ==========================================================================
-// 9. CONDICIÓN MENTAL & SUEÑO
-// ==========================================================================
+// --- MÓDULO DE MENTE Y SUEÑO ---
 
 function cargarMente() {
     renderizarMente(APP_STATE.salud);
 }
 
-function renderizarMente(saludData) {
-    var htmlTabla = "<table><tr><th>Fecha</th><th>Horas de Sueño / Estado Mental</th></tr>";
-    var list = saludData || APP_STATE.salud || [];
+function renderizarMente(registros) {
+    var cont = document.getElementById('contenedor-mente');
+    if (!cont) return;
+    var html = '';
+    var list = registros || APP_STATE.salud || [];
     if (list && list.length > 0) {
-        list.slice(0, 10).forEach(function(s) {
-            htmlTabla += `<tr><td>${s.fecha}</td><td>${s.valor}</td></tr>`;
+        list.forEach(function(r) {
+            html += `<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:600;color:#111827;font-size:13.5px;">${r.valor}</span>
+                <span style="color:#6b7280;font-size:12px;">${r.fecha}</span>
+            </div>`;
         });
     } else {
-        htmlTabla += "<tr><td colspan='2'>Sin registros de sueño o mente recientes.</td></tr>";
+        html = '<p style="color:#6b7280;text-align:center;padding:15px;">No hay registros de descanso mental.</p>';
     }
-    htmlTabla += "</table>";
-
-    var cont = document.getElementById('contenedor-mente');
-    if (cont) cont.innerHTML = htmlTabla;
+    cont.innerHTML = html;
 }
 
 function guardarMente() {
-    var input = document.getElementById('input-nueva-mente');
-    if (!input || !input.value.trim()) {
-        alert("Por favor escribe tu registro de sueño o estado mental.");
-        return;
-    }
-
-    var texto = input.value.trim();
-    var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
+    var inM = document.getElementById('input-nueva-mente');
+    var val = inM ? inM.value.trim() : "";
+    if (!val) { alert("Ingresa tu registro de descanso mental o horas de sueño."); return; }
     if (!APP_STATE.salud) APP_STATE.salud = [];
-    APP_STATE.salud.unshift({ fecha: fechaHoy, valor: texto });
-    input.value = "";
-
-    // Reducir fatiga mental al registrar descanso
+    var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    APP_STATE.salud.unshift({ fecha: fechaHoy, valor: val });
     if (APP_STATE.fatiga) {
         APP_STATE.fatiga.mente = Math.max(0, (APP_STATE.fatiga.mente || 0) - 30);
     }
-
-    sumarExp(15);
+    if (inM) inM.value = "";
+    sumarExp(20);
     MonarcaDB.save(APP_STATE);
     renderizarMente(APP_STATE.salud);
-    alert("¡Registro guardado con éxito! Fatiga mental restaurada.");
+    alert("🧠 Registro de descanso guardado (+20 EXP). Fatiga mental aliviada.");
 }
 
-// ==========================================================================
-// 10. CONTROL FINANCIERO PERSONAL
-// ==========================================================================
 
-var ESTADO_FINANZAS = {
-    mesOffset: 0,
-    chartInstance: null
-};
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE FINANZAS PERSONALES
+ * Ingresos, Gastos, Deudas, Metas de Ahorro Quincenales, Regla 50/40/10 y Gráficas.
+ */
 
 function cargarFinanzas() {
     renderizarFinanzas(APP_STATE.finanzas);
@@ -1290,7 +1954,7 @@ function renderizarFinanzas(fin) {
 
     // 2. Ingresos
     var totIngresos = 0;
-    var tbodyIng = document.getElementById('tbody-finanzas-ingresos');
+    var tbodyIng = document.getElementById('tbody-ingresos') || document.getElementById('tbody-finanzas-ingresos');
     if (tbodyIng) {
         var htmlIng = '';
         (f.ingresos || []).forEach(function(item) {
@@ -1298,25 +1962,29 @@ function renderizarFinanzas(fin) {
             totIngresos += m;
             htmlIng += `<tr>
                 <td><strong>${item.fuente}</strong></td>
-                <td>Día ${item.dia || 15}</td>
-                <td class="monto-positivo">$${m.toFixed(2)}</td>
-                <td style="text-align: right;">
-                    <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
+                <td style="text-align: center;">Día ${item.dia || 15}</td>
+                <td class="monto-positivo" style="text-align: right; font-weight: 700;">$${m.toFixed(2)}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </td>
             </tr>`;
         });
         if (!f.ingresos || f.ingresos.length === 0) {
-            htmlIng = '<tr><td colspan="4" style="text-align:center; color:#9ca3af;">Sin ingresos registrados.</td></tr>';
+            htmlIng = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 18px;">Sin ingresos registrados. Agrega una nueva entrada con el botón superior.</td></tr>';
         }
         tbodyIng.innerHTML = htmlIng;
     }
-    var totalIngEl = document.getElementById('total-ingresos-display');
+
+    // Actualizar etiquetas de Total Ingresos
+    var totalIngEl = document.getElementById('label-total-ingresos') || document.getElementById('total-ingresos-display');
     if (totalIngEl) totalIngEl.innerText = '$' + totIngresos.toFixed(2);
+    var resIngEl = document.getElementById('resumen-total-ingresos');
+    if (resIngEl) resIngEl.innerText = '$' + totIngresos.toFixed(2);
 
     // 3. Gastos
     var totGastos = 0;
     var gastosPorCategoria = {};
-    var tbodyGas = document.getElementById('tbody-finanzas-gastos');
+    var tbodyGas = document.getElementById('tbody-gastos') || document.getElementById('tbody-finanzas-gastos');
     if (tbodyGas) {
         var htmlGas = '';
         (f.gastos || []).forEach(function(item) {
@@ -1334,39 +2002,42 @@ function renderizarFinanzas(fin) {
             else if (catLower.includes('entretenimiento')) catClass = 'cat-entretenimiento';
 
             htmlGas += `<tr>
+                <td><strong>${item.concepto}</strong></td>
                 <td><span class="badge-cat ${catClass}">${item.categoria}</span></td>
-                <td>${item.concepto}</td>
-                <td>Día ${item.dia || 5}</td>
-                <td class="monto-negativo">-$${m.toFixed(2)}</td>
-                <td style="text-align: right;">
-                    <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${item.id}', 'gasto')">✕</button>
+                <td style="text-align: center;">Día ${item.dia || 5}</td>
+                <td class="monto-negativo" style="text-align: right; font-weight: 700;">-$${m.toFixed(2)}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete-row" title="Eliminar gasto" onclick="eliminarRegistroFinanzasUI('${item.id}', 'gasto')">✕</button>
                 </td>
             </tr>`;
         });
         if (!f.gastos || f.gastos.length === 0) {
-            htmlGas = '<tr><td colspan="5" style="text-align:center; color:#9ca3af;">Sin gastos registrados.</td></tr>';
+            htmlGas = '<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding: 18px;">Sin gastos registrados. Agrega un nuevo gasto con el botón superior.</td></tr>';
         }
         tbodyGas.innerHTML = htmlGas;
     }
-    var totalGasEl = document.getElementById('total-gastos-display');
+
+    // Actualizar etiquetas de Total Gastos
+    var totalGasEl = document.getElementById('label-total-gastos') || document.getElementById('total-gastos-display');
     if (totalGasEl) totalGasEl.innerText = '$' + totGastos.toFixed(2);
+    var resGasEl = document.getElementById('resumen-total-gastos');
+    if (resGasEl) resGasEl.innerText = '$' + totGastos.toFixed(2);
 
     // 4. Regla 50 / 40 / 10
-    var baseIng = totIngresos > 0 ? totIngresos : 1;
     var meta50 = totIngresos * 0.50;
     var meta40 = totIngresos * 0.40;
     var meta10 = totIngresos * 0.10;
 
-    var el50Monto = document.getElementById('regla-50-monto');
-    var el40Monto = document.getElementById('regla-40-monto');
-    var el10Monto = document.getElementById('regla-10-monto');
+    var el50Monto = document.getElementById('regla-monto-50') || document.getElementById('regla-50-monto');
+    var el40Monto = document.getElementById('regla-monto-40') || document.getElementById('regla-40-monto');
+    var el10Monto = document.getElementById('regla-monto-10') || document.getElementById('regla-10-monto');
     if (el50Monto) el50Monto.innerText = '$' + meta50.toFixed(2);
     if (el40Monto) el40Monto.innerText = '$' + meta40.toFixed(2);
     if (el10Monto) el10Monto.innerText = '$' + meta10.toFixed(2);
 
     // 5. Deudas
     var totDeudas = 0;
-    var tbodyDeu = document.getElementById('tbody-finanzas-deudas');
+    var tbodyDeu = document.getElementById('tbody-deudas') || document.getElementById('tbody-finanzas-deudas');
     if (tbodyDeu) {
         var htmlDeu = '';
         (f.deudas || []).forEach(function(item) {
@@ -1374,23 +2045,38 @@ function renderizarFinanzas(fin) {
             totDeudas += m;
             htmlDeu += `<tr>
                 <td><strong>${item.nombre}</strong></td>
-                <td>Día ${item.dia || 20}</td>
-                <td class="monto-deuda">$${m.toFixed(2)}</td>
-                <td style="text-align: right;">
-                    <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${item.id}', 'deuda')">✕</button>
+                <td style="text-align: center;">Día ${item.dia || 20}</td>
+                <td class="monto-deuda" style="text-align: right; font-weight: 700;">$${m.toFixed(2)}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI('${item.id}', 'deuda')">✕</button>
                 </td>
             </tr>`;
         });
         if (!f.deudas || f.deudas.length === 0) {
-            htmlDeu = '<tr><td colspan="4" style="text-align:center; color:#9ca3af;">No tienes deudas activas registradas.</td></tr>';
+            htmlDeu = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 18px;">No tienes deudas activas registradas.</td></tr>';
         }
         tbodyDeu.innerHTML = htmlDeu;
     }
-    var totalDeuEl = document.getElementById('total-deudas-display');
+
+    var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
     if (totalDeuEl) totalDeuEl.innerText = '$' + totDeudas.toFixed(2);
+    var resDeuEl = document.getElementById('resumen-total-deudas');
+    if (resDeuEl) resDeuEl.innerText = '$' + totDeudas.toFixed(2);
+
+    // Resumen Flujo Neto y Ahorro / Inversión
+    var flujoNeto = totIngresos - totGastos;
+    var resFlujoEl = document.getElementById('resumen-flujo-neto');
+    if (resFlujoEl) {
+        resFlujoEl.innerText = (flujoNeto >= 0 ? '+$' : '-$') + Math.abs(flujoNeto).toFixed(2);
+        resFlujoEl.style.color = flujoNeto >= 0 ? '#10b981' : '#ef4444';
+    }
+    var resAhorroEl = document.getElementById('resumen-total-ahorro-inversion');
+    if (resAhorroEl) {
+        resAhorroEl.innerText = '$' + (meta40 + meta10).toFixed(2);
+    }
 
     // 6. Metas Quincenales
-    var gridMetas = document.getElementById('grid-finanzas-metas');
+    var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
     if (gridMetas) {
         var htmlMetas = '';
         (f.metas || []).forEach(function(item) {
@@ -1405,7 +2091,7 @@ function renderizarFinanzas(fin) {
                 <div>
                     <div class="meta-card-header">
                         <h4 class="meta-card-title">🎯 ${item.nombre}</h4>
-                        <button class="btn-delete-row" onclick="eliminarRegistroFinanzasUI('${item.id}', 'meta')">✕</button>
+                        <button class="btn-delete-row" title="Eliminar meta" onclick="eliminarRegistroFinanzasUI('${item.id}', 'meta')">✕</button>
                     </div>
                     <div class="meta-numbers-row">
                         <span>Ahorrado: <strong>$${ahorr.toFixed(2)}</strong></span>
@@ -1433,7 +2119,6 @@ function renderizarFinanzas(fin) {
     // 7. Gráfico de Distribución Financiera
     renderizarGraficoFinanzas(gastosPorCategoria, totIngresos, totGastos);
 }
-
 function renderizarGraficoFinanzas(gastosPorCat, totIng, totGas) {
     var ctx = document.getElementById('chart-finanzas-resumen');
     if (!ctx) return;
@@ -1720,6 +2405,12 @@ function inicializarHojaFinanzasDesdeUI() {
 // ==========================================================================
 // 11. BANCO DE IDEAS MONARCA
 // ==========================================================================
+
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE BANCO DE IDEAS
+ * 5 Categorías, Subcategorías, Contextos, Checklist Operativo y Métricas Mensuales.
+ */
 
 var ESTRUCTURA_BANCO_IDEAS = {
     "💭 Ideas y Pensamientos": {
@@ -2337,6 +3028,12 @@ function inicializarHojaIdeasDesdeUI() {
 // ==========================================================================
 // 12. CALENDARIO
 // ==========================================================================
+
+
+/**
+ * SISTEMA MONARCA · MÓDULO DE CALENDARIO
+ * Planificación mensual, navegación de fechas y gestión de eventos locales.
+ */
 
 function renderizarCalendario() {
     var cont = document.getElementById('contenedor-calendario');

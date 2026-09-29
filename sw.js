@@ -2,13 +2,20 @@
 // SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST)
 // ==========================================================================
 
-const CACHE_NAME = 'sistema-monarca-v2';
+const CACHE_NAME = 'sistema-monarca-v3';
 
 const STATIC_ASSETS = [
   './',
   'index.html',
   'style.css',
   'app.js',
+  'js/core.js',
+  'js/perfil.js',
+  'js/progresion.js',
+  'js/estado-personal.js',
+  'js/finanzas.js',
+  'js/ideas.js',
+  'js/calendario.js',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
