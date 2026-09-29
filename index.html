@@ -1,9 +1,39 @@
-﻿<div class="container">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistema Monarca</title>
+
+    <!-- PWA & Mobile Meta Tags -->
+    <meta name="theme-color" content="#111827">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sistema Monarca">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- Tipografía: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Chart.js para análisis de Finanzas y Operatividad -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Estilos de la Aplicación -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
     <!-- CABECERA SUPERIOR MODERNA -->
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <div style="width: 40px; height: 40px; background: #111827; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 800; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);">
-                âœ¦
+                ✦
             </div>
             <div>
                 <h1 style="margin: 0; text-align: left; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #111827;">Sistema Personal</h1>
@@ -17,7 +47,7 @@
         </div>
     </div>
 
-    <!-- VISTA 1: MENÃš PRINCIPAL -->
+    <!-- VISTA 1: MENÚ PRINCIPAL -->
     <div id="vista-menu" class="tab-content active">
         <div class="user-header-card">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
@@ -36,49 +66,49 @@
 
         <div class="grid-menu">
             <div class="menu-card" onclick="cambiarVista('vista-perfil')">
-                <div class="menu-icon">ðŸ‘¤</div>
+                <div class="menu-icon">👤</div>
                 <h3>Perfil</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-acciones-progresion')">
-                <div class="menu-icon">âš¡</div>
-                <h3>Acciones y ProgresiÃ³n</h3>
+                <div class="menu-icon">⚡</div>
+                <h3>Acciones y Progresión</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-estado-personal')">
-                <div class="menu-icon">ðŸ›¡ï¸</div>
+                <div class="menu-icon">🛡️</div>
                 <h3>Estado Personal</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-finanzas')">
-                <div class="menu-icon">ðŸ’°</div>
+                <div class="menu-icon">💰</div>
                 <h3>Finanzas</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-ideas')">
-                <div class="menu-icon">ðŸ’¡</div>
+                <div class="menu-icon">💡</div>
                 <h3>Ideas</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-calendario')">
-                <div class="menu-icon">ðŸ“…</div>
+                <div class="menu-icon">📅</div>
                 <h3>Calendario</h3>
             </div>
         </div>
     </div>
 
-    <!-- VISTA INTERMEDIA: ACCIONES Y PROGRESIÃ“N -->
+    <!-- VISTA INTERMEDIA: ACCIONES Y PROGRESIÓN -->
     <div id="vista-acciones-progresion" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         <div class="card" style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; letter-spacing: -0.2px;">Acciones y ProgresiÃ³n</h2>
-            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Selecciona un mÃ³dulo para gestionar tu evoluciÃ³n</p>
+            <h2 style="margin: 0; letter-spacing: -0.2px;">Acciones y Progresión</h2>
+            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Selecciona un módulo para gestionar tu evolución</p>
         </div>
 
         <div class="grid-menu">
             <div class="menu-card" onclick="cambiarVista('vista-misiones')">
-                <div class="menu-icon">âš”ï¸</div>
+                <div class="menu-icon">⚔️</div>
                 <h3>Misiones</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-habilidades')">
-                <div class="menu-icon">ðŸ”®</div>
+                <div class="menu-icon">🔮</div>
                 <h3>Skills</h3>
             </div>
         </div>
@@ -87,50 +117,50 @@
     <!-- VISTA PRINCIPAL DE ESTADO PERSONAL -->
     <div id="vista-estado-personal" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         
         <div class="card" style="text-align: center; margin-bottom: 20px;">
             <h2 style="margin: 0; letter-spacing: -0.2px;">Estado Personal</h2>
-            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitorea la condiciÃ³n fÃ­sica y mental de tu avatar</p>
+            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitorea la condición física y mental de tu avatar</p>
         </div>
 
-        <!-- GRÃFICA DE FATIGA -->
+        <!-- GRÁFICA DE FATIGA -->
         <div class="card" style="margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">ðŸ“Š</span>
-                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">GrÃ¡fica de Carga & Fatiga Diaria</h2>
+                <span style="font-size: 24px;">📊</span>
+                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Gráfica de Carga & Fatiga Diaria</h2>
             </div>
             <p style="color: #6b7280; font-size: 13px; margin-bottom: 15px;">Esquema de desgaste actual por grupos musculares y estado mental del avatar.</p>
 
-            <!-- RESUMEN DE PROMEDIO DIARIO Y CIERRE HISTÃ“RICO -->
+            <!-- RESUMEN DE PROMEDIO DIARIO Y CIERRE HISTÓRICO -->
             <div class="daily-avg-widget">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 24px;">ðŸ“ˆ</span>
+                    <span style="font-size: 24px;">📈</span>
                     <div>
                         <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Carga Promedio de Hoy</div>
                         <div id="promedio-hoy-display" style="color: #111827; font-size: 20px; font-weight: 800;">0%</div>
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Ãšltimo Cierre Diario</div>
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Último Cierre Diario</div>
                     <div id="ultimo-cierre-display" style="color: #374151; font-size: 12.5px; font-weight: 600; background: #f3f4f6; padding: 4px 10px; border-radius: 9999px; display: inline-block; margin-top: 3px;">Cargando...</div>
                 </div>
             </div>
 
             <div id="contenedor-grafica-fatiga">
-                <!-- Se inyecta la grÃ¡fica mediante JavaScript -->
+                <!-- Se inyecta la gráfica mediante JavaScript -->
             </div>
         </div>
 
         <!-- TARJETAS DE ACCESO A CUERPO Y MENTE -->
         <div class="grid-menu">
             <div class="menu-card" onclick="cambiarVista('vista-gym')">
-                <div class="menu-icon">ðŸ‹ï¸â€â™‚ï¸</div>
+                <div class="menu-icon">🏋️‍♂️</div>
                 <h3>Cuerpo</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-mente')">
-                <div class="menu-icon">ðŸ§ </div>
+                <div class="menu-icon">🧠</div>
                 <h3>Mente</h3>
             </div>
         </div>
@@ -139,23 +169,23 @@
     <!-- VISTA: PERFIL -->
     <div id="vista-perfil" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         <div class="card">
-            <h2>EstadÃ­sticas del Jugador</h2>
+            <h2>Estadísticas del Jugador</h2>
             <div id="contenedor-perfil">Cargando perfil...</div>
         </div>
     </div>
 
-    <!-- VISTA: MISIONES / HÃBITOS -->
+    <!-- VISTA: MISIONES / HÁBITOS -->
     <div id="vista-misiones" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A ACCIONES
+            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">âš¡</span>
-                <h2 style="color: #fbbf24; margin: 0; text-transform: uppercase; font-size: 18px; letter-spacing: 1px;">Misiones Diarias & HÃ¡bitos</h2>
+                <span style="font-size: 24px;">⚡</span>
+                <h2 style="margin: 0;">Misiones Diarias &amp; Hábitos</h2>
             </div>
             <div id="contenedor-misiones">Cargando misiones...</div>
         </div>
@@ -164,27 +194,27 @@
     <!-- VISTA: HABILIDADES (RANGOS POR HORAS) -->
     <div id="vista-habilidades" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A ACCIONES
+            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">ðŸ”®</span>
-                <h2 style="margin: 0;">Ãrbol de Habilidades (Rangos)</h2>
+                <span style="font-size: 24px;">🔮</span>
+                <h2 style="margin: 0;">Árbol de Habilidades (Rangos)</h2>
             </div>
             <div id="contenedor-habilidades">Cargando habilidades...</div>
         </div>
     </div>
 
-    <!-- VISTA: CUERPO (GYM - MENÃš DE RUTINAS DINÃMICO DESDE SHEETS) -->
+    <!-- VISTA: CUERPO (GYM - MENÚ DE RUTINAS DINÁMICO DESDE SHEETS) -->
     <div id="vista-gym" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A ESTADO PERSONAL
+            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
         </button>
         <div class="card">
-            <h2>CondiciÃ³n FÃ­sica (Gym &amp; Rutinas)</h2>
+            <h2>Condición Física (Gym &amp; Rutinas)</h2>
             <p style="color: #6b7280; font-size: 13px; margin-bottom: 15px;">Selecciona tu rutina programada:</p>
 
-            <!-- Portales de rutinas: se renderizan dinÃ¡micamente desde la hoja "Rutinas" -->
+            <!-- Portales de rutinas: se renderizan dinámicamente desde la hoja "Rutinas" -->
             <div id="contenedor-portales-rutinas">
                 <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas del sistema...</p>
             </div>
@@ -195,10 +225,10 @@
         </div>
     </div>
 
-    <!-- VISTA: DETALLE DE RUTINA DINÃMICA (cargada desde Sheets) -->
+    <!-- VISTA: DETALLE DE RUTINA DINÁMICA (cargada desde Sheets) -->
     <div id="vista-detalle-rutina-dinamica" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A RUTINAS
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -210,7 +240,7 @@
             <!-- Barra de Progreso en Vivo -->
             <div id="progreso-rutina-dinamica-cont" class="routine-progress-container" style="display: none;">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">âš”ï¸ PROGRESO DE LA MISIÃ“N</span>
+                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
                     <strong id="progreso-texto-rutina-dinamica">0 / 0 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg" style="margin-top: 0;">
@@ -218,9 +248,9 @@
                 </div>
             </div>
 
-            <!-- Lista de ejercicios: se inyecta por JavaScript segÃºn la rutina seleccionada -->
+            <!-- Lista de ejercicios: se inyecta por JavaScript según la rutina seleccionada -->
             <div id="contenedor-detalle-rutina-dinamica">
-                <!-- Los ejercicios se renderizan aquÃ­ -->
+                <!-- Los ejercicios se renderizan aquí -->
             </div>
 
             <button id="btn-registrar-rutina-dinamica" class="btn-system" disabled
@@ -233,22 +263,22 @@
 
 
 
-    <!-- VISTA: DETALLE DE RUTINA MAÃ‘ANERA -->
+    <!-- VISTA: DETALLE DE RUTINA MAÑANERA -->
     <div id="vista-detalle-mananera" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A RUTINAS
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <h2 style="margin: 0;">Rutina MaÃ±anera</h2>
-                <span class="quest-badge-rank">DIARIA Â· ACTIVACIÃ“N</span>
+                <h2 style="margin: 0;">Rutina Mañanera</h2>
+                <span class="quest-badge-rank">DIARIA · ACTIVACIÓN</span>
             </div>
             <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Marca cada casilla al completar el ejercicio para registrar tu avance:</p>
             
             <!-- Barra de Progreso en Vivo -->
             <div class="routine-progress-container">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">âš”ï¸ PROGRESO DE LA MISIÃ“N</span>
+                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
                     <strong id="progreso-texto-mananera">0 / 4 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg">
@@ -265,7 +295,7 @@
                     <span class="badge-reps">100 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -277,7 +307,7 @@
                     <span class="badge-reps">100 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -289,7 +319,7 @@
                     <span class="badge-reps">100 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -301,7 +331,7 @@
                     <span class="badge-reps">5 MINUTOS</span>
                 </div>
                 <input type="checkbox" class="check-mananera" style="display: none;" onchange="actualizarProgresoRutina('check-mananera', 'progreso-barra-mananera', 'progreso-texto-mananera', 'btn-registrar-mananera')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <button id="btn-registrar-mananera" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('mananera')">
@@ -313,18 +343,18 @@
     <!-- VISTA: DETALLE DE RUTINA DE EMPUJE -->
     <div id="vista-detalle-empuje" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A RUTINAS
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                 <h2 style="margin: 0;">Rutina de Empuje - Lunes</h2>
-                <span class="quest-badge-rank">LUNES Â· FUERZA</span>
+                <span class="quest-badge-rank">LUNES · FUERZA</span>
             </div>
             <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de fuerza y marca las casillas:</p>
             
             <div class="routine-progress-container">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">âš”ï¸ PROGRESO DE LA MISIÃ“N</span>
+                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
                     <strong id="progreso-texto-empuje">0 / 3 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg">
@@ -338,10 +368,10 @@
                         <h4>1. Press de Banca Plano</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">4 SERIES Ã— 8-10 REPS</span>
+                    <span class="badge-reps">4 SERIES × 8-10 REPS</span>
                 </div>
                 <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -350,22 +380,22 @@
                         <h4>2. Press Militar con Mancuernas</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">3 SERIES Ã— 10 REPS</span>
+                    <span class="badge-reps">3 SERIES × 10 REPS</span>
                 </div>
                 <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <h4>3. Extensiones de TrÃ­ceps en Polea</h4>
+                        <h4>3. Extensiones de Tríceps en Polea</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">3 SERIES Ã— 12 REPS</span>
+                    <span class="badge-reps">3 SERIES × 12 REPS</span>
                 </div>
                 <input type="checkbox" class="check-empuje" style="display: none;" onchange="actualizarProgresoRutina('check-empuje', 'progreso-barra-empuje', 'progreso-texto-empuje', 'btn-registrar-empuje')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <button id="btn-registrar-empuje" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('empuje')">
@@ -377,18 +407,18 @@
     <!-- VISTA: DETALLE DE RUTINA DE PIERNA -->
     <div id="vista-detalle-pierna" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A RUTINAS
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <h2 style="margin: 0;">Rutina de Pierna - MiÃ©rcoles</h2>
-                <span class="quest-badge-rank">MIÃ‰RCOLES Â· POTENCIA</span>
+                <h2 style="margin: 0;">Rutina de Pierna - Miércoles</h2>
+                <span class="quest-badge-rank">MIÉRCOLES · POTENCIA</span>
             </div>
             <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de pierna y marca las casillas:</p>
             
             <div class="routine-progress-container">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">âš”ï¸ PROGRESO DE LA MISIÃ“N</span>
+                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
                     <strong id="progreso-texto-pierna">0 / 3 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg">
@@ -405,7 +435,7 @@
                     <span class="badge-reps">CALENTAMIENTO / INTERVALOS</span>
                 </div>
                 <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -417,19 +447,19 @@
                     <span class="badge-reps">ANTEBRAZOS Y FUERZA DE AGARRE</span>
                 </div>
                 <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <h4>3. Sentadilla Â· Barra de pesas</h4>
+                        <h4>3. Sentadilla · Barra de pesas</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">4 SERIES Ã— 12 REPETICIONES</span>
+                    <span class="badge-reps">4 SERIES × 12 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-pierna" style="display: none;" onchange="actualizarProgresoRutina('check-pierna', 'progreso-barra-pierna', 'progreso-texto-pierna', 'btn-registrar-pierna')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <button id="btn-registrar-pierna" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('pierna')">
@@ -441,18 +471,18 @@
     <!-- VISTA: DETALLE DE RUTINA DE ARRASTRE -->
     <div id="vista-detalle-arrastre" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A RUTINAS
+            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                 <h2 style="margin: 0;">Rutina de Arrastre - Viernes</h2>
-                <span class="quest-badge-rank">VIERNES Â· TRACCIÃ“N</span>
+                <span class="quest-badge-rank">VIERNES · TRACCIÓN</span>
             </div>
-            <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de espalda y bÃ­ceps y marca las casillas:</p>
+            <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Completa tus 3 ejercicios de espalda y bíceps y marca las casillas:</p>
             
             <div class="routine-progress-container">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">âš”ï¸ PROGRESO DE LA MISIÃ“N</span>
+                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
                     <strong id="progreso-texto-arrastre">0 / 3 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg">
@@ -463,13 +493,13 @@
             <label class="exercise-item-rpg">
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <h4>1. JalÃ³n al Pecho en Polea</h4>
+                        <h4>1. Jalón al Pecho en Polea</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">3 SERIES Ã— 10 REPETICIONES</span>
+                    <span class="badge-reps">3 SERIES × 10 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
@@ -478,22 +508,22 @@
                         <h4>2. Remo con Mancuerna</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">3 SERIES Ã— 10 REPETICIONES</span>
+                    <span class="badge-reps">3 SERIES × 10 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <label class="exercise-item-rpg">
                 <div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <h4>3. Curl de BÃ­ceps</h4>
+                        <h4>3. Curl de Bíceps</h4>
                         <span class="badge-status-item">PENDIENTE</span>
                     </div>
-                    <span class="badge-reps">3 SERIES Ã— 12 REPETICIONES</span>
+                    <span class="badge-reps">3 SERIES × 12 REPETICIONES</span>
                 </div>
                 <input type="checkbox" class="check-arrastre" style="display: none;" onchange="actualizarProgresoRutina('check-arrastre', 'progreso-barra-arrastre', 'progreso-texto-arrastre', 'btn-registrar-arrastre')">
-                <div class="custom-check-box">âœ“</div>
+                <div class="custom-check-box">✓</div>
             </label>
 
             <button id="btn-registrar-arrastre" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('arrastre')">
@@ -507,13 +537,13 @@
     <!-- VISTA: MENTE -->
     <div id="vista-mente" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
-            <span style="font-size: 16px;">â—€</span> VOLVER A ESTADO PERSONAL
+            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
         </button>
         <div class="card">
-            <h2>CondiciÃ³n Mental (SueÃ±o & Descanso)</h2>
+            <h2>Condición Mental (Sueño & Descanso)</h2>
             <div style="margin-bottom: 15px;">
-                <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Horas de SueÃ±o / Estado Mental:</label>
-                <input type="text" id="input-nueva-mente" placeholder="Ej: 8 horas de sueÃ±o - Descanso Ã³ptimo">
+                <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Horas de Sueño / Estado Mental:</label>
+                <input type="text" id="input-nueva-mente" placeholder="Ej: 8 horas de sueño - Descanso óptimo">
                 <button class="btn-system" onclick="guardarMente()">Registrar Mente</button>
             </div>
             <div id="contenedor-mente">Cargando registros mentales...</div>
@@ -523,16 +553,16 @@
     <!-- VISTA: FINANZAS (CONTROL FINANCIERO PERSONAL MONARCA) -->
     <div id="vista-finanzas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
 
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
                 <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
-                    <span>ðŸ’°</span> CONTROL FINANCIERO PERSONAL
+                    <span>💰</span> CONTROL FINANCIERO PERSONAL
                 </h2>
-                <button class="btn-sheet-action" onclick="inicializarHojaFinanzasDesdeUI()">
-                    âš¡ Asegurar Hoja en Sheets
+                <button class="btn-sheet-action" onclick="MonarcaDB.exportBackup()" title="Exportar Backup">
+                    ⚡ Exportar Backup JSON
                 </button>
             </div>
 
@@ -540,36 +570,36 @@
             <div class="finanzas-header-card">
                 <div class="finanzas-meta-row">
                     <div>
-                        <span class="finanzas-field-label">ðŸ‘¤ Titular:</span>
+                        <span class="finanzas-field-label">👤 Titular:</span>
                         <input type="text" id="finanzas-input-nombre" class="finanzas-input-clean" value="Gabriel Arias" onchange="alCambiarDatoGeneralFinanzas()">
                     </div>
                     <div>
-                        <span class="finanzas-field-label">ðŸ“… Mes de Control:</span>
+                        <span class="finanzas-field-label">📅 Mes de Control:</span>
                         <div style="display: flex; gap: 6px;">
-                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(-1)">â—€</button>
+                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(-1)">◀</button>
                             <input type="text" id="finanzas-input-mes" class="finanzas-input-clean" value="Septiembre 2026" style="text-align: center; font-weight: 700; color: #111827; background: #ffffff;" readonly>
-                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(1)">â–¶</button>
+                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(1)">▶</button>
                         </div>
                     </div>
                 </div>
                 <div>
-                    <span class="finanzas-field-label">ðŸŽ¯ Objetivo Financiero del Mes:</span>
+                    <span class="finanzas-field-label">🎯 Objetivo Financiero del Mes:</span>
                     <input type="text" id="finanzas-input-objetivo" class="finanzas-input-clean" placeholder="Ej: Ahorrar para la moto, liquidar deudas y optimizar gastos..." onchange="alCambiarDatoGeneralFinanzas()">
                 </div>
             </div>
 
-            <!-- 6. RESUMEN FINANCIERO Y GRÃFICA (COLOCADO DE FORMA PROMINENTE) -->
+            <!-- 6. RESUMEN FINANCIERO Y GRÁFICA (COLOCADO DE FORMA PROMINENTE) -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>ðŸ“Š</span> RESUMEN FINANCIERO Y OPERATIVIDAD
+                        <span>📊</span> RESUMEN FINANCIERO Y OPERATIVIDAD
                     </h3>
                     <span id="badge-balance-estado" style="font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
                         FLUJO SALUDABLE
                     </span>
                 </div>
 
-                <!-- MÃ©tricas Clave de Resumen -->
+                <!-- Métricas Clave de Resumen -->
                 <div class="operatividad-metrics-grid" style="margin-bottom: 16px;">
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="resumen-total-ingresos" style="color: #059669;">$0.00</div>
@@ -585,7 +615,7 @@
                     </div>
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="resumen-total-ahorro-inversion" style="color: #4b5563;">$0.00</div>
-                        <div class="metric-title">Ahorro / InversiÃ³n (50%)</div>
+                        <div class="metric-title">Ahorro / Inversión (50%)</div>
                     </div>
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="resumen-flujo-neto" style="color: #111827;">$0.00</div>
@@ -593,10 +623,10 @@
                     </div>
                 </div>
 
-                <!-- GrÃ¡fica de Finanzas -->
+                <!-- Gráfica de Finanzas -->
                 <div class="chart-container-ideas" style="margin-bottom: 0;">
                     <h3 style="font-size: 13px; color: #6b7280; margin-bottom: 14px;">
-                        <span>ðŸ“ˆ</span> DISTRIBUCIÃ“N DE GASTOS Y FLUJO FINANCIERO
+                        <span>📈</span> DISTRIBUCIÓN DE GASTOS Y FLUJO FINANCIERO
                     </h3>
                     <div style="position: relative; height: 250px; width: 100%;">
                         <canvas id="graficoFinanzas"></canvas>
@@ -604,11 +634,11 @@
                 </div>
             </div>
 
-            <!-- 4. SECCIÃ“N 3: REGLA 50/40/10 -->
+            <!-- 4. SECCIÓN 3: REGLA 50/40/10 -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>âš–ï¸</span> DISTRIBUCIÃ“N INTELIGENTE: REGLA 50 / 40 / 10
+                        <span>⚖️</span> DISTRIBUCIÓN INTELIGENTE: REGLA 50 / 40 / 10
                     </h3>
                     <span style="font-size: 11px; color: #94a3b8;">Basado en Total Ingresos</span>
                 </div>
@@ -622,7 +652,7 @@
                     <div class="regla-card regla-card-40">
                         <div class="regla-porcentaje regla-porcentaje-40">40%</div>
                         <div class="regla-monto" id="regla-monto-40">$0.00</div>
-                        <div class="regla-concepto">InversiÃ³n y MultiplicaciÃ³n</div>
+                        <div class="regla-concepto">Inversión y Multiplicación</div>
                     </div>
                     <div class="regla-card regla-card-10">
                         <div class="regla-porcentaje regla-porcentaje-10">10%</div>
@@ -633,19 +663,19 @@
 
                 <div class="regla-bar-track">
                     <div class="regla-bar-seg-50" title="50% Necesidades"></div>
-                    <div class="regla-bar-seg-40" title="40% InversiÃ³n"></div>
+                    <div class="regla-bar-seg-40" title="40% Inversión"></div>
                     <div class="regla-bar-seg-10" title="10% Ahorro"></div>
                 </div>
             </div>
 
-            <!-- 2. SECCIÃ“N 1: INGRESOS MENSUALES -->
+            <!-- 2. SECCIÓN 1: INGRESOS MENSUALES -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>ðŸ’µ</span> INGRESOS MENSUALES
+                        <span>💵</span> INGRESOS MENSUALES
                     </h3>
                     <button class="btn-add-finanza" onclick="abrirModalIngreso()">
-                        <span>âž•</span> Nueva Entrada
+                        <span>➕</span> Nueva Entrada
                     </button>
                 </div>
 
@@ -654,13 +684,13 @@
                         <thead>
                             <tr>
                                 <th>Fuente / Concepto</th>
-                                <th style="text-align: center; width: 90px;">DÃ­a Cobro</th>
+                                <th style="text-align: center; width: 90px;">Día Cobro</th>
                                 <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">AcciÃ³n</th>
+                                <th style="text-align: center; width: 60px;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-ingresos">
-                            <!-- Filas generadas dinÃ¡micamente -->
+                            <!-- Filas generadas dinámicamente -->
                         </tbody>
                     </table>
                 </div>
@@ -671,14 +701,14 @@
                 </div>
             </div>
 
-            <!-- 3. SECCIÃ“N 2: GASTOS MENSUALES -->
+            <!-- 3. SECCIÓN 2: GASTOS MENSUALES -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>ðŸ’³</span> GASTOS MENSUALES (SALIDAS)
+                        <span>💳</span> GASTOS MENSUALES (SALIDAS)
                     </h3>
                     <button class="btn-add-finanza" onclick="abrirModalGasto()" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
-                        <span>âž•</span> Nueva Salida / Gasto
+                        <span>➕</span> Nueva Salida / Gasto
                     </button>
                 </div>
 
@@ -687,14 +717,14 @@
                         <thead>
                             <tr>
                                 <th>Fuente / Concepto</th>
-                                <th style="width: 140px;">CategorÃ­a</th>
-                                <th style="text-align: center; width: 90px;">DÃ­a Pago</th>
+                                <th style="width: 140px;">Categoría</th>
+                                <th style="text-align: center; width: 90px;">Día Pago</th>
                                 <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">AcciÃ³n</th>
+                                <th style="text-align: center; width: 60px;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-gastos">
-                            <!-- Filas generadas dinÃ¡micamente -->
+                            <!-- Filas generadas dinámicamente -->
                         </tbody>
                     </table>
                 </div>
@@ -705,14 +735,14 @@
                 </div>
             </div>
 
-            <!-- 5. SECCIÃ“N 4: PLAN PARA SALIR DE DEUDAS -->
+            <!-- 5. SECCIÓN 4: PLAN PARA SALIR DE DEUDAS -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>ðŸ›¡ï¸</span> PLAN PARA SALIR DE DEUDAS
+                        <span>🛡️</span> PLAN PARA SALIR DE DEUDAS
                     </h3>
                     <button class="btn-add-finanza" onclick="abrirModalDeuda()" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.15);">
-                        <span>âž•</span> Nueva Deuda
+                        <span>➕</span> Nueva Deuda
                     </button>
                 </div>
 
@@ -721,13 +751,13 @@
                         <thead>
                             <tr>
                                 <th>Acreedor / Deuda</th>
-                                <th style="text-align: center; width: 90px;">DÃ­a Pago</th>
+                                <th style="text-align: center; width: 90px;">Día Pago</th>
                                 <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">AcciÃ³n</th>
+                                <th style="text-align: center; width: 60px;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-deudas">
-                            <!-- Filas generadas dinÃ¡micamente -->
+                            <!-- Filas generadas dinámicamente -->
                         </tbody>
                     </table>
                 </div>
@@ -738,26 +768,26 @@
                 </div>
             </div>
 
-            <!-- 6. SECCIÃ“N 5: METAS FINANCIERAS (CUOTAS QUINCE Y ÃšLTIMO) -->
+            <!-- 6. SECCIÓN 5: METAS FINANCIERAS (CUOTAS QUINCE Y ÚLTIMO) -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
-                        <span>ðŸŽ¯</span> METAS FINANCIERAS (CUOTAS DE QUINCE Y ÃšLTIMO)
+                        <span>🎯</span> METAS FINANCIERAS (CUOTAS DE QUINCE Y ÚLTIMO)
                     </h3>
                     <button class="btn-add-finanza" onclick="abrirModalMeta()" style="border-color: #10b981; color: #34d399; background: rgba(16, 185, 129, 0.15);">
-                        <span>âž•</span> Nueva Meta Financiera
+                        <span>➕</span> Nueva Meta Financiera
                     </button>
                 </div>
 
                 <div class="metas-grid" id="contenedor-metas-cards">
-                    <!-- Tarjetas de Metas generadas dinÃ¡micamente -->
+                    <!-- Tarjetas de Metas generadas dinámicamente -->
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ======================================================================
-         MODALES EMERGENTES DEL MÃ“DULO FINANCIERO
+         MODALES EMERGENTES DEL MÓDULO FINANCIERO
          ====================================================================== -->
 
     <!-- MODAL 1: NUEVA ENTRADA (INGRESO) -->
@@ -765,7 +795,7 @@
         <div class="modal-system-window">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">ðŸ’µ</span>
+                    <span style="font-size: 18px;">💵</span>
                     <span style="color: #34d399; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA ENTRADA DE INGRESO</span>
                 </div>
                 <button onclick="cerrarModalIngreso()" class="modal-close-btn">&times;</button>
@@ -776,7 +806,7 @@
                     <input type="text" id="modal-ingreso-fuente" class="modal-input" placeholder="Ej: Sueldo Principal, Freelance, Bono...">
                 </div>
                 <div class="modal-form-group">
-                    <label>DÃ­a de Cobro (1 al 31):</label>
+                    <label>Día de Cobro (1 al 31):</label>
                     <input type="number" id="modal-ingreso-dia" class="modal-input" min="1" max="31" value="15">
                 </div>
                 <div class="modal-form-group">
@@ -788,7 +818,7 @@
                         Cancelar
                     </button>
                     <button class="btn-system" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-color: #34d399;" onclick="confirmarAgregarIngreso()">
-                        âœ“ Guardar Entrada
+                        ✓ Guardar Entrada
                     </button>
                 </div>
             </div>
@@ -800,7 +830,7 @@
         <div class="modal-system-window">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">ðŸ’³</span>
+                    <span style="font-size: 18px;">💳</span>
                     <span style="color: #f87171; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA SALIDA O GASTO</span>
                 </div>
                 <button onclick="cerrarModalGasto()" class="modal-close-btn">&times;</button>
@@ -811,19 +841,19 @@
                     <input type="text" id="modal-gasto-fuente" class="modal-input" placeholder="Ej: Alquiler, Supermercado, Repuesto Moto...">
                 </div>
                 <div class="modal-form-group">
-                    <label>CategorÃ­a del Gasto:</label>
+                    <label>Categoría del Gasto:</label>
                     <select id="modal-gasto-categoria" class="ideas-select">
-                        <option value="Vivienda">ðŸ  Vivienda</option>
-                        <option value="AlimentaciÃ³n">ðŸ›’ AlimentaciÃ³n</option>
-                        <option value="Moto">ðŸï¸ Moto</option>
-                        <option value="Servicios">ðŸ’¡ Servicios</option>
-                        <option value="Salud">ðŸ¥ Salud</option>
-                        <option value="Entretenimiento">ðŸŽ® Entretenimiento</option>
-                        <option value="Otros">ðŸ“¦ Otros</option>
+                        <option value="Vivienda">🏠 Vivienda</option>
+                        <option value="Alimentación">🛒 Alimentación</option>
+                        <option value="Moto">🏍️ Moto</option>
+                        <option value="Servicios">💡 Servicios</option>
+                        <option value="Salud">🏥 Salud</option>
+                        <option value="Entretenimiento">🎮 Entretenimiento</option>
+                        <option value="Otros">📦 Otros</option>
                     </select>
                 </div>
                 <div class="modal-form-group">
-                    <label>DÃ­a de Pago (1 al 31):</label>
+                    <label>Día de Pago (1 al 31):</label>
                     <input type="number" id="modal-gasto-dia" class="modal-input" min="1" max="31" value="5">
                 </div>
                 <div class="modal-form-group">
@@ -835,7 +865,7 @@
                         Cancelar
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarGasto()">
-                        âœ“ Guardar Gasto
+                        ✓ Guardar Gasto
                     </button>
                 </div>
             </div>
@@ -847,7 +877,7 @@
         <div class="modal-system-window">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">ðŸ›¡ï¸</span>
+                    <span style="font-size: 18px;">🛡️</span>
                     <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">AGREGAR NUEVA DEUDA</span>
                 </div>
                 <button onclick="cerrarModalDeuda()" class="modal-close-btn">&times;</button>
@@ -855,10 +885,10 @@
             <div style="padding: 20px;">
                 <div class="modal-form-group">
                     <label>Nombre de la Deuda / Acreedor:</label>
-                    <input type="text" id="modal-deuda-nombre" class="modal-input" placeholder="Ej: Tarjeta de CrÃ©dito, PrÃ©stamo Personal, Cuota...">
+                    <input type="text" id="modal-deuda-nombre" class="modal-input" placeholder="Ej: Tarjeta de Crédito, Préstamo Personal, Cuota...">
                 </div>
                 <div class="modal-form-group">
-                    <label>DÃ­a de Pago (1 al 31):</label>
+                    <label>Día de Pago (1 al 31):</label>
                     <input type="number" id="modal-deuda-dia" class="modal-input" min="1" max="31" value="20">
                 </div>
                 <div class="modal-form-group">
@@ -870,19 +900,19 @@
                         Cancelar
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarDeuda()">
-                        âœ“ Guardar Deuda
+                        ✓ Guardar Deuda
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 4: NUEVA META FINANCIERA (QUINCE Y ÃšLTIMO) -->
+    <!-- MODAL 4: NUEVA META FINANCIERA (QUINCE Y ÚLTIMO) -->
     <div id="modal-finanzas-meta" class="modal-overlay" style="display: none;">
         <div class="modal-system-window">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">ðŸŽ¯</span>
+                    <span style="font-size: 18px;">🎯</span>
                     <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">CREAR NUEVA META FINANCIERA</span>
                 </div>
                 <button onclick="cerrarModalMeta()" class="modal-close-btn">&times;</button>
@@ -890,7 +920,7 @@
             <div style="padding: 20px;">
                 <div class="modal-form-group">
                     <label>Nombre de la Meta:</label>
-                    <input type="text" id="modal-meta-nombre" class="modal-input" placeholder="Ej: TelÃ©fono, Moto, Fondo de Emergencia...">
+                    <input type="text" id="modal-meta-nombre" class="modal-input" placeholder="Ej: Teléfono, Moto, Fondo de Emergencia...">
                 </div>
                 <div class="modal-form-group">
                     <label>Monto Total Objetivo ($):</label>
@@ -903,14 +933,14 @@
                 <div class="modal-form-group">
                     <label>Tiempo Estimado (en Meses):</label>
                     <input type="number" id="modal-meta-meses" class="modal-input" min="1" max="60" value="3" oninput="actualizarCalculoCuotaMeta()">
-                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Se dividirÃ¡ en cuotas de quince y Ãºltimo (2 cuotas por mes).</span>
+                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Se dividirá en cuotas de quince y último (2 cuotas por mes).</span>
                 </div>
 
                 <!-- Resumen previo calculado en vivo -->
                 <div id="modal-meta-preview-box" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; margin-top: 10px; font-size: 12.5px; color: #4b5563;">
-                    <div>â€¢ Faltante: <strong id="preview-meta-faltante" style="color:#111827;">$0.00</strong></div>
-                    <div>â€¢ Cuotas quincenales: <strong id="preview-meta-cuotas" style="color:#111827;">6 cuotas</strong> (quince y Ãºltimo)</div>
-                    <div>â€¢ Monto por cuota: <strong id="preview-meta-cuotavalor" style="color:#059669;">$0.00</strong></div>
+                    <div>• Faltante: <strong id="preview-meta-faltante" style="color:#111827;">$0.00</strong></div>
+                    <div>• Cuotas quincenales: <strong id="preview-meta-cuotas" style="color:#111827;">6 cuotas</strong> (quince y último)</div>
+                    <div>• Monto por cuota: <strong id="preview-meta-cuotavalor" style="color:#059669;">$0.00</strong></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -918,7 +948,7 @@
                         Cancelar
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarMeta()">
-                        âœ“ Aceptar y Crear Meta
+                        ✓ Aceptar y Crear Meta
                     </button>
                 </div>
             </div>
@@ -928,39 +958,39 @@
     <!-- VISTA: IDEAS -->
     <div id="vista-ideas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
 
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-                <h2 style="margin: 0;">ðŸ’¡ Banco de Ideas</h2>
+                <h2 style="margin: 0;">💡 Banco de Ideas</h2>
                 <span style="font-size: 11.5px; font-weight: 600; color: #374151; background: #f3f4f6; padding: 4px 12px; border-radius: 9999px; border: 1px solid #e5e7eb;">
                     Activo
                 </span>
             </div>
 
-            <!-- PANEL DE REGISTRO RÃPIDO DE IDEAS -->
+            <!-- PANEL DE REGISTRO RÁPIDO DE IDEAS -->
             <div class="ideas-panel-box">
                 <div class="ideas-form-grid">
                     <div>
-                        <input type="text" id="input-nueva-idea" placeholder="Escribe tu idea aquÃ­..." style="margin-bottom: 0;">
+                        <input type="text" id="input-nueva-idea" placeholder="Escribe tu idea aquí..." style="margin-bottom: 0;">
                     </div>
                     
                     <div class="ideas-inputs-row">
                         <div>
-                            <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">CategorÃ­a:</label>
+                            <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Categoría:</label>
                             <select id="select-categoria-idea" class="ideas-select" onchange="alCambiarCategoriaIdea()">
-                                <option value="ðŸ’­ Ideas y Pensamientos">ðŸ’­ Ideas y Pensamientos</option>
-                                <option value="ðŸ›’ Compras">ðŸ›’ Compras</option>
-                                <option value="ðŸ“Š Planes y Monitoreo de EjecuciÃ³n">ðŸ“Š Planes y Monitoreo de EjecuciÃ³n</option>
-                                <option value="ðŸ§  Cosas por Aprender">ðŸ§  Cosas por Aprender</option>
-                                <option value="âœ… Tareas Pendientes">âœ… Tareas Pendientes</option>
+                                <option value="💭 Ideas y Pensamientos">💭 Ideas y Pensamientos</option>
+                                <option value="🛒 Compras">🛒 Compras</option>
+                                <option value="📊 Planes y Monitoreo de Ejecución">📊 Planes y Monitoreo de Ejecución</option>
+                                <option value="🧠 Cosas por Aprender">🧠 Cosas por Aprender</option>
+                                <option value="✅ Tareas Pendientes">✅ Tareas Pendientes</option>
                             </select>
                         </div>
                         <div>
-                            <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">SubcategorÃ­a:</label>
+                            <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Subcategoría:</label>
                             <select id="select-subcategoria-idea" class="ideas-select">
-                                <!-- Se llena dinÃ¡micamente -->
+                                <!-- Se llena dinámicamente -->
                             </select>
                         </div>
                     </div>
@@ -968,70 +998,70 @@
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
                         <div class="context-selector-box">
                             <span class="context-label">Contexto:</span>
-                            <div class="context-pill active" id="pill-context-casa" onclick="seleccionarContextoIdea('ðŸ  Casa')">
-                                ðŸ  Casa
+                            <div class="context-pill active" id="pill-context-casa" onclick="seleccionarContextoIdea('🏠 Casa')">
+                                🏠 Casa
                             </div>
-                            <div class="context-pill" id="pill-context-calle" onclick="seleccionarContextoIdea('ðŸ›£ï¸ Calle')">
-                                ðŸ›£ï¸ Calle
+                            <div class="context-pill" id="pill-context-calle" onclick="seleccionarContextoIdea('🛣️ Calle')">
+                                🛣️ Calle
                             </div>
-                            <div class="context-pill" id="pill-context-trabajo" onclick="seleccionarContextoIdea('ðŸ’¼ Trabajo')">
-                                ðŸ’¼ Trabajo
+                            <div class="context-pill" id="pill-context-trabajo" onclick="seleccionarContextoIdea('💼 Trabajo')">
+                                💼 Trabajo
                             </div>
                         </div>
 
                         <button class="btn-system" onclick="guardarNuevaIdea()" id="btn-publicar-idea" style="min-width: 140px;">
-                            âš¡ Publicar
+                            ⚡ Publicar
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- BOTONES PRINCIPALES DE NAVEGACIÃ“N: CATEGORÃAS Y OPERATIVIDAD -->
+            <!-- BOTONES PRINCIPALES DE NAVEGACIÓN: CATEGORÍAS Y OPERATIVIDAD -->
             <div class="ideas-nav-buttons-container">
                 <button id="btn-tab-categorias" class="btn-ideas-tab active" onclick="alternarSubvistaIdeas('categorias')">
-                    <span>ðŸ“ CATEGORÃAS</span>
+                    <span>📁 CATEGORÍAS</span>
                     <span id="badge-total-pendientes" class="ideas-counter-badge">0</span>
                 </button>
                 <button id="btn-tab-operatividad" class="btn-ideas-tab" onclick="alternarSubvistaIdeas('operatividad')">
-                    <span>ðŸ“ˆ OPERATIVIDAD</span>
+                    <span>📈 OPERATIVIDAD</span>
                     <span id="badge-total-hechas-mes" class="ideas-counter-badge" style="background:#064e3b; color:#34d399; border-color:#059669;">0</span>
                 </button>
             </div>
 
-            <!-- CONTENEDOR 1: GRID DE LAS 5 CATEGORÃAS -->
+            <!-- CONTENEDOR 1: GRID DE LAS 5 CATEGORÍAS -->
             <div id="vista-ideas-categorias-grid">
                 <div class="categories-grid" id="contenedor-grid-categorias">
-                    <!-- Se renderizan las 5 tarjetas de categorÃ­as -->
+                    <!-- Se renderizan las 5 tarjetas de categorías -->
                 </div>
             </div>
 
-            <!-- CONTENEDOR 2: DETALLE DE CATEGORÃA ESPECÃFICA CON SUBCATEGORÃAS Y LISTAS LIMPIAS -->
+            <!-- CONTENEDOR 2: DETALLE DE CATEGORÍA ESPECÍFICA CON SUBCATEGORÍAS Y LISTAS LIMPIAS -->
             <div id="vista-ideas-categoria-detalle" style="display: none;">
                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
                     <button class="btn-back-system" onclick="volverACategoriasIdeas()" style="margin-bottom: 0;">
-                        <span>â—€</span> VOLVER A CATEGORÃAS
+                        <span>◀</span> VOLVER A CATEGORÍAS
                     </button>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 12px; color: #94a3b8;">Filtrar Contexto:</span>
                         <select id="select-filtro-contexto-detalle" class="ideas-select" style="width: auto; padding: 4px 10px;" onchange="alFiltrarContextoDetalle()">
                             <option value="TODOS">Todos</option>
-                            <option value="ðŸ  Casa">ðŸ  Casa</option>
-                            <option value="ðŸ›£ï¸ Calle">ðŸ›£ï¸ Calle</option>
-                            <option value="ðŸ’¼ Trabajo">ðŸ’¼ Trabajo</option>
+                            <option value="🏠 Casa">🏠 Casa</option>
+                            <option value="🛣️ Calle">🛣️ Calle</option>
+                            <option value="💼 Trabajo">💼 Trabajo</option>
                         </select>
                     </div>
                 </div>
 
                 <div id="detalle-categoria-header" style="margin-bottom: 16px;">
-                    <!-- TÃ­tulo de la categorÃ­a actual -->
+                    <!-- Título de la categoría actual -->
                 </div>
 
                 <div id="contenedor-subcategorias-lista">
-                    <!-- Listas limpias con guion corto por subcategorÃ­a -->
+                    <!-- Listas limpias con guion corto por subcategoría -->
                 </div>
             </div>
 
-            <!-- CONTENEDOR 3: OPERATIVIDAD (IDEAS EJECUTADAS DEL MES + GRÃFICO) -->
+            <!-- CONTENEDOR 3: OPERATIVIDAD (IDEAS EJECUTADAS DEL MES + GRÁFICO) -->
             <div id="vista-ideas-operatividad" style="display: none;">
                 <div class="operatividad-header">
                     <div>
@@ -1039,13 +1069,13 @@
                         <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #6b7280;">Monitoreo de ideas y objetivos ejecutados</p>
                     </div>
                     <div class="operatividad-month-selector">
-                        <button class="btn-month-nav" onclick="cambiarMesOperatividad(-1)">â—€</button>
+                        <button class="btn-month-nav" onclick="cambiarMesOperatividad(-1)">◀</button>
                         <span id="label-mes-operatividad" class="current-month-label">Septiembre 2026</span>
-                        <button class="btn-month-nav" onclick="cambiarMesOperatividad(1)">â–¶</button>
+                        <button class="btn-month-nav" onclick="cambiarMesOperatividad(1)">▶</button>
                     </div>
                 </div>
 
-                <!-- MÃ‰TRICAS CLAVE -->
+                <!-- MÉTRICAS CLAVE -->
                 <div class="operatividad-metrics-grid">
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="metric-ideas-hechas-mes">0</div>
@@ -1053,7 +1083,7 @@
                     </div>
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="metric-ideas-categoria-top" style="font-size: 18px; color: #111827;">-</div>
-                        <div class="metric-title">CategorÃ­a MÃ¡s Activa</div>
+                        <div class="metric-title">Categoría Más Activa</div>
                     </div>
                     <div class="metric-card-ideas">
                         <div class="metric-num" id="metric-tasa-operatividad" style="color: #059669;">0%</div>
@@ -1061,10 +1091,10 @@
                     </div>
                 </div>
 
-                <!-- GRÃFICO DE OPERATIVIDAD -->
+                <!-- GRÁFICO DE OPERATIVIDAD -->
                 <div class="chart-container-ideas">
                     <h3>
-                        <span>ðŸ“Š</span> DISTRIBUCIÃ“N DE OPERATIVIDAD POR CATEGORÃA
+                        <span>📊</span> DISTRIBUCIÓN DE OPERATIVIDAD POR CATEGORÍA
                     </h3>
                     <div style="position: relative; height: 260px; width: 100%;">
                         <canvas id="graficoOperatividad"></canvas>
@@ -1083,13 +1113,13 @@
                 </div>
             </div>
 
-            <!-- SINCRONIZACIÃ“N CON GOOGLE SHEETS "BANCO DE IDEAS" -->
+            <!-- SINCRONIZACIÓN CON GOOGLE SHEETS "BANCO DE IDEAS" -->
             <div class="sheet-sync-box">
                 <div>
-                    <strong>ðŸ“„ Hoja de CÃ¡lculo:</strong> PestaÃ±a <code>Banco de Ideas</code> (CategorÃ­as, SubcategorÃ­as y Casillas activas).
+                    <strong>📄 Hoja de Cálculo:</strong> Exporta tus ideas en formato JSON para respaldar en cualquier momento.
                 </div>
                 <button class="btn-sheet-action" onclick="inicializarHojaSheetsDesdeUI()">
-                    âš¡ Asegurar Hoja en Sheets
+                    ⚡ Exportar Backup JSON
                 </button>
             </div>
         </div>
@@ -1098,7 +1128,7 @@
     <!-- VISTA: CALENDARIO -->
     <div id="vista-calendario" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
-            <span style="font-size: 16px;">â—€</span> VOLVER AL MENÃš
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         <div class="card">
             <h2>Calendario del Sistema</h2>
@@ -1111,15 +1141,15 @@
         <div class="modal-system-window">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">âš¡</span>
-                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">ACTIVACIÃ“N PREVIA</span>
+                    <span style="font-size: 18px;">⚡</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">ACTIVACIÓN PREVIA</span>
                 </div>
                 <button onclick="cerrarModalEstiramientos()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
 
             <!-- CUERPO DEL TEMPORIZADOR Y ESTIRAMIENTO -->
             <div id="modal-stretching-body" style="padding: 20px;">
-                <h3 id="stretch-routine-target" style="color: #111827; margin: 0 0 4px 0; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; text-align: center;">PREPARACIÃ“N PREVIA</h3>
+                <h3 id="stretch-routine-target" style="color: #111827; margin: 0 0 4px 0; text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; text-align: center;">PREPARACIÓN PREVIA</h3>
                 <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; text-align: center;">Realiza cada estiramiento durante 30 segundos antes de comenzar.</p>
 
                 <!-- Indicador visual de pasos [1] [2] [3] [4] -->
@@ -1127,11 +1157,11 @@
 
                 <!-- Tarjeta del Ejercicio Activo -->
                 <div class="stretch-active-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; text-align: center;">
-                    <div id="stretch-icon" style="font-size: 38px; margin-bottom: 6px;">ðŸ§˜</div>
+                    <div id="stretch-icon" style="font-size: 38px; margin-bottom: 6px;">🧘</div>
                     <h2 id="stretch-title" style="color: #111827; margin: 0 0 6px 0; font-size: 16px; font-weight: 700;">Apertura de Pecho</h2>
-                    <p id="stretch-desc" style="color: #4b5563; font-size: 13px; line-height: 1.4; margin: 0 0 15px 0; min-height: 38px;">Brazos hacia atrÃ¡s entrelazando los dedos, expandiendo el tÃ³rax y respirando profundo.</p>
+                    <p id="stretch-desc" style="color: #4b5563; font-size: 13px; line-height: 1.4; margin: 0 0 15px 0; min-height: 38px;">Brazos hacia atrás entrelazando los dedos, expandiendo el tórax y respirando profundo.</p>
 
-                    <!-- Temporizador Digital con Barra DinÃ¡mica -->
+                    <!-- Temporizador Digital con Barra Dinámica -->
                     <div class="timer-container">
                         <div class="timer-countdown" id="timer-countdown" style="color: #111827; font-weight: 800;">30</div>
                         <div class="timer-unit" style="color: #6b7280;">SEGUNDOS</div>
@@ -1145,10 +1175,10 @@
                 <!-- Botones de Control de Temporizador -->
                 <div class="stretch-controls" style="display: flex; gap: 10px; margin-top: 16px;">
                     <button id="btn-timer-toggle" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="toggleTemporizadorEstiramiento()">
-                        â¸ Pausar
+                        ⏸ Pausar
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="siguienteEstiramiento()">
-                        Siguiente â­
+                        Siguiente ⏭
                     </button>
                 </div>
 
@@ -1159,11 +1189,11 @@
                 </div>
             </div>
 
-            <!-- PANTALLA DE Ã‰XITO: CALENTAMIENTO COMPLETADO -->
+            <!-- PANTALLA DE ÉXITO: CALENTAMIENTO COMPLETADO -->
             <div id="modal-stretching-complete" style="display: none; text-align: center; padding: 25px 20px;">
-                <div class="check-success-badge" style="background: #111827; color: white;">âœ“</div>
-                <h2 style="color: #111827; margin: 12px 0 8px 0; font-size: 18px; font-weight: 800;">Â¡CALENTAMIENTO COMPLETADO!</h2>
-                <p style="color: #6b7280; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">Articulaciones preparadas y mÃºsculos activados. El sistema ha desbloqueado la rutina.</p>
+                <div class="check-success-badge" style="background: #111827; color: white;">✓</div>
+                <h2 style="color: #111827; margin: 12px 0 8px 0; font-size: 18px; font-weight: 800;">¡CALENTAMIENTO COMPLETADO!</h2>
+                <p style="color: #6b7280; font-size: 13px; line-height: 1.5; margin: 0 0 20px 0;">Articulaciones preparadas y músculos activados. El sistema ha desbloqueado la rutina.</p>
 
                 <button class="btn-system" style="width: 100%; padding: 12px;" onclick="irARutinaDesbloqueada()">
                     ENTRAR A LA RUTINA
@@ -1172,3 +1202,24 @@
         </div>
     </div>
 </div>
+
+
+    <!-- Motor de la Aplicación y LocalStorage -->
+    <script src="app.js"></script>
+
+    <!-- Registro de Service Worker PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js')
+                    .then(function(registration) {
+                        console.log('[PWA] Service Worker registrado en:', registration.scope);
+                    })
+                    .catch(function(error) {
+                        console.warn('[PWA] Service Worker:', error.message);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
