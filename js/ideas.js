@@ -4,46 +4,49 @@
  */
 
 var ESTRUCTURA_BANCO_IDEAS = {
-    "💭 Ideas y Pensamientos": {
-        icono: "💭",
+    "💡 Ideas & Proyectos": {
+        icono: "💡",
         subcategorias: [
-            "🧠 Mis Pensamientos (Filosofía, Mentalidad y Enfoque)",
+            "🧠 Filosofía, Mentalidad y Enfoque",
             "💬 Interacción Social y Dinámicas Personales",
-            "📜 Frases Populares / Citas Célebres"
+            "🚀 Emprendimiento, Negocios y Nuevas Apps",
+            "📜 Citas Célebres & Principios Rectores"
         ]
     },
-    "🛒 Compras": {
+    "🛒 Compras & Deseos": {
         icono: "🛒",
         subcategorias: [
-            "👕 Ropa y Accesorios",
-            "🖥️ Tecnología y Electrónica",
-            "📚 Estudios y Papelería",
-            "🧴 Cuidado Personal y Salud",
-            "🏠 Hogar, Comida y Varios",
-            "💳 Gastos, Pagos y Deudas"
+            "👕 Ropa, Calzado y Accesorios",
+            "🖥️ Tecnología, Hardware y Electrónica",
+            "🏍️ Moto, Repuestos y Mantenimiento",
+            "📚 Libros, Cursos y Material de Estudio",
+            "🧴 Cuidado Personal y Barbería",
+            "🏠 Hogar, Comida y Supermercado"
         ]
     },
-    "📊 Planes y Monitoreo de Ejecución": {
+    "📊 Planes & Metas": {
         icono: "📊",
         subcategorias: [
-            "👤 Vida Personal, Hábitos y Bienestar",
-            "💼 Trabajo, Programación y Proyectos Profesionales"
+            "👤 Crecimiento Personal, Hábitos y Rutina",
+            "💼 Trabajo, Programación y Carrera Profesional",
+            "💰 Metas Financieras, Inversiones y Ahorro"
         ]
     },
-    "🧠 Cosas por Aprender": {
-        icono: "🧠",
+    "📚 Base de Conocimientos": {
+        icono: "📚",
         subcategorias: [
-            "🧠 General y Mentalidad",
-            "💻 Programación y Tecnología",
-            "📚 Libros, Cursos y Habilidades"
+            "💈 Oficio, Barbería & Técnicas Manuales",
+            "💻 Programación, Algoritmos y Arquitectura Web",
+            "♟️ Psicología Oscura, Lenguaje No Verbal y Estrategia",
+            "📖 Resúmenes de Lecturas y Aprendizajes Clave"
         ]
     },
-    "✅ Tareas Pendientes": {
+    "✅ Tareas Operativas": {
         icono: "✅",
         subcategorias: [
-            "🏠 Casa",
-            "🛣️ Calle (Trámites y Mandados)",
-            "💼 Trabajo (Estudios y Proyectos)"
+            "🏠 En Casa (Organización y Espacio)",
+            "🛣️ En la Calle (Trámites, Mandados y Compras)",
+            "💼 En el Trabajo (Pendientes de Flujo Diario)"
         ]
     }
 };
@@ -63,7 +66,7 @@ function inicializarBancoDeIdeas() {
 
     var catSelect = document.getElementById('select-categoria-idea');
     if (catSelect) {
-        catSelect.value = "💭 Ideas y Pensamientos";
+        catSelect.value = "💡 Ideas & Proyectos";
         alCambiarCategoriaIdea();
     }
 
@@ -613,6 +616,233 @@ function renderizarListaOperatividad(ejecutadas) {
 
 function inicializarHojaIdeasDesdeUI() {
     MonarcaDB.exportBackup();
+}
+
+// ==========================================================================
+// 📚 BASE DE CONOCIMIENTOS & REVISIÓN SEMANAL DE APRENDIZAJES
+// ==========================================================================
+
+var FILTRO_AREA_CONOCIMIENTO = "TODAS";
+
+function cargarConocimientos(filtro) {
+    if (filtro) FILTRO_AREA_CONOCIMIENTO = filtro;
+    renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+}
+
+function renderizarConocimientos(filtro) {
+    var cont = document.getElementById('contenedor-conocimientos-grid');
+    var bannerRevision = document.getElementById('contenedor-revision-semanal-conocimiento');
+    if (!cont && !bannerRevision) return;
+
+    if (!APP_STATE.conocimientos || !Array.isArray(APP_STATE.conocimientos)) {
+        APP_STATE.conocimientos = JSON.parse(JSON.stringify(DEFAULT_STATE.conocimientos || []));
+    }
+    var conocimientos = APP_STATE.conocimientos;
+
+    // Métricas de repaso semanal
+    var totalConocimientos = conocimientos.length;
+    var repasadosEstaSemana = conocimientos.filter(function(c) { return c.revisadoEstaSemana; }).length;
+    var porcentajeSemana = totalConocimientos > 0 ? Math.round((repasadosEstaSemana / totalConocimientos) * 100) : 0;
+
+    if (bannerRevision) {
+        bannerRevision.innerHTML = `
+        <div class="weekly-review-banner">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280;">Ciclo de Repaso Activo</div>
+                    <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #111827;">Revisión Semanal de Conocimientos</h3>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="item-badge-pill" style="font-size: 12.5px; font-weight: 800; background: #f3f4f6; color: #111827;">${repasadosEstaSemana} / ${totalConocimientos} Repasados</span>
+                    <button class="btn-sheet-action" onclick="reiniciarCicloSemanalConocimientos()" title="Reiniciar ciclo semanal para volver a estudiar">
+                        🔄 Nuevo Ciclo Semanal
+                    </button>
+                </div>
+            </div>
+            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #4b5563;">
+                Estudio espaciado de técnicas operativas y teóricas aprendidas durante tus actividades. Repasa cada punto para afianzar retención neural y sumar +15 EXP.
+            </p>
+            <div class="attr-progress-track" style="height: 8px;">
+                <div class="attr-progress-fill" style="width: ${porcentajeSemana}%;"></div>
+            </div>
+        </div>`;
+    }
+
+    if (!cont) return;
+
+    var filtrados = conocimientos;
+    if (filtro && filtro !== "TODAS") {
+        filtrados = conocimientos.filter(function(c) { return c.area === filtro; });
+    }
+
+    if (filtrados.length === 0) {
+        cont.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 32px 16px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px;">
+            <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay conocimientos registrados en esta área.</p>
+            <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevoConocimiento()">+ Registrar Nuevo Conocimiento</button>
+        </div>`;
+        return;
+    }
+
+    var html = '';
+    filtrados.forEach(function(c) {
+        var estadoBadge = c.revisadoEstaSemana ? 
+            `<span style="font-size: 11px; font-weight: 700; background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 9999px; border: 1px solid #a7f3d0;">✓ Repasado esta semana</span>` :
+            `<span style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #4b5563; padding: 3px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">Pendiente de repaso</span>`;
+
+        var btnRepaso = c.revisadoEstaSemana ?
+            `<button class="btn-card-repaso repasado" onclick="marcarConocimientoRepasadoSemana('${c.id}')" title="Hacer clic para desmarcar">✓ Estudiado</button>` :
+            `<button class="btn-card-repaso" onclick="marcarConocimientoRepasadoSemana('${c.id}')">📖 Estudiar y Marcar (+15 EXP)</button>`;
+
+        html += `
+        <div class="knowledge-card ${c.revisadoEstaSemana ? 'repasado' : ''}">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                <div>
+                    <span class="knowledge-area-tag">${c.area || 'Conocimiento'}</span>
+                    <h4 class="knowledge-title">${c.titulo}</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <button onclick="eliminarConocimiento('${c.id}')" title="Eliminar técnica" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+                </div>
+            </div>
+
+            <div style="font-size: 11.5px; color: #6b7280; margin-bottom: 10px;">
+                <strong>Origen:</strong> ${c.actividadOrigen || 'Actividad práctica'} · <span style="font-weight: 600; color: #374151;">${c.nivelDominio || 'En Práctica'}</span>
+            </div>
+
+            <div class="knowledge-keypoints-box">
+                <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Puntos Clave & Técnica:</div>
+                <p style="margin: 0; font-size: 12.5px; color: #1f2937; line-height: 1.45; white-space: pre-wrap;">${c.resumenPuntosClave}</p>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f3f4f6; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    ${estadoBadge}
+                    <span style="font-size: 11px; color: #6b7280;">${c.semanasRepasadas || 0} sem. activas</span>
+                </div>
+                <div>
+                    ${btnRepaso}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    cont.innerHTML = html;
+}
+
+function abrirModalNuevoConocimiento() {
+    var modal = document.getElementById('modal-nuevo-conocimiento');
+    if (!modal) return;
+    var inTit = document.getElementById('input-con-titulo');
+    var inOrigen = document.getElementById('input-con-origen');
+    var inPuntos = document.getElementById('input-con-puntos');
+
+    if (inTit) inTit.value = '';
+    if (inOrigen) inOrigen.value = '';
+    if (inPuntos) inPuntos.value = '';
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalNuevoConocimiento() {
+    var modal = document.getElementById('modal-nuevo-conocimiento');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarNuevoConocimiento() {
+    var inTit = document.getElementById('input-con-titulo');
+    var inArea = document.getElementById('input-con-area');
+    var inOrigen = document.getElementById('input-con-origen');
+    var inPuntos = document.getElementById('input-con-puntos');
+    var inDominio = document.getElementById('input-con-dominio');
+
+    var titulo = inTit ? inTit.value.trim() : '';
+    var area = inArea ? inArea.value : 'Oficio & Barbería';
+    var origen = inOrigen ? inOrigen.value.trim() : '';
+    var puntos = inPuntos ? inPuntos.value.trim() : '';
+    var dominio = inDominio ? inDominio.value : 'En Práctica';
+
+    if (!titulo) {
+        alert("Por favor ingresa el título de la técnica o conocimiento.");
+        if (inTit) inTit.focus();
+        return;
+    }
+    if (!puntos) {
+        alert("Por favor ingresa los puntos clave o explicación de la técnica.");
+        if (inPuntos) inPuntos.focus();
+        return;
+    }
+
+    if (!APP_STATE.conocimientos) APP_STATE.conocimientos = [];
+    var nuevo = {
+        id: "CON-" + Date.now(),
+        titulo: titulo,
+        area: area,
+        actividadOrigen: origen || "Actividad del día a día",
+        resumenPuntosClave: puntos,
+        nivelDominio: dominio,
+        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        timestamp: Date.now(),
+        semanasRepasadas: 0,
+        revisadoEstaSemana: true
+    };
+
+    APP_STATE.conocimientos.unshift(nuevo);
+    sumarExp(25);
+    MonarcaDB.save(APP_STATE);
+
+    cerrarModalNuevoConocimiento();
+    renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+    alert("📚 Conocimiento registrado exitosamente con repaso activo (+25 EXP).");
+}
+
+function marcarConocimientoRepasadoSemana(id) {
+    if (!APP_STATE.conocimientos) return;
+    var c = APP_STATE.conocimientos.find(function(item) { return item.id === id; });
+    if (!c) return;
+
+    if (c.revisadoEstaSemana) {
+        c.revisadoEstaSemana = false;
+        c.semanasRepasadas = Math.max(0, (c.semanasRepasadas || 1) - 1);
+    } else {
+        c.revisadoEstaSemana = true;
+        c.semanasRepasadas = (c.semanasRepasadas || 0) + 1;
+        sumarExp(15);
+        if (APP_STATE.menteAtributos && APP_STATE.menteAtributos.conocimiento !== undefined) {
+            APP_STATE.menteAtributos.conocimiento = Math.min(100, (APP_STATE.menteAtributos.conocimiento || 0) + 5);
+        }
+        alert("🧠 ¡Técnica estudiada y afianzada!\n+15 EXP recibidos.");
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+}
+
+function reiniciarCicloSemanalConocimientos() {
+    if (!APP_STATE.conocimientos || APP_STATE.conocimientos.length === 0) return;
+    if (!confirm("¿Iniciar un nuevo ciclo semanal de estudio? Todas las técnicas volverán a estar pendientes para su repaso semanal.")) return;
+
+    APP_STATE.conocimientos.forEach(function(c) {
+        c.revisadoEstaSemana = false;
+    });
+    MonarcaDB.save(APP_STATE);
+    renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+    alert("🔄 Ciclo semanal reiniciado. ¡Listo para repasar tus conocimientos!");
+}
+
+function eliminarConocimiento(id) {
+    if (!confirm("¿Estás seguro de eliminar este registro de conocimiento?")) return;
+    if (!APP_STATE.conocimientos) return;
+    APP_STATE.conocimientos = APP_STATE.conocimientos.filter(function(c) { return c.id !== id; });
+    MonarcaDB.save(APP_STATE);
+    renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+}
+
+function filtrarConocimientosPorArea(area, btn) {
+    FILTRO_AREA_CONOCIMIENTO = area;
+    var btns = document.querySelectorAll('.btn-tab-con-area');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    renderizarConocimientos(area);
 }
 
 

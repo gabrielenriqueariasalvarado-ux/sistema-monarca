@@ -1517,15 +1517,17 @@
         transform: translateX(2px);
     }
 
-    .exercise-item-rpg.checked-active {
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-        border-left: 3px solid #10b981;
+    .exercise-item-rpg.checked-active,
+    .exercise-item-rpg:has(input:checked) {
+        background: #f0fdf4 !important;
+        border-color: #bbf7d0 !important;
+        border-left: 3px solid #10b981 !important;
     }
 
-    .exercise-item-rpg.checked-active h4 {
+    .exercise-item-rpg.checked-active h4,
+    .exercise-item-rpg:has(input:checked) h4 {
         color: #065f46 !important;
-        text-decoration: line-through;
+        text-decoration: line-through !important;
     }
 
     .exercise-item-rpg h4 {
@@ -1554,10 +1556,12 @@
         margin-left: 12px;
     }
 
-    .exercise-item-rpg.checked-active .custom-check-box {
-        background: #10b981;
-        border-color: #10b981;
-        color: white;
+    .exercise-item-rpg.checked-active .custom-check-box,
+    .exercise-item-rpg input:checked ~ .custom-check-box,
+    .exercise-item-rpg:has(input:checked) .custom-check-box {
+        background: #10b981 !important;
+        border-color: #10b981 !important;
+        color: #ffffff !important;
     }
 
     .badge-reps {
@@ -1584,10 +1588,11 @@
         border: 1px solid #e5e7eb;
     }
 
-    .exercise-item-rpg.checked-active .badge-status-item {
-        background: #d1fae5;
-        color: #047857;
-        border-color: #a7f3d0;
+    .exercise-item-rpg.checked-active .badge-status-item,
+    .exercise-item-rpg:has(input:checked) .badge-status-item {
+        background: #d1fae5 !important;
+        color: #047857 !important;
+        border-color: #a7f3d0 !important;
     }
 
     /* Animación del botón cuando la rutina está al 100% */
@@ -2553,3 +2558,1503 @@
         justify-content: center;
     }
 }
+
+/* ==========================================================================
+   ESTILOS: QUESTS DIARIOS, RUTINA MATUTINA Y SISTEMA DE PENALIZACIONES
+   ========================================================================== */
+
+.quest-daily-hud-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 580px) {
+    .quest-daily-hud-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.quest-hud-metric {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: center;
+}
+
+.hud-metric-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.hud-metric-val {
+    font-size: 20px;
+    font-weight: 800;
+}
+
+/* Caja de alerta roja Solo Leveling para penitencias activas */
+.alerta-penitencia-box {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 2px solid #ef4444;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15);
+    animation: alertPulse 2s infinite ease-in-out;
+}
+
+@keyframes alertPulse {
+    0%, 100% { border-color: #ef4444; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15); }
+    50% { border-color: #b91c1c; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.35); }
+}
+
+.alerta-penitencia-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #fecaca;
+    padding-bottom: 10px;
+}
+
+.alerta-penitencia-item {
+    background: #ffffff;
+    border: 1px solid #fca5a5;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-cumplir-penitencia-sm {
+    background: #b91c1c;
+    color: #ffffff;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cumplir-penitencia-sm:hover {
+    background: #991b1b;
+}
+
+/* Tarjeta de Quest Diaria */
+.quest-diario-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #9ca3af;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.quest-diario-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.quest-diario-card.en-progreso {
+    border-left-color: #3b82f6;
+    background: #f8fafc;
+}
+
+.quest-diario-card.completada {
+    border-left-color: #10b981;
+    background: #f0fdf4;
+    opacity: 0.92;
+}
+
+.quest-diario-card.penitencia-saldada {
+    border-left-color: #6b7280;
+    background: #fafafa;
+    opacity: 0.85;
+}
+
+.quest-diario-card.penalizada {
+    border-left-color: #ef4444;
+    background: #fff5f5;
+    border-color: #fca5a5;
+}
+
+.qd-category-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.qd-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 9999px;
+}
+
+.qd-badge-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.qd-badge-success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.qd-badge-active {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.qd-badge-pending {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+}
+
+.qd-badge-neutral {
+    background: #e5e7eb;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.qd-title {
+    margin: 4px 0 6px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.qd-details-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-qd-timer {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-qd-start {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.btn-qd-start:hover {
+    background: #dbeafe;
+}
+
+.btn-qd-pause {
+    background: #fef3c7;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+.btn-qd-pause:hover {
+    background: #fde68a;
+}
+
+.btn-qd-action {
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-qd-success {
+    background: #111827;
+    color: #ffffff;
+}
+
+.btn-qd-success:hover {
+    background: #1f2937;
+}
+
+.btn-qd-done {
+    background: #e5e7eb;
+    color: #6b7280;
+    cursor: default;
+}
+
+.btn-qd-danger {
+    background: #dc2626;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.btn-qd-danger:hover {
+    background: #b91c1c;
+}
+
+/* ==========================================================================
+   ESTILOS: SELECTOR DE 2 CATEGORÍAS EN EJERCICIOS
+   ========================================================================== */
+
+.tab-category-pill {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.tab-category-pill:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.tab-category-pill.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.15);
+}
+
+.btn-subfiltro-ej {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-subfiltro-ej:hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.btn-subfiltro-ej.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+}
+
+/* ==========================================================================
+   ESTILOS: SECCIÓN 1 (EL CUERPO - ANATOMÍA) Y SECCIÓN 2 (LA MENTE - COGNICIÓN)
+   ========================================================================== */
+
+.desglose-section-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.anatomia-block-card,
+.mente-area-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+}
+
+.anatomia-block-card:hover,
+.mente-area-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.anatomia-block-header,
+.mente-area-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.anatomia-block-title,
+.mente-area-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.anatomia-block-desc,
+.mente-area-desc {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.anatomia-grid-items,
+.mente-grid-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.anatomia-musculo-item,
+.mente-attr-item {
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 10px;
+    padding: 10px 12px;
+    transition: all 0.15s ease;
+}
+
+.anatomia-musculo-item:hover,
+.mente-attr-item:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+
+.item-meta-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.item-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.item-badge-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #374151;
+}
+
+.item-subdesc {
+    font-size: 11.5px;
+    color: #6b7280;
+    margin: 0 0 8px 0;
+    line-height: 1.35;
+}
+
+.attr-progress-track {
+    background: #e5e7eb;
+    height: 7px;
+    border-radius: 9999px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.attr-progress-fill {
+    height: 100%;
+    background: #111827;
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Selector de Boost Porcentual */
+.btn-em-boost {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-em-boost:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.btn-em-boost.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+    box-shadow: 0 2px 6px rgba(17, 24, 39, 0.2);
+}
+
+/* Chips de Selección de Atributos Mentales */
+.chip-area-group {
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.chip-area-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chip-group-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip-mente-btn {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.chip-mente-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.chip-mente-btn.selected {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(17, 24, 39, 0.2);
+}
+
+.chip-mente-btn .chip-check {
+    font-size: 11px;
+    font-weight: 800;
+}
+
+/* Historial de Ejercicios Mentales */
+.ejercicio-mental-item {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.ejercicio-mental-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+/* ==========================================================================
+   INTERFAZ MINIMALISTA Y SOBRIA DE RUTINAS
+   ========================================================================== */
+
+.routine-exercise-clean-row {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.routine-exercise-clean-row:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.routine-exercise-clean-row.checked-active {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.routine-exercise-clean-row.checked-active .clean-row-title {
+    color: #9ca3af;
+    text-decoration: line-through;
+}
+
+.clean-row-checkbox-box {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border: 2px solid #d1d5db;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 800;
+    color: transparent;
+    transition: all 0.15s ease;
+}
+
+.routine-exercise-clean-row.checked-active .clean-row-checkbox-box {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+.clean-row-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.clean-row-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.clean-row-meta {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.btn-clean-detail {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-clean-detail:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* ==========================================================================
+   ASISTENTE DE GIMNASIO & REST TIMER HUD
+   ========================================================================== */
+
+.btn-rest-quick {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 4px 9px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-rest-quick:hover {
+    background: #ffffff;
+    color: #111827;
+}
+
+/* Indicador de Pasos de Calentamiento */
+.stretch-steps-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.step-dot {
+    width: 24px;
+    height: 4px;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.step-dot.active {
+    background: #111827;
+    width: 34px;
+}
+
+.step-dot.done {
+    background: #9ca3af;
+}
+
+/* ==========================================================================
+   BOTÓN FLOTANTE Y MODAL DE ASISTENCIA RÁPIDA
+   ========================================================================== */
+
+#btn-asistente-flotante {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #111827;
+    color: #ffffff;
+    border: 1px solid #374151;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    z-index: 9999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#btn-asistente-flotante:hover {
+    transform: scale(1.08);
+    background: #000000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+}
+
+#btn-asistente-flotante:active {
+    transform: scale(0.95);
+}
+
+.btn-tab-asistente {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4b5563;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.btn-tab-asistente:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.btn-tab-asistente.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+}
+
+/* ==========================================================================
+   OPTIMIZACIONES MÓVILES RESPONSIVE (< 480px)
+   ========================================================================== */
+
+@media (max-width: 480px) {
+    #btn-asistente-flotante {
+        bottom: 18px;
+        right: 18px;
+        width: 46px;
+        height: 46px;
+    }
+
+    .routine-exercise-clean-row {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .clean-row-title {
+        font-size: 13.5px;
+    }
+
+    .clean-row-meta {
+        font-size: 11.5px;
+    }
+
+    .quest-card {
+        padding: 14px;
+    }
+
+    .btn-em-boost {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+
+    .modal-system-window {
+        max-width: 95% !important;
+        margin: 10px auto;
+    }
+
+    .daily-avg-widget {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+/* ==========================================================================
+   🧠 GIMNASIO MENTAL, MÚSCULOS DE LA MENTE Y BASE DE CONOCIMIENTOS
+   ========================================================================== */
+
+.mental-muscle-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mental-muscle-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    border-color: #d1d5db;
+}
+
+.cerebral-exercise-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: border-color 0.15s ease;
+}
+
+.cerebral-exercise-card:hover {
+    border-color: #111827;
+}
+
+/* Banner de Revisión Semanal */
+.weekly-review-banner {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #111827;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+/* Fichas de Conocimiento */
+.knowledge-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.knowledge-card:hover {
+    border-color: #9ca3af;
+    transform: translateY(-2px);
+}
+
+.knowledge-card.repasado {
+    border-color: #10b981;
+    background: #ffffff;
+}
+
+.knowledge-area-tag {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #4b5563;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-bottom: 6px;
+}
+
+.knowledge-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.2px;
+    line-height: 1.35;
+}
+
+.knowledge-keypoints-box {
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    flex-grow: 1;
+}
+
+/* Tabs de Filtro por Área */
+.btn-tab-con-area {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-tab-con-area:hover {
+    border-color: #111827;
+    color: #111827;
+}
+
+.btn-tab-con-area.active {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+/* Botón de Repaso */
+.btn-card-repaso {
+    background: #111827;
+    color: #ffffff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-card-repaso:hover {
+    background: #000000;
+}
+
+.btn-card-repaso.repasado {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.btn-card-repaso.repasado:hover {
+    background: #d1fae5;
+}
+
+/* ==========================================================================
+   💼 LABORES, 👥 AGENDA DE PERSONAS & 🎲 RULETA DE VARIABILIDAD
+   ========================================================================== */
+
+.btn-tab-ubi {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-tab-ubi:hover {
+    border-color: #111827;
+    color: #111827;
+}
+
+.btn-tab-ubi.active {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+#canvas-ruleta {
+    max-width: 100%;
+    height: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#canvas-ruleta:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+/* ==========================================================================
+   ⚡ PESTAÑAS UNIFICADAS: ACCIONES Y DESARROLLO & ENTRENAMIENTO FÍSICO
+   ========================================================================== */
+
+.tabs-scrollable::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs-scrollable::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 9999px;
+}
+
+.badge-exercise-fatiga {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #111827;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.alerta-penitencia-box {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #ef4444;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.alerta-penitencia-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alerta-penitencia-item {
+    background: #ffffff;
+    border: 1px solid #fee2e2;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.btn-cumplir-penitencia-sm {
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.btn-cumplir-penitencia-sm:hover {
+    background: #b91c1c;
+}
+
+/* ==========================================================================
+   ESTADO PERSONAL · REDISEÑO MINIMALISTA HUD (CUERPO Y MENTE)
+   ========================================================================== */
+
+.avatar-overview-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 22px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.avatar-schemas-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 520px) {
+    .avatar-schemas-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.avatar-schema-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    transition: all 0.25s ease;
+}
+
+.avatar-schema-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.avatar-schema-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.avatar-schema-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 9999px;
+}
+
+.avatar-svg-wrapper {
+    height: 135px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 0 10px 0;
+    transition: all 0.3s ease;
+}
+
+.avatar-svg-figure {
+    max-height: 100%;
+    transition: all 0.3s ease;
+}
+
+.avatar-metrics-bar {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.general-wear-metric {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.general-wear-circle {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 17px;
+    border: 3px solid #111827;
+    background: #fafafa;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.general-wear-meta h4 {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.general-wear-meta p {
+    margin: 2px 0 0 0;
+    font-size: 11.5px;
+    color: #6b7280;
+}
+
+.general-breakdown-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.breakdown-chip {
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Áreas Principales: 1. CUERPO y 2. MENTE */
+.area-master-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 22px;
+    margin-bottom: 22px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.area-master-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.area-master-title {
+    margin: 0;
+    font-size: 17.5px;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.area-category-block {
+    margin-bottom: 20px;
+}
+
+.area-category-block:last-child {
+    margin-bottom: 0;
+}
+
+.area-category-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #374151;
+    margin: 0 0 9px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.area-category-title span.count-tag {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 600;
+}
+
+/* Tarjetas Compactas de Subpartes */
+.subparts-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+@media (max-width: 440px) {
+    .subparts-compact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.subpart-compact-card {
+    border-radius: 12px;
+    padding: 11px 13px;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 68px;
+    border: 1px solid;
+    position: relative;
+    user-select: none;
+}
+
+.subpart-compact-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
+}
+
+.subpart-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.subpart-card-name {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.subpart-card-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.subpart-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.subpart-card-val {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+/* Estados Dinámicos en Escala de Grises Minimalista (Blanco -> Gris -> Oscuro) */
+.status-optimo {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
+}
+.status-optimo .subpart-card-dot {
+    background: #d1d5db;
+    box-shadow: none;
+}
+.status-optimo .subpart-card-name {
+    color: #111827;
+}
+.status-optimo .subpart-card-val {
+    color: #6b7280;
+}
+.status-optimo .subpart-card-status {
+    color: #9ca3af;
+}
+
+.status-activo {
+    background: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+    color: #111827 !important;
+}
+.status-activo .subpart-card-dot {
+    background: #9ca3af;
+    box-shadow: none;
+}
+.status-activo .subpart-card-name {
+    color: #111827;
+}
+.status-activo .subpart-card-val {
+    color: #374151;
+}
+.status-activo .subpart-card-status {
+    color: #6b7280;
+}
+
+.status-moderado {
+    background: #374151 !important;
+    border-color: #4b5563 !important;
+    color: #ffffff !important;
+}
+.status-moderado .subpart-card-dot {
+    background: #d1d5db;
+    box-shadow: none;
+}
+.status-moderado .subpart-card-name {
+    color: #ffffff;
+}
+.status-moderado .subpart-card-val {
+    color: #ffffff;
+}
+.status-moderado .subpart-card-status {
+    color: #e5e7eb;
+}
+
+.status-sobrecarga {
+    background: #111827 !important;
+    border-color: #000000 !important;
+    color: #ffffff !important;
+}
+.status-sobrecarga .subpart-card-dot {
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+.status-sobrecarga .subpart-card-name {
+    color: #ffffff;
+}
+.status-sobrecarga .subpart-card-val {
+    color: #ffffff;
+}
+.status-sobrecarga .subpart-card-status {
+    color: #f3f4f6;
+}
+
+.subpart-compact-card.selected-card {
+    outline: 2px solid #111827;
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   SELECTOR DINÁMICO DE ATRIBUTOS MÚLTIPLES (CUERPO Y MENTE)
+   ========================================================================== */
+.atributos-seleccionados-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fila-atributo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 7px 12px;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.fila-atributo-item:hover {
+    border-color: #d1d5db;
+    background: #ffffff;
+}
+
+.fila-atributo-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.fila-atributo-tipo-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tipo-badge-cuerpo {
+    background: #e5e7eb;
+    color: #111827;
+    border: 1px solid #d1d5db;
+}
+
+.tipo-badge-mente {
+    background: #374151;
+    color: #ffffff;
+    border: 1px solid #111827;
+}
+
+.fila-atributo-pct-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.input-atributo-pct {
+    width: 60px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    color: #111827;
+    text-align: right;
+}
+
+.btn-quitar-atributo {
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: background 0.15s ease;
+}
+
+.btn-quitar-atributo:hover {
+    background: #fee2e2;
+}
+
+/* Badges / Chips de Atributos en Tarjetas de Quests, Misiones y Skills */
+.atributos-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.chip-atributo-impacto {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chip-atributo-impacto.cuerpo {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+.chip-atributo-impacto.mente {
+    background: #f3f4f6;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+
+
+
+
+

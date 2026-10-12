@@ -29,6 +29,47 @@ const DEFAULT_STATE = {
         mp: 100
     },
     misiones: [],
+    questsDiarios: [
+        {
+            id: "QD-1",
+            titulo: "Rutina Matutina: Despertar & Tender Cama",
+            categoria: "🌅 Rutina Matutina",
+            tipoTiempo: "duracion",
+            tiempoMinutos: 15,
+            horaLimite: "08:00",
+            penitencia: "30 Flexiones inmediatas",
+            exp: 40,
+            estado: "pendiente",
+            tiempoRestante: 15 * 60,
+            temporizadorActivo: false
+        },
+        {
+            id: "QD-2",
+            titulo: "Hidratación (1L Agua) & Activación Física",
+            categoria: "⚡ Activación Física",
+            tipoTiempo: "duracion",
+            tiempoMinutos: 20,
+            horaLimite: "08:30",
+            penitencia: "1 Minuto de Plancha estricta",
+            exp: 50,
+            estado: "pendiente",
+            tiempoRestante: 20 * 60,
+            temporizadorActivo: false
+        },
+        {
+            id: "QD-3",
+            titulo: "Planificación de Prioridades & Revisión Monarca",
+            categoria: "🎯 Enfoque & Trabajo",
+            tipoTiempo: "duracion",
+            tiempoMinutos: 10,
+            horaLimite: "09:00",
+            penitencia: "Pérdida de 35 EXP del Avatar",
+            exp: 35,
+            estado: "pendiente",
+            tiempoRestante: 10 * 60,
+            temporizadorActivo: false
+        }
+    ],
     habilidades: [],
     fatiga: {
         promedioHoy: 0,
@@ -43,6 +84,7 @@ const DEFAULT_STATE = {
         cuadriceps: 0, isquios: 0,
         pantorrillas: 0
     },
+    registroDiarioCalendario: {},
     gym: [
         { fecha: "Hoy", detalle: "Sistema Monarca PWA instalado y listo" }
     ],
@@ -89,9 +131,255 @@ const DEFAULT_STATE = {
             ]
         }
     ],
+    rutinaCalentamiento: [
+        {
+            id: "CAL-1",
+            nombre: "Movilidad Articular de Hombros y Brazos",
+            duracionSegundos: 30,
+            descripcion: "Rotaciones amplias de brazos hacia adelante y hacia atrás para lubricar la articulación escapulohumeral."
+        },
+        {
+            id: "CAL-2",
+            nombre: "Apertura Torácica y Pectoral",
+            duracionSegundos: 30,
+            descripcion: "Extensión horizontal abriendo el tórax y respirando profundo para activar la caja torácica."
+        },
+        {
+            id: "CAL-3",
+            nombre: "Rotación de Tronco y Cadera",
+            duracionSegundos: 30,
+            descripcion: "Giro suave de cadera y cintura para acondicionar lumbares, oblicuos y articulación coxofemoral."
+        },
+        {
+            id: "CAL-4",
+            nombre: "Sentadillas al Aire y Activación Cardíaca",
+            duracionSegundos: 45,
+            descripcion: "Flexiones de rodilla controladas con peso corporal para elevar pulso y preparar el tren inferior."
+        }
+    ],
     salud: [
         { fecha: "Hoy", valor: "8 horas de sueño - Descanso óptimo" }
     ],
+    menteAtributos: {
+        // Inteligencia y Cognición
+        memoria: 25,
+        procesamiento: 30,
+        conocimiento: 35,
+        // Creatividad e Innovación
+        pensamiento_lateral: 25,
+        diseno_expresion: 20,
+        // Voluntad y Disciplina (Fuerza Mental)
+        enfoque: 30,
+        gratificacion: 25,
+        resiliencia: 35,
+        // Psicología y Influencia (Manipulación)
+        microexpresiones: 20,
+        persuasion: 25,
+        control_emocional: 30,
+        inteligencia_social: 25
+    },
+    ejerciciosMentales: [
+        {
+            id: "EM-1",
+            fecha: "Hoy",
+            titulo: "Lectura Estratégica & Análisis Crítico",
+            descripcion: "Comprensión de modelos mentales y psicología del comportamiento",
+            atributosAfectados: ["Conocimiento", "Microexpresiones", "Persuasión"],
+            incremento: 10
+        }
+    ],
+    fatigaMentalDiaria: {
+        nivel: 20, // 0% a 100% de saturación cognitiva
+        ultimoDia: new Date().toISOString().split('T')[0],
+        estado: "Mente Despejada",
+        historial: []
+    },
+    musculosMentales: {
+        creatividad: { nivel: 35, exp: 120, nombre: "Creatividad", icono: "🎨", descripcion: "Pensamiento lateral, originalidad e invención de soluciones disruptivas." },
+        descanso: { nivel: 40, exp: 150, nombre: "Descanso", icono: "🌙", descripcion: "Recuperación neural profunda, desconexión y descompresión del sistema nervioso." },
+        anulacion: { nivel: 30, exp: 90, nombre: "Anulación", icono: "🛡️", descripcion: "Supresión de impulsos, control de gratificación inmediata y estoicismo radical." },
+        percepcion: { nivel: 25, exp: 80, nombre: "Percepción Psicológica", icono: "♟️", descripcion: "Lectura no verbal, microexpresiones, calibración social y detección de intenciones." },
+        inteligencia: { nivel: 35, exp: 130, nombre: "Inteligencia", icono: "⚡", descripcion: "Velocidad de procesamiento, razonamiento lógico, modelado y asimilación técnica." }
+    },
+    ejerciciosCerebrales: [
+        {
+            id: "EC-1",
+            nombre: "Bloque de Deep Work / Trabajo Profundo",
+            musculoPrincipal: "inteligencia",
+            musculoSecundario: "anulacion",
+            duracionMinutos: 50,
+            descripcion: "Sesión sin distracciones ni pantallas secundarias enfocada en un único problema complejo.",
+            protocolo: "1. Activar modo no molestar absoluto. 2. Plantear el problema analítico o bloque de código. 3. 50 min de flujo continuo. 4. Documentar conclusiones.",
+            fatigaEstimada: 25,
+            expRecompensa: 45
+        },
+        {
+            id: "EC-2",
+            nombre: "Calibración No Verbal & Microexpresiones",
+            musculoPrincipal: "percepcion",
+            musculoSecundario: "inteligencia",
+            duracionMinutos: 30,
+            descripcion: "Observación de lenguaje corporal, incongruencias tonales y detección de emociones ocultas.",
+            protocolo: "1. Analizar interacciones grabadas o del entorno real. 2. Identificar microexpresiones faciales y tensión corporal. 3. Comparar intención real vs discurso verbal.",
+            fatigaEstimada: 20,
+            expRecompensa: 35
+        },
+        {
+            id: "EC-3",
+            nombre: "Lluvia de Pensamiento Lateral Contraintuitivo",
+            musculoPrincipal: "creatividad",
+            musculoSecundario: "inteligencia",
+            duracionMinutos: 25,
+            descripcion: "Desafío de generación de soluciones disruptivas abordando problemas desde el ángulo opuesto.",
+            protocolo: "1. Escoger un desafío del Banco de Ideas. 2. Redactar 10 soluciones absurdas o disruptivas en 15 minutos. 3. Refinar los principios viables.",
+            fatigaEstimada: 15,
+            expRecompensa: 30
+        },
+        {
+            id: "EC-4",
+            nombre: "Anulación de Ruido Mental & Silencio Estoico",
+            musculoPrincipal: "anulacion",
+            musculoSecundario: "descanso",
+            duracionMinutos: 20,
+            descripcion: "Práctica de control de impulsos dopamínicos, contención emocional y respiración consciente.",
+            protocolo: "1. Silencio absoluto y cero pantallas. 2. Postura erguida y respiración diafragmática 4-7-8. 3. Observar impulsos y pensamientos sin reaccionar.",
+            fatigaEstimada: -20,
+            expRecompensa: 30
+        },
+        {
+            id: "EC-5",
+            nombre: "Descompresión Neural & Recuperación del SNC",
+            musculoPrincipal: "descanso",
+            musculoSecundario: "anulacion",
+            duracionMinutos: 30,
+            descripcion: "Protocolo de descanso profundo reparador para evitar saturación cognitiva y fatiga neural.",
+            protocolo: "1. Entorno oscuro o luz tenue. 2. Desconexión de tareas pendientes. 3. Relajación progresiva de tensión física y mental.",
+            fatigaEstimada: -35,
+            expRecompensa: 40
+        }
+    ],
+    conocimientos: [
+        {
+            id: "CON-1",
+            titulo: "Corte Tijera sobre Peine (Técnica de Barbería)",
+            area: "Oficio & Barbería",
+            actividadOrigen: "Práctica de corte masculino en barbería",
+            resumenPuntosClave: "Mantener el peine guía paralelo a la curvatura del cráneo. Abrir y cerrar la tijera únicamente con el pulgar mientras los otros dedos estabilizan la hoja fija para lograr precisión milimétrica sin escalones.",
+            nivelDominio: "En Práctica",
+            fecha: "Hoy",
+            timestamp: Date.now(),
+            semanasRepasadas: 1,
+            revisadoEstaSemana: true
+        },
+        {
+            id: "CON-2",
+            titulo: "Arquitectura Reactiva Offline en JavaScript Moderno",
+            area: "Programación & Software",
+            actividadOrigen: "Desarrollo de PWA y Cache API",
+            resumenPuntosClave: "Separar la capa de datos (LocalStorage/IndexedDB) de la UI. Emplear eventos de sincronización y cache-busting con versionado estricto para garantizar funcionamiento offline instantáneo.",
+            nivelDominio: "Dominado",
+            fecha: "Hoy",
+            timestamp: Date.now(),
+            semanasRepasadas: 2,
+            revisadoEstaSemana: true
+        }
+    ],
+    categoriasLabores: [
+        { id: "LAB-DEV", nombre: "Desarrollo de Software", icono: "💻", descripcion: "Programación web, backend, bases de datos y arquitectura.", color: "#111827" },
+        { id: "LAB-TRAINER", nombre: "Personal Trainer", icono: "🏋️‍♂️", descripcion: "Entrenamientos personalizados, asesoría física y técnica deportiva.", color: "#374151" },
+        { id: "LAB-BARBER", nombre: "Barbero / Oficio", icono: "💈", descripcion: "Corte de cabello masculino, degradados, afeitado y estética capilar.", color: "#1f2937" }
+    ],
+    registrosLabores: [
+        {
+            id: "REG-LAB-1",
+            laborId: "LAB-DEV",
+            fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            horas: 3.5,
+            descripcion: "Implementación de arquitectura offline y sincronización PWA.",
+            honorarios: 0,
+            timestamp: Date.now()
+        },
+        {
+            id: "REG-LAB-2",
+            laborId: "LAB-BARBER",
+            fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+            horas: 2.0,
+            descripcion: "Sesión de corte tijera sobre peine y perfilado de barba.",
+            honorarios: 25,
+            timestamp: Date.now() - 3600000
+        }
+    ],
+    agendaPersonas: [
+        {
+            id: "PER-1",
+            nombre: "Carlos Mendoza",
+            rol: "Cliente Barbería / Alumno Gym",
+            ubicacionCategoria: "💈 Barbería",
+            lugarProyectado: "Sillón principal - Barbería Central",
+            temasPendientes: [
+                { id: "T-1", texto: "Planificar cambio de corte para evento", hecho: false },
+                { id: "T-2", texto: "Revisar rutina de tren superior y dolor lumbar", hecho: false }
+            ],
+            fechaObjetivo: "Esta semana",
+            estado: "Pendiente",
+            prioridad: "Media",
+            timestamp: Date.now()
+        },
+        {
+            id: "PER-2",
+            nombre: "Andrés Silva",
+            rol: "Colega Desarrollador",
+            ubicacionCategoria: "☕ Café / Coworking",
+            lugarProyectado: "Cafetería o llamada Discord",
+            temasPendientes: [
+                { id: "T-3", texto: "Definir API de autenticación y base de datos", hecho: false }
+            ],
+            fechaObjetivo: "Jueves",
+            estado: "Pendiente",
+            prioridad: "Alta",
+            timestamp: Date.now()
+        }
+    ],
+    ubicacionesAgenda: [
+        "💈 Barbería",
+        "🏋️ Gimnasio",
+        "💼 Oficina / Coworking",
+        "☕ Café / Restaurante",
+        "🏠 Casa",
+        "🛣️ En la Calle",
+        "🌐 Virtual / Discord / Llamada"
+    ],
+    ruletaSemanal: {
+        comidas: [
+            { id: "C-1", nombre: "Pechuga a la plancha con puré y ensalada verde", tipo: "Almuerzo" },
+            { id: "C-2", nombre: "Pasta bolognesa magra con queso parmesano", tipo: "Almuerzo / Cena" },
+            { id: "C-3", nombre: "Bowl de atún, arroz integral, maíz y aguacate", tipo: "Almuerzo rápido" },
+            { id: "C-4", nombre: "Huevos revueltos con arepa o tostadas y aguacate", tipo: "Desayuno / Cena" },
+            { id: "C-5", nombre: "Carne magra a la parrilla con batata y vegetales", tipo: "Almuerzo" },
+            { id: "C-6", nombre: "Omelette de claras con avena y frutos secos", tipo: "Desayuno" }
+        ],
+        vestimenta: [
+            { id: "V-1", nombre: "All-Black Urbano (Remera oversize negra y joggers)", estilo: "Minimalista Urbano" },
+            { id: "V-2", nombre: "Sport Tech (Ropa deportiva técnica oscura)", estilo: "Entrenamiento / Operativo" },
+            { id: "V-3", nombre: "Casual Elegante (Camisa cuello mao negra y pantalón chino)", estilo: "Reuniones / Social" },
+            { id: "V-4", nombre: "Monocromático Grafito (Sudadera gris plomo y zapatillas oscuras)", estilo: "Confort / Diario" },
+            { id: "V-5", nombre: "Minimalista Blanco & Negro (Polera blanca limpia y pantalón oscuro)", estilo: "Contraste Limpio" }
+        ],
+        musica: [
+            { id: "M-1", nombre: "Synthwave / Retrowave Cyberpunk (Foco Profundo)", genero: "Deep Focus" },
+            { id: "M-2", nombre: "Hip Hop Instrumental 90s / Lo-Fi Beats", genero: "Relajación & Creatividad" },
+            { id: "M-3", nombre: "Heavy Metal / Hard Rock Gym Energy", genero: "Intensidad & Entrenamiento" },
+            { id: "M-4", nombre: "Deep House & Techno Melódico Minimalista", genero: "Flujo Continuo" },
+            { id: "M-5", nombre: "Música Clásica Estoica & Orquestal Épica", genero: "Estrategia & Concentración" }
+        ],
+        seleccionActiva: {
+            comida: "Pechuga a la plancha con puré y ensalada verde",
+            vestimenta: "All-Black Urbano (Remera oversize negra y joggers)",
+            musica: "Synthwave / Retrowave Cyberpunk (Foco Profundo)",
+            fechaGiro: "Hoy"
+        },
+        historialGiros: []
+    },
     finanzas: {
         cabecera: {
             nombre: "Gabriel Arias",
@@ -155,19 +443,65 @@ const MonarcaDB = {
                 this.save(data);
             }
             if (!data.ejercicios) data.ejercicios = [];
-            if (!data.rutinas) data.rutinas = [];
+            if (!data.rutinas || !Array.isArray(data.rutinas) || data.rutinas.length === 0) {
+                data.rutinas = JSON.parse(JSON.stringify(DEFAULT_STATE.rutinas));
+            }
+            if (!data.rutinaCalentamiento || !Array.isArray(data.rutinaCalentamiento) || data.rutinaCalentamiento.length === 0) {
+                data.rutinaCalentamiento = JSON.parse(JSON.stringify(DEFAULT_STATE.rutinaCalentamiento));
+            }
+            if (!data.questsDiarios || !Array.isArray(data.questsDiarios) || data.questsDiarios.length === 0) {
+                data.questsDiarios = JSON.parse(JSON.stringify(DEFAULT_STATE.questsDiarios));
+            }
             if (!data.fatiga) data.fatiga = DEFAULT_STATE.fatiga;
             if (!data.gym) data.gym = DEFAULT_STATE.gym;
-            if (!data.rutinas) data.rutinas = DEFAULT_STATE.rutinas;
             if (!data.salud) data.salud = DEFAULT_STATE.salud;
+            if (!data.menteAtributos) {
+                data.menteAtributos = JSON.parse(JSON.stringify(DEFAULT_STATE.menteAtributos));
+            }
+            if (!data.ejerciciosMentales || !Array.isArray(data.ejerciciosMentales)) {
+                data.ejerciciosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosMentales || []));
+            }
+            if (!data.fatigaMentalDiaria) {
+                data.fatigaMentalDiaria = JSON.parse(JSON.stringify(DEFAULT_STATE.fatigaMentalDiaria));
+            }
+            if (!data.musculosMentales) {
+                data.musculosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales));
+            }
+            if (!data.ejerciciosCerebrales || !Array.isArray(data.ejerciciosCerebrales) || data.ejerciciosCerebrales.length === 0) {
+                data.ejerciciosCerebrales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosCerebrales));
+            }
+            if (!data.conocimientos || !Array.isArray(data.conocimientos) || data.conocimientos.length === 0) {
+                data.conocimientos = JSON.parse(JSON.stringify(DEFAULT_STATE.conocimientos));
+            }
+            if (!data.categoriasLabores || !Array.isArray(data.categoriasLabores) || data.categoriasLabores.length === 0) {
+                data.categoriasLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.categoriasLabores));
+            }
+            if (!data.registrosLabores || !Array.isArray(data.registrosLabores)) {
+                data.registrosLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.registrosLabores || []));
+            }
+            if (!data.agendaPersonas || !Array.isArray(data.agendaPersonas) || data.agendaPersonas.length === 0) {
+                data.agendaPersonas = JSON.parse(JSON.stringify(DEFAULT_STATE.agendaPersonas));
+            }
+            if (!data.ubicacionesAgenda || !Array.isArray(data.ubicacionesAgenda)) {
+                data.ubicacionesAgenda = JSON.parse(JSON.stringify(DEFAULT_STATE.ubicacionesAgenda || []));
+            }
+            if (!data.ruletaSemanal) {
+                data.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
+            }
             if (!data.finanzas) data.finanzas = DEFAULT_STATE.finanzas;
             if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
+            if (!data.registroDiarioCalendario) data.registroDiarioCalendario = {};
             if (!data.ideas || !Array.isArray(data.ideas) || data.ideas.length === 0) {
                 data.ideas = JSON.parse(JSON.stringify(DEFAULT_STATE.ideas));
             } else {
                 // Reparar subcategorías huérfanas si existieran
                 data.ideas.forEach(function(i) {
-                    if (!i.categoria) i.categoria = "💭 Ideas y Pensamientos";
+                    if (!i.categoria) i.categoria = "💡 Ideas & Proyectos";
+                    if (i.categoria === "💭 Ideas y Pensamientos") i.categoria = "💡 Ideas & Proyectos";
+                    if (i.categoria === "🛒 Compras") i.categoria = "🛒 Compras & Deseos";
+                    if (i.categoria === "📊 Planes y Monitoreo de Ejecución") i.categoria = "📊 Planes & Metas";
+                    if (i.categoria === "🧠 Cosas por Aprender") i.categoria = "📚 Base de Conocimientos";
+                    if (i.categoria === "✅ Tareas Pendientes") i.categoria = "✅ Tareas Operativas";
                     if (i.subcategoria === "Sistemas & Apps") i.subcategoria = "💼 Trabajo, Programación y Proyectos Profesionales";
                     if (i.subcategoria === "Accesorios Moto") i.subcategoria = "👕 Ropa y Accesorios";
                     if (i.subcategoria === "Desarrollo Web") i.subcategoria = "💻 Programación y Tecnología";
@@ -349,8 +683,19 @@ window.addEventListener('DOMContentLoaded', function() {
 
 function inicializarSistema() {
     APP_STATE = MonarcaDB.get();
+    if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
+        actualizarDesgasteDiarioAutomatico();
+    } else {
+        verificarRecuperacionMentalDiaria();
+    }
     renderizarJugador(APP_STATE.jugador);
-    renderizarBarrasFatiga(APP_STATE.fatiga);
+    if (typeof cargarEstadoPersonal === 'function') {
+        cargarEstadoPersonal();
+    } else if (typeof renderizarBarrasFatiga === 'function') {
+        renderizarBarrasFatiga(APP_STATE.fatiga);
+    }
+    if (typeof renderizarDesgloseCuerpoAnatomico === 'function') renderizarDesgloseCuerpoAnatomico();
+    if (typeof renderizarDesgloseMenteCognitiva === 'function') renderizarDesgloseMenteCognitiva();
     inicializarBancoDeIdeas();
 }
 
@@ -373,23 +718,37 @@ function cambiarVista(vistaId) {
         case 'vista-perfil':
             cargarPerfil();
             break;
-        case 'vista-estado-personal':
-            cargarEstadoPersonal();
+        case 'vista-acciones-progresion':
+            if (typeof cambiarTabAccionesDesarrollo === 'function') {
+                var tabAD = (window.TAB_ACCIONES_DESARROLLO_ACTIVA && window.TAB_ACCIONES_DESARROLLO_ACTIVA !== 'conocimiento') ? window.TAB_ACCIONES_DESARROLLO_ACTIVA : 'quests';
+                cambiarTabAccionesDesarrollo(tabAD);
+            }
             break;
         case 'vista-misiones':
-            cargarMisiones();
-            break;
+            cambiarVista('vista-acciones-progresion');
+            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos');
+            return;
+        case 'vista-quests-diarios':
+            cambiarVista('vista-acciones-progresion');
+            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests');
+            return;
         case 'vista-habilidades':
-            cargarHabilidades();
-            break;
+            cambiarVista('vista-acciones-progresion');
+            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
+            return;
+        case 'vista-mente':
+            cambiarVista('vista-acciones-progresion');
+            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('gimnasio');
+            return;
         case 'vista-gym':
-            cargarGym();
-            break;
+            cambiarVista('vista-ejercicios');
+            if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
+            return;
         case 'vista-ejercicios':
             cargarEjercicios();
             break;
-        case 'vista-mente':
-            cargarMente();
+        case 'vista-estado-personal':
+            cargarEstadoPersonal();
             break;
         case 'vista-finanzas':
             cargarFinanzas();
@@ -397,9 +756,45 @@ function cambiarVista(vistaId) {
         case 'vista-ideas':
             cargarIdeas();
             break;
+        case 'vista-conocimiento':
+            if (typeof cargarConocimientos === 'function') cargarConocimientos();
+            break;
+        case 'vista-labores':
+            if (typeof cargarLabores === 'function') cargarLabores();
+            break;
+        case 'vista-personas':
+            if (typeof cargarAgendaPersonas === 'function') cargarAgendaPersonas();
+            break;
+        case 'vista-ruleta':
+            if (typeof cargarRuletaSemanal === 'function') cargarRuletaSemanal();
+            break;
         case 'vista-calendario':
             renderizarCalendario();
             break;
+    }
+}
+
+function verificarRecuperacionMentalDiaria() {
+    if (!APP_STATE.fatigaMentalDiaria) {
+        APP_STATE.fatigaMentalDiaria = JSON.parse(JSON.stringify(DEFAULT_STATE.fatigaMentalDiaria));
+    }
+    var fMental = APP_STATE.fatigaMentalDiaria;
+    var hoyStr = new Date().toISOString().split('T')[0];
+    if (fMental.ultimoDia !== hoyStr) {
+        if (!fMental.historial) fMental.historial = [];
+        fMental.historial.unshift({
+            fecha: fMental.ultimoDia || "Ayer",
+            nivelCierre: fMental.nivel || 20,
+            estadoCierre: fMental.estado || "Mente Despejada"
+        });
+        if (fMental.historial.length > 14) fMental.historial.pop();
+
+        // Recuperación neural nocturna: se alivia el 50% de la carga cognitiva residual
+        var nivelRecuperado = Math.max(10, Math.round((fMental.nivel || 20) * 0.45));
+        fMental.nivel = nivelRecuperado;
+        fMental.ultimoDia = hoyStr;
+        fMental.estado = nivelRecuperado <= 25 ? "Mente Despejada" : (nivelRecuperado <= 60 ? "Carga Moderada" : "Fatiga Residual");
+        MonarcaDB.save(APP_STATE);
     }
 }
 
@@ -439,3 +834,174 @@ function sumarExp(cantidad) {
         }, 150);
     }
 }
+
+function restarExp(cantidad) {
+    if (!APP_STATE.jugador) APP_STATE.jugador = { titulo: "Gabriel Arias", nivel: 1, exp: 0, expMax: 100 };
+    var expActual = APP_STATE.jugador.exp || 0;
+    APP_STATE.jugador.exp = Math.max(0, expActual - (cantidad || 0));
+    MonarcaDB.save(APP_STATE);
+    renderizarJugador(APP_STATE.jugador);
+}
+
+// ==========================================================================
+// 4. ASISTENTE FLOTANTE DE CAPTURA RÁPIDA (ACCESO GLOBAL)
+// ==========================================================================
+
+var TAB_ASISTENTE_ACTIVO = 'idea';
+
+function abrirAsistenteRapido() {
+    var m = document.getElementById('modal-asistente-rapido');
+    if (m) {
+        m.style.display = 'flex';
+        cambiarTabAsistenteRapido(TAB_ASISTENTE_ACTIVO);
+    }
+}
+
+function cerrarAsistenteRapido() {
+    var m = document.getElementById('modal-asistente-rapido');
+    if (m) m.style.display = 'none';
+}
+
+function cambiarTabAsistenteRapido(tab) {
+    TAB_ASISTENTE_ACTIVO = tab;
+    var btns = document.querySelectorAll('.btn-tab-asistente');
+    btns.forEach(function(b) {
+        if (b.getAttribute('data-tab') === tab) {
+            b.classList.add('active');
+        } else {
+            b.classList.remove('active');
+        }
+    });
+
+    ['idea', 'quest', 'mente', 'finanza'].forEach(function(t) {
+        var sec = document.getElementById('asistente-sec-' + t);
+        if (sec) sec.style.display = (t === tab) ? 'block' : 'none';
+    });
+}
+
+function guardarCapturaRapida() {
+    var tab = TAB_ASISTENTE_ACTIVO;
+    var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (tab === 'idea') {
+        var inNom = document.getElementById('asistente-idea-nombre');
+        var inCat = document.getElementById('asistente-idea-cat');
+        var inDesc = document.getElementById('asistente-idea-desc');
+        var nom = inNom ? inNom.value.trim() : "";
+        var cat = inCat ? inCat.value : "💭 Ideas y Pensamientos";
+        var desc = inDesc ? inDesc.value.trim() : "";
+
+        if (!nom) { alert("Ingresa el título de la idea."); if (inNom) inNom.focus(); return; }
+
+        if (!APP_STATE.ideas) APP_STATE.ideas = [];
+        APP_STATE.ideas.unshift({
+            id: "IDEA-" + Date.now(),
+            nombre: nom,
+            categoria: cat,
+            subcategoria: "Captura Rápida",
+            descripcion: desc || "Registrado desde Asistente Rápido",
+            estado: "Pendiente",
+            prioridad: "Media",
+            fecha: fechaHoy,
+            timestamp: Date.now()
+        });
+        sumarExp(15);
+        MonarcaDB.save(APP_STATE);
+        if (inNom) inNom.value = "";
+        if (inDesc) inDesc.value = "";
+        cerrarAsistenteRapido();
+        if (typeof renderizarIdeas === 'function') renderizarIdeas();
+        alert("💡 Idea capturada con éxito (+15 EXP).");
+
+    } else if (tab === 'quest') {
+        var inTit = document.getElementById('asistente-quest-titulo');
+        var inMin = document.getElementById('asistente-quest-minutos');
+        var tit = inTit ? inTit.value.trim() : "";
+        var min = inMin ? (Number(inMin.value) || 20) : 20;
+
+        if (!tit) { alert("Ingresa el título del quest o tarea."); if (inTit) inTit.focus(); return; }
+
+        if (!APP_STATE.questsDiarios) APP_STATE.questsDiarios = [];
+        var durMs = min * 60 * 1000;
+        var nuevaQuest = {
+            id: "QD-" + Date.now(),
+            titulo: tit,
+            categoria: "Acción Rápida",
+            descripcion: "Tarea añadida desde Asistente Rápido",
+            duracionMinutos: min,
+            duracionSegundos: min * 60,
+            tiempoInicio: Date.now(),
+            tiempoFinEstimado: Date.now() + durMs,
+            estado: "en_progreso",
+            expRecompensa: 25,
+            penitencia: { expDeduccion: 10, mensaje: "Exceso de tiempo en tarea" }
+        };
+        APP_STATE.questsDiarios.push(nuevaQuest);
+        MonarcaDB.save(APP_STATE);
+        if (inTit) inTit.value = "";
+        cerrarAsistenteRapido();
+        if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
+        alert("⏳ Quest rápido activado (" + min + " min). ¡En marcha!");
+
+    } else if (tab === 'mente') {
+        var inMente = document.getElementById('asistente-mente-desc');
+        var txt = inMente ? inMente.value.trim() : "";
+        if (!txt) { alert("Ingresa el registro o reflexión mental."); if (inMente) inMente.focus(); return; }
+
+        if (!APP_STATE.salud) APP_STATE.salud = [];
+        APP_STATE.salud.unshift({ fecha: fechaHoy, valor: txt });
+        if (APP_STATE.fatiga) {
+            APP_STATE.fatiga.mente = Math.max(0, (APP_STATE.fatiga.mente || 0) - 20);
+        }
+        sumarExp(15);
+        MonarcaDB.save(APP_STATE);
+        if (inMente) inMente.value = "";
+        cerrarAsistenteRapido();
+        if (typeof renderizarMente === 'function') renderizarMente();
+        alert("🧠 Registro mental guardado (+15 EXP).");
+
+    } else if (tab === 'finanza') {
+        var inCon = document.getElementById('asistente-fin-concepto');
+        var inMon = document.getElementById('asistente-fin-monto');
+        var inTipo = document.getElementById('asistente-fin-tipo');
+        var con = inCon ? inCon.value.trim() : "";
+        var mon = inMon ? (Number(inMon.value) || 0) : 0;
+        var esGasto = inTipo ? inTipo.value === 'gasto' : true;
+
+        if (!con || mon <= 0) { alert("Ingresa un concepto y un monto válido."); return; }
+
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
+        var diaHoy = new Date().getDate();
+
+        if (esGasto) {
+            if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
+            APP_STATE.finanzas.gastos.unshift({
+                id: "GAS-" + Date.now(),
+                concepto: con,
+                categoria: "Otros",
+                dia: diaHoy,
+                monto: mon,
+                pagado: true,
+                presupuestoEstimado: mon
+            });
+        } else {
+            if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
+            APP_STATE.finanzas.ingresos.unshift({
+                id: "ING-" + Date.now(),
+                fuente: con,
+                dia: diaHoy,
+                monto: mon
+            });
+        }
+
+        sumarExp(10);
+        MonarcaDB.save(APP_STATE);
+        if (inCon) inCon.value = "";
+        if (inMon) inMon.value = "";
+        cerrarAsistenteRapido();
+        if (typeof cargarFinanzas === 'function') cargarFinanzas();
+        alert("💰 Registro financiero guardado exitosamente (+10 EXP).");
+    }
+}
+
+

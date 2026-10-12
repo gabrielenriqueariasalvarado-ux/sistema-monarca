@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="style.css?v=5.8">
 </head>
 <body>
 
@@ -71,7 +71,11 @@
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-acciones-progresion')">
                 <div class="menu-icon">⚡</div>
-                <h3>Acciones y Progresión</h3>
+                <h3>Acciones y Desarrollo</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-ejercicios')">
+                <div class="menu-icon">🏋️‍♂️</div>
+                <h3>Entrenamiento Físico</h3>
             </div>
             <div class="menu-card" onclick="cambiarVista('vista-estado-personal')">
                 <div class="menu-icon">🛡️</div>
@@ -85,6 +89,22 @@
                 <div class="menu-icon">💡</div>
                 <h3>Ideas</h3>
             </div>
+            <div class="menu-card" onclick="cambiarVista('vista-conocimiento')">
+                <div class="menu-icon">📚</div>
+                <h3>Conocimiento</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-labores')">
+                <div class="menu-icon">💼</div>
+                <h3>Labores</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-personas')">
+                <div class="menu-icon">👥</div>
+                <h3>Personas</h3>
+            </div>
+            <div class="menu-card" onclick="cambiarVista('vista-ruleta')">
+                <div class="menu-icon">🎲</div>
+                <h3>Ruleta</h3>
+            </div>
             <div class="menu-card" onclick="cambiarVista('vista-calendario')">
                 <div class="menu-icon">📅</div>
                 <h3>Calendario</h3>
@@ -92,80 +112,246 @@
         </div>
     </div>
 
-    <!-- VISTA INTERMEDIA: ACCIONES Y PROGRESIÓN -->
+    <!-- VISTA PRINCIPAL: ACCIONES Y DESARROLLO (MENTE, HÁBITOS & SKILLS) -->
     <div id="vista-acciones-progresion" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
-        <div class="card" style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; letter-spacing: -0.2px;">Acciones y Progresión</h2>
-            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Selecciona un módulo para gestionar tu evolución</p>
+        <div class="card" style="text-align: center; margin-bottom: 18px;">
+            <h2 style="margin: 0; letter-spacing: -0.2px;">Acciones y Desarrollo</h2>
+            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Toda la operatividad relacionada con el intelecto, la disciplina y el crecimiento</p>
         </div>
 
-        <div class="grid-menu">
-            <div class="menu-card" onclick="cambiarVista('vista-misiones')">
-                <div class="menu-icon">⚔️</div>
-                <h3>Misiones</h3>
+        <!-- SELECTOR DE LAS 5 PESTAÑAS (SCROLL HORIZONTAL RESPONSIVO) -->
+        <div class="tab-category-pill-container" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch;">
+            <button id="tab-btn-ad-quests" class="tab-category-pill active" onclick="cambiarTabAccionesDesarrollo('quests')" style="padding: 10px 14px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                <span>⏳</span> Quests del Día
+            </button>
+            <button id="tab-btn-ad-habitos" class="tab-category-pill" onclick="cambiarTabAccionesDesarrollo('habitos')" style="padding: 10px 14px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                <span>⚔️</span> Hábitos & Misiones
+            </button>
+            <button id="tab-btn-ad-gimnasio" class="tab-category-pill" onclick="cambiarTabAccionesDesarrollo('gimnasio')" style="padding: 10px 14px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                <span>🧠</span> Gimnasio Mental
+            </button>
+            <button id="tab-btn-ad-banco-mental" class="tab-category-pill" onclick="cambiarTabAccionesDesarrollo('banco-mental')" style="padding: 10px 14px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                <span>⚡</span> Banco Mental
+            </button>
+            <button id="tab-btn-ad-skills" class="tab-category-pill" onclick="cambiarTabAccionesDesarrollo('skills')" style="padding: 10px 14px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                <span>🔮</span> Skills
+            </button>
+        </div>
+
+        <!-- 1. TAB: QUESTS DEL DÍA Y RUTINA MATUTINA -->
+        <div id="panel-ad-quests">
+            <div class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 14px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 26px;">⏳</span>
+                        <div>
+                            <h2 style="margin: 0; font-size: 18px;">Quests Diarios & Rutina Matutina</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Completa cada acción en su tiempo asignado o el sistema aplicará una penitencia automática.</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()" style="display: flex; align-items: center; gap: 6px;">
+                            <span>➕</span> Nueva Quest
+                        </button>
+                        <button class="btn-subfiltro-ej" onclick="reiniciarCicloQuestsDiarios()" title="Reiniciar quests para un nuevo ciclo" style="padding: 7px 12px; font-size: 12px;">
+                            <span>🔄</span> Reiniciar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- HUD DE DISCIPLINA -->
+                <div class="quest-daily-hud-grid">
+                    <div class="quest-hud-metric">
+                        <span class="hud-metric-label">COMPLETADAS A TIEMPO</span>
+                        <div id="qd-metric-completadas" class="hud-metric-val" style="color: #10b981;">0 / 0</div>
+                    </div>
+                    <div class="quest-hud-metric">
+                        <span class="hud-metric-label">EN CURSO (CRONÓMETRO)</span>
+                        <div id="qd-metric-en-curso" class="hud-metric-val" style="color: #3b82f6;">0</div>
+                    </div>
+                    <div class="quest-hud-metric">
+                        <span class="hud-metric-label">PENITENCIAS ACTIVAS</span>
+                        <div id="qd-metric-penalizadas" class="hud-metric-val" style="color: #ef4444;">0</div>
+                    </div>
+                </div>
+
+                <!-- ALERTA DE PENITENCIAS OBLIGATORIAS -->
+                <div id="contenedor-alertas-penitencias" style="margin-bottom: 16px;"></div>
+
+                <!-- LISTADO DE QUESTS DIARIAS -->
+                <div id="contenedor-quests-diarios">
+                    <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando quests diarios...</p>
+                </div>
             </div>
-            <div class="menu-card" onclick="cambiarVista('vista-habilidades')">
-                <div class="menu-icon">🔮</div>
-                <h3>Skills</h3>
+        </div>
+
+        <!-- 2. TAB: HÁBITOS & MISIONES SECUNDARIAS -->
+        <div id="panel-ad-habitos" style="display: none;">
+            <div class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">⚔️</span>
+                        <div>
+                            <h2 style="margin: 0;">Hábitos & Misiones Secundarias</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Tareas recurrentes (ej: lectura de 10 min, meditación) para forjar disciplina diaria.</span>
+                        </div>
+                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevaMision()" style="display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Nueva Misión
+                    </button>
+                </div>
+                <div id="contenedor-misiones">Cargando misiones...</div>
+            </div>
+        </div>
+
+        <!-- 3. TAB: GIMNASIO MENTAL & PROTOCOLOS DE TRABAJO PROFUNDO -->
+        <div id="panel-ad-gimnasio" style="display: none;">
+            <!-- BARRA DE FATIGA MENTAL DIARIA CON ALIVIOS -->
+            <div id="contenedor-fatiga-mental-diaria-mente"></div>
+
+            <!-- LOS 5 MÚSCULOS DE LA MENTE -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">🧠</span>
+                        <div>
+                            <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Gimnasio Mental: Los 5 Músculos Cognitivos</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Entrena tu mente al mismo nivel que tu cuerpo: Creatividad, Descanso, Anulación, Percepción e Inteligencia.</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="contenedor-musculos-mentales">
+                    <!-- Inyectado dinámicamente -->
+                </div>
+            </div>
+
+            <!-- PROTOCOLOS DE TRABAJO PROFUNDO (DEEP WORK) -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">⚡</span>
+                        <div>
+                            <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Protocolos de Trabajo Profundo (Deep Work)</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Ejecuta protocolos de foco, descompresión o anulación de ruido que suman EXP y afectan la fatiga mental.</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="contenedor-protocolos-deepwork" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                    <!-- Inyectado dinámicamente -->
+                </div>
+            </div>
+
+            <!-- CONDICIÓN MENTAL (SUEÑO & DESCANSO) -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">🌙</span>
+                        <div>
+                            <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Condición Mental (Sueño & Descanso)</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Registro de sueño reparador y recuperación del Sistema Nervioso Central (-30% Fatiga).</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="input-nueva-mente" class="modal-input" placeholder="Ej: 8 horas de sueño profundo - Descanso óptimo" style="flex: 1; min-width: 200px;">
+                    <button class="btn-system" onclick="guardarMente()" style="font-size: 13px; white-space: nowrap;">Registrar Descanso</button>
+                </div>
+                <div id="contenedor-mente">Cargando registros de descanso mental...</div>
+            </div>
+        </div>
+
+        <!-- 4. TAB: BANCO DE EJERCICIOS MENTALES -->
+        <div id="panel-ad-banco-mental" style="display: none;">
+            <div class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">⚡</span>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                <span class="quest-badge-rank" style="background: #111827; color: #ffffff;">CLASIFICACIÓN: MENTE</span>
+                                <h2 style="margin: 0; font-size: 17px;">Banco de Ejercicios Mentales</h2>
+                            </div>
+                            <span style="font-size: 12px; color: #6b7280;">Estructura al crear: Nombre, especificaciones y porcentaje exacto de desarrollo o impacto en el músculo mental.</span>
+                        </div>
+                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()" style="display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Nuevo Ejercicio Mental
+                    </button>
+                </div>
+                <div id="contenedor-ejercicios-cerebrales">
+                    <!-- Inyectado dinámicamente -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. TAB: SKILLS (ÁRBOL DE HABILIDADES) -->
+        <div id="panel-ad-skills" style="display: none;">
+            <div class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 24px;">🔮</span>
+                        <div>
+                            <h2 style="margin: 0;">Árbol de Habilidades (Skills)</h2>
+                            <span style="font-size: 12px; color: #6b7280;">Horas de práctica acumuladas y rangos de progresión (Nulo, E, D, C, B, A, S).</span>
+                        </div>
+                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()" style="display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Nueva Habilidad
+                    </button>
+                </div>
+                <div id="contenedor-habilidades">Cargando habilidades...</div>
             </div>
         </div>
     </div>
 
-    <!-- VISTA PRINCIPAL DE ESTADO PERSONAL -->
+    <!-- VISTA PRINCIPAL DE ESTADO PERSONAL (MONITOREO MILIMÉTRICO 100% PASIVO) -->
     <div id="vista-estado-personal" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         
         <div class="card" style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; letter-spacing: -0.2px;">Estado Personal</h2>
-            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitorea la condición física y mental de tu avatar</p>
+            <h2 style="margin: 0; letter-spacing: -0.2px;">Estado Personal · Diagnóstico del Avatar</h2>
+            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitoreo analítico milimétrico: balance en tiempo real entre el desgaste físico y la carga mental.</p>
         </div>
 
-        <!-- GRÁFICA DE FATIGA -->
-        <div class="card" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px;">
-                <span style="font-size: 24px;">📊</span>
-                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Gráfica de Carga & Fatiga Diaria</h2>
-            </div>
-            <p style="color: #6b7280; font-size: 13px; margin-bottom: 15px;">Esquema de desgaste actual por grupos musculares y estado mental del avatar.</p>
+        <!-- 1. GRÁFICO GENERAL DINÁMICO DEL AVATAR -->
+        <div id="hud-avatar-overview">
+            <!-- Inyectado dinámicamente con esquema del cuerpo, esquema de la mente y % general de desgaste diario -->
+        </div>
 
-            <!-- RESUMEN DE PROMEDIO DIARIO Y CIERRE HISTÓRICO -->
-            <div class="daily-avg-widget">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 24px;">📈</span>
-                    <div>
-                        <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Carga Promedio de Hoy</div>
-                        <div id="promedio-hoy-display" style="color: #111827; font-size: 20px; font-weight: 800;">0%</div>
-                    </div>
+        <!-- 🟢 1. CUERPO -->
+        <div class="card area-master-card" style="margin-bottom: 22px;">
+            <div class="area-master-header">
+                <div>
+                    <h2 class="area-master-title">
+                        <span style="font-size: 20px;">🟢</span> 1. CUERPO
+                    </h2>
+                    <span style="font-size: 12.5px; color: #6b7280;">Nivel de desgaste, fatiga muscular acumulada y salud postural.</span>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Último Cierre Diario</div>
-                    <div id="ultimo-cierre-display" style="color: #374151; font-size: 12.5px; font-weight: 600; background: #f3f4f6; padding: 4px 10px; border-radius: 9999px; display: inline-block; margin-top: 3px;">Cargando...</div>
-                </div>
+                <div id="badge-resumen-cuerpo"></div>
             </div>
-
-            <div id="contenedor-grafica-fatiga">
-                <!-- Se inyecta la gráfica mediante JavaScript -->
+            <div id="contenedor-desglose-cuerpo">
+                <!-- Inyectado dinámicamente con las 5 categorías y tarjetas compactas -->
             </div>
         </div>
 
-        <!-- TARJETAS DE ACCESO A CUERPO, MENTE Y EJERCICIOS -->
-        <div class="grid-menu" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-            <div class="menu-card" onclick="cambiarVista('vista-gym')">
-                <div class="menu-icon">🏋️‍♂️</div>
-                <h3>Cuerpo</h3>
+        <!-- 🔵 2. MENTE -->
+        <div class="card area-master-card" style="margin-bottom: 22px;">
+            <div class="area-master-header">
+                <div>
+                    <h2 class="area-master-title">
+                        <span style="font-size: 20px;">🔵</span> 2. MENTE
+                    </h2>
+                    <span style="font-size: 12.5px; color: #6b7280;">Carga cognitiva, esfuerzo neural, disciplina y psicología estratégica.</span>
+                </div>
+                <div id="badge-resumen-mente"></div>
             </div>
-            <div class="menu-card" onclick="cambiarVista('vista-mente')">
-                <div class="menu-icon">🧠</div>
-                <h3>Mente</h3>
-            </div>
-            <div class="menu-card" onclick="cambiarVista('vista-ejercicios')">
-                <div class="menu-icon">⚡</div>
-                <h3>Ejercicios</h3>
+            <div id="contenedor-desglose-mente">
+                <!-- Inyectado dinámicamente con las 5 categorías y tarjetas compactas -->
             </div>
         </div>
     </div>
@@ -181,113 +367,157 @@
         </div>
     </div>
 
-    <!-- VISTA: MISIONES / HÁBITOS -->
-    <div id="vista-misiones" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
-            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
-        </button>
-        <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">⚡</span>
-                    <h2 style="margin: 0;">Misiones Diarias &amp; Hábitos</h2>
-                </div>
-                <button class="btn-add-finanza" onclick="abrirModalNuevaMision()" style="display: flex; align-items: center; gap: 6px;">
-                    <span>➕</span> Nueva Misión
-                </button>
-            </div>
-            <div id="contenedor-misiones">Cargando misiones...</div>
-        </div>
-    </div>
 
-    <!-- VISTA: HABILIDADES (RANGOS POR HORAS) -->
-    <div id="vista-habilidades" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-acciones-progresion')">
-            <span style="font-size: 16px;">◀</span> VOLVER A ACCIONES
-        </button>
-        <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">🔮</span>
-                    <h2 style="margin: 0;">Árbol de Habilidades (Rangos)</h2>
-                </div>
-                <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()" style="display: flex; align-items: center; gap: 6px;">
-                    <span>➕</span> Nueva Habilidad
-                </button>
-            </div>
-            <div id="contenedor-habilidades">Cargando habilidades...</div>
-        </div>
-    </div>
 
-    
-    <!-- VISTA: EJERCICIOS (BANCO DE EJERCICIOS PERSONALIZADOS) -->
+    <!-- VISTA: ENTRENAMIENTO Y CONDICIÓN FÍSICA (ACCIÓN Y BANCO) -->
     <div id="vista-ejercicios" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
-            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">⚡</span>
+                    <span style="font-size: 26px;">🏋️‍♂️</span>
                     <div>
-                        <h2 style="margin: 0;">Banco de Ejercicios</h2>
-                        <span style="font-size: 12px; color: #6b7280;">Crea y administra tus ejercicios por series, zonas musculares y fatiga</span>
+                        <h2 style="margin: 0;">Entrenamiento y Condición Física</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Toda la operatividad física: sesiones activas, banco estructurado e historial cronológico</span>
                     </div>
                 </div>
-                <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="display: flex; align-items: center; gap: 6px;">
-                    <span>➕</span> Nuevo Ejercicio
+                <button class="btn-add-finanza" onclick="accionBotonCrearEjercicios()" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> <span id="label-btn-crear-ej">Crear</span>
                 </button>
             </div>
 
-            <div id="contenedor-ejercicios">
-                <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios...</p>
+            <!-- SELECTOR DE LAS 3 CATEGORÍAS / PESTAÑAS -->
+            <div class="tab-category-pill-container" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; flex-wrap: wrap;">
+                <button id="btn-cat-rutinas" class="tab-category-pill active" onclick="cambiarCategoriaEjercicios('rutinas')" style="flex: 1; min-width: 150px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>📋</span> Sesiones y Rutinas Activas
+                </button>
+                <button id="btn-cat-banco" class="tab-category-pill" onclick="cambiarCategoriaEjercicios('banco')" style="flex: 1; min-width: 150px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>⚡</span> Banco de Ejercicios Físicos
+                </button>
+                <button id="btn-cat-historial" class="tab-category-pill" onclick="cambiarCategoriaEjercicios('historial')" style="flex: 1; min-width: 150px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>📜</span> Historial Físico
+                </button>
             </div>
-        </div>
-    </div>
 
-    <!-- VISTA: CUERPO (GYM - MENÚ DE RUTINAS DINÁMICO DESDE SHEETS) -->
-    <div id="vista-gym" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
-            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
-        </button>
-        <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <h2 style="margin: 0;">Condición Física (Gym &amp; Rutinas)</h2>
-                    <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">Selecciona o crea tus rutinas programadas:</p>
+            <!-- CONTENIDO CATEGORÍA 1: SESIONES Y RUTINAS ACTIVAS -->
+            <div id="seccion-categoria-rutinas">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-size: 13px; color: #6b7280; font-weight: 600;">Sesiones activas con checklist dinámico y descansos:</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Configurar rutina de calentamiento">
+                            ⚙️ Calentamiento &amp; Movilidad
+                        </button>
+                        <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="font-size: 12px; padding: 6px 12px;">
+                            ➕ Nueva Rutina
+                        </button>
+                    </div>
                 </div>
-                <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="display: flex; align-items: center; gap: 6px;">
-                    <span>➕</span> Nueva Rutina
-                </button>
+
+                <!-- PORTAL DESTACADO: RUTINA MAÑANERA -->
+                <div class="quest-card" onclick="cambiarVista('vista-detalle-mananera')" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid #111827;">
+                    <div class="quest-icon-box" style="font-size: 20px;">🌅</div>
+                    <div style="flex:1; padding-left: 4px;">
+                        <span class="quest-badge-rank">DIARIA · ACTIVACIÓN MATUTINA</span>
+                        <p class="quest-card-name" style="margin:4px 0 6px 0; color:#111827; font-size:15px; font-weight:700;">Rutina Mañanera</p>
+                        <div class="muscle-tags-row">
+                            <span class="muscle-tag">4 Ejercicios</span>
+                            <span class="muscle-tag" style="background:none; border:none; color:#6b7280;">Flexiones, Abdominales, Sentadillas y Plancha</span>
+                        </div>
+                    </div>
+                    <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #111827;">Entrar ›</span>
+                </div>
+
+                <!-- PORTALES DE RUTINAS DINÁMICAS (FUERZA / GYM) -->
+                <div id="contenedor-portales-rutinas-ejercicios">
+                    <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas...</p>
+                </div>
             </div>
 
-            <!-- Portales de rutinas: se renderizan dinámicamente desde la hoja "Rutinas" -->
-            <div id="contenedor-portales-rutinas">
-                <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas del sistema...</p>
+            <!-- CONTENIDO CATEGORÍA 2: BANCO DE EJERCICIOS FÍSICOS -->
+            <div id="seccion-categoria-banco" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
+                        <button class="btn-subfiltro-ej" data-subfiltro="gym" onclick="filtrarSubcategoriaEjercicios('gym')">🏋️ Gym / Pesas</button>
+                        <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia / Peso Corporal</button>
+                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
+                        ➕ Nuevo Ejercicio Físico
+                    </button>
+                </div>
+                <div id="contenedor-ejercicios">
+                    <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios...</p>
+                </div>
             </div>
 
-            <!-- Historial Gym -->
-            <h3 style="margin-top: 25px; margin-bottom: 10px; font-size: 14px;">Historial de Entrenamientos Recientes</h3>
-            <div id="contenedor-gym">Cargando registros...</div>
+            <!-- CONTENIDO CATEGORÍA 3: HISTORIAL FÍSICO -->
+            <div id="seccion-categoria-historial" style="display: none;">
+                <div style="margin-bottom: 14px;">
+                    <span style="font-size: 13px; color: #6b7280; font-weight: 600;">Registro cronológico de entrenamientos completados:</span>
+                </div>
+                <div id="contenedor-gym">Cargando registros...</div>
+            </div>
         </div>
     </div>
 
-    <!-- VISTA: DETALLE DE RUTINA DINÁMICA (cargada desde Sheets) -->
+    <!-- VISTA: DETALLE DE RUTINA DINÁMICA (DISEÑO MINIMALISTA & SERIO) -->
     <div id="vista-detalle-rutina-dinamica" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+            <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <h2 id="detalle-rutina-titulo" style="margin: 0;">Cargando rutina...</h2>
-                <span id="detalle-rutina-badge" class="quest-badge-rank"></span>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <h2 id="detalle-rutina-titulo" style="margin: 0; font-size: 18px; color: #111827; font-weight: 800;">Cargando rutina...</h2>
+                <span id="detalle-rutina-badge" class="quest-badge-rank">SESIÓN ACTIVA</span>
             </div>
-            <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Marca cada casilla al completar el ejercicio para registrar tu avance:</p>
+            <p style="color: #6b7280; font-size: 12.5px; margin-bottom: 14px;">Marca cada casilla al completar tu serie o toca un ejercicio para consultar su técnica detallada.</p>
+
+            <!-- BARRA DE ACTIVACIÓN & CALENTAMIENTO -->
+            <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                <button type="button" class="btn-subfiltro-ej" onclick="iniciarCalentamientoAutomatico()" style="flex: 1; padding: 7px 12px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>⏱</span> Iniciar Calentamiento Guiado
+                </button>
+                <button type="button" class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Editar calentamiento">
+                    <span>⚙</span> Configurar
+                </button>
+            </div>
+
+            <!-- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER) -->
+            <div class="gym-assistant-card" style="background: #111827; color: #ffffff; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 14px;">⏱</span>
+                        <span style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Descanso Entre Series:</span>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button type="button" class="btn-rest-quick" onclick="iniciarDescansoGym(30)">30s</button>
+                        <button type="button" class="btn-rest-quick" onclick="iniciarDescansoGym(60)">60s</button>
+                        <button type="button" class="btn-rest-quick" onclick="iniciarDescansoGym(90)">90s</button>
+                        <button type="button" class="btn-rest-quick" onclick="iniciarDescansoGym(120)">120s</button>
+                    </div>
+                </div>
+                <div id="gym-rest-timer-box" style="display: none; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; margin-top: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="rest-timer-num" style="font-size: 18px; font-weight: 800; font-family: monospace; color: #ffffff;">00:00</span>
+                        <span style="font-size: 11px; color: #9ca3af;">Descansando</span>
+                    </div>
+                    <div style="flex: 1; max-width: 140px; margin: 0 10px;">
+                        <div style="height: 5px; background: rgba(255,255,255,0.2); border-radius: 9999px; overflow: hidden;">
+                            <div id="rest-timer-bar-fill" style="height: 100%; width: 100%; background: #ffffff; border-radius: 9999px; transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="detenerDescansoGym()" style="background: rgba(255,255,255,0.15); border: none; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer;">
+                        Detener
+                    </button>
+                </div>
+            </div>
 
             <!-- Barra de Progreso en Vivo -->
-            <div id="progreso-rutina-dinamica-cont" class="routine-progress-container" style="display: none;">
+            <div id="progreso-rutina-dinamica-cont" class="routine-progress-container" style="display: none; margin-bottom: 14px;">
                 <div class="routine-progress-info">
-                    <span style="font-weight: 700; color: #111827;">⚔️ PROGRESO DE LA MISIÓN</span>
+                    <span style="font-weight: 700; color: #111827; font-size: 12px; text-transform: uppercase;">PROGRESO DE LA SESIÓN</span>
                     <strong id="progreso-texto-rutina-dinamica">0 / 0 (0%)</strong>
                 </div>
                 <div class="timer-bar-bg" style="margin-top: 0;">
@@ -295,13 +525,13 @@
                 </div>
             </div>
 
-            <!-- Lista de ejercicios: se inyecta por JavaScript según la rutina seleccionada -->
+            <!-- Lista de ejercicios: Solo muestra casillas de verificación directas -->
             <div id="contenedor-detalle-rutina-dinamica">
                 <!-- Los ejercicios se renderizan aquí -->
             </div>
 
             <button id="btn-registrar-rutina-dinamica" class="btn-system" disabled
-                style="width: 100%; padding: 13px; margin-top: 10px; display: none;"
+                style="width: 100%; padding: 13px; margin-top: 14px; display: none;"
                 onclick="ejecutarRutinaDinamica()">
                 Completar y Registrar Rutina
             </button>
@@ -312,8 +542,8 @@
 
     <!-- VISTA: DETALLE DE RUTINA MAÑANERA -->
     <div id="vista-detalle-mananera" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+            <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -389,8 +619,8 @@
 
     <!-- VISTA: DETALLE DE RUTINA DE EMPUJE -->
     <div id="vista-detalle-empuje" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+            <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -453,8 +683,8 @@
 
     <!-- VISTA: DETALLE DE RUTINA DE PIERNA -->
     <div id="vista-detalle-pierna" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+            <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -517,8 +747,8 @@
 
     <!-- VISTA: DETALLE DE RUTINA DE ARRASTRE -->
     <div id="vista-detalle-arrastre" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-gym')">
-            <span style="font-size: 16px;">◀</span> VOLVER A RUTINAS
+        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+            <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -576,24 +806,6 @@
             <button id="btn-registrar-arrastre" class="btn-system" disabled style="width: 100%; padding: 13px; margin-top: 10px;" onclick="ejecutarRutina('arrastre')">
                 Completar y Registrar Rutina
             </button>
-        </div>
-    </div>
-        </div>
-    </div>
-
-    <!-- VISTA: MENTE -->
-    <div id="vista-mente" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-estado-personal')">
-            <span style="font-size: 16px;">◀</span> VOLVER A ESTADO PERSONAL
-        </button>
-        <div class="card">
-            <h2>Condición Mental (Sueño & Descanso)</h2>
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 13px; color: #94a3b8; display: block; margin-bottom: 5px;">Horas de Sueño / Estado Mental:</label>
-                <input type="text" id="input-nueva-mente" placeholder="Ej: 8 horas de sueño - Descanso óptimo">
-                <button class="btn-system" onclick="guardarMente()">Registrar Mente</button>
-            </div>
-            <div id="contenedor-mente">Cargando registros mentales...</div>
         </div>
     </div>
 
@@ -1002,46 +1214,184 @@
         </div>
     </div>
 
-    <!-- VISTA: IDEAS -->
-    <div 
     <!-- ======================================================================
-         MODALES DE PROGRESIÓN (MISIONES Y HABILIDADES)
+         MODALES DE PROGRESIÓN (QUESTS DIARIOS, MISIONES, HABILIDADES Y EJERCICIOS)
          ====================================================================== -->
 
-    <!-- MODAL: NUEVA MISIÓN / HÁBITO -->
-    <div 
-    <!-- MODAL: NUEVO EJERCICIO -->
-    <div id="modal-nuevo-ejercicio" class="modal-overlay" style="display: none;">
+    <!-- MODAL: NUEVA QUEST DIARIA CON TIEMPO Y PENITENCIAS -->
+    <div id="modal-nueva-quest-diaria" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">⚡</span>
-                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVO EJERCICIO</span>
+                    <span style="font-size: 18px;">⏳</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">NUEVA QUEST DIARIA CON TIEMPO</span>
+                </div>
+                <button onclick="cerrarModalNuevaQuestDiaria()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-form-group">
+                    <label>Título de la Tarea / Acción:</label>
+                    <input type="text" id="modal-qd-nombre" class="modal-input" placeholder="Ej: Rutina Matutina: Despertar & Tender Cama, Lectura 15 min...">
+                </div>
+
+                <div class="modal-form-group">
+                    <label>Categoría:</label>
+                    <select id="modal-qd-categoria" class="modal-input">
+                        <option value="🌅 Rutina Matutina">🌅 Rutina Matutina</option>
+                        <option value="⚡ Activación Física">⚡ Activación Física</option>
+                        <option value="🎯 Enfoque & Trabajo">🎯 Enfoque & Trabajo</option>
+                        <option value="🧘 Hábitos & Mente">🧘 Hábitos & Mente</option>
+                        <option value="🌙 Rutina Nocturna">🌙 Rutina Nocturna</option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="modal-form-group">
+                        <label>Tipo de Tiempo Asignado:</label>
+                        <select id="modal-qd-tipo-tiempo" class="modal-input" onchange="toggleTipoTiempoQuestModal()">
+                            <option value="duracion">⏱️ Temporizador (Minutos)</option>
+                            <option value="hora_limite">⏰ Hora Límite del Día</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-form-group" id="grupo-qd-duracion">
+                        <label>Tiempo Asignado (Minutos):</label>
+                        <input type="number" id="modal-qd-minutos" class="modal-input" value="15" min="1" max="360">
+                    </div>
+
+                    <div class="modal-form-group" id="grupo-qd-hora" style="display: none;">
+                        <label>Hora Límite (HH:MM):</label>
+                        <input type="time" id="modal-qd-hora" class="modal-input" value="08:30">
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label>Penitencia Automática si no se completa a tiempo:</label>
+                    <select id="modal-qd-penitencia-select" class="modal-input" onchange="togglePenitenciaCustomModal()">
+                        <option value="30 Flexiones inmediatas">💀 30 Flexiones inmediatas</option>
+                        <option value="50 Flexiones inmediatas">💀 50 Flexiones inmediatas</option>
+                        <option value="1 Minuto de Plancha estricta">💀 1 Minuto de Plancha estricta</option>
+                        <option value="Ducha de agua fría obligatoria">💀 Ducha de agua fría obligatoria</option>
+                        <option value="Pérdida de 40 EXP del Avatar">💀 Pérdida de 40 EXP del Avatar</option>
+                        <option value="15 Minutos de limpieza sin móvil">💀 15 Minutos de limpieza sin móvil</option>
+                        <option value="custom">✏️ Personalizada (Escribir abajo)</option>
+                    </select>
+                    <input type="text" id="modal-qd-penitencia-custom" class="modal-input" placeholder="Escribe tu penitencia específica..." style="display: none; margin-top: 8px;">
+                </div>
+
+                <div class="modal-form-group">
+                    <label>Recompensa por Cumplir a Tiempo:</label>
+                    <input type="number" id="modal-qd-exp" class="modal-input" value="40" min="5" max="500">
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-weight: 700; color: #111827; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>🎯 Atributos que Desarrolla (Cuerpo y Mente):</span>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % de impacto</span>
+                    </label>
+                    <div id="lista-atributos-quest" class="atributos-seleccionados-box"></div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <select id="select-nuevo-atributo-quest" class="modal-input" style="flex: 1;" onchange="agregarAtributoDesdeSelect('quest', this.value)">
+                            <!-- Inyectado dinámicamente con optgroups de Cuerpo y Mente -->
+                        </select>
+                        <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarAtributoDesdeBoton('quest')">
+                            + Añadir
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarQuestDiaria()">
+                        GUARDAR QUEST
+                    </button>
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaQuestDiaria()">
+                        CANCELAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVO EJERCICIO -->
+    <div id="modal-nuevo-ejercicio" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 530px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏋️‍♂️</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVO EJERCICIO FÍSICO</span>
                 </div>
                 <button onclick="cerrarModalNuevoEjercicio()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Define el ejercicio con su técnica de ejecución y el porcentaje exacto de fatiga / impacto que otorga al grupo muscular específico.
+                </p>
+
+                <!-- 1. NOMBRE -->
                 <div class="modal-form-group">
                     <label>Nombre del Ejercicio:</label>
                     <input type="text" id="modal-ejercicio-nombre" class="modal-input" placeholder="Ej: Press de Banca Plano, Sentadillas, Dominadas...">
                 </div>
+
+                <!-- 2. CLASIFICACIÓN / TIPO -->
                 <div class="modal-form-group">
-                    <label>En qué consiste (Descripción / Técnica):</label>
-                    <input type="text" id="modal-ejercicio-desc" class="modal-input" placeholder="Ej: Empuje horizontal con barra, agarre al ancho de hombros...">
+                    <label>Clasificación / Modalidad:</label>
+                    <select id="modal-ejercicio-tipo" class="modal-input" style="background:#ffffff; font-weight: 600;">
+                        <option value="gym">🏋️ Gym / Pesas (Fuerza e Hipertrofia)</option>
+                        <option value="calistenia">🤸 Calistenia (Peso Corporal y Tensión)</option>
+                        <option value="movilidad">🥋 Movilidad, Core & Calentamiento</option>
+                    </select>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="modal-form-group">
-                        <label>Series:</label>
-                        <input type="number" id="modal-ejercicio-series" class="modal-input" min="1" max="20" value="4">
+
+                <!-- 3. ESPECIFICACIONES TÉCNICAS -->
+                <div class="modal-form-group">
+                    <label>Especificaciones Técnicas (Técnica y Postura):</label>
+                    <textarea id="modal-ejercicio-desc" class="modal-input" rows="2" placeholder="Ej: Agarre al ancho biacromial, retracción escapular estricta, codos a 45 grados y pausa isométrica de 1s..."></textarea>
+                </div>
+
+                <!-- 4. GRUPO MUSCULAR PRINCIPAL ESPECÍFICO & IMPACTO EXACTO -->
+                <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Grupo Muscular Principal:</label>
+                        <select id="modal-ejercicio-musculo-principal" class="modal-input" style="background:#ffffff; font-weight: 600;">
+                            <option value="Pectoral Mayor">⚔️ Pectoral Mayor (Pecho)</option>
+                            <option value="Pectoral Menor">⚔️ Pectoral Menor (Pecho)</option>
+                            <option value="Dorsales">🦅 Dorsales (Espalda / Tracción)</option>
+                            <option value="Trapecios">🦅 Trapecios (Espalda Alta)</option>
+                            <option value="Lumbares">🏛️ Lumbares (Espalda Baja)</option>
+                            <option value="Deltoides">🛡️ Hombros (Deltoides)</option>
+                            <option value="Bíceps">💪 Bíceps (Brazos)</option>
+                            <option value="Tríceps">🦾 Tríceps (Brazos)</option>
+                            <option value="Antebrazos">✊ Antebrazos (Agarre)</option>
+                            <option value="Cuádriceps">🦵 Cuádriceps (Piernas)</option>
+                            <option value="Isquiotibiales">🦵 Isquiotibiales (Femorales)</option>
+                            <option value="Glúteos">🍑 Glúteos (Cadera / Pelvis)</option>
+                            <option value="Pantorrillas">🧦 Pantorrillas (Gemelos y Sóleo)</option>
+                            <option value="Core">⚡ Core / Abdominales</option>
+                            <option value="Cadera y Movilidad">🥋 Cadera y Movilidad</option>
+                        </select>
                     </div>
-                    <div class="modal-form-group">
-                        <label>Reps por serie:</label>
-                        <input type="text" id="modal-ejercicio-reps" class="modal-input" placeholder="Ej: 10-12 reps" value="10-12 reps">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Impacto / Fatiga (%):</label>
+                        <input type="number" id="modal-ejercicio-fatiga" class="modal-input" min="5" max="100" value="25" placeholder="Ej: 25">
                     </div>
                 </div>
 
+                <!-- 5. SERIES Y REPETICIONES -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Series Recomendadas:</label>
+                        <input type="number" id="modal-ejercicio-series" class="modal-input" min="1" max="20" value="4">
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Reps / Rango:</label>
+                        <input type="text" id="modal-ejercicio-reps" class="modal-input" placeholder="Ej: 8-10 reps" value="8-10 reps">
+                    </div>
+                </div>
+
+                <!-- 6. GRUPOS MUSCULARES SECUNDARIOS (CHIPS) -->
                 <div class="modal-form-group">
-                    <label style="margin-bottom: 6px; display: block;">Categorías / Zonas que trabaja (Selecciona una o más):</label>
+                    <label style="margin-bottom: 6px; display: block;">Estímulo Secundario / Zonas de Apoyo (Opcional):</label>
                     <div class="muscle-selector-chips" id="selector-chips-musculos">
                         <button type="button" class="muscle-chip-btn" data-cat="Pecho" onclick="toggleChipMusculo(this)">⚔️ Pecho</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Hombros" onclick="toggleChipMusculo(this)">🛡️ Hombros</button>
@@ -1056,15 +1406,7 @@
                         <button type="button" class="muscle-chip-btn" data-cat="Glúteos" onclick="toggleChipMusculo(this)">🍑 Glúteos</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Pantorrillas" onclick="toggleChipMusculo(this)">🧦 Pantorrillas</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Antebrazos" onclick="toggleChipMusculo(this)">✊ Antebrazos</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Cadera" onclick="toggleChipMusculo(this)">🥋 Cadera</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Mente" onclick="toggleChipMusculo(this)">🧠 Mente</button>
                     </div>
-                </div>
-
-                <div class="modal-form-group">
-                    <label>Porcentaje de fatiga que agrega (% por zona):</label>
-                    <input type="number" id="modal-ejercicio-fatiga" class="modal-input" min="5" max="100" value="20" placeholder="Ej: 20">
-                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Se sumará al mapa de calor corporal al completar los ejercicios.</span>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1072,7 +1414,7 @@
                         Cancelar
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarEjercicio()">
-                        ✓ Guardar Ejercicio
+                        ✓ Guardar Ejercicio Físico
                     </button>
                 </div>
             </div>
@@ -1191,14 +1533,19 @@
                     </select>
                 </div>
                 <div class="modal-form-group">
-                    <label>Atributo que Potencia:</label>
-                    <select id="modal-mision-atributo" class="modal-input">
-                        <option value="INT">INT · Inteligencia / Conocimiento</option>
-                        <option value="STR">STR · Fuerza / Condición Física</option>
-                        <option value="AGI">AGI · Agilidad / Productividad</option>
-                        <option value="VIT">VIT · Vitalidad / Salud</option>
-                        <option value="EXP">EXP · Experiencia General</option>
-                    </select>
+                    <label style="font-weight: 700; color: #111827; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>🎯 Atributos que Desarrolla (Cuerpo y Mente):</span>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % de impacto</span>
+                    </label>
+                    <div id="lista-atributos-mision" class="atributos-seleccionados-box"></div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <select id="select-nuevo-atributo-mision" class="modal-input" style="flex: 1;" onchange="agregarAtributoDesdeSelect('mision', this.value)">
+                            <!-- Inyectado dinámicamente con optgroups de Cuerpo y Mente -->
+                        </select>
+                        <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarAtributoDesdeBoton('mision')">
+                            + Añadir
+                        </button>
+                    </div>
                 </div>
                 <div class="modal-form-group">
                     <label>Recompensa de Experiencia (EXP):</label>
@@ -1240,6 +1587,21 @@
                     <input type="number" id="modal-habilidad-horas" class="modal-input" min="0" max="4" value="0">
                     <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Toda habilidad nueva inicia estrictamente en <strong>Rango E</strong> (0 a 5 hrs).</span>
                 </div>
+                <div class="modal-form-group">
+                    <label style="font-weight: 700; color: #111827; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>🎯 Atributos que Potencia al Entrenar (por hora):</span>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % por sesión</span>
+                    </label>
+                    <div id="lista-atributos-habilidad" class="atributos-seleccionados-box"></div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <select id="select-nuevo-atributo-habilidad" class="modal-input" style="flex: 1;" onchange="agregarAtributoDesdeSelect('habilidad', this.value)">
+                            <!-- Inyectado dinámicamente con optgroups de Cuerpo y Mente -->
+                        </select>
+                        <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarAtributoDesdeBoton('habilidad')">
+                            + Añadir
+                        </button>
+                    </div>
+                </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaHabilidad()">
                         Cancelar
@@ -1277,11 +1639,11 @@
                         <div>
                             <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Categoría:</label>
                             <select id="select-categoria-idea" class="ideas-select" onchange="alCambiarCategoriaIdea()">
-                                <option value="💭 Ideas y Pensamientos">💭 Ideas y Pensamientos</option>
-                                <option value="🛒 Compras">🛒 Compras</option>
-                                <option value="📊 Planes y Monitoreo de Ejecución">📊 Planes y Monitoreo de Ejecución</option>
-                                <option value="🧠 Cosas por Aprender">🧠 Cosas por Aprender</option>
-                                <option value="✅ Tareas Pendientes">✅ Tareas Pendientes</option>
+                                <option value="💡 Ideas & Proyectos">💡 Ideas & Proyectos</option>
+                                <option value="🛒 Compras & Deseos">🛒 Compras & Deseos</option>
+                                <option value="📊 Planes & Metas">📊 Planes & Metas</option>
+                                <option value="📚 Base de Conocimientos">📚 Base de Conocimientos</option>
+                                <option value="✅ Tareas Operativas">✅ Tareas Operativas</option>
                             </select>
                         </div>
                         <div>
@@ -1422,6 +1784,165 @@
         </div>
     </div>
 
+    <!-- VISTA: BASE DE CONOCIMIENTO (REVISIÓN SEMANAL Y APRENDIZAJES DIARIOS) -->
+    <div id="vista-conocimiento" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+
+        <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 26px;">📚</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px;">Base de Conocimiento & Técnicas</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Registra técnicas aprendidas en cada actividad y repásalas semanalmente para fijar retención neural.</span>
+                    </div>
+                </div>
+                <button class="btn-system" onclick="abrirModalNuevoConocimiento()" style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                    <span>➕</span> Registrar Técnica / Conocimiento
+                </button>
+            </div>
+
+            <!-- BANNER DE REVISIÓN SEMANAL (SPACED REPETITION) -->
+            <div id="contenedor-revision-semanal-conocimiento"></div>
+
+            <!-- TABS DE FILTRO POR ÁREA -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 16px 0; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <button class="btn-tab-con-area active" onclick="filtrarConocimientosPorArea('TODAS', this)">Todas las Áreas</button>
+                <button class="btn-tab-con-area" onclick="filtrarConocimientosPorArea('Oficio & Barbería', this)">💈 Oficio & Barbería</button>
+                <button class="btn-tab-con-area" onclick="filtrarConocimientosPorArea('Programación & Software', this)">💻 Programación & Software</button>
+                <button class="btn-tab-con-area" onclick="filtrarConocimientosPorArea('Estrategia & Psicología', this)">♟️ Estrategia & Psicología</button>
+                <button class="btn-tab-con-area" onclick="filtrarConocimientosPorArea('Hábitos & Salud', this)">🛡️ Hábitos & Salud</button>
+            </div>
+
+            <!-- GRID DE CONOCIMIENTOS -->
+            <div id="contenedor-conocimientos-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px;">
+                <!-- Inyectado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA: LABORES DEL DÍA A DÍA -->
+    <div id="vista-labores" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+
+        <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 26px;">💼</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px;">Gestión de Labores & Oficios</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Control de dedicación, horas y rendimiento en Desarrollo, Personal Trainer, Barbería y más.</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-sheet-action" onclick="abrirModalNuevaLabor()">
+                        + Nueva Labor / Oficio
+                    </button>
+                    <button class="btn-system" onclick="abrirModalRegistroJornada()" style="font-size: 13px;">
+                        ⚡ Registrar Sesión de Labor
+                    </button>
+                </div>
+            </div>
+
+            <!-- MÉTRICAS DE HORAS Y SESIONES -->
+            <div id="contenedor-estadisticas-labores"></div>
+
+            <!-- DESGLOSE DE CATEGORÍAS DE LABORES -->
+            <div style="margin: 20px 0 10px 0;">
+                <h3 style="font-size: 15px; font-weight: 800; color: #111827; margin: 0 0 10px 0;">Categorías de Labores & Dedicación</h3>
+                <div id="contenedor-categorias-labores"></div>
+            </div>
+
+            <!-- HISTORIAL DE SESIONES REGISTRADAS -->
+            <div style="margin-top: 24px; border-top: 1px solid #f3f4f6; padding-top: 16px;">
+                <h3 style="font-size: 15px; font-weight: 800; color: #111827; margin: 0 0 12px 0;">Registro Histórico de Sesiones Laborales</h3>
+                <div id="contenedor-registros-labores"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA: AGENDA DE CONVERSACIONES & UBICACIONES -->
+    <div id="vista-personas" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+
+        <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 26px;">👥</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px;">Directorio de Personas & Conversaciones</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Agenda temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás.</span>
+                    </div>
+                </div>
+                <button class="btn-system" onclick="abrirModalNuevaPersona()" style="font-size: 13px;">
+                    ➕ Agregar Contacto y Temas
+                </button>
+            </div>
+
+            <!-- RESUMEN DE CONTACTOS Y TEMAS -->
+            <div id="contenedor-resumen-personas"></div>
+
+            <!-- FILTRO POR CATEGORÍA DE UBICACIÓN -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 16px 0; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <button class="btn-tab-ubi active" onclick="filtrarPersonasPorUbicacion('TODAS', this)">Todas las Ubicaciones</button>
+                <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('💈 Barbería', this)">💈 Barbería</button>
+                <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('🏋️ Gimnasio', this)">🏋️ Gimnasio</button>
+                <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('💼 Oficina / Coworking', this)">💼 Coworking</button>
+                <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('☕ Café / Restaurante', this)">☕ Café</button>
+                <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('🌐 Virtual / Discord / Llamada', this)">🌐 Virtual</button>
+            </div>
+
+            <!-- GRID DE PERSONAS Y TEMAS -->
+            <div id="contenedor-agenda-personas-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px;"></div>
+        </div>
+    </div>
+
+    <!-- VISTA: RULETA DE VARIABILIDAD SEMANAL -->
+    <div id="vista-ruleta" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+
+        <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 26px;">🎲</span>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px;">Ruleta de Variabilidad Semanal</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Elimina la monotonía planificando de forma aleatoria Comidas, Vestimenta y Selección de Música.</span>
+                    </div>
+                </div>
+                <button class="btn-system" onclick="girarRuletaCompleta()" style="font-size: 13px;">
+                    🎲 Giro Completo Diario (+25 EXP)
+                </button>
+            </div>
+
+            <!-- BANNER DE RESULTADO ACTIVO -->
+            <div id="contenedor-resultado-ruleta"></div>
+
+            <!-- DISCO DE LA RULETA INTERACTIVO -->
+            <div style="text-align: center; margin: 24px 0 20px 0; display: flex; flex-direction: column; align-items: center;">
+                <div style="position: relative; display: inline-block;">
+                    <div style="position: absolute; right: -12px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 14px solid transparent; border-bottom: 14px solid transparent; border-right: 22px solid #dc2626; z-index: 10; filter: drop-shadow(-2px 1px 2px rgba(0,0,0,0.3));"></div>
+                    <canvas id="canvas-ruleta" width="300" height="300" style="background: #ffffff; border-radius: 50%; box-shadow: 0 4px 20px rgba(0,0,0,0.12); border: 4px solid #111827; cursor: pointer;" onclick="girarRuletaIndividual(CATEGORIA_RULETA_ACTIVA)"></canvas>
+                </div>
+                <p style="font-size: 12px; color: #6b7280; margin: 10px 0 0 0;">Toca la ruleta o usa los botones para girar la categoría activa.</p>
+            </div>
+
+            <!-- BANCO DE OPCIONES EDITABLES -->
+            <div style="margin-top: 24px; border-top: 1px solid #f3f4f6; padding-top: 16px;">
+                <h3 style="font-size: 15px; font-weight: 800; color: #111827; margin: 0 0 12px 0;">Banco de Opciones de Variabilidad</h3>
+                <div id="contenedor-opciones-ruleta"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- VISTA: CALENDARIO -->
     <div id="vista-calendario" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
@@ -1557,24 +2078,605 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL: REGISTRAR EJERCICIO MENTAL -->
+    <div id="modal-nuevo-ejercicio-mental" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 540px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🧠</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR EJERCICIO MENTAL</span>
+                </div>
+                <button onclick="cerrarModalNuevoEjercicioMental()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
+                    Registra tu sesión de estudio, lectura profunda o trabajo mental. Tilda los atributos cognitivos que se potencian con esta actividad.
+                </p>
+
+                <!-- 1. TÍTULO -->
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Actividad o Ejercicio Mental:</label>
+                    <input type="text" id="input-em-titulo" class="finanzas-input-clean"
+                        placeholder="Ej: Leer libro de psicología oscura, Sesión de código profundo..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <!-- 2. DETALLE / REFLEXIÓN -->
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Notas o Aprendizaje Clave (Opcional):</label>
+                    <textarea id="input-em-desc" class="finanzas-input-clean" rows="2"
+                        placeholder="Ej: Análisis de sesgos cognitivos, patrones de negociación y enfoque sin distracciones..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px; resize: vertical;"></textarea>
+                </div>
+
+                <!-- 3. INCREMENTO / BOOST PORCENTUAL -->
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 8px; display: block;">
+                        Incremento Porcentual: <strong id="em-boost-display" style="color: #111827;">+15%</strong>
+                    </label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-em-boost" onclick="seleccionarBoostMental(5, this)">+5%</button>
+                        <button type="button" class="btn-em-boost" onclick="seleccionarBoostMental(10, this)">+10%</button>
+                        <button type="button" class="btn-em-boost active" onclick="seleccionarBoostMental(15, this)">+15% (Recomendado)</button>
+                        <button type="button" class="btn-em-boost" onclick="seleccionarBoostMental(20, this)">+20%</button>
+                        <button type="button" class="btn-em-boost" onclick="seleccionarBoostMental(25, this)">+25%</button>
+                    </div>
+                </div>
+
+                <!-- 4. ATRIBUTOS COGNITIVOS A SUBIR (CHIPS SELECCIONABLES) -->
+                <div style="margin-bottom: 20px;">
+                    <label class="label-finanza" style="margin-bottom: 8px; display: block;">
+                        Atributos que suben de nivel (Tilda los que apliquen):
+                    </label>
+                    <div id="contenedor-chips-atributos-mentales" style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Inyectado dinámicamente mediante inicializarChipsAtributosMentales() -->
+                    </div>
+                </div>
+
+                <!-- BOTONES DE ACCIÓN -->
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEjercicioMental()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="confirmarAgregarEjercicioMental()">
+                        ⚡ Registrar Ejercicio (+40 EXP)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR NUEVO CONOCIMIENTO -->
+    <div id="modal-nuevo-conocimiento" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📚</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR CONOCIMIENTO / TÉCNICA</span>
+                </div>
+                <button onclick="cerrarModalNuevoConocimiento()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
+                    Documenta aprendizajes prácticos o teóricos adquiridos en tus actividades diarias para repasarlos en la revisión semanal.
+                </p>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Título de la Técnica o Conocimiento:</label>
+                    <input type="text" id="input-con-titulo" class="finanzas-input-clean"
+                        placeholder="Ej: Corte con tijera sobre peine, Optimización de Service Workers..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Área de Conocimiento:</label>
+                        <select id="input-con-area" class="finanzas-input-clean"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="Oficio & Barbería">💈 Oficio & Barbería</option>
+                            <option value="Programación & Software">💻 Programación & Software</option>
+                            <option value="Estrategia & Psicología">♟️ Estrategia & Psicología</option>
+                            <option value="Hábitos & Salud">🛡️ Hábitos & Salud</option>
+                            <option value="Otros">General & Otros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nivel de Dominio:</label>
+                        <select id="input-con-dominio" class="finanzas-input-clean"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="En Práctica">🌱 En Práctica</option>
+                            <option value="Intermedio">⚡ Intermedio</option>
+                            <option value="Dominado">🏆 Dominado</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Actividad en la que se adquirió:</label>
+                    <input type="text" id="input-con-origen" class="finanzas-input-clean"
+                        placeholder="Ej: Práctica de corte clásico en barbería, Desarrollo del Sistema Monarca..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Puntos Clave & Procedimiento:</label>
+                    <textarea id="input-con-puntos" class="finanzas-input-clean" rows="4"
+                        placeholder="Detalla la técnica, errores comunes a evitar y reglas clave para dominarla..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px; resize: vertical;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoConocimiento()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevoConocimiento()">
+                        📚 Guardar Técnica (+25 EXP)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR NUEVO EJERCICIO CEREBRAL -->
+    <div id="modal-nuevo-ejercicio-cerebral" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🧠</span>
+                    <div>
+                        <span class="quest-badge-rank" style="background: #111827; color: #ffffff; font-size: 10px; padding: 2px 6px;">CLASIFICACIÓN: MENTE</span>
+                        <div style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR EJERCICIO / PROTOCOLO MENTAL</div>
+                    </div>
+                </div>
+                <button onclick="cerrarModalNuevoEjercicioCerebral()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
+                    Estructura: Nombre, especificaciones técnicas y porcentaje exacto de desarrollo o impacto en el músculo mental correspondiente.
+                </p>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Ejercicio / Protocolo Mental:</label>
+                    <input type="text" id="input-ec-nombre" class="finanzas-input-clean"
+                        placeholder="Ej: Sprint de Análisis Algorítmico, Meditación Sin Estímulos..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Principal:</label>
+                        <select id="input-ec-musculo-p" class="finanzas-input-clean"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="inteligencia">⚡ Inteligencia</option>
+                            <option value="creatividad">🎨 Creatividad</option>
+                            <option value="anulacion">🛡️ Anulación</option>
+                            <option value="percepcion">♟️ Percepción</option>
+                            <option value="descanso">🌙 Descanso</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Secundario:</label>
+                        <select id="input-ec-musculo-s" class="finanzas-input-clean"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="">(Ninguno)</option>
+                            <option value="inteligencia">⚡ Inteligencia</option>
+                            <option value="creatividad">🎨 Creatividad</option>
+                            <option value="anulacion">🛡️ Anulación</option>
+                            <option value="percepcion">♟️ Percepción</option>
+                            <option value="descanso">🌙 Descanso</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Duración (min):</label>
+                        <input type="number" id="input-ec-dur" class="finanzas-input-clean" value="30" min="5" max="180"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Fatiga (+/-):</label>
+                        <input type="number" id="input-ec-fatiga" class="finanzas-input-clean" value="20" min="-50" max="50"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Recompensa EXP:</label>
+                        <input type="number" id="input-ec-exp" class="finanzas-input-clean" value="35" min="10" max="100"
+                            style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Descripción del Ejercicio:</label>
+                    <input type="text" id="input-ec-desc" class="finanzas-input-clean"
+                        placeholder="Ej: Sesión analítica de alta intensidad para resolución de algoritmos..."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                </div>
+
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Especificaciones Técnicas &amp; Protocolo de Ejecución:</label>
+                    <textarea id="input-ec-prot" class="finanzas-input-clean" rows="3"
+                        placeholder="1. Silencio absoluto. 2. Plantear el problema. 3. 30 min de enfoque ininterrumpido."
+                        style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px; resize: vertical;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEjercicioCerebral()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevoEjercicioCerebral()">
+                        ⚡ Guardar Protocolo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GESTOR Y EDITOR INDEPENDIENTE DE CALENTAMIENTO -->
+    <div id="modal-gestor-calentamiento" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⚙️</span>
+                    <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">EDITOR DE CALENTAMIENTO Y MOVILIDAD</span>
+                </div>
+                <button onclick="cerrarGestorCalentamiento()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
+                    Edita los ejercicios de activación previa, ajusta sus segundos y personaliza tu rutina de calentamiento antes de entrenar.
+                </p>
+
+                <div id="contenedor-editor-calentamiento" style="max-height: 320px; overflow-y: auto; padding-right: 4px; margin-bottom: 14px;">
+                    <!-- Inyectado por JS -->
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <button type="button" class="btn-subfiltro-ej" onclick="agregarPasoCalentamiento()" style="flex: 1; padding: 8px 12px; font-size: 12px; font-weight: 700;">
+                        ➕ Agregar Ejercicio de Calentamiento
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarGestorCalentamiento()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCalentamientoPersonalizado()">
+                        Guardar Configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: VISTA DETALLADA DEL EJERCICIO -->
+    <div id="modal-detalle-ejercicio" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">ℹ</span>
+                    <span id="det-ej-tipo" style="font-weight: 700; font-size: 12px; text-transform: uppercase; color: #4b5563; letter-spacing: 0.5px;">GIMNASIO · EJERCICIO</span>
+                </div>
+                <button onclick="cerrarModalDetalleEjercicio()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 22px;">
+                <h2 id="det-ej-nombre" style="margin: 0 0 8px 0; font-size: 19px; color: #111827; font-weight: 800;">Press de Banca</h2>
+                
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <span id="det-ej-series-reps" class="badge-reps" style="font-size: 12px; padding: 4px 10px;">4 Series × 10 Reps</span>
+                    <span id="det-ej-fatiga" class="badge-exercise-fatiga" style="font-size: 12px; padding: 4px 10px;">+25% Carga</span>
+                </div>
+
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;">
+                    <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.5px; margin-bottom: 3px;">Zonas Musculares:</div>
+                    <div id="det-ej-musculos" style="font-size: 13.5px; font-weight: 700; color: #111827;">Pectorales, Tríceps, Hombros</div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.5px; margin-bottom: 4px;">Descripción Técnica:</div>
+                    <p id="det-ej-desc" style="font-size: 13px; color: #374151; margin: 0; line-height: 1.45;"></p>
+                </div>
+
+                <div style="background: #ffffff; border: 1px solid #e5e7eb; border-left: 4px solid #111827; border-radius: 8px; padding: 12px 14px; margin-bottom: 20px;">
+                    <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #111827; letter-spacing: 0.5px; margin-bottom: 4px;">Técnica y Postura Óptima:</div>
+                    <p id="det-ej-tecnica" style="font-size: 12.5px; color: #4b5563; margin: 0; line-height: 1.45;"></p>
+                </div>
+
+                <button class="btn-system" style="width: 100%; padding: 12px; margin: 0;" onclick="cerrarModalDetalleEjercicio()">
+                    Volver a la Rutina
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: VENTANA FLOTANTE DE ASISTENCIA RÁPIDA -->
+    <div id="modal-asistente-rapido" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⚡</span>
+                    <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">ASISTENTE MONARCA · CAPTURA RÁPIDA</span>
+                </div>
+                <button onclick="cerrarAsistenteRapido()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 18px;">
+                <!-- Pestañas de categoría rápida -->
+                <div style="display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px;">
+                    <button type="button" class="btn-tab-asistente active" data-tab="idea" onclick="cambiarTabAsistenteRapido('idea')">
+                        💡 Idea
+                    </button>
+                    <button type="button" class="btn-tab-asistente" data-tab="quest" onclick="cambiarTabAsistenteRapido('quest')">
+                        ⏳ Quest
+                    </button>
+                    <button type="button" class="btn-tab-asistente" data-tab="mente" onclick="cambiarTabAsistenteRapido('mente')">
+                        🧠 Mente
+                    </button>
+                    <button type="button" class="btn-tab-asistente" data-tab="finanza" onclick="cambiarTabAsistenteRapido('finanza')">
+                        💰 Finanza
+                    </button>
+                </div>
+
+                <!-- 1. CAPTURA DE IDEA -->
+                <div id="asistente-sec-idea">
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="asistente-idea-nombre" class="finanzas-input-clean" placeholder="Título de la nueva idea..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <select id="asistente-idea-cat" class="finanzas-input-clean" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="💡 Ideas & Proyectos">💡 Ideas & Proyectos</option>
+                            <option value="🛒 Compras & Deseos">🛒 Compras & Deseos</option>
+                            <option value="📊 Planes & Metas">📊 Planes & Metas</option>
+                            <option value="📚 Base de Conocimientos">📚 Base de Conocimientos</option>
+                            <option value="✅ Tareas Operativas">✅ Tareas Operativas</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <textarea id="asistente-idea-desc" class="finanzas-input-clean" rows="2" placeholder="Detalles de la idea (opcional)..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
+                    </div>
+                </div>
+
+                <!-- 2. CAPTURA DE QUEST -->
+                <div id="asistente-sec-quest" style="display: none;">
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="asistente-quest-titulo" class="finanzas-input-clean" placeholder="Nombre de la tarea o quest urgente..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <label style="font-size: 11.5px; color: #6b7280; font-weight: 700; display: block; margin-bottom: 4px;">Tiempo Asignado (Minutos):</label>
+                        <input type="number" id="asistente-quest-minutos" class="finanzas-input-clean" value="25" min="1" max="180" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                </div>
+
+                <!-- 3. CAPTURA DE MENTE -->
+                <div id="asistente-sec-mente" style="display: none;">
+                    <div style="margin-bottom: 14px;">
+                        <textarea id="asistente-mente-desc" class="finanzas-input-clean" rows="3" placeholder="Ej: 8 horas de sueño profundo, lectura de filosofía o estado mental..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
+                    </div>
+                </div>
+
+                <!-- 4. CAPTURA DE FINANZA -->
+                <div id="asistente-sec-finanza" style="display: none;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <select id="asistente-fin-tipo" class="finanzas-input-clean" style="flex: 1; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px; font-size: 12.5px;">
+                            <option value="gasto">🔴 Gasto</option>
+                            <option value="ingreso">🟢 Ingreso</option>
+                        </select>
+                        <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" style="flex: 1; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                    <div style="margin-bottom: 14px;">
+                        <input type="text" id="asistente-fin-concepto" class="finanzas-input-clean" placeholder="Concepto del gasto o ingreso..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarAsistenteRapido()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCapturaRapida()">
+                        ⚡ Guardar al Instante
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA CATEGORÍA DE LABOR -->
+    <div id="modal-nueva-categoria-labor" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💼</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">NUEVA CATEGORÍA DE LABOR</span>
+                </div>
+                <button onclick="cerrarModalNuevaLabor()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Define una nueva ocupación o labor del día a día (ej: Fotografía, Electricista, Consultor, etc.).
+                </p>
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre de la Labor:</label>
+                    <input type="text" id="input-lab-nombre" class="finanzas-input-clean" placeholder="Ej: Consultor Técnico, Diseñador UI..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Icono (Emoji):</label>
+                        <input type="text" id="input-lab-icono" class="finanzas-input-clean" value="💼" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Color Identificador:</label>
+                        <input type="color" id="input-lab-color" value="#111827" style="width: 100%; height: 42px; border: 1px solid #d1d5db; border-radius: 10px; padding: 2px; cursor: pointer;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Descripción:</label>
+                    <textarea id="input-lab-desc" class="finanzas-input-clean" rows="2" placeholder="Breve resumen de responsabilidades..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaLabor()">Cancelar</button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevaLabor()">💼 Guardar Labor</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR JORNADA DE LABOR -->
+    <div id="modal-registro-jornada-labor" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⏱️</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR SESIÓN DE LABOR</span>
+                </div>
+                <button onclick="cerrarModalRegistroJornada()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Registra el tiempo dedicado y actividades completadas en tu labor del día.
+                </p>
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Labor Desempeñada:</label>
+                    <select id="select-reg-labor-id" class="finanzas-input-clean" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Horas Dedicadas:</label>
+                        <input type="number" id="input-reg-labor-horas" class="finanzas-input-clean" value="2.0" step="0.5" min="0.5" max="24" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Honorarios / Ganancia ($):</label>
+                        <input type="number" id="input-reg-labor-honorarios" class="finanzas-input-clean" value="0" min="0" step="1" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Descripción de lo Realizado:</label>
+                    <textarea id="input-reg-labor-desc" class="finanzas-input-clean" rows="3" placeholder="Ej: 3 cortes masculinos clásicos, perfilado de barba y limpieza..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalRegistroJornada()">Cancelar</button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarRegistroJornada()">⚡ Guardar Jornada</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: AGREGAR CONTACTO Y TEMAS -->
+    <div id="modal-nueva-persona" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">👥</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">AGREGAR CONTACTO & CONVERSACIÓN</span>
+                </div>
+                <button onclick="cerrarModalNuevaPersona()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Registra una persona de interés, temas que debes conversar y la ubicación donde proyectas encontrarla.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre de la Persona:</label>
+                        <input type="text" id="input-per-nombre" class="finanzas-input-clean" placeholder="Ej: Marcos Gómez..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Rol o Relación:</label>
+                        <input type="text" id="input-per-rol" class="finanzas-input-clean" placeholder="Ej: Cliente Barbería, Colega..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Categoría de Ubicación:</label>
+                        <select id="input-per-ubicacion" class="finanzas-input-clean" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                            <option value="💈 Barbería">💈 Barbería</option>
+                            <option value="🏋️ Gimnasio">🏋️ Gimnasio</option>
+                            <option value="💼 Oficina / Coworking">💼 Oficina / Coworking</option>
+                            <option value="☕ Café / Restaurante">☕ Café / Restaurante</option>
+                            <option value="🏠 Casa">🏠 Casa</option>
+                            <option value="🛣️ En la Calle">🛣️ En la Calle</option>
+                            <option value="🌐 Virtual / Discord / Llamada">🌐 Virtual / Discord / Llamada</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Lugar Proyectado Específico:</label>
+                        <input type="text" id="input-per-lugar" class="finanzas-input-clean" placeholder="Ej: Sillón 2, Zona de mancuernas..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Temas Pendientes a Tratar (Uno por línea):</label>
+                    <textarea id="input-per-temas" class="finanzas-input-clean" rows="3" placeholder="Punto 1: Preguntar sobre su horario de entreno&#10;Punto 2: Proponer nuevo corte fade bajo..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
+                </div>
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Momento u Oportunidad Proyectada:</label>
+                    <input type="text" id="input-per-fecha" class="finanzas-input-clean" placeholder="Ej: Mañana en la tarde, Viernes de corte..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaPersona()">Cancelar</button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevaPersona()">👥 Guardar Contacto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: AGREGAR OPCIÓN A LA RULETA -->
+    <div id="modal-nueva-opcion-ruleta" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🎲</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">NUEVA OPCIÓN DE VARIABILIDAD</span>
+                </div>
+                <button onclick="cerrarModalNuevaOpcionRuleta()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p id="label-opcion-ruleta-tipo" style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Agrega un nuevo elemento al banco de la ruleta.
+                </p>
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre de la Opción:</label>
+                    <input type="text" id="input-opcion-ruleta-nombre" class="finanzas-input-clean" placeholder="Ej: Salmón con quinoa / Hoodie negro oversized / Synthwave..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+                <div style="margin-bottom: 18px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Etiqueta o Estilo (Opcional):</label>
+                    <input type="text" id="input-opcion-ruleta-sub" class="finanzas-input-clean" placeholder="Ej: Cena proteica / Sport minimal / Foco mental..." style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaOpcionRuleta()">Cancelar</button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevaOpcionRuleta()">🎲 Agregar a Ruleta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE DE ASISTENCIA RÁPIDA (ACCESO GLOBAL) -->
+    <button id="btn-asistente-flotante" onclick="abrirAsistenteRapido()" title="Asistente Monarca · Captura Rápida" aria-label="Asistente Rápido">
+        <span style="font-size: 20px;">✦</span>
+    </button>
 </div>
 
 
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=5.0"></script>
-    <script src="js/perfil.js?v=5.0"></script>
-    <script src="js/progresion.js?v=5.0"></script>
-    <script src="js/estado-personal.js?v=5.0"></script>
-    <script src="js/finanzas.js?v=5.0"></script>
-    <script src="js/ideas.js?v=5.0"></script>
-    <script src="js/calendario.js?v=5.0"></script>
+    <script src="js/core.js?v=5.8"></script>
+    <script src="js/perfil.js?v=5.8"></script>
+    <script src="js/progresion.js?v=5.8"></script>
+    <script src="js/estado-personal.js?v=5.8"></script>
+    <script src="js/finanzas.js?v=5.8"></script>
+    <script src="js/ideas.js?v=5.8"></script>
+    <script src="js/dinamicas.js?v=5.8"></script>
+    <script src="js/calendario.js?v=5.8"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=5.0')
+                navigator.serviceWorker.register('sw.js?v=5.8')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
