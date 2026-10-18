@@ -2559,6 +2559,137 @@
     }
 }
 
+/* --- BADGES Y BALANCE DE DESGASTE DIARIO EN CALENDARIO --- */
+.calendar-wear-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 9999px;
+    margin: 2px 0 3px 0;
+    letter-spacing: -0.2px;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.calendar-wear-badge.badge-cero {
+    background: #ffffff;
+    color: #9ca3af;
+    border: 1px dashed #d1d5db;
+}
+
+.calendar-wear-badge.badge-leve {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.calendar-wear-badge.badge-medio {
+    background: #374151;
+    color: #ffffff;
+    border: 1px solid #1f2937;
+}
+
+.calendar-wear-badge.badge-alto {
+    background: #111827;
+    color: #ffffff;
+    border: 1px solid #000000;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-day-metrics-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.calendar-day-metrics-card .metrics-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.calendar-day-metrics-card .metrics-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.calendar-day-metrics-card .metrics-card-status {
+    font-size: 11px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #111827;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+}
+
+.calendar-day-metrics-card .metrics-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.metric-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-box .metric-label {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.metric-box .metric-val {
+    font-size: 19px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+.metric-box .metric-bar-bg {
+    width: 100%;
+    height: 5px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.metric-box .metric-bar-fill {
+    height: 100%;
+    background: #111827;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+@media (max-width: 640px) {
+    .calendar-day-metrics-card .metrics-card-grid {
+        grid-template-columns: 1fr;
+    }
+    .calendar-wear-badge {
+        font-size: 8.5px;
+        padding: 1px 3px;
+    }
+}
+
 /* ==========================================================================
    ESTILOS: QUESTS DIARIOS, RUTINA MATUTINA Y SISTEMA DE PENALIZACIONES
    ========================================================================== */
@@ -4051,6 +4182,97 @@
     background: #f3f4f6;
     border-color: #cbd5e1;
     color: #0f172a;
+}
+
+/* ==========================================================================
+   BADGE CLOUD SYNC FIREBASE FIRESTORE (HEADER)
+   ========================================================================== */
+.cloud-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #4b5563;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.cloud-sync-badge:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+    transform: translateY(-1px);
+}
+
+.cloud-sync-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: background-color 0.25s ease;
+}
+
+/* Estado: Sincronizado / Nube al día */
+.cloud-sync-badge.status-synced {
+    border-color: #e5e7eb;
+    color: #111827;
+}
+
+.cloud-sync-badge.status-synced .cloud-sync-dot {
+    background: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+/* Estado: Sincronizando / Conectando */
+.cloud-sync-badge.status-syncing {
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.cloud-sync-badge.status-syncing .cloud-sync-dot {
+    background: #6b7280;
+    animation: cloudPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes cloudPulse {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+/* Estado: Offline (Sin red, respaldo localStorage activo) */
+.cloud-sync-badge.status-offline {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+
+.cloud-sync-badge.status-offline .cloud-sync-dot {
+    background: #9ca3af;
+}
+
+/* Estado: Error de reglas/permisos */
+.cloud-sync-badge.status-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.cloud-sync-badge.status-error .cloud-sync-dot {
+    background: #ef4444;
+}
+
+@media (max-width: 640px) {
+    .cloud-sync-badge {
+        font-size: 10.5px;
+        padding: 4px 9px;
+    }
 }
 
 

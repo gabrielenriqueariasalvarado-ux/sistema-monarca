@@ -291,7 +291,6 @@ function obtenerEstadoZona(valor) {
 
 function asegurarDesgasteMente() {
     if (!APP_STATE.desgasteMente) APP_STATE.desgasteMente = {};
-    var baseSNC = (APP_STATE.fatigaMentalDiaria && APP_STATE.fatigaMentalDiaria.nivel) ? APP_STATE.fatigaMentalDiaria.nivel : 20;
 
     var clavesMente = [
         "memoria", "procesamiento", "conocimiento",
@@ -301,56 +300,14 @@ function asegurarDesgasteMente() {
         "estres_desconexion", "claridad_decision"
     ];
 
-    clavesMente.forEach(function(k, idx) {
+    clavesMente.forEach(function(k) {
         if (typeof APP_STATE.desgasteMente[k] === 'undefined' || APP_STATE.desgasteMente[k] === null) {
-            APP_STATE.desgasteMente[k] = Math.max(10, Math.min(75, baseSNC + ((idx % 4) * 4)));
+            APP_STATE.desgasteMente[k] = 0;
         }
     });
 }
 
-function actualizarDesgasteDiarioAutomatico() {
-    asegurarDesgasteMente();
-
-    if (!APP_STATE.desgasteDiario) {
-        APP_STATE.desgasteDiario = {
-            fecha: new Date().toISOString().split('T')[0],
-            ultimoCierre: new Date().toLocaleDateString('es-ES')
-        };
-    }
-
-    var hoyStr = new Date().toISOString().split('T')[0];
-
-    // Si cambió el día, aplicar recuperación nocturna automática
-    if (APP_STATE.desgasteDiario.fecha !== hoyStr) {
-        APP_STATE.desgasteDiario.ultimoCierre = APP_STATE.desgasteDiario.fecha;
-        APP_STATE.desgasteDiario.fecha = hoyStr;
-
-        // Recuperación metabólica muscular (45% de alivio sobre fatiga residual)
-        if (APP_STATE.fatiga) {
-            Object.keys(APP_STATE.fatiga).forEach(function(k) {
-                if (typeof APP_STATE.fatiga[k] === 'number') {
-                    APP_STATE.fatiga[k] = Math.max(0, Math.round(APP_STATE.fatiga[k] * 0.55));
-                }
-            });
-        }
-
-        // Recuperación neural cognitiva (45% de alivio)
-        if (APP_STATE.desgasteMente) {
-            Object.keys(APP_STATE.desgasteMente).forEach(function(k) {
-                APP_STATE.desgasteMente[k] = Math.max(10, Math.round(APP_STATE.desgasteMente[k] * 0.55));
-            });
-        }
-
-        if (APP_STATE.fatigaMentalDiaria) {
-            APP_STATE.fatigaMentalDiaria.nivel = Math.max(10, Math.round((APP_STATE.fatigaMentalDiaria.nivel || 20) * 0.55));
-        }
-
-        MonarcaDB.save(APP_STATE);
-    }
-}
-
-function calcularMetricasGeneralesDesgaste() {
-    actualizarDesgasteDiarioAutomatico();
+function calcularMetricasPurasSinActualizar() {
     var fatiga = APP_STATE.fatiga || {};
 
     // 1. Promedio Físico (Cuerpo)
@@ -384,9 +341,9 @@ function calcularMetricasGeneralesDesgaste() {
             });
         });
     }
-    var pctMente = countMente > 0 ? Math.round(sumaMente / countMente) : (APP_STATE.fatigaMentalDiaria ? APP_STATE.fatigaMentalDiaria.nivel : 20);
+    var pctMente = countMente > 0 ? Math.round(sumaMente / countMente) : (APP_STATE.fatigaMentalDiaria ? (APP_STATE.fatigaMentalDiaria.nivel || 0) : 0);
 
-    // 3. Desgaste General Diario Ponderado
+    // 3. Desgaste General Diario
     var pctGeneral = Math.round((pctCuerpo + pctMente) / 2);
 
     return {
@@ -394,6 +351,134 @@ function calcularMetricasGeneralesDesgaste() {
         mente: pctMente,
         general: pctGeneral
     };
+}
+
+function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
+    if (!APP_STATE.desgasteDiario) {
+        APP_STATE.desgasteDiario = {
+            fecha: new Date().toISOString().split('T')[0],
+            ultimoCierre: new Date().toLocaleDateString('es-ES')
+        };
+    }
+    if (!APP_STATE.registroDiarioCalendario) {
+        APP_STATE.registroDiarioCalendario = {};
+    }
+
+    asegurarDesgasteMente();
+
+    var hoyStr = new Date().toISOString().split('T')[0];
+    var cambioDeDia = APP_STATE.desgasteDiario.fecha !== hoyStr;
+
+    // Si cambió de fecha respecto a la última registrada o se fuerza el reinicio manual
+    if (cambioDeDia || forzarReinicio) {
+        var fechaAnterior = APP_STATE.desgasteDiario.fecha || hoyStr;
+
+        // 1. Guardar y archivar el porcentaje final alcanzado en la jornada saliente en el calendario
+        var metricasPrevias = calcularMetricasPurasSinActualizar();
+        if (!APP_STATE.registroDiarioCalendario[fechaAnterior]) {
+            APP_STATE.registroDiarioCalendario[fechaAnterior] = {
+                general: metricasPrevias.general,
+                cuerpo: metricasPrevias.cuerpo,
+                mente: metricasPrevias.mente,
+                fecha: fechaAnterior,
+                cerrado: true
+            };
+        } else {
+            // Actualizar con las métricas finales alcanzadas si no eran cero
+            if (metricasPrevias.general > 0 || !APP_STATE.registroDiarioCalendario[fechaAnterior].general) {
+                APP_STATE.registroDiarioCalendario[fechaAnterior].general = metricasPrevias.general;
+                APP_STATE.registroDiarioCalendario[fechaAnterior].cuerpo = metricasPrevias.cuerpo;
+                APP_STATE.registroDiarioCalendario[fechaAnterior].mente = metricasPrevias.mente;
+            }
+            APP_STATE.registroDiarioCalendario[fechaAnterior].cerrado = true;
+        }
+
+        APP_STATE.desgasteDiario.ultimoCierre = fechaAnterior;
+        APP_STATE.desgasteDiario.fecha = hoyStr;
+
+        // 2. Reiniciar todo el desgaste físico (Cuerpo) a 0%
+        if (APP_STATE.fatiga) {
+            Object.keys(APP_STATE.fatiga).forEach(function(k) {
+                if (typeof APP_STATE.fatiga[k] === 'number') {
+                    APP_STATE.fatiga[k] = 0;
+                }
+            });
+            APP_STATE.fatiga.promedioHoy = 0;
+            APP_STATE.fatiga.mente = 0;
+        }
+
+        // 3. Reiniciar todo el desgaste neural (Mente) a 0%
+        if (APP_STATE.desgasteMente) {
+            Object.keys(APP_STATE.desgasteMente).forEach(function(k) {
+                APP_STATE.desgasteMente[k] = 0;
+            });
+        }
+        if (APP_STATE.fatigaMentalDiaria) {
+            APP_STATE.fatigaMentalDiaria.nivel = 0;
+            APP_STATE.fatigaMentalDiaria.estado = "Mente Despejada (0% Desgaste)";
+            APP_STATE.fatigaMentalDiaria.ultimoDia = hoyStr;
+        }
+
+        // 4. Reiniciar Hábitos y Misiones Diarias a estado "Pendiente"
+        if (APP_STATE.misiones && Array.isArray(APP_STATE.misiones)) {
+            APP_STATE.misiones.forEach(function(m) {
+                var freq = (m.frecuencia || 'Diaria').toString().toLowerCase();
+                if (freq.indexOf('diari') !== -1 || freq === 'diaria') {
+                    m.estado = 'Pendiente';
+                }
+            });
+        }
+
+        // 5. Reiniciar Quests Diarios (restituir tiempo y estado pendiente)
+        if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+            APP_STATE.questsDiarios.forEach(function(q) {
+                q.estado = 'pendiente';
+                q.temporizadorActivo = false;
+                var mins = Number(q.tiempoMinutos) || 15;
+                q.tiempoRestante = mins * 60;
+            });
+        }
+
+        // 6. Inicializar registro del nuevo día en 0% en el calendario
+        APP_STATE.registroDiarioCalendario[hoyStr] = {
+            general: 0,
+            cuerpo: 0,
+            mente: 0,
+            fecha: hoyStr,
+            iniciado: true
+        };
+
+        MonarcaDB.save(APP_STATE);
+    }
+}
+
+function calcularMetricasGeneralesDesgaste() {
+    actualizarDesgasteDiarioAutomatico();
+    var metricas = calcularMetricasPurasSinActualizar();
+
+    // Guardar en tiempo real el porcentaje alcanzado hoy en el registro del calendario
+    var hoyStr = new Date().toISOString().split('T')[0];
+    if (!APP_STATE.registroDiarioCalendario) APP_STATE.registroDiarioCalendario = {};
+    APP_STATE.registroDiarioCalendario[hoyStr] = {
+        general: metricas.general,
+        cuerpo: metricas.cuerpo,
+        mente: metricas.mente,
+        fecha: hoyStr,
+        actualizado: new Date().toLocaleTimeString('es-ES')
+    };
+
+    return metricas;
+}
+
+function reiniciarJornadaDiariaManual() {
+    if (confirm("¿Deseas cerrar la jornada actual y reiniciar todo a 0% para comenzar un nuevo día?\n\nEl porcentaje alcanzado se guardará en el calendario y las misiones/quests diarios volverán a iniciar en 0%.")) {
+        actualizarDesgasteDiarioAutomatico(true);
+        if (typeof cargarEstadoPersonal === 'function') cargarEstadoPersonal();
+        if (typeof renderizarCalendario === 'function') renderizarCalendario();
+        if (typeof renderizarMisiones === 'function') renderizarMisiones(APP_STATE.misiones);
+        if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
+        alert("✓ ¡Jornada guardada con éxito en el calendario! Nuevo día iniciado en 0%.");
+    }
 }
 
 // ==========================================================================

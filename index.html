@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=5.8">
+    <link rel="stylesheet" href="style.css?v=6.0">
 </head>
 <body>
 
@@ -40,7 +40,11 @@
                 <p style="margin: 0; font-size: 12.5px; color: #6b7280;">Panel de Control y Productividad</p>
             </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div id="cloud-sync-badge" class="cloud-sync-badge status-syncing" onclick="window.MonarcaCloud && window.MonarcaCloud.forzarSincronizacion()" title="Sincronización con Firebase Firestore. Clic para forzar sincronización.">
+                <span class="cloud-sync-dot"></span>
+                <span class="cloud-sync-text">Conectando nube...</span>
+            </div>
             <span style="font-size: 12px; font-weight: 600; padding: 6px 14px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 9999px; color: #374151; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                 Gabriel Arias
             </span>
@@ -2663,20 +2667,23 @@
 
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=5.8"></script>
-    <script src="js/perfil.js?v=5.8"></script>
-    <script src="js/progresion.js?v=5.8"></script>
-    <script src="js/estado-personal.js?v=5.8"></script>
-    <script src="js/finanzas.js?v=5.8"></script>
-    <script src="js/ideas.js?v=5.8"></script>
-    <script src="js/dinamicas.js?v=5.8"></script>
-    <script src="js/calendario.js?v=5.8"></script>
+    <script src="js/core.js?v=6.0"></script>
+    <script src="js/perfil.js?v=6.0"></script>
+    <script src="js/progresion.js?v=6.0"></script>
+    <script src="js/estado-personal.js?v=6.0"></script>
+    <script src="js/finanzas.js?v=6.0"></script>
+    <script src="js/ideas.js?v=6.0"></script>
+    <script src="js/dinamicas.js?v=6.0"></script>
+    <script src="js/calendario.js?v=6.0"></script>
+
+    <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
+    <script type="module" src="js/firebase-config.js?v=6.0"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=5.8')
+                navigator.serviceWorker.register('sw.js?v=6.0')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

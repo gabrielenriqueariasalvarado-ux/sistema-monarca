@@ -516,7 +516,15 @@ const MonarcaDB = {
     },
     save: function(state) {
         try {
+            if (state) {
+                state._ultimaActualizacion = Date.now();
+            }
             localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
+
+            // Sincronización en tiempo real hacia Firebase Firestore
+            if (window.MonarcaCloud && typeof window.MonarcaCloud.guardarEnNube === 'function') {
+                window.MonarcaCloud.guardarEnNube(state);
+            }
         } catch (e) {
             console.error("Error al guardar en localStorage:", e);
         }

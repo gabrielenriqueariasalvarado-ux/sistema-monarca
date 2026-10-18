@@ -125,9 +125,29 @@ function renderizarCalendario() {
         if (esHoy) clasesCelda += " is-today";
         if (esSeleccionado) clasesCelda += " is-selected";
 
+        // Registro de desgaste / rendimiento del avatar para este día
+        var regDia = APP_STATE.registroDiarioCalendario ? APP_STATE.registroDiarioCalendario[claveFecha] : null;
+        var badgeHtml = "";
+        if (regDia && typeof regDia.general === 'number') {
+            var valG = Math.round(Number(regDia.general) || 0);
+            var badgeCls = "badge-cero";
+            if (valG > 0 && valG <= 25) badgeCls = "badge-leve";
+            else if (valG > 25 && valG <= 65) badgeCls = "badge-medio";
+            else if (valG > 65) badgeCls = "badge-alto";
+            badgeHtml = `<span class="calendar-wear-badge ${badgeCls}" title="Desgaste/Carga diaria: ${valG}% (Cuerpo: ${regDia.cuerpo || 0}%, Mente: ${regDia.mente || 0}%)">${valG}%</span>`;
+        } else if (esHoy) {
+            var valHoy = 0;
+            if (typeof calcularMetricasPurasSinActualizar === 'function') {
+                valHoy = calcularMetricasPurasSinActualizar().general;
+            }
+            var bCls = valHoy > 0 ? (valHoy <= 40 ? 'badge-leve' : (valHoy <= 70 ? 'badge-medio' : 'badge-alto')) : 'badge-cero';
+            badgeHtml = `<span class="calendar-wear-badge ${bCls}" title="Desgaste acumulado hoy: ${valHoy}%">${valHoy}%</span>`;
+        }
+
         html += `
             <div class="${clasesCelda}" onclick="seleccionarDiaCalendario(${d})">
                 <span class="calendar-day-num">${d}</span>
+                ${badgeHtml}
                 <div class="calendar-dots-container">
         `;
 
@@ -170,6 +190,10 @@ function renderizarCalendario() {
                 <span class="calendar-dot dot-finance"></span>
                 <span>Obligación / Pago Financiero</span>
             </div>
+            <div class="calendar-legend-item">
+                <span class="calendar-wear-badge badge-medio" style="margin: 0; font-size: 9px; padding: 1px 5px;">45%</span>
+                <span>Desgaste / Rendimiento Diario</span>
+            </div>
             <div class="calendar-legend-item" style="color: #111827; font-weight: 600;">
                 <span>● Día Actual (Hoy)</span>
             </div>
@@ -182,6 +206,18 @@ function renderizarCalendario() {
     var diaSemanaNombre = DIAS_SEMANA_NOMBRES[(fechaObj.getDay() + 6) % 7];
     var fechaTextoCompleto = diaSemanaNombre + ", " + diaSel + " de " + MESES_NOMBRES[mes] + " de " + anio;
     var claveFechaSel = formatearClaveFecha(anio, mes, diaSel);
+    var esHoySel = (hoy.getFullYear() === anio && hoy.getMonth() === mes && hoy.getDate() === diaSel);
+
+    // Obtener métricas de desgaste archivadas o calculadas
+    var regSel = (APP_STATE.registroDiarioCalendario && APP_STATE.registroDiarioCalendario[claveFechaSel]) ? APP_STATE.registroDiarioCalendario[claveFechaSel] : null;
+    if (!regSel && esHoySel && typeof calcularMetricasPurasSinActualizar === 'function') {
+        regSel = calcularMetricasPurasSinActualizar();
+    }
+
+    var generalVal = regSel ? (Math.round(Number(regSel.general)) || 0) : 0;
+    var cuerpoVal = regSel ? (Math.round(Number(regSel.cuerpo)) || 0) : 0;
+    var menteVal = regSel ? (Math.round(Number(regSel.mente)) || 0) : 0;
+    var estadoJornada = esHoySel ? "⚡ Jornada en curso (Hoy)" : (regSel ? "✓ Jornada finalizada y archivada" : "Sin registro");
 
     var eventosDelDia = APP_STATE.calendario.filter(function(e) {
         return e.fecha === claveFechaSel;
@@ -197,6 +233,43 @@ function renderizarCalendario() {
             <button class="btn-sync-action btn-sync-dark" onclick="abrirModalNuevoEvento('${claveFechaSel}')">
                 + Añadir a este día
             </button>
+        </div>
+
+        <!-- TARJETA BALANCE DEL AVATAR (DESGASTE Y RENDIMIENTO DIARIO) -->
+        <div class="calendar-day-metrics-card">
+            <div class="metrics-card-header">
+                <div>
+                    <span class="metrics-card-label">BALANCE DEL AVATAR · DESGASTE Y RENDIMIENTO</span>
+                    <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                        ${esHoySel ? 'Monitoreo dinámico del día de hoy. Se reinicia a 0% automáticamente a medianoche.' : 'Registro final alcanzado al término de esta jornada.'}
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="metrics-card-status">${estadoJornada}</span>
+                    ${esHoySel ? `
+                    <button class="btn-sync-action btn-sync-light" onclick="reiniciarJornadaDiariaManual()" style="font-size: 11px; padding: 5px 10px;" title="Cerrar la jornada actual, guardar porcentaje en el calendario y reiniciar todo a 0% para comenzar de nuevo">
+                        🔄 Cerrar & Reiniciar Jornada (0%)
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="metrics-card-grid">
+                <div class="metric-box">
+                    <span class="metric-label">Desgaste General</span>
+                    <span class="metric-val">${generalVal}%</span>
+                    <div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ${generalVal}%;"></div></div>
+                </div>
+                <div class="metric-box">
+                    <span class="metric-label">Carga Física (Cuerpo)</span>
+                    <span class="metric-val">${cuerpoVal}%</span>
+                    <div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ${cuerpoVal}%;"></div></div>
+                </div>
+                <div class="metric-box">
+                    <span class="metric-label">Carga Neural (Mente)</span>
+                    <span class="metric-val">${menteVal}%</span>
+                    <div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ${menteVal}%;"></div></div>
+                </div>
+            </div>
         </div>
     `;
 
