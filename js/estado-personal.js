@@ -1052,13 +1052,11 @@ const DEFAULT_BANCO_EJERCICIOS = [
 ];
 
 function cargarEjercicios() {
-    if (!APP_STATE.ejercicios || !Array.isArray(APP_STATE.ejercicios) || APP_STATE.ejercicios.length === 0) {
-        APP_STATE.ejercicios = JSON.parse(JSON.stringify(DEFAULT_BANCO_EJERCICIOS));
-        MonarcaDB.save(APP_STATE);
+    if (!APP_STATE.ejercicios || !Array.isArray(APP_STATE.ejercicios)) {
+        APP_STATE.ejercicios = [];
     }
-    if (!APP_STATE.rutinas || !Array.isArray(APP_STATE.rutinas) || APP_STATE.rutinas.length === 0) {
-        APP_STATE.rutinas = JSON.parse(JSON.stringify(DEFAULT_STATE.rutinas || []));
-        MonarcaDB.save(APP_STATE);
+    if (!APP_STATE.rutinas || !Array.isArray(APP_STATE.rutinas)) {
+        APP_STATE.rutinas = [];
     }
 
     cambiarCategoriaEjercicios(CATEGORIA_EJERCICIOS_ACTIVA);

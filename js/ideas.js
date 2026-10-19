@@ -635,7 +635,7 @@ function renderizarConocimientos(filtro) {
     if (!cont && !bannerRevision) return;
 
     if (!APP_STATE.conocimientos || !Array.isArray(APP_STATE.conocimientos)) {
-        APP_STATE.conocimientos = JSON.parse(JSON.stringify(DEFAULT_STATE.conocimientos || []));
+        APP_STATE.conocimientos = [];
     }
     var conocimientos = APP_STATE.conocimientos;
 

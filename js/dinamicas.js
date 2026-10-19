@@ -263,7 +263,7 @@ function renderizarAgendaPersonas() {
     if (!cont && !bannerResumen) return;
 
     if (!APP_STATE.agendaPersonas || !Array.isArray(APP_STATE.agendaPersonas)) {
-        APP_STATE.agendaPersonas = JSON.parse(JSON.stringify(DEFAULT_STATE.agendaPersonas || []));
+        APP_STATE.agendaPersonas = [];
     }
     var personas = APP_STATE.agendaPersonas;
 
@@ -568,17 +568,25 @@ function renderizarRuletaSemanal() {
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">`;
 
-        items.forEach(function(item) {
-            var subtag = item.tipo || item.estilo || item.genero || 'Variabilidad';
+        if (items.length === 0) {
             htmlOps += `
-            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                <div>
-                    <strong style="font-size: 13px; color: #111827; display: block;">${item.nombre}</strong>
-                    <span style="font-size: 11px; color: #6b7280;">${subtag}</span>
-                </div>
-                <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px;">
+                <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
+                <button class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar tu primera opción</button>
             </div>`;
-        });
+        } else {
+            items.forEach(function(item) {
+                var subtag = item.tipo || item.estilo || item.genero || 'Variabilidad';
+                htmlOps += `
+                <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div>
+                        <strong style="font-size: 13px; color: #111827; display: block;">${item.nombre}</strong>
+                        <span style="font-size: 11px; color: #6b7280;">${subtag}</span>
+                    </div>
+                    <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
+                </div>`;
+            });
+        }
 
         htmlOps += `</div>`;
         contOpciones.innerHTML = htmlOps;
@@ -600,13 +608,31 @@ function dibujarRuletaEnCanvas() {
 
     var rs = APP_STATE.ruletaSemanal || DEFAULT_STATE.ruletaSemanal;
     var items = rs[CATEGORIA_RULETA_ACTIVA] || [];
-    if (items.length === 0) return;
 
     var width = canvas.width;
     var height = canvas.height;
     var cx = width / 2;
     var cy = height / 2;
     var radio = Math.min(cx, cy) - 10;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (items.length === 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radio, 0, 2 * Math.PI);
+        ctx.fillStyle = '#f9fafb';
+        ctx.fill();
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Sin opciones aún', cx, cy);
+        return;
+    }
     var numSectores = items.length;
     var arc = (2 * Math.PI) / numSectores;
 

@@ -100,9 +100,12 @@ function renderizarPerfil(perfil) {
 
         <!-- ZONA DE RESTABLECIMIENTO -->
         <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <span style="font-size: 11.5px; color: #9ca3af;">Almacenamiento Local PWA (Persistencia Segura Offline)</span>
-            <button class="btn-delete-row" style="font-size: 11.5px; padding: 6px 12px; border-radius: 9999px; background: #fff; border: 1px solid #e5e7eb;" onclick="MonarcaDB.resetDefault()">
-                Restablecer de Fábrica
+            <div>
+                <strong style="font-size: 12px; color: #111827; display: block;">Limpieza y Restablecimiento de Fábrica</strong>
+                <span style="font-size: 11px; color: #6b7280;">Elimina todos los datos de prueba y deja la app 100% limpia para que agregues tus propias cosas.</span>
+            </div>
+            <button class="btn-delete-row" style="font-size: 11.5px; padding: 7px 14px; border-radius: 9999px; background: #fff; border: 1px solid #fee2e2; color: #dc2626; font-weight: 700; cursor: pointer;" onclick="MonarcaDB.resetDefault()">
+                🗑️ Restablecer de Fábrica (Todo Limpio)
             </button>
         </div>
     </div>`;

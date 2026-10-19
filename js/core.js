@@ -29,47 +29,7 @@ const DEFAULT_STATE = {
         mp: 100
     },
     misiones: [],
-    questsDiarios: [
-        {
-            id: "QD-1",
-            titulo: "Rutina Matutina: Despertar & Tender Cama",
-            categoria: "🌅 Rutina Matutina",
-            tipoTiempo: "duracion",
-            tiempoMinutos: 15,
-            horaLimite: "08:00",
-            penitencia: "30 Flexiones inmediatas",
-            exp: 40,
-            estado: "pendiente",
-            tiempoRestante: 15 * 60,
-            temporizadorActivo: false
-        },
-        {
-            id: "QD-2",
-            titulo: "Hidratación (1L Agua) & Activación Física",
-            categoria: "⚡ Activación Física",
-            tipoTiempo: "duracion",
-            tiempoMinutos: 20,
-            horaLimite: "08:30",
-            penitencia: "1 Minuto de Plancha estricta",
-            exp: 50,
-            estado: "pendiente",
-            tiempoRestante: 20 * 60,
-            temporizadorActivo: false
-        },
-        {
-            id: "QD-3",
-            titulo: "Planificación de Prioridades & Revisión Monarca",
-            categoria: "🎯 Enfoque & Trabajo",
-            tipoTiempo: "duracion",
-            tiempoMinutos: 10,
-            horaLimite: "09:00",
-            penitencia: "Pérdida de 35 EXP del Avatar",
-            exp: 35,
-            estado: "pendiente",
-            tiempoRestante: 10 * 60,
-            temporizadorActivo: false
-        }
-    ],
+    questsDiarios: [],
     habilidades: [],
     fatiga: {
         promedioHoy: 0,
@@ -85,261 +45,48 @@ const DEFAULT_STATE = {
         pantorrillas: 0
     },
     registroDiarioCalendario: {},
-    gym: [
-        { fecha: "Hoy", detalle: "Sistema Monarca PWA instalado y listo" }
-    ],
-    rutinas: [
-        {
-            codigo: "RUT-1",
-            nombre: "Rutina Mañanera",
-            rankLabel: "DIARIA · ACTIVACIÓN",
-            ejercicios: [
-                { nombre: "Flexiones", descripcion: "100 REPETICIONES", fatiga: { pect_mayor: 15, triceps: 15, delt_ant: 10 } },
-                { nombre: "Abdominales", descripcion: "100 REPETICIONES", fatiga: { core: 25 } },
-                { nombre: "Sentadillas", descripcion: "100 REPETICIONES", fatiga: { cuadriceps: 20, gluteos: 15 } },
-                { nombre: "Plancha", descripcion: "5 MINUTOS", fatiga: { core: 20, hombros: 10 } }
-            ]
-        },
-        {
-            codigo: "RUT-2",
-            nombre: "Rutina de Empuje",
-            rankLabel: "LUNES · FUERZA",
-            ejercicios: [
-                { nombre: "Press de Banca Plano", descripcion: "4 SERIES × 8-10 REPS", fatiga: { pect_mayor: 30, triceps: 15 } },
-                { nombre: "Press Militar Mancuernas", descripcion: "3 SERIES × 10 REPS", fatiga: { delt_ant: 25, delt_lat: 15 } },
-                { nombre: "Extensiones Tríceps Polea", descripcion: "3 SERIES × 12 REPS", fatiga: { triceps: 25 } }
-            ]
-        },
-        {
-            codigo: "RUT-3",
-            nombre: "Rutina de Pierna",
-            rankLabel: "MIÉRCOLES · POTENCIA",
-            ejercicios: [
-                { nombre: "Bicicleta", descripcion: "CALENTAMIENTO / INTERVALOS", fatiga: { cuadriceps: 15 } },
-                { nombre: "Agarre / Antebrazos", descripcion: "ANTEBRAZOS Y AGARRE", fatiga: { antebrazos: 25 } },
-                { nombre: "Sentadilla con Barra", descripcion: "4 SERIES × 12 REPETICIONES", fatiga: { cuadriceps: 35, gluteos: 25 } }
-            ]
-        },
-        {
-            codigo: "RUT-4",
-            nombre: "Rutina de Arrastre",
-            rankLabel: "VIERNES · TRACCIÓN",
-            ejercicios: [
-                { nombre: "Jalón al Pecho en Polea", descripcion: "3 SERIES × 10 REPETICIONES", fatiga: { dorsales: 30, biceps: 15 } },
-                { nombre: "Remo con Mancuerna", descripcion: "3 SERIES × 10 REPETICIONES", fatiga: { trapecios: 25, dorsales: 20 } },
-                { nombre: "Curl de Bíceps", descripcion: "3 SERIES × 12 REPETICIONES", fatiga: { biceps: 30 } }
-            ]
-        }
-    ],
-    rutinaCalentamiento: [
-        {
-            id: "CAL-1",
-            nombre: "Movilidad Articular de Hombros y Brazos",
-            duracionSegundos: 30,
-            descripcion: "Rotaciones amplias de brazos hacia adelante y hacia atrás para lubricar la articulación escapulohumeral."
-        },
-        {
-            id: "CAL-2",
-            nombre: "Apertura Torácica y Pectoral",
-            duracionSegundos: 30,
-            descripcion: "Extensión horizontal abriendo el tórax y respirando profundo para activar la caja torácica."
-        },
-        {
-            id: "CAL-3",
-            nombre: "Rotación de Tronco y Cadera",
-            duracionSegundos: 30,
-            descripcion: "Giro suave de cadera y cintura para acondicionar lumbares, oblicuos y articulación coxofemoral."
-        },
-        {
-            id: "CAL-4",
-            nombre: "Sentadillas al Aire y Activación Cardíaca",
-            duracionSegundos: 45,
-            descripcion: "Flexiones de rodilla controladas con peso corporal para elevar pulso y preparar el tren inferior."
-        }
-    ],
-    salud: [
-        { fecha: "Hoy", valor: "8 horas de sueño - Descanso óptimo" }
-    ],
+    gym: [],
+    rutinas: [],
+    rutinaCalentamiento: [],
+    ejercicios: [],
+    salud: [],
     menteAtributos: {
-        // Inteligencia y Cognición
-        memoria: 25,
-        procesamiento: 30,
-        conocimiento: 35,
-        // Creatividad e Innovación
-        pensamiento_lateral: 25,
-        diseno_expresion: 20,
-        // Voluntad y Disciplina (Fuerza Mental)
-        enfoque: 30,
-        gratificacion: 25,
-        resiliencia: 35,
-        // Psicología y Influencia (Manipulación)
-        microexpresiones: 20,
-        persuasion: 25,
-        control_emocional: 30,
-        inteligencia_social: 25
+        memoria: 0,
+        procesamiento: 0,
+        conocimiento: 0,
+        pensamiento_lateral: 0,
+        diseno_expresion: 0,
+        enfoque: 0,
+        gratificacion: 0,
+        resiliencia: 0,
+        microexpresiones: 0,
+        persuasion: 0,
+        control_emocional: 0,
+        inteligencia_social: 0
     },
-    ejerciciosMentales: [
-        {
-            id: "EM-1",
-            fecha: "Hoy",
-            titulo: "Lectura Estratégica & Análisis Crítico",
-            descripcion: "Comprensión de modelos mentales y psicología del comportamiento",
-            atributosAfectados: ["Conocimiento", "Microexpresiones", "Persuasión"],
-            incremento: 10
-        }
-    ],
+    ejerciciosMentales: [],
     fatigaMentalDiaria: {
-        nivel: 20, // 0% a 100% de saturación cognitiva
+        nivel: 0,
         ultimoDia: new Date().toISOString().split('T')[0],
         estado: "Mente Despejada",
         historial: []
     },
     musculosMentales: {
-        creatividad: { nivel: 35, exp: 120, nombre: "Creatividad", icono: "🎨", descripcion: "Pensamiento lateral, originalidad e invención de soluciones disruptivas." },
-        descanso: { nivel: 40, exp: 150, nombre: "Descanso", icono: "🌙", descripcion: "Recuperación neural profunda, desconexión y descompresión del sistema nervioso." },
-        anulacion: { nivel: 30, exp: 90, nombre: "Anulación", icono: "🛡️", descripcion: "Supresión de impulsos, control de gratificación inmediata y estoicismo radical." },
-        percepcion: { nivel: 25, exp: 80, nombre: "Percepción Psicológica", icono: "♟️", descripcion: "Lectura no verbal, microexpresiones, calibración social y detección de intenciones." },
-        inteligencia: { nivel: 35, exp: 130, nombre: "Inteligencia", icono: "⚡", descripcion: "Velocidad de procesamiento, razonamiento lógico, modelado y asimilación técnica." }
+        creatividad: { nivel: 1, exp: 0, nombre: "Creatividad", icono: "🎨", descripcion: "Pensamiento lateral, originalidad e invención de soluciones disruptivas." },
+        descanso: { nivel: 1, exp: 0, nombre: "Descanso", icono: "🌙", descripcion: "Recuperación neural profunda, desconexión y descompresión del sistema nervioso." },
+        anulacion: { nivel: 1, exp: 0, nombre: "Anulación", icono: "🛡️", descripcion: "Supresión de impulsos, control de gratificación inmediata y estoicismo radical." },
+        percepcion: { nivel: 1, exp: 0, nombre: "Percepción Psicológica", icono: "♟️", descripcion: "Lectura no verbal, microexpresiones, calibración social y detección de intenciones." },
+        inteligencia: { nivel: 1, exp: 0, nombre: "Inteligencia", icono: "⚡", descripcion: "Velocidad de procesamiento, razonamiento lógico, modelado y asimilación técnica." }
     },
-    ejerciciosCerebrales: [
-        {
-            id: "EC-1",
-            nombre: "Bloque de Deep Work / Trabajo Profundo",
-            musculoPrincipal: "inteligencia",
-            musculoSecundario: "anulacion",
-            duracionMinutos: 50,
-            descripcion: "Sesión sin distracciones ni pantallas secundarias enfocada en un único problema complejo.",
-            protocolo: "1. Activar modo no molestar absoluto. 2. Plantear el problema analítico o bloque de código. 3. 50 min de flujo continuo. 4. Documentar conclusiones.",
-            fatigaEstimada: 25,
-            expRecompensa: 45
-        },
-        {
-            id: "EC-2",
-            nombre: "Calibración No Verbal & Microexpresiones",
-            musculoPrincipal: "percepcion",
-            musculoSecundario: "inteligencia",
-            duracionMinutos: 30,
-            descripcion: "Observación de lenguaje corporal, incongruencias tonales y detección de emociones ocultas.",
-            protocolo: "1. Analizar interacciones grabadas o del entorno real. 2. Identificar microexpresiones faciales y tensión corporal. 3. Comparar intención real vs discurso verbal.",
-            fatigaEstimada: 20,
-            expRecompensa: 35
-        },
-        {
-            id: "EC-3",
-            nombre: "Lluvia de Pensamiento Lateral Contraintuitivo",
-            musculoPrincipal: "creatividad",
-            musculoSecundario: "inteligencia",
-            duracionMinutos: 25,
-            descripcion: "Desafío de generación de soluciones disruptivas abordando problemas desde el ángulo opuesto.",
-            protocolo: "1. Escoger un desafío del Banco de Ideas. 2. Redactar 10 soluciones absurdas o disruptivas en 15 minutos. 3. Refinar los principios viables.",
-            fatigaEstimada: 15,
-            expRecompensa: 30
-        },
-        {
-            id: "EC-4",
-            nombre: "Anulación de Ruido Mental & Silencio Estoico",
-            musculoPrincipal: "anulacion",
-            musculoSecundario: "descanso",
-            duracionMinutos: 20,
-            descripcion: "Práctica de control de impulsos dopamínicos, contención emocional y respiración consciente.",
-            protocolo: "1. Silencio absoluto y cero pantallas. 2. Postura erguida y respiración diafragmática 4-7-8. 3. Observar impulsos y pensamientos sin reaccionar.",
-            fatigaEstimada: -20,
-            expRecompensa: 30
-        },
-        {
-            id: "EC-5",
-            nombre: "Descompresión Neural & Recuperación del SNC",
-            musculoPrincipal: "descanso",
-            musculoSecundario: "anulacion",
-            duracionMinutos: 30,
-            descripcion: "Protocolo de descanso profundo reparador para evitar saturación cognitiva y fatiga neural.",
-            protocolo: "1. Entorno oscuro o luz tenue. 2. Desconexión de tareas pendientes. 3. Relajación progresiva de tensión física y mental.",
-            fatigaEstimada: -35,
-            expRecompensa: 40
-        }
-    ],
-    conocimientos: [
-        {
-            id: "CON-1",
-            titulo: "Corte Tijera sobre Peine (Técnica de Barbería)",
-            area: "Oficio & Barbería",
-            actividadOrigen: "Práctica de corte masculino en barbería",
-            resumenPuntosClave: "Mantener el peine guía paralelo a la curvatura del cráneo. Abrir y cerrar la tijera únicamente con el pulgar mientras los otros dedos estabilizan la hoja fija para lograr precisión milimétrica sin escalones.",
-            nivelDominio: "En Práctica",
-            fecha: "Hoy",
-            timestamp: Date.now(),
-            semanasRepasadas: 1,
-            revisadoEstaSemana: true
-        },
-        {
-            id: "CON-2",
-            titulo: "Arquitectura Reactiva Offline en JavaScript Moderno",
-            area: "Programación & Software",
-            actividadOrigen: "Desarrollo de PWA y Cache API",
-            resumenPuntosClave: "Separar la capa de datos (LocalStorage/IndexedDB) de la UI. Emplear eventos de sincronización y cache-busting con versionado estricto para garantizar funcionamiento offline instantáneo.",
-            nivelDominio: "Dominado",
-            fecha: "Hoy",
-            timestamp: Date.now(),
-            semanasRepasadas: 2,
-            revisadoEstaSemana: true
-        }
-    ],
+    ejerciciosCerebrales: [],
+    conocimientos: [],
     categoriasLabores: [
         { id: "LAB-DEV", nombre: "Desarrollo de Software", icono: "💻", descripcion: "Programación web, backend, bases de datos y arquitectura.", color: "#111827" },
         { id: "LAB-TRAINER", nombre: "Personal Trainer", icono: "🏋️‍♂️", descripcion: "Entrenamientos personalizados, asesoría física y técnica deportiva.", color: "#374151" },
         { id: "LAB-BARBER", nombre: "Barbero / Oficio", icono: "💈", descripcion: "Corte de cabello masculino, degradados, afeitado y estética capilar.", color: "#1f2937" }
     ],
-    registrosLabores: [
-        {
-            id: "REG-LAB-1",
-            laborId: "LAB-DEV",
-            fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-            horas: 3.5,
-            descripcion: "Implementación de arquitectura offline y sincronización PWA.",
-            honorarios: 0,
-            timestamp: Date.now()
-        },
-        {
-            id: "REG-LAB-2",
-            laborId: "LAB-BARBER",
-            fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-            horas: 2.0,
-            descripcion: "Sesión de corte tijera sobre peine y perfilado de barba.",
-            honorarios: 25,
-            timestamp: Date.now() - 3600000
-        }
-    ],
-    agendaPersonas: [
-        {
-            id: "PER-1",
-            nombre: "Carlos Mendoza",
-            rol: "Cliente Barbería / Alumno Gym",
-            ubicacionCategoria: "💈 Barbería",
-            lugarProyectado: "Sillón principal - Barbería Central",
-            temasPendientes: [
-                { id: "T-1", texto: "Planificar cambio de corte para evento", hecho: false },
-                { id: "T-2", texto: "Revisar rutina de tren superior y dolor lumbar", hecho: false }
-            ],
-            fechaObjetivo: "Esta semana",
-            estado: "Pendiente",
-            prioridad: "Media",
-            timestamp: Date.now()
-        },
-        {
-            id: "PER-2",
-            nombre: "Andrés Silva",
-            rol: "Colega Desarrollador",
-            ubicacionCategoria: "☕ Café / Coworking",
-            lugarProyectado: "Cafetería o llamada Discord",
-            temasPendientes: [
-                { id: "T-3", texto: "Definir API de autenticación y base de datos", hecho: false }
-            ],
-            fechaObjetivo: "Jueves",
-            estado: "Pendiente",
-            prioridad: "Alta",
-            timestamp: Date.now()
-        }
-    ],
+    registrosLabores: [],
+    agendaPersonas: [],
     ubicacionesAgenda: [
         "💈 Barbería",
         "🏋️ Gimnasio",
@@ -350,67 +97,29 @@ const DEFAULT_STATE = {
         "🌐 Virtual / Discord / Llamada"
     ],
     ruletaSemanal: {
-        comidas: [
-            { id: "C-1", nombre: "Pechuga a la plancha con puré y ensalada verde", tipo: "Almuerzo" },
-            { id: "C-2", nombre: "Pasta bolognesa magra con queso parmesano", tipo: "Almuerzo / Cena" },
-            { id: "C-3", nombre: "Bowl de atún, arroz integral, maíz y aguacate", tipo: "Almuerzo rápido" },
-            { id: "C-4", nombre: "Huevos revueltos con arepa o tostadas y aguacate", tipo: "Desayuno / Cena" },
-            { id: "C-5", nombre: "Carne magra a la parrilla con batata y vegetales", tipo: "Almuerzo" },
-            { id: "C-6", nombre: "Omelette de claras con avena y frutos secos", tipo: "Desayuno" }
-        ],
-        vestimenta: [
-            { id: "V-1", nombre: "All-Black Urbano (Remera oversize negra y joggers)", estilo: "Minimalista Urbano" },
-            { id: "V-2", nombre: "Sport Tech (Ropa deportiva técnica oscura)", estilo: "Entrenamiento / Operativo" },
-            { id: "V-3", nombre: "Casual Elegante (Camisa cuello mao negra y pantalón chino)", estilo: "Reuniones / Social" },
-            { id: "V-4", nombre: "Monocromático Grafito (Sudadera gris plomo y zapatillas oscuras)", estilo: "Confort / Diario" },
-            { id: "V-5", nombre: "Minimalista Blanco & Negro (Polera blanca limpia y pantalón oscuro)", estilo: "Contraste Limpio" }
-        ],
-        musica: [
-            { id: "M-1", nombre: "Synthwave / Retrowave Cyberpunk (Foco Profundo)", genero: "Deep Focus" },
-            { id: "M-2", nombre: "Hip Hop Instrumental 90s / Lo-Fi Beats", genero: "Relajación & Creatividad" },
-            { id: "M-3", nombre: "Heavy Metal / Hard Rock Gym Energy", genero: "Intensidad & Entrenamiento" },
-            { id: "M-4", nombre: "Deep House & Techno Melódico Minimalista", genero: "Flujo Continuo" },
-            { id: "M-5", nombre: "Música Clásica Estoica & Orquestal Épica", genero: "Estrategia & Concentración" }
-        ],
+        comidas: [],
+        vestimenta: [],
+        musica: [],
         seleccionActiva: {
-            comida: "Pechuga a la plancha con puré y ensalada verde",
-            vestimenta: "All-Black Urbano (Remera oversize negra y joggers)",
-            musica: "Synthwave / Retrowave Cyberpunk (Foco Profundo)",
-            fechaGiro: "Hoy"
+            comida: "Sin opciones registradas",
+            vestimenta: "Sin opciones registradas",
+            musica: "Sin opciones registradas",
+            fechaGiro: "Pendiente"
         },
         historialGiros: []
     },
     finanzas: {
         cabecera: {
             nombre: "Gabriel Arias",
-            mes: "Septiembre 2026",
-            objetivo: "Ahorrar para la moto, liquidar deudas y optimizar gastos"
+            mes: "",
+            objetivo: ""
         },
-        ingresos: [
-            { id: "ING-1", fuente: "Sueldo Principal", dia: 15, monto: 600 },
-            { id: "ING-2", fuente: "Proyectos Extra / Freelance", dia: 30, monto: 250 }
-        ],
-        gastos: [
-            { id: "GAS-1", concepto: "Alquiler de Vivienda", categoria: "Vivienda", dia: 5, monto: 180 },
-            { id: "GAS-2", concepto: "Compras de Supermercado", categoria: "Alimentación", dia: 10, monto: 120 },
-            { id: "GAS-3", concepto: "Gasolina y Mantenimiento", categoria: "Moto", dia: 12, monto: 35 },
-            { id: "GAS-4", concepto: "Internet y Luz", categoria: "Servicios", dia: 18, monto: 45 }
-        ],
-        deudas: [
-            { id: "DEU-1", nombre: "Tarjeta de Crédito", dia: 20, montoTotal: 60 }
-        ],
-        metas: [
-            { id: "MET-1", nombre: "Moto / Ahorro", metaTotal: 1200, ahorrado: 300, faltante: 900, meses: 6, cuotaQuincenal: 75 }
-        ]
+        ingresos: [],
+        gastos: [],
+        deudas: [],
+        metas: []
     },
-    ideas: [
-        { id: 1, texto: "Crear plantilla de finanzas y automatización PWA (28/09)", categoria: "📊 Planes y Monitoreo de Ejecución", subcategoria: "💼 Trabajo, Programación y Proyectos Profesionales", contexto: "🏠 Casa", fecha: "28/09", timestamp: 1727546400000, hecha: false },
-        { id: 2, texto: "Comprar soporte de teléfono para la moto (28/09)", categoria: "🛒 Compras", subcategoria: "👕 Ropa y Accesorios", contexto: "🛣️ Calle", fecha: "28/09", timestamp: 1727546500000, hecha: false },
-        { id: 3, texto: "Estudiar patrones de PWA y Service Workers (28/09)", categoria: "🧠 Cosas por Aprender", subcategoria: "💻 Programación y Tecnología", contexto: "💼 Trabajo", fecha: "28/09", timestamp: 1727546600000, hecha: false },
-        { id: 4, texto: "Mantener constancia en el entrenamiento y lectura (28/09)", categoria: "💭 Ideas y Pensamientos", subcategoria: "🧠 Mis Pensamientos (Filosofía, Mentalidad y Enfoque)", contexto: "🏠 Casa", fecha: "28/09", timestamp: 1727546700000, hecha: false },
-        { id: 5, texto: "Limpiar y organizar el escritorio de trabajo (28/09)", categoria: "✅ Tareas Pendientes", subcategoria: "🏠 Casa", contexto: "🏠 Casa", fecha: "28/09", timestamp: 1727546800000, hecha: false },
-        { id: 6, texto: "Optimización de arquitectura offline para el sistema (28/09)", categoria: "📊 Planes y Monitoreo de Ejecución", subcategoria: "💼 Trabajo, Programación y Proyectos Profesionales", contexto: "💼 Trabajo", fecha: "28/09", timestamp: 1727546900000, timestampHecha: Date.now(), fechaHecha: "28/09/2026", hecha: true }
-    ],
+    ideas: [],
     calendario: []
 };
 
@@ -442,24 +151,18 @@ const MonarcaDB = {
                 data.v3_clean_rutinas = true;
                 this.save(data);
             }
-            if (!data.ejercicios) data.ejercicios = [];
-            if (!data.rutinas || !Array.isArray(data.rutinas) || data.rutinas.length === 0) {
-                data.rutinas = JSON.parse(JSON.stringify(DEFAULT_STATE.rutinas));
-            }
-            if (!data.rutinaCalentamiento || !Array.isArray(data.rutinaCalentamiento) || data.rutinaCalentamiento.length === 0) {
-                data.rutinaCalentamiento = JSON.parse(JSON.stringify(DEFAULT_STATE.rutinaCalentamiento));
-            }
-            if (!data.questsDiarios || !Array.isArray(data.questsDiarios) || data.questsDiarios.length === 0) {
-                data.questsDiarios = JSON.parse(JSON.stringify(DEFAULT_STATE.questsDiarios));
-            }
-            if (!data.fatiga) data.fatiga = DEFAULT_STATE.fatiga;
-            if (!data.gym) data.gym = DEFAULT_STATE.gym;
-            if (!data.salud) data.salud = DEFAULT_STATE.salud;
+            if (!data.ejercicios || !Array.isArray(data.ejercicios)) data.ejercicios = [];
+            if (!data.rutinas || !Array.isArray(data.rutinas)) data.rutinas = [];
+            if (!data.rutinaCalentamiento || !Array.isArray(data.rutinaCalentamiento)) data.rutinaCalentamiento = [];
+            if (!data.questsDiarios || !Array.isArray(data.questsDiarios)) data.questsDiarios = [];
+            if (!data.fatiga) data.fatiga = JSON.parse(JSON.stringify(DEFAULT_STATE.fatiga));
+            if (!data.gym || !Array.isArray(data.gym)) data.gym = [];
+            if (!data.salud) data.salud = [];
             if (!data.menteAtributos) {
                 data.menteAtributos = JSON.parse(JSON.stringify(DEFAULT_STATE.menteAtributos));
             }
             if (!data.ejerciciosMentales || !Array.isArray(data.ejerciciosMentales)) {
-                data.ejerciciosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosMentales || []));
+                data.ejerciciosMentales = [];
             }
             if (!data.fatigaMentalDiaria) {
                 data.fatigaMentalDiaria = JSON.parse(JSON.stringify(DEFAULT_STATE.fatigaMentalDiaria));
@@ -467,32 +170,46 @@ const MonarcaDB = {
             if (!data.musculosMentales) {
                 data.musculosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales));
             }
-            if (!data.ejerciciosCerebrales || !Array.isArray(data.ejerciciosCerebrales) || data.ejerciciosCerebrales.length === 0) {
-                data.ejerciciosCerebrales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosCerebrales));
+            if (!data.ejerciciosCerebrales || !Array.isArray(data.ejerciciosCerebrales)) {
+                data.ejerciciosCerebrales = [];
             }
-            if (!data.conocimientos || !Array.isArray(data.conocimientos) || data.conocimientos.length === 0) {
-                data.conocimientos = JSON.parse(JSON.stringify(DEFAULT_STATE.conocimientos));
+            if (!data.conocimientos || !Array.isArray(data.conocimientos)) {
+                data.conocimientos = [];
             }
-            if (!data.categoriasLabores || !Array.isArray(data.categoriasLabores) || data.categoriasLabores.length === 0) {
+            if (!data.categoriasLabores || !Array.isArray(data.categoriasLabores)) {
                 data.categoriasLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.categoriasLabores));
             }
             if (!data.registrosLabores || !Array.isArray(data.registrosLabores)) {
-                data.registrosLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.registrosLabores || []));
+                data.registrosLabores = [];
             }
-            if (!data.agendaPersonas || !Array.isArray(data.agendaPersonas) || data.agendaPersonas.length === 0) {
-                data.agendaPersonas = JSON.parse(JSON.stringify(DEFAULT_STATE.agendaPersonas));
+            if (!data.agendaPersonas || !Array.isArray(data.agendaPersonas)) {
+                data.agendaPersonas = [];
             }
             if (!data.ubicacionesAgenda || !Array.isArray(data.ubicacionesAgenda)) {
-                data.ubicacionesAgenda = JSON.parse(JSON.stringify(DEFAULT_STATE.ubicacionesAgenda || []));
+                data.ubicacionesAgenda = JSON.parse(JSON.stringify(DEFAULT_STATE.ubicacionesAgenda));
             }
             if (!data.ruletaSemanal) {
                 data.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
+            } else {
+                if (!data.ruletaSemanal.comidas || !Array.isArray(data.ruletaSemanal.comidas)) data.ruletaSemanal.comidas = [];
+                if (!data.ruletaSemanal.vestimenta || !Array.isArray(data.ruletaSemanal.vestimenta)) data.ruletaSemanal.vestimenta = [];
+                if (!data.ruletaSemanal.musica || !Array.isArray(data.ruletaSemanal.musica)) data.ruletaSemanal.musica = [];
+                if (!data.ruletaSemanal.seleccionActiva) data.ruletaSemanal.seleccionActiva = { comida: "Sin opciones registradas", vestimenta: "Sin opciones registradas", musica: "Sin opciones registradas", fechaGiro: "Pendiente" };
+                if (!data.ruletaSemanal.historialGiros || !Array.isArray(data.ruletaSemanal.historialGiros)) data.ruletaSemanal.historialGiros = [];
             }
-            if (!data.finanzas) data.finanzas = DEFAULT_STATE.finanzas;
+            if (!data.finanzas) {
+                data.finanzas = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas));
+            } else {
+                if (!data.finanzas.cabecera) data.finanzas.cabecera = { nombre: data.jugador ? data.jugador.titulo : "Gabriel Arias", mes: "", objetivo: "" };
+                if (!data.finanzas.ingresos || !Array.isArray(data.finanzas.ingresos)) data.finanzas.ingresos = [];
+                if (!data.finanzas.gastos || !Array.isArray(data.finanzas.gastos)) data.finanzas.gastos = [];
+                if (!data.finanzas.deudas || !Array.isArray(data.finanzas.deudas)) data.finanzas.deudas = [];
+                if (!data.finanzas.metas || !Array.isArray(data.finanzas.metas)) data.finanzas.metas = [];
+            }
             if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
             if (!data.registroDiarioCalendario) data.registroDiarioCalendario = {};
-            if (!data.ideas || !Array.isArray(data.ideas) || data.ideas.length === 0) {
-                data.ideas = JSON.parse(JSON.stringify(DEFAULT_STATE.ideas));
+            if (!data.ideas || !Array.isArray(data.ideas)) {
+                data.ideas = [];
             } else {
                 // Reparar subcategorías huérfanas si existieran
                 data.ideas.forEach(function(i) {
@@ -668,11 +385,11 @@ const MonarcaDB = {
     },
 
     resetDefault: function() {
-        if (confirm("⚠️ ¿Estás seguro de que deseas restablecer todos los datos a sus valores iniciales? Esta acción eliminará permanentemente los datos locales de este dispositivo.")) {
+        if (confirm("⚠️ ¿Estás seguro de que deseas restablecer de fábrica el sistema?\n\nEsta acción eliminará todos los datos de prueba y ejemplos por defecto (contactos, ruleta, ideas, finanzas, tareas y entrenamientos), dejando el sistema 100% limpio para que configures únicamente tus propias opciones.")) {
             localStorage.removeItem(MONARCA_STORAGE_KEY);
             APP_STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
             MonarcaDB.save(APP_STATE);
-            alert("Sistema restablecido a los valores por defecto.");
+            alert("✓ Sistema restablecido de fábrica con éxito. Todas las áreas han quedado 100% limpias.");
             location.reload();
         }
     }

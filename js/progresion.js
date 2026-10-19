@@ -731,9 +731,8 @@ function eliminarHabilidad(id) {
 var LOOP_QUESTS_DIARIOS_INTERVAL = null;
 
 function cargarQuestsDiarios() {
-    if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios) || APP_STATE.questsDiarios.length === 0) {
-        APP_STATE.questsDiarios = JSON.parse(JSON.stringify(DEFAULT_STATE.questsDiarios || []));
-        MonarcaDB.save(APP_STATE);
+    if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios)) {
+        APP_STATE.questsDiarios = [];
     }
 
     verificarPenalizacionesPendientes();
