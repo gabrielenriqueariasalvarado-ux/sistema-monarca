@@ -273,6 +273,9 @@ async function inicializarFirebase() {
                         if (typeof renderizarQuestsDiarios === 'function') {
                             renderizarQuestsDiarios();
                         }
+                        if (typeof renderizarInventarioSiActivo === 'function') {
+                            renderizarInventarioSiActivo();
+                        }
                     }
                     window.MonarcaCloud.actualizarBadgeUI('synced');
                 }

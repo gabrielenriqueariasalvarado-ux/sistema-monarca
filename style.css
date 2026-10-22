@@ -4275,8 +4275,100 @@
     }
 }
 
+/* ==========================================================================
+   TIMER DE MEDIANOCHE & MECÁNICA DE CIERRE DE JORNADA
+   ========================================================================== */
+.daily-reset-timer-banner {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+}
+
+.btn-cerrar-jornada-accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #111827;
+    color: #ffffff;
+    border: 1px solid #111827;
+    padding: 8px 14px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cerrar-jornada-accion:hover {
+    background: #374151;
+    border-color: #374151;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.btn-cerrar-jornada-accion:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+    .daily-reset-timer-banner {
+        padding: 12px 14px;
+    }
+    .btn-cerrar-jornada-accion {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 12px;
+    }
+}
 
 
+/* ==========================================================================
+   MÓDULO DE INVENTARIO & VENTAS
+   ========================================================================== */
+.inventario-producto-card {
+    transition: all 0.2s ease;
+}
 
+.inventario-producto-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #d1d5db !important;
+}
 
+.inventario-producto-card.is-agotado {
+    background: #fafafa !important;
+    border-color: #f3f4f6 !important;
+}
 
+.inventario-venta-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.btn-chip-emoji {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-chip-emoji:hover {
+    background: #ffffff;
+    border-color: #111827;
+    transform: scale(1.1);
+}
+
+@media (max-width: 640px) {
+    .inventario-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}

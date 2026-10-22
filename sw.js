@@ -2,22 +2,23 @@
 // SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST & CACHE-BUSTING)
 // ==========================================================================
 
-const CACHE_NAME = 'sistema-monarca-v6.1';
+const CACHE_NAME = 'sistema-monarca-v6.3';
 
 const STATIC_ASSETS = [
   './',
   'index.html',
-  'style.css?v=6.1',
+  'style.css?v=6.3',
   'app.js',
-  'js/core.js?v=6.1',
-  'js/perfil.js?v=6.1',
-  'js/progresion.js?v=6.1',
-  'js/estado-personal.js?v=6.1',
-  'js/finanzas.js?v=6.1',
-  'js/ideas.js?v=6.1',
-  'js/dinamicas.js?v=6.1',
-  'js/calendario.js?v=6.1',
-  'js/firebase-config.js?v=6.1',
+  'js/core.js?v=6.3',
+  'js/perfil.js?v=6.3',
+  'js/progresion.js?v=6.3',
+  'js/estado-personal.js?v=6.3',
+  'js/finanzas.js?v=6.3',
+  'js/ideas.js?v=6.3',
+  'js/dinamicas.js?v=6.3',
+  'js/calendario.js?v=6.3',
+  'js/inventario.js?v=6.3',
+  'js/firebase-config.js?v=6.3',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',

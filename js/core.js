@@ -15,6 +15,19 @@
 
 const MONARCA_STORAGE_KEY = 'sistema_monarca_db_v1';
 
+/**
+ * Obtiene la clave de fecha en formato YYYY-MM-DD según la zona horaria local del usuario.
+ * Evita desfasajes causados por UTC en toISOString().
+ */
+function obtenerClaveFechaLocal(fecha) {
+    var d = fecha ? (fecha instanceof Date ? fecha : new Date(fecha)) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dia = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dia;
+}
+
 const DEFAULT_STATE = {
     jugador: {
         titulo: "Gabriel Arias",
@@ -67,7 +80,7 @@ const DEFAULT_STATE = {
     ejerciciosMentales: [],
     fatigaMentalDiaria: {
         nivel: 0,
-        ultimoDia: new Date().toISOString().split('T')[0],
+        ultimoDia: obtenerClaveFechaLocal(),
         estado: "Mente Despejada",
         historial: []
     },
@@ -120,7 +133,12 @@ const DEFAULT_STATE = {
         metas: []
     },
     ideas: [],
-    calendario: []
+    calendario: [],
+    inventario: {
+        productos: [],
+        categorias: [],
+        ventas: []
+    }
 };
 
 const MonarcaDB = {
@@ -224,6 +242,17 @@ const MonarcaDB = {
                     if (i.subcategoria === "Desarrollo Web") i.subcategoria = "💻 Programación y Tecnología";
                     if (!i.timestamp) i.timestamp = Date.now();
                 });
+            }
+            if (!data.inventario) {
+                data.inventario = {
+                    productos: [],
+                    categorias: [],
+                    ventas: []
+                };
+            } else {
+                if (!data.inventario.productos || !Array.isArray(data.inventario.productos)) data.inventario.productos = [];
+                if (!data.inventario.categorias || !Array.isArray(data.inventario.categorias)) data.inventario.categorias = [];
+                if (!data.inventario.ventas || !Array.isArray(data.inventario.ventas)) data.inventario.ventas = [];
             }
             return data;
         } catch (e) {
@@ -496,29 +525,36 @@ function cambiarVista(vistaId) {
         case 'vista-calendario':
             renderizarCalendario();
             break;
+        case 'vista-inventario':
+            if (typeof cargarInventario === 'function') cargarInventario();
+            break;
     }
 }
 
 function verificarRecuperacionMentalDiaria() {
+    if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
+        actualizarDesgasteDiarioAutomatico();
+        return;
+    }
+
     if (!APP_STATE.fatigaMentalDiaria) {
         APP_STATE.fatigaMentalDiaria = JSON.parse(JSON.stringify(DEFAULT_STATE.fatigaMentalDiaria));
     }
     var fMental = APP_STATE.fatigaMentalDiaria;
-    var hoyStr = new Date().toISOString().split('T')[0];
+    var hoyStr = obtenerClaveFechaLocal();
     if (fMental.ultimoDia !== hoyStr) {
         if (!fMental.historial) fMental.historial = [];
         fMental.historial.unshift({
             fecha: fMental.ultimoDia || "Ayer",
-            nivelCierre: fMental.nivel || 20,
+            nivelCierre: fMental.nivel || 0,
             estadoCierre: fMental.estado || "Mente Despejada"
         });
         if (fMental.historial.length > 14) fMental.historial.pop();
 
-        // Recuperación neural nocturna: se alivia el 50% de la carga cognitiva residual
-        var nivelRecuperado = Math.max(10, Math.round((fMental.nivel || 20) * 0.45));
-        fMental.nivel = nivelRecuperado;
+        // Amanece en 0% como requiere la mecánica de nuevo día
+        fMental.nivel = 0;
         fMental.ultimoDia = hoyStr;
-        fMental.estado = nivelRecuperado <= 25 ? "Mente Despejada" : (nivelRecuperado <= 60 ? "Carga Moderada" : "Fatiga Residual");
+        fMental.estado = "Mente Despejada (0% Desgaste)";
         MonarcaDB.save(APP_STATE);
     }
 }

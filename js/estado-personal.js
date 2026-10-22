@@ -354,9 +354,14 @@ function calcularMetricasPurasSinActualizar() {
 }
 
 function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : (function() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })();
+
     if (!APP_STATE.desgasteDiario) {
         APP_STATE.desgasteDiario = {
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: hoyStr,
             ultimoCierre: new Date().toLocaleDateString('es-ES')
         };
     }
@@ -366,37 +371,29 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
 
     asegurarDesgasteMente();
 
-    var hoyStr = new Date().toISOString().split('T')[0];
-    var cambioDeDia = APP_STATE.desgasteDiario.fecha !== hoyStr;
+    var fechaRegistrada = APP_STATE.desgasteDiario.fecha;
+    var cambioDeDia = fechaRegistrada !== hoyStr;
 
     // Si cambió de fecha respecto a la última registrada o se fuerza el reinicio manual
     if (cambioDeDia || forzarReinicio) {
-        var fechaAnterior = APP_STATE.desgasteDiario.fecha || hoyStr;
+        var fechaAnterior = fechaRegistrada || hoyStr;
 
         // 1. Guardar y archivar el porcentaje final alcanzado en la jornada saliente en el calendario
         var metricasPrevias = calcularMetricasPurasSinActualizar();
-        if (!APP_STATE.registroDiarioCalendario[fechaAnterior]) {
-            APP_STATE.registroDiarioCalendario[fechaAnterior] = {
-                general: metricasPrevias.general,
-                cuerpo: metricasPrevias.cuerpo,
-                mente: metricasPrevias.mente,
-                fecha: fechaAnterior,
-                cerrado: true
-            };
-        } else {
-            // Actualizar con las métricas finales alcanzadas si no eran cero
-            if (metricasPrevias.general > 0 || !APP_STATE.registroDiarioCalendario[fechaAnterior].general) {
-                APP_STATE.registroDiarioCalendario[fechaAnterior].general = metricasPrevias.general;
-                APP_STATE.registroDiarioCalendario[fechaAnterior].cuerpo = metricasPrevias.cuerpo;
-                APP_STATE.registroDiarioCalendario[fechaAnterior].mente = metricasPrevias.mente;
-            }
-            APP_STATE.registroDiarioCalendario[fechaAnterior].cerrado = true;
-        }
+        
+        APP_STATE.registroDiarioCalendario[fechaAnterior] = {
+            general: metricasPrevias.general,
+            cuerpo: metricasPrevias.cuerpo,
+            mente: metricasPrevias.mente,
+            fecha: fechaAnterior,
+            cerrado: true,
+            horaCierre: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+        };
 
         APP_STATE.desgasteDiario.ultimoCierre = fechaAnterior;
         APP_STATE.desgasteDiario.fecha = hoyStr;
 
-        // 2. Reiniciar todo el desgaste físico (Cuerpo) a 0%
+        // 2. Reiniciar todo el desgaste físico (Cuerpo) estrictamente a 0%
         if (APP_STATE.fatiga) {
             Object.keys(APP_STATE.fatiga).forEach(function(k) {
                 if (typeof APP_STATE.fatiga[k] === 'number') {
@@ -407,7 +404,7 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
             APP_STATE.fatiga.mente = 0;
         }
 
-        // 3. Reiniciar todo el desgaste neural (Mente) a 0%
+        // 3. Reiniciar todo el desgaste neural (Mente) estrictamente a 0%
         if (APP_STATE.desgasteMente) {
             Object.keys(APP_STATE.desgasteMente).forEach(function(k) {
                 APP_STATE.desgasteMente[k] = 0;
@@ -439,7 +436,7 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
             });
         }
 
-        // 6. Inicializar registro del nuevo día en 0% en el calendario
+        // 6. Inicializar registro del nuevo día estrictamente en 0% en el calendario
         APP_STATE.registroDiarioCalendario[hoyStr] = {
             general: 0,
             cuerpo: 0,
@@ -449,7 +446,17 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
         };
 
         MonarcaDB.save(APP_STATE);
+
+        return {
+            reiniciado: true,
+            fechaAnterior: fechaAnterior,
+            hoyStr: hoyStr,
+            metricasCerradas: metricasPrevias,
+            esManual: !!forzarReinicio
+        };
     }
+
+    return { reiniciado: false };
 }
 
 function calcularMetricasGeneralesDesgaste() {
@@ -457,28 +464,172 @@ function calcularMetricasGeneralesDesgaste() {
     var metricas = calcularMetricasPurasSinActualizar();
 
     // Guardar en tiempo real el porcentaje alcanzado hoy en el registro del calendario
-    var hoyStr = new Date().toISOString().split('T')[0];
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : (function() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })();
+
     if (!APP_STATE.registroDiarioCalendario) APP_STATE.registroDiarioCalendario = {};
-    APP_STATE.registroDiarioCalendario[hoyStr] = {
-        general: metricas.general,
-        cuerpo: metricas.cuerpo,
-        mente: metricas.mente,
-        fecha: hoyStr,
-        actualizado: new Date().toLocaleTimeString('es-ES')
-    };
+    
+    var regExistente = APP_STATE.registroDiarioCalendario[hoyStr];
+    // Solo actualizar si no fue sellado con un cierre previo en el mismo slot o si la métrica actual es válida
+    if (!regExistente || !regExistente.cerrado || metricas.general >= (regExistente.general || 0)) {
+        APP_STATE.registroDiarioCalendario[hoyStr] = {
+            general: metricas.general,
+            cuerpo: metricas.cuerpo,
+            mente: metricas.mente,
+            fecha: hoyStr,
+            actualizado: new Date().toLocaleTimeString('es-ES')
+        };
+    }
 
     return metricas;
 }
 
-function reiniciarJornadaDiariaManual() {
-    if (confirm("¿Deseas cerrar la jornada actual y reiniciar todo a 0% para comenzar un nuevo día?\n\nEl porcentaje alcanzado se guardará en el calendario y las misiones/quests diarios volverán a iniciar en 0%.")) {
-        actualizarDesgasteDiarioAutomatico(true);
-        if (typeof cargarEstadoPersonal === 'function') cargarEstadoPersonal();
-        if (typeof renderizarCalendario === 'function') renderizarCalendario();
-        if (typeof renderizarMisiones === 'function') renderizarMisiones(APP_STATE.misiones);
-        if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
-        alert("✓ ¡Jornada guardada con éxito en el calendario! Nuevo día iniciado en 0%.");
+// ==========================================================================
+// TIMER CONTINUO A MEDIANOCHE & MECÁNICA DE TRANSICIÓN DE JORNADA
+// ==========================================================================
+
+var _intervaloMonitorMedianoche = null;
+
+function iniciarMonitorMedianocheDiaria() {
+    if (_intervaloMonitorMedianoche) {
+        clearInterval(_intervaloMonitorMedianoche);
     }
+
+    function tickTimer() {
+        var ahora = new Date();
+        var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal(ahora) : (function() {
+            return ahora.getFullYear() + '-' + String(ahora.getMonth() + 1).padStart(2, '0') + '-' + String(ahora.getDate()).padStart(2, '0');
+        })();
+
+        // 1. Detección inmediata de cruce de medianoche por fecha local
+        if (APP_STATE && APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.fecha && APP_STATE.desgasteDiario.fecha !== hoyStr) {
+            ejecutarMecanicaTransicionMedianoche(false);
+            return;
+        }
+
+        // 2. Cálculo milimétrico de tiempo restante hasta las 00:00:00 de mañana
+        var medianoche = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1, 0, 0, 0, 0);
+        var diffMs = medianoche.getTime() - ahora.getTime();
+
+        if (diffMs <= 1000) {
+            ejecutarMecanicaTransicionMedianoche(false);
+            return;
+        }
+
+        var totalSeg = Math.floor(diffMs / 1000);
+        var h = Math.floor(totalSeg / 3600);
+        var m = Math.floor((totalSeg % 3600) / 60);
+        var s = totalSeg % 60;
+
+        var strTimer = String(h).padStart(2, '0') + "h " +
+                       String(m).padStart(2, '0') + "m " +
+                       String(s).padStart(2, '0') + "s";
+
+        // Actualizar elementos en el DOM con la clase .reloj-cierre-jornada-tiempo
+        var relojElems = document.querySelectorAll('.reloj-cierre-jornada-tiempo');
+        for (var i = 0; i < relojElems.length; i++) {
+            relojElems[i].textContent = strTimer;
+        }
+
+        // Actualizar barra de progreso de la jornada (0% a medianoche anterior, 100% a la siguiente)
+        var segTranscurridos = (ahora.getHours() * 3600) + (ahora.getMinutes() * 60) + ahora.getSeconds();
+        var pctJornada = Math.min(100, Math.max(0, Math.round((segTranscurridos / 86400) * 100)));
+        var progressBars = document.querySelectorAll('.barra-jornada-progreso');
+        for (var j = 0; j < progressBars.length; j++) {
+            progressBars[j].style.width = pctJornada + '%';
+        }
+    }
+
+    tickTimer();
+    _intervaloMonitorMedianoche = setInterval(tickTimer, 1000);
+}
+
+// Escuchas automáticas de reactivación tras suspensión o cambio de pestaña
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+            if (APP_STATE && APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.fecha !== hoy) {
+                ejecutarMecanicaTransicionMedianoche(false);
+            }
+        }
+    });
+}
+if (typeof window !== 'undefined') {
+    window.addEventListener('focus', function() {
+        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        if (APP_STATE && APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.fecha !== hoy) {
+            ejecutarMecanicaTransicionMedianoche(false);
+        }
+    });
+}
+
+function ejecutarMecanicaTransicionMedianoche(esManual) {
+    var resultado = actualizarDesgasteDiarioAutomatico(esManual ? true : false);
+    
+    // Si no hubo cambio de día ni forzado manual, omitir
+    if (!resultado || !resultado.reiniciado) return;
+
+    // Refrescar todas las vistas de la aplicación
+    if (typeof cargarEstadoPersonal === 'function') cargarEstadoPersonal();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
+    if (typeof renderizarMisiones === 'function') renderizarMisiones(APP_STATE.misiones);
+    if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
+    if (typeof renderizarJugador === 'function' && APP_STATE.jugador) renderizarJugador(APP_STATE.jugador);
+
+    // Desplegar modal visual minimalista con el balance de la jornada cerrada
+    abrirModalMecanicaNuevoDia(resultado);
+}
+
+function ejecutarMecanicaCierreDiarioManual() {
+    var metricas = typeof calcularMetricasPurasSinActualizar === 'function' ? calcularMetricasPurasSinActualizar() : { general: 0, cuerpo: 0, mente: 0 };
+    var textoConfirm = "¿Deseas cerrar la jornada actual ahora y comenzar un nuevo día?\n\n" +
+        "• Porcentaje a archivar en el calendario: " + metricas.general + "% (Cuerpo: " + metricas.cuerpo + "%, Mente: " + metricas.mente + "%)\n" +
+        "• Se restablecerá todo el desgaste del avatar estrictamente a 0%\n" +
+        "• Los hábitos y misiones diarias volverán a iniciar en Pendiente para hoy.\n\n" +
+        "¿Confirmar cierre de jornada?";
+
+    if (confirm(textoConfirm)) {
+        ejecutarMecanicaTransicionMedianoche(true);
+    }
+}
+
+function reiniciarJornadaDiariaManual() {
+    ejecutarMecanicaCierreDiarioManual();
+}
+
+function abrirModalMecanicaNuevoDia(datos) {
+    var modal = document.getElementById('modal-mecanica-nuevo-dia');
+    if (!modal) return;
+
+    var tituloEl = document.getElementById('nuevo-dia-titulo-modal');
+    var subtituloEl = document.getElementById('nuevo-dia-subtitulo-modal');
+    var iconoEl = document.getElementById('nuevo-dia-icono-modal');
+    var fechaEl = document.getElementById('nuevo-dia-fecha-archivada');
+    var valGenEl = document.getElementById('nuevo-dia-val-general');
+    var valCueEl = document.getElementById('nuevo-dia-val-cuerpo');
+    var valMenEl = document.getElementById('nuevo-dia-val-mente');
+
+    var esManual = datos && datos.esManual;
+    var met = (datos && datos.metricasCerradas) || { general: 0, cuerpo: 0, mente: 0 };
+    var fArchivada = (datos && datos.fechaAnterior) || 'Jornada anterior';
+
+    if (tituloEl) tituloEl.textContent = esManual ? "JORNADA CERRADA ANTICIPADA" : "NUEVA JORNADA INICIADA";
+    if (subtituloEl) subtituloEl.textContent = esManual ? "Cierre manual aplicado · Avatar listo en 0%" : "Reinicio automático a medianoche ejecutado";
+    if (iconoEl) iconoEl.textContent = esManual ? "🌙" : "⏳";
+    if (fechaEl) fechaEl.textContent = fArchivada;
+    if (valGenEl) valGenEl.textContent = met.general + "%";
+    if (valCueEl) valCueEl.textContent = met.cuerpo + "%";
+    if (valMenEl) valMenEl.textContent = met.mente + "%";
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalMecanicaNuevoDia() {
+    var modal = document.getElementById('modal-mecanica-nuevo-dia');
+    if (modal) modal.style.display = 'none';
 }
 
 // ==========================================================================
@@ -490,6 +641,7 @@ function cargarEstadoPersonal() {
     renderizarGraficoGeneralAvatar();
     renderizarDesgloseCuerpoAnatomico();
     renderizarDesgloseMenteCognitiva();
+    iniciarMonitorMedianocheDiaria();
 }
 
 function renderizarBarrasFatiga(f) {
@@ -648,6 +800,43 @@ function renderizarGraficoGeneralAvatar() {
     }
 
     var html = `
+    <!-- BANNER DE TIMER DE CIERRE DE JORNADA & RESETEO DIARIO -->
+    <div class="daily-reset-timer-banner" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 14px; background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #111827; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    ⏳
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 800; color: #111827; text-transform: uppercase; letter-spacing: 0.6px;">REINICIO DIARIO AUTOMÁTICO</span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> EN VIVO
+                        </span>
+                    </div>
+                    <div style="font-size: 12.5px; color: #4b5563; margin-top: 3px;">
+                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #111827; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; border: 1px solid #e5e7eb;">--h --m --s</strong>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn-cerrar-jornada-accion" onclick="ejecutarMecanicaCierreDiarioManual()" title="Archivar los porcentajes actuales en el calendario y restablecer todo estrictamente a 0%">
+                    <span>🌙</span> Cerrar Jornada Ahora (Nuevo Día 0%)
+                </button>
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px;">
+                <span>00:00 AM (Inicio 0%)</span>
+                <span>Progreso de Jornada</span>
+                <span>00:00 AM (Medianoche)</span>
+            </div>
+            <div style="height: 5px; width: 100%; background: #f3f4f6; border-radius: 9999px; overflow: hidden; border: 1px solid #e5e7eb;">
+                <div class="barra-jornada-progreso" style="height: 100%; width: 50%; background: #111827; border-radius: 9999px; transition: width 1s linear;"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. BARRA DE DESGASTE GENERAL DIARIO DEL AVATAR -->
     <div class="avatar-metrics-bar" style="margin-bottom: 18px; border-radius: 16px; background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
         <div class="general-wear-metric">
@@ -2490,7 +2679,10 @@ function ejecutarRecuperacionNocturna() {
     var anterior = APP_STATE.fatigaMentalDiaria.nivel || 0;
     var nuevo = Math.max(10, Math.round(anterior * 0.45));
     APP_STATE.fatigaMentalDiaria.nivel = nuevo;
-    APP_STATE.fatigaMentalDiaria.ultimoDia = new Date().toISOString().split('T')[0];
+    APP_STATE.fatigaMentalDiaria.ultimoDia = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : (function() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })();
     APP_STATE.fatigaMentalDiaria.estado = nuevo <= 25 ? "Mente Despejada" : "Carga Moderada";
 
     if (APP_STATE.musculosMentales && APP_STATE.musculosMentales.descanso) {

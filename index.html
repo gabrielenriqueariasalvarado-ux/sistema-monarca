@@ -113,6 +113,10 @@
                 <div class="menu-icon">📅</div>
                 <h3>Calendario</h3>
             </div>
+            <div class="menu-card" onclick="cambiarVista('vista-inventario')">
+                <div class="menu-icon">📦</div>
+                <h3>Inventario</h3>
+            </div>
         </div>
     </div>
 
@@ -1955,6 +1959,130 @@
         <div id="contenedor-calendario">Cargando calendario...</div>
     </div>
 
+    <!-- VISTA: INVENTARIO (CONTROL DE PRODUCTOS, CATEGORÍAS & VENTAS) -->
+    <div id="vista-inventario" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
+            <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+        </button>
+
+        <!-- CABECERA DEL MÓDULO -->
+        <div class="card" style="margin-bottom: 18px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #111827; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+                        📦
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.3px;">
+                            INVENTARIO & VENTAS
+                        </h2>
+                        <p style="margin: 3px 0 0 0; font-size: 12.5px; color: #6b7280;">
+                            Control de productos, stock disponible, categorías y registro de ventas con observaciones.
+                        </p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #ffffff; color: #111827; border: 1px solid #d1d5db; padding: 8px 14px; font-size: 12.5px; font-weight: 700; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>🏷️</span> + Nueva Categoría
+                    </button>
+                    <button class="btn-system" onclick="abrirModalNuevoProducto()" style="background: #111827; color: #ffffff; border: 1px solid #111827; padding: 8px 16px; font-size: 12.5px; font-weight: 700; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>➕</span> + Nuevo Producto
+                    </button>
+                </div>
+            </div>
+
+            <!-- TARJETAS DE MÉTRICAS GENERALES (KPIS) -->
+            <div class="inventario-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 18px;">
+                <div class="inventario-kpi-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Productos Únicos</span>
+                    <div id="inv-kpi-total-productos" style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 2px;">0</div>
+                </div>
+                <div class="inventario-kpi-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Unidades en Stock</span>
+                    <div id="inv-kpi-total-stock" style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 2px;">0</div>
+                </div>
+                <div class="inventario-kpi-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Valor del Stock</span>
+                    <div id="inv-kpi-valor-stock" style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 2px;">$0.00</div>
+                </div>
+                <div class="inventario-kpi-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Unidades Vendidas</span>
+                    <div id="inv-kpi-unidades-vendidas" style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 2px;">0</div>
+                </div>
+                <div class="inventario-kpi-card" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Total Recaudado</span>
+                    <div id="inv-kpi-total-ingresos" style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 2px;">$0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SELECTOR DE PESTAÑAS (PRODUCTOS EN STOCK, CATEGORÍAS, VENDIDOS) -->
+        <div class="tab-category-pill-container" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px;">
+            <button id="tab-btn-inv-productos" class="tab-category-pill active" onclick="cambiarTabInventario('productos')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+                <span>📦</span> Productos en Stock (<span id="badge-count-productos">0</span>)
+            </button>
+            <button id="tab-btn-inv-categorias" class="tab-category-pill" onclick="cambiarTabInventario('categorias')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+                <span>🏷️</span> Categorías (<span id="badge-count-categorias">0</span>)
+            </button>
+            <button id="tab-btn-inv-vendidos" class="tab-category-pill" onclick="cambiarTabInventario('vendidos')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
+                <span>💰</span> Vendidos (<span id="badge-count-vendidos">0</span>)
+            </button>
+        </div>
+
+        <!-- PANEL 1: PRODUCTOS EN STOCK -->
+        <div id="panel-inv-productos" class="panel-inv-tab">
+            <div class="card" style="margin-bottom: 16px; padding: 14px 18px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                    <div style="flex: 1; min-width: 220px;">
+                        <input type="text" id="inv-filtro-busqueda" class="finanzas-input-clean" placeholder="🔍 Buscar producto por nombre o detalle..." oninput="filtrarProductosInventario()" style="width: 100%; box-sizing: border-box; padding: 9px 14px; font-size: 13px; border-radius: 9px; border: 1px solid #d1d5db; background: #ffffff;">
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <select id="inv-filtro-categoria" class="finanzas-input-clean" onchange="filtrarProductosInventario()" style="padding: 9px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #d1d5db; background: #ffffff;">
+                            <option value="todas">🏷️ Todas las categorías</option>
+                        </select>
+                        <select id="inv-filtro-stock" class="finanzas-input-clean" onchange="filtrarProductosInventario()" style="padding: 9px 12px; font-size: 13px; border-radius: 9px; border: 1px solid #d1d5db; background: #ffffff;">
+                            <option value="todos">📦 Todo el stock</option>
+                            <option value="disponible">● Disponibles (>0)</option>
+                            <option value="agotado">⚠️ Agotados (0)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="contenedor-productos-inventario"></div>
+        </div>
+
+        <!-- PANEL 2: CATEGORÍAS -->
+        <div id="panel-inv-categorias" class="panel-inv-tab" style="display: none;">
+            <div class="card" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #111827;">Gestor de Categorías</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Crea líneas de productos (ej: Franela, Pantalón, Gorras) para clasificar tu catálogo.</p>
+                </div>
+                <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #111827; color: #ffffff; border: 1px solid #111827; padding: 8px 14px; font-size: 12.5px; font-weight: 700; border-radius: 9px;">
+                    <span>🏷️</span> + Crear Categoría
+                </button>
+            </div>
+            <div id="contenedor-categorias-inventario"></div>
+        </div>
+
+        <!-- PANEL 3: VENDIDOS (HISTORIAL DE VENTAS) -->
+        <div id="panel-inv-vendidos" class="panel-inv-tab" style="display: none;">
+            <div class="card" style="margin-bottom: 16px; padding: 14px 18px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #111827;">Historial de Ventas Realizadas</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Registro cronológico de productos vendidos con sus respectivas observaciones.</p>
+                    </div>
+                    <div style="min-width: 200px;">
+                        <input type="text" id="inv-filtro-busqueda-ventas" class="finanzas-input-clean" placeholder="🔍 Buscar en ventas u observaciones..." oninput="filtrarVentasInventario()" style="width: 100%; box-sizing: border-box; padding: 9px 14px; font-size: 13px; border-radius: 9px; border: 1px solid #d1d5db; background: #ffffff;">
+                    </div>
+                </div>
+            </div>
+            <div id="contenedor-ventas-inventario"></div>
+        </div>
+    </div>
+
     <!-- MODAL NUEVO EVENTO CALENDARIO -->
     <div id="modal-nuevo-evento" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
@@ -2658,6 +2786,248 @@
         </div>
     </div>
 
+    <!-- MODAL: MECÁNICA DE CIERRE DE JORNADA Y NUEVO DÍA -->
+    <div id="modal-mecanica-nuevo-dia" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+            <div class="modal-system-header" style="background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 16px 20px; border-radius: 16px 16px 0 0;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="nuevo-dia-icono-modal" style="font-size: 22px;">⏳</span>
+                    <div>
+                        <h3 id="nuevo-dia-titulo-modal" style="margin: 0; font-size: 14.5px; font-weight: 800; color: #111827; text-transform: uppercase; letter-spacing: 0.5px;">TRANSICIÓN DE JORNADA</h3>
+                        <p id="nuevo-dia-subtitulo-modal" style="margin: 2px 0 0 0; font-size: 11.5px; color: #6b7280;">Reseteo diario y archivado de métricas</p>
+                    </div>
+                </div>
+                <button onclick="cerrarModalMecanicaNuevoDia()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 22px; background: #ffffff; border-radius: 0 0 16px 16px;">
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                        📊 BALANCE ARCHIVADO EN CALENDARIO (<span id="nuevo-dia-fecha-archivada">--</span>)
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
+                        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 4px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">General</div>
+                            <div id="nuevo-dia-val-general" style="font-size: 18px; font-weight: 800; color: #111827; margin-top: 2px;">0%</div>
+                        </div>
+                        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 4px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">🦾 Cuerpo</div>
+                            <div id="nuevo-dia-val-cuerpo" style="font-size: 18px; font-weight: 800; color: #111827; margin-top: 2px;">0%</div>
+                        </div>
+                        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 4px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">🧠 Mente</div>
+                            <div id="nuevo-dia-val-mente" style="font-size: 18px; font-weight: 800; color: #111827; margin-top: 2px;">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                        <span style="font-size: 16px; color: #111827;">✨</span>
+                        <div style="font-size: 12.5px; color: #374151; line-height: 1.45;">
+                            <strong>Avatar Restaurado a 0% de Desgaste:</strong> Tanto la carga física como el esfuerzo mental han iniciado completamente frescos.
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                        <span style="font-size: 16px; color: #111827;">🔄</span>
+                        <div style="font-size: 12.5px; color: #374151; line-height: 1.45;">
+                            <strong>Misiones y Hábitos Diarios Reiniciados:</strong> Las misiones y quests diarios vuelven a estar en estado "Pendiente" para ser trabajadas hoy.
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <span style="font-size: 16px; color: #111827;">📅</span>
+                        <div style="font-size: 12.5px; color: #374151; line-height: 1.45;">
+                            <strong>Historial Permanente:</strong> El balance de la jornada anterior quedó registrado de forma indeleble en tu Calendario.
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="button" class="btn-system" style="width: 100%; justify-content: center; font-size: 13.5px; padding: 12px; font-weight: 800; border-radius: 10px; background: #111827; color: #ffffff;" onclick="cerrarModalMecanicaNuevoDia()">
+                        ⚔️ Comenzar Nueva Jornada (0%)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL: NUEVO / EDITAR PRODUCTO -->
+    <div id="modal-nuevo-producto" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📦</span>
+                    <span id="modal-prod-titulo-header" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">NUEVO PRODUCTO</span>
+                </div>
+                <button onclick="cerrarModalNuevoProducto()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="modal-prod-id">
+                
+                <div class="modal-form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #374151;">Categoría:</label>
+                        <button type="button" onclick="abrirModalNuevaCategoriaDesdeProducto()" style="background: none; border: none; color: #111827; font-size: 11px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 0;">
+                            + Nueva Categoría
+                        </button>
+                    </div>
+                    <select id="modal-prod-categoria" class="modal-input" style="background: #ffffff;">
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Nombre del Producto:</label>
+                    <input type="text" id="modal-prod-nombre" class="modal-input" placeholder="Ej: Franela Adidas negra talla SM">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="modal-form-group">
+                        <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Costo / Precio ($):</label>
+                        <input type="number" id="modal-prod-costo" class="modal-input" step="0.01" min="0" placeholder="Ej: 15.00">
+                    </div>
+                    <div class="modal-form-group">
+                        <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Cantidad en Stock Inicial:</label>
+                        <input type="number" id="modal-prod-stock" class="modal-input" step="1" min="0" placeholder="Ej: 5">
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Detalle u Observación del Producto (Opcional):</label>
+                    <textarea id="modal-prod-descripcion" class="modal-input" rows="2" placeholder="Ej: 100% algodón, corte slim, negra con rayas blancas..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoProducto()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="guardarProductoInventario()">
+                        💾 Guardar Producto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA / EDITAR CATEGORÍA -->
+    <div id="modal-nueva-categoria" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 440px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏷️</span>
+                    <span id="modal-cat-titulo-header" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">NUEVA CATEGORÍA</span>
+                </div>
+                <button onclick="cerrarModalNuevaCategoria()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="modal-cat-id">
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Nombre de la Categoría:</label>
+                    <input type="text" id="modal-cat-nombre" class="modal-input" placeholder="Ej: Franela, Calzado, Gorras, Relojes...">
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Icono o Emoji:</label>
+                    <input type="text" id="modal-cat-icono" class="modal-input" value="👕" style="font-size: 18px; text-align: center; max-width: 90px; margin-bottom: 8px;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('👕')">👕</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('👖')">👖</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('👟')">👟</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('🧢')">🧢</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('🎒')">🎒</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('🕶️')">🕶️</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('⌚')">⌚</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('🧴')">🧴</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('📦')">📦</button>
+                        <button type="button" class="btn-chip-emoji" onclick="seleccionarEmojiCategoria('🏷️')">🏷️</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaCategoria()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="guardarCategoriaInventario()">
+                        🏷️ Guardar Categoría
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR VENTA DE PRODUCTO (CON OBSERVACIÓN & RESTA DE STOCK) -->
+    <div id="modal-registrar-venta" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💵</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">REGISTRAR VENTA DE PRODUCTO</span>
+                </div>
+                <button onclick="cerrarModalRegistrarVenta()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="modal-venta-prod-id">
+
+                <!-- Tarjeta resumen del producto a vender -->
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                        <div>
+                            <span id="modal-venta-prod-cat" style="font-size: 10.5px; font-weight: 800; background: #e5e7eb; color: #111827; padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">Franela</span>
+                            <h4 id="modal-venta-prod-nombre" style="margin: 4px 0 0 0; font-size: 15px; font-weight: 800; color: #111827;">Franela Adidas negra talla SM</h4>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 10.5px; color: #6b7280; font-weight: 700; text-transform: uppercase;">Stock Actual</span>
+                            <div id="modal-venta-prod-stock-badge" style="font-size: 14px; font-weight: 800; color: #111827;">5 unidades</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Cantidad Vendida:</label>
+                        <input type="number" id="modal-venta-cantidad" class="modal-input" min="1" step="1" value="1" oninput="actualizarTotalVentaCalculado()">
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">Precio Unitario ($):</label>
+                        <input type="number" id="modal-venta-precio" class="modal-input" min="0" step="0.01" oninput="actualizarTotalVentaCalculado()">
+                    </div>
+                </div>
+
+                <!-- Total Calculado -->
+                <div style="background: #111827; color: #ffffff; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Venta:</span>
+                    <span id="modal-venta-total-calculado" style="font-size: 18px; font-weight: 800;">$0.00</span>
+                </div>
+
+                <!-- Observación (Requerimiento explícito del usuario) -->
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; display: block;">
+                        Observación de la Venta (Detalles, comprador, método de pago):
+                    </label>
+                    <textarea id="modal-venta-observacion" class="modal-input" rows="3" placeholder="Ej: Vendida a Juan en efectivo. Pagó en billetes de $20 / Vendido por WhatsApp entrega en centro comercial..."></textarea>
+                </div>
+
+                <!-- Conexión opcional con Finanzas -->
+                <div style="margin-bottom: 18px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 700; color: #111827;">
+                        <input type="checkbox" id="modal-venta-registrar-finanzas" checked style="accent-color: #111827; width: 16px; height: 16px;">
+                        <span>Registrar automáticamente como ingreso en Finanzas</span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalRegistrarVenta()">
+                        Cancelar
+                    </button>
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: #111827; color: #ffffff;" onclick="confirmarVentaProducto()">
+                        💵 Confirmar Venta (Restar Stock)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- BOTÓN FLOTANTE DE ASISTENCIA RÁPIDA (ACCESO GLOBAL) -->
     <button id="btn-asistente-flotante" onclick="abrirAsistenteRapido()" title="Asistente Monarca · Captura Rápida" aria-label="Asistente Rápido">
         <span style="font-size: 20px;">✦</span>
@@ -2667,17 +3037,18 @@
 
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=6.1"></script>
-    <script src="js/perfil.js?v=6.1"></script>
-    <script src="js/progresion.js?v=6.1"></script>
-    <script src="js/estado-personal.js?v=6.1"></script>
-    <script src="js/finanzas.js?v=6.1"></script>
-    <script src="js/ideas.js?v=6.1"></script>
-    <script src="js/dinamicas.js?v=6.1"></script>
-    <script src="js/calendario.js?v=6.1"></script>
+    <script src="js/core.js?v=6.3"></script>
+    <script src="js/perfil.js?v=6.3"></script>
+    <script src="js/progresion.js?v=6.3"></script>
+    <script src="js/estado-personal.js?v=6.3"></script>
+    <script src="js/finanzas.js?v=6.3"></script>
+    <script src="js/ideas.js?v=6.3"></script>
+    <script src="js/dinamicas.js?v=6.3"></script>
+    <script src="js/calendario.js?v=6.3"></script>
+    <script src="js/inventario.js?v=6.3"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=6.1"></script>
+    <script type="module" src="js/firebase-config.js?v=6.3"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>

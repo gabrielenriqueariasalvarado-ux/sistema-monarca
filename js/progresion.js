@@ -1395,7 +1395,7 @@ function ejecutarProtocoloDeepWork(id) {
     if (!confirm("¿Deseas registrar la ejecución del protocolo '" + p.nombre + "' (" + p.duracion + ")?")) return;
 
     if (!APP_STATE.fatigaMentalDiaria) {
-        APP_STATE.fatigaMentalDiaria = { nivel: 20, estado: "Mente Despejada", ultimoDia: new Date().toISOString().split('T')[0] };
+        APP_STATE.fatigaMentalDiaria = { nivel: 0, estado: "Mente Despejada", ultimoDia: typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toLocaleDateString('en-CA') };
     }
 
     var nivelAnt = APP_STATE.fatigaMentalDiaria.nivel || 0;
