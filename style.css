@@ -4372,3 +4372,94 @@
         grid-template-columns: repeat(2, 1fr) !important;
     }
 }
+
+/* Estilos para Variantes, Precios y Rentabilidad */
+.variant-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 90px 32px;
+    gap: 8px;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    transition: all 0.15s ease;
+}
+
+.variant-row:hover {
+    border-color: #cbd5e1;
+    background: #fdfdfd;
+}
+
+.variant-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #111827;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+
+.variant-pill.is-zero {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+    text-decoration: line-through;
+}
+
+.profit-margin-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-top: 8px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    transition: all 0.2s ease;
+}
+
+.profit-margin-banner.is-positive {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #065f46;
+}
+
+.profit-margin-banner.is-negative {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.toggle-switch-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.toggle-switch-container:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+@media (max-width: 640px) {
+    .variant-row {
+        grid-template-columns: 1fr 1fr 70px 28px;
+        gap: 6px;
+        padding: 6px;
+    }
+}
