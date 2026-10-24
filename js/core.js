@@ -260,10 +260,12 @@ const MonarcaDB = {
             return JSON.parse(JSON.stringify(DEFAULT_STATE));
         }
     },
-    save: function(state) {
+    save: function(state, esAccionUsuario) {
         try {
             if (state) {
-                state._ultimaActualizacion = Date.now();
+                if (esAccionUsuario !== false) {
+                    state._ultimaActualizacion = Date.now();
+                }
             }
             localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
 

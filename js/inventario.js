@@ -458,10 +458,14 @@ function eliminarProductoInventario(productoId) {
     if (!p) return;
 
     if (confirm(`¿Estás seguro de eliminar el producto "${p.nombre}" del inventario?`)) {
+        if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
+        if (!Array.isArray(APP_STATE._eliminados.productos)) APP_STATE._eliminados.productos = [];
+        APP_STATE._eliminados.productos.push(productoId);
+
         APP_STATE.inventario.productos = APP_STATE.inventario.productos.filter(function(item) {
             return item.id !== productoId;
         });
-        MonarcaDB.save(APP_STATE);
+        MonarcaDB.save(APP_STATE, true);
         filtrarProductosInventario();
         actualizarMetricasKpisInventario();
     }
@@ -688,6 +692,10 @@ function eliminarCategoriaInventario(categoriaId) {
     if (!c) return;
 
     if (confirm(`¿Estás seguro de eliminar la categoría "${c.nombre}"? Los productos asociados quedarán como "General".`)) {
+        if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
+        if (!Array.isArray(APP_STATE._eliminados.categorias)) APP_STATE._eliminados.categorias = [];
+        APP_STATE._eliminados.categorias.push(categoriaId);
+
         APP_STATE.inventario.categorias = APP_STATE.inventario.categorias.filter(function(item) {
             return item.id !== categoriaId;
         });
@@ -1009,12 +1017,16 @@ function anularVentaInventario(ventaId) {
             prod.totalVendidos = Math.max(0, (Number(prod.totalVendidos) || 0) - cant);
         }
 
-        // Eliminar del historial de ventas
+        // Eliminar del historial de ventas y registrar tombstone
+        if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
+        if (!Array.isArray(APP_STATE._eliminados.ventas)) APP_STATE._eliminados.ventas = [];
+        APP_STATE._eliminados.ventas.push(ventaId);
+
         APP_STATE.inventario.ventas = APP_STATE.inventario.ventas.filter(function(v) {
             return v.id !== ventaId;
         });
 
-        MonarcaDB.save(APP_STATE);
+        MonarcaDB.save(APP_STATE, true);
         renderizarVendidosInventario();
         actualizarMetricasKpisInventario();
         alert(`✓ Venta anulada con éxito. Se reincorporaron ${cant} unidad(es) al inventario.`);

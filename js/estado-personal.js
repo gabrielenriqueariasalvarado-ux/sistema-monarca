@@ -445,7 +445,7 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
             iniciado: true
         };
 
-        MonarcaDB.save(APP_STATE);
+        MonarcaDB.save(APP_STATE, false);
 
         return {
             reiniciado: true,
