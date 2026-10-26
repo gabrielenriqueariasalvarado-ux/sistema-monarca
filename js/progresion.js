@@ -725,37 +725,334 @@ function eliminarHabilidad(id) {
 }
 
 // ==========================================================================
-// 6. SISTEMA DE QUESTS DIARIOS, RUTINA MATUTINA Y PENALIZACIONES AUTOMÁTICAS
+// 6. SISTEMA DE QUESTS DIARIOS (PROGRAMACIÓN HORARIA, NOTIFICACIONES Y PENITENCIAS)
 // ==========================================================================
 
 var LOOP_QUESTS_DIARIOS_INTERVAL = null;
 
+/**
+ * Solicita permisos de notificación en navegador / teléfono
+ */
+function solicitarPermisoNotificaciones(desdeBoton) {
+    if (!('Notification' in window)) {
+        if (desdeBoton) alert("Tu navegador no soporta notificaciones de sistema.");
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        actualizarBotonNotificacionesUI();
+        if (desdeBoton) {
+            emitirNotificacionQuest(
+                "⚔️ Notificaciones de Monarca Activas",
+                "Recibirás alertas en tu dispositivo cuando tus quests diarias programadas se activen.",
+                false,
+                'monarca-test'
+            );
+        }
+        return;
+    }
+
+    Notification.requestPermission().then(function(permission) {
+        actualizarBotonNotificacionesUI();
+        if (permission === 'granted') {
+            emitirNotificacionQuest(
+                "⚔️ ¡Notificaciones Activadas!",
+                "Tus quests diarias te avisarán puntualmente a su hora con alarma y cronómetro.",
+                false,
+                'monarca-welcome'
+            );
+        } else if (desdeBoton) {
+            alert("Has bloqueado o cancelado las notificaciones. Si deseas recibirlas en tu teléfono o PC, actívalas en la configuración de permisos del navegador.");
+        }
+    });
+}
+
+function actualizarBotonNotificacionesUI() {
+    var btn = document.getElementById('btn-permiso-notif-quest');
+    if (!btn) return;
+    if ('Notification' in window && Notification.permission === 'granted') {
+        btn.innerHTML = '<span>🔔</span> Notif. Activas';
+        btn.style.background = '#ecfdf5';
+        btn.style.color = '#065f46';
+        btn.style.borderColor = '#a7f3d0';
+    } else {
+        btn.innerHTML = '<span>🔔</span> Notificaciones';
+        btn.style.background = '#ffffff';
+        btn.style.color = '#111827';
+        btn.style.borderColor = '#d1d5db';
+    }
+}
+
+/**
+ * Sintetizador de alarma sonora usando Web Audio API
+ */
+function reproducirAlarmaQuest(esUrgente) {
+    try {
+        var AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+            var ctx = new AudioContext();
+            var tiempos = esUrgente ? [0, 0.14, 0.28, 0.42, 0.56] : [0, 0.16, 0.32];
+            var tonos = esUrgente ? [587.33, 880, 587.33, 880, 1174.66] : [523.25, 659.25, 783.99];
+
+            tiempos.forEach(function(t, idx) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = esUrgente ? 'sawtooth' : 'triangle';
+                osc.frequency.setValueAtTime(tonos[idx] || 440, ctx.currentTime + t);
+
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.13);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + t);
+                osc.stop(ctx.currentTime + t + 0.14);
+            });
+        }
+    } catch(e) {
+        console.warn("[Audio Alarma] Error:", e);
+    }
+}
+
+/**
+ * Emite notificación nativa de sistema al teléfono o PC
+ */
+function emitirNotificacionQuest(titulo, cuerpo, requireInteraction, tag) {
+    // 1. Vibración en móviles
+    if ('vibrate' in navigator) {
+        try { navigator.vibrate([300, 150, 300, 150, 450]); } catch(e) {}
+    }
+
+    // 2. Notificación en pantalla
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(function(reg) {
+                    reg.showNotification(titulo, {
+                        body: cuerpo,
+                        icon: 'icons/icon-192.png',
+                        badge: 'icons/icon-192.png',
+                        vibrate: [300, 150, 300, 150, 450],
+                        tag: tag || 'quest-alert',
+                        renotify: true,
+                        requireInteraction: !!requireInteraction
+                    });
+                });
+            } else {
+                new Notification(titulo, {
+                    body: cuerpo,
+                    icon: 'icons/icon-192.png'
+                });
+            }
+        } catch(e) {
+            console.warn("[Notificación] Error:", e);
+        }
+    }
+}
+
+/**
+ * Dispara la alerta de activación cuando llega la hora programada
+ */
+function emitirAlertaQuestActivada(q, esReactivacion) {
+    var esOmitible = (q.esOmitible !== false);
+    var mins = q.tiempoMinutos || 15;
+
+    // 1. Alarma sonora y vibración
+    reproducirAlarmaQuest(!esOmitible);
+
+    // 2. Notificación de sistema para teléfono y PC
+    var tituloNotif = esOmitible
+        ? (esReactivacion ? `⏰ ¡Hora de gracia terminada!: ${q.titulo}` : `⚔️ ¡Quest Diaria Activada!: ${q.titulo}`)
+        : `🚨 ¡QUEST OBLIGATORIA ACTIVADA!: ${q.titulo}`;
+
+    var cuerpoNotif = esOmitible
+        ? `Tienes ${mins} minutos para completarla. (Omitible: Puedes posponer 1 hora).`
+        : `¡NO OMITIBLE! Tienes ${mins} minutos. Si no la completas, ¡hay penitencia!`;
+
+    emitirNotificacionQuest(tituloNotif, cuerpoNotif, true, 'quest-' + q.id);
+
+    // 3. Locución por voz si existe y está habilitado el sintetizador
+    if ('speechSynthesis' in window && localStorage.getItem('monarca_jarvis_tts') !== 'false') {
+        try {
+            var msg = new SpeechSynthesisUtterance(
+                esOmitible
+                    ? `Atención Gabriel. Se ha activado la quest: ${q.titulo}. Tienes ${mins} minutos.`
+                    : `Alerta máxima. Quest obligatoria activada: ${q.titulo}. Tienes ${mins} minutos. No se puede omitir.`
+            );
+            msg.lang = 'es-ES';
+            msg.rate = 1.05;
+            window.speechSynthesis.speak(msg);
+        } catch(e) {}
+    }
+
+    // 4. Modal en primer plano si la PWA está abierta
+    var modal = document.getElementById('modal-alerta-quest-activada');
+    if (!modal) return;
+
+    var header = document.getElementById('modal-alerta-quest-header');
+    var icono = document.getElementById('modal-alerta-quest-icono');
+    var tipoBadge = document.getElementById('modal-alerta-quest-tipo-badge');
+    var tagEstado = document.getElementById('modal-alerta-quest-estado-tag');
+    var txtTitulo = document.getElementById('modal-alerta-quest-titulo');
+    var txtTimer = document.getElementById('modal-alerta-quest-timer');
+    var txtPenitencia = document.getElementById('modal-alerta-quest-penitencia-aviso');
+    var txtAviso = document.getElementById('modal-alerta-quest-aviso-omitible');
+    var contAcciones = document.getElementById('modal-alerta-quest-acciones');
+
+    if (header) {
+        header.style.background = esOmitible ? '#111827' : '#991b1b';
+    }
+    if (icono) icono.textContent = esOmitible ? '⚔️' : '🚨';
+    if (tipoBadge) {
+        tipoBadge.textContent = esOmitible
+            ? (esReactivacion ? '¡HORA DE GRACIA TERMINADA!' : '¡QUEST DIARIA ACTIVADA!')
+            : '¡QUEST OBLIGATORIA (NO OMITIBLE)!';
+    }
+
+    if (tagEstado) {
+        tagEstado.innerHTML = esOmitible
+            ? `<span class="qd-badge" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 11px;">⏳ Quest Omitible</span>`
+            : `<span class="qd-badge qd-badge-danger" style="font-size: 11.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;">🚨 OBLIGATORIA · PENITENCIA EN JUEGO</span>`;
+    }
+
+    if (txtTitulo) txtTitulo.textContent = q.titulo;
+    if (txtTimer) txtTimer.textContent = formatearSegundos(q.tiempoRestante || mins * 60);
+    if (txtPenitencia) {
+        txtPenitencia.textContent = `💀 Penitencia si no cumples a tiempo: ${q.penitencia || '30 Flexiones inmediatas'}`;
+    }
+
+    if (txtAviso) {
+        txtAviso.innerHTML = esOmitible
+            ? `Esta quest te permite <strong>posponer por 1 hora</strong> si no puedes realizarla ahora. Si la pospones, volverá a sonar exactamente en 1 hora.`
+            : `<strong style="color: #991b1b;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El tiempo ya comenzó a rodar. Si se agota el cronómetro, se te aplicará la penitencia y perderás 30 EXP.`;
+    }
+
+    if (contAcciones) {
+        if (esOmitible) {
+            contAcciones.innerHTML = `
+                <button type="button" class="btn-qd-omit" style="flex: 1; padding: 10px 14px; font-size: 12.5px; justify-content: center;" onclick="posponerQuestUnaHora('${q.id}')">
+                    ⏸️ Omitir (Sonar en 1 hora)
+                </button>
+                <button type="button" class="btn-system" style="flex: 1; padding: 10px 14px; font-size: 12.5px; justify-content: center; background: #111827; color: #ffffff;" onclick="cerrarAlertaQuestActivada()">
+                    ⚔️ ¡Aceptar y Empezar!
+                </button>
+            `;
+        } else {
+            contAcciones.innerHTML = `
+                <button type="button" class="btn-system" style="width: 100%; padding: 12px 18px; font-size: 13.5px; font-weight: 800; justify-content: center; background: #991b1b; color: #ffffff;" onclick="cerrarAlertaQuestActivada()">
+                    ⚔️ ¡Comenzar Ahora Mismo! (Tiempo Rodando)
+                </button>
+            `;
+        }
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarAlertaQuestActivada() {
+    var modal = document.getElementById('modal-alerta-quest-activada');
+    if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Pospone una quest omitible por 1 hora
+ */
+function posponerQuestUnaHora(id) {
+    if (!APP_STATE.questsDiarios) return;
+    var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
+    if (!q) return;
+
+    if (q.esOmitible === false) {
+        alert("⚠️ Esta quest fue configurada como NO OMITIBLE. No es posible posponerla. ¡El tiempo está corriendo!");
+        return;
+    }
+
+    var ahoraMs = Date.now();
+    q.estado = 'pospuesta';
+    q.temporizadorActivo = false;
+    q.pospuestaHasta = ahoraMs + (60 * 60 * 1000); // 1 hora exacta
+
+    var proximaHora = new Date(q.pospuestaHasta).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    MonarcaDB.save(APP_STATE);
+    cerrarAlertaQuestActivada();
+    renderizarQuestsDiarios();
+
+    alert(`✓ Quest pospuesta por 1 hora.
+
+• Tarea: "${q.titulo}"
+• Volverá a sonar y activar el cronómetro a las ${proximaHora}.`);
+}
+
+/**
+ * Carga e inicialización de Quests Diarios
+ */
 function cargarQuestsDiarios() {
     if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios)) {
         APP_STATE.questsDiarios = [];
     }
 
+    actualizarBotonNotificacionesUI();
     verificarPenalizacionesPendientes();
     renderizarQuestsDiarios();
     iniciarLoopQuestsDiarios();
 }
 
+/**
+ * Loop en vivo de temporizadores, activaciones programadas y penitencias
+ */
 function iniciarLoopQuestsDiarios() {
-    if (LOOP_QUESTS_DIARIOS_INTERVAL) return; // Ya está corriendo
+    if (LOOP_QUESTS_DIARIOS_INTERVAL) return;
 
     LOOP_QUESTS_DIARIOS_INTERVAL = setInterval(function() {
         if (!APP_STATE.questsDiarios) return;
         var huboCambios = false;
 
+        var ahora = new Date();
+        var horaAct = ahora.getHours();
+        var minAct = ahora.getMinutes();
+        var horaActStr = (horaAct < 10 ? '0' : '') + horaAct + ':' + (minAct < 10 ? '0' : '') + minAct;
+        var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : ahora.toISOString().split('T')[0];
+        var ahoraMs = Date.now();
+
         APP_STATE.questsDiarios.forEach(function(q) {
-            // Manejo de temporizador activo
-            if (q.temporizadorActivo && (q.estado === 'en_progreso' || q.estado === 'pendiente')) {
+            // 1. ACTIVACIÓN PROGRAMADA (A una hora específica del día)
+            if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
+                if (horaActStr >= q.horaActivacion && q.ultimaActivacionFecha !== hoyStr) {
+                    q.ultimaActivacionFecha = hoyStr;
+                    q.estado = 'en_progreso';
+                    q.temporizadorActivo = true;
+                    q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                    emitirAlertaQuestActivada(q, false);
+                    huboCambios = true;
+                }
+            }
+
+            // 2. REACTIVACIÓN DE QUEST POSPUESTA (Cumplida la hora de gracia)
+            if (q.estado === 'pospuesta' && q.pospuestaHasta) {
+                if (ahoraMs >= q.pospuestaHasta) {
+                    q.pospuestaHasta = null;
+                    q.estado = 'en_progreso';
+                    q.temporizadorActivo = true;
+                    q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                    emitirAlertaQuestActivada(q, true);
+                    huboCambios = true;
+                }
+            }
+
+            // 3. MANEJO DE TEMPORIZADOR ACTIVO
+            if (q.temporizadorActivo && q.estado === 'en_progreso') {
                 if (q.tiempoRestante > 0) {
                     q.tiempoRestante--;
                     // Actualizar el DOM en vivo si existe
                     var elTimer = document.getElementById('timer-val-' + q.id);
                     var elBarra = document.getElementById('timer-bar-' + q.id);
-                    if (elTimer) elTimer.innerText = formatearSegundos(q.tiempoRestante);
+                    var elModalTimer = document.getElementById('modal-alerta-quest-timer');
+                    var tiempoStr = formatearSegundos(q.tiempoRestante);
+
+                    if (elTimer) elTimer.innerText = tiempoStr;
+                    if (elModalTimer) elModalTimer.innerText = tiempoStr;
+
                     if (elBarra) {
                         var totalSegs = (q.tiempoMinutos || 15) * 60;
                         var pct = Math.max(0, Math.min(100, Math.round((q.tiempoRestante / totalSegs) * 100)));
@@ -767,12 +1064,13 @@ function iniciarLoopQuestsDiarios() {
                 } else {
                     // ¡TIEMPO EXPIRADO! Activar penitencia automática
                     q.temporizadorActivo = false;
+                    cerrarAlertaQuestActivada();
                     aplicarPenalizacionAutomatica(q);
                     huboCambios = true;
                 }
             }
 
-            // Manejo de hora límite vencida si sigue pendiente
+            // 4. MANEJO DE HORA LÍMITE VENCIDA SI SIGUE PENDIENTE
             if (q.tipoTiempo === 'hora_limite' && q.estado === 'pendiente' && q.horaLimite) {
                 if (esHoraLimiteSuperada(q.horaLimite)) {
                     aplicarPenalizacionAutomatica(q);
@@ -830,10 +1128,23 @@ function aplicarPenalizacionAutomatica(q) {
     restarExp(30);
     MonarcaDB.save(APP_STATE);
 
+    reproducirAlarmaQuest(true);
+    emitirNotificacionQuest(
+        "💀 ¡PENITENCIA ACTIVADA!",
+        `Expiró el tiempo de: "${q.titulo}". Castigo: ${q.penitencia || '30 Flexiones'}. Se dedujeron -30 EXP.`,
+        true,
+        'penitencia-' + q.id
+    );
+
     setTimeout(function() {
-        alert("⚠️ ¡ALERTA DEL SISTEMA: QUEST DIARIA NO COMPLETADA A TIEMPO!\n\n" +
-              "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.\n\n" +
-              "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + (q.penitencia || "30 Flexiones inmediatas") + "\n" +
+        alert("⚠️ ¡ALERTA DEL SISTEMA: QUEST DIARIA NO COMPLETADA A TIEMPO!
+
+" +
+              "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.
+
+" +
+              "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + (q.penitencia || "30 Flexiones inmediatas") + "
+" +
               "Se han deducido -30 EXP por quiebre de disciplina.");
         renderizarQuestsDiarios();
     }, 100);
@@ -904,7 +1215,7 @@ function renderizarQuestsDiarios() {
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⏳</span>
             <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes quests diarias configuradas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                Agrega tus hábitos y rutinas matutinas con un tiempo asignado y una penitencia automática si no los cumples.
+                Agrega tus hábitos y rutinas matutinas con una hora programada de activación, cronómetro y penitencia si no las cumples.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
                 ➕ Crear Primera Quest Diaria
@@ -919,6 +1230,8 @@ function renderizarQuestsDiarios() {
         var esCompletada = (q.estado === 'completada');
         var esPenitenciaCumplida = (q.estado === 'penitencia_cumplida');
         var esEnProgreso = (q.estado === 'en_progreso' || q.temporizadorActivo);
+        var esPospuesta = (q.estado === 'pospuesta');
+        var esOmitible = (q.esOmitible !== false);
 
         var cardClass = 'quest-diario-card';
         if (esPenalizada) cardClass += ' penalizada';
@@ -930,27 +1243,40 @@ function renderizarQuestsDiarios() {
         if (esPenalizada) badgeEstado = '<span class="qd-badge qd-badge-danger">💀 PENALIZADA</span>';
         else if (esCompletada) badgeEstado = '<span class="qd-badge qd-badge-success">✓ COMPLETADA A TIEMPO</span>';
         else if (esPenitenciaCumplida) badgeEstado = '<span class="qd-badge qd-badge-neutral">✓ PENITENCIA CUMPLIDA</span>';
-        else if (esEnProgreso) badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ EN CURSO</span>';
+        else if (esEnProgreso) badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
+        else if (esPospuesta) {
+            var minPosp = q.pospuestaHasta ? Math.max(1, Math.round((q.pospuestaHasta - Date.now()) / 60000)) : 60;
+            badgeEstado = `<span class="qd-badge" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
+        }
         else badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
+
+        // Badge de Omitible vs No Omitible
+        var badgeOmitible = esOmitible
+            ? `<span class="qd-badge" style="background: #f3f4f6; color: #4b5563; font-size: 10.5px;">⏳ Omitible</span>`
+            : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;">🚨 NO OMITIBLE</span>`;
 
         // Sección de tiempo asignado
         var bloqueTiempo = '';
-        if (q.tipoTiempo === 'duracion') {
+        if (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion') {
             var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
             var tiempoStr = formatearSegundos(segsRest);
             var totalSegs = (q.tiempoMinutos || 15) * 60;
             var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
 
+            var labelTiempo = (q.tipoTiempo === 'programada')
+                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN)`
+                : `⏱️ TIEMPO ASIGNADO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
+
             bloqueTiempo = `
             <div style="margin-top: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
-                    <span style="color: #4b5563; font-weight: 600;">⏱️ TIEMPO ASIGNADO: <strong>${q.tiempoMinutos || 15} MIN</strong></span>
+                    <span style="color: #4b5563; font-weight: 600;">${labelTiempo}</span>
                     <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 14px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#2563eb' : '#111827')};">
                         ${tiempoStr}
                     </span>
                 </div>
                 <div style="background: #e5e7eb; height: 6px; border-radius: 9999px; overflow: hidden;">
-                    <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : '#10b981'}; transition: width 0.3s ease;"></div>
+                    <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')}; transition: width 0.3s ease;"></div>
                 </div>
             </div>`;
         } else {
@@ -978,10 +1304,24 @@ function renderizarQuestsDiarios() {
             <button class="btn-qd-action btn-qd-done" disabled>
                 ✓ Penitencia Saldada
             </button>`;
+        } else if (esPospuesta) {
+            botonesAccion = `
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">
+                    ▶️ Empezar Ahora
+                </button>
+                <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
+                    ✓ Completar Quest
+                </button>
+            </div>`;
         } else {
             // Pendiente o en progreso
+            var btnOmit = (esEnProgreso && esOmitible)
+                ? `<button type="button" class="btn-qd-omit" onclick="posponerQuestUnaHora('${q.id}')" title="Posponer 1 hora">⏸️ Omitir (1h)</button>`
+                : '';
+
             var btnTimer = '';
-            if (q.tipoTiempo === 'duracion') {
+            if (q.tipoTiempo === 'duracion' || q.tipoTiempo === 'programada') {
                 if (q.temporizadorActivo) {
                     btnTimer = `<button class="btn-qd-timer btn-qd-pause" onclick="pausarTemporizadorQuest('${q.id}')">⏸ Pausar</button>`;
                 } else {
@@ -990,7 +1330,8 @@ function renderizarQuestsDiarios() {
             }
 
             botonesAccion = `
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                ${btnOmit}
                 ${btnTimer}
                 <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
                     ✓ Completar Quest
@@ -1002,9 +1343,10 @@ function renderizarQuestsDiarios() {
         <div class="${cardClass}">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                 <div style="flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
                         <span class="qd-category-badge">${q.categoria || '🌅 Rutina'}</span>
                         ${badgeEstado}
+                        ${badgeOmitible}
                     </div>
                     ${(q.atributos && q.atributos.length > 0) ? `
                         <div class="atributos-chips-container" style="margin-bottom: 6px;">
@@ -1053,6 +1395,7 @@ function iniciarTemporizadorQuest(id) {
 
     q.temporizadorActivo = true;
     q.estado = 'en_progreso';
+    q.pospuestaHasta = null;
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
 }
@@ -1079,6 +1422,7 @@ function completarQuestDiaria(id) {
 
     q.estado = 'completada';
     q.temporizadorActivo = false;
+    q.pospuestaHasta = null;
     sumarExp(q.exp || 40);
 
     if (q.atributos && q.atributos.length > 0) {
@@ -1086,12 +1430,15 @@ function completarQuestDiaria(id) {
     }
 
     MonarcaDB.save(APP_STATE);
+    cerrarAlertaQuestActivada();
 
     var detalleAtrs = (q.atributos && q.atributos.length > 0)
-        ? "\nDesarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(', ')
+        ? "
+Desarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(', ')
         : "";
 
-    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
+    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.
++" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
     renderizarQuestsDiarios();
 }
 
@@ -1101,11 +1448,14 @@ function cumplirPenitenciaQuest(id) {
     if (!q) return;
 
     var castigo = q.penitencia || "30 Flexiones";
-    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?\n\n\"" + castigo + "\"");
+    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?
+
+"" + castigo + """);
     if (!confirma) return;
 
     q.estado = 'penitencia_cumplida';
     q.temporizadorActivo = false;
+    q.pospuestaHasta = null;
     MonarcaDB.save(APP_STATE);
 
     alert("⚔️ ¡PENITENCIA CUMPLIDA! Has saldado tu falta con honor y templanza.");
@@ -1131,6 +1481,8 @@ function reiniciarCicloQuestsDiarios() {
         q.estado = 'pendiente';
         q.temporizadorActivo = false;
         q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+        q.pospuestaHasta = null;
+        q.ultimaActivacionFecha = null;
     });
 
     MonarcaDB.save(APP_STATE);
@@ -1139,24 +1491,38 @@ function reiniciarCicloQuestsDiarios() {
 }
 
 function abrirModalNuevaQuestDiaria() {
+    solicitarPermisoNotificaciones(false);
+
     ATRIBUTOS_MODAL_TEMP.quest = [];
     poblarSelectAtributos('quest');
     renderizarFilasAtributos('quest');
 
     var inNom = document.getElementById('modal-qd-nombre');
     var inMin = document.getElementById('modal-qd-minutos');
+    var inHoraAct = document.getElementById('modal-qd-hora-activacion');
+    var inHoraLim = document.getElementById('modal-qd-hora');
     var inExp = document.getElementById('modal-qd-exp');
     var inPenCustom = document.getElementById('modal-qd-penitencia-custom');
     var selPen = document.getElementById('modal-qd-penitencia-select');
+    var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
+    var chkOmit = document.getElementById('modal-qd-es-omitible');
 
     if (inNom) inNom.value = '';
+    if (selTipoT) selTipoT.value = 'programada';
+    if (inHoraAct) inHoraAct.value = '08:00';
     if (inMin) inMin.value = '15';
+    if (inHoraLim) inHoraLim.value = '23:59';
     if (inExp) inExp.value = '40';
+    if (chkOmit) chkOmit.checked = true;
+
     if (inPenCustom) {
         inPenCustom.value = '';
         inPenCustom.style.display = 'none';
     }
     if (selPen) selPen.value = '30 Flexiones inmediatas';
+
+    toggleTipoTiempoQuestModal();
+    alCambiarOmitibleQuestModal();
 
     var m = document.getElementById('modal-nueva-quest-diaria');
     if (m) m.style.display = 'flex';
@@ -1169,16 +1535,47 @@ function cerrarModalNuevaQuestDiaria() {
 
 function toggleTipoTiempoQuestModal() {
     var sel = document.getElementById('modal-qd-tipo-tiempo');
+    var grpHoraAct = document.getElementById('grupo-qd-hora-activacion');
     var grpDur = document.getElementById('grupo-qd-duracion');
     var grpHora = document.getElementById('grupo-qd-hora');
 
-    if (!sel || !grpDur || !grpHora) return;
-    if (sel.value === 'duracion') {
-        grpDur.style.display = 'block';
-        grpHora.style.display = 'none';
+    if (!sel) return;
+    var val = sel.value;
+
+    if (val === 'programada') {
+        if (grpHoraAct) grpHoraAct.style.display = 'block';
+        if (grpDur) grpDur.style.display = 'block';
+        if (grpHora) grpHora.style.display = 'none';
+    } else if (val === 'duracion') {
+        if (grpHoraAct) grpHoraAct.style.display = 'none';
+        if (grpDur) grpDur.style.display = 'block';
+        if (grpHora) grpHora.style.display = 'none';
+    } else if (val === 'hora_limite') {
+        if (grpHoraAct) grpHoraAct.style.display = 'none';
+        if (grpDur) grpDur.style.display = 'none';
+        if (grpHora) grpHora.style.display = 'block';
+    }
+}
+
+function toggleCheckboxOmitibleQuest(e) {
+    var chk = document.getElementById('modal-qd-es-omitible');
+    if (!chk) return;
+    if (e && e.target === chk) return;
+    chk.checked = !chk.checked;
+    alCambiarOmitibleQuestModal();
+}
+
+function alCambiarOmitibleQuestModal() {
+    var chk = document.getElementById('modal-qd-es-omitible');
+    var desc = document.getElementById('modal-qd-desc-omitible');
+    if (!chk || !desc) return;
+
+    if (chk.checked) {
+        desc.innerHTML = '<strong>Omitible (Activado):</strong> Si no puedes realizarla al sonar, podrás posponerla por 1 hora. Volverá a sonar exactamente en 1 hora.';
+        desc.style.color = '#6b7280';
     } else {
-        grpDur.style.display = 'none';
-        grpHora.style.display = 'block';
+        desc.innerHTML = '<strong style="color: #991b1b;">🚨 OBLIGATORIA (No Omitible):</strong> Aparecerá en el momento junto con la notificación y NO se puede posponer. Si no se completa a tiempo, ¡hay penitencia obligatoria!';
+        desc.style.color = '#991b1b';
     }
 }
 
@@ -1199,8 +1596,10 @@ function confirmarAgregarQuestDiaria() {
     var inNom = document.getElementById('modal-qd-nombre');
     var selCat = document.getElementById('modal-qd-categoria');
     var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
+    var inHoraAct = document.getElementById('modal-qd-hora-activacion');
     var inMin = document.getElementById('modal-qd-minutos');
     var inHora = document.getElementById('modal-qd-hora');
+    var chkOmit = document.getElementById('modal-qd-es-omitible');
     var selPen = document.getElementById('modal-qd-penitencia-select');
     var inPenCustom = document.getElementById('modal-qd-penitencia-custom');
     var inExp = document.getElementById('modal-qd-exp');
@@ -1212,9 +1611,11 @@ function confirmarAgregarQuestDiaria() {
     }
 
     var categoria = selCat ? selCat.value : '🌅 Rutina Matutina';
-    var tipoTiempo = selTipoT ? selTipoT.value : 'duracion';
+    var tipoTiempo = selTipoT ? selTipoT.value : 'programada';
+    var horaActivacion = inHoraAct ? inHoraAct.value : '08:00';
     var minutos = inMin ? (parseInt(inMin.value, 10) || 15) : 15;
-    var horaLimite = inHora ? inHora.value : '08:30';
+    var horaLimite = inHora ? inHora.value : '23:59';
+    var esOmitible = chkOmit ? chkOmit.checked : true;
 
     var penitencia = '30 Flexiones inmediatas';
     if (selPen) {
@@ -1238,14 +1639,18 @@ function confirmarAgregarQuestDiaria() {
         titulo: nombre,
         categoria: categoria,
         tipoTiempo: tipoTiempo,
+        horaActivacion: horaActivacion,
         tiempoMinutos: minutos,
         horaLimite: horaLimite,
+        esOmitible: esOmitible,
         penitencia: penitencia,
         exp: exp,
         atributos: listaAtrsQ,
         estado: 'pendiente',
         tiempoRestante: minutos * 60,
-        temporizadorActivo: false
+        temporizadorActivo: false,
+        ultimaActivacionFecha: null,
+        pospuestaHasta: null
     };
 
     APP_STATE.questsDiarios.push(nuevaQ);
@@ -1253,9 +1658,16 @@ function confirmarAgregarQuestDiaria() {
 
     cerrarModalNuevaQuestDiaria();
     renderizarQuestsDiarios();
+
+    // Solicitar permiso de notificaciones de forma amistosa si es programada
+    if (tipoTiempo === 'programada' && 'Notification' in window && Notification.permission !== 'granted') {
+        setTimeout(function() {
+            solicitarPermisoNotificaciones(false);
+        }, 300);
+    }
 }
 
-// ==========================================================================
+
 // 4. CONTROLADOR DE PESTAÑAS: ACCIONES Y DESARROLLO (6 MÓDULOS UNIFICADOS)
 // ==========================================================================
 

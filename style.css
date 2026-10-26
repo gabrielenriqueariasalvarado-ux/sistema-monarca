@@ -4589,3 +4589,29 @@
         height: 46px;
     }
 }
+
+/* Botón de Omitir / Posponer Quests */
+.btn-qd-omit {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #4b5563;
+    padding: 7px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-qd-omit:hover {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #9ca3af;
+}
+
+.btn-qd-omit:active {
+    transform: scale(0.97);
+}
