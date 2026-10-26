@@ -453,9 +453,58 @@ function inicializarSistema() {
     if (typeof renderizarDesgloseCuerpoAnatomico === 'function') renderizarDesgloseCuerpoAnatomico();
     if (typeof renderizarDesgloseMenteCognitiva === 'function') renderizarDesgloseMenteCognitiva();
     inicializarBancoDeIdeas();
+
+    // Historial inicial para soporte del botón atrás en móvil / PWA
+    try {
+        if (!history.state || !history.state.vista) {
+            history.replaceState({ vista: 'vista-menu' }, '', '#vista-menu');
+        }
+    } catch(e) {}
+    window.VISTA_ACTUAL = 'vista-menu';
 }
 
-function cambiarVista(vistaId) {
+window.VISTA_ACTUAL = 'vista-menu';
+
+function cambiarVista(vistaId, noPushState) {
+    if (!vistaId) return;
+
+    // Redirecciones de conveniencia hacia pestañas internas
+    if (vistaId === 'vista-misiones') {
+        cambiarVista('vista-acciones-progresion', noPushState);
+        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos');
+        return;
+    }
+    if (vistaId === 'vista-quests-diarios') {
+        cambiarVista('vista-acciones-progresion', noPushState);
+        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests');
+        return;
+    }
+    if (vistaId === 'vista-habilidades') {
+        cambiarVista('vista-acciones-progresion', noPushState);
+        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
+        return;
+    }
+    if (vistaId === 'vista-mente') {
+        cambiarVista('vista-acciones-progresion', noPushState);
+        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('gimnasio');
+        return;
+    }
+    if (vistaId === 'vista-gym') {
+        cambiarVista('vista-ejercicios', noPushState);
+        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
+        return;
+    }
+
+    var vistaAnterior = window.VISTA_ACTUAL || 'vista-menu';
+    window.VISTA_ACTUAL = vistaId;
+
+    // Manejo de historial para soporte nativo del botón de retroceso (Android / Gesture navigation)
+    if (!noPushState && vistaId !== vistaAnterior) {
+        try {
+            history.pushState({ vista: vistaId }, '', '#' + vistaId);
+        } catch(e) {}
+    }
+
     var tabs = document.getElementsByClassName('tab-content');
     for (var i = 0; i < tabs.length; i++) {
         tabs[i].classList.remove('active');
@@ -480,26 +529,6 @@ function cambiarVista(vistaId) {
                 cambiarTabAccionesDesarrollo(tabAD);
             }
             break;
-        case 'vista-misiones':
-            cambiarVista('vista-acciones-progresion');
-            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos');
-            return;
-        case 'vista-quests-diarios':
-            cambiarVista('vista-acciones-progresion');
-            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests');
-            return;
-        case 'vista-habilidades':
-            cambiarVista('vista-acciones-progresion');
-            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
-            return;
-        case 'vista-mente':
-            cambiarVista('vista-acciones-progresion');
-            if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('gimnasio');
-            return;
-        case 'vista-gym':
-            cambiarVista('vista-ejercicios');
-            if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
-            return;
         case 'vista-ejercicios':
             cargarEjercicios();
             break;
@@ -532,6 +561,36 @@ function cambiarVista(vistaId) {
             break;
     }
 }
+
+// Manejador del botón retroceder de Android / gesto atrás en PWA
+window.addEventListener('popstate', function(event) {
+    // 1. Si hay algún modal abierto, cerrarlo prioritariamente antes de salir
+    var modales = document.querySelectorAll('.modal-overlay, #modal-jarvis-voz, #modal-asistente-rapido');
+    var modalAbierto = null;
+    for (var i = 0; i < modales.length; i++) {
+        var m = modales[i];
+        if (m && m.style && m.style.display && m.style.display !== 'none') {
+            modalAbierto = m;
+            break;
+        }
+    }
+
+    if (modalAbierto) {
+        modalAbierto.style.display = 'none';
+        if (typeof detenerEscuchaJarvis === 'function') {
+            try { detenerEscuchaJarvis(); } catch(e) {}
+        }
+        // Restaurar estado en historial para mantener alineada la vista actual
+        try {
+            history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+        } catch(e) {}
+        return;
+    }
+
+    // 2. Si no hay modal abierto, navegar hacia la vista destino del historial
+    var destino = (event.state && event.state.vista) ? event.state.vista : 'vista-menu';
+    cambiarVista(destino, true);
+});
 
 function verificarRecuperacionMentalDiaria() {
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') {

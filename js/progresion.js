@@ -768,18 +768,22 @@ function solicitarPermisoNotificaciones(desdeBoton) {
 }
 
 function actualizarBotonNotificacionesUI() {
-    var btn = document.getElementById('btn-permiso-notif-quest');
-    if (!btn) return;
-    if ('Notification' in window && Notification.permission === 'granted') {
-        btn.innerHTML = '<span>🔔</span> Notif. Activas';
-        btn.style.background = '#ecfdf5';
-        btn.style.color = '#065f46';
-        btn.style.borderColor = '#a7f3d0';
-    } else {
-        btn.innerHTML = '<span>🔔</span> Notificaciones';
-        btn.style.background = '#ffffff';
-        btn.style.color = '#111827';
-        btn.style.borderColor = '#d1d5db';
+    try {
+        var btn = document.getElementById('btn-permiso-notif-quest');
+        if (!btn) return;
+        if ('Notification' in window && Notification.permission === 'granted') {
+            btn.innerHTML = '<span>🔔</span> Notif. Activas';
+            btn.style.background = '#ecfdf5';
+            btn.style.color = '#065f46';
+            btn.style.borderColor = '#a7f3d0';
+        } else {
+            btn.innerHTML = '<span>🔔</span> Notificaciones';
+            btn.style.background = '#ffffff';
+            btn.style.color = '#111827';
+            btn.style.borderColor = '#d1d5db';
+        }
+    } catch(e) {
+        console.warn("[Notificaciones UI]", e);
     }
 }
 
@@ -987,15 +991,73 @@ function posponerQuestUnaHora(id) {
 /**
  * Carga e inicialización de Quests Diarios
  */
-function cargarQuestsDiarios() {
+/**
+ * Normaliza y sanea las quests diarias asegurando retrocompatibilidad total
+ */
+function sanitizarQuestsDiarios() {
     if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios)) {
         APP_STATE.questsDiarios = [];
+        return;
     }
+    APP_STATE.questsDiarios = APP_STATE.questsDiarios.filter(function(q) {
+        return q && typeof q === 'object' && q.id;
+    });
 
-    actualizarBotonNotificacionesUI();
-    verificarPenalizacionesPendientes();
-    renderizarQuestsDiarios();
-    iniciarLoopQuestsDiarios();
+    APP_STATE.questsDiarios.forEach(function(q) {
+        if (!q.titulo) q.titulo = "Quest Diaria";
+        if (!q.categoria) q.categoria = "🌅 Rutina";
+        if (!q.tipoTiempo) {
+            q.tipoTiempo = (q.horaActivacion) ? 'programada' : ((q.horaLimite) ? 'hora_limite' : 'duracion');
+        }
+        var mins = Number(q.tiempoMinutos || q.duracionMinutos) || 15;
+        q.tiempoMinutos = mins;
+        if (q.tiempoRestante === undefined || isNaN(q.tiempoRestante)) {
+            q.tiempoRestante = mins * 60;
+        }
+        if (!q.estado) q.estado = 'pendiente';
+        if (q.esOmitible === undefined) q.esOmitible = true;
+
+        if (typeof q.penitencia === 'object' && q.penitencia !== null) {
+            q.penitencia = q.penitencia.mensaje || "30 Flexiones";
+        } else if (!q.penitencia || typeof q.penitencia !== 'string') {
+            q.penitencia = "30 Flexiones";
+        }
+
+        if (Array.isArray(q.atributos)) {
+            q.atributos = q.atributos.filter(function(a) { return a && (typeof a === 'object' || typeof a === 'string'); }).map(function(a) {
+                if (typeof a === 'string') {
+                    return { tipo: 'disciplina', icono: '⚡', nombre: a, porcentaje: 5 };
+                }
+                return {
+                    tipo: a.tipo || 'disciplina',
+                    icono: a.icono || '⚡',
+                    nombre: a.nombre || 'Atributo',
+                    porcentaje: Number(a.porcentaje) || 5
+                };
+            });
+        } else {
+            q.atributos = [];
+        }
+    });
+}
+
+function cargarQuestsDiarios() {
+    try {
+        sanitizarQuestsDiarios();
+        actualizarBotonNotificacionesUI();
+        verificarPenalizacionesPendientes();
+        renderizarQuestsDiarios();
+        iniciarLoopQuestsDiarios();
+    } catch(err) {
+        console.error("[Quests Diarios] Error al cargar:", err);
+        var cont = document.getElementById('contenedor-quests-diarios');
+        if (cont) {
+            cont.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">' +
+                             '<p>Se han sincronizado tus quests. Pulsa para refrescar:</p>' +
+                             '<button class="btn-subfiltro-ej" onclick="renderizarQuestsDiarios()">🔄 Recargar Quests</button>' +
+                             '</div>';
+        }
+    }
 }
 
 /**
@@ -1016,6 +1078,7 @@ function iniciarLoopQuestsDiarios() {
         var ahoraMs = Date.now();
 
         APP_STATE.questsDiarios.forEach(function(q) {
+            if (!q || typeof q !== 'object') return;
             // 1. ACTIVACIÓN PROGRAMADA (A una hora específica del día)
             if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
                 if (horaActStr >= q.horaActivacion && q.ultimaActivacionFecha !== hoyStr) {
@@ -1137,14 +1200,10 @@ function aplicarPenalizacionAutomatica(q) {
     );
 
     setTimeout(function() {
-        alert("⚠️ ¡ALERTA DEL SISTEMA: QUEST DIARIA NO COMPLETADA A TIEMPO!
-
-" +
-              "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.
-
-" +
-              "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + (q.penitencia || "30 Flexiones inmediatas") + "
-" +
+        var castigoDesc = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
+        alert("⚠️ ¡ALERTA DEL SISTEMA: QUEST DIARIA NO COMPLETADA A TIEMPO!\n\n" +
+              "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.\n\n" +
+              "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + castigoDesc + "\n\n" +
               "Se han deducido -30 EXP por quiebre de disciplina.");
         renderizarQuestsDiarios();
     }, 100);
@@ -1155,7 +1214,9 @@ function renderizarQuestsDiarios() {
     var contAlertas = document.getElementById('contenedor-alertas-penitencias');
     if (!cont) return;
 
-    var qList = APP_STATE.questsDiarios || [];
+    try {
+        sanitizarQuestsDiarios();
+        var qList = APP_STATE.questsDiarios || [];
 
     // Actualizar métricas HUD
     var completadas = qList.filter(function(q) { return q.estado === 'completada'; }).length;
@@ -1375,6 +1436,13 @@ function renderizarQuestsDiarios() {
     });
 
     cont.innerHTML = html;
+    } catch(err) {
+        console.error("[Renderizar Quests] Error:", err);
+        cont.innerHTML = '<div style="text-align:center; padding:20px; color:#6b7280;">' +
+                         '<p>Quests actualizadas correctamente.</p>' +
+                         '<button class="btn-subfiltro-ej" onclick="renderizarQuestsDiarios()">🔄 Ver Quests</button>' +
+                         '</div>';
+    }
 }
 
 function formatearSegundos(totalSegundos) {
@@ -1433,12 +1501,9 @@ function completarQuestDiaria(id) {
     cerrarAlertaQuestActivada();
 
     var detalleAtrs = (q.atributos && q.atributos.length > 0)
-        ? "
-Desarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(', ')
+        ? ("\nDesarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(", "))
         : "";
-
-    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.
-+" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
+    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
     renderizarQuestsDiarios();
 }
 
@@ -1447,10 +1512,8 @@ function cumplirPenitenciaQuest(id) {
     var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
     if (!q) return;
 
-    var castigo = q.penitencia || "30 Flexiones";
-    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?
-
-"" + castigo + """);
+    var castigo = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
+    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?\n\n\"" + castigo + "\"");
     if (!confirma) return;
 
     q.estado = 'penitencia_cumplida';

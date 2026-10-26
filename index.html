@@ -3304,25 +3304,25 @@
 
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=6.7"></script>
-    <script src="js/perfil.js?v=6.7"></script>
-    <script src="js/progresion.js?v=6.7"></script>
-    <script src="js/estado-personal.js?v=6.7"></script>
-    <script src="js/finanzas.js?v=6.7"></script>
-    <script src="js/ideas.js?v=6.7"></script>
-    <script src="js/dinamicas.js?v=6.7"></script>
-    <script src="js/calendario.js?v=6.7"></script>
-    <script src="js/inventario.js?v=6.7"></script>
-    <script src="js/jarvis-voz.js?v=6.7"></script>
+    <script src="js/core.js?v=6.8"></script>
+    <script src="js/perfil.js?v=6.8"></script>
+    <script src="js/progresion.js?v=6.8"></script>
+    <script src="js/estado-personal.js?v=6.8"></script>
+    <script src="js/finanzas.js?v=6.8"></script>
+    <script src="js/ideas.js?v=6.8"></script>
+    <script src="js/dinamicas.js?v=6.8"></script>
+    <script src="js/calendario.js?v=6.8"></script>
+    <script src="js/inventario.js?v=6.8"></script>
+    <script src="js/jarvis-voz.js?v=6.8"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=6.7"></script>
+    <script type="module" src="js/firebase-config.js?v=6.8"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=6.7')
+                navigator.serviceWorker.register('sw.js?v=6.8')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
