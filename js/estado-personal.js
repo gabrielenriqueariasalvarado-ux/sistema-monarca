@@ -1251,21 +1251,40 @@ function cargarEjercicios() {
     cambiarCategoriaEjercicios(CATEGORIA_EJERCICIOS_ACTIVA);
 }
 
+var FILTRO_RUTINAS_ACTIVO = 'todas';
+
+function filtrarTipoRutinas(tipo) {
+    FILTRO_RUTINAS_ACTIVO = tipo || 'todas';
+    var bTodas = document.getElementById('filtro-rutina-todas');
+    var bFis = document.getElementById('filtro-rutina-fisicas');
+    var bMen = document.getElementById('filtro-rutina-mentales');
+    if (bTodas) bTodas.classList.toggle('active', FILTRO_RUTINAS_ACTIVO === 'todas');
+    if (bFis) bFis.classList.toggle('active', FILTRO_RUTINAS_ACTIVO === 'fisicas');
+    if (bMen) bMen.classList.toggle('active', FILTRO_RUTINAS_ACTIVO === 'mentales');
+    renderizarPortalesRutinasEjercicios();
+}
+
 function cambiarCategoriaEjercicios(cat) {
     CATEGORIA_EJERCICIOS_ACTIVA = cat || 'rutinas';
     var btnRut = document.getElementById('btn-cat-rutinas');
     var btnBanco = document.getElementById('btn-cat-banco');
+    var btnMental = document.getElementById('btn-cat-gimnasio-mental');
     var btnHist = document.getElementById('btn-cat-historial');
+
     var secRut = document.getElementById('seccion-categoria-rutinas');
     var secBanco = document.getElementById('seccion-categoria-banco');
+    var secMental = document.getElementById('seccion-categoria-gimnasio-mental');
     var secHist = document.getElementById('seccion-categoria-historial');
     var labelCrear = document.getElementById('label-btn-crear-ej');
 
     if (btnRut) btnRut.classList.remove('active');
     if (btnBanco) btnBanco.classList.remove('active');
+    if (btnMental) btnMental.classList.remove('active');
     if (btnHist) btnHist.classList.remove('active');
+
     if (secRut) secRut.style.display = 'none';
     if (secBanco) secBanco.style.display = 'none';
+    if (secMental) secMental.style.display = 'none';
     if (secHist) secHist.style.display = 'none';
 
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutinas') {
@@ -1276,8 +1295,28 @@ function cambiarCategoriaEjercicios(cat) {
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco') {
         if (btnBanco) btnBanco.classList.add('active');
         if (secBanco) secBanco.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = 'Nuevo Ejercicio';
-        renderizarEjercicios(APP_STATE.ejercicios);
+        if (labelCrear) labelCrear.innerText = (SUBFILTRO_BANCO_ACTIVO === 'mental') ? 'Nuevo Ej. Mental' : 'Nuevo Ej. Físico';
+        if (SUBFILTRO_BANCO_ACTIVO === 'mental') {
+            var contFis = document.getElementById('contenedor-ejercicios');
+            var contMen = document.getElementById('contenedor-ejercicios-cerebrales');
+            if (contFis) contFis.style.display = 'none';
+            if (contMen) contMen.style.display = 'block';
+            renderizarBancoEjerciciosCerebrales();
+        } else {
+            var contFis = document.getElementById('contenedor-ejercicios');
+            var contMen = document.getElementById('contenedor-ejercicios-cerebrales');
+            if (contFis) contFis.style.display = 'block';
+            if (contMen) contMen.style.display = 'none';
+            renderizarEjercicios(APP_STATE.ejercicios);
+        }
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio') {
+        if (btnMental) btnMental.classList.add('active');
+        if (secMental) secMental.style.display = 'block';
+        if (labelCrear) labelCrear.innerText = 'Nuevo Ejercicio Mental';
+        if (typeof renderizarBarraFatigaMentalDiaria === 'function') renderizarBarraFatigaMentalDiaria();
+        if (typeof renderizarMusculosMentales === 'function') renderizarMusculosMentales();
+        if (typeof renderizarProtocolosDeepWork === 'function') renderizarProtocolosDeepWork();
+        if (typeof renderizarMente === 'function') renderizarMente(APP_STATE.salud);
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'historial') {
         if (btnHist) btnHist.classList.add('active');
         if (secHist) secHist.style.display = 'block';
@@ -1288,7 +1327,13 @@ function cambiarCategoriaEjercicios(cat) {
 
 function accionBotonCrearEjercicios() {
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco') {
-        abrirModalNuevoEjercicio();
+        if (SUBFILTRO_BANCO_ACTIVO === 'mental') {
+            abrirModalNuevoEjercicioCerebral();
+        } else {
+            abrirModalNuevoEjercicio();
+        }
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio') {
+        abrirModalNuevoEjercicioCerebral();
     } else {
         abrirModalNuevaRutina();
     }
@@ -1305,7 +1350,7 @@ function renderizarPortalesRutinasEjercicios() {
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">📋</span>
             <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes rutinas creadas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                Arma tus sesiones de entrenamiento seleccionando ejercicios del banco.
+                Arma tus sesiones de entrenamiento físico, cognitivo o híbrido seleccionando ejercicios de tus bancos.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
                 ➕ Crear Primera Rutina
@@ -1314,20 +1359,48 @@ function renderizarPortalesRutinasEjercicios() {
         return;
     }
 
+    var filtradas = rList.map(function(r, i) { return { r: r, idx: i }; }).filter(function(item) {
+        var rut = item.r;
+        var tipo = rut.tipo || 'fisica';
+        if (FILTRO_RUTINAS_ACTIVO === 'fisicas') return (tipo === 'fisica' || tipo === 'gym');
+        if (FILTRO_RUTINAS_ACTIVO === 'mentales') return (tipo === 'mental' || tipo === 'cerebral');
+        return true;
+    });
+
+    if (filtradas.length === 0) {
+        cont.innerHTML = `
+        <div style="text-align: center; padding: 30px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 14px; color: #6b7280; font-size: 13px;">
+            No tienes rutinas en la categoría seleccionada.<br>
+            <button class="btn-subfiltro-ej" onclick="abrirModalNuevaRutina()" style="margin-top: 10px;">➕ Crear Rutina</button>
+        </div>`;
+        return;
+    }
+
     var html = '';
-    rList.forEach(function(rut, idx) {
+    filtradas.forEach(function(item) {
+        var rut = item.r;
+        var idx = item.idx;
+        var esMental = (rut.tipo === 'mental' || rut.tipo === 'cerebral');
+        var esHibrida = (rut.tipo === 'hibrida');
         var numEj = (rut.ejercicios && rut.ejercicios.length) ? rut.ejercicios.length : 0;
         var badgeEj = numEj + (numEj === 1 ? ' Ejercicio' : ' Ejercicios');
-        var rutCodigo = rut.codigo || ('RUT-' + (idx + 1));
-        var cleanRank = (rut.rankLabel || 'SESIÓN').replace(/[^\w\s·-]/gi, '').trim();
+        var rutCodigo = rut.codigo || (esMental ? ('COG-' + (idx + 1)) : (esHibrida ? ('HIB-' + (idx + 1)) : ('RUT-' + (idx + 1))));
+        var cleanRank = (rut.rankLabel || (esMental ? 'MENTAL · ENFOQUE' : (esHibrida ? 'HÍBRIDA · INTEGRAL' : 'SESIÓN DE FUERZA'))).replace(/[^\w\s·-]/gi, '').trim();
+
+        var badgeTipo = esMental ? '<span class="muscle-tag" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; font-weight:700;">🧠 Mental</span>' :
+                        (esHibrida ? '<span class="muscle-tag" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:700;">⚡ Híbrida</span>' :
+                        '<span class="muscle-tag" style="background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; font-weight:700;">🏋️ Física</span>');
+
+        var borderAccent = esMental ? '#2563eb' : (esHibrida ? '#f59e0b' : '#111827');
 
         html += `
-        <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px;">
+        <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid ${borderAccent};">
             <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #111827;">${rutCodigo}</div>
             <div style="flex:1; padding-left: 4px;">
               <span class="quest-badge-rank">${cleanRank}</span>
               <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
               <div class="muscle-tags-row">
+                ${badgeTipo}
                 <span class="muscle-tag">${badgeEj}</span>
                 ${rut.descripcion ? `<span class="muscle-tag" style="background:none; border:none; color:#6b7280;">${rut.descripcion}</span>` : ''}
               </div>
@@ -1344,7 +1417,7 @@ function renderizarPortalesRutinasEjercicios() {
 
 function filtrarSubcategoriaEjercicios(subfiltro) {
     SUBFILTRO_BANCO_ACTIVO = subfiltro;
-    var btns = document.querySelectorAll('.btn-subfiltro-ej');
+    var btns = document.querySelectorAll('#seccion-categoria-banco .btn-subfiltro-ej');
     btns.forEach(function(b) {
         if (b.getAttribute('data-subfiltro') === subfiltro) {
             b.classList.add('active');
@@ -1352,7 +1425,22 @@ function filtrarSubcategoriaEjercicios(subfiltro) {
             b.classList.remove('active');
         }
     });
-    renderizarEjercicios(APP_STATE.ejercicios);
+
+    var contFisicos = document.getElementById('contenedor-ejercicios');
+    var contMentales = document.getElementById('contenedor-ejercicios-cerebrales');
+    var labelCrear = document.getElementById('label-btn-crear-ej');
+
+    if (subfiltro === 'mental') {
+        if (contFisicos) contFisicos.style.display = 'none';
+        if (contMentales) contMentales.style.display = 'block';
+        if (labelCrear) labelCrear.innerText = 'Nuevo Ej. Mental';
+        renderizarBancoEjerciciosCerebrales();
+    } else {
+        if (contFisicos) contFisicos.style.display = 'block';
+        if (contMentales) contMentales.style.display = 'none';
+        if (labelCrear) labelCrear.innerText = 'Nuevo Ej. Físico';
+        renderizarEjercicios(APP_STATE.ejercicios);
+    }
 }
 
 function toggleChipMusculo(btn) {
@@ -1524,21 +1612,24 @@ function cargarGym() {
     renderizarGym(APP_STATE.gym);
 }
 
-function abrirModalNuevaRutina() {
+function actualizarChecklistRutinaSegunTipo(tipo) {
     var contCheck = document.getElementById('modal-rutina-checklist-ejercicios');
-    if (contCheck) {
-        var eList = APP_STATE.ejercicios || [];
-        if (eList.length === 0) {
-            contCheck.innerHTML = `
-            <div style="text-align: center; padding: 18px 10px; color: #6b7280; font-size: 13px;">
-                No tienes ejercicios creados todavía.<br>
-                <a href="javascript:void(0)" onclick="cerrarModalNuevaRutina(); cambiarVista('vista-ejercicios');" style="color: #111827; font-weight: 700; text-decoration: underline; margin-top: 6px; display: inline-block;">
-                    👉 Ir a Banco de Ejercicios
-                </a>
-            </div>`;
+    if (!contCheck) return;
+
+    var tipoSel = tipo || (document.getElementById('modal-rutina-tipo') ? document.getElementById('modal-rutina-tipo').value : 'fisica');
+    var eFisicos = APP_STATE.ejercicios || [];
+    var eMentales = APP_STATE.ejerciciosCerebrales || [];
+
+    var html = '';
+
+    if (tipoSel === 'fisica' || tipoSel === 'hibrida') {
+        if (tipoSel === 'hibrida') {
+            html += '<div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #111827; margin: 4px 0 6px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px;">🏋️ Ejercicios Físicos:</div>';
+        }
+        if (eFisicos.length === 0) {
+            html += '<div style="color: #9ca3af; font-size: 12px; padding: 6px;">No tienes ejercicios físicos creados.</div>';
         } else {
-            var html = '';
-            eList.forEach(function(ej) {
+            eFisicos.forEach(function(ej) {
                 var cats = (ej.categorias || []).join(', ');
                 html += `
                 <label class="modal-checklist-item">
@@ -1549,13 +1640,46 @@ function abrirModalNuevaRutina() {
                     </div>
                 </label>`;
             });
-            contCheck.innerHTML = html;
         }
     }
+
+    if (tipoSel === 'mental' || tipoSel === 'hibrida') {
+        if (tipoSel === 'hibrida') {
+            html += '<div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #2563eb; margin: 12px 0 6px 0; border-bottom: 1px solid #bfdbfe; padding-bottom: 2px;">🧠 Ejercicios Mentales / Cognitivos:</div>';
+        }
+        if (eMentales.length === 0) {
+            html += '<div style="color: #9ca3af; font-size: 12px; padding: 6px;">No tienes ejercicios mentales creados.</div>';
+        } else {
+            eMentales.forEach(function(ec) {
+                var muscP = APP_STATE.musculosMentales && APP_STATE.musculosMentales[ec.musculoPrincipal] ?
+                    (APP_STATE.musculosMentales[ec.musculoPrincipal].icono + ' ' + APP_STATE.musculosMentales[ec.musculoPrincipal].nombre) : (ec.musculoPrincipal || 'Foco');
+                html += `
+                <label class="modal-checklist-item">
+                    <input type="checkbox" name="ejercicios_mentales_rutina_check" value="${ec.id}">
+                    <div style="flex: 1;">
+                        <strong style="color: #1e40af;">🧠 ${ec.nombre}</strong>
+                        <div style="font-size: 11.5px; color: #6b7280;">⏱️ ${ec.duracionMinutos || 15} min · ${muscP} (+${ec.fatigaEstimada || 15}% fatiga SNC · +${ec.expRecompensa || 25} EXP)</div>
+                    </div>
+                </label>`;
+            });
+        }
+    }
+
+    contCheck.innerHTML = html;
+}
+
+function abrirModalNuevaRutina() {
     var inNom = document.getElementById('modal-rutina-nombre');
     var inDesc = document.getElementById('modal-rutina-desc');
+    var inTipo = document.getElementById('modal-rutina-tipo');
+    var inTag = document.getElementById('modal-rutina-tag');
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
+    if (inTipo) inTipo.value = (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || SUBFILTRO_BANCO_ACTIVO === 'mental' || FILTRO_RUTINAS_ACTIVO === 'mentales') ? 'mental' : 'fisica';
+    if (inTag) inTag.value = (inTipo && inTipo.value === 'mental') ? "MENTAL · ENFOQUE" : "DIARIA · FUERZA";
+
+    actualizarChecklistRutinaSegunTipo(inTipo ? inTipo.value : 'fisica');
+
     var m = document.getElementById('modal-nueva-rutina');
     if (m) m.style.display = 'flex';
 }
@@ -1569,35 +1693,69 @@ function confirmarAgregarRutina() {
     var inNom = document.getElementById('modal-rutina-nombre');
     var inDesc = document.getElementById('modal-rutina-desc');
     var inTag = document.getElementById('modal-rutina-tag');
+    var inTipo = document.getElementById('modal-rutina-tipo');
 
     var nom = inNom ? inNom.value.trim() : "";
     var desc = inDesc ? inDesc.value.trim() : "";
-    var tag = inTag ? inTag.value.trim() : "DIARIA · FUERZA";
+    var tag = inTag ? inTag.value.trim() : "DIARIA · SESIÓN";
+    var tipo = inTipo ? inTipo.value : "fisica";
 
     if (!nom) {
         alert("Por favor ingresa un nombre para la rutina.");
         return;
     }
 
-    var checkboxes = document.querySelectorAll('input[name="ejercicios_rutina_check"]:checked');
-    if (checkboxes.length === 0) {
-        alert("Selecciona al menos un ejercicio para esta rutina.");
+    var checkFisicos = document.querySelectorAll('input[name="ejercicios_rutina_check"]:checked');
+    var checkMentales = document.querySelectorAll('input[name="ejercicios_mentales_rutina_check"]:checked');
+
+    if (checkFisicos.length === 0 && checkMentales.length === 0) {
+        alert("Selecciona al menos un ejercicio físico o mental para esta rutina.");
         return;
     }
 
-    var selectedIds = Array.from(checkboxes).map(function(c) { return c.value; });
-    var selectedEjercicios = (APP_STATE.ejercicios || []).filter(function(e) {
-        return selectedIds.includes(String(e.id));
+    var selectedEjercicios = [];
+
+    var idsFisicos = Array.from(checkFisicos).map(function(c) { return c.value; });
+    (APP_STATE.ejercicios || []).forEach(function(e) {
+        if (idsFisicos.includes(String(e.id))) {
+            var item = JSON.parse(JSON.stringify(e));
+            item.esMental = false;
+            selectedEjercicios.push(item);
+        }
+    });
+
+    var idsMentales = Array.from(checkMentales).map(function(c) { return c.value; });
+    (APP_STATE.ejerciciosCerebrales || []).forEach(function(ec) {
+        if (idsMentales.includes(String(ec.id))) {
+            selectedEjercicios.push({
+                id: ec.id,
+                nombre: ec.nombre,
+                esMental: true,
+                tipo: 'mental',
+                series: 1,
+                repeticiones: (ec.duracionMinutos || 15) + ' min',
+                duracionMinutos: ec.duracionMinutos || 15,
+                categorias: ['Mente', ec.musculoPrincipal || 'Foco'],
+                musculoPrincipal: ec.musculoPrincipal,
+                musculoSecundario: ec.musculoSecundario,
+                fatigaEstimada: ec.fatigaEstimada || 15,
+                fatigaPorcentaje: ec.fatigaEstimada || 15,
+                expRecompensa: ec.expRecompensa || 25,
+                protocolo: ec.protocolo || ec.descripcion || 'Foco estructurado'
+            });
+        }
     });
 
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
 
+    var prefix = tipo === 'mental' ? 'COG-' : (tipo === 'hibrida' ? 'HIB-' : 'RUT-');
     var nuevaRutina = {
         id: "RUT-" + Date.now(),
-        codigo: "RUT-" + (APP_STATE.rutinas.length + 1),
+        codigo: prefix + (APP_STATE.rutinas.length + 1),
+        tipo: tipo,
         nombre: nom,
-        descripcion: desc || "Entrenamiento programado",
-        rankLabel: tag,
+        descripcion: desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado"),
+        rankLabel: tag || (tipo === 'mental' ? 'MENTAL · ENFOQUE' : 'DIARIA · SESIÓN'),
         ejercicios: selectedEjercicios
     };
 
@@ -1605,7 +1763,9 @@ function confirmarAgregarRutina() {
     MonarcaDB.save(APP_STATE);
 
     cerrarModalNuevaRutina();
-    renderizarPortalesRutinas(APP_STATE.rutinas);
+    renderizarPortalesRutinasEjercicios();
+    if (typeof renderizarPortalesRutinas === 'function') renderizarPortalesRutinas(APP_STATE.rutinas);
+    alert("✓ Rutina '" + nom + "' guardada con éxito con " + selectedEjercicios.length + " ejercicios.");
 }
 
 function eliminarRutina(idx, event) {
@@ -2143,21 +2303,23 @@ function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
     var html = '';
     if (rutina.ejercicios && rutina.ejercicios.length > 0) {
         rutina.ejercicios.forEach(function(ej, ejIdx) {
+            var esM = !!ej.esMental;
             var muscleList = (ej.categorias || []).join(' · ');
-            var seriesReps = `${ej.series || 4} series · ${ej.repeticiones || '10-12 reps'}`;
+            var seriesReps = esM ? `1 bloque · ${ej.repeticiones || (ej.duracionMinutos + ' min')}` : `${ej.series || 4} series · ${ej.repeticiones || '10-12 reps'}`;
             var ejJson = encodeURIComponent(JSON.stringify(ej));
+            var icono = esM ? '🧠' : '🏋️';
 
             html += `
-            <div class="routine-exercise-clean-row" id="row-ej-${ejIdx}" onclick="alClickFilaEjercicio(event, '${ejJson}', ${ejIdx})">
+            <div class="routine-exercise-clean-row" id="row-ej-${ejIdx}" onclick="alClickFilaEjercicio(event, '${ejJson}', ${ejIdx})" style="${esM ? 'border-left: 3px solid #2563eb;' : ''}">
                 <div class="clean-row-checkbox-box" onclick="toggleCheckEjercicio(event, ${ejIdx})">
                     ✓
                 </div>
                 <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
                 <div class="clean-row-info">
-                    <div class="clean-row-title">${ejIdx + 1}. ${ej.nombre}</div>
+                    <div class="clean-row-title">${ejIdx + 1}. ${icono} ${ej.nombre}</div>
                     <div class="clean-row-meta">${seriesReps} ${muscleList ? '· ' + muscleList : ''}</div>
                 </div>
-                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver técnica y postura">
+                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones">
                     Detalle
                 </button>
             </div>`;
@@ -2314,46 +2476,70 @@ function ejecutarRutinaDinamica() {
 
     if (!APP_STATE.fatiga) APP_STATE.fatiga = DEFAULT_STATE.fatiga;
 
-    // Sumar fatiga a los músculos involucrados según cada ejercicio
+    var tieneMentales = false;
+    var tieneFisicos = false;
+
     if (rutina.ejercicios) {
         rutina.ejercicios.forEach(function(ej) {
-            var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
-            (ej.categorias || []).forEach(function(cat) {
-                var mKeys = MAPA_CATEGORIAS_A_MUSCULOS[cat] || [];
-                mKeys.forEach(function(mKey) {
-                    var actual = Number(APP_STATE.fatiga[mKey]) || 0;
-                    APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
+            if (ej.esMental) {
+                tieneMentales = true;
+                if (typeof sumarExpMusculoMental === 'function' && ej.musculoPrincipal) {
+                    sumarExpMusculoMental(ej.musculoPrincipal, ej.expRecompensa || 25);
+                }
+                var fm = APP_STATE.fatigaMentalDiaria || { nivel: 20 };
+                var delta = Number(ej.fatigaEstimada) || 15;
+                fm.nivel = Math.min(100, Math.max(0, (fm.nivel || 0) + delta));
+                fm.estado = fm.nivel <= 25 ? "Mente Despejada" : (fm.nivel <= 60 ? "Carga Moderada" : (fm.nivel <= 85 ? "Fatiga Elevada" : "Saturación Neural"));
+                APP_STATE.fatigaMentalDiaria = fm;
+            } else {
+                tieneFisicos = true;
+                var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
+                (ej.categorias || []).forEach(function(cat) {
+                    var mKeys = MAPA_CATEGORIAS_A_MUSCULOS[cat] || [];
+                    mKeys.forEach(function(mKey) {
+                        var actual = Number(APP_STATE.fatiga[mKey]) || 0;
+                        APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
+                    });
                 });
-            });
+            }
         });
     }
 
-    // Recalcular promedio de fatiga del cuerpo
-    var keysFatiga = Object.keys(METADATOS_MUSCULOS);
-    var sumaTotal = 0;
-    keysFatiga.forEach(function(k) {
-        sumaTotal += (Number(APP_STATE.fatiga[k]) || 0);
-    });
-    APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
-    APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + rutina.nombre;
+    if (tieneFisicos) {
+        var keysFatiga = Object.keys(METADATOS_MUSCULOS);
+        var sumaTotal = 0;
+        keysFatiga.forEach(function(k) {
+            sumaTotal += (Number(APP_STATE.fatiga[k]) || 0);
+        });
+        APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
+        APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + rutina.nombre;
+    }
 
-    // Registrar en Historial de Gym
     var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
     if (!APP_STATE.gym) APP_STATE.gym = [];
+    var tagTipoHist = tieneMentales && tieneFisicos ? " [HÍBRIDA]" : (tieneMentales ? " [MENTAL]" : " [FÍSICA]");
     APP_STATE.gym.unshift({
         fecha: fechaHoy,
-        detalle: "Rutina completada: " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
+        detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
     });
 
-    // Otorgar EXP
     sumarExp(60);
-
     MonarcaDB.save(APP_STATE);
 
-    alert("🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\nLa fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.");
+    var msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
+    if (tieneMentales && tieneFisicos) {
+        msgAviso += "Se han actualizado tu mapa muscular corporal y tus músculos cognitivos en el sistema.";
+    } else if (tieneMentales) {
+        msgAviso += "El desarrollo de tus músculos mentales y la fatiga cognitiva del SNC han sido actualizados.";
+    } else {
+        msgAviso += "La fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.";
+    }
+    alert(msgAviso);
 
-    cambiarVista('vista-estado-personal');
-    renderizarBarrasFatiga(APP_STATE.fatiga);
+    cambiarVista('vista-ejercicios');
+    if (typeof cambiarCategoriaEjercicios === 'function') {
+        cambiarCategoriaEjercicios('rutinas');
+    }
 }
 
 function renderizarGym(registros) {

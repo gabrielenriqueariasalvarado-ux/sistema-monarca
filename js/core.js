@@ -484,9 +484,17 @@ function cambiarVista(vistaId, noPushState) {
         if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
         return;
     }
-    if (vistaId === 'vista-mente') {
-        cambiarVista('vista-acciones-progresion', noPushState);
-        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('gimnasio');
+    if (vistaId === 'vista-mente' || vistaId === 'vista-gimnasio-mental') {
+        cambiarVista('vista-ejercicios', noPushState);
+        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('gimnasio-mental');
+        return;
+    }
+    if (vistaId === 'vista-banco-mental') {
+        cambiarVista('vista-ejercicios', noPushState);
+        if (typeof cambiarCategoriaEjercicios === 'function') {
+            cambiarCategoriaEjercicios('banco');
+            if (typeof filtrarSubcategoriaEjercicios === 'function') filtrarSubcategoriaEjercicios('mental');
+        }
         return;
     }
     if (vistaId === 'vista-gym') {

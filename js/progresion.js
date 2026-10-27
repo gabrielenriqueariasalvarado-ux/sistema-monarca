@@ -1784,10 +1784,24 @@ const PROTOCOLOS_DEEP_WORK = [
 ];
 
 function cambiarTabAccionesDesarrollo(tabId) {
+    if (tabId === 'gimnasio' || tabId === 'gimnasio-mental') {
+        cambiarVista('vista-ejercicios');
+        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('gimnasio-mental');
+        return;
+    }
+    if (tabId === 'banco-mental') {
+        cambiarVista('vista-ejercicios');
+        if (typeof cambiarCategoriaEjercicios === 'function') {
+            cambiarCategoriaEjercicios('banco');
+            if (typeof filtrarSubcategoriaEjercicios === 'function') filtrarSubcategoriaEjercicios('mental');
+        }
+        return;
+    }
+
     if (!tabId || tabId === 'conocimiento') tabId = 'quests';
     window.TAB_ACCIONES_DESARROLLO_ACTIVA = tabId;
 
-    var tabs = ['quests', 'habitos', 'gimnasio', 'banco-mental', 'skills'];
+    var tabs = ['quests', 'habitos', 'skills'];
     tabs.forEach(function(t) {
         var btn = document.getElementById('tab-btn-ad-' + t);
         var panel = document.getElementById('panel-ad-' + t);
@@ -1809,14 +1823,6 @@ function cambiarTabAccionesDesarrollo(tabId) {
             break;
         case 'habitos':
             cargarMisiones();
-            break;
-        case 'gimnasio':
-            if (typeof renderizarBarraFatigaMentalDiaria === 'function') renderizarBarraFatigaMentalDiaria();
-            if (typeof renderizarMusculosMentales === 'function') renderizarMusculosMentales();
-            renderizarProtocolosDeepWork();
-            break;
-        case 'banco-mental':
-            if (typeof renderizarBancoEjerciciosCerebrales === 'function') renderizarBancoEjerciciosCerebrales();
             break;
         case 'skills':
             cargarHabilidades();
