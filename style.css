@@ -2947,8 +2947,53 @@
 }
 
 /* ==========================================================================
-   ESTILOS: SELECTOR DE 2 CATEGORÍAS EN EJERCICIOS
+   ESTILOS: SELECTOR DE CATEGORÍAS EN EJERCICIOS Y ENTRENAMIENTO
    ========================================================================== */
+
+.training-tabs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 14px;
+}
+
+@media (min-width: 680px) {
+    .training-tabs-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.training-tab-btn {
+    padding: 12px 8px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.training-tab-btn:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.training-tab-btn.active {
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.15);
+}
 
 .tab-category-pill {
     background: #f3f4f6;

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=6.0">
+    <link rel="stylesheet" href="style.css?v=7.0">
 </head>
 <body>
 
@@ -294,42 +294,39 @@
 
 
 
-    <!-- VISTA: ENTRENAMIENTO INTEGRAL (CUERPO & MENTE) -->
+    <!-- VISTA: ENTRENAMIENTO (CUERPO & MENTE) -->
     <div id="vista-ejercicios" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <div style="border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 18px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 26px;">🏋️‍♂️🧠</span>
                     <div>
-                        <h2 style="margin: 0;">Entrenamiento (Cuerpo & Mente)</h2>
-                        <span style="font-size: 12px; color: #6b7280;">Toda la operatividad física y cognitiva: sesiones activas, bancos de ejercicios, gimnasio mental e historial</span>
+                        <h2 style="margin: 0; font-size: 18px;">Entrenamiento (Cuerpo & Mente)</h2>
+                        <span style="font-size: 12px; color: #6b7280;">Sesiones activas, bancos de ejercicios físicos y mentales, e historial del día</span>
                     </div>
                 </div>
-                <button class="btn-add-finanza" onclick="accionBotonCrearEjercicios()" style="display: flex; align-items: center; gap: 6px;">
-                    <span>➕</span> <span id="label-btn-crear-ej">Crear</span>
-                </button>
             </div>
 
-            <!-- SELECTOR DE LAS 4 CATEGORÍAS / PESTAÑAS (CUERPO Y MENTE) -->
-            <div class="tab-category-pill-container" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <button id="btn-cat-rutinas" class="tab-category-pill active" onclick="cambiarCategoriaEjercicios('rutinas')" style="flex: 1; min-width: 140px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
-                    <span>📋</span> Sesiones & Rutinas
+            <!-- NAVEGACIÓN PRINCIPAL: 4 APARTADOS INDEPENDIENTES (NUNCA SE SOLAPAN) -->
+            <div class="training-tabs-grid">
+                <button id="btn-cat-rutinas" class="training-tab-btn active" onclick="cambiarCategoriaEjercicios('rutinas')">
+                    <span>📋</span> Rutinas & Sesiones
                 </button>
-                <button id="btn-cat-banco" class="tab-category-pill" onclick="cambiarCategoriaEjercicios('banco')" style="flex: 1; min-width: 140px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
-                    <span>⚡</span> Banco de Ejercicios
+                <button id="btn-cat-banco-fisico" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-fisico')">
+                    <span>🏋️</span> Banco Físico
                 </button>
-                <button id="btn-cat-gimnasio-mental" class="tab-category-pill" onclick="cambiarCategoriaEjercicios('gimnasio-mental')" style="flex: 1; min-width: 140px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
-                    <span>🧠</span> Gimnasio Mental & Deep Work
+                <button id="btn-cat-banco-mental" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-mental')">
+                    <span>🧠</span> Banco Mental
                 </button>
-                <button id="btn-cat-historial" class="tab-category-pill" onclick="cambiarCategoriaEjercicios('historial')" style="flex: 1; min-width: 120px; padding: 12px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;">
+                <button id="btn-cat-historial" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('historial')">
                     <span>📜</span> Historial
                 </button>
             </div>
 
-            <!-- CONTENIDO CATEGORÍA 1: SESIONES Y RUTINAS ACTIVAS (FÍSICAS & MENTALES) -->
+            <!-- 1. APARTADO: SESIONES Y RUTINAS (FÍSICAS, MENTALES O HÍBRIDAS) -->
             <div id="seccion-categoria-rutinas">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
@@ -338,7 +335,7 @@
                         <button class="btn-subfiltro-ej" id="filtro-rutina-mentales" onclick="filtrarTipoRutinas('mentales')">🧠 Mentales</button>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Configurar rutina de calentamiento">
+                        <button class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Configurar calentamiento">
                             ⚙️ Calentamiento
                         </button>
                         <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="font-size: 12px; padding: 6px 12px;">
@@ -347,114 +344,48 @@
                     </div>
                 </div>
 
-                <!-- PORTAL DESTACADO: RUTINA MAÑANERA -->
-                <div class="quest-card" onclick="cambiarVista('vista-detalle-mananera')" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid #111827;">
-                    <div class="quest-icon-box" style="font-size: 20px;">🌅</div>
-                    <div style="flex:1; padding-left: 4px;">
-                        <span class="quest-badge-rank">DIARIA · ACTIVACIÓN MATUTINA</span>
-                        <p class="quest-card-name" style="margin:4px 0 6px 0; color:#111827; font-size:15px; font-weight:700;">Rutina Mañanera</p>
-                        <div class="muscle-tags-row">
-                            <span class="muscle-tag">4 Ejercicios</span>
-                            <span class="muscle-tag" style="background:none; border:none; color:#6b7280;">Flexiones, Abdominales, Sentadillas y Plancha</span>
-                        </div>
-                    </div>
-                    <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #111827;">Entrar ›</span>
-                </div>
-
-                <!-- PORTALES DE RUTINAS DINÁMICAS (FUERZA / GYM) -->
+                <!-- PORTALES DE RUTINAS DINÁMICAS (SIN DUPLICADOS) -->
                 <div id="contenedor-portales-rutinas-ejercicios">
                     <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas...</p>
                 </div>
             </div>
 
-            <!-- CONTENIDO CATEGORÍA 2: BANCO DE EJERCICIOS (FÍSICOS & MENTALES) -->
-            <div id="seccion-categoria-banco" style="display: none;">
+            <!-- 2. APARTADO: BANCO DE EJERCICIOS FÍSICOS -->
+            <div id="seccion-categoria-banco-fisico" style="display: none;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos Físicos</button>
+                        <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
                         <button class="btn-subfiltro-ej" data-subfiltro="gym" onclick="filtrarSubcategoriaEjercicios('gym')">🏋️ Gym / Pesas</button>
                         <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia</button>
-                        <button class="btn-subfiltro-ej" data-subfiltro="mental" onclick="filtrarSubcategoriaEjercicios('mental')">🧠 Ejercicios Mentales</button>
                     </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
-                            ➕ Ejercicio Físico
-                        </button>
-                        <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()" style="font-size: 12px; padding: 6px 12px; background: #111827;">
-                            ➕ Ejercicio Mental
-                        </button>
-                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
+                        ➕ Nuevo Ejercicio Físico
+                    </button>
                 </div>
                 <div id="contenedor-ejercicios">
-                    <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios...</p>
+                    <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios físicos...</p>
                 </div>
-                <div id="contenedor-ejercicios-cerebrales" style="display: none;">
+            </div>
+
+            <!-- 3. APARTADO: BANCO DE EJERCICIOS MENTALES -->
+            <div id="seccion-categoria-banco-mental" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px; color: #111827;">Banco de Ejercicios Mentales &amp; Cognitivos</h3>
+                        <span style="font-size: 12px; color: #6b7280;">Ejercicios de enfoque, análisis y lógica listos para incluir en tus rutinas.</span>
+                    </div>
+                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()" style="font-size: 12px; padding: 6px 12px; background: #111827;">
+                        ➕ Nuevo Ejercicio Mental
+                    </button>
+                </div>
+                <div id="contenedor-ejercicios-cerebrales">
                     <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios cerebrales...</p>
                 </div>
             </div>
 
-            <!-- CONTENIDO CATEGORÍA 3: GIMNASIO MENTAL & DEEP WORK -->
-            <div id="seccion-categoria-gimnasio-mental" style="display: none;">
-                <!-- BARRA DE FATIGA MENTAL DIARIA CON ALIVIOS -->
-                <div id="contenedor-fatiga-mental-diaria-mente"></div>
-
-                <!-- LOS 5 MÚSCULOS DE LA MENTE -->
-                <div class="card" style="margin-bottom: 20px; border: 1px solid #f3f4f6;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🧠</span>
-                            <div>
-                                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Gimnasio Mental: Los 5 Músculos Cognitivos</h2>
-                                <span style="font-size: 12px; color: #6b7280;">Entrena tu mente al mismo nivel que tu cuerpo: Creatividad, Descanso, Anulación, Percepción e Inteligencia.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="contenedor-musculos-mentales">
-                        <!-- Inyectado dinámicamente -->
-                    </div>
-                </div>
-
-                <!-- PROTOCOLOS DE TRABAJO PROFUNDO (DEEP WORK) -->
-                <div class="card" style="margin-bottom: 20px; border: 1px solid #f3f4f6;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">⚡</span>
-                            <div>
-                                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Protocolos de Trabajo Profundo (Deep Work)</h2>
-                                <span style="font-size: 12px; color: #6b7280;">Ejecuta protocolos de foco, descompresión o anulación de ruido que suman EXP y afectan la fatiga mental.</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="contenedor-protocolos-deepwork" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-                        <!-- Inyectado dinámicamente -->
-                    </div>
-                </div>
-
-                <!-- CONDICIÓN MENTAL (SUEÑO & DESCANSO) -->
-                <div class="card" style="margin-bottom: 20px; border: 1px solid #f3f4f6;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🌙</span>
-                            <div>
-                                <h2 style="margin: 0; font-size: 17px; letter-spacing: -0.2px;">Condición Mental (Sueño & Descanso)</h2>
-                                <span style="font-size: 12px; color: #6b7280;">Registro de sueño reparador y recuperación del Sistema Nervioso Central (-30% Fatiga).</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <input type="text" id="input-nueva-mente" class="modal-input" placeholder="Ej: 8 horas de sueño profundo - Descanso óptimo" style="flex: 1; min-width: 200px;">
-                        <button class="btn-system" onclick="guardarMente()" style="font-size: 13px; white-space: nowrap;">Registrar Descanso</button>
-                    </div>
-                    <div id="contenedor-mente">Cargando registros de descanso mental...</div>
-                </div>
-            </div>
-
-            <!-- CONTENIDO CATEGORÍA 3: HISTORIAL FÍSICO -->
+            <!-- 4. APARTADO: HISTORIAL DE ENTRENAMIENTOS -->
             <div id="seccion-categoria-historial" style="display: none;">
-                <div style="margin-bottom: 14px;">
-                    <span style="font-size: 13px; color: #6b7280; font-weight: 600;">Registro cronológico de entrenamientos completados:</span>
-                </div>
-                <div id="contenedor-gym">Cargando registros...</div>
+                <div id="contenedor-gym">Cargando historial de rutinas...</div>
             </div>
         </div>
     </div>
@@ -3297,25 +3228,25 @@
 
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=6.9"></script>
-    <script src="js/perfil.js?v=6.9"></script>
-    <script src="js/progresion.js?v=6.9"></script>
-    <script src="js/estado-personal.js?v=6.9"></script>
-    <script src="js/finanzas.js?v=6.9"></script>
-    <script src="js/ideas.js?v=6.9"></script>
-    <script src="js/dinamicas.js?v=6.9"></script>
-    <script src="js/calendario.js?v=6.9"></script>
-    <script src="js/inventario.js?v=6.9"></script>
-    <script src="js/jarvis-voz.js?v=6.9"></script>
+    <script src="js/core.js?v=7.0"></script>
+    <script src="js/perfil.js?v=7.0"></script>
+    <script src="js/progresion.js?v=7.0"></script>
+    <script src="js/estado-personal.js?v=7.0"></script>
+    <script src="js/finanzas.js?v=7.0"></script>
+    <script src="js/ideas.js?v=7.0"></script>
+    <script src="js/dinamicas.js?v=7.0"></script>
+    <script src="js/calendario.js?v=7.0"></script>
+    <script src="js/inventario.js?v=7.0"></script>
+    <script src="js/jarvis-voz.js?v=7.0"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=6.9"></script>
+    <script type="module" src="js/firebase-config.js?v=7.0"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=6.9')
+                navigator.serviceWorker.register('sw.js?v=7.0')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

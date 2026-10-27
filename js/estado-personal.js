@@ -1265,75 +1265,54 @@ function filtrarTipoRutinas(tipo) {
 }
 
 function cambiarCategoriaEjercicios(cat) {
+    if (cat === 'banco') cat = 'banco-fisico';
+    if (cat === 'gimnasio-mental' || cat === 'gimnasio') cat = 'banco-mental';
     CATEGORIA_EJERCICIOS_ACTIVA = cat || 'rutinas';
+
     var btnRut = document.getElementById('btn-cat-rutinas');
-    var btnBanco = document.getElementById('btn-cat-banco');
-    var btnMental = document.getElementById('btn-cat-gimnasio-mental');
+    var btnBancoFis = document.getElementById('btn-cat-banco-fisico');
+    var btnBancoMen = document.getElementById('btn-cat-banco-mental');
     var btnHist = document.getElementById('btn-cat-historial');
 
     var secRut = document.getElementById('seccion-categoria-rutinas');
-    var secBanco = document.getElementById('seccion-categoria-banco');
-    var secMental = document.getElementById('seccion-categoria-gimnasio-mental');
+    var secBancoFis = document.getElementById('seccion-categoria-banco-fisico');
+    var secBancoMen = document.getElementById('seccion-categoria-banco-mental');
     var secHist = document.getElementById('seccion-categoria-historial');
-    var labelCrear = document.getElementById('label-btn-crear-ej');
 
     if (btnRut) btnRut.classList.remove('active');
-    if (btnBanco) btnBanco.classList.remove('active');
-    if (btnMental) btnMental.classList.remove('active');
+    if (btnBancoFis) btnBancoFis.classList.remove('active');
+    if (btnBancoMen) btnBancoMen.classList.remove('active');
     if (btnHist) btnHist.classList.remove('active');
 
     if (secRut) secRut.style.display = 'none';
-    if (secBanco) secBanco.style.display = 'none';
-    if (secMental) secMental.style.display = 'none';
+    if (secBancoFis) secBancoFis.style.display = 'none';
+    if (secBancoMen) secBancoMen.style.display = 'none';
     if (secHist) secHist.style.display = 'none';
 
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutinas') {
         if (btnRut) btnRut.classList.add('active');
         if (secRut) secRut.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = 'Nueva Rutina';
         renderizarPortalesRutinasEjercicios();
-    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco') {
-        if (btnBanco) btnBanco.classList.add('active');
-        if (secBanco) secBanco.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = (SUBFILTRO_BANCO_ACTIVO === 'mental') ? 'Nuevo Ej. Mental' : 'Nuevo Ej. Físico';
-        if (SUBFILTRO_BANCO_ACTIVO === 'mental') {
-            var contFis = document.getElementById('contenedor-ejercicios');
-            var contMen = document.getElementById('contenedor-ejercicios-cerebrales');
-            if (contFis) contFis.style.display = 'none';
-            if (contMen) contMen.style.display = 'block';
-            renderizarBancoEjerciciosCerebrales();
-        } else {
-            var contFis = document.getElementById('contenedor-ejercicios');
-            var contMen = document.getElementById('contenedor-ejercicios-cerebrales');
-            if (contFis) contFis.style.display = 'block';
-            if (contMen) contMen.style.display = 'none';
-            renderizarEjercicios(APP_STATE.ejercicios);
-        }
-    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio') {
-        if (btnMental) btnMental.classList.add('active');
-        if (secMental) secMental.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = 'Nuevo Ejercicio Mental';
-        if (typeof renderizarBarraFatigaMentalDiaria === 'function') renderizarBarraFatigaMentalDiaria();
-        if (typeof renderizarMusculosMentales === 'function') renderizarMusculosMentales();
-        if (typeof renderizarProtocolosDeepWork === 'function') renderizarProtocolosDeepWork();
-        if (typeof renderizarMente === 'function') renderizarMente(APP_STATE.salud);
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-fisico') {
+        if (btnBancoFis) btnBancoFis.classList.add('active');
+        if (secBancoFis) secBancoFis.style.display = 'block';
+        renderizarEjercicios(APP_STATE.ejercicios);
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-mental') {
+        if (btnBancoMen) btnBancoMen.classList.add('active');
+        if (secBancoMen) secBancoMen.style.display = 'block';
+        renderizarBancoEjerciciosCerebrales();
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'historial') {
         if (btnHist) btnHist.classList.add('active');
         if (secHist) secHist.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = 'Nueva Rutina';
         renderizarGym(APP_STATE.gym);
     }
 }
 
 function accionBotonCrearEjercicios() {
-    if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco') {
-        if (SUBFILTRO_BANCO_ACTIVO === 'mental') {
-            abrirModalNuevoEjercicioCerebral();
-        } else {
-            abrirModalNuevoEjercicio();
-        }
-    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio') {
+    if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-mental') {
         abrirModalNuevoEjercicioCerebral();
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-fisico') {
+        abrirModalNuevoEjercicio();
     } else {
         abrirModalNuevaRutina();
     }
@@ -1417,7 +1396,7 @@ function renderizarPortalesRutinasEjercicios() {
 
 function filtrarSubcategoriaEjercicios(subfiltro) {
     SUBFILTRO_BANCO_ACTIVO = subfiltro;
-    var btns = document.querySelectorAll('#seccion-categoria-banco .btn-subfiltro-ej');
+    var btns = document.querySelectorAll('#seccion-categoria-banco-fisico .btn-subfiltro-ej');
     btns.forEach(function(b) {
         if (b.getAttribute('data-subfiltro') === subfiltro) {
             b.classList.add('active');
@@ -1425,22 +1404,7 @@ function filtrarSubcategoriaEjercicios(subfiltro) {
             b.classList.remove('active');
         }
     });
-
-    var contFisicos = document.getElementById('contenedor-ejercicios');
-    var contMentales = document.getElementById('contenedor-ejercicios-cerebrales');
-    var labelCrear = document.getElementById('label-btn-crear-ej');
-
-    if (subfiltro === 'mental') {
-        if (contFisicos) contFisicos.style.display = 'none';
-        if (contMentales) contMentales.style.display = 'block';
-        if (labelCrear) labelCrear.innerText = 'Nuevo Ej. Mental';
-        renderizarBancoEjerciciosCerebrales();
-    } else {
-        if (contFisicos) contFisicos.style.display = 'block';
-        if (contMentales) contMentales.style.display = 'none';
-        if (labelCrear) labelCrear.innerText = 'Nuevo Ej. Físico';
-        renderizarEjercicios(APP_STATE.ejercicios);
-    }
+    renderizarEjercicios(APP_STATE.ejercicios);
 }
 
 function toggleChipMusculo(btn) {
@@ -2545,17 +2509,97 @@ function ejecutarRutinaDinamica() {
 function renderizarGym(registros) {
     var cont = document.getElementById('contenedor-gym');
     if (!cont) return;
+
+    var rList = registros || APP_STATE.gym || [];
+
+    var hoyStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var hoyIso = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+
+    var hechasHoy = [];
+    var anteriores = [];
+
+    rList.forEach(function(reg) {
+        var esHoy = false;
+        if (reg.fecha === hoyStr || reg.fecha === hoyIso) {
+            esHoy = true;
+        } else if (reg.fecha) {
+            var p = hoyStr.split('/');
+            if (p.length === 3 && reg.fecha.includes(p[0]) && reg.fecha.includes(p[1])) {
+                esHoy = true;
+            }
+        }
+        if (esHoy) {
+            hechasHoy.push(reg);
+        } else {
+            anteriores.push(reg);
+        }
+    });
+
     var html = '';
-    if (registros && registros.length > 0) {
-        registros.forEach(function(reg) {
-            html += `<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-weight:600;color:#111827;font-size:13.5px;">${reg.detalle}</span>
-                <span style="color:#6b7280;font-size:12px;">${reg.fecha}</span>
+
+    // 1. BLOQUE DESTACADO: RUTINAS HECHAS HOY
+    html += `
+    <div style="background: #fafafa; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px;">🏆</span>
+                <strong style="color: #111827; font-size: 14px;">Rutinas Realizadas Hoy</strong>
+            </div>
+            <span class="quest-badge-rank" style="background: ${hechasHoy.length > 0 ? '#10b981' : '#f3f4f6'}; color: ${hechasHoy.length > 0 ? '#ffffff' : '#6b7280'}; font-weight: 800;">
+                ${hechasHoy.length} ${hechasHoy.length === 1 ? 'Sesión' : 'Sesiones'}
+            </span>
+        </div>`;
+
+    if (hechasHoy.length > 0) {
+        html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        hechasHoy.forEach(function(reg) {
+            var esMen = reg.detalle && reg.detalle.includes('[MENTAL]');
+            var esHib = reg.detalle && reg.detalle.includes('[HÍBRIDA]');
+            var badgeBg = esMen ? '#eff6ff' : (esHib ? '#fef3c7' : '#ecfdf5');
+            var badgeColor = esMen ? '#1e40af' : (esHib ? '#92400e' : '#065f46');
+            var badgeBorder = esMen ? '#bfdbfe' : (esHib ? '#fde68a' : '#a7f3d0');
+
+            html += `
+            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">${esMen ? '🧠' : (esHib ? '⚡' : '🏋️')}</span>
+                    <span style="font-weight: 700; color: #111827; font-size: 13.5px;">${reg.detalle}</span>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 8px; border-radius: 9999px;">
+                    ✓ HECHA HOY
+                </span>
             </div>`;
         });
+        html += '</div>';
     } else {
-        html = '<p style="color:#6b7280;text-align:center;padding:15px;">No hay entrenamientos registrados aún.</p>';
+        html += `
+        <p style="color: #6b7280; font-size: 12.5px; margin: 4px 0 0 0;">
+            Aún no has completado ninguna rutina hoy. ¡Ve al apartado de <strong>"Sesiones &amp; Rutinas"</strong> y pulsa <strong>"Entrar"</strong> para iniciar tu entrenamiento!
+        </p>`;
     }
+    html += '</div>';
+
+    // 2. BLOQUE: HISTORIAL DE DÍAS ANTERIORES
+    html += `
+    <div style="margin-top: 10px;">
+        <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 13.5px; font-weight: 700;">Historial de Sesiones Anteriores:</h4>`;
+
+    if (anteriores.length > 0) {
+        anteriores.forEach(function(reg) {
+            html += `
+            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <span style="font-weight: 600; color: #111827; font-size: 13px;">${reg.detalle}</span>
+                <span style="color: #6b7280; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
+            </div>`;
+        });
+    } else if (hechasHoy.length === 0) {
+        html += '<p style="color: #6b7280; text-align: center; padding: 15px;">No hay entrenamientos registrados aún.</p>';
+    } else {
+        html += '<p style="color: #9ca3af; font-size: 12px; font-style: italic;">No hay registros de sesiones anteriores.</p>';
+    }
+
+    html += '</div>';
+
     cont.innerHTML = html;
 }
 
