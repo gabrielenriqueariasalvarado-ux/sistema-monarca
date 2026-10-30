@@ -733,7 +733,93 @@ var LOOP_QUESTS_DIARIOS_INTERVAL = null;
 /**
  * Solicita permisos de notificación en navegador / teléfono
  */
+/**
+ * Programa alarmas nativas exactas de Android en segundo plano vía Capacitor
+ */
+function programarAlarmasNativasQuests() {
+    if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.LocalNotifications) {
+        return;
+    }
+    try {
+        var ln = window.Capacitor.Plugins.LocalNotifications;
+        var qList = APP_STATE.questsDiarios || [];
+        var notifsToSchedule = [];
+        var ahora = new Date();
+
+        qList.forEach(function(q, idx) {
+            if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
+                var partes = q.horaActivacion.split(':');
+                if (partes.length >= 2) {
+                    var target = new Date();
+                    target.setHours(parseInt(partes[0], 10), parseInt(partes[1], 10), 0, 0);
+                    if (target.getTime() <= ahora.getTime()) {
+                        target.setDate(target.getDate() + 1);
+                    }
+
+                    var notifId = (idx + 1) * 1000 + (parseInt(partes[0], 10) * 60 + parseInt(partes[1], 10));
+                    var esOmitible = (q.esOmitible !== false);
+
+                    notifsToSchedule.push({
+                        id: notifId,
+                        title: esOmitible ? '⚔️ ¡Quest Diaria Activada!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
+                        body: esOmitible
+                            ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. (Omitible: posponer 1h).'
+                            : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay penitencia!',
+                        schedule: { at: target, allowWhileIdle: true },
+                        sound: 'beep.wav',
+                        extra: { questId: q.id }
+                    });
+                }
+            }
+        });
+
+        if (notifsToSchedule.length > 0) {
+            ln.schedule({ notifications: notifsToSchedule }).then(function() {
+                console.log("[Capacitor] " + notifsToSchedule.length + " alarmas nativas programadas en AlarmManager.");
+            }).catch(function(err) {
+                console.warn("[Capacitor Alarma Error]", err);
+            });
+        }
+    } catch(err) {
+        console.warn("[programarAlarmasNativasQuests]", err);
+    }
+}
+
+// Listener para cuando el usuario toca la notificación nativa en Android
+if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+    try {
+        window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', function(notification) {
+            if (notification && notification.notification && notification.notification.extra) {
+                var qId = notification.notification.extra.questId;
+                var q = (APP_STATE.questsDiarios || []).find(function(item) { return item.id === qId; });
+                if (q) emitirAlertaQuestActivada(q, false);
+            }
+        });
+    } catch(e) {}
+}
+
 function solicitarPermisoNotificaciones(desdeBoton) {
+    // 1. Si está ejecutándose como APK nativa Android (Capacitor)
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+        try {
+            window.Capacitor.Plugins.LocalNotifications.requestPermissions().then(function(res) {
+                actualizarBotonNotificacionesUI();
+                if (res.display === 'granted') {
+                    programarAlarmasNativasQuests();
+                    if (desdeBoton) {
+                        alert("🔔 ¡Alarmas Nativas Android Activadas!\nTus quests sonarán con exactitud al segundo incluso con el teléfono bloqueado y pantalla apagada.");
+                    }
+                } else if (desdeBoton) {
+                    alert("Por favor permite las notificaciones y alarmas para que Monarca pueda avisarte puntualmente.");
+                }
+            });
+            return;
+        } catch(e) {
+            console.warn("[Capacitor Request Error]", e);
+        }
+    }
+
+    // 2. Navegador web estándar (Laptop o móvil)
     if (!('Notification' in window)) {
         if (desdeBoton) alert("Tu navegador no soporta notificaciones de sistema.");
         return;
@@ -771,6 +857,21 @@ function actualizarBotonNotificacionesUI() {
     try {
         var btn = document.getElementById('btn-permiso-notif-quest');
         if (!btn) return;
+
+        // Comprobación en Capacitor (Nativo)
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+            window.Capacitor.Plugins.LocalNotifications.checkPermissions().then(function(res) {
+                if (res.display === 'granted') {
+                    btn.innerHTML = '<span>🔔</span> Alarma Nativa OK';
+                    btn.style.background = '#ecfdf5';
+                    btn.style.color = '#065f46';
+                    btn.style.borderColor = '#a7f3d0';
+                }
+            });
+            return;
+        }
+
+        // Comprobación web estándar
         if ('Notification' in window && Notification.permission === 'granted') {
             btn.innerHTML = '<span>🔔</span> Notif. Activas';
             btn.style.background = '#ecfdf5';
@@ -1048,6 +1149,7 @@ function cargarQuestsDiarios() {
         verificarPenalizacionesPendientes();
         renderizarQuestsDiarios();
         iniciarLoopQuestsDiarios();
+        if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
     } catch(err) {
         console.error("[Quests Diarios] Error al cargar:", err);
         var cont = document.getElementById('contenedor-quests-diarios');
@@ -1721,6 +1823,7 @@ function confirmarAgregarQuestDiaria() {
 
     cerrarModalNuevaQuestDiaria();
     renderizarQuestsDiarios();
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
     // Solicitar permiso de notificaciones de forma amistosa si es programada
     if (tipoTiempo === 'programada' && 'Notification' in window && Notification.permission !== 'granted') {

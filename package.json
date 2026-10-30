@@ -1,0 +1,27 @@
+{
+  "name": "sistema-monarca",
+  "version": "7.0.0",
+  "description": "Sistema Monarca - Panel de Control, Productividad y Progresión Personal",
+  "main": "index.html",
+  "scripts": {
+    "prepare-web": "node -e \"const fs=require('fs'); if(!fs.existsSync('www')) fs.mkdirSync('www'); fs.copyFileSync('index.html','www/index.html'); fs.copyFileSync('style.css','www/style.css'); if(fs.existsSync('manifest.json')) fs.copyFileSync('manifest.json','www/manifest.json'); if(fs.existsSync('sw.js')) fs.copyFileSync('sw.js','www/sw.js'); if(fs.existsSync('app.js')) fs.copyFileSync('app.js','www/app.js'); const cpDir=(src,dest)=>{ if(!fs.existsSync(dest)) fs.mkdirSync(dest, {recursive:true}); fs.readdirSync(src).forEach(file=>{ const s=src+'/'+file, d=dest+'/'+file; if(fs.lstatSync(s).isDirectory()) cpDir(s,d); else fs.copyFileSync(s,d); }); }; if(fs.existsSync('js')) cpDir('js','www/js'); if(fs.existsSync('icons')) cpDir('icons','www/icons'); console.log('Assets copiados a www/ con éxito');\"",
+    "cap:sync": "npm run prepare-web && npx cap sync android",
+    "cap:build": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+  },
+  "keywords": [
+    "monarca",
+    "pwa",
+    "android",
+    "productivity"
+  ],
+  "author": "Gabriel Arias",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/local-notifications": "^6.1.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

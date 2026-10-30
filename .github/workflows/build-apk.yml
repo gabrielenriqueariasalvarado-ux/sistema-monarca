@@ -1,0 +1,103 @@
+name: Compilar APK Android de Sistema Monarca
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Generar APK Nativa Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Configurar Java JDK (v17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: 4. Instalar dependencias npm
+        run: npm install
+
+      - name: 5. Preparar directorio web www/
+        run: npm run prepare-web
+
+      - name: 6. Añadir plataforma Android de Capacitor
+        run: npx cap add android
+
+      - name: 7. Configurar permisos nativos en AndroidManifest.xml (Alarmas exactas y Notificaciones)
+        run: |
+          python3 -c "
+          import os
+
+          manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          if os.path.exists(manifest_path):
+              with open(manifest_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+
+              permissions = '''
+              <uses-permission android:name=\"android.permission.SCHEDULE_EXACT_ALARM\" />
+              <uses-permission android:name=\"android.permission.USE_EXACT_ALARM\" />
+              <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
+              <uses-permission android:name=\"android.permission.VIBRATE\" />
+              <uses-permission android:name=\"android.permission.WAKE_LOCK\" />
+              <uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\" />
+              '''
+
+              if '<uses-permission android:name=\"android.permission.SCHEDULE_EXACT_ALARM\"' not in content:
+                  content = content.replace('</manifest>', permissions + '\n</manifest>')
+                  with open(manifest_path, 'w', encoding='utf-8') as f:
+                      f.write(content)
+                  print('Permisos de alarma exacta inyectados exitosamente en AndroidManifest.xml')
+          "
+
+      - name: 8. Sincronizar proyecto Android
+        run: npx cap sync android
+
+      - name: 9. Compilar APK con Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: 10. Subir APK como Artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sistema-Monarca-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: 11. Publicar Release con la APK para descarga directa en móvil
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v7.0-apk
+          name: "Sistema Monarca v7.0 (APK Nativa Android)"
+          body: |
+            ### 📱 APK Nativa de Sistema Monarca para Android
+            Esta versión nativa incluye:
+            - ⏰ **AlarmManager nativo**: Alertas y alarmas exactas al segundo con pantalla apagada / reposo profundo (Doze Mode).
+            - 🛡️ Soporte completo offline y sincronización en tiempo real con Firebase Firestore.
+            - ⚡ Acceso a todos los módulos: Inventario, Finanzas, Quests Diarios, Hábitos, Entrenamiento y Jarvis Voz.
+
+            **Instrucciones para instalar en tu teléfono:**
+            1. Descarga el archivo adjunto `Sistema-Monarca-v7.0.apk` en tu teléfono.
+            2. Toca el archivo descargado para instalarlo (permite la instalación de orígenes desconocidos si tu teléfono te lo solicita).
+            3. ¡Listo! Abre Sistema Monarca directamente desde tu pantalla de inicio.
+          files: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
