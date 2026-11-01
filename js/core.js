@@ -520,6 +520,19 @@ function cambiarVista(vistaId, noPushState) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Sincronizar estado visual de la barra HUD inferior flotante
+    try {
+        var hudItems = document.querySelectorAll('.bottom-hud-item');
+        hudItems.forEach(function(item) {
+            var oc = item.getAttribute('onclick') || '';
+            if (oc.indexOf("'" + vistaId + "'") !== -1) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    } catch(e) {}
+
     switch(vistaId) {
         case 'vista-menu':
             renderizarJugador(APP_STATE.jugador);
