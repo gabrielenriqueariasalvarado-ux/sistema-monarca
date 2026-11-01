@@ -3455,7 +3455,7 @@
             navigator.serviceWorker.addEventListener('controllerchange', function() {
                 if (!refreshing) {
                     refreshing = true;
-                    console.log('[PWA] Nueva versión del Service Worker activada.');
+                    console.log('[PWA] Nueva versión del Service Worker activada.'); window.location.reload();
                 }
             });
         }
