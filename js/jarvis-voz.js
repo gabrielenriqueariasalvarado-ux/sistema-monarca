@@ -610,3 +610,9 @@ function navegarPorVoz(vistaId, nombreVista) {
     }
     hablarTextoJarvis(`Abriendo ${nombreVista}.`);
 }
+
+
+// ALIAS GLOBALES DE REBRANDING: EMILY AI
+window.abrirModalEmilyVoz = window.abrirModalJarvisVoz;
+window.iniciarReconocimientoEmily = window.iniciarReconocimientoJarvis;
+window.detenerReconocimientoEmily = window.detenerReconocimientoJarvis;

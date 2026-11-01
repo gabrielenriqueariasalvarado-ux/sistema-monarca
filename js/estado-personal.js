@@ -211,17 +211,17 @@ function obtenerEstiloFatigaGris(val) {
     var v = Math.min(100, Math.max(0, Number(val) || 0));
     if (v <= 15) {
         return {
-            fill: '#ffffff',
+            fill: '#151b2a',
             stroke: '#d1d5db',
             label: '0-15% · Óptimo',
             levelText: 'Completamente fresco y listo para rendir',
-            cardBg: '#ffffff',
-            cardBorder: '#e5e7eb',
-            cardText: '#111827',
+            cardBg: '#0f131d',
+            cardBorder: 'rgba(255, 255, 255, 0.08)',
+            cardText: '#f8fafc',
             cardVal: '#6b7280',
             dot: '#d1d5db',
             color: '#6b7280',
-            bg: '#ffffff',
+            bg: '#0f131d',
             border: '#e5e7eb',
             texto: '#111827',
             clase: 'status-optimo'
@@ -235,7 +235,7 @@ function obtenerEstiloFatigaGris(val) {
             levelText: 'Carga ligera, óptimo para entrenar',
             cardBg: '#f3f4f6',
             cardBorder: '#d1d5db',
-            cardText: '#111827',
+            cardText: '#f8fafc',
             cardVal: '#374151',
             dot: '#9ca3af',
             color: '#4b5563',
@@ -724,17 +724,17 @@ function actualizarHudMusculo(key, subclave) {
     <div class="hud-muscle-card" style="border-left: 4px solid #111827; background: #ffffff; border-radius: 12px; padding: 14px; border-top: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
         <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center;">
             <span class="hud-muscle-region" style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase;">${meta.region}</span>
-            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #111827; padding: 3px 8px; border-radius: 6px; border: 1px solid #e5e7eb;">${estiloInfo.label}</span>
+            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #f8fafc; padding: 3px 8px; border-radius: 6px; border: 1px solid #e5e7eb;">${estiloInfo.label}</span>
         </div>
-        <h3 class="hud-muscle-title" style="margin: 6px 0 8px 0; font-size: 18px; font-weight: 800; color: #111827;">${meta.icono} ${meta.nombre}</h3>
-        <div class="hud-fatigue-big" style="font-size: 28px; font-weight: 800; color: #111827; margin-bottom: 8px;">
+        <h3 class="hud-muscle-title" style="margin: 6px 0 8px 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${meta.icono} ${meta.nombre}</h3>
+        <div class="hud-fatigue-big" style="font-size: 28px; font-weight: 800; color: #f8fafc; margin-bottom: 8px;">
             ${val}% <span style="font-size: 13px; font-weight: 600; color: #6b7280;">Nivel de Desgaste</span>
         </div>
         <div class="hud-progress-track" style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 9999px; overflow: hidden; margin-bottom: 12px;">
             <div class="hud-progress-fill" style="width: ${val}%; height: 100%; background: #111827; border-radius: 9999px; transition: width 0.3s ease;"></div>
         </div>
-        <div class="hud-recovery-tip" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #4b5563; line-height: 1.45;">
-            <strong style="color: #111827;">Consejo de Recuperación:</strong> ${meta.descanso}
+        <div class="hud-recovery-tip" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #94a3b8; line-height: 1.45;">
+            <strong style="color: #f8fafc;">Consejo de Recuperación:</strong> ${meta.descanso}
         </div>
     </div>
     <div style="margin-top: 14px;">
@@ -801,7 +801,7 @@ function renderizarGraficoGeneralAvatar() {
 
     var html = `
     <!-- BANNER DE TIMER DE CIERRE DE JORNADA & RESETEO DIARIO -->
-    <div class="daily-reset-timer-banner" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 14px; background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    <div class="daily-reset-timer-banner" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div style="width: 40px; height: 40px; border-radius: 10px; background: #111827; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
@@ -809,13 +809,13 @@ function renderizarGraficoGeneralAvatar() {
                 </div>
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; font-weight: 800; color: #111827; text-transform: uppercase; letter-spacing: 0.6px;">REINICIO DIARIO AUTOMÁTICO</span>
-                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">
+                        <span style="font-size: 11px; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.6px;">REINICIO DIARIO AUTOMÁTICO</span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: #f3f4f6; color: #cbd5e1; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> EN VIVO
                         </span>
                     </div>
-                    <div style="font-size: 12.5px; color: #4b5563; margin-top: 3px;">
-                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #111827; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; border: 1px solid #e5e7eb;">--h --m --s</strong>
+                    <div style="font-size: 12.5px; color: #94a3b8; margin-top: 3px;">
+                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #f8fafc; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; border: 1px solid #e5e7eb;">--h --m --s</strong>
                     </div>
                 </div>
             </div>
@@ -838,24 +838,24 @@ function renderizarGraficoGeneralAvatar() {
     </div>
 
     <!-- 1. BARRA DE DESGASTE GENERAL DIARIO DEL AVATAR -->
-    <div class="avatar-metrics-bar" style="margin-bottom: 18px; border-radius: 16px; background: #ffffff; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
+    <div class="avatar-metrics-bar" style="margin-bottom: 18px; border-radius: 16px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
         <div class="general-wear-metric">
-            <div class="general-wear-circle" style="border: 3px solid #111827; color: #111827; background: #ffffff;">
+            <div class="general-wear-circle" style="border: 3px solid #6366f1; color: #f8fafc; background: #0b0e15; box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);">
                 ${metricas.general}%
             </div>
             <div class="general-wear-meta">
-                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #111827;">Desgaste General Diario del Avatar</h4>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #f8fafc;">Desgaste General Diario del Avatar</h4>
                 <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Porcentaje ponderado de carga física y fatiga neural acumulada.</p>
                 <div style="font-size: 11px; font-weight: 700; color: #6b7280; margin-top: 3px;">
-                    📅 ${hoyFechaStr} · <span style="color: #111827; font-weight: 800;">● Actualización automática diaria</span>
+                    📅 ${hoyFechaStr} · <span style="color: #f8fafc; font-weight: 800;">● Actualización automática diaria</span>
                 </div>
             </div>
         </div>
         <div class="general-breakdown-chips">
-            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #111827;">
+            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #f8fafc;">
                 <span>🦾 Cuerpo:</span> <strong>${metricas.cuerpo}% · ${estadoCuerpo.label}</strong>
             </div>
-            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #111827;">
+            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #f8fafc;">
                 <span>🧠 Mente:</span> <strong>${metricas.mente}% · ${estadoMente.label}</strong>
             </div>
         </div>
@@ -865,17 +865,17 @@ function renderizarGraficoGeneralAvatar() {
     <div class="card heatmap-dashboard-card" style="margin-bottom: 22px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <div>
-                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #111827;">📊 Carga & Fatiga Física Diaria</h3>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">📊 Carga & Fatiga Física Diaria</h3>
                 <p style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Esquema de desgaste actual por grupos musculares y estado metabólico del avatar.</p>
             </div>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 7px 14px; min-width: 130px;">
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 130px;">
                     <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">CARGA PROMEDIO DE HOY</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #111827; margin-top: 2px;">${metricas.cuerpo}%</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #f8fafc; margin-top: 2px;">${metricas.cuerpo}%</div>
                 </div>
-                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 7px 14px; min-width: 140px;">
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 140px;">
                     <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">ÚLTIMO CIERRE DIARIO</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #374151; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro local activo'}</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro local activo'}</div>
                 </div>
             </div>
         </div>
@@ -884,8 +884,8 @@ function renderizarGraficoGeneralAvatar() {
             <!-- COLUMNA 1: SILUETA ANATÓMICA CORPORAL (FRONTAL & DORSAL) -->
             <div class="body-diagram-box">
                 <div style="display: flex; justify-content: space-around; margin-bottom: 8px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #111827; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #111827; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
                 </div>
 
                 <div class="body-diagram-svg-container">
@@ -979,19 +979,19 @@ function renderizarGraficoGeneralAvatar() {
 
                 <!-- LEYENDA DEL MAPA DE CALOR MINIMALISTA EN ESCALA DE GRISES -->
                 <div class="heatmap-legend-box" style="margin-top: 12px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4b5563;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #ffffff; border: 1.5px solid #d1d5db;"></span>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #111827; border: 1.5px solid rgba(255, 255, 255, 0.2);"></span>
                         <span>0-15% Óptimo</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4b5563;">
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
                         <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #e5e7eb; border: 1.5px solid #9ca3af;"></span>
                         <span>16-40% Leve</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4b5563;">
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
                         <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #4b5563; border: 1.5px solid #374151;"></span>
                         <span>41-70% Media</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4b5563;">
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
                         <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #111827; border: 1.5px solid #000000;"></span>
                         <span>71-100% Alta</span>
                     </div>
@@ -1327,7 +1327,7 @@ function renderizarPortalesRutinasEjercicios() {
         cont.innerHTML = `
         <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">📋</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes rutinas creadas</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Arma tus sesiones de entrenamiento físico, cognitivo o híbrido seleccionando ejercicios de tus bancos.
             </p>
@@ -1374,7 +1374,7 @@ function renderizarPortalesRutinasEjercicios() {
 
         html += `
         <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid ${borderAccent};">
-            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #111827;">${rutCodigo}</div>
+            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
             <div style="flex:1; padding-left: 4px;">
               <span class="quest-badge-rank">${cleanRank}</span>
               <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
@@ -1386,7 +1386,7 @@ function renderizarPortalesRutinasEjercicios() {
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button class="btn-delete-row" title="Eliminar rutina" onclick="eliminarRutina(${idx}, event)" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 6px;">✕</button>
-                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #111827;">Entrar ›</span>
+                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
             </div>
         </div>`;
     });
@@ -1507,7 +1507,7 @@ function renderizarEjercicios(ejercicios) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No hay ejercicios en esta subcategoría</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay ejercicios en esta subcategoría</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Crea tus ejercicios especificando series, repeticiones, zonas musculares trabajadas y nivel de fatiga.
             </p>
@@ -1588,7 +1588,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
 
     if (tipoSel === 'fisica' || tipoSel === 'hibrida') {
         if (tipoSel === 'hibrida') {
-            html += '<div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #111827; margin: 4px 0 6px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px;">🏋️ Ejercicios Físicos:</div>';
+            html += '<div style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; color: #f8fafc; margin: 4px 0 6px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px;">🏋️ Ejercicios Físicos:</div>';
         }
         if (eFisicos.length === 0) {
             html += '<div style="color: #9ca3af; font-size: 12px; padding: 6px;">No tienes ejercicios físicos creados.</div>';
@@ -1599,7 +1599,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 <label class="modal-checklist-item">
                     <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}">
                     <div style="flex: 1;">
-                        <strong style="color: #111827;">${ej.nombre}</strong>
+                        <strong style="color: #f8fafc;">${ej.nombre}</strong>
                         <div style="font-size: 11.5px; color: #6b7280;">${ej.series} series × ${ej.repeticiones} · [${cats}] (+${ej.fatigaPorcentaje || 20}% fatiga)</div>
                     </div>
                 </label>`;
@@ -1751,7 +1751,7 @@ function renderizarPortalesRutinas(rutinas) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes rutinas creadas</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Arma tus sesiones de entrenamiento personalizadas seleccionando los ejercicios que has creado.
             </p>
@@ -1771,7 +1771,7 @@ function renderizarPortalesRutinas(rutinas) {
 
         html += `
         <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; border-radius: 14px;">
-            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #111827;">${rutCodigo}</div>
+            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
             <div style="flex:1; padding-left: 4px;">
               <span class="quest-badge-rank">${cleanRank}</span>
               <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
@@ -1782,7 +1782,7 @@ function renderizarPortalesRutinas(rutinas) {
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button class="btn-delete-row" title="Eliminar rutina" onclick="eliminarRutina(${idx}, event)" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 6px;">✕</button>
-                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #111827;">Entrar ›</span>
+                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
             </div>
         </div>`;
     });
@@ -2543,7 +2543,7 @@ function renderizarGym(registros) {
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 20px;">🏆</span>
-                <strong style="color: #111827; font-size: 14px;">Rutinas Realizadas Hoy</strong>
+                <strong style="color: #f8fafc; font-size: 14px;">Rutinas Realizadas Hoy</strong>
             </div>
             <span class="quest-badge-rank" style="background: ${hechasHoy.length > 0 ? '#10b981' : '#f3f4f6'}; color: ${hechasHoy.length > 0 ? '#ffffff' : '#6b7280'}; font-weight: 800;">
                 ${hechasHoy.length} ${hechasHoy.length === 1 ? 'Sesión' : 'Sesiones'}
@@ -2563,7 +2563,7 @@ function renderizarGym(registros) {
             <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 16px;">${esMen ? '🧠' : (esHib ? '⚡' : '🏋️')}</span>
-                    <span style="font-weight: 700; color: #111827; font-size: 13.5px;">${reg.detalle}</span>
+                    <span style="font-weight: 700; color: #f8fafc; font-size: 13.5px;">${reg.detalle}</span>
                 </div>
                 <span style="font-size: 11px; font-weight: 700; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 8px; border-radius: 9999px;">
                     ✓ HECHA HOY
@@ -2582,13 +2582,13 @@ function renderizarGym(registros) {
     // 2. BLOQUE: HISTORIAL DE DÍAS ANTERIORES
     html += `
     <div style="margin-top: 10px;">
-        <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 13.5px; font-weight: 700;">Historial de Sesiones Anteriores:</h4>`;
+        <h4 style="margin: 0 0 10px 0; color: #cbd5e1; font-size: 13.5px; font-weight: 700;">Historial de Sesiones Anteriores:</h4>`;
 
     if (anteriores.length > 0) {
         anteriores.forEach(function(reg) {
             html += `
             <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                <span style="font-weight: 600; color: #111827; font-size: 13px;">${reg.detalle}</span>
+                <span style="font-weight: 600; color: #f8fafc; font-size: 13px;">${reg.detalle}</span>
                 <span style="color: #6b7280; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
             </div>`;
         });
@@ -2850,7 +2850,7 @@ function renderizarBarraFatigaMentalDiaria() {
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 24px;">🧠</span>
                 <div>
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #111827;">Barra de Fatiga Mental Diaria</h3>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">Barra de Fatiga Mental Diaria</h3>
                     <span style="font-size: 12px; color: #6b7280;">Saturación cognitiva acumulada en el Sistema Nervioso Central (SNC)</span>
                 </div>
             </div>
@@ -2864,7 +2864,7 @@ function renderizarBarraFatigaMentalDiaria() {
             <div class="attr-progress-fill" style="width: ${nivel}%; background: ${colorBarra};"></div>
         </div>
 
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12px; color: #4b5563;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12px; color: #94a3b8;">
             <span>ℹ️ ${recomendacion}</span>
             <span style="font-size: 11px; color: #9ca3af;">Actualizado: ${fm.ultimoDia || 'Hoy'}</span>
         </div>`;
@@ -2954,12 +2954,12 @@ function renderizarMusculosMentales() {
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 22px;">${m.icono}</span>
-                    <strong style="font-size: 14px; color: #111827;">${m.nombre}</strong>
+                    <strong style="font-size: 14px; color: #f8fafc;">${m.nombre}</strong>
                 </div>
                 <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff;">Nv. ${nivel}</span>
             </div>
             <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #6b7280; line-height: 1.4;">${m.descripcion}</p>
-            <div style="display: justify; display: flex; justify-content: space-between; font-size: 11px; color: #4b5563; font-weight: 700; margin-bottom: 3px;">
+            <div style="display: justify; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 3px;">
                 <span>EXP</span>
                 <span>${exp} / ${expMax} (${pct}%)</span>
             </div>
@@ -3018,23 +3018,23 @@ function renderizarBancoEjerciciosCerebrales() {
         <div class="cerebral-exercise-card">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
                 <div>
-                    <h4 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 800; color: #111827;">${ec.nombre}</h4>
+                    <h4 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 800; color: #f8fafc;">${ec.nombre}</h4>
                     <span style="font-size: 11.5px; color: #6b7280;">⏱️ ${ec.duracionMinutos} min · ${muscP}${muscS ? ' + ' + muscS : ''}</span>
                 </div>
                 <button onclick="eliminarEjercicioCerebral('${ec.id}')" title="Eliminar ejercicio" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
             </div>
 
-            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #4b5563; line-height: 1.4;">${ec.descripcion}</p>
+            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #94a3b8; line-height: 1.4;">${ec.descripcion}</p>
 
             <div style="background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px;">
                 <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 2px;">Protocolo:</div>
-                <div style="font-size: 11.5px; color: #1f2937; line-height: 1.4;">${ec.protocolo}</div>
+                <div style="font-size: 11.5px; color: #f8fafc; line-height: 1.4;">${ec.protocolo}</div>
             </div>
 
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px; flex-wrap: wrap; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 11px; font-weight: 700; background: ${fatigaBg}; color: ${fatigaColor}; padding: 2px 7px; border-radius: 9999px;">${fatigaLabel}</span>
-                    <span style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #111827; padding: 2px 7px; border-radius: 9999px;">+${ec.expRecompensa} EXP</span>
+                    <span style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #f8fafc; padding: 2px 7px; border-radius: 9999px;">+${ec.expRecompensa} EXP</span>
                 </div>
                 <button class="btn-system" style="padding: 6px 12px; font-size: 12px; border-radius: 8px;" onclick="ejecutarEjercicioCerebral('${ec.id}')">
                     ⚡ Ejecutar Protocolo

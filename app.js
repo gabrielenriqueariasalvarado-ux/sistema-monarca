@@ -454,10 +454,10 @@ function renderizarPerfil(perfil) {
 
     var html = `
     <!-- 1. ATRIBUTOS DEL JUGADOR -->
-    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+    <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 15px; color: #111827;">⚔️ Atributos Principales</h3>
-            <span style="font-size: 12px; font-weight: 700; color: #4b5563; background: #f3f4f6; padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
+            <h3 style="margin: 0; font-size: 15px; color: #f8fafc;">⚔️ Atributos Principales</h3>
+            <span style="font-size: 12px; font-weight: 700; color: #94a3b8; background: rgba(255, 255, 255, 0.05); padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
         </div>
         <table class="table-finanzas" style="margin-bottom: 0;">
             <tbody>
@@ -487,7 +487,7 @@ function renderizarPerfil(perfil) {
                 <div class="sync-method-icon">📋</div>
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <h4 style="margin: 0; font-size: 14px; color: #111827;">Sincronización Rápida por Código</h4>
+                        <h4 style="margin: 0; font-size: 14px; color: #f8fafc;">Sincronización Rápida por Código</h4>
                         <span class="sync-tag-recommended">Recomendado</span>
                     </div>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
@@ -508,7 +508,7 @@ function renderizarPerfil(perfil) {
             <div class="sync-method-card">
                 <div class="sync-method-icon">📤</div>
                 <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Compartir Directo (WhatsApp / Drive)</h4>
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Compartir Directo (WhatsApp / Drive)</h4>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
                         Abre la hoja nativa de compartir de tu teléfono o laptop para mandar el respaldo directamente a WhatsApp, Telegram o Google Drive.
                     </p>
@@ -522,7 +522,7 @@ function renderizarPerfil(perfil) {
             <div class="sync-method-card">
                 <div class="sync-method-icon">💾</div>
                 <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Archivo de Respaldo (.JSON)</h4>
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Archivo de Respaldo (.JSON)</h4>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
                         Descarga una copia completa en tu equipo o carga un archivo JSON que hayas transferido previamente.
                     </p>
@@ -542,7 +542,7 @@ function renderizarPerfil(perfil) {
         <!-- ZONA DE RESTABLECIMIENTO -->
         <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <span style="font-size: 11.5px; color: #9ca3af;">Almacenamiento Local PWA (Persistencia Segura Offline)</span>
-            <button class="btn-delete-row" style="font-size: 11.5px; padding: 6px 12px; border-radius: 9999px; background: #fff; border: 1px solid #e5e7eb;" onclick="MonarcaDB.resetDefault()">
+            <button class="btn-delete-row" style="font-size: 11.5px; padding: 6px 12px; border-radius: 9999px; background: #fff; border: 1px solid rgba(255, 255, 255, 0.08);" onclick="MonarcaDB.resetDefault()">
                 Restablecer de Fábrica
             </button>
         </div>
@@ -728,7 +728,7 @@ function renderizarMisiones(misiones) {
             html += `
             <div class="mision-card ${esCompletado ? 'completada' : ''}">
                 <div style="flex-grow: 1; padding-right: 14px;">
-                    <div style="color: #111827; font-weight: 700; font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div style="color: #f8fafc; font-weight: 700; font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span class="mision-frecuencia-badge">[${m.frecuencia || 'Diaria'}]</span>
                         <span style="${esCompletado ? 'text-decoration: line-through; color: #6b7280;' : ''}">${m.nombre}</span>
                     </div>
@@ -756,7 +756,7 @@ function renderizarMisiones(misiones) {
         html = `
         <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes misiones activas</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes misiones activas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
                 Empieza a construir tu disciplina. Registra un nuevo hábito diario o semanal para comenzar a ganar EXP y subir de nivel.
             </p>
@@ -1028,7 +1028,7 @@ function renderizarHabilidades(skills) {
         html = `
         <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">🔮</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No hay habilidades registradas</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay habilidades registradas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
                 Registra una nueva disciplina o tecnología. Comenzará en Rango E e irá ascendiendo automáticamente de rango a medida que acumules horas.
             </p>
@@ -1166,8 +1166,8 @@ function renderizarBarrasFatiga(f) {
             <!-- COLUMNA 1: SILUETA ANATÓMICA CORPORAL (FRONTAL & DORSAL) -->
             <div class="body-diagram-box">
                 <div style="display: flex; justify-content: space-around; margin-bottom: 8px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #111827; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #111827; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
                 </div>
 
                 <div class="body-diagram-svg-container">
@@ -1350,7 +1350,7 @@ function actualizarHudMusculo(key) {
         <div class="hud-muscle-card">
             <div class="hud-muscle-header">
                 <span class="hud-muscle-region">${meta.region}</span>
-                <span style="font-size: 11px; font-weight: 700; background: #e5e7eb; color: #374151; padding: 2px 8px; border-radius: 9999px;">
+                <span style="font-size: 11px; font-weight: 700; background: #e5e7eb; color: #cbd5e1; padding: 2px 8px; border-radius: 9999px;">
                     ${estiloInfo.levelText}
                 </span>
             </div>
@@ -1504,7 +1504,7 @@ function renderizarEjercicios(ejercicios) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes ejercicios registrados</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes ejercicios registrados</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Crea tus ejercicios especificando series, repeticiones, zonas musculares trabajadas y nivel de fatiga para armar tus rutinas.
             </p>
@@ -1567,7 +1567,7 @@ function abrirModalNuevaRutina() {
             contCheck.innerHTML = `
             <div style="text-align: center; padding: 18px 10px; color: #6b7280; font-size: 13px;">
                 No tienes ejercicios creados todavía.<br>
-                <a href="javascript:void(0)" onclick="cerrarModalNuevaRutina(); cambiarVista('vista-ejercicios');" style="color: #111827; font-weight: 700; text-decoration: underline; margin-top: 6px; display: inline-block;">
+                <a href="javascript:void(0)" onclick="cerrarModalNuevaRutina(); cambiarVista('vista-ejercicios');" style="color: #f8fafc; font-weight: 700; text-decoration: underline; margin-top: 6px; display: inline-block;">
                     👉 Ir a Banco de Ejercicios
                 </a>
             </div>`;
@@ -1579,7 +1579,7 @@ function abrirModalNuevaRutina() {
                 <label class="modal-checklist-item">
                     <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}">
                     <div style="flex: 1;">
-                        <strong style="color: #111827;">${ej.nombre}</strong>
+                        <strong style="color: #f8fafc;">${ej.nombre}</strong>
                         <div style="font-size: 11.5px; color: #6b7280;">${ej.series} series × ${ej.repeticiones} · [${cats}] (+${ej.fatigaPorcentaje || 20}% fatiga)</div>
                     </div>
                 </label>`;
@@ -1662,7 +1662,7 @@ function renderizarPortalesRutinas(rutinas) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes rutinas creadas</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
             <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Arma tus sesiones de entrenamiento personalizadas seleccionando los ejercicios que has creado.
             </p>
@@ -1731,12 +1731,12 @@ function abrirDetalleRutina(idx) {
 
     var html = `
     <!-- FASE 1: CALENTAMIENTO Y ACTIVACIÓN -->
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;">
+    <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;">
         <label class="exercise-item-rpg" style="margin: 0; background: transparent; border: none; padding: 0;">
             <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <span style="font-size: 16px;">🔥</span>
-                    <h4 style="margin: 0; font-size: 14.5px; color: #111827;">Fase 1: Calentamiento & Activación Articular</h4>
+                    <h4 style="margin: 0; font-size: 14.5px; color: #f8fafc;">Fase 1: Calentamiento & Activación Articular</h4>
                     <span class="badge-status-item" id="badge-calentamiento">PENDIENTE</span>
                 </div>
                 <span class="badge-reps" style="margin-top: 4px; display: inline-block;">5 MINUTOS · MOVILIDAD ARTICULAR Y PULSO CARDIACO</span>
@@ -1747,7 +1747,7 @@ function abrirDetalleRutina(idx) {
     </div>
 
     <!-- FASE 2: EJERCICIOS DE LA RUTINA -->
-    <h4 style="font-size: 13.5px; text-transform: uppercase; color: #4b5563; margin: 16px 0 10px 0; letter-spacing: 0.5px;">Fase 2: Ejercicios Principales</h4>
+    <h4 style="font-size: 13.5px; text-transform: uppercase; color: #94a3b8; margin: 16px 0 10px 0; letter-spacing: 0.5px;">Fase 2: Ejercicios Principales</h4>
     `;
 
     if (rutina.ejercicios && rutina.ejercicios.length > 0) {
@@ -1870,7 +1870,7 @@ function renderizarGym(registros) {
     var html = '';
     if (registros && registros.length > 0) {
         registros.forEach(function(reg) {
-            html += `<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            html += `<div style="background: #121725;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-weight:600;color:#111827;font-size:13.5px;">${reg.detalle}</span>
                 <span style="color:#6b7280;font-size:12px;">${reg.fecha}</span>
             </div>`;
@@ -1895,7 +1895,7 @@ function renderizarMente(registros) {
     var list = registros || APP_STATE.salud || [];
     if (list && list.length > 0) {
         list.forEach(function(r) {
-            html += `<div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            html += `<div style="background: #121725;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-weight:600;color:#111827;font-size:13.5px;">${r.valor}</span>
                 <span style="color:#6b7280;font-size:12px;">${r.fecha}</span>
             </div>`;
@@ -2630,7 +2630,7 @@ function mostrarVistaCategoriasGrid() {
             </div>
             <div class="category-card-footer">
                 <span><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}</span>
-                <span style="color: #111827; font-weight: 700;">Explorar ›</span>
+                <span style="color: #f8fafc; font-weight: 700;">Explorar ›</span>
             </div>
         </div>`;
     });
@@ -2661,9 +2661,9 @@ function abrirDetalleCategoriaIdeas(catNombre) {
     var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
     if (headerElem) {
         headerElem.innerHTML = `
-            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <h3 style="margin: 0; color: #111827; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <h3 style="margin: 0; color: #f8fafc; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                         <span>${info ? info.icono : '💡'}</span>
                         <span>${catNombre}</span>
                     </h3>
@@ -2700,7 +2700,7 @@ function abrirDetalleCategoriaIdeas(catNombre) {
         <div class="subcategory-section">
             <div class="subcategory-title">
                 <span>${subNombre}</span>
-                <span style="font-size: 11.5px; font-weight: 700; color: #374151; background: #f3f4f6; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 9999px;">
+                <span style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 9999px;">
                     ${subIdeas.length} ${subIdeas.length === 1 ? 'pendiente' : 'pendientes'}
                 </span>
             </div>
@@ -3191,7 +3191,7 @@ function renderizarCalendario() {
                 <span class="calendar-dot dot-finance"></span>
                 <span>Obligación / Pago Financiero</span>
             </div>
-            <div class="calendar-legend-item" style="color: #111827; font-weight: 600;">
+            <div class="calendar-legend-item" style="color: #f8fafc; font-weight: 600;">
                 <span>● Día Actual (Hoy)</span>
             </div>
         </div>
@@ -3213,7 +3213,7 @@ function renderizarCalendario() {
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
             <div>
                 <span style="font-size: 11.5px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE DE JORNADA</span>
-                <h3 style="margin: 2px 0 0 0; font-size: 17px; color: #111827;">${fechaTextoCompleto}</h3>
+                <h3 style="margin: 2px 0 0 0; font-size: 17px; color: #f8fafc;">${fechaTextoCompleto}</h3>
             </div>
             <button class="btn-sync-action btn-sync-dark" onclick="abrirModalNuevoEvento('${claveFechaSel}')">
                 + Añadir a este día
@@ -3247,10 +3247,10 @@ function renderizarCalendario() {
                                 <span style="font-size: 12px; color: #6b7280; font-weight: 500;">${horaStr}</span>
                                 ${ev.prioridad === 'Alta' ? '<span style="font-size: 10px; font-weight: 700; background: #fee2e2; color: #991b1b; padding: 2px 7px; border-radius: 9999px;">ALTA</span>' : ''}
                             </div>
-                            <div class="calendar-event-title-text" style="font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 2px;">
+                            <div class="calendar-event-title-text" style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
                                 ${ev.titulo}
                             </div>
-                            ${ev.notas ? `<p style="margin: 0; font-size: 12.5px; color: #4b5563;">${ev.notas}</p>` : ''}
+                            ${ev.notas ? `<p style="margin: 0; font-size: 12.5px; color: #94a3b8;">${ev.notas}</p>` : ''}
                         </div>
                     </div>
                     <button onclick="eliminarEventoCalendario('${ev.id}')" title="Eliminar evento" 
@@ -3263,9 +3263,9 @@ function renderizarCalendario() {
         html += `</div>`;
     } else {
         html += `
-            <div style="text-align: center; padding: 24px 16px; background: #f9fafb; border-radius: 14px; border: 1px dashed #e5e7eb; margin-top: 10px;">
+            <div style="text-align: center; padding: 24px 16px; background: #0b0e15; border-radius: 14px; border: 1px dashed #e5e7eb; margin-top: 10px;">
                 <div style="font-size: 28px; margin-bottom: 6px;">📅</div>
-                <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 4px;">Sin eventos agendados</div>
+                <div style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">Sin eventos agendados</div>
                 <p style="margin: 0 0 12px 0; font-size: 12.5px; color: #6b7280;">No tienes compromisos manuales para esta fecha.</p>
                 <button class="btn-sync-action btn-sync-light" onclick="abrirModalNuevoEvento('${claveFechaSel}')">
                     + Agendar Compromiso
@@ -3315,7 +3315,7 @@ function renderizarCalendario() {
                         <span>${item.icon}</span>
                         <span style="font-weight: 600;">${item.texto}</span>
                     </div>
-                    <span style="font-size: 11px; font-weight: 700; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 9999px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #6b7280; background: rgba(255, 255, 255, 0.05); padding: 2px 8px; border-radius: 9999px;">
                         ${item.tipo}
                     </span>
                 </div>

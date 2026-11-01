@@ -194,7 +194,7 @@ function renderizarCalendario() {
                 <span class="calendar-wear-badge badge-medio" style="margin: 0; font-size: 9px; padding: 1px 5px;">45%</span>
                 <span>Desgaste / Rendimiento Diario</span>
             </div>
-            <div class="calendar-legend-item" style="color: #111827; font-weight: 600;">
+            <div class="calendar-legend-item" style="color: #f8fafc; font-weight: 600;">
                 <span>● Día Actual (Hoy)</span>
             </div>
         </div>
@@ -228,7 +228,7 @@ function renderizarCalendario() {
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
             <div>
                 <span style="font-size: 11.5px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE DE JORNADA</span>
-                <h3 style="margin: 2px 0 0 0; font-size: 17px; color: #111827;">${fechaTextoCompleto}</h3>
+                <h3 style="margin: 2px 0 0 0; font-size: 17px; color: #f8fafc;">${fechaTextoCompleto}</h3>
             </div>
             <button class="btn-sync-action btn-sync-dark" onclick="abrirModalNuevoEvento('${claveFechaSel}')">
                 + Añadir a este día
@@ -299,10 +299,10 @@ function renderizarCalendario() {
                                 <span style="font-size: 12px; color: #6b7280; font-weight: 500;">${horaStr}</span>
                                 ${ev.prioridad === 'Alta' ? '<span style="font-size: 10px; font-weight: 700; background: #fee2e2; color: #991b1b; padding: 2px 7px; border-radius: 9999px;">ALTA</span>' : ''}
                             </div>
-                            <div class="calendar-event-title-text" style="font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 2px;">
+                            <div class="calendar-event-title-text" style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
                                 ${ev.titulo}
                             </div>
-                            ${ev.notas ? `<p style="margin: 0; font-size: 12.5px; color: #4b5563;">${ev.notas}</p>` : ''}
+                            ${ev.notas ? `<p style="margin: 0; font-size: 12.5px; color: #94a3b8;">${ev.notas}</p>` : ''}
                         </div>
                     </div>
                     <button onclick="eliminarEventoCalendario('${ev.id}')" title="Eliminar evento" 
@@ -315,9 +315,9 @@ function renderizarCalendario() {
         html += `</div>`;
     } else {
         html += `
-            <div style="text-align: center; padding: 24px 16px; background: #f9fafb; border-radius: 14px; border: 1px dashed #e5e7eb; margin-top: 10px;">
+            <div style="text-align: center; padding: 24px 16px; background: #0b0e15; border-radius: 14px; border: 1px dashed #e5e7eb; margin-top: 10px;">
                 <div style="font-size: 28px; margin-bottom: 6px;">📅</div>
-                <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 4px;">Sin eventos agendados</div>
+                <div style="font-size: 14px; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">Sin eventos agendados</div>
                 <p style="margin: 0 0 12px 0; font-size: 12.5px; color: #6b7280;">No tienes compromisos manuales para esta fecha.</p>
                 <button class="btn-sync-action btn-sync-light" onclick="abrirModalNuevoEvento('${claveFechaSel}')">
                     + Agendar Compromiso
@@ -367,7 +367,7 @@ function renderizarCalendario() {
                         <span>${item.icon}</span>
                         <span style="font-weight: 600;">${item.texto}</span>
                     </div>
-                    <span style="font-size: 11px; font-weight: 700; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 9999px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #6b7280; background: rgba(255, 255, 255, 0.05); padding: 2px 8px; border-radius: 9999px;">
                         ${item.tipo}
                     </span>
                 </div>

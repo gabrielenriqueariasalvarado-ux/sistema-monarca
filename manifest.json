@@ -1,13 +1,13 @@
 {
-  "name": "Sistema Monarca",
-  "short_name": "Monarca",
-  "description": "Sistema Personal Monarca - Panel de Control, Productividad, Finanzas y Entrenamiento",
+  "name": "Emily",
+  "short_name": "Emily",
+  "description": "Emily OS - Asistente Inteligente - Panel de Control, Productividad, Finanzas y Entrenamiento",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f0f2f5",
-  "theme_color": "#111827",
+  "background_color": "#080a0f",
+  "theme_color": "#080a0f",
   "lang": "es",
   "categories": [
     "productivity",

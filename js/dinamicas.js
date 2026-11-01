@@ -53,11 +53,11 @@ function renderizarLabores() {
         contEstadisticas.innerHTML = `
         <div class="operatividad-metrics-grid" style="margin-bottom: 20px;">
             <div class="metric-card-ideas">
-                <div class="metric-num" style="color: #111827;">${totalHoras.toFixed(1)}h</div>
+                <div class="metric-num" style="color: #f8fafc;">${totalHoras.toFixed(1)}h</div>
                 <div class="metric-title">Horas Totales Dedicadas</div>
             </div>
             <div class="metric-card-ideas">
-                <div class="metric-num" style="color: #111827;">${registros.length}</div>
+                <div class="metric-num" style="color: #f8fafc;">${registros.length}</div>
                 <div class="metric-title">Sesiones de Labor Registradas</div>
             </div>
             <div class="metric-card-ideas">
@@ -77,16 +77,16 @@ function renderizarLabores() {
             var pct = totalHoras > 0 ? Math.round((hDed / totalHoras) * 100) : 0;
 
             htmlCat += `
-            <div class="card" style="margin: 0; padding: 14px 16px; border: 1px solid #e5e7eb; border-left: 4px solid ${cat.color || '#111827'};">
+            <div class="card" style="margin: 0; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid ${cat.color || '#111827'};">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 22px;">${cat.icono || '💼'}</span>
-                        <strong style="font-size: 14px; color: #111827;">${cat.nombre}</strong>
+                        <strong style="font-size: 14px; color: #f8fafc;">${cat.nombre}</strong>
                     </div>
-                    <span class="item-badge-pill" style="font-weight: 800; background: #f3f4f6; color: #111827;">${hDed.toFixed(1)} hrs</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${hDed.toFixed(1)} hrs</span>
                 </div>
                 <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #6b7280; line-height: 1.4;">${cat.descripcion}</p>
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #4b5563; font-weight: 700; margin-bottom: 3px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 3px;">
                     <span>Dedicación</span>
                     <span>${pct}% del total</span>
                 </div>
@@ -103,7 +103,7 @@ function renderizarLabores() {
     // 3. Historial de Jornadas / Sesiones de Labor
     if (contRegistros) {
         if (registros.length === 0) {
-            contRegistros.innerHTML = '<p style="color:#6b7280; text-align:center; padding:16px; background:#f9fafb; border-radius:10px;">No has registrado jornadas de labor aún. Presiona "+ Registrar Sesión de Labor".</p>';
+            contRegistros.innerHTML = '<p style="color:#6b7280; text-align:center; padding:16px; background: #0b0e15; border-radius:10px;">No has registrado jornadas de labor aún. Presiona "+ Registrar Sesión de Labor".</p>';
             return;
         }
 
@@ -111,16 +111,16 @@ function renderizarLabores() {
         registros.forEach(function(r) {
             var catInfo = categorias.find(function(c) { return c.id === r.laborId; }) || { nombre: "Labor", icono: "💼", color: "#111827" };
             htmlReg += `
-            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div style="background: #121725; border:1px solid #e5e7eb; border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
                 <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                     <span style="font-size: 24px;">${catInfo.icono}</span>
                     <div>
                         <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                            <strong style="color: #111827; font-size: 13.5px;">${catInfo.nombre}</strong>
-                            <span class="item-badge-pill" style="font-size: 11px; background: #f3f4f6; color: #374151;">⏱️ ${r.horas}h</span>
+                            <strong style="color: #f8fafc; font-size: 13.5px;">${catInfo.nombre}</strong>
+                            <span class="item-badge-pill" style="font-size: 11px; background: rgba(255, 255, 255, 0.05); color: #cbd5e1;">⏱️ ${r.horas}h</span>
                             ${r.honorarios ? `<span class="item-badge-pill" style="font-size: 11px; background: #ecfdf5; color: #059669; font-weight: 700;">+$${r.honorarios}</span>` : ''}
                         </div>
-                        <p style="margin: 0; font-size: 12.5px; color: #4b5563;">${r.descripcion}</p>
+                        <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">${r.descripcion}</p>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -283,14 +283,14 @@ function renderizarAgendaPersonas() {
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
                 <div>
                     <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px;">Gestión de Relaciones & Contactos</div>
-                    <h3 style="margin: 2px 0 0 0; font-size: 16px; font-weight: 800; color: #111827;">Directorio de Conversaciones Pendientes</h3>
+                    <h3 style="margin: 2px 0 0 0; font-size: 16px; font-weight: 800; color: #f8fafc;">Directorio de Conversaciones Pendientes</h3>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff;">${personas.length} Contactos</span>
-                    <span class="item-badge-pill" style="font-weight: 800; background: #f3f4f6; color: #111827;">${temasResueltos}/${totalTemas} Temas Tratados</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${temasResueltos}/${totalTemas} Temas Tratados</span>
                 </div>
             </div>
-            <p style="margin: 0; font-size: 12.5px; color: #4b5563;">
+            <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
                 Ten claridad de los temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás (barbería, gimnasio, café o llamada).
             </p>
         </div>`;
@@ -307,7 +307,7 @@ function renderizarAgendaPersonas() {
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px;">
+        <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 12px;">
             <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay personas registradas con esta ubicación proyectada.</p>
             <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevaPersona()">+ Agregar Contacto y Temas</button>
         </div>`;
@@ -318,11 +318,11 @@ function renderizarAgendaPersonas() {
     filtradas.forEach(function(p) {
         var temasHtml = (p.temasPendientes || []).map(function(t) {
             var checkState = t.hecho ? 'checked' : '';
-            var textStyle = t.hecho ? 'text-decoration: line-through; color: #9ca3af;' : 'color: #1f2937;';
+            var textStyle = t.hecho ? 'text-decoration: line-through; color: #9ca3af;' : 'color: #f8fafc;';
             return `
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed #f3f4f6;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; ${textStyle}">
-                    <input type="checkbox" ${checkState} onchange="toggleTemaPersona('${p.id}', '${t.id}')" style="cursor: pointer; width: 15px; height: 15px; accent-color: #111827;">
+                    <input type="checkbox" ${checkState} onchange="toggleTemaPersona('${p.id}', '${t.id}')" style="cursor: pointer; width: 15px; height: 15px; accent-color: #f8fafc;">
                     <span>${t.texto}</span>
                 </label>
                 <button onclick="eliminarTemaPersona('${p.id}', '${t.id}')" title="Quitar tema" style="background:none; border:none; color:#d1d5db; cursor:pointer; font-size:12px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#d1d5db'">✕</button>
@@ -345,7 +345,7 @@ function renderizarAgendaPersonas() {
                 </div>
             </div>
 
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; color: #374151;">
+            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; color: #cbd5e1;">
                 <strong>📍 Lugar Proyectado:</strong> ${p.lugarProyectado || 'Por definir'}
                 ${p.fechaObjetivo ? ` · <span style="color: #6b7280;">📅 ${p.fechaObjetivo}</span>` : ''}
             </div>
@@ -519,11 +519,11 @@ function renderizarRuletaSemanal() {
         var fec = act.fechaGiro || "Hoy";
 
         contResultado.innerHTML = `
-        <div class="weekly-review-banner" style="border-left-color: #111827;">
+        <div class="weekly-review-banner" style="border-left-color: #f8fafc;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
                 <div>
                     <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px;">Protocolo Anti-Monotonía</div>
-                    <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #111827;">Selección Activa de Variabilidad</h3>
+                    <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #f8fafc;">Selección Activa de Variabilidad</h3>
                 </div>
                 <button class="btn-system" onclick="girarRuletaCompleta()" style="font-size: 12.5px; padding: 7px 14px;">
                     🎲 Giro Completo Diario
@@ -531,19 +531,19 @@ function renderizarRuletaSemanal() {
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px;">
-                <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;">
+                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
                     <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">🍲 Comida Elegida</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #111827; margin: 4px 0;">${com}</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${com}</div>
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('comidas')">🔄 Girar Comida</button>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;">
+                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
                     <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">👔 Outfit del Día</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #111827; margin: 4px 0;">${ves}</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${ves}</div>
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('vestimenta')">🔄 Girar Outfit</button>
                 </div>
-                <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px;">
+                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
                     <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">🎵 Música / Foco</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #111827; margin: 4px 0;">${mus}</div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${mus}</div>
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Música</button>
                 </div>
             </div>
@@ -570,7 +570,7 @@ function renderizarRuletaSemanal() {
 
         if (items.length === 0) {
             htmlOps += `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px;">
+            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 10px;">
                 <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
                 <button class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar tu primera opción</button>
             </div>`;
@@ -578,9 +578,9 @@ function renderizarRuletaSemanal() {
             items.forEach(function(item) {
                 var subtag = item.tipo || item.estilo || item.genero || 'Variabilidad';
                 htmlOps += `
-                <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <div style="background: #121725; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
                     <div>
-                        <strong style="font-size: 13px; color: #111827; display: block;">${item.nombre}</strong>
+                        <strong style="font-size: 13px; color: #f8fafc; display: block;">${item.nombre}</strong>
                         <span style="font-size: 11px; color: #6b7280;">${subtag}</span>
                     </div>
                     <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>

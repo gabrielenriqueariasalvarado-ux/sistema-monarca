@@ -13,10 +13,10 @@ function renderizarPerfil(perfil) {
 
     var html = `
     <!-- 1. ATRIBUTOS DEL JUGADOR -->
-    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 15px; color: #111827;">⚔️ Atributos Principales</h3>
-            <span style="font-size: 12px; font-weight: 700; color: #4b5563; background: #f3f4f6; padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
+    <div style="background: #0f131d; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 15px; color: #f8fafc;">⚔️ Atributos Principales</h3>
+            <span style="font-size: 12px; font-weight: 700; color: #94a3b8; background: rgba(255, 255, 255, 0.04); padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
         </div>
         <table class="table-finanzas" style="margin-bottom: 0;">
             <tbody>
@@ -46,7 +46,7 @@ function renderizarPerfil(perfil) {
                 <div class="sync-method-icon">📋</div>
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <h4 style="margin: 0; font-size: 14px; color: #111827;">Sincronización Rápida por Código</h4>
+                        <h4 style="margin: 0; font-size: 14px; color: #f8fafc;">Sincronización Rápida por Código</h4>
                         <span class="sync-tag-recommended">Recomendado</span>
                     </div>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
@@ -67,7 +67,7 @@ function renderizarPerfil(perfil) {
             <div class="sync-method-card">
                 <div class="sync-method-icon">📤</div>
                 <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Compartir Directo (WhatsApp / Drive)</h4>
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Compartir Directo (WhatsApp / Drive)</h4>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
                         Abre la hoja nativa de compartir de tu teléfono o laptop para mandar el respaldo directamente a WhatsApp, Telegram o Google Drive.
                     </p>
@@ -81,7 +81,7 @@ function renderizarPerfil(perfil) {
             <div class="sync-method-card">
                 <div class="sync-method-icon">💾</div>
                 <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #111827;">Archivo de Respaldo (.JSON)</h4>
+                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Archivo de Respaldo (.JSON)</h4>
                     <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
                         Descarga una copia completa en tu equipo o carga un archivo JSON que hayas transferido previamente.
                     </p>
@@ -101,7 +101,7 @@ function renderizarPerfil(perfil) {
         <!-- ZONA DE RESTABLECIMIENTO -->
         <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
-                <strong style="font-size: 12px; color: #111827; display: block;">Limpieza y Restablecimiento de Fábrica</strong>
+                <strong style="font-size: 12px; color: #f8fafc; display: block;">Limpieza y Restablecimiento de Fábrica</strong>
                 <span style="font-size: 11px; color: #6b7280;">Elimina todos los datos de prueba y deja la app 100% limpia para que agregues tus propias cosas.</span>
             </div>
             <button class="btn-delete-row" style="font-size: 11.5px; padding: 7px 14px; border-radius: 9999px; background: #fff; border: 1px solid #fee2e2; color: #dc2626; font-weight: 700; cursor: pointer;" onclick="MonarcaDB.resetDefault()">

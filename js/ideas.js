@@ -233,7 +233,7 @@ function mostrarVistaCategoriasGrid() {
             </div>
             <div class="category-card-footer">
                 <span><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}</span>
-                <span style="color: #111827; font-weight: 700;">Explorar ›</span>
+                <span style="color: #f8fafc; font-weight: 700;">Explorar ›</span>
             </div>
         </div>`;
     });
@@ -264,9 +264,9 @@ function abrirDetalleCategoriaIdeas(catNombre) {
     var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
     if (headerElem) {
         headerElem.innerHTML = `
-            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
                 <div>
-                    <h3 style="margin: 0; color: #111827; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <h3 style="margin: 0; color: #f8fafc; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
                         <span>${info ? info.icono : '💡'}</span>
                         <span>${catNombre}</span>
                     </h3>
@@ -303,7 +303,7 @@ function abrirDetalleCategoriaIdeas(catNombre) {
         <div class="subcategory-section">
             <div class="subcategory-title">
                 <span>${subNombre}</span>
-                <span style="font-size: 11.5px; font-weight: 700; color: #374151; background: #f3f4f6; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 9999px;">
+                <span style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 9999px;">
                     ${subIdeas.length} ${subIdeas.length === 1 ? 'pendiente' : 'pendientes'}
                 </span>
             </div>
@@ -650,16 +650,16 @@ function renderizarConocimientos(filtro) {
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
                 <div>
                     <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280;">Ciclo de Repaso Activo</div>
-                    <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #111827;">Revisión Semanal de Conocimientos</h3>
+                    <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #f8fafc;">Revisión Semanal de Conocimientos</h3>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="item-badge-pill" style="font-size: 12.5px; font-weight: 800; background: #f3f4f6; color: #111827;">${repasadosEstaSemana} / ${totalConocimientos} Repasados</span>
+                    <span class="item-badge-pill" style="font-size: 12.5px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${repasadosEstaSemana} / ${totalConocimientos} Repasados</span>
                     <button class="btn-sheet-action" onclick="reiniciarCicloSemanalConocimientos()" title="Reiniciar ciclo semanal para volver a estudiar">
                         🔄 Nuevo Ciclo Semanal
                     </button>
                 </div>
             </div>
-            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #4b5563;">
+            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #94a3b8;">
                 Estudio espaciado de técnicas operativas y teóricas aprendidas durante tus actividades. Repasa cada punto para afianzar retención neural y sumar +15 EXP.
             </p>
             <div class="attr-progress-track" style="height: 8px;">
@@ -677,7 +677,7 @@ function renderizarConocimientos(filtro) {
 
     if (filtrados.length === 0) {
         cont.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 32px 16px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px;">
+        <div style="grid-column: 1 / -1; text-align: center; padding: 32px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 12px;">
             <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay conocimientos registrados en esta área.</p>
             <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevoConocimiento()">+ Registrar Nuevo Conocimiento</button>
         </div>`;
@@ -688,7 +688,7 @@ function renderizarConocimientos(filtro) {
     filtrados.forEach(function(c) {
         var estadoBadge = c.revisadoEstaSemana ? 
             `<span style="font-size: 11px; font-weight: 700; background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 9999px; border: 1px solid #a7f3d0;">✓ Repasado esta semana</span>` :
-            `<span style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #4b5563; padding: 3px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">Pendiente de repaso</span>`;
+            `<span style="font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 3px 8px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.08);">Pendiente de repaso</span>`;
 
         var btnRepaso = c.revisadoEstaSemana ?
             `<button class="btn-card-repaso repasado" onclick="marcarConocimientoRepasadoSemana('${c.id}')" title="Hacer clic para desmarcar">✓ Estudiado</button>` :
@@ -707,12 +707,12 @@ function renderizarConocimientos(filtro) {
             </div>
 
             <div style="font-size: 11.5px; color: #6b7280; margin-bottom: 10px;">
-                <strong>Origen:</strong> ${c.actividadOrigen || 'Actividad práctica'} · <span style="font-weight: 600; color: #374151;">${c.nivelDominio || 'En Práctica'}</span>
+                <strong>Origen:</strong> ${c.actividadOrigen || 'Actividad práctica'} · <span style="font-weight: 600; color: #cbd5e1;">${c.nivelDominio || 'En Práctica'}</span>
             </div>
 
             <div class="knowledge-keypoints-box">
                 <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Puntos Clave & Técnica:</div>
-                <p style="margin: 0; font-size: 12.5px; color: #1f2937; line-height: 1.45; white-space: pre-wrap;">${c.resumenPuntosClave}</p>
+                <p style="margin: 0; font-size: 12.5px; color: #f8fafc; line-height: 1.45; white-space: pre-wrap;">${c.resumenPuntosClave}</p>
             </div>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f3f4f6; flex-wrap: wrap; gap: 8px;">

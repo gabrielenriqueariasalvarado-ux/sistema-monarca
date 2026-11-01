@@ -157,9 +157,9 @@ function renderizarProductosInventario(listaManual) {
     if (!lista || lista.length === 0) {
         var tieneCategorias = APP_STATE.inventario.categorias.length > 0;
         cont.innerHTML = `
-        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #ffffff;">
+        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #121725;">
             <div style="font-size: 42px; margin-bottom: 12px;">📦</div>
-            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #111827;">No tienes productos en inventario</h3>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes productos en inventario</h3>
             <p style="margin: 6px auto 18px auto; max-width: 440px; font-size: 13px; color: #6b7280; line-height: 1.45;">
                 ${tieneCategorias 
                     ? 'Agrega tus productos indicando costo, precio de venta, tallas/colores o stock simple para comenzar a registrar ventas.' 
@@ -167,7 +167,7 @@ function renderizarProductosInventario(listaManual) {
             </p>
             <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 ${!tieneCategorias ? `
-                <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #ffffff; color: #111827; border: 1px solid #d1d5db; padding: 9px 16px; font-size: 13px; font-weight: 700; border-radius: 10px;">
+                <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #121725; color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.1); padding: 9px 16px; font-size: 13px; font-weight: 700; border-radius: 10px;">
                     🏷️ Crear Primera Categoría
                 </button>` : ''}
                 <button class="btn-system" onclick="abrirModalNuevoProducto()" style="background: #111827; color: #ffffff; border: 1px solid #111827; padding: 9px 18px; font-size: 13px; font-weight: 700; border-radius: 10px;">
@@ -202,10 +202,10 @@ function renderizarProductosInventario(listaManual) {
         // Etiquetas opcionales (Marca, Género, Estado)
         var tagsHtml = '';
         if (prod.marca) {
-            tagsHtml += `<span style="font-size: 10px; font-weight: 800; background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; padding: 2px 7px; border-radius: 5px;">🏷️ ${prod.marca}</span>`;
+            tagsHtml += `<span style="font-size: 10px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">🏷️ ${prod.marca}</span>`;
         }
         if (prod.genero && prod.genero !== 'No aplica') {
-            tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; padding: 2px 7px; border-radius: 5px;">👤 ${prod.genero}</span>`;
+            tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">👤 ${prod.genero}</span>`;
         }
         if (prod.estado && prod.estado !== 'Normal') {
             var bgEst = (prod.estado === 'Nuevo') ? 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;' :
@@ -231,11 +231,11 @@ function renderizarProductosInventario(listaManual) {
         }
 
         html += `
-        <div class="card inventario-producto-card ${enStock ? '' : 'is-agotado'}" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #ffffff; border: 1px solid #e5e7eb; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease;">
+        <div class="card inventario-producto-card ${enStock ? '' : 'is-agotado'}" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease;">
             <div>
                 <!-- Fila Superior: Categoría y Disponibilidad -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #4b5563; background: #f9fafb; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #94a3b8; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
                         ${catIcono} ${catNombre}
                     </span>
                     ${statusBadge}
@@ -245,7 +245,7 @@ function renderizarProductosInventario(listaManual) {
                 ${tagsHtml ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">${tagsHtml}</div>` : ''}
 
                 <!-- Nombre del Producto -->
-                <h4 style="margin: 0 0 6px 0; font-size: 15.5px; font-weight: 800; color: #111827; line-height: 1.35;">
+                <h4 style="margin: 0 0 6px 0; font-size: 15.5px; font-weight: 800; color: #f8fafc; line-height: 1.35;">
                     ${prod.nombre}
                 </h4>
 
@@ -256,10 +256,10 @@ function renderizarProductosInventario(listaManual) {
                 ${variantesHtml}
 
                 <!-- Métricas Clave: Precios y Rentabilidad -->
-                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 8px; background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
+                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 8px; background: #0b0e15; border: 1px solid #f3f4f6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
                     <div>
                         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">Precio de Venta</span>
-                        <div style="font-size: 17px; font-weight: 800; color: #111827; margin-top: 1px;">
+                        <div style="font-size: 17px; font-weight: 800; color: #f8fafc; margin-top: 1px;">
                             $${precioVenta.toFixed(2)}
                         </div>
                         <div style="font-size: 10.5px; color: #6b7280; margin-top: 2px;">
@@ -271,8 +271,8 @@ function renderizarProductosInventario(listaManual) {
                         <div style="font-size: 16px; font-weight: 800; color: ${enStock ? '#111827' : '#991b1b'}; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
                             <span>${stock} unids</span>
                             <div style="display: flex; gap: 3px;">
-                                <button onclick="ajustarStockRapido('${prod.id}', -1)" title="Restar 1 unidad" style="border: 1px solid #d1d5db; background: #ffffff; color: #111827; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">-</button>
-                                <button onclick="ajustarStockRapido('${prod.id}', 1)" title="Sumar 1 unidad" style="border: 1px solid #d1d5db; background: #ffffff; color: #111827; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">+</button>
+                                <button onclick="ajustarStockRapido('${prod.id}', -1)" title="Restar 1 unidad" style="border: 1px solid rgba(255, 255, 255, 0.1); background: #121725; color: #f8fafc; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">-</button>
+                                <button onclick="ajustarStockRapido('${prod.id}', 1)" title="Sumar 1 unidad" style="border: 1px solid rgba(255, 255, 255, 0.1); background: #121725; color: #f8fafc; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">+</button>
                             </div>
                         </div>
                         ${prod.tieneVariantes ? `<div style="font-size: 10px; color: #6b7280; margin-top: 2px;">Con variantes</div>` : ''}
@@ -281,7 +281,7 @@ function renderizarProductosInventario(listaManual) {
 
                 ${totalVend > 0 ? `
                 <div style="font-size: 11px; color: #6b7280; margin-bottom: 12px; display: flex; align-items: center; gap: 4px;">
-                    <span>✓</span> Total vendidos históricamente: <strong style="color: #111827;">${totalVend} unidades</strong>
+                    <span>✓</span> Total vendidos históricamente: <strong style="color: #f8fafc;">${totalVend} unidades</strong>
                 </div>` : ''}
             </div>
 
@@ -291,14 +291,14 @@ function renderizarProductosInventario(listaManual) {
                 <button type="button" 
                         class="btn-system" 
                         onclick="abrirModalRegistrarVenta('${prod.id}')"
-                        style="width: 100%; justify-content: center; font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 9px; margin-bottom: 8px; ${enStock ? 'background: #111827; color: #ffffff;' : 'background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; cursor: not-allowed;'}"
+                        style="width: 100%; justify-content: center; font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 9px; margin-bottom: 8px; ${enStock ? 'background: #111827; color: #ffffff;' : 'background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.08); cursor: not-allowed;'}"
                         ${enStock ? '' : 'disabled title="Producto agotado. Añade existencias para vender."'}>
                     <span>💵</span> ${enStock ? 'Registrar Venta (Vendido)' : 'Agotado (Sin Stock)'}
                 </button>
 
                 <!-- Acciones secundarias: Editar y Eliminar -->
                 <div style="display: flex; gap: 6px;">
-                    <button type="button" onclick="abrirModalNuevoProducto('${prod.id}')" style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; color: #374151; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
+                    <button type="button" onclick="abrirModalNuevoProducto('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
                         ✏️ Editar
                     </button>
                     <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid #fee2e2; background: #fff5f5; color: #b91c1c; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar producto">
@@ -803,9 +803,9 @@ function renderizarCategoriasInventario() {
 
     if (!cats || cats.length === 0) {
         cont.innerHTML = `
-        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #ffffff;">
+        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #121725;">
             <div style="font-size: 42px; margin-bottom: 12px;">🏷️</div>
-            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #111827;">No tienes categorías creadas</h3>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes categorías creadas</h3>
             <p style="margin: 6px auto 18px auto; max-width: 440px; font-size: 13px; color: #6b7280; line-height: 1.45;">
                 Crea categorías para organizar tu catálogo de ventas (ej: "Franelas", "Shorts", "Suplementos", "Zapatos").
             </p>
@@ -824,18 +824,18 @@ function renderizarCategoriasInventario() {
         }).length;
 
         html += `
-        <div class="card" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #ffffff; border: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <div class="card" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="font-size: 28px; width: 44px; height: 44px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <div style="font-size: 28px; width: 44px; height: 44px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                     ${cat.icono || '🏷️'}
                 </div>
                 <div>
-                    <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #111827;">${cat.nombre}</h4>
+                    <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">${cat.nombre}</h4>
                     <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">${cantAsoc} producto${cantAsoc === 1 ? '' : 's'}</span>
                 </div>
             </div>
             <div style="display: flex; gap: 6px;">
-                <button type="button" onclick="abrirModalNuevaCategoria('${cat.id}')" style="border: 1px solid #e5e7eb; background: #ffffff; color: #374151; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar categoría">
+                <button type="button" onclick="abrirModalNuevaCategoria('${cat.id}')" style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar categoría">
                     ✏️
                 </button>
                 <button type="button" onclick="eliminarCategoriaInventario('${cat.id}')" style="border: 1px solid #fee2e2; background: #fff5f5; color: #b91c1c; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar categoría">
@@ -1258,9 +1258,9 @@ function renderizarVendidosInventario(listaManual) {
 
     if (!ventas || ventas.length === 0) {
         cont.innerHTML = `
-        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #ffffff;">
+        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #121725;">
             <div style="font-size: 42px; margin-bottom: 12px;">💰</div>
-            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #111827;">No tienes ventas registradas</h3>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes ventas registradas</h3>
             <p style="margin: 6px auto 18px auto; max-width: 440px; font-size: 13px; color: #6b7280; line-height: 1.45;">
                 Cuando registres ventas de tus productos aparecerán en este historial con su fecha, variante, unidades, monto recaudado y tu observación.
             </p>
@@ -1279,33 +1279,33 @@ function renderizarVendidosInventario(listaManual) {
         var total = Number(venta.totalVenta) || (cant * unit);
 
         html += `
-        <div class="card inventario-venta-card" style="margin-bottom: 0; padding: 16px 18px; border-radius: 14px; background: #ffffff; border: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
+        <div class="card inventario-venta-card" style="margin-bottom: 0; padding: 16px 18px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
             <div style="flex: 1; min-width: 240px;">
                 <!-- Fila de Metadatos: Categoría y Fecha/Hora -->
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-                    <span style="font-size: 11px; font-weight: 800; background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
                         ${venta.categoriaIcono || '🏷️'} ${venta.categoriaNombre || 'General'}
                     </span>
-                    ${venta.marca ? `<span style="font-size: 10.5px; font-weight: 700; background: #f3f4f6; color: #4b5563; padding: 2px 6px; border-radius: 5px;">🏷️ ${venta.marca}</span>` : ''}
+                    ${venta.marca ? `<span style="font-size: 10.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 2px 6px; border-radius: 5px;">🏷️ ${venta.marca}</span>` : ''}
                     <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">
                         📅 ${venta.fecha} ${venta.hora ? '· ' + venta.hora : ''}
                     </span>
                 </div>
 
                 <!-- Nombre del Producto Vendido y Variante -->
-                <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #111827; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span>${venta.productoNombre}</span>
                     ${venta.varianteDetalle ? `<span class="variant-pill" style="font-size: 11.5px; background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">👕 ${venta.varianteDetalle}</span>` : ''}
                 </h4>
 
                 <!-- Cantidad y Precio -->
-                <div style="font-size: 13px; color: #374151; margin-bottom: 10px;">
-                    Cantidad: <strong style="color: #111827;">${cant} unid${cant > 1 ? 'es' : ''}</strong> · Precio unitario: <strong>$${unit.toFixed(2)}</strong>
+                <div style="font-size: 13px; color: #cbd5e1; margin-bottom: 10px;">
+                    Cantidad: <strong style="color: #f8fafc;">${cant} unid${cant > 1 ? 'es' : ''}</strong> · Precio unitario: <strong>$${unit.toFixed(2)}</strong>
                 </div>
 
                 <!-- Observación (Requerimiento explícito) -->
-                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-left: 3.5px solid #111827; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #374151; line-height: 1.45;">
-                    <strong style="color: #111827;">📝 Observación:</strong> 
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3.5px solid #111827; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #cbd5e1; line-height: 1.45;">
+                    <strong style="color: #f8fafc;">📝 Observación:</strong> 
                     <span>${venta.observacion ? venta.observacion : '<em style="color: #9ca3af;">Sin observación registrada</em>'}</span>
                 </div>
             </div>
@@ -1314,13 +1314,13 @@ function renderizarVendidosInventario(listaManual) {
             <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; min-height: 80px;">
                 <div>
                     <span style="font-size: 10.5px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">TOTAL COBRADO</span>
-                    <div style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 1px;">
+                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc; margin-top: 1px;">
                         $${total.toFixed(2)}
                     </div>
                 </div>
                 <button type="button" 
                         onclick="anularVentaInventario('${venta.id}')" 
-                        style="border: 1px solid #e5e7eb; background: #ffffff; color: #6b7280; padding: 5px 10px; font-size: 11px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: all 0.2s ease;" 
+                        style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #6b7280; padding: 5px 10px; font-size: 11px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: all 0.2s ease;" 
                         title="Anular venta y reincorporar las unidades al stock">
                     ↩ Revertir Venta (+${cant} stock)
                 </button>

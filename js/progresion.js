@@ -1512,11 +1512,11 @@ function renderizarQuestsDiarios() {
             var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
 
             var labelTiempo = (q.tipoTiempo === 'programada')
-                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN) <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="margin-left: 6px; padding: 2px 7px; font-size: 11px; border-radius: 6px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; cursor: pointer;">⏰ Alarma Móvil</button>`
+                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN) <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="margin-left: 6px; padding: 2px 7px; font-size: 11px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: #131826; color: #cbd5e1; cursor: pointer;">⏰ Alarma Móvil</button>`
                 : `⏱️ TIEMPO ASIGNADO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
 
             bloqueTiempo = `
-            <div style="margin-top: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px;">
+            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
                     <span style="color: #4b5563; font-weight: 600;">${labelTiempo}</span>
                     <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 14px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#2563eb' : '#111827')};">
@@ -1529,7 +1529,7 @@ function renderizarQuestsDiarios() {
             </div>`;
         } else {
             bloqueTiempo = `
-            <div style="margin-top: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 12px; color: #4b5563; font-weight: 600;">⏰ HORA LÍMITE ASIGNADA:</span>
                 <span style="font-weight: 800; font-size: 13.5px; color: #111827;">Antes de las ${q.horaLimite || '08:30'}</span>
             </div>`;
