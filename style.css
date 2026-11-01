@@ -1,7 +1,27 @@
 /* ==========================================================================
        SISTEMA PERSONAL · DISEÑO MODERNO, MINIMALISTA Y PROFESIONAL
-       Inspirado en estética Soft-UI / Linear / iDraft (Monocromático, Limpio y Ejecutivo)
+       Estándar de Calidad Visual: Estilo Emil Kowalski & Impeccable UI
        ========================================================================== */
+
+    :root {
+        --bg-page: #f8fafc;
+        --card-bg: #ffffff;
+        --card-border: rgba(15, 23, 42, 0.08);
+        --card-border-hover: rgba(15, 23, 42, 0.16);
+        --card-radius: 16px;
+        --card-radius-lg: 20px;
+        --card-radius-pill: 9999px;
+        
+        /* Sombras por capas suaves y naturales (Layered shadows) */
+        --shadow-subtle: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+        --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 6px 16px -2px rgba(15, 23, 42, 0.04);
+        --shadow-hover: 0 16px 32px -4px rgba(15, 23, 42, 0.09), 0 6px 12px -2px rgba(15, 23, 42, 0.04);
+        --shadow-active: 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+        
+        /* Curvas de aceleración naturales */
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
 
     * {
         box-sizing: border-box;
@@ -11,15 +31,16 @@
 
     body {
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        background-color: #f0f2f5;
+        background-color: var(--bg-page);
         background-image: 
-            radial-gradient(at 0% 0%, rgba(226, 232, 240, 0.6) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(226, 232, 240, 0.6) 0px, transparent 50%);
-        color: #111827;
+            radial-gradient(at 0% 0%, rgba(226, 232, 240, 0.5) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(226, 232, 240, 0.5) 0px, transparent 50%);
+        color: #0f172a;
         margin: 0;
-        padding: 24px 16px;
+        padding: 28px 18px;
         min-height: 100vh;
         user-select: none;
+        letter-spacing: -0.01em;
     }
 
     button, input, select, textarea {
@@ -30,62 +51,67 @@
 
     button {
         cursor: pointer;
-        border-radius: 9999px;
-        border: 1px solid #e5e7eb;
+        border-radius: var(--card-radius-pill);
+        border: 1px solid var(--card-border);
         background: #ffffff;
-        color: #111827;
+        color: #0f172a;
         font-weight: 600;
-        transition: all 0.15s ease;
+        transition: all 0.2s var(--ease-out);
         outline: none;
         -webkit-tap-highlight-color: transparent;
     }
 
     button:hover {
-        border-color: #d1d5db;
-        background: #f9fafb;
+        border-color: var(--card-border-hover);
+        background: #f8fafc;
+    }
+
+    button:active {
+        transform: scale(0.98);
     }
 
     .container {
         max-width: 880px;
         margin: 0 auto;
-        padding-bottom: 40px;
+        padding-bottom: 50px;
     }
 
-    /* Títulos Principales */
+    /* Títulos Principales con Jerarquía Clara */
     h1 {
-        color: #111827;
+        color: #0f172a;
         text-align: center;
         margin-bottom: 24px;
         font-size: 22px;
         font-weight: 800;
-        letter-spacing: -0.5px;
+        letter-spacing: -0.03em;
     }
 
     h2 {
-        color: #111827;
+        color: #0f172a;
         font-size: 18px;
         font-weight: 700;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.025em;
         margin-top: 0;
     }
 
     h3 {
-        color: #1f2937;
+        color: #1e293b;
         font-size: 15px;
         font-weight: 600;
-        letter-spacing: -0.2px;
+        letter-spacing: -0.02em;
     }
 
     p {
-        color: #6b7280;
+        color: #64748b;
         font-size: 13.5px;
-        line-height: 1.5;
+        line-height: 1.55;
+        letter-spacing: -0.01em;
     }
 
-    /* Vistas y Pestañas */
+    /* Vistas y Pestañas con Transición Suave */
     .tab-content {
         display: none;
-        animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: fadeIn 0.22s var(--ease-out);
     }
 
     .tab-content.active {
@@ -99,23 +125,28 @@
 
     /* Tarjetas y Contenedores */
     .card {
-        background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--card-radius);
         padding: 24px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
-        transition: box-shadow 0.2s ease;
+        box-shadow: var(--shadow-card);
+        transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.2s ease;
     }
 
-    /* Banner Destacado Oscuro (Overall Information / User Summary) */
+    .card:hover {
+        border-color: var(--card-border-hover);
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Banner Destacado Oscuro */
     .user-header-card {
-        background: #111827;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: #ffffff;
-        border-radius: 20px;
-        padding: 24px;
-        margin-bottom: 22px;
-        box-shadow: 0 10px 25px -5px rgba(17, 24, 39, 0.15);
+        border-radius: var(--card-radius-lg);
+        padding: 26px;
+        margin-bottom: 24px;
+        box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -124,11 +155,11 @@
         margin: 0 0 6px 0;
         font-size: 20px;
         font-weight: 800;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.03em;
     }
 
     .user-header-card p {
-        color: #9ca3af !important;
+        color: #94a3b8 !important;
         margin: 0;
         font-size: 13px;
         font-weight: 500;
@@ -138,8 +169,8 @@
     .grid-menu {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
-        margin-top: 16px;
+        gap: 18px;
+        margin-top: 18px;
     }
 
     @media (max-width: 580px) {
@@ -148,118 +179,137 @@
         }
     }
 
+    /* Tarjetas de Menú con Micro-interacciones Emil Kowalski */
     .menu-card {
-        background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--card-radius);
         padding: 24px 20px;
         text-align: center;
         cursor: pointer;
-        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+        transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.2s ease;
+        box-shadow: var(--shadow-card);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .menu-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.08);
-        border-color: #d1d5db;
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+        border-color: var(--card-border-hover);
         background: #ffffff;
+    }
+
+    .menu-card:active {
+        transform: translateY(-1px) scale(0.985);
+        box-shadow: var(--shadow-active);
     }
 
     .menu-card .menu-icon {
         font-size: 32px;
-        margin-bottom: 12px;
-        width: 54px;
-        height: 54px;
+        margin-bottom: 14px;
+        width: 56px;
+        height: 56px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #f4f4f5;
-        border-radius: 16px;
-        border: 1px solid #e4e4e7;
-        transition: all 0.2s ease;
+        background: #f1f5f9;
+        border-radius: 14px;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        transition: transform 0.22s var(--ease-out), background-color 0.2s ease, border-color 0.2s ease;
     }
 
     .menu-card:hover .menu-icon {
-        background: #111827;
+        transform: scale(1.08);
+        background: #0f172a;
         color: #ffffff;
-        border-color: #111827;
+        border-color: #0f172a;
     }
 
     .menu-card h3 {
-        color: #111827;
-        margin: 0 0 4px 0;
+        color: #0f172a;
+        margin: 0 0 5px 0;
         font-size: 15px;
         font-weight: 700;
-        letter-spacing: -0.2px;
+        letter-spacing: -0.02em;
     }
 
     .menu-card p {
         margin: 0;
-        color: #6b7280;
+        color: #64748b;
         font-size: 12.5px;
+        line-height: 1.45;
     }
 
     /* Botones Modernos Estilo Píldora */
     .btn-system {
-        background: #111827;
+        background: #0f172a;
         color: #ffffff;
-        border: 1px solid #111827;
+        border: 1px solid #0f172a;
         padding: 10px 22px;
-        border-radius: 9999px;
+        border-radius: var(--card-radius-pill);
         cursor: pointer;
         font-weight: 600;
         font-size: 13px;
-        letter-spacing: 0.2px;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        letter-spacing: -0.01em;
+        transition: all 0.2s var(--ease-out);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .btn-system:hover:not(:disabled) {
-        background: #27272a;
-        border-color: #27272a;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+        background: #1e293b;
+        border-color: #1e293b;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.16);
+    }
+
+    .btn-system:active:not(:disabled) {
+        transform: translateY(0px) scale(0.98);
     }
 
     .btn-system:disabled {
-        background: #e4e4e7 !important;
-        color: #a1a1aa !important;
-        border-color: #e4e4e7 !important;
+        background: #e2e8f0 !important;
+        color: #94a3b8 !important;
+        border-color: #e2e8f0 !important;
         cursor: not-allowed !important;
         box-shadow: none !important;
     }
 
     .btn-back-system {
         background: #ffffff;
-        color: #111827;
-        border: 1px solid #e5e7eb;
+        color: #0f172a;
+        border: 1px solid var(--card-border);
         padding: 8px 18px;
-        border-radius: 9999px;
+        border-radius: var(--card-radius-pill);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        margin-bottom: 18px;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        margin-bottom: 20px;
+        transition: all 0.2s var(--ease-out);
+        box-shadow: var(--shadow-subtle);
     }
 
     .btn-back-system:hover {
-        background: #f9fafb;
-        border-color: #d1d5db;
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+        background: #f8fafc;
+        border-color: var(--card-border-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    .btn-back-system:active {
+        transform: translateY(0) scale(0.98);
     }
 
     /* Tablas Limpias */
@@ -292,37 +342,37 @@
         background-color: #f9fafb;
     }
 
-    /* Formularios e Inputs */
+    /* Formularios e Inputs con acabado limpio */
     input[type="text"], input[type="number"] {
         width: 100%;
-        padding: 10px 14px;
-        background-color: #f9fafb;
-        border: 1px solid #e5e7eb;
+        padding: 11px 15px;
+        background-color: #f8fafc;
+        border: 1px solid rgba(15, 23, 42, 0.1);
         border-radius: 12px;
-        color: #111827;
+        color: #0f172a;
         font-size: 14px;
         font-weight: 500;
         margin-bottom: 10px;
         outline: none;
-        transition: all 0.2s ease;
+        transition: all 0.2s var(--ease-out);
     }
 
     input[type="text"]:focus, input[type="number"]:focus {
         background-color: #ffffff;
-        border-color: #111827;
-        box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.06);
+        border-color: #0f172a;
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
     }
 
-    /* Modales */
+    /* Modales con Glassmorphism Suave y Curva Natural */
     .modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(15, 23, 42, 0.35);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -332,14 +382,14 @@
 
     .modal-system-window {
         background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: var(--card-radius-lg);
         width: 100%;
         max-width: 480px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.06);
         overflow: hidden;
-        animation: modalScale 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        color: #111827;
+        animation: modalScale 0.28s var(--ease-out);
+        color: #0f172a;
     }
 
     @keyframes modalScale {
@@ -419,11 +469,12 @@
 
     .finanzas-header-card {
         background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        padding: 20px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        padding: 22px;
         margin-bottom: 22px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        box-shadow: var(--shadow-card);
+        transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out);
     }
 
     .finanzas-meta-row {
@@ -2708,11 +2759,18 @@
 }
 
 .quest-hud-metric {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    padding: 14px 16px;
     text-align: center;
+    box-shadow: var(--shadow-subtle);
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.quest-hud-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
 }
 
 .hud-metric-label {
@@ -2781,21 +2839,26 @@
     background: #991b1b;
 }
 
-/* Tarjeta de Quest Diaria */
+/* Tarjeta de Quest Diaria (Estilo Emil Kowalski / Impeccable UI) */
 .quest-diario-card {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-left: 4px solid #9ca3af;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-left: 4px solid #94a3b8;
     border-radius: 16px;
-    padding: 16px 18px;
-    margin-bottom: 14px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.2s ease;
+    box-shadow: var(--shadow-card);
 }
 
 .quest-diario-card:hover {
-    border-color: #d1d5db;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transform: translateY(-4px);
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: var(--shadow-hover);
+}
+
+.quest-diario-card:active {
+    transform: translateY(-1px) scale(0.995);
 }
 
 .quest-diario-card.en-progreso {

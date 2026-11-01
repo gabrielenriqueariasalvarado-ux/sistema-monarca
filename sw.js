@@ -2,7 +2,7 @@
 // SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST & CACHE-BUSTING)
 // ==========================================================================
 
-const CACHE_NAME = 'sistema-monarca-v7.4';
+const CACHE_NAME = 'sistema-monarca-v7.5';
 
 const STATIC_ASSETS = [
   './',
