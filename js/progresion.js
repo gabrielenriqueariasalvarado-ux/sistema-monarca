@@ -734,54 +734,131 @@ var LOOP_QUESTS_DIARIOS_INTERVAL = null;
  * Solicita permisos de notificación en navegador / teléfono
  */
 /**
- * Programa alarmas nativas exactas de Android en segundo plano vía Capacitor
+ * Asegura la existencia del canal de notificaciones de máxima prioridad en Android (Capacitor)
+ */
+function asegurarCanalAlarmaCapacitor() {
+    if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.LocalNotifications) return;
+    try {
+        var ln = window.Capacitor.Plugins.LocalNotifications;
+        ln.createChannel({
+            id: 'quest_alarms_channel',
+            name: 'Alarmas Quests Monarca',
+            description: 'Canal de máxima prioridad y pantalla completa para misiones del Sistema Monarca',
+            importance: 5,
+            visibility: 1,
+            sound: 'beep.wav',
+            vibration: true,
+            lights: true,
+            lightColor: '#e11d48'
+        }).then(function() {
+            console.log("[Capacitor] Canal quest_alarms_channel asegurado.");
+        }).catch(function(err) {
+            console.warn("[Capacitor Canal Error]", err);
+        });
+    } catch(e) {
+        console.warn("[asegurarCanalAlarmaCapacitor]", e);
+    }
+}
+
+/**
+ * Programa alarmas nativas exactas de Android en segundo plano vía Capacitor (AlarmManager)
  */
 function programarAlarmasNativasQuests() {
     if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.LocalNotifications) {
         return;
     }
     try {
+        asegurarCanalAlarmaCapacitor();
         var ln = window.Capacitor.Plugins.LocalNotifications;
         var qList = APP_STATE.questsDiarios || [];
         var notifsToSchedule = [];
         var ahora = new Date();
 
         qList.forEach(function(q, idx) {
+            var target = null;
             if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
                 var partes = q.horaActivacion.split(':');
                 if (partes.length >= 2) {
-                    var target = new Date();
+                    target = new Date();
                     target.setHours(parseInt(partes[0], 10), parseInt(partes[1], 10), 0, 0);
                     if (target.getTime() <= ahora.getTime()) {
                         target.setDate(target.getDate() + 1);
                     }
-
-                    var notifId = (idx + 1) * 1000 + (parseInt(partes[0], 10) * 60 + parseInt(partes[1], 10));
-                    var esOmitible = (q.esOmitible !== false);
-
-                    notifsToSchedule.push({
-                        id: notifId,
-                        title: esOmitible ? '⚔️ ¡Quest Diaria Activada!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
-                        body: esOmitible
-                            ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. (Omitible: posponer 1h).'
-                            : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay penitencia!',
-                        schedule: { at: target, allowWhileIdle: true },
-                        sound: 'beep.wav',
-                        extra: { questId: q.id }
-                    });
                 }
+            } else if (q.estado === 'pospuesta' && q.pospuestaHasta && q.pospuestaHasta > ahora.getTime()) {
+                target = new Date(q.pospuestaHasta);
+            }
+
+            if (target) {
+                var notifId = (idx + 1) * 1000 + (target.getHours() * 60 + target.getMinutes());
+                var esOmitible = (q.esOmitible !== false);
+
+                notifsToSchedule.push({
+                    id: notifId,
+                    title: esOmitible ? '⚔️ ¡Quest Diaria Activada!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
+                    body: esOmitible
+                        ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. Toca para ver e iniciar tu misión.'
+                        : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay castigo si no la cumples!',
+                    schedule: { at: target, allowWhileIdle: true },
+                    sound: 'beep.wav',
+                    channelId: 'quest_alarms_channel',
+                    ongoing: false,
+                    autoCancel: true,
+                    extra: { questId: q.id, fullScreen: true }
+                });
             }
         });
 
-        if (notifsToSchedule.length > 0) {
-            ln.schedule({ notifications: notifsToSchedule }).then(function() {
+        // Cancelar alarmas anteriores antes de registrar las nuevas para evitar acumulaciones
+        ln.getPending().then(function(res) {
+            var pIds = (res && res.notifications) ? res.notifications.map(function(n) { return { id: n.id }; }) : [];
+            if (pIds.length > 0) {
+                return ln.cancel({ notifications: pIds });
+            }
+            return Promise.resolve();
+        }).then(function() {
+            if (notifsToSchedule.length > 0) {
+                return ln.schedule({ notifications: notifsToSchedule });
+            }
+        }).then(function() {
+            if (notifsToSchedule.length > 0) {
                 console.log("[Capacitor] " + notifsToSchedule.length + " alarmas nativas programadas en AlarmManager.");
-            }).catch(function(err) {
-                console.warn("[Capacitor Alarma Error]", err);
-            });
-        }
+            }
+        }).catch(function(err) {
+            console.warn("[Capacitor Alarma Error]", err);
+        });
     } catch(err) {
         console.warn("[programarAlarmasNativasQuests]", err);
+    }
+}
+
+/**
+ * Permite al usuario sincronizar una quest programada directamente con la app Reloj de Android
+ */
+function sincronizarQuestConRelojAndroid(id) {
+    if (!APP_STATE.questsDiarios) return;
+    var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
+    if (!q || !q.horaActivacion) {
+        alert("Esta quest no tiene una hora fija asignada.");
+        return;
+    }
+    var partes = q.horaActivacion.split(':');
+    if (partes.length < 2) return;
+    var h = parseInt(partes[0], 10);
+    var m = parseInt(partes[1], 10);
+    var titulo = encodeURIComponent("Monarca: " + (q.titulo || "Quest Diaria"));
+
+    var intentUrl = "intent:#Intent;action=android.intent.action.SET_ALARM;" +
+        "i.android.intent.extra.HOUR=" + h + ";" +
+        "i.android.intent.extra.MINUTES=" + m + ";" +
+        "S.android.intent.extra.MESSAGE=" + titulo + ";" +
+        "B.android.intent.extra.SKIP_UI=false;end";
+
+    try {
+        window.location.href = intentUrl;
+    } catch(e) {
+        console.warn("[sincronizarQuestConRelojAndroid]", e);
+        alert("Abre la app Reloj de tu teléfono y programa una alarma a las " + q.horaActivacion);
     }
 }
 
@@ -1082,6 +1159,7 @@ function posponerQuestUnaHora(id) {
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
     renderizarQuestsDiarios();
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
     alert(`✓ Quest pospuesta por 1 hora.
 
@@ -1427,7 +1505,7 @@ function renderizarQuestsDiarios() {
             var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
 
             var labelTiempo = (q.tipoTiempo === 'programada')
-                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN)`
+                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN) <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="margin-left: 6px; padding: 2px 7px; font-size: 11px; border-radius: 6px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; cursor: pointer;">⏰ Alarma Móvil</button>`
                 : `⏱️ TIEMPO ASIGNADO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
 
             bloqueTiempo = `
@@ -1636,6 +1714,7 @@ function eliminarQuestDiaria(id) {
     });
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 }
 
 function reiniciarCicloQuestsDiarios() {
@@ -1652,6 +1731,7 @@ function reiniciarCicloQuestsDiarios() {
 
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
     alert("¡Ciclo de quests reiniciado! Listo para una nueva jornada.");
 }
 
