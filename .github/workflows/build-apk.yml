@@ -45,11 +45,11 @@ jobs:
       - name: 6. Añadir plataforma Android de Capacitor
         run: npx cap add android || true
 
-      - name: 7. Configurar Alarma a Pantalla Completa y Permisos Críticos en Android
-        run: python3 scripts/configure_android.py
-
-      - name: 8. Sincronizar proyecto Android con Capacitor
+      - name: 7. Sincronizar proyecto Android con Capacitor
         run: npx cap sync android
+
+      - name: 8. Inyectar Componentes Nativos de Alarma Despertador a Pantalla Completa (Java)
+        run: python3 scripts/configure_android.py
 
       - name: 9. Compilar APK con Gradle
         run: |

@@ -760,70 +760,79 @@ function asegurarCanalAlarmaCapacitor() {
 }
 
 /**
- * Programa alarmas nativas exactas de Android en segundo plano vía Capacitor (AlarmManager)
+ * Programa alarmas nativas exactas de Android a Pantalla Completa vía MonarcaAlarm nativo
  */
 function programarAlarmasNativasQuests() {
-    if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.LocalNotifications) {
-        return;
-    }
-    try {
-        asegurarCanalAlarmaCapacitor();
-        var ln = window.Capacitor.Plugins.LocalNotifications;
-        var qList = APP_STATE.questsDiarios || [];
-        var notifsToSchedule = [];
-        var ahora = new Date();
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    if (!plugins) return;
 
+    var monarcaAlarm = plugins.MonarcaAlarm || null;
+    var ln = plugins.LocalNotifications || null;
+    var qList = APP_STATE.questsDiarios || [];
+    var ahora = new Date();
+
+    try {
         qList.forEach(function(q, idx) {
             var target = null;
+            var h = 8, m = 0;
             if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
                 var partes = q.horaActivacion.split(':');
                 if (partes.length >= 2) {
+                    h = parseInt(partes[0], 10);
+                    m = parseInt(partes[1], 10);
                     target = new Date();
-                    target.setHours(parseInt(partes[0], 10), parseInt(partes[1], 10), 0, 0);
+                    target.setHours(h, m, 0, 0);
                     if (target.getTime() <= ahora.getTime()) {
                         target.setDate(target.getDate() + 1);
                     }
                 }
             } else if (q.estado === 'pospuesta' && q.pospuestaHasta && q.pospuestaHasta > ahora.getTime()) {
                 target = new Date(q.pospuestaHasta);
+                h = target.getHours();
+                m = target.getMinutes();
             }
 
             if (target) {
-                var notifId = (idx + 1) * 1000 + (target.getHours() * 60 + target.getMinutes());
+                var notifId = (idx + 1) * 1000 + (h * 60 + m);
                 var esOmitible = (q.esOmitible !== false);
 
-                notifsToSchedule.push({
-                    id: notifId,
-                    title: esOmitible ? '⚔️ ¡Quest Diaria Activada!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
-                    body: esOmitible
-                        ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. Toca para ver e iniciar tu misión.'
-                        : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay castigo si no la cumples!',
-                    schedule: { at: target, allowWhileIdle: true },
-                    channelId: 'quest_alarms_channel',
-                    ongoing: false,
-                    autoCancel: true,
-                    extra: { questId: q.id, fullScreen: true }
-                });
-            }
-        });
+                // 1. DISPARAR EN ALARMMANAGER NATIVO CON PANTALLA COMPLETA
+                if (monarcaAlarm && typeof monarcaAlarm.programarAlarma === 'function') {
+                    monarcaAlarm.programarAlarma({
+                        id: String(notifId),
+                        titulo: q.titulo,
+                        penitencia: q.penitencia || '30 Flexiones inmediatas',
+                        esOmitible: esOmitible,
+                        questId: q.id,
+                        hora: h,
+                        minutos: m,
+                        timestamp: target.getTime()
+                    }).then(function() {
+                        console.log("[MonarcaAlarm Nativo] Alarma programada a pantalla completa para " + target.toLocaleTimeString());
+                    }).catch(function(e) {
+                        console.warn("[MonarcaAlarm Error]", e);
+                    });
+                }
 
-        // Cancelar alarmas anteriores antes de registrar las nuevas para evitar acumulaciones
-        ln.getPending().then(function(res) {
-            var pIds = (res && res.notifications) ? res.notifications.map(function(n) { return { id: n.id }; }) : [];
-            if (pIds.length > 0) {
-                return ln.cancel({ notifications: pIds });
+                // 2. RESPALDO LOCALNOTIFICATIONS SI ESTÁ DISPONIBLE
+                if (ln && typeof ln.schedule === 'function') {
+                    asegurarCanalAlarmaCapacitor();
+                    ln.schedule({
+                        notifications: [{
+                            id: notifId,
+                            title: esOmitible ? '⚔️ ¡Quest Diaria!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
+                            body: esOmitible
+                                ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. Toca para ver e iniciar tu misión.'
+                                : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay penitencia!',
+                            schedule: { at: target, allowWhileIdle: true },
+                            channelId: 'quest_alarms_channel',
+                            ongoing: false,
+                            autoCancel: true,
+                            extra: { questId: q.id, fullScreen: true }
+                        }]
+                    }).catch(function(e){});
+                }
             }
-            return Promise.resolve();
-        }).then(function() {
-            if (notifsToSchedule.length > 0) {
-                return ln.schedule({ notifications: notifsToSchedule });
-            }
-        }).then(function() {
-            if (notifsToSchedule.length > 0) {
-                console.log("[Capacitor] " + notifsToSchedule.length + " alarmas nativas programadas en AlarmManager.");
-            }
-        }).catch(function(err) {
-            console.warn("[Capacitor Alarma Error]", err);
         });
     } catch(err) {
         console.warn("[programarAlarmasNativasQuests]", err);
