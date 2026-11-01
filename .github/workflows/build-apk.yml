@@ -31,7 +31,7 @@ jobs:
       - name: 4. Instalar dependencias npm
         run: npm install
 
-      - name: 5. Preparar directorio web www/
+      - name: 5. Preparar directorio web www/ y compilar Capacitor Bridge
         run: |
           mkdir -p www
           cp index.html style.css www/
@@ -39,7 +39,8 @@ jobs:
           [ -f manifest.json ] && cp manifest.json www/ || true
           [ -f sw.js ] && cp sw.js www/ || true
           [ -f app.js ] && cp app.js www/ || true
-          echo "Archivos web preparados en www/ exitosamente"
+          npx esbuild js/capacitor-bridge-entry.js --bundle --minify --outfile=www/js/capacitor-bridge.js
+          echo "Archivos web y Capacitor Bridge compilados en www/ exitosamente"
 
       - name: 6. Añadir plataforma Android de Capacitor
         run: npx cap add android || true

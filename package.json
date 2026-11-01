@@ -1,6 +1,6 @@
 {
   "name": "sistema-monarca",
-  "version": "7.0.0",
+  "version": "7.2.0",
   "description": "Sistema Monarca - Panel de Control, Productividad y Progresión Personal",
   "main": "index.html",
   "scripts": {
@@ -22,6 +22,7 @@
     "@capacitor/local-notifications": "^6.1.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.1.2"
+    "@capacitor/cli": "^6.1.2",
+    "esbuild": "^0.24.0"
   }
 }

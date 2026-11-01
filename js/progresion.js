@@ -746,7 +746,6 @@ function asegurarCanalAlarmaCapacitor() {
             description: 'Canal de máxima prioridad y pantalla completa para misiones del Sistema Monarca',
             importance: 5,
             visibility: 1,
-            sound: 'beep.wav',
             vibration: true,
             lights: true,
             lightColor: '#e11d48'
@@ -800,7 +799,6 @@ function programarAlarmasNativasQuests() {
                         ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. Toca para ver e iniciar tu misión.'
                         : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay castigo si no la cumples!',
                     schedule: { at: target, allowWhileIdle: true },
-                    sound: 'beep.wav',
                     channelId: 'quest_alarms_channel',
                     ongoing: false,
                     autoCancel: true,
@@ -2079,4 +2077,29 @@ function ejecutarProtocoloDeepWork(id) {
     if (typeof renderizarMusculosMentales === 'function') renderizarMusculosMentales();
 
     alert("🧠 ¡Protocolo ejecutado con éxito!\n• Protocolo: " + p.nombre + "\n• +" + p.exp + " EXP para ti y para " + p.musculoNombre + "\n• Fatiga Mental actual: " + nuevoNivel + "%.");
+}
+
+
+// Solicitud automática de permisos nativos al abrir en Android APK
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                var ln = window.Capacitor.Plugins.LocalNotifications;
+                ln.checkPermissions().then(function(perm) {
+                    if (perm.display !== 'granted') {
+                        return ln.requestPermissions();
+                    }
+                    return perm;
+                }).then(function(res) {
+                    actualizarBotonNotificacionesUI();
+                    if (res && res.display === 'granted') {
+                        programarAlarmasNativasQuests();
+                    }
+                }).catch(function(err) {
+                    console.warn("[AutoPermisos Android]", err);
+                });
+            }
+        }, 1000);
+    });
 }
