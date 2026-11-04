@@ -438,6 +438,11 @@ function marcarIdeaHechaUI(id) {
 function eliminarIdea(id) {
     if (!confirm("¿Eliminar esta idea?")) return;
     if (!APP_STATE.ideas) return;
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.ideas)) APP_STATE._eliminados.ideas = [];
+    if (!APP_STATE._eliminados.ideas.includes(id)) {
+        APP_STATE._eliminados.ideas.push(id);
+    }
     APP_STATE.ideas = APP_STATE.ideas.filter(function(i) { return String(i.id) !== String(id); });
     MonarcaDB.save(APP_STATE);
 

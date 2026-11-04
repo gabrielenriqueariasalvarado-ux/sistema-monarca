@@ -417,6 +417,11 @@ function marcarCompletado(id) {
 function eliminarMision(id) {
     if (!confirm("¿Deseas eliminar esta misión de tu lista?")) return;
     if (!APP_STATE.misiones) return;
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.misiones)) APP_STATE._eliminados.misiones = [];
+    if (!APP_STATE._eliminados.misiones.includes(id)) {
+        APP_STATE._eliminados.misiones.push(id);
+    }
     APP_STATE.misiones = APP_STATE.misiones.filter(function(m) {
         return String(m.id) !== String(id);
     });
@@ -1178,16 +1183,59 @@ function posponerQuestUnaHora(id) {
  * Carga e inicialización de Quests Diarios
  */
 /**
- * Normaliza y sanea las quests diarias asegurando retrocompatibilidad total
+ * Normaliza y sanea las quests diarias asegurando retrocompatibilidad total,
+ * filtrando elementos eliminados (tombstones) y deduplicando copias redundantes.
  */
 function sanitizarQuestsDiarios() {
     if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios)) {
         APP_STATE.questsDiarios = [];
         return;
     }
+
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.questsDiarios)) APP_STATE._eliminados.questsDiarios = [];
+    var tombSet = new Set(APP_STATE._eliminados.questsDiarios);
+
+    // 1. Filtrar quests nulas o que ya hayan sido eliminadas
     APP_STATE.questsDiarios = APP_STATE.questsDiarios.filter(function(q) {
-        return q && typeof q === 'object' && q.id;
+        return q && typeof q === 'object' && q.id && !tombSet.has(q.id);
     });
+
+    // 2. Deduplicar por identidad de título
+    var vistos = new Map();
+    var listaLimpia = [];
+    var huboDuplicados = false;
+
+    APP_STATE.questsDiarios.forEach(function(q) {
+        var clave = (q.titulo || '').trim().toLowerCase();
+        if (!clave) {
+            listaLimpia.push(q);
+            return;
+        }
+
+        if (!vistos.has(clave)) {
+            vistos.set(clave, q);
+            listaLimpia.push(q);
+        } else {
+            // Ya existe una quest con este título: conservar la más avanzada y purgar la otra
+            huboDuplicados = true;
+            var existente = vistos.get(clave);
+            if (q.estado === 'completada' && existente.estado !== 'completada') {
+                var idx = listaLimpia.indexOf(existente);
+                if (idx !== -1) listaLimpia[idx] = q;
+                vistos.set(clave, q);
+                if (!APP_STATE._eliminados.questsDiarios.includes(existente.id)) {
+                    APP_STATE._eliminados.questsDiarios.push(existente.id);
+                }
+            } else {
+                if (!APP_STATE._eliminados.questsDiarios.includes(q.id)) {
+                    APP_STATE._eliminados.questsDiarios.push(q.id);
+                }
+            }
+        }
+    });
+
+    APP_STATE.questsDiarios = listaLimpia;
 
     APP_STATE.questsDiarios.forEach(function(q) {
         if (!q.titulo) q.titulo = "Quest Diaria";
@@ -1225,6 +1273,10 @@ function sanitizarQuestsDiarios() {
             q.atributos = [];
         }
     });
+
+    if (huboDuplicados) {
+        MonarcaDB.save(APP_STATE, false);
+    }
 }
 
 function cargarQuestsDiarios() {
@@ -1330,7 +1382,7 @@ function iniciarLoopQuestsDiarios() {
         });
 
         if (huboCambios) {
-            MonarcaDB.save(APP_STATE);
+            MonarcaDB.save(APP_STATE, false);
             renderizarQuestsDiarios();
         }
     }, 1000);
@@ -1351,7 +1403,7 @@ function verificarPenalizacionesPendientes() {
     });
 
     if (cambio) {
-        MonarcaDB.save(APP_STATE);
+        MonarcaDB.save(APP_STATE, false);
     }
 }
 
@@ -1716,12 +1768,76 @@ function eliminarQuestDiaria(id) {
     if (!confirm("¿Deseas eliminar esta quest de tu rutina diaria?")) return;
     if (!APP_STATE.questsDiarios) return;
 
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.questsDiarios)) APP_STATE._eliminados.questsDiarios = [];
+    if (!APP_STATE._eliminados.questsDiarios.includes(id)) {
+        APP_STATE._eliminados.questsDiarios.push(id);
+    }
+
     APP_STATE.questsDiarios = APP_STATE.questsDiarios.filter(function(q) {
         return String(q.id) !== String(id);
     });
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+}
+
+/**
+ * Purgado manual y seguro de quests duplicadas o huérfanas
+ */
+function purgarQuestsDuplicadas(mostrarAlerta) {
+    if (!APP_STATE.questsDiarios || !Array.isArray(APP_STATE.questsDiarios)) return;
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.questsDiarios)) APP_STATE._eliminados.questsDiarios = [];
+
+    var vistos = new Map();
+    var nuevosQuests = [];
+    var eliminadosCount = 0;
+
+    APP_STATE.questsDiarios.forEach(function(q) {
+        if (!q || !q.id) return;
+        if (APP_STATE._eliminados.questsDiarios.includes(q.id)) {
+            eliminadosCount++;
+            return;
+        }
+
+        var clave = (q.titulo || '').trim().toLowerCase();
+        if (!clave) {
+            nuevosQuests.push(q);
+            return;
+        }
+
+        if (!vistos.has(clave)) {
+            vistos.set(clave, q);
+            nuevosQuests.push(q);
+        } else {
+            var existente = vistos.get(clave);
+            if (q.estado === 'completada' && existente.estado !== 'completada') {
+                var idx = nuevosQuests.indexOf(existente);
+                if (idx !== -1) nuevosQuests[idx] = q;
+                vistos.set(clave, q);
+                if (!APP_STATE._eliminados.questsDiarios.includes(existente.id)) {
+                    APP_STATE._eliminados.questsDiarios.push(existente.id);
+                }
+            } else {
+                if (!APP_STATE._eliminados.questsDiarios.includes(q.id)) {
+                    APP_STATE._eliminados.questsDiarios.push(q.id);
+                }
+            }
+            eliminadosCount++;
+        }
+    });
+
+    APP_STATE.questsDiarios = nuevosQuests;
+    if (eliminadosCount > 0) {
+        MonarcaDB.save(APP_STATE);
+        renderizarQuestsDiarios();
+        if (mostrarAlerta) {
+            alert("🧹 Se han limpiado " + eliminadosCount + " quests duplicadas. Tu lista ha quedado sincronizada.");
+        }
+    } else if (mostrarAlerta) {
+        alert("✨ No se encontraron quests duplicadas. Todo está al día.");
+    }
 }
 
 function reiniciarCicloQuestsDiarios() {
@@ -1882,6 +1998,23 @@ function confirmarAgregarQuestDiaria() {
 
     if (!APP_STATE.questsDiarios) APP_STATE.questsDiarios = [];
 
+    // Prevenir duplicados accidentales por doble clic rápido o títulos idénticos
+    var yaExiste = APP_STATE.questsDiarios.some(function(q) {
+        return q && q.titulo && q.titulo.trim().toLowerCase() === nombre.toLowerCase();
+    });
+    if (yaExiste) {
+        if (!confirm("Ya tienes una quest con el título \"" + nombre + "\".\n¿Deseas agregar otra con el mismo nombre de todas formas?")) {
+            return;
+        }
+    }
+
+    // Si estaba registrada en tombstones previamente, limpiarla para permitir su reactivación intencional
+    if (APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.questsDiarios)) {
+        APP_STATE._eliminados.questsDiarios = APP_STATE._eliminados.questsDiarios.filter(function(tid) {
+            return tid !== "QD-" + nombre.toLowerCase();
+        });
+    }
+
     var listaAtrsQ = (ATRIBUTOS_MODAL_TEMP.quest && ATRIBUTOS_MODAL_TEMP.quest.length > 0)
         ? JSON.parse(JSON.stringify(ATRIBUTOS_MODAL_TEMP.quest))
         : [];
@@ -1902,7 +2035,9 @@ function confirmarAgregarQuestDiaria() {
         tiempoRestante: minutos * 60,
         temporizadorActivo: false,
         ultimaActivacionFecha: null,
-        pospuestaHasta: null
+        pospuestaHasta: null,
+        timestamp: Date.now(),
+        fechaActualizacion: Date.now()
     };
 
     APP_STATE.questsDiarios.push(nuevaQ);

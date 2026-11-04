@@ -138,6 +138,15 @@ const DEFAULT_STATE = {
         productos: [],
         categorias: [],
         ventas: []
+    },
+    _eliminados: {
+        productos: [],
+        categorias: [],
+        ventas: [],
+        questsDiarios: [],
+        misiones: [],
+        ideas: [],
+        agendaPersonas: []
     }
 };
 
@@ -153,6 +162,25 @@ const MonarcaDB = {
             // Asegurar que existan todas las estructuras esperadas
             if (!data.jugador) data.jugador = DEFAULT_STATE.jugador;
             if (!data.perfil) data.perfil = DEFAULT_STATE.perfil;
+            if (!data._eliminados) {
+                data._eliminados = {
+                    productos: [],
+                    categorias: [],
+                    ventas: [],
+                    questsDiarios: [],
+                    misiones: [],
+                    ideas: [],
+                    agendaPersonas: []
+                };
+            } else {
+                if (!Array.isArray(data._eliminados.productos)) data._eliminados.productos = [];
+                if (!Array.isArray(data._eliminados.categorias)) data._eliminados.categorias = [];
+                if (!Array.isArray(data._eliminados.ventas)) data._eliminados.ventas = [];
+                if (!Array.isArray(data._eliminados.questsDiarios)) data._eliminados.questsDiarios = [];
+                if (!Array.isArray(data._eliminados.misiones)) data._eliminados.misiones = [];
+                if (!Array.isArray(data._eliminados.ideas)) data._eliminados.ideas = [];
+                if (!Array.isArray(data._eliminados.agendaPersonas)) data._eliminados.agendaPersonas = [];
+            }
             // Purga automática de misiones y habilidades quemadas (estáticas) para modo dinámico
             if (!data.v2_clean_defaults) {
                 data.misiones = [];
@@ -262,6 +290,11 @@ const MonarcaDB = {
     },
     save: function(state, esAccionUsuario) {
         try {
+            if (window._isSyncingFromRemote) {
+                // Durante la recepción de un snapshot remoto, actualizar solo almacenamiento local
+                if (state) localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
+                return;
+            }
             if (state) {
                 if (esAccionUsuario !== false) {
                     state._ultimaActualizacion = Date.now();
@@ -269,8 +302,8 @@ const MonarcaDB = {
             }
             localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
 
-            // Sincronización en tiempo real hacia Firebase Firestore
-            if (window.MonarcaCloud && typeof window.MonarcaCloud.guardarEnNube === 'function') {
+            // Sincronización en tiempo real hacia Firebase Firestore (solo para acciones del usuario)
+            if (esAccionUsuario !== false && window.MonarcaCloud && typeof window.MonarcaCloud.guardarEnNube === 'function') {
                 window.MonarcaCloud.guardarEnNube(state);
             }
         } catch (e) {

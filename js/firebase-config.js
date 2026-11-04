@@ -89,6 +89,51 @@ function guardarCopiaSeguridadLocal(datos, motivo) {
 }
 
 /**
+ * Deduplica una lista de quests por identidad semántica (mismo título normalizado y configuración de tiempo)
+ * asegurando que no se multipliquen al sincronizar entre móvil y PC.
+ */
+function deduplicarColeccionQuests(quests, tombstones) {
+    if (!Array.isArray(quests)) return [];
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones : []);
+    var vistos = new Map();
+    var resultado = [];
+
+    quests.forEach(function(q) {
+        if (!q || !q.id || tombSet.has(q.id)) return;
+        var clave = (q.titulo || '').trim().toLowerCase();
+        if (!clave) {
+            resultado.push(q);
+            return;
+        }
+
+        if (!vistos.has(clave)) {
+            vistos.set(clave, q);
+            resultado.push(q);
+        } else {
+            // Duplicado encontrado: conservar la versión con mayor progreso o datos
+            var existente = vistos.get(clave);
+            if (q.estado === 'completada' && existente.estado !== 'completada') {
+                var idx = resultado.indexOf(existente);
+                if (idx !== -1) resultado[idx] = q;
+                vistos.set(clave, q);
+                if (tombSet) tombSet.add(existente.id);
+            } else {
+                if (tombSet) tombSet.add(q.id);
+            }
+        }
+    });
+
+    // Registrar los IDs de duplicados purgados en tombstones para que no vuelvan desde la nube
+    if (Array.isArray(tombstones) && tombSet) {
+        tombSet.forEach(function(id) {
+            if (!tombstones.includes(id)) tombstones.push(id);
+        });
+    }
+
+    return resultado;
+}
+
+/**
  * Fusión inteligente no destructiva de listas por ID único.
  * Si el dispositivo A tiene productos y el dispositivo B está vacío, JAMÁS se eliminan los productos de A.
  */
@@ -139,18 +184,20 @@ function fusionarEstadosInteligente(local, remoto) {
 
     var fusion = JSON.parse(JSON.stringify(remoto));
 
-    // Tombstones (elementos borrados explícitamente por el usuario)
+    // Tombstones exhaustivos (elementos borrados explícitamente por el usuario en cualquier dispositivo)
     var tombstones = {};
-    if (local._eliminados || remoto._eliminados) {
-        var elL = local._eliminados || {};
-        var elR = remoto._eliminados || {};
-        tombstones = {
-            productos: Array.from(new Set([...(elL.productos || []), ...(elR.productos || [])])),
-            categorias: Array.from(new Set([...(elL.categorias || []), ...(elR.categorias || [])])),
-            ventas: Array.from(new Set([...(elL.ventas || []), ...(elR.ventas || [])]))
-        };
-        fusion._eliminados = tombstones;
-    }
+    var elL = (local && local._eliminados) ? local._eliminados : {};
+    var elR = (remoto && remoto._eliminados) ? remoto._eliminados : {};
+    tombstones = {
+        productos: Array.from(new Set([...(elL.productos || []), ...(elR.productos || [])])),
+        categorias: Array.from(new Set([...(elL.categorias || []), ...(elR.categorias || [])])),
+        ventas: Array.from(new Set([...(elL.ventas || []), ...(elR.ventas || [])])),
+        questsDiarios: Array.from(new Set([...(elL.questsDiarios || []), ...(elR.questsDiarios || [])])),
+        misiones: Array.from(new Set([...(elL.misiones || []), ...(elR.misiones || [])])),
+        ideas: Array.from(new Set([...(elL.ideas || []), ...(elR.ideas || [])])),
+        agendaPersonas: Array.from(new Set([...(elL.agendaPersonas || []), ...(elR.agendaPersonas || [])]))
+    };
+    fusion._eliminados = tombstones;
 
     // 1. INVENTARIO (Fusión estricta no destructiva)
     if (!fusion.inventario) fusion.inventario = { productos: [], categorias: [], ventas: [] };
@@ -161,22 +208,23 @@ function fusionarEstadosInteligente(local, remoto) {
     fusion.inventario.categorias = fusionarColeccionPorId(invL.categorias, invR.categorias, tombstones.categorias);
     fusion.inventario.ventas = fusionarColeccionPorId(invL.ventas, invR.ventas, tombstones.ventas);
 
-    // 2. MISIONES Y QUESTS DIARIOS
+    // 2. MISIONES Y QUESTS DIARIOS (Con protección contra duplicación y tombstones)
     if (Array.isArray(local.misiones) || Array.isArray(remoto.misiones)) {
-        fusion.misiones = fusionarColeccionPorId(local.misiones, remoto.misiones);
+        fusion.misiones = fusionarColeccionPorId(local.misiones, remoto.misiones, tombstones.misiones);
     }
     if (Array.isArray(local.questsDiarios) || Array.isArray(remoto.questsDiarios)) {
-        fusion.questsDiarios = fusionarColeccionPorId(local.questsDiarios, remoto.questsDiarios);
+        var questsCombinados = fusionarColeccionPorId(local.questsDiarios, remoto.questsDiarios, tombstones.questsDiarios);
+        fusion.questsDiarios = deduplicarColeccionQuests(questsCombinados, tombstones.questsDiarios);
     }
 
     // 3. IDEAS Y PENSAMIENTOS
     if (Array.isArray(local.ideas) || Array.isArray(remoto.ideas)) {
-        fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas);
+        fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas, tombstones.ideas);
     }
 
     // 4. PERSONAS Y AGENDA
     if (Array.isArray(local.agendaPersonas) || Array.isArray(remoto.agendaPersonas)) {
-        fusion.agendaPersonas = fusionarColeccionPorId(local.agendaPersonas, remoto.agendaPersonas);
+        fusion.agendaPersonas = fusionarColeccionPorId(local.agendaPersonas, remoto.agendaPersonas, tombstones.agendaPersonas);
     }
 
     // 5. CALENDARIO Y REGISTRO HISTÓRICO
@@ -276,6 +324,11 @@ window.MonarcaCloud = {
         // NUNCA permitir que un guardado local prematuro sobreescriba la nube.
         if (bloqueoEscrituraInicial && !esForzado) {
             console.log("⏳ Guardado en nube bloqueado preventivamente: Esperando consulta inicial de Firestore.");
+            return;
+        }
+
+        // Evitar eco si se está aplicando una actualización remota entrante
+        if (window._isSyncingFromRemote) {
             return;
         }
 
@@ -496,7 +549,7 @@ async function inicializarFirebase() {
             var datosRemotos = snapInicial.data();
             console.log("☁️ Datos existentes encontrados en Firestore. Ejecutando Smart Merge no destructivo...");
 
-            // Fusión no destructiva: combina productos, categorías, ventas, etc.
+            window._isSyncingFromRemote = true;
             var estadoFusionado = fusionarEstadosInteligente(datosLocales, datosRemotos);
 
             delete estadoFusionado._migradoDesde;
@@ -505,16 +558,25 @@ async function inicializarFirebase() {
             // Guardar estado fusionado en localStorage
             if (typeof MonarcaDB !== 'undefined') {
                 localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(estadoFusionado));
-                window.APP_STATE = MonarcaDB.get();
+                window.APP_STATE = estadoFusionado;
+
+                if (typeof sanitizarQuestsDiarios === 'function') {
+                    sanitizarQuestsDiarios();
+                }
 
                 // Refrescar vistas en pantalla
                 if (typeof inicializarSistema === 'function') inicializarSistema();
                 if (typeof cargarInventario === 'function') cargarInventario();
             }
+            window._isSyncingFromRemote = false;
 
             // Sincronizar el estado fusionado en la nube para que ambos dispositivos queden 100% al día
+            var tsGuardar = Math.max(estadoFusionado._ultimaActualizacion || 0, Date.now());
+            ultimoTimestampGuardado = tsGuardar;
+            ignorarProximoSnapshot = true;
+
             var datosAGuardar = window.MonarcaCloud.sanitizarParaFirestore(estadoFusionado);
-            datosAGuardar._ultimaActualizacion = Date.now();
+            datosAGuardar._ultimaActualizacion = tsGuardar;
             datosAGuardar._fechaActualizacion = new Date().toISOString();
             await setDoc(docRef, datosAGuardar, { merge: true });
         }
@@ -543,42 +605,55 @@ async function inicializarFirebase() {
 
                 if (remotoTs > ultimoTimestampGuardado) {
                     console.log("🔄 Actualización en tiempo real recibida desde Firestore.");
-                    
-                    // Guardar copia preventiva antes de aplicar snapshot remoto
-                    if (window.APP_STATE) {
-                        guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
+                    ultimoTimestampGuardado = remotoTs;
+                    window._isSyncingFromRemote = true;
+
+                    try {
+                        // Guardar copia preventiva antes de aplicar snapshot remoto
+                        if (window.APP_STATE) {
+                            guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
+                        }
+
+                        // Smart Merge en caliente para no perder ediciones concurrentes
+                        var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
+
+                        delete fusionEnVivo._migradoDesde;
+                        delete fusionEnVivo._backupTimestamp;
+
+                        if (typeof MonarcaDB !== 'undefined') {
+                            localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(fusionEnVivo));
+                            window.APP_STATE = fusionEnVivo;
+
+                            if (typeof sanitizarQuestsDiarios === 'function') {
+                                sanitizarQuestsDiarios();
+                            }
+
+                            // Refrescar UI suavemente
+                            if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
+                                renderizarJugador(window.APP_STATE.jugador);
+                            }
+                            if (typeof cargarEstadoPersonal === 'function') {
+                                cargarEstadoPersonal();
+                            }
+                            if (typeof renderizarCalendario === 'function') {
+                                renderizarCalendario();
+                            }
+                            if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
+                                renderizarMisiones(window.APP_STATE.misiones);
+                            }
+                            if (typeof renderizarQuestsDiarios === 'function') {
+                                renderizarQuestsDiarios();
+                            }
+                            if (typeof renderizarInventarioSiActivo === 'function') {
+                                renderizarInventarioSiActivo();
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error aplicando snapshot remoto:", e);
+                    } finally {
+                        window._isSyncingFromRemote = false;
                     }
 
-                    // Smart Merge en caliente para no perder ediciones concurrentes
-                    var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
-
-                    delete fusionEnVivo._migradoDesde;
-                    delete fusionEnVivo._backupTimestamp;
-
-                    if (typeof MonarcaDB !== 'undefined') {
-                        localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(fusionEnVivo));
-                        window.APP_STATE = MonarcaDB.get();
-
-                        // Refrescar UI suavemente
-                        if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
-                            renderizarJugador(window.APP_STATE.jugador);
-                        }
-                        if (typeof cargarEstadoPersonal === 'function') {
-                            cargarEstadoPersonal();
-                        }
-                        if (typeof renderizarCalendario === 'function') {
-                            renderizarCalendario();
-                        }
-                        if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
-                            renderizarMisiones(window.APP_STATE.misiones);
-                        }
-                        if (typeof renderizarQuestsDiarios === 'function') {
-                            renderizarQuestsDiarios();
-                        }
-                        if (typeof renderizarInventarioSiActivo === 'function') {
-                            renderizarInventarioSiActivo();
-                        }
-                    }
                     window.MonarcaCloud.actualizarBadgeUI('synced');
                 }
             }
