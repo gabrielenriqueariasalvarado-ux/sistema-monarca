@@ -702,6 +702,16 @@ function guardarProductoInventario() {
             p.fechaActualizacion = fechaHoy;
         }
     } else {
+        // Prevenir duplicados accidentales
+        var yaExisteProd = APP_STATE.inventario.productos.some(function(item) {
+            return item && item.nombre && item.nombre.trim().toLowerCase() === nombre.trim().toLowerCase();
+        });
+        if (yaExisteProd) {
+            if (!confirm("Ya existe un producto registrado con el nombre \"" + nombre + "\".\n¿Deseas agregar otro producto con el mismo nombre?")) {
+                return;
+            }
+        }
+
         // Crear nuevo
         var nuevoProd = {
             id: "PROD-" + Date.now(),
@@ -720,7 +730,9 @@ function guardarProductoInventario() {
             categoriaIcono: categoriaIcono,
             descripcion: descripcion,
             totalVendidos: 0,
-            fechaCreacion: fechaHoy
+            fechaCreacion: fechaHoy,
+            fechaActualizacion: Date.now(),
+            timestamp: Date.now()
         };
         APP_STATE.inventario.productos.unshift(nuevoProd);
     }
@@ -740,9 +752,13 @@ function eliminarProductoInventario(productoId) {
     if (!p) return;
 
     if (confirm(`¿Estás seguro de eliminar el producto "${p.nombre}" del inventario?`)) {
-        if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
-        if (!Array.isArray(APP_STATE._eliminados.productos)) APP_STATE._eliminados.productos = [];
-        APP_STATE._eliminados.productos.push(productoId);
+        if (typeof registrarTombstone === 'function') {
+            registrarTombstone('productos', productoId);
+        } else {
+            if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
+            if (!Array.isArray(APP_STATE._eliminados.productos)) APP_STATE._eliminados.productos = [];
+            APP_STATE._eliminados.productos.push(productoId);
+        }
 
         APP_STATE.inventario.productos = APP_STATE.inventario.productos.filter(function(item) {
             return item.id !== productoId;

@@ -134,6 +134,54 @@ function deduplicarColeccionQuests(quests, tombstones) {
 }
 
 /**
+ * Deduplica cualquier lista de entidades por nombre o título normalizado,
+ * garantizando que productos, ejercicios, rutinas o finanzas no se dupliquen al sincronizar.
+ */
+function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
+    if (!Array.isArray(lista)) return [];
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones : []);
+    var campo = campoNombre || 'nombre';
+    var vistos = new Map();
+    var resultado = [];
+
+    lista.forEach(function(item) {
+        if (!item || !item.id || tombSet.has(item.id)) return;
+        var valor = (item[campo] || item.titulo || item.nombre || '').trim().toLowerCase();
+        if (!valor) {
+            resultado.push(item);
+            return;
+        }
+
+        if (!vistos.has(valor)) {
+            vistos.set(valor, item);
+            resultado.push(item);
+        } else {
+            // Duplicado encontrado: conservar el más reciente o con más datos
+            var existente = vistos.get(valor);
+            var tsActual = item.fechaActualizacion || item.timestamp || 0;
+            var tsExistente = existente.fechaActualizacion || existente.timestamp || 0;
+
+            if (tsActual > tsExistente) {
+                var idx = resultado.indexOf(existente);
+                if (idx !== -1) resultado[idx] = item;
+                vistos.set(valor, item);
+                if (tombSet) tombSet.add(existente.id);
+            } else {
+                if (tombSet) tombSet.add(item.id);
+            }
+        }
+    });
+
+    if (Array.isArray(tombstones) && tombSet) {
+        tombSet.forEach(function(id) {
+            if (!tombstones.includes(id)) tombstones.push(id);
+        });
+    }
+
+    return resultado;
+}
+
+/**
  * Fusión inteligente no destructiva de listas por ID único.
  * Si el dispositivo A tiene productos y el dispositivo B está vacío, JAMÁS se eliminan los productos de A.
  */
@@ -184,37 +232,48 @@ function fusionarEstadosInteligente(local, remoto) {
 
     var fusion = JSON.parse(JSON.stringify(remoto));
 
-    // Tombstones exhaustivos (elementos borrados explícitamente por el usuario en cualquier dispositivo)
+    // Tombstones exhaustivos de todas las entidades del sistema
     var tombstones = {};
     var elL = (local && local._eliminados) ? local._eliminados : {};
     var elR = (remoto && remoto._eliminados) ? remoto._eliminados : {};
-    tombstones = {
-        productos: Array.from(new Set([...(elL.productos || []), ...(elR.productos || [])])),
-        categorias: Array.from(new Set([...(elL.categorias || []), ...(elR.categorias || [])])),
-        ventas: Array.from(new Set([...(elL.ventas || []), ...(elR.ventas || [])])),
-        questsDiarios: Array.from(new Set([...(elL.questsDiarios || []), ...(elR.questsDiarios || [])])),
-        misiones: Array.from(new Set([...(elL.misiones || []), ...(elR.misiones || [])])),
-        ideas: Array.from(new Set([...(elL.ideas || []), ...(elR.ideas || [])])),
-        agendaPersonas: Array.from(new Set([...(elL.agendaPersonas || []), ...(elR.agendaPersonas || [])]))
-    };
+
+    var allKeys = [
+        'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
+        'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
+        'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
+        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_deudas', 'finanzas_metas'
+    ];
+
+    allKeys.forEach(function(k) {
+        tombstones[k] = Array.from(new Set([...(elL[k] || []), ...(elR[k] || [])]));
+    });
     fusion._eliminados = tombstones;
 
-    // 1. INVENTARIO (Fusión estricta no destructiva)
+    // 1. INVENTARIO (Fusión no destructiva y deduplicación por nombre de producto)
     if (!fusion.inventario) fusion.inventario = { productos: [], categorias: [], ventas: [] };
     var invL = local.inventario || { productos: [], categorias: [], ventas: [] };
     var invR = remoto.inventario || { productos: [], categorias: [], ventas: [] };
 
-    fusion.inventario.productos = fusionarColeccionPorId(invL.productos, invR.productos, tombstones.productos);
-    fusion.inventario.categorias = fusionarColeccionPorId(invL.categorias, invR.categorias, tombstones.categorias);
+    var prodsMerged = fusionarColeccionPorId(invL.productos, invR.productos, tombstones.productos);
+    fusion.inventario.productos = deduplicarColeccionPorNombre(prodsMerged, tombstones.productos, 'nombre');
+
+    var catsMerged = fusionarColeccionPorId(invL.categorias, invR.categorias, tombstones.categorias);
+    fusion.inventario.categorias = deduplicarColeccionPorNombre(catsMerged, tombstones.categorias, 'nombre');
+
     fusion.inventario.ventas = fusionarColeccionPorId(invL.ventas, invR.ventas, tombstones.ventas);
 
     // 2. MISIONES Y QUESTS DIARIOS (Con protección contra duplicación y tombstones)
     if (Array.isArray(local.misiones) || Array.isArray(remoto.misiones)) {
-        fusion.misiones = fusionarColeccionPorId(local.misiones, remoto.misiones, tombstones.misiones);
+        var misMerged = fusionarColeccionPorId(local.misiones, remoto.misiones, tombstones.misiones);
+        fusion.misiones = deduplicarColeccionPorNombre(misMerged, tombstones.misiones, 'titulo');
     }
     if (Array.isArray(local.questsDiarios) || Array.isArray(remoto.questsDiarios)) {
         var questsCombinados = fusionarColeccionPorId(local.questsDiarios, remoto.questsDiarios, tombstones.questsDiarios);
         fusion.questsDiarios = deduplicarColeccionQuests(questsCombinados, tombstones.questsDiarios);
+    }
+    if (Array.isArray(local.habilidades) || Array.isArray(remoto.habilidades)) {
+        var habsMerged = fusionarColeccionPorId(local.habilidades, remoto.habilidades, tombstones.habilidades);
+        fusion.habilidades = deduplicarColeccionPorNombre(habsMerged, tombstones.habilidades, 'nombre');
     }
 
     // 3. IDEAS Y PENSAMIENTOS
@@ -224,12 +283,13 @@ function fusionarEstadosInteligente(local, remoto) {
 
     // 4. PERSONAS Y AGENDA
     if (Array.isArray(local.agendaPersonas) || Array.isArray(remoto.agendaPersonas)) {
-        fusion.agendaPersonas = fusionarColeccionPorId(local.agendaPersonas, remoto.agendaPersonas, tombstones.agendaPersonas);
+        var perMerged = fusionarColeccionPorId(local.agendaPersonas, remoto.agendaPersonas, tombstones.agendaPersonas);
+        fusion.agendaPersonas = deduplicarColeccionPorNombre(perMerged, tombstones.agendaPersonas, 'nombre');
     }
 
     // 5. CALENDARIO Y REGISTRO HISTÓRICO
     if (Array.isArray(local.calendario) || Array.isArray(remoto.calendario)) {
-        fusion.calendario = fusionarColeccionPorId(local.calendario, remoto.calendario);
+        fusion.calendario = fusionarColeccionPorId(local.calendario, remoto.calendario, tombstones.calendario);
     }
     if (!fusion.registroDiarioCalendario) fusion.registroDiarioCalendario = {};
     if (local.registroDiarioCalendario) {
@@ -240,13 +300,37 @@ function fusionarEstadosInteligente(local, remoto) {
         });
     }
 
-    // 6. FINANZAS
+    // 6. FINANZAS (Con protección de tombstones por cada categoría)
     if (!fusion.finanzas) fusion.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
     if (local.finanzas) {
-        fusion.finanzas.ingresos = fusionarColeccionPorId(local.finanzas.ingresos, fusion.finanzas.ingresos);
-        fusion.finanzas.gastos = fusionarColeccionPorId(local.finanzas.gastos, fusion.finanzas.gastos);
-        fusion.finanzas.deudas = fusionarColeccionPorId(local.finanzas.deudas, fusion.finanzas.deudas);
-        fusion.finanzas.metas = fusionarColeccionPorId(local.finanzas.metas, fusion.finanzas.metas);
+        fusion.finanzas.ingresos = fusionarColeccionPorId(local.finanzas.ingresos, fusion.finanzas.ingresos, tombstones.finanzas_ingresos);
+        fusion.finanzas.gastos = fusionarColeccionPorId(local.finanzas.gastos, fusion.finanzas.gastos, tombstones.finanzas_gastos);
+        fusion.finanzas.deudas = fusionarColeccionPorId(local.finanzas.deudas, fusion.finanzas.deudas, tombstones.finanzas_deudas);
+        fusion.finanzas.metas = fusionarColeccionPorId(local.finanzas.metas, fusion.finanzas.metas, tombstones.finanzas_metas);
+    }
+
+    // 7. EJERCICIOS, RUTINAS Y ENTRENAMIENTO MENTAL / CEREBRAL
+    if (Array.isArray(local.ejercicios) || Array.isArray(remoto.ejercicios)) {
+        var ejMerged = fusionarColeccionPorId(local.ejercicios, remoto.ejercicios, tombstones.ejercicios);
+        fusion.ejercicios = deduplicarColeccionPorNombre(ejMerged, tombstones.ejercicios, 'nombre');
+    }
+    if (Array.isArray(local.rutinas) || Array.isArray(remoto.rutinas)) {
+        var rutMerged = fusionarColeccionPorId(local.rutinas, remoto.rutinas, tombstones.rutinas);
+        fusion.rutinas = deduplicarColeccionPorNombre(rutMerged, tombstones.rutinas, 'nombre');
+    }
+    if (Array.isArray(local.ejerciciosMentales) || Array.isArray(remoto.ejerciciosMentales)) {
+        fusion.ejerciciosMentales = fusionarColeccionPorId(local.ejerciciosMentales, remoto.ejerciciosMentales, tombstones.ejerciciosMentales);
+    }
+    if (Array.isArray(local.ejerciciosCerebrales) || Array.isArray(remoto.ejerciciosCerebrales)) {
+        var cerMerged = fusionarColeccionPorId(local.ejerciciosCerebrales, remoto.ejerciciosCerebrales, tombstones.ejerciciosCerebrales);
+        fusion.ejerciciosCerebrales = deduplicarColeccionPorNombre(cerMerged, tombstones.ejerciciosCerebrales, 'nombre');
+    }
+    if (Array.isArray(local.conocimientos) || Array.isArray(remoto.conocimientos)) {
+        var conMerged = fusionarColeccionPorId(local.conocimientos, remoto.conocimientos, tombstones.conocimientos);
+        fusion.conocimientos = deduplicarColeccionPorNombre(conMerged, tombstones.conocimientos, 'titulo');
+    }
+    if (Array.isArray(local.registrosLabores) || Array.isArray(remoto.registrosLabores)) {
+        fusion.registrosLabores = fusionarColeccionPorId(local.registrosLabores, remoto.registrosLabores, tombstones.registrosLabores);
     }
 
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)

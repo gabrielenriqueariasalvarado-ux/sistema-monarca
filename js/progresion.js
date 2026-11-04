@@ -722,6 +722,9 @@ function sumarHora(id) {
 function eliminarHabilidad(id) {
     if (!confirm("¿Deseas eliminar esta habilidad y su progreso?")) return;
     if (!APP_STATE.habilidades) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('habilidades', id);
+    }
     APP_STATE.habilidades = APP_STATE.habilidades.filter(function(s) {
         return String(s.id) !== String(id);
     });

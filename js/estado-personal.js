@@ -1464,6 +1464,16 @@ function confirmarAgregarEjercicio() {
 
     if (!APP_STATE.ejercicios) APP_STATE.ejercicios = [];
 
+    // Prevenir duplicados de ejercicios
+    var yaExisteEj = APP_STATE.ejercicios.some(function(e) {
+        return e && e.nombre && e.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
+    });
+    if (yaExisteEj) {
+        if (!confirm("Ya existe un ejercicio llamado \"" + nom + "\".\n¿Deseas agregar otro con el mismo nombre?")) {
+            return;
+        }
+    }
+
     var categoriasFinales = [muscPrincipal];
     CHIPS_SELECCIONADOS_MUSCULOS.forEach(function(c) {
         if (!categoriasFinales.includes(c)) categoriasFinales.push(c);
@@ -1479,7 +1489,9 @@ function confirmarAgregarEjercicio() {
         series: series,
         repeticiones: reps,
         categorias: categoriasFinales,
-        fatigaPorcentaje: fatigaPct
+        fatigaPorcentaje: fatigaPct,
+        timestamp: Date.now(),
+        fechaActualizacion: Date.now()
     };
 
     APP_STATE.ejercicios.push(nuevoEjercicio);
@@ -1562,6 +1574,9 @@ function renderizarEjercicios(ejercicios) {
 function eliminarEjercicio(id) {
     if (!confirm("¿Deseas eliminar este ejercicio?")) return;
     if (!APP_STATE.ejercicios) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('ejercicios', id);
+    }
     APP_STATE.ejercicios = APP_STATE.ejercicios.filter(function(e) {
         return String(e.id) !== String(id);
     });
@@ -1712,6 +1727,15 @@ function confirmarAgregarRutina() {
 
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
 
+    var yaExisteRut = APP_STATE.rutinas.some(function(r) {
+        return r && r.nombre && r.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
+    });
+    if (yaExisteRut) {
+        if (!confirm("Ya existe una rutina llamada \"" + nom + "\".\n¿Deseas agregar otra con el mismo nombre?")) {
+            return;
+        }
+    }
+
     var prefix = tipo === 'mental' ? 'COG-' : (tipo === 'hibrida' ? 'HIB-' : 'RUT-');
     var nuevaRutina = {
         id: "RUT-" + Date.now(),
@@ -1720,7 +1744,9 @@ function confirmarAgregarRutina() {
         nombre: nom,
         descripcion: desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado"),
         rankLabel: tag || (tipo === 'mental' ? 'MENTAL · ENFOQUE' : 'DIARIA · SESIÓN'),
-        ejercicios: selectedEjercicios
+        ejercicios: selectedEjercicios,
+        timestamp: Date.now(),
+        fechaActualizacion: Date.now()
     };
 
     APP_STATE.rutinas.push(nuevaRutina);
@@ -1736,6 +1762,10 @@ function eliminarRutina(idx, event) {
     if (event) event.stopPropagation();
     if (!confirm("¿Deseas eliminar esta rutina programada?")) return;
     if (!APP_STATE.rutinas) return;
+    var r = APP_STATE.rutinas[idx];
+    if (r && r.id && typeof registrarTombstone === 'function') {
+        registrarTombstone('rutinas', r.id);
+    }
     APP_STATE.rutinas.splice(idx, 1);
     MonarcaDB.save(APP_STATE);
     renderizarPortalesRutinas(APP_STATE.rutinas);
@@ -2801,6 +2831,9 @@ function confirmarAgregarEjercicioMental() {
 function eliminarEjercicioMental(id) {
     if (!confirm("¿Deseas eliminar este registro de entrenamiento mental del historial?")) return;
     if (!APP_STATE.ejerciciosMentales) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('ejerciciosMentales', id);
+    }
     APP_STATE.ejerciciosMentales = APP_STATE.ejerciciosMentales.filter(function(e) {
         return e.id !== id;
     });
@@ -3129,6 +3162,16 @@ function guardarNuevoEjercicioCerebral() {
     }
 
     if (!APP_STATE.ejerciciosCerebrales) APP_STATE.ejerciciosCerebrales = [];
+
+    var yaExisteCer = APP_STATE.ejerciciosCerebrales.some(function(e) {
+        return e && e.nombre && e.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
+    });
+    if (yaExisteCer) {
+        if (!confirm("Ya existe un ejercicio cerebral llamado \"" + nom + "\".\n¿Deseas agregar otro con el mismo nombre?")) {
+            return;
+        }
+    }
+
     var nuevo = {
         id: "EC-" + Date.now(),
         nombre: nom,
@@ -3138,7 +3181,9 @@ function guardarNuevoEjercicioCerebral() {
         descripcion: desc || "Entrenamiento cognitivo personalizado.",
         protocolo: prot || "1. Concentración plena. 2. Ejecutar bloque de foco. 3. Documentar resultados.",
         fatigaEstimada: fat,
-        expRecompensa: exp
+        expRecompensa: exp,
+        timestamp: Date.now(),
+        fechaActualizacion: Date.now()
     };
 
     APP_STATE.ejerciciosCerebrales.push(nuevo);
@@ -3152,6 +3197,9 @@ function guardarNuevoEjercicioCerebral() {
 function eliminarEjercicioCerebral(id) {
     if (!confirm("¿Deseas eliminar este ejercicio cerebral del banco?")) return;
     if (!APP_STATE.ejerciciosCerebrales) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('ejerciciosCerebrales', id);
+    }
     APP_STATE.ejerciciosCerebrales = APP_STATE.ejerciciosCerebrales.filter(function(e) { return e.id !== id; });
     MonarcaDB.save(APP_STATE);
     renderizarBancoEjerciciosCerebrales();

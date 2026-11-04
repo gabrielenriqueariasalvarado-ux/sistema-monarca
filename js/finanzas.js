@@ -432,6 +432,11 @@ function eliminarRegistroFinanzasUI(id, tipo) {
     if (!confirm("¿Eliminar este registro financiero?")) return;
     if (!APP_STATE.finanzas) return;
 
+    var coleccionTombstone = "finanzas_" + (tipo === 'ingreso' ? 'ingresos' : (tipo === 'gasto' ? 'gastos' : (tipo === 'deuda' ? 'deudas' : 'metas')));
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone(coleccionTombstone, id);
+    }
+
     if (tipo === 'ingreso' && APP_STATE.finanzas.ingresos) {
         APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(x) { return x.id !== id; });
     } else if (tipo === 'gasto' && APP_STATE.finanzas.gastos) {

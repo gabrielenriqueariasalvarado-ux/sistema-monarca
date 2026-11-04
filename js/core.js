@@ -145,10 +145,37 @@ const DEFAULT_STATE = {
         ventas: [],
         questsDiarios: [],
         misiones: [],
+        habilidades: [],
         ideas: [],
-        agendaPersonas: []
+        agendaPersonas: [],
+        ejercicios: [],
+        rutinas: [],
+        ejerciciosMentales: [],
+        ejerciciosCerebrales: [],
+        conocimientos: [],
+        registrosLabores: [],
+        calendario: [],
+        finanzas_ingresos: [],
+        finanzas_gastos: [],
+        finanzas_deudas: [],
+        finanzas_metas: []
     }
 };
+
+/**
+ * Registra una lápida de borrado (tombstone) para evitar que elementos eliminados
+ * resuciten al sincronizar entre diferentes dispositivos.
+ */
+function registrarTombstone(coleccion, id) {
+    if (!id) return;
+    if (typeof APP_STATE === 'undefined' || !APP_STATE) return;
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados[coleccion])) APP_STATE._eliminados[coleccion] = [];
+    var strId = String(id);
+    if (!APP_STATE._eliminados[coleccion].includes(strId)) {
+        APP_STATE._eliminados[coleccion].push(strId);
+    }
+}
 
 const MonarcaDB = {
     get: function() {
@@ -163,23 +190,11 @@ const MonarcaDB = {
             if (!data.jugador) data.jugador = DEFAULT_STATE.jugador;
             if (!data.perfil) data.perfil = DEFAULT_STATE.perfil;
             if (!data._eliminados) {
-                data._eliminados = {
-                    productos: [],
-                    categorias: [],
-                    ventas: [],
-                    questsDiarios: [],
-                    misiones: [],
-                    ideas: [],
-                    agendaPersonas: []
-                };
+                data._eliminados = JSON.parse(JSON.stringify(DEFAULT_STATE._eliminados));
             } else {
-                if (!Array.isArray(data._eliminados.productos)) data._eliminados.productos = [];
-                if (!Array.isArray(data._eliminados.categorias)) data._eliminados.categorias = [];
-                if (!Array.isArray(data._eliminados.ventas)) data._eliminados.ventas = [];
-                if (!Array.isArray(data._eliminados.questsDiarios)) data._eliminados.questsDiarios = [];
-                if (!Array.isArray(data._eliminados.misiones)) data._eliminados.misiones = [];
-                if (!Array.isArray(data._eliminados.ideas)) data._eliminados.ideas = [];
-                if (!Array.isArray(data._eliminados.agendaPersonas)) data._eliminados.agendaPersonas = [];
+                Object.keys(DEFAULT_STATE._eliminados).forEach(function(col) {
+                    if (!Array.isArray(data._eliminados[col])) data._eliminados[col] = [];
+                });
             }
             // Purga automática de misiones y habilidades quemadas (estáticas) para modo dinámico
             if (!data.v2_clean_defaults) {

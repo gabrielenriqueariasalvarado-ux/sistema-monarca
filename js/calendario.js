@@ -556,6 +556,9 @@ function toggleCompletarEventoCalendario(id) {
 function eliminarEventoCalendario(id) {
     if (!confirm("¿Deseas eliminar este evento del calendario?")) return;
     if (!APP_STATE.calendario) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('calendario', id);
+    }
 
     APP_STATE.calendario = APP_STATE.calendario.filter(function(item) {
         return item.id !== id;

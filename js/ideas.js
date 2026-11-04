@@ -837,6 +837,9 @@ function reiniciarCicloSemanalConocimientos() {
 function eliminarConocimiento(id) {
     if (!confirm("¿Estás seguro de eliminar este registro de conocimiento?")) return;
     if (!APP_STATE.conocimientos) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('conocimientos', id);
+    }
     APP_STATE.conocimientos = APP_STATE.conocimientos.filter(function(c) { return c.id !== id; });
     MonarcaDB.save(APP_STATE);
     renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);

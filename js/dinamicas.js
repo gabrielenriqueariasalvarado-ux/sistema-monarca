@@ -233,6 +233,9 @@ function guardarRegistroJornada() {
 function eliminarRegistroLabor(id) {
     if (!confirm("¿Deseas eliminar este registro de labor?")) return;
     if (!APP_STATE.registrosLabores) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('registrosLabores', id);
+    }
     APP_STATE.registrosLabores = APP_STATE.registrosLabores.filter(function(r) { return r.id !== id; });
     MonarcaDB.save(APP_STATE);
     renderizarLabores();
@@ -428,6 +431,9 @@ function cambiarEstadoPersona(personaId, nuevoEstado) {
 function eliminarPersonaAgenda(id) {
     if (!confirm("¿Deseas eliminar este contacto de la agenda?")) return;
     if (!APP_STATE.agendaPersonas) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('agendaPersonas', id);
+    }
     APP_STATE.agendaPersonas = APP_STATE.agendaPersonas.filter(function(p) { return p.id !== id; });
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
