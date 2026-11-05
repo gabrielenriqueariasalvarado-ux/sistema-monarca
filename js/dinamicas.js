@@ -1892,10 +1892,11 @@ function eliminarOpcionRuleta(categoria, id) {
 // ==========================================================================
 
 var MES_BARBERIA_ACTUAL = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-var TAB_BARBERIA_ACTIVA = 'calendario'; // 'calendario' | 'clientes' | 'historial'
+var TAB_BARBERIA_ACTIVA = 'calendario'; // 'calendario' | 'clientes' | 'historial' | 'tipos-corte'
 var INTERVALO_TIMER_BARBERIA = null;
 var CORTE_TEMPORAL_FINALIZANDO = null;
 var BUSQUEDA_CLIENTE_BARBERIA = '';
+var BUSQUEDA_TIPO_CORTE_BARBERIA = '';
 
 function escapeHtmlBarber(str) {
     if (!str) return '';
@@ -1922,6 +1923,17 @@ function asegurarEstructuraBarberia() {
     }
     if (APP_STATE.subappBarberia.timerActivo === undefined) {
         APP_STATE.subappBarberia.timerActivo = null;
+    }
+    if (!Array.isArray(APP_STATE.subappBarberia.tiposCorte) || APP_STATE.subappBarberia.tiposCorte.length === 0) {
+        APP_STATE.subappBarberia.tiposCorte = [
+            { id: "ESTILO-1", nombre: "Fade Medio", precio: 10, tiempoMin: 30, descripcion: "Degradado medio clásico afeitado o con máquina rasuradora." },
+            { id: "ESTILO-2", nombre: "Degradado + Barba", precio: 12, tiempoMin: 40, descripcion: "Corte degradado con perfilado y arreglo completo de barba." },
+            { id: "ESTILO-3", nombre: "Corte Clásico a Tijera", precio: 10, tiempoMin: 30, descripcion: "Tijera en laterales y parte superior, peinado formal/ejecutivo." },
+            { id: "ESTILO-4", nombre: "High Fade / Fade Alto", precio: 10, tiempoMin: 30, descripcion: "Degradado alto bien marcado desde la sien." },
+            { id: "ESTILO-5", nombre: "Low Fade / Fade Bajo", precio: 10, tiempoMin: 35, descripcion: "Degradado bajo pegado a la oreja y nuca." },
+            { id: "ESTILO-6", nombre: "Taper Fade", precio: 10, tiempoMin: 30, descripcion: "Desvanecido sutil únicamente en patillas y nuca." },
+            { id: "ESTILO-7", nombre: "Perfilado & Barba", precio: 6, tiempoMin: 20, descripcion: "Delineado de contornos con navaja y perfilado de barba." }
+        ];
     }
 }
 
@@ -2007,6 +2019,7 @@ function renderizarSubAppBarberia() {
 
     var clientes = APP_STATE.subappBarberia.clientes || [];
     var cortes = APP_STATE.subappBarberia.cortes || [];
+    var tiposCorte = APP_STATE.subappBarberia.tiposCorte || [];
     var timerActivo = APP_STATE.subappBarberia.timerActivo;
 
     // Actualizar botón superior si hay corte activo
@@ -2145,6 +2158,9 @@ function renderizarSubAppBarberia() {
         <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'clientes' ? 'active' : ''}" onclick="setTabBarberia('clientes')">
             <span>👥</span> Catálogo de Clientes (${clientes.length})
         </button>
+        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'tipos-corte' ? 'active' : ''}" onclick="setTabBarberia('tipos-corte')">
+            <span>✂️</span> Catálogo de Cortes (${tiposCorte.length})
+        </button>
         <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'historial' ? 'active' : ''}" onclick="setTabBarberia('historial')">
             <span>📜</span> Historial de Cortes (${cortes.length})
         </button>
@@ -2156,6 +2172,8 @@ function renderizarSubAppBarberia() {
         html += renderizarHtmlCalendarioBarberia(MES_BARBERIA_ACTUAL, cortes);
     } else if (TAB_BARBERIA_ACTIVA === 'clientes') {
         html += renderizarHtmlCatalogoClientesBarberia(clientes, cortes);
+    } else if (TAB_BARBERIA_ACTIVA === 'tipos-corte') {
+        html += renderizarHtmlCatalogoTiposCorteBarberia(tiposCorte, cortes);
     } else if (TAB_BARBERIA_ACTIVA === 'historial') {
         html += renderizarHtmlHistorialCortesBarberia(cortes);
     }
@@ -2424,7 +2442,7 @@ function renderizarHtmlHistorialCortesBarberia(cortes) {
 // LÓGICA DE TIMER Y REGISTRO DE CORTES
 // --------------------------------------------------------------------------
 
-function abrirModalIniciarCorte(clienteIdPreseleccionado) {
+function abrirModalIniciarCorte(clienteIdPreseleccionado, estiloPreseleccionado) {
     asegurarEstructuraBarberia();
     var modal = document.getElementById('modal-iniciar-corte-barber');
     if (!modal) return;
@@ -2455,6 +2473,12 @@ function abrirModalIniciarCorte(clienteIdPreseleccionado) {
         if (inNuevo) inNuevo.value = '';
         if (inTipo) inTipo.value = '';
     }
+
+    if (estiloPreseleccionado && inTipo) {
+        inTipo.value = estiloPreseleccionado;
+    }
+
+    renderizarChipsTiposCorte('chips-tipos-corte-iniciar', 'input-iniciar-corte-tipo');
 
     modal.style.display = 'flex';
 }
@@ -2567,6 +2591,8 @@ function pararTimerCorteBarberia() {
         if (cl && cl.cobroHabitual) cobroSugerido = parseFloat(cl.cobroHabitual);
     }
     if (inCobro) inCobro.value = cobroSugerido;
+
+    renderizarChipsTiposCorte('chips-tipos-corte-finalizar', 'fin-corte-input-tipo', 'fin-corte-input-cobro');
 
     modal.style.display = 'flex';
 }
@@ -2758,6 +2784,8 @@ function abrirModalClienteBarberia(clienteId) {
         if (inDir) inDir.value = '';
         if (inNot) inNot.value = '';
     }
+
+    renderizarChipsTiposCorte('chips-tipos-corte-cliente', 'input-cliente-barber-corte', 'input-cliente-barber-cobro');
 
     modal.style.display = 'flex';
 }
@@ -3020,4 +3048,233 @@ function cerrarModalDetalleDiaBarber() {
     var modal = document.getElementById('modal-detalle-dia-barber');
     if (modal) modal.style.display = 'none';
 }
+
+// --------------------------------------------------------------------------
+// GESTIÓN DEL CATÁLOGO DE CORTES / ESTILOS
+// --------------------------------------------------------------------------
+
+function renderizarChipsTiposCorte(containerId, inputNombreId, inputPrecioId) {
+    var cont = document.getElementById(containerId);
+    if (!cont) return;
+
+    asegurarEstructuraBarberia();
+    var tipos = APP_STATE.subappBarberia.tiposCorte || [];
+    if (tipos.length === 0) {
+        cont.innerHTML = '<span style="font-size: 11px; color: #64748b;">(Sin tipos de corte en catálogo)</span>';
+        return;
+    }
+
+    var html = '';
+    tipos.forEach(function(t) {
+        var nomEsc = escapeHtmlBarber(t.nombre);
+        var preNum = parseFloat(t.precio || 0);
+        html += `
+        <button type="button" class="chip-tipo-corte-select" onclick="seleccionarChipTipoCorte('${inputNombreId}', '${inputPrecioId || ''}', '${nomEsc}', ${preNum})">
+            <span>✂️</span> ${nomEsc} <strong style="color: #10b981;">($${preNum.toFixed(0)})</strong>
+        </button>
+        `;
+    });
+    cont.innerHTML = html;
+}
+
+function seleccionarChipTipoCorte(inputNombreId, inputPrecioId, nombre, precio) {
+    var inNom = document.getElementById(inputNombreId);
+    if (inNom) inNom.value = nombre;
+
+    if (inputPrecioId) {
+        var inPre = document.getElementById(inputPrecioId);
+        if (inPre && precio > 0) inPre.value = precio;
+    }
+}
+
+function renderizarHtmlCatalogoTiposCorteBarberia(tiposCorte, cortes) {
+    var filtro = (BUSQUEDA_TIPO_CORTE_BARBERIA || '').trim().toLowerCase();
+    var tiposFiltrados = tiposCorte.filter(function(t) {
+        if (!filtro) return true;
+        var nom = (t.nombre || '').toLowerCase();
+        var des = (t.descripcion || '').toLowerCase();
+        return nom.includes(filtro) || des.includes(filtro);
+    });
+
+    var html = `
+    <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" value="${escapeHtmlBarber(BUSQUEDA_TIPO_CORTE_BARBERIA)}" placeholder="🔍 Buscar corte por nombre o técnica..." oninput="filtrarTiposCorteBarberia(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+            </div>
+            <button type="button" class="btn-system" onclick="abrirModalTipoCorteBarberia()" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800; font-size: 12px; padding: 10px 16px; border-radius: 10px; cursor: pointer;">
+                <span>➕</span> Nuevo Tipo de Corte
+            </button>
+        </div>
+    `;
+
+    if (tiposFiltrados.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 30px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">✂️</div>
+            <div style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No se encontraron tipos de corte</div>
+            <p style="font-size: 12px; color: #94a3b8; margin: 0 0 14px 0;">
+                Registra los estilos y servicios que ofreces para auto-completar los cobros y tiempos en tus sesiones.
+            </p>
+            <button type="button" class="btn-system" onclick="abrirModalTipoCorteBarberia()" style="background: #0284c7; color: #ffffff; border: none; font-weight: 800; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                + Crear Estilo de Corte
+            </button>
+        </div>
+        `;
+    } else {
+        html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">`;
+
+        tiposFiltrados.forEach(function(t) {
+            var vecesRealizado = cortes.filter(function(c) {
+                var cNom = (c.tipoCorte || '').toLowerCase();
+                var tNom = (t.nombre || '').toLowerCase();
+                return cNom.includes(tNom) || tNom.includes(cNom);
+            }).length;
+
+            html += `
+            <div class="barber-tipo-corte-card">
+                <div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">✂️</span>
+                            <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">${escapeHtmlBarber(t.nombre)}</div>
+                        </div>
+                        <span style="font-size: 13.5px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 3px 8px;">
+                            $${parseFloat(t.precio || 0).toFixed(2)}
+                        </span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 2px 7px;">
+                            ⏱️ ${t.tiempoMin || 30} min estimados
+                        </span>
+                        <span style="font-size: 11px; color: #94a3b8;">
+                            💈 Realizado: <strong style="color: #cbd5e1;">${vecesRealizado} veces</strong>
+                        </span>
+                    </div>
+
+                    <div style="background: #0b0e15; border-radius: 8px; padding: 9px 11px; margin-bottom: 12px; font-size: 12px; color: #cbd5e1; line-height: 1.4; min-height: 38px;">
+                        ${escapeHtmlBarber(t.descripcion || 'Sin descripción técnica registrada.')}
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+                    <button type="button" class="btn-system" onclick="abrirModalIniciarCorte(null, '${escapeHtmlBarber(t.nombre)}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+                        ✂️ Iniciar este Corte
+                    </button>
+                    <button type="button" class="btn-system" onclick="abrirModalTipoCorteBarberia('${t.id}')" style="flex: 1; justify-content: center; font-size: 11.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 7px 8px; border-radius: 8px; cursor: pointer;" title="Editar Estilo">
+                        ✏️ Editar
+                    </button>
+                    <button type="button" onclick="eliminarTipoCorteBarberia('${t.id}')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: #ef4444; font-size: 13px; border-radius: 8px; padding: 7px 10px; cursor: pointer;" title="Eliminar este Estilo">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            `;
+        });
+
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+function abrirModalTipoCorteBarberia(tipoId) {
+    asegurarEstructuraBarberia();
+    var modal = document.getElementById('modal-tipo-corte-barber');
+    if (!modal) return;
+
+    var inId = document.getElementById('input-tipo-corte-id');
+    var inNom = document.getElementById('input-tipo-corte-nombre');
+    var inPre = document.getElementById('input-tipo-corte-precio');
+    var inTie = document.getElementById('input-tipo-corte-tiempo');
+    var inDes = document.getElementById('input-tipo-corte-descripcion');
+    var tit = document.getElementById('titulo-modal-tipo-corte-barber');
+
+    if (tipoId) {
+        var t = (APP_STATE.subappBarberia.tiposCorte || []).find(function(item) { return item.id === tipoId; });
+        if (t) {
+            if (tit) tit.textContent = 'EDITAR TIPO DE CORTE';
+            if (inId) inId.value = t.id;
+            if (inNom) inNom.value = t.nombre || '';
+            if (inPre) inPre.value = t.precio || '';
+            if (inTie) inTie.value = t.tiempoMin || 30;
+            if (inDes) inDes.value = t.descripcion || '';
+        }
+    } else {
+        if (tit) tit.textContent = 'CREAR TIPO DE CORTE';
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inPre) inPre.value = '10.00';
+        if (inTie) inTie.value = '30';
+        if (inDes) inDes.value = '';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalTipoCorteBarberia() {
+    var modal = document.getElementById('modal-tipo-corte-barber');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarTipoCorteBarberia() {
+    asegurarEstructuraBarberia();
+    var inId = document.getElementById('input-tipo-corte-id');
+    var inNom = document.getElementById('input-tipo-corte-nombre');
+    var inPre = document.getElementById('input-tipo-corte-precio');
+    var inTie = document.getElementById('input-tipo-corte-tiempo');
+    var inDes = document.getElementById('input-tipo-corte-descripcion');
+
+    var nom = inNom ? inNom.value.trim() : '';
+    if (!nom) {
+        alert("Por favor ingresa el nombre del tipo de corte.");
+        return;
+    }
+
+    var id = inId ? inId.value : '';
+    var pre = inPre ? parseFloat(inPre.value) || 0 : 0;
+    var tie = inTie ? parseInt(inTie.value, 10) || 30 : 30;
+    var des = inDes ? inDes.value.trim() : '';
+
+    if (id) {
+        var t = (APP_STATE.subappBarberia.tiposCorte || []).find(function(item) { return item.id === id; });
+        if (t) {
+            t.nombre = nom;
+            t.precio = pre;
+            t.tiempoMin = tie;
+            t.descripcion = des;
+        }
+    } else {
+        var nuevo = {
+            id: 'ESTILO-' + Date.now(),
+            nombre: nom,
+            precio: pre,
+            tiempoMin: tie,
+            descripcion: des
+        };
+        APP_STATE.subappBarberia.tiposCorte.push(nuevo);
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalTipoCorteBarberia();
+    renderizarSubAppBarberia();
+    alert("✂️ Tipo de corte guardado exitosamente en el catálogo.");
+}
+
+function eliminarTipoCorteBarberia(tipoId) {
+    if (!confirm("¿Deseas eliminar este tipo de corte del catálogo?")) return;
+    asegurarEstructuraBarberia();
+    registrarTombstone('subappBarberia_tiposCorte', tipoId);
+    APP_STATE.subappBarberia.tiposCorte = APP_STATE.subappBarberia.tiposCorte.filter(function(t) { return t.id !== tipoId; });
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBarberia();
+}
+
+function filtrarTiposCorteBarberia(query) {
+    BUSQUEDA_TIPO_CORTE_BARBERIA = query;
+    renderizarSubAppBarberia();
+}
+
 

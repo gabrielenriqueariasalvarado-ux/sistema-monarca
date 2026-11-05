@@ -116,7 +116,16 @@ const DEFAULT_STATE = {
         timerActivo: null,
         tiempoPromedioMetaMin: 30,
         clientes: [],
-        cortes: []
+        cortes: [],
+        tiposCorte: [
+            { id: "ESTILO-1", nombre: "Fade Medio", precio: 10, tiempoMin: 30, descripcion: "Degradado medio clásico afeitado o con máquina rasuradora." },
+            { id: "ESTILO-2", nombre: "Degradado + Barba", precio: 12, tiempoMin: 40, descripcion: "Corte degradado con perfilado y arreglo completo de barba." },
+            { id: "ESTILO-3", nombre: "Corte Clásico a Tijera", precio: 10, tiempoMin: 30, descripcion: "Tijera en laterales y parte superior, peinado formal/ejecutivo." },
+            { id: "ESTILO-4", nombre: "High Fade / Fade Alto", precio: 10, tiempoMin: 30, descripcion: "Degradado alto bien marcado desde la sien." },
+            { id: "ESTILO-5", nombre: "Low Fade / Fade Bajo", precio: 10, tiempoMin: 35, descripcion: "Degradado bajo pegado a la oreja y nuca." },
+            { id: "ESTILO-6", nombre: "Taper Fade", precio: 10, tiempoMin: 30, descripcion: "Desvanecido sutil únicamente en patillas y nuca." },
+            { id: "ESTILO-7", nombre: "Perfilado & Barba", precio: 6, tiempoMin: 20, descripcion: "Delineado de contornos con navaja y perfilado de barba." }
+        ]
     },
     agendaPersonas: [],
     ubicacionesAgenda: [
@@ -340,6 +349,9 @@ const MonarcaDB = {
                 if (!Array.isArray(data.subappBarberia.clientes)) data.subappBarberia.clientes = [];
                 if (!Array.isArray(data.subappBarberia.cortes)) data.subappBarberia.cortes = [];
                 if (typeof data.subappBarberia.tiempoPromedioMetaMin !== 'number') data.subappBarberia.tiempoPromedioMetaMin = 30;
+                if (!Array.isArray(data.subappBarberia.tiposCorte) || data.subappBarberia.tiposCorte.length === 0) {
+                    data.subappBarberia.tiposCorte = JSON.parse(JSON.stringify(DEFAULT_STATE.subappBarberia.tiposCorte));
+                }
             }
             return data;
         } catch (e) {

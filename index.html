@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.9">
+    <link rel="stylesheet" href="style.css?v=9.0">
 </head>
 <body>
 
@@ -3232,12 +3232,8 @@
                     <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tipo de Corte Tentativo:</label>
                     <input type="text" id="input-iniciar-corte-tipo" class="finanzas-input-clean" placeholder="Ej: Fade medio, Degradado + barba, Clásico..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
                     
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Fade Medio'">Fade Medio</button>
-                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Degradado + Barba'">Degradado + Barba</button>
-                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Corte Clásico'">Clásico</button>
-                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'High Fade'">High Fade</button>
-                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Perfilado y Afeitado'">Afeitado</button>
+                    <div id="chips-tipos-corte-iniciar" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                        <!-- Se llena dinámicamente desde el Catálogo de Cortes -->
                     </div>
                 </div>
 
@@ -3275,6 +3271,9 @@
                 <div style="margin-bottom: 14px;">
                     <label class="label-finanza" style="margin-bottom: 6px; display: block;">Corte Realizado:</label>
                     <input type="text" id="fin-corte-input-tipo" class="finanzas-input-clean" placeholder="Ej: Fade medio + barba" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    <div id="chips-tipos-corte-finalizar" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                        <!-- Se llena dinámicamente desde el Catálogo de Cortes -->
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 16px;">
@@ -3333,6 +3332,9 @@
                 <div style="margin-bottom: 14px;">
                     <label class="label-finanza" style="margin-bottom: 6px; display: block;">Corte Habitual / Preferido:</label>
                     <input type="text" id="input-cliente-barber-corte" class="finanzas-input-clean" placeholder="Ej: Fade medio, degradado de barba..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    <div id="chips-tipos-corte-cliente" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                        <!-- Se llena dinámicamente desde el Catálogo de Cortes -->
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 14px;">
@@ -3381,6 +3383,48 @@
             </div>
             <div style="padding: 20px;" id="contenido-modal-detalle-dia-barber">
                 <!-- Se llena dinámicamente con los cortes del día seleccionado -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6 BARBERÍA: CREAR / EDITAR TIPO DE CORTE -->
+    <div id="modal-tipo-corte-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">✂️</span>
+                    <span id="titulo-modal-tipo-corte-barber" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #38bdf8;">CREAR TIPO DE CORTE</span>
+                </div>
+                <button onclick="cerrarModalTipoCorteBarberia()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="input-tipo-corte-id">
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Corte / Estilo:</label>
+                    <input type="text" id="input-tipo-corte-nombre" class="finanzas-input-clean" placeholder="Ej: Low Fade, Mullet Moderno, Taper..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Precio Base / Cobro ($):</label>
+                        <input type="number" id="input-tipo-corte-precio" class="finanzas-input-clean" min="0" step="0.5" placeholder="10.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tiempo Estimado (min):</label>
+                        <input type="number" id="input-tipo-corte-tiempo" class="finanzas-input-clean" min="5" step="5" placeholder="30" style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Descripción o Notas Técnicas:</label>
+                    <textarea id="input-tipo-corte-descripcion" class="finanzas-input-clean" rows="2" placeholder="Ej: Degradado a piel desde 0.5, tijera superior, contornos limpios con navaja..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalTipoCorteBarberia()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarTipoCorteBarberia()">💾 Guardar Tipo de Corte</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3983,25 +4027,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.9"></script>
-    <script src="js/perfil.js?v=8.9"></script>
-    <script src="js/progresion.js?v=8.9"></script>
-    <script src="js/estado-personal.js?v=8.9"></script>
-    <script src="js/finanzas.js?v=8.9"></script>
-    <script src="js/ideas.js?v=8.9"></script>
-    <script src="js/dinamicas.js?v=8.9"></script>
-    <script src="js/calendario.js?v=8.9"></script>
-    <script src="js/inventario.js?v=8.9"></script>
-    <script src="js/jarvis-voz.js?v=8.9"></script>
+    <script src="js/core.js?v=9.0"></script>
+    <script src="js/perfil.js?v=9.0"></script>
+    <script src="js/progresion.js?v=9.0"></script>
+    <script src="js/estado-personal.js?v=9.0"></script>
+    <script src="js/finanzas.js?v=9.0"></script>
+    <script src="js/ideas.js?v=9.0"></script>
+    <script src="js/dinamicas.js?v=9.0"></script>
+    <script src="js/calendario.js?v=9.0"></script>
+    <script src="js/inventario.js?v=9.0"></script>
+    <script src="js/jarvis-voz.js?v=9.0"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.9"></script>
+    <script type="module" src="js/firebase-config.js?v=9.0"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.9')
+                navigator.serviceWorker.register('sw.js?v=9.0')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

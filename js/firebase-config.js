@@ -242,7 +242,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas',
-        'subappBarberia_cortes', 'subappBarberia_clientes'
+        'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte'
     ];
 
     allKeys.forEach(function(k) {
@@ -351,6 +351,7 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.subappBarberia = Object.assign({}, barbR, barbL);
         fusion.subappBarberia.clientes = fusionarColeccionPorId(barbL.clientes || [], barbR.clientes || [], tombstones.subappBarberia_clientes || []);
         fusion.subappBarberia.cortes = fusionarColeccionPorId(barbL.cortes || [], barbR.cortes || [], tombstones.subappBarberia_cortes || []);
+        fusion.subappBarberia.tiposCorte = fusionarColeccionPorId(barbL.tiposCorte || [], barbR.tiposCorte || [], tombstones.subappBarberia_tiposCorte || []);
     }
 
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)
