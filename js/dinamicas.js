@@ -223,11 +223,31 @@ function guardarRegistroJornada() {
 
     APP_STATE.registrosLabores.unshift(nuevo);
     sumarExp(Math.round(horas * 10));
+
+    // Si generó honorarios, registrar automáticamente como ingreso en Finanzas (Apartado Almacén & Labores)
+    if (hon > 0 && APP_STATE.finanzas) {
+        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
+        var catInfo = (APP_STATE.categoriasLabores || []).find(function(c) { return c.id === laborId; }) || { nombre: "Labor" };
+        var fechaISO = new Date().toISOString().split('T')[0];
+        APP_STATE.finanzas.ingresos.push({
+            id: "ING-LAB-" + nuevo.id,
+            fuente: "Labor: " + catInfo.nombre + (desc ? " - " + desc : ""),
+            tipo: 'labor',
+            categoria: "Labores & Servicios",
+            monto: hon,
+            fecha: fechaISO,
+            dia: new Date().getDate(),
+            cobrado: true,
+            laborId: nuevo.id
+        });
+        if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+    }
+
     MonarcaDB.save(APP_STATE);
 
     cerrarModalRegistroJornada();
     renderizarLabores();
-    alert("💼 Jornada de labor registrada con éxito (+ " + Math.round(horas * 10) + " EXP).");
+    alert("💼 Jornada de labor registrada con éxito (+ " + Math.round(horas * 10) + " EXP" + (hon > 0 ? `, +$${hon} en Finanzas` : '') + ").");
 }
 
 function eliminarRegistroLabor(id) {
@@ -237,8 +257,17 @@ function eliminarRegistroLabor(id) {
         registrarTombstone('registrosLabores', id);
     }
     APP_STATE.registrosLabores = APP_STATE.registrosLabores.filter(function(r) { return r.id !== id; });
+
+    // Limpiar ingreso de labor en Finanzas si existía
+    if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+        APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+            return ig.laborId !== id && ig.id !== ('ING-LAB-' + id);
+        });
+    }
+
     MonarcaDB.save(APP_STATE);
     renderizarLabores();
+    if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
 }
 
 

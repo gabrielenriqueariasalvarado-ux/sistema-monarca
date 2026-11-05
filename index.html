@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.2">
+    <link rel="stylesheet" href="style.css?v=8.3">
 </head>
 <body>
 
@@ -1124,16 +1124,22 @@
                         <button class="btn-add-finanza" onclick="abrirModalIngreso('aleatoria')" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8;">
                             <span>⚡</span> + Entrada Aleatoria
                         </button>
+                        <button class="btn-add-finanza" onclick="abrirModalIngreso('almacen')" style="background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #c084fc;">
+                            <span>📦</span> + Almacén / Labor
+                        </button>
                     </div>
                 </div>
 
-                <!-- Tabs de Navegación Fijas vs Aleatorias -->
+                <!-- Tabs de Navegación Fijas vs Aleatorias vs Almacén & Labores -->
                 <div class="finanzas-tabs-nav">
                     <button class="finanzas-tab-btn active" id="tab-ingresos-fijos" onclick="cambiarTabIngresos('fijos')">
                         <span>📅</span> Entradas Fijas (<span id="badge-count-fijos">0</span>)
                     </button>
                     <button class="finanzas-tab-btn" id="tab-ingresos-aleatorios" onclick="cambiarTabIngresos('aleatorios')">
                         <span>⚡</span> Entradas Aleatorias (<span id="badge-count-aleatorios">0</span>)
+                    </button>
+                    <button class="finanzas-tab-btn" id="tab-ingresos-almacen" onclick="cambiarTabIngresos('almacen_labores')">
+                        <span>📦</span> Almacén & Labores (<span id="badge-count-almacen">0</span>)
                     </button>
                 </div>
 
@@ -1152,6 +1158,15 @@
                     <div class="total-box-finanzas" style="margin-top: 10px;">
                         <span class="total-box-label">Subtotal Aleatorias:</span>
                         <span class="total-box-val monto-positivo" id="subtotal-ingresos-aleatorios">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Lista de Entradas de Almacén & Labores (Ventas Contado/Crédito y Jornadas) -->
+                <div id="vista-ingresos-almacen" style="display: none;">
+                    <div id="lista-ingresos-almacen" class="finanzas-tx-list"></div>
+                    <div class="total-box-finanzas" style="margin-top: 10px;">
+                        <span class="total-box-label">Subtotal Almacén & Labores:</span>
+                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-almacen">$0.00</span>
                     </div>
                 </div>
 
@@ -1262,12 +1277,15 @@
                 <input type="hidden" id="modal-ingreso-tipo" value="fija">
                 
                 <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Entrada:</label>
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <button type="button" id="btn-modal-tipo-fija" class="btn-system" style="flex: 1; padding: 10px; font-size: 12px; background: #1e263c; border-color: #38bdf8; color: #38bdf8;" onclick="seleccionarTipoIngresoModal('fija')">
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+                    <button type="button" id="btn-modal-tipo-fija" class="btn-system" style="flex: 1; min-width: 100px; padding: 10px; font-size: 12px; background: #1e263c; border-color: #38bdf8; color: #38bdf8;" onclick="seleccionarTipoIngresoModal('fija')">
                         📅 Entrada Fija
                     </button>
-                    <button type="button" id="btn-modal-tipo-aleatoria" class="btn-back-system" style="flex: 1; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoIngresoModal('aleatoria')">
-                        ⚡ Entrada Aleatoria
+                    <button type="button" id="btn-modal-tipo-aleatoria" class="btn-back-system" style="flex: 1; min-width: 100px; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoIngresoModal('aleatoria')">
+                        ⚡ Aleatoria
+                    </button>
+                    <button type="button" id="btn-modal-tipo-almacen" class="btn-back-system" style="flex: 1; min-width: 100px; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoIngresoModal('almacen')">
+                        📦 Almacén / Labor
                     </button>
                 </div>
 
@@ -3450,19 +3468,66 @@
                     <span id="modal-venta-total-calculado" style="font-size: 18px; font-weight: 800;">$0.00</span>
                 </div>
 
+                <!-- Modalidad de Pago: Contado vs Crédito en Cuotas -->
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">
+                        Modalidad de Pago:
+                    </label>
+                    <div class="modal-venta-modos">
+                        <button type="button" id="btn-venta-modo-contado" class="btn-modal-venta-modo active" onclick="seleccionarModalidadVentaModal('contado')">
+                            💵 Al Contado
+                        </button>
+                        <button type="button" id="btn-venta-modo-credito" class="btn-modal-venta-modo" onclick="seleccionarModalidadVentaModal('credito')">
+                            💳 A Crédito (En Cuotas)
+                        </button>
+                    </div>
+                    <input type="hidden" id="modal-venta-modalidad" value="contado">
+                </div>
+
+                <!-- Bloque Acuerdo de Pago a Crédito (En Cuotas) -->
+                <div id="modal-venta-bloque-credito" style="display: none; background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size: 12px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">
+                            🤝 Acuerdo de Pago a Crédito
+                        </span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label style="font-size: 11px; color: #cbd5e1; font-weight: 700;">N.° Partes:</label>
+                            <select id="modal-venta-num-cuotas" class="modal-input" style="width: auto; padding: 4px 8px; font-size: 12px; margin-bottom: 0;" onchange="alCambiarNumeroCuotasVenta()">
+                                <option value="2" selected>2 partes</option>
+                                <option value="3">3 partes</option>
+                                <option value="4">4 partes</option>
+                                <option value="5">5 partes</option>
+                                <option value="6">6 partes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="modal-form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; display: block;">Nombre del Cliente / Comprador:</label>
+                        <input type="text" id="modal-venta-cliente" class="modal-input" placeholder="Ej: Juan Pérez, María Gómez...">
+                    </div>
+
+                    <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block;">
+                        Fechas y Montos Acordados para Cada Cuota:
+                    </label>
+                    <div id="modal-venta-cuotas-lista">
+                        <!-- Generado dinámicamente con inputs de monto y fecha por cuota -->
+                    </div>
+                </div>
+
                 <!-- Observación (Requerimiento explícito del usuario) -->
                 <div class="modal-form-group">
                     <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">
-                        Observación de la Venta (Detalles, comprador, método de pago):
+                        Observación de la Venta (Detalles, acuerdos, entrega):
                     </label>
-                    <textarea id="modal-venta-observacion" class="modal-input" rows="3" placeholder="Ej: Vendida a Juan en efectivo. Pagó en billetes de $20 / Vendido por WhatsApp entrega en centro comercial..."></textarea>
+                    <textarea id="modal-venta-observacion" class="modal-input" rows="2" placeholder="Ej: Pago acordado quincenal, entregado en tienda..."></textarea>
                 </div>
 
                 <!-- Conexión opcional con Finanzas -->
                 <div style="margin-bottom: 18px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 700; color: #f8fafc;">
                         <input type="checkbox" id="modal-venta-registrar-finanzas" checked style="accent-color: #f8fafc; width: 16px; height: 16px;">
-                        <span>Registrar automáticamente como ingreso en Finanzas</span>
+                        <span>Registrar automáticamente en Finanzas (Apartado Almacén & Labores)</span>
                     </label>
                 </div>
 
@@ -3624,25 +3689,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.2"></script>
-    <script src="js/perfil.js?v=8.2"></script>
-    <script src="js/progresion.js?v=8.2"></script>
-    <script src="js/estado-personal.js?v=8.2"></script>
-    <script src="js/finanzas.js?v=8.2"></script>
-    <script src="js/ideas.js?v=8.2"></script>
-    <script src="js/dinamicas.js?v=8.2"></script>
-    <script src="js/calendario.js?v=8.2"></script>
-    <script src="js/inventario.js?v=8.2"></script>
-    <script src="js/jarvis-voz.js?v=8.2"></script>
+    <script src="js/core.js?v=8.3"></script>
+    <script src="js/perfil.js?v=8.3"></script>
+    <script src="js/progresion.js?v=8.3"></script>
+    <script src="js/estado-personal.js?v=8.3"></script>
+    <script src="js/finanzas.js?v=8.3"></script>
+    <script src="js/ideas.js?v=8.3"></script>
+    <script src="js/dinamicas.js?v=8.3"></script>
+    <script src="js/calendario.js?v=8.3"></script>
+    <script src="js/inventario.js?v=8.3"></script>
+    <script src="js/jarvis-voz.js?v=8.3"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.2"></script>
+    <script type="module" src="js/firebase-config.js?v=8.3"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.2')
+                navigator.serviceWorker.register('sw.js?v=8.3')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

@@ -1064,9 +1064,93 @@ function abrirModalRegistrarVenta(productoId) {
         if (inCant) inCant.max = stockTotal;
     }
 
+    // Inicializar modalidad de pago (Contado por defecto)
+    seleccionarModalidadVentaModal('contado');
+    var inCli = document.getElementById('modal-venta-cliente');
+    if (inCli) inCli.value = '';
+    var selNum = document.getElementById('modal-venta-num-cuotas');
+    if (selNum) selNum.value = '2';
+
     actualizarTotalVentaCalculado();
     modal.style.display = 'flex';
     if (inObs) setTimeout(function() { inObs.focus(); }, 120);
+}
+
+/**
+ * Controla la modalidad de pago en el modal de venta (Contado vs Crédito)
+ */
+function seleccionarModalidadVentaModal(modo) {
+    var inMod = document.getElementById('modal-venta-modalidad');
+    if (inMod) inMod.value = modo;
+
+    var btnCont = document.getElementById('btn-venta-modo-contado');
+    var btnCred = document.getElementById('btn-venta-modo-credito');
+    var bloqCred = document.getElementById('modal-venta-bloque-credito');
+
+    if (modo === 'credito') {
+        if (btnCred) btnCred.classList.add('active');
+        if (btnCont) btnCont.classList.remove('active');
+        if (bloqCred) bloqCred.style.display = 'block';
+        generarFilasCuotasVenta();
+    } else {
+        if (btnCont) btnCont.classList.add('active');
+        if (btnCred) btnCred.classList.remove('active');
+        if (bloqCred) bloqCred.style.display = 'none';
+    }
+}
+
+/**
+ * Evento al cambiar el número de cuotas acordadas
+ */
+function alCambiarNumeroCuotasVenta() {
+    generarFilasCuotasVenta();
+}
+
+/**
+ * Genera dinámicamente las filas de cuotas para el acuerdo de pago a crédito
+ */
+function generarFilasCuotasVenta() {
+    var contCuotas = document.getElementById('modal-venta-cuotas-lista');
+    var selNum = document.getElementById('modal-venta-num-cuotas');
+    var inCant = document.getElementById('modal-venta-cantidad');
+    var inPre = document.getElementById('modal-venta-precio');
+
+    if (!contCuotas) return;
+
+    var numPartes = selNum ? parseInt(selNum.value, 10) : 2;
+    if (isNaN(numPartes) || numPartes < 1) numPartes = 2;
+
+    var cant = inCant ? parseInt(inCant.value, 10) : 1;
+    var pre = inPre ? parseFloat(inPre.value) : 0;
+    var total = (isNaN(cant) ? 1 : cant) * (isNaN(pre) ? 0 : pre);
+
+    var montoPorParte = numPartes > 0 ? (total / numPartes) : 0;
+    var hoy = new Date();
+
+    var html = '';
+    for (var i = 1; i <= numPartes; i++) {
+        // Fechas sugeridas quincenales / mensuales
+        var fechaSugerida = new Date(hoy);
+        fechaSugerida.setDate(hoy.getDate() + ((i - 1) * 15));
+        var strFecha = fechaSugerida.toISOString().split('T')[0];
+
+        html += `
+        <div class="cuota-row-item">
+            <div class="cuota-row-badge">
+                Parte ${i} de ${numPartes}
+            </div>
+            <div>
+                <label style="font-size: 10px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 2px;">Monto Cuota ($):</label>
+                <input type="number" class="modal-input input-cuota-monto" data-cuota-num="${i}" step="0.01" min="0.01" value="${montoPorParte.toFixed(2)}" style="margin-bottom: 0; padding: 6px 10px; font-weight: 800; color: #34d399;">
+            </div>
+            <div>
+                <label style="font-size: 10px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 2px;">Fecha de Cobro Acordada:</label>
+                <input type="date" class="modal-input input-cuota-fecha" data-cuota-num="${i}" value="${strFecha}" style="margin-bottom: 0; padding: 6px 8px; font-size: 12px;">
+            </div>
+        </div>`;
+    }
+
+    contCuotas.innerHTML = html;
 }
 
 /**
@@ -1113,6 +1197,7 @@ function actualizarTotalVentaCalculado() {
     var inCant = document.getElementById('modal-venta-cantidad');
     var inPre = document.getElementById('modal-venta-precio');
     var lblTotal = document.getElementById('modal-venta-total-calculado');
+    var inMod = document.getElementById('modal-venta-modalidad');
 
     var cant = inCant ? parseInt(inCant.value, 10) : 1;
     if (isNaN(cant) || cant < 1) cant = 1;
@@ -1122,6 +1207,10 @@ function actualizarTotalVentaCalculado() {
 
     var total = cant * pre;
     if (lblTotal) lblTotal.textContent = "$" + total.toFixed(2);
+
+    if (inMod && inMod.value === 'credito') {
+        generarFilasCuotasVenta();
+    }
 }
 
 /**
@@ -1189,8 +1278,43 @@ function confirmarVentaProducto() {
     var totalVenta = cantidad * precioUnitario;
     var observacion = inObs ? inObs.value.trim() : '';
 
+    var inMod = document.getElementById('modal-venta-modalidad');
+    var modalidad = inMod ? inMod.value : 'contado';
+    var inCli = document.getElementById('modal-venta-cliente');
+    var cliente = inCli ? inCli.value.trim() : '';
+
     var fechaHoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
     var horaHoy = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    // Cuotas si la venta es a crédito
+    var cuotasArr = [];
+    if (modalidad === 'credito') {
+        var rowsMonto = document.querySelectorAll('#modal-venta-cuotas-lista .input-cuota-monto');
+        var rowsFecha = document.querySelectorAll('#modal-venta-cuotas-lista .input-cuota-fecha');
+
+        for (var k = 0; k < rowsMonto.length; k++) {
+            var mCuota = parseFloat(rowsMonto[k].value) || 0;
+            var fCuota = rowsFecha[k].value || fechaHoy;
+            var dCuota = 15;
+            if (fCuota && fCuota.indexOf('-') !== -1) {
+                var pts = fCuota.split('-');
+                if (pts.length >= 3) dCuota = parseInt(pts[2], 10) || 15;
+            }
+            cuotasArr.push({
+                id: "CUOTA-" + Date.now() + "-" + (k + 1),
+                numero: (k + 1),
+                monto: mCuota,
+                fecha: fCuota,
+                dia: dCuota,
+                cobrado: false
+            });
+        }
+
+        if (cuotasArr.length === 0) {
+            alert("Por favor establece el número de cuotas y fechas del acuerdo de crédito.");
+            return;
+        }
+    }
 
     // 1. Descontar existencias
     if (tieneVar && varianteSeleccionada) {
@@ -1217,6 +1341,9 @@ function confirmarVentaProducto() {
         cantidad: cantidad,
         precioUnitario: precioUnitario,
         totalVenta: totalVenta,
+        modalidad: modalidad,
+        cliente: cliente,
+        cuotas: cuotasArr,
         observacion: observacion,
         fecha: fechaHoy,
         hora: horaHoy,
@@ -1225,19 +1352,42 @@ function confirmarVentaProducto() {
 
     APP_STATE.inventario.ventas.unshift(nuevaVenta);
 
-    // 3. Registrar opcionalmente como ingreso en Finanzas
+    // 3. Registrar automáticamente en Finanzas (Apartado Almacén & Labores)
     if (chkFin && chkFin.checked && APP_STATE.finanzas) {
         if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
-        var descFinanza = `Venta: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (${cantidad} unid${cantidad > 1 ? 'es' : ''})${observacion ? ' - ' + observacion : ''}`;
-        var nuevoIngreso = {
-            id: "ING-V-" + Date.now(),
-            concepto: descFinanza,
-            categoria: "Ventas / Negocio",
-            monto: totalVenta,
-            dia: new Date().getDate(),
-            recurrente: false
-        };
-        APP_STATE.finanzas.ingresos.push(nuevoIngreso);
+
+        if (modalidad === 'credito') {
+            // Cada cuota pactada se registra como una entrada independiente vinculada
+            cuotasArr.forEach(function(cItem) {
+                var conceptoCuota = `Crédito: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (Cuota ${cItem.numero}/${cuotasArr.length})${cliente ? ' - ' + cliente : ''}`;
+                APP_STATE.finanzas.ingresos.push({
+                    id: "ING-CR-" + cItem.id,
+                    fuente: conceptoCuota,
+                    tipo: 'credito',
+                    categoria: "Ventas / Crédito",
+                    monto: cItem.monto,
+                    fecha: cItem.fecha,
+                    dia: cItem.dia,
+                    cobrado: false,
+                    ventaId: nuevaVenta.id,
+                    cuotaId: cItem.id
+                });
+            });
+        } else {
+            // Venta al contado: 1 sola entrada cobrada de inmediato
+            var descFinanza = `Venta: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (${cantidad} unid${cantidad > 1 ? 'es' : ''})${cliente ? ' - ' + cliente : ''}${observacion ? ' - ' + observacion : ''}`;
+            APP_STATE.finanzas.ingresos.push({
+                id: "ING-V-" + Date.now(),
+                fuente: descFinanza,
+                tipo: 'almacen',
+                categoria: "Ventas / Almacén",
+                monto: totalVenta,
+                fecha: fechaHoy,
+                dia: new Date().getDate(),
+                cobrado: true,
+                ventaId: nuevaVenta.id
+            });
+        }
     }
 
     // Persistir
@@ -1247,14 +1397,16 @@ function confirmarVentaProducto() {
     // Actualizar interfaz
     filtrarProductosInventario();
     actualizarMetricasKpisInventario();
+    if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
 
     var detalleFinal = varianteDetalle ? ` [${varianteDetalle}]` : '';
+    var modalMsg = modalidad === 'credito' ? `\n• Modalidad: A Crédito en ${cuotasArr.length} cuotas pactadas` : '\n• Modalidad: Al Contado (Cobrado)';
     alert(`✓ ¡Venta registrada exitosamente!
 
 • Producto: ${prod.nombre}${detalleFinal}
 • Unidades vendidas: ${cantidad}
-• Stock total restante: ${prod.stock} unids
-• Total: $${totalVenta.toFixed(2)}
+• Stock restante: ${prod.stock} unids
+• Total: $${totalVenta.toFixed(2)}${modalMsg}
 • Observación: "${observacion || 'Sin observación'}"`);
 }
 
@@ -1294,14 +1446,65 @@ function renderizarVendidosInventario(listaManual) {
         var unit = Number(venta.precioUnitario) || 0;
         var total = Number(venta.totalVenta) || (cant * unit);
 
+        var esCredito = venta.modalidad === 'credito';
+        var cuotas = Array.isArray(venta.cuotas) ? venta.cuotas : [];
+
+        var totalCobrado = 0;
+        if (esCredito) {
+            cuotas.forEach(function(cq) {
+                if (cq.cobrado) totalCobrado += (Number(cq.monto) || 0);
+            });
+        } else {
+            totalCobrado = total;
+        }
+
+        var badgeModalidadHtml = esCredito
+            ? `<span class="badge-pago-credito">💳 Crédito (${cuotas.length} cuotas)</span>`
+            : `<span class="badge-pago-contado">💵 Al Contado</span>`;
+
+        var htmlCuotasBloque = '';
+        if (esCredito && cuotas.length > 0) {
+            htmlCuotasBloque = `
+            <div style="margin-top: 10px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 10px 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">Acuerdo de Cuotas:</span>
+                    <span style="font-size: 11.5px; font-weight: 700; color: #cbd5e1;">Cobrado: $${totalCobrado.toFixed(2)} / $${total.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">`;
+
+            cuotas.forEach(function(cq) {
+                var yaCobrada = !!cq.cobrado;
+                var mMonto = (Number(cq.monto) || 0).toFixed(2);
+                htmlCuotasBloque += `
+                <div class="cuota-card-vendidos ${yaCobrada ? 'cobrada' : 'pendiente'}">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">Parte ${cq.numero}: $${mMonto}</span>
+                        <span style="font-size: 11px; color: #94a3b8;">📅 Acordado: ${cq.fecha}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        ${yaCobrada
+                            ? `<span style="font-size: 10.5px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 2px 7px; border-radius: 5px;">✅ Cobrada</span>
+                               <button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroCuotaVentaUI('${venta.id}', '${cq.id}')" title="Desmarcar cobro de esta cuota">↩</button>`
+                            : `<span style="font-size: 10.5px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.12); padding: 2px 7px; border-radius: 5px;">⏳ Pendiente</span>
+                               <button type="button" class="btn-cobrar-ingreso" onclick="cobrarCuotaVentaUI('${venta.id}', '${cq.id}')" title="Marcar esta cuota como cobrada">💰 Cobrar</button>`
+                        }
+                    </div>
+                </div>`;
+            });
+
+            htmlCuotasBloque += `</div></div>`;
+        }
+
         html += `
         <div class="card inventario-venta-card" style="margin-bottom: 0; padding: 16px 18px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
             <div style="flex: 1; min-width: 240px;">
-                <!-- Fila de Metadatos: Categoría y Fecha/Hora -->
+                <!-- Fila de Metadatos: Categoría, Modalidad y Fecha/Hora -->
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
                     <span style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
                         ${venta.categoriaIcono || '🏷️'} ${venta.categoriaNombre || 'General'}
                     </span>
+                    ${badgeModalidadHtml}
+                    ${venta.cliente ? `<span style="font-size: 11px; font-weight: 700; background: rgba(56, 189, 248, 0.12); color: #38bdf8; padding: 2px 8px; border-radius: 6px;">👤 ${venta.cliente}</span>` : ''}
                     ${venta.marca ? `<span style="font-size: 10.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 2px 6px; border-radius: 5px;">🏷️ ${venta.marca}</span>` : ''}
                     <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">
                         📅 ${venta.fecha} ${venta.hora ? '· ' + venta.hora : ''}
@@ -1324,19 +1527,23 @@ function renderizarVendidosInventario(listaManual) {
                     <strong style="color: #f8fafc;">📝 Observación:</strong> 
                     <span>${venta.observacion ? venta.observacion : '<em style="color: #9ca3af;">Sin observación registrada</em>'}</span>
                 </div>
+
+                <!-- Desglose de cuotas si es a crédito -->
+                ${htmlCuotasBloque}
             </div>
 
             <!-- Columna Derecha: Monto Total y Botón Revertir -->
             <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; min-height: 80px;">
                 <div>
-                    <span style="font-size: 10.5px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">TOTAL COBRADO</span>
+                    <span style="font-size: 10.5px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">${esCredito ? 'TOTAL VENTA' : 'TOTAL COBRADO'}</span>
                     <div style="font-size: 22px; font-weight: 800; color: #f8fafc; margin-top: 1px;">
                         $${total.toFixed(2)}
                     </div>
+                    ${esCredito ? `<div style="font-size: 11px; font-weight: 700; color: ${totalCobrado >= total ? '#10b981' : '#fbbf24'};">En Cuenta: $${totalCobrado.toFixed(2)}</div>` : ''}
                 </div>
                 <button type="button" 
                         onclick="anularVentaInventario('${venta.id}')" 
-                        style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #6b7280; padding: 5px 10px; font-size: 11px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: all 0.2s ease;" 
+                        style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #6b7280; padding: 5px 10px; font-size: 11px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: all 0.2s ease; margin-top: 12px;" 
                         title="Anular venta y reincorporar las unidades al stock">
                     ↩ Revertir Venta (+${cant} stock)
                 </button>
@@ -1346,6 +1553,66 @@ function renderizarVendidosInventario(listaManual) {
 
     html += '</div>';
     cont.innerHTML = html;
+}
+
+/**
+ * Marca una cuota de venta a crédito como cobrada y sincroniza con Finanzas
+ */
+function cobrarCuotaVentaUI(ventaId, cuotaId) {
+    asegurarEstructuraInventario();
+    var venta = APP_STATE.inventario.ventas.find(function(v) { return v.id === ventaId; });
+    if (!venta || !Array.isArray(venta.cuotas)) return;
+
+    var cuota = venta.cuotas.find(function(c) { return c.id === cuotaId; });
+    if (!cuota) return;
+
+    cuota.cobrado = true;
+    cuota.fechaCobrado = new Date().toISOString();
+
+    // Sincronizar en Finanzas
+    if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+        var ing = APP_STATE.finanzas.ingresos.find(function(ig) {
+            return (ig.ventaId === ventaId && ig.cuotaId === cuotaId) || ig.id === ('ING-CR-' + cuotaId);
+        });
+        if (ing) {
+            ing.cobrado = true;
+            ing.fechaCobro = new Date().toISOString();
+        }
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarVendidosInventario();
+    if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+}
+
+/**
+ * Deshace el cobro de una cuota de venta a crédito y sincroniza con Finanzas
+ */
+function deshacerCobroCuotaVentaUI(ventaId, cuotaId) {
+    asegurarEstructuraInventario();
+    var venta = APP_STATE.inventario.ventas.find(function(v) { return v.id === ventaId; });
+    if (!venta || !Array.isArray(venta.cuotas)) return;
+
+    var cuota = venta.cuotas.find(function(c) { return c.id === cuotaId; });
+    if (!cuota) return;
+
+    cuota.cobrado = false;
+    delete cuota.fechaCobrado;
+
+    // Sincronizar en Finanzas
+    if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+        var ing = APP_STATE.finanzas.ingresos.find(function(ig) {
+            return (ig.ventaId === ventaId && ig.cuotaId === cuotaId) || ig.id === ('ING-CR-' + cuotaId);
+        });
+        if (ing) {
+            ing.cobrado = false;
+            delete ing.fechaCobro;
+        }
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarVendidosInventario();
+    if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
 }
 
 /**
@@ -1413,9 +1680,17 @@ function anularVentaInventario(ventaId) {
             return v.id !== ventaId;
         });
 
+        // Limpiar también los ingresos registrados en Finanzas asociados a esta venta
+        if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+            APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+                return ig.ventaId !== ventaId;
+            });
+        }
+
         MonarcaDB.save(APP_STATE, true);
         renderizarVendidosInventario();
         actualizarMetricasKpisInventario();
-        alert(`✓ Venta anulada con éxito. Se reincorporaron ${cant} unidad(es) al inventario.`);
+        if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+        alert(`✓ Venta anulada con éxito. Se reincorporaron ${cant} unidad(es) al inventario y se limpiaron sus registros financieros.`);
     }
 }

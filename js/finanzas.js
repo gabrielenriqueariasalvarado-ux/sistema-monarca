@@ -123,19 +123,27 @@ function cambiarTabIngresos(tab) {
     ESTADO_FINANZAS.tabIngresosActivo = tab;
     var btnF = document.getElementById('tab-ingresos-fijos');
     var btnA = document.getElementById('tab-ingresos-aleatorios');
+    var btnAlm = document.getElementById('tab-ingresos-almacen');
     var visF = document.getElementById('vista-ingresos-fijos');
     var visA = document.getElementById('vista-ingresos-aleatorios');
+    var visAlm = document.getElementById('vista-ingresos-almacen');
+
+    if (btnF) btnF.classList.remove('active');
+    if (btnA) btnA.classList.remove('active');
+    if (btnAlm) btnAlm.classList.remove('active');
+    if (visF) visF.style.display = 'none';
+    if (visA) visA.style.display = 'none';
+    if (visAlm) visAlm.style.display = 'none';
 
     if (tab === 'fijos') {
         if (btnF) btnF.classList.add('active');
-        if (btnA) btnA.classList.remove('active');
         if (visF) visF.style.display = 'block';
-        if (visA) visA.style.display = 'none';
-    } else {
-        if (btnF) btnF.classList.remove('active');
+    } else if (tab === 'aleatorios') {
         if (btnA) btnA.classList.add('active');
-        if (visF) visF.style.display = 'none';
         if (visA) visA.style.display = 'block';
+    } else if (tab === 'almacen_labores' || tab === 'almacen') {
+        if (btnAlm) btnAlm.classList.add('active');
+        if (visAlm) visAlm.style.display = 'block';
     }
 }
 
@@ -145,9 +153,19 @@ function seleccionarTipoIngresoModal(tipo) {
 
     var btnF = document.getElementById('btn-modal-tipo-fija');
     var btnA = document.getElementById('btn-modal-tipo-aleatoria');
+    var btnAlm = document.getElementById('btn-modal-tipo-almacen');
     var grpDia = document.getElementById('grupo-ingreso-dia');
     var grpFecha = document.getElementById('grupo-ingreso-fecha');
     var inF = document.getElementById('modal-ingreso-fuente');
+
+    // Reset general de estilos
+    [btnF, btnA, btnAlm].forEach(function(b) {
+        if (b) {
+            b.style.background = 'transparent';
+            b.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            b.style.color = '#94a3b8';
+        }
+    });
 
     if (tipo === 'fija') {
         if (btnF) {
@@ -155,20 +173,28 @@ function seleccionarTipoIngresoModal(tipo) {
             btnF.style.borderColor = '#38bdf8';
             btnF.style.color = '#38bdf8';
         }
-        if (btnA) {
-            btnA.style.background = 'transparent';
-            btnA.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            btnA.style.color = '#94a3b8';
-        }
         if (grpDia) grpDia.style.display = 'block';
         if (grpFecha) grpFecha.style.display = 'none';
         if (inF) inF.placeholder = "Ej: Sueldo Principal, Renta, Nómina...";
-    } else {
-        if (btnF) {
-            btnF.style.background = 'transparent';
-            btnF.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            btnF.style.color = '#94a3b8';
+    } else if (tipo === 'almacen') {
+        if (btnAlm) {
+            btnAlm.style.background = '#1e263c';
+            btnAlm.style.borderColor = '#c084fc';
+            btnAlm.style.color = '#c084fc';
         }
+        if (grpDia) grpDia.style.display = 'none';
+        if (grpFecha) grpFecha.style.display = 'block';
+        if (inF) inF.placeholder = "Ej: Venta de mercancía, Honorarios de diseño, Asesoría técnica...";
+
+        var inFecha = document.getElementById('modal-ingreso-fecha');
+        if (inFecha && !inFecha.value) {
+            var hoy = new Date();
+            var y = hoy.getFullYear();
+            var m = String(hoy.getMonth() + 1).padStart(2, '0');
+            var d = String(hoy.getDate()).padStart(2, '0');
+            inFecha.value = y + '-' + m + '-' + d;
+        }
+    } else {
         if (btnA) {
             btnA.style.background = '#1e263c';
             btnA.style.borderColor = '#38bdf8';
@@ -225,7 +251,7 @@ function renderizarFinanzas(fin) {
         if (inObj) inObj.value = f.cabecera.objetivo || "";
     }
 
-    // 2. Ingresos (Separados en Fijos vs Aleatorios y Filtrados por Quincena)
+    // 2. Ingresos (Separados en Fijos vs Aleatorios vs Almacén & Labores y Filtrados por Quincena)
     var totIngresosMes = 0;       // Proyección total del mes completo (para Regla 50/40/10)
     var totIngresosVista = 0;     // Total del período seleccionado (mes, q1 o q2)
     var ingresosCobradosVista = 0;   // Dinero real en cuenta (cobrado: true)
@@ -233,11 +259,14 @@ function renderizarFinanzas(fin) {
 
     var totFijos = 0;
     var totAleatorios = 0;
+    var totAlmacen = 0;
     var countFijos = 0;
     var countAleatorios = 0;
+    var countAlmacen = 0;
 
     var htmlFijos = '';
     var htmlAleatorios = '';
+    var htmlAlmacen = '';
 
     (f.ingresos || []).forEach(function(item) {
         var m = Number(item.monto) || 0;
@@ -255,15 +284,47 @@ function renderizarFinanzas(fin) {
             ingresosPendientesVista += m;
         }
 
-        var esAleatoria = item.tipo === 'aleatoria';
-
         var badgeCobroHtml = estaCobrado
             ? `<span class="badge-ingreso-cobrado">✅ EN CUENTA</span>
                <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroIngresoUI('${item.id}')" title="Desmarcar dinero en cuenta">↩</button>`
             : `<span class="badge-ingreso-pendiente">⏳ Pendiente</span>
                <button class="btn-cobrar-ingreso" onclick="cobrarIngresoUI('${item.id}')" title="Sumar este dinero a mi cuenta real">💰 Sumar a Cuenta</button>`;
 
-        if (esAleatoria) {
+        var esAlmacenOLabor = (item.tipo === 'almacen' || item.tipo === 'credito' || item.tipo === 'labor');
+        var esAleatoria = item.tipo === 'aleatoria';
+
+        if (esAlmacenOLabor) {
+            totAlmacen += m;
+            countAlmacen++;
+            var fechaStr = item.fecha || ('Día ' + (item.dia || 15));
+            var iconoItem = item.tipo === 'labor' ? '💼' : (item.tipo === 'credito' ? '💳' : '📦');
+            var badgeCatHtml = '';
+            if (item.tipo === 'labor') {
+                badgeCatHtml = `<span class="badge-cat" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">💼 Labor · ${fechaStr}</span>`;
+            } else if (item.tipo === 'credito') {
+                badgeCatHtml = `<span class="badge-cat" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">💳 Crédito Pactado · ${fechaStr}</span>`;
+            } else {
+                badgeCatHtml = `<span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">📦 Venta Almacén · ${fechaStr}</span>`;
+            }
+
+            htmlAlmacen += `
+            <div class="finanzas-tx-item">
+                <div class="finanzas-tx-main">
+                    <div class="finanzas-tx-icon" style="color: ${item.tipo === 'labor' ? '#c084fc' : (item.tipo === 'credito' ? '#fbbf24' : '#38bdf8')};">${iconoItem}</div>
+                    <div class="finanzas-tx-details">
+                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-meta">
+                            ${badgeCatHtml}
+                        </div>
+                    </div>
+                </div>
+                <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${badgeCobroHtml}
+                    <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
+                </div>
+            </div>`;
+        } else if (esAleatoria) {
             totAleatorios += m;
             countAleatorios++;
             var fechaStr = item.fecha || 'Fecha no esp.';
@@ -318,6 +379,9 @@ function renderizarFinanzas(fin) {
     if (countAleatorios === 0) {
         htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>`;
     }
+    if (countAlmacen === 0) {
+        htmlAlmacen = `<div class="finanzas-empty-hint">Sin entradas de almacén o labores para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>`;
+    }
 
     var elContFijos = document.getElementById('lista-ingresos-fijos');
     if (elContFijos) elContFijos.innerHTML = htmlFijos;
@@ -325,16 +389,23 @@ function renderizarFinanzas(fin) {
     var elContAleatorios = document.getElementById('lista-ingresos-aleatorios');
     if (elContAleatorios) elContAleatorios.innerHTML = htmlAleatorios;
 
+    var elContAlmacen = document.getElementById('lista-ingresos-almacen');
+    if (elContAlmacen) elContAlmacen.innerHTML = htmlAlmacen;
+
     // Badges y Subtotales de Ingresos
     var bCountF = document.getElementById('badge-count-fijos');
     if (bCountF) bCountF.innerText = countFijos;
     var bCountA = document.getElementById('badge-count-aleatorios');
     if (bCountA) bCountA.innerText = countAleatorios;
+    var bCountAlm = document.getElementById('badge-count-almacen');
+    if (bCountAlm) bCountAlm.innerText = countAlmacen;
 
     var subF = document.getElementById('subtotal-ingresos-fijos');
     if (subF) subF.innerText = '$' + totFijos.toFixed(2);
     var subA = document.getElementById('subtotal-ingresos-aleatorios');
     if (subA) subA.innerText = '$' + totAleatorios.toFixed(2);
+    var subAlm = document.getElementById('subtotal-ingresos-almacen');
+    if (subAlm) subAlm.innerText = '$' + totAlmacen.toFixed(2);
 
     // Total General Ingresos
     var totalIngEl = document.getElementById('label-total-ingresos') || document.getElementById('total-ingresos-display');
@@ -1136,7 +1207,13 @@ function confirmarAgregarIngreso() {
     renderizarFinanzas(APP_STATE.finanzas);
 
     // Cambiar al tab correspondiente para ver el nuevo ingreso de inmediato
-    cambiarTabIngresos(tipo === 'aleatoria' ? 'aleatorios' : 'fijos');
+    if (tipo === 'almacen') {
+        cambiarTabIngresos('almacen_labores');
+    } else if (tipo === 'aleatoria') {
+        cambiarTabIngresos('aleatorios');
+    } else {
+        cambiarTabIngresos('fijos');
+    }
 }
 
 function abrirModalGasto(tipoPorDefecto) {
@@ -1382,26 +1459,54 @@ function cobrarIngresoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
     for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
         if (APP_STATE.finanzas.ingresos[i].id === id) {
-            APP_STATE.finanzas.ingresos[i].cobrado = true;
-            APP_STATE.finanzas.ingresos[i].fechaCobro = new Date().toISOString();
+            var item = APP_STATE.finanzas.ingresos[i];
+            item.cobrado = true;
+            item.fechaCobro = new Date().toISOString();
+
+            // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
+            if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+                var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
+                if (vObj && Array.isArray(vObj.cuotas)) {
+                    var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
+                    if (cObj) {
+                        cObj.cobrado = true;
+                        cObj.fechaCobrado = new Date().toISOString();
+                    }
+                }
+            }
             break;
         }
     }
     MonarcaDB.save(APP_STATE);
     renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
 }
 
 function deshacerCobroIngresoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
     for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
         if (APP_STATE.finanzas.ingresos[i].id === id) {
-            APP_STATE.finanzas.ingresos[i].cobrado = false;
-            delete APP_STATE.finanzas.ingresos[i].fechaCobro;
+            var item = APP_STATE.finanzas.ingresos[i];
+            item.cobrado = false;
+            delete item.fechaCobro;
+
+            // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
+            if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+                var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
+                if (vObj && Array.isArray(vObj.cuotas)) {
+                    var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
+                    if (cObj) {
+                        cObj.cobrado = false;
+                        delete cObj.fechaCobrado;
+                    }
+                }
+            }
             break;
         }
     }
     MonarcaDB.save(APP_STATE);
     renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
 }
 
 function pagarDeudaUI(id) {
