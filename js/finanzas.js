@@ -93,6 +93,24 @@ function renderizarFinanzas(fin) {
         f.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
     }
 
+    var vq = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.vistaQuincena) || 'mes';
+
+    function coincideQuincena(dia, fechaStr) {
+        if (vq === 'mes') return true;
+        var d = 15;
+        if (dia !== undefined && dia !== null && dia !== "") {
+            d = parseInt(dia, 10) || 15;
+        } else if (fechaStr && typeof fechaStr === 'string' && fechaStr.indexOf('-') !== -1) {
+            var partes = fechaStr.split('-');
+            if (partes.length >= 3) {
+                d = parseInt(partes[2], 10) || 15;
+            }
+        }
+        if (vq === 'q1') return d <= 15;
+        if (vq === 'q2') return d > 15;
+        return true;
+    }
+
     // 1. Cabecera
     if (f.cabecera) {
         var inNom = document.getElementById('finanzas-input-nombre');
@@ -103,8 +121,12 @@ function renderizarFinanzas(fin) {
         if (inObj) inObj.value = f.cabecera.objetivo || "";
     }
 
-    // 2. Ingresos (Separados en Fijos vs Aleatorios)
-    var totIngresos = 0;
+    // 2. Ingresos (Separados en Fijos vs Aleatorios y Filtrados por Quincena)
+    var totIngresosMes = 0;       // Proyección total del mes completo (para Regla 50/40/10)
+    var totIngresosVista = 0;     // Total del período seleccionado (mes, q1 o q2)
+    var ingresosCobradosVista = 0;   // Dinero real en cuenta (cobrado: true)
+    var ingresosPendientesVista = 0; // Dinero por cobrar (cobrado: false)
+
     var totFijos = 0;
     var totAleatorios = 0;
     var countFijos = 0;
@@ -115,9 +137,28 @@ function renderizarFinanzas(fin) {
 
     (f.ingresos || []).forEach(function(item) {
         var m = Number(item.monto) || 0;
-        totIngresos += m;
+        totIngresosMes += m;
+
+        var aplicaVista = coincideQuincena(item.dia, item.fecha);
+        if (!aplicaVista) return;
+
+        totIngresosVista += m;
+        var estaCobrado = !!item.cobrado;
+
+        if (estaCobrado) {
+            ingresosCobradosVista += m;
+        } else {
+            ingresosPendientesVista += m;
+        }
 
         var esAleatoria = item.tipo === 'aleatoria';
+
+        var badgeCobroHtml = estaCobrado
+            ? `<span class="badge-ingreso-cobrado">✅ EN CUENTA</span>
+               <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroIngresoUI('${item.id}')" title="Desmarcar dinero en cuenta">↩</button>`
+            : `<span class="badge-ingreso-pendiente">⏳ Pendiente</span>
+               <button class="btn-cobrar-ingreso" onclick="cobrarIngresoUI('${item.id}')" title="Sumar este dinero a mi cuenta real">💰 Sumar a Cuenta</button>`;
+
         if (esAleatoria) {
             totAleatorios += m;
             countAleatorios++;
@@ -135,8 +176,9 @@ function renderizarFinanzas(fin) {
                         </div>
                     </div>
                 </div>
-                <div class="finanzas-tx-right">
+                <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${badgeCobroHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -157,8 +199,9 @@ function renderizarFinanzas(fin) {
                         </div>
                     </div>
                 </div>
-                <div class="finanzas-tx-right">
+                <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${badgeCobroHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -166,10 +209,10 @@ function renderizarFinanzas(fin) {
     });
 
     if (countFijos === 0) {
-        htmlFijos = '<div class="finanzas-empty-hint">Sin entradas fijas programadas. Agrega tu sueldo o ingresos fijos con el botón superior.</div>';
+        htmlFijos = `<div class="finanzas-empty-hint">Sin entradas fijas programadas para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena (1-15)' : 'la 2.ª quincena (16-31)')}.</div>`;
     }
     if (countAleatorios === 0) {
-        htmlAleatorios = '<div class="finanzas-empty-hint">Sin entradas aleatorias o variables registradas en este mes.</div>';
+        htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>`;
     }
 
     var elContFijos = document.getElementById('lista-ingresos-fijos');
@@ -191,16 +234,19 @@ function renderizarFinanzas(fin) {
 
     // Total General Ingresos
     var totalIngEl = document.getElementById('label-total-ingresos') || document.getElementById('total-ingresos-display');
-    if (totalIngEl) totalIngEl.innerText = '$' + totIngresos.toFixed(2);
-    var resIngEl = document.getElementById('resumen-total-ingresos');
-    if (resIngEl) resIngEl.innerText = '$' + totIngresos.toFixed(2);
+    if (totalIngEl) totalIngEl.innerText = '$' + totIngresosVista.toFixed(2);
 
-    // 3. Gastos (Agrupados y Ordenados por Categorías)
+    // Dinero Real en Cuenta vs Por Cobrar
+    var resDineroRealEl = document.getElementById('resumen-dinero-real');
+    if (resDineroRealEl) resDineroRealEl.innerText = '$' + ingresosCobradosVista.toFixed(2);
+    var resPorCobrarTxt = document.getElementById('resumen-por-cobrar-txt');
+    if (resPorCobrarTxt) resPorCobrarTxt.innerText = 'Pendiente: $' + ingresosPendientesVista.toFixed(2);
+
+    // 3. Gastos (Agrupados y Ordenados por Categorías, Filtrados por Quincena)
     var totGastos = 0;
     var gastosPorCategoria = {};
     var gastosAgrupados = {};
 
-    // Inicializar grupos con las categorías existentes para preservar orden
     f.categoriasGastos.forEach(function(cat) {
         gastosAgrupados[cat.nombre] = {
             id: cat.id,
@@ -212,6 +258,8 @@ function renderizarFinanzas(fin) {
     });
 
     (f.gastos || []).forEach(function(item) {
+        if (!coincideQuincena(item.dia, item.fecha)) return;
+
         var m = Number(item.monto) || 0;
         totGastos += m;
         var catNombre = item.categoria || "Otros";
@@ -239,7 +287,7 @@ function renderizarFinanzas(fin) {
 
         Object.keys(gastosAgrupados).forEach(function(catNombre) {
             var grupo = gastosAgrupados[catNombre];
-            if (!grupo.items || grupo.items.length === 0) return; // Solo mostrar categorías que tengan gastos para máxima limpieza
+            if (!grupo.items || grupo.items.length === 0) return;
 
             categoriasConGastos++;
             var subMonto = grupo.subtotal;
@@ -288,7 +336,7 @@ function renderizarFinanzas(fin) {
             htmlGrupos = `
             <div class="finanzas-empty-hint">
                 <div style="font-size: 24px; margin-bottom: 6px;">💳</div>
-                <div>Sin gastos registrados este mes.</div>
+                <div>Sin gastos registrados para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>
                 <div style="font-size: 11.5px; margin-top: 4px; color: #64748b;">Usa el botón "+ Registrar Gasto" para clasificar tus salidas por categoría.</div>
             </div>`;
         }
@@ -302,10 +350,11 @@ function renderizarFinanzas(fin) {
     var resGasEl = document.getElementById('resumen-total-gastos');
     if (resGasEl) resGasEl.innerText = '$' + totGastos.toFixed(2);
 
-    // 4. Regla 50 / 40 / 10
-    var meta50 = totIngresos * 0.50;
-    var meta40 = totIngresos * 0.40;
-    var meta10 = totIngresos * 0.10;
+    // 4. Regla 50 / 40 / 10 (Calculada sobre el Total Proyectado Mensual)
+    var baseCalculoRegla = totIngresosMes > 0 ? totIngresosMes : totIngresosVista;
+    var meta50 = baseCalculoRegla * 0.50; // 50% Inversión y Multiplicación
+    var meta40 = baseCalculoRegla * 0.40; // 40% Gastos Fijos y Necesidades
+    var meta10 = baseCalculoRegla * 0.10; // 10% Caprichos y Ocio
 
     var el50Monto = document.getElementById('regla-monto-50') || document.getElementById('regla-50-monto');
     var el40Monto = document.getElementById('regla-monto-40') || document.getElementById('regla-40-monto');
@@ -314,70 +363,75 @@ function renderizarFinanzas(fin) {
     if (el40Monto) el40Monto.innerText = '$' + meta40.toFixed(2);
     if (el10Monto) el10Monto.innerText = '$' + meta10.toFixed(2);
 
-    // 5. Deudas
-    var totDeudas = 0;
+    // Actualizar tarjeta métrica superior: 50% Inversión y Multiplicación
+    var resInversionEl = document.getElementById('resumen-total-inversion') || document.getElementById('resumen-total-ahorro-inversion');
+    if (resInversionEl) resInversionEl.innerText = '$' + meta50.toFixed(2);
+
+    // 5. Deudas (Separar Deudas Pendientes vs Deudas Pagadas)
+    var totDeudasPendientes = 0;
+    var totDeudasPagadas = 0;
     var contDeudas = document.getElementById('lista-deudas-tx');
+
     if (contDeudas) {
         var htmlDeu = '';
+        var deudasEnVista = 0;
+
         (f.deudas || []).forEach(function(item) {
+            if (!coincideQuincena(item.dia, item.fecha)) return;
+            deudasEnVista++;
+
             var m = Number(item.montoTotal) || 0;
-            totDeudas += m;
+            var estaPagada = !!item.pagada;
+
+            if (estaPagada) {
+                totDeudasPagadas += m;
+            } else {
+                totDeudasPendientes += m;
+            }
+
+            var badgeDeudaHtml = estaPagada
+                ? `<span class="badge-deuda-pagada">✅ PAGADA</span>
+                   <button class="btn-pagar-deuda btn-deshacer-pago" onclick="deshacerPagoDeudaUI('${item.id}')" title="Desmarcar pago">↩</button>`
+                : `<button class="btn-pagar-deuda" onclick="pagarDeudaUI('${item.id}')" title="Marcar como pagada">💳 Pagar Deuda</button>`;
+
             htmlDeu += `
-            <div class="finanzas-tx-item">
+            <div class="finanzas-tx-item" style="${estaPagada ? 'opacity: 0.75;' : ''}">
                 <div class="finanzas-tx-main">
-                    <div class="finanzas-tx-icon" style="color: #fbbf24;">🛡️</div>
+                    <div class="finanzas-tx-icon" style="color: ${estaPagada ? '#34d399' : '#fbbf24'};">🛡️</div>
                     <div class="finanzas-tx-details">
-                        <div class="finanzas-tx-title">${item.nombre}</div>
+                        <div class="finanzas-tx-title" style="${estaPagada ? 'text-decoration: line-through; color: #94a3b8;' : ''}">${item.nombre}</div>
                         <div class="finanzas-tx-meta">
                             <span>📅 Día de pago: ${item.dia || 20}</span>
                         </div>
                     </div>
                 </div>
-                <div class="finanzas-tx-right">
-                    <div class="finanzas-tx-monto monto-deuda">$${m.toFixed(2)}</div>
+                <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                    <div class="finanzas-tx-monto ${estaPagada ? '' : 'monto-deuda'}" style="${estaPagada ? 'color: #94a3b8; text-decoration: line-through;' : ''}">$${m.toFixed(2)}</div>
+                    ${badgeDeudaHtml}
                     <button class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI('${item.id}', 'deuda')">✕</button>
                 </div>
             </div>`;
         });
-        if (!f.deudas || f.deudas.length === 0) {
-            htmlDeu = '<div class="finanzas-empty-hint">No tienes deudas activas registradas. ¡Excelente!</div>';
+
+        if (deudasEnVista === 0) {
+            htmlDeu = `<div class="finanzas-empty-hint">No hay deudas activas para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}. ¡Excelente!</div>`;
         }
         contDeudas.innerHTML = htmlDeu;
     }
 
     var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
-    if (totalDeuEl) totalDeuEl.innerText = '$' + totDeudas.toFixed(2);
+    if (totalDeuEl) totalDeuEl.innerText = '$' + totDeudasPendientes.toFixed(2);
     var resDeuEl = document.getElementById('resumen-total-deudas');
-    if (resDeuEl) resDeuEl.innerText = '$' + totDeudas.toFixed(2);
+    if (resDeuEl) resDeuEl.innerText = '$' + totDeudasPendientes.toFixed(2);
 
-    // Resumen Flujo Neto y Ahorro / Inversión
-    var flujoNeto = totIngresos - totGastos;
-    var resFlujoEl = document.getElementById('resumen-flujo-neto');
-    if (resFlujoEl) {
-        resFlujoEl.innerText = (flujoNeto >= 0 ? '+$' : '-$') + Math.abs(flujoNeto).toFixed(2);
-        resFlujoEl.style.color = flujoNeto >= 0 ? '#34d399' : '#f87171';
-    }
-    var resAhorroEl = document.getElementById('resumen-total-ahorro-inversion');
-    if (resAhorroEl) {
-        resAhorroEl.innerText = '$' + (meta40 + meta10).toFixed(2);
-    }
-
-    var badgeEstado = document.getElementById('badge-balance-estado');
-    if (badgeEstado) {
-        if (flujoNeto >= 0) {
-            badgeEstado.innerText = "FLUJO SALUDABLE";
-            badgeEstado.style.background = "rgba(16, 185, 129, 0.15)";
-            badgeEstado.style.color = "#34d399";
-            badgeEstado.style.borderColor = "rgba(16, 185, 129, 0.3)";
-        } else {
-            badgeEstado.innerText = "DÉFICIT FINANCIERO";
-            badgeEstado.style.background = "rgba(239, 68, 68, 0.15)";
-            badgeEstado.style.color = "#f87171";
-            badgeEstado.style.borderColor = "rgba(239, 68, 68, 0.3)";
+    // 6. Metas Quincenales y Cuotas Abonadas
+    var cuotasAbonadasVista = 0;
+    (f.aportesMetas || []).forEach(function(ap) {
+        if (coincideQuincena(ap.dia, ap.fecha)) {
+            cuotasAbonadasVista += (Number(ap.monto) || 0);
         }
-    }
+    });
 
-    // 6. Metas Quincenales
     var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
     if (gridMetas) {
         var htmlMetas = '';
@@ -418,8 +472,56 @@ function renderizarFinanzas(fin) {
         gridMetas.innerHTML = htmlMetas;
     }
 
-    // 7. Gráfico de Distribución Financiera
-    renderizarGraficoFinanzas(gastosPorCategoria, totIngresos, totGastos);
+    // 7. Fórmula de Liquidez Real (Balance Neto Libre)
+    // Dinero Real en Mano = Ingresos Cobrados - Gastos Registrados - Cuotas Metas Abonadas - Deudas Pagadas
+    var balanceRealEnMano = ingresosCobradosVista - totGastos - cuotasAbonadasVista - totDeudasPagadas;
+
+    // Proyección Fin de Mes = Total Ingresos - Gastos - Metas - Deudas
+    var balanceProyectado = totIngresosVista - totGastos - cuotasAbonadasVista - totDeudasPendientes - totDeudasPagadas;
+
+    var resFlujoEl = document.getElementById('resumen-flujo-neto');
+    if (resFlujoEl) {
+        resFlujoEl.innerText = (balanceRealEnMano >= 0 ? '+$' : '-$') + Math.abs(balanceRealEnMano).toFixed(2);
+        resFlujoEl.style.color = balanceRealEnMano >= 0 ? '#34d399' : '#f87171';
+    }
+
+    // Desglose interactivo
+    var bCobrado = document.getElementById('breakdown-cobrado');
+    var bGastos = document.getElementById('breakdown-gastos');
+    var bCuotas = document.getElementById('breakdown-cuotas');
+    var bDeudas = document.getElementById('breakdown-deudas');
+    var bResultado = document.getElementById('breakdown-resultado');
+    var bProyeccion = document.getElementById('breakdown-proyeccion');
+
+    if (bCobrado) bCobrado.innerHTML = `Cobrado: <strong>$${ingresosCobradosVista.toFixed(2)}</strong>`;
+    if (bGastos) bGastos.innerHTML = `Gastos: <strong>$${totGastos.toFixed(2)}</strong>`;
+    if (bCuotas) bCuotas.innerHTML = `Cuotas Metas: <strong>$${cuotasAbonadasVista.toFixed(2)}</strong>`;
+    if (bDeudas) bDeudas.innerHTML = `Deudas Pagadas: <strong>$${totDeudasPagadas.toFixed(2)}</strong>`;
+    if (bResultado) {
+        bResultado.innerText = (balanceRealEnMano >= 0 ? '+$' : '-$') + Math.abs(balanceRealEnMano).toFixed(2) + ' (En Mano)';
+        bResultado.style.color = balanceRealEnMano >= 0 ? '#34d399' : '#f87171';
+    }
+    if (bProyeccion) {
+        bProyeccion.innerHTML = `🔮 Proyección ${vq === 'mes' ? 'Fin de Mes' : (vq === 'q1' ? '1.ª Quincena' : '2.ª Quincena')}: Total Ingresos ($${totIngresosVista.toFixed(2)}) - Compromisos ($${(totGastos + cuotasAbonadasVista + totDeudasPendientes + totDeudasPagadas).toFixed(2)}) = <strong style="color: ${balanceProyectado >= 0 ? '#34d399' : '#f87171'};">${balanceProyectado >= 0 ? '+$' : '-$'}${Math.abs(balanceProyectado).toFixed(2)}</strong>`;
+    }
+
+    var badgeEstado = document.getElementById('badge-balance-estado');
+    if (badgeEstado) {
+        if (balanceRealEnMano >= 0) {
+            badgeEstado.innerText = "FLUJO SALUDABLE (DISPONIBLE)";
+            badgeEstado.style.background = "rgba(16, 185, 129, 0.15)";
+            badgeEstado.style.color = "#34d399";
+            badgeEstado.style.borderColor = "rgba(16, 185, 129, 0.3)";
+        } else {
+            badgeEstado.innerText = "DÉFICIT EN CUENTA";
+            badgeEstado.style.background = "rgba(239, 68, 68, 0.15)";
+            badgeEstado.style.color = "#f87171";
+            badgeEstado.style.borderColor = "rgba(239, 68, 68, 0.3)";
+        }
+    }
+
+    // 8. Gráfico de Distribución Financiera
+    renderizarGraficoFinanzas(gastosPorCategoria, totIngresosVista, totGastos);
 
     // Actualizar selector dinámico de categorías para el modal de gastos
     poblarSelectCategoriasGastos();
@@ -671,7 +773,8 @@ function confirmarAgregarIngreso() {
         tipo: tipo,
         dia: d,
         fecha: fecha,
-        monto: m
+        monto: m,
+        cobrado: false
     };
 
     APP_STATE.finanzas.ingresos.push(nuevoIngreso);
@@ -766,7 +869,8 @@ function confirmarAgregarDeuda() {
         id: "DEU-" + Date.now(),
         nombre: n,
         dia: d,
-        montoTotal: m
+        montoTotal: m,
+        pagada: false
     });
 
     if (inN) inN.value = "";
@@ -855,15 +959,100 @@ function confirmarAgregarMeta() {
 
 function abonarCuotaMetaUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.metas) return;
+    var meta = null;
     for (var i = 0; i < APP_STATE.finanzas.metas.length; i++) {
         if (APP_STATE.finanzas.metas[i].id === id) {
-            var item = APP_STATE.finanzas.metas[i];
-            item.ahorrado = Math.min(item.metaTotal, (item.ahorrado || 0) + (item.cuotaQuincenal || 0));
-            item.faltante = Math.max(0, item.metaTotal - item.ahorrado);
+            meta = APP_STATE.finanzas.metas[i];
+            break;
+        }
+    }
+    if (!meta) return;
+
+    var cuota = Number(meta.cuotaQuincenal) || 0;
+    if (cuota <= 0) return;
+
+    meta.ahorrado = Math.min(meta.metaTotal, (Number(meta.ahorrado) || 0) + cuota);
+    meta.faltante = Math.max(0, meta.metaTotal - meta.ahorrado);
+
+    if (!APP_STATE.finanzas.aportesMetas) APP_STATE.finanzas.aportesMetas = [];
+    var hoy = new Date();
+    APP_STATE.finanzas.aportesMetas.push({
+        id: "APO-" + Date.now(),
+        metaId: meta.id,
+        metaNombre: meta.nombre,
+        monto: cuota,
+        dia: hoy.getDate(),
+        fecha: hoy.toISOString().split('T')[0]
+    });
+
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function cobrarIngresoUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
+    for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
+        if (APP_STATE.finanzas.ingresos[i].id === id) {
+            APP_STATE.finanzas.ingresos[i].cobrado = true;
+            APP_STATE.finanzas.ingresos[i].fechaCobro = new Date().toISOString();
             break;
         }
     }
     MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function deshacerCobroIngresoUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
+    for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
+        if (APP_STATE.finanzas.ingresos[i].id === id) {
+            APP_STATE.finanzas.ingresos[i].cobrado = false;
+            delete APP_STATE.finanzas.ingresos[i].fechaCobro;
+            break;
+        }
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function pagarDeudaUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+    for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
+        if (APP_STATE.finanzas.deudas[i].id === id) {
+            APP_STATE.finanzas.deudas[i].pagada = true;
+            APP_STATE.finanzas.deudas[i].fechaPago = new Date().toISOString();
+            break;
+        }
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function deshacerPagoDeudaUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+    for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
+        if (APP_STATE.finanzas.deudas[i].id === id) {
+            APP_STATE.finanzas.deudas[i].pagada = false;
+            delete APP_STATE.finanzas.deudas[i].fechaPago;
+            break;
+        }
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function cambiarPeriodoFinanzas(periodo) {
+    if (periodo !== 'mes' && periodo !== 'q1' && periodo !== 'q2') periodo = 'mes';
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.vistaQuincena = periodo;
+
+    var bMes = document.getElementById('btn-vista-mes');
+    var bQ1 = document.getElementById('btn-vista-q1');
+    var bQ2 = document.getElementById('btn-vista-q2');
+    if (bMes) bMes.classList.toggle('active', periodo === 'mes');
+    if (bQ1) bQ1.classList.toggle('active', periodo === 'q1');
+    if (bQ2) bQ2.classList.toggle('active', periodo === 'q2');
+
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
@@ -905,16 +1094,13 @@ function alCambiarDatoGeneralFinanzas() {
 }
 
 function cambiarMesFinanzas(delta) {
-    ESTADO_FINANZAS.mesOffset += delta;
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) + delta;
     var fecha = new Date();
-    fecha.setMonth(fecha.getMonth() + ESTADO_FINANZAS.mesOffset);
+    fecha.setMonth(fecha.getMonth() + window.ESTADO_FINANZAS.mesOffset);
     var nombreMes = fecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     nombreMes = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
     var inMes = document.getElementById('finanzas-input-mes');
     if (inMes) inMes.value = nombreMes;
     alCambiarDatoGeneralFinanzas();
-}
-
-function inicializarHojaFinanzasDesdeUI() {
-    MonarcaDB.exportBackup();
 }

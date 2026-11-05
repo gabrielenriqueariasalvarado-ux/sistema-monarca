@@ -140,7 +140,8 @@ const DEFAULT_STATE = {
         ingresos: [],
         gastos: [],
         deudas: [],
-        metas: []
+        metas: [],
+        aportesMetas: []
     },
     ideas: [],
     calendario: [],

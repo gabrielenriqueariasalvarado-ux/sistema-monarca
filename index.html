@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.0">
+    <link rel="stylesheet" href="style.css?v=8.1">
 </head>
 <body>
 
@@ -920,9 +920,6 @@
                 <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
                     <span>💰</span> CONTROL FINANCIERO PERSONAL
                 </h2>
-                <button class="btn-sheet-action" onclick="MonarcaDB.exportBackup()" title="Exportar Backup">
-                    ⚡ Exportar Backup JSON
-                </button>
             </div>
 
             <!-- 1. CABECERA Y DATOS GENERALES -->
@@ -947,6 +944,19 @@
                 </div>
             </div>
 
+            <!-- SELECTOR DE PERÍODO / QUINCENA -->
+            <div class="quincena-selector-bar" id="quincena-selector-bar">
+                <button class="btn-quincena-tab active" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
+                    <span>📅</span> Mes Completo
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-q1" onclick="cambiarPeriodoFinanzas('q1')">
+                    <span>🌓</span> 1.ª Quincena (1-15)
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-q2" onclick="cambiarPeriodoFinanzas('q2')">
+                    <span>🌕</span> 2.ª Quincena (16-31)
+                </button>
+            </div>
+
             <!-- 6. RESUMEN FINANCIERO Y GRÁFICA (COLOCADO DE FORMA PROMINENTE) -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
@@ -958,27 +968,44 @@
                     </span>
                 </div>
 
-                <!-- Métricas Clave de Resumen -->
+                <!-- Métricas Clave de Resumen (Dinero Real vs Proyección) -->
                 <div class="operatividad-metrics-grid" style="margin-bottom: 16px;">
-                    <div class="metric-card-ideas">
-                        <div class="metric-num" id="resumen-total-ingresos" style="color: #059669;">$0.00</div>
-                        <div class="metric-title">Ingresos Totales</div>
+                    <div class="metric-card-ideas" style="border-top: 2px solid #10b981;">
+                        <div class="metric-num" id="resumen-dinero-real" style="color: #10b981;">$0.00</div>
+                        <div class="metric-title">Dinero Real en Cuenta</div>
+                        <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-por-cobrar-txt">Pendiente: $0.00</div>
                     </div>
-                    <div class="metric-card-ideas">
-                        <div class="metric-num" id="resumen-total-gastos" style="color: #dc2626;">$0.00</div>
-                        <div class="metric-title">Gastos Totales</div>
+                    <div class="metric-card-ideas" style="border-top: 2px solid #06b6d4;">
+                        <div class="metric-num" id="resumen-total-inversion" style="color: #06b6d4;">$0.00</div>
+                        <div class="metric-title">50% Inversión y Multiplicación</div>
                     </div>
-                    <div class="metric-card-ideas">
-                        <div class="metric-num" id="resumen-total-deudas" style="color: #d97706;">$0.00</div>
-                        <div class="metric-title">Deuda Actual</div>
+                    <div class="metric-card-ideas" style="border-top: 2px solid #f87171;">
+                        <div class="metric-num" id="resumen-total-gastos" style="color: #f87171;">$0.00</div>
+                        <div class="metric-title">Gastos Registrados</div>
                     </div>
-                    <div class="metric-card-ideas">
-                        <div class="metric-num" id="resumen-total-ahorro-inversion" style="color: #94a3b8;">$0.00</div>
-                        <div class="metric-title">Ahorro / Inversión (50%)</div>
+                    <div class="metric-card-ideas" style="border-top: 2px solid #fbbf24;">
+                        <div class="metric-num" id="resumen-total-deudas" style="color: #fbbf24;">$0.00</div>
+                        <div class="metric-title">Deudas Pendientes</div>
                     </div>
-                    <div class="metric-card-ideas">
-                        <div class="metric-num" id="resumen-flujo-neto" style="color: #f8fafc;">$0.00</div>
-                        <div class="metric-title">Balance Neto Libre</div>
+                    <div class="metric-card-ideas" style="border-top: 2px solid #38bdf8;">
+                        <div class="metric-num" id="resumen-flujo-neto" style="color: #38bdf8;">$0.00</div>
+                        <div class="metric-title">Balance Neto Libre (En Mano)</div>
+                    </div>
+                </div>
+
+                <!-- Desglose de Dinero Real Disponible -->
+                <div class="balance-breakdown-strip" id="balance-breakdown-strip">
+                    <span id="breakdown-cobrado">Cobrado: <strong>$0.00</strong></span>
+                    <span>-</span>
+                    <span id="breakdown-gastos">Gastos: <strong>$0.00</strong></span>
+                    <span>-</span>
+                    <span id="breakdown-cuotas">Cuotas Metas: <strong>$0.00</strong></span>
+                    <span>-</span>
+                    <span id="breakdown-deudas">Deudas Pagadas: <strong>$0.00</strong></span>
+                    <span>=</span>
+                    <span id="breakdown-resultado" style="color: #38bdf8; font-weight: 800;">$0.00</span>
+                    <div style="width: 100%; margin-top: 6px; font-size: 11px; color: #94a3b8;" id="breakdown-proyeccion">
+                        🔮 Proyección Fin de Mes: Total Ingresos ($0.00) - Compromisos Totales = <strong>$0.00</strong>
                     </div>
                 </div>
 
@@ -1006,24 +1033,24 @@
                     <div class="regla-card regla-card-50">
                         <div class="regla-porcentaje regla-porcentaje-50">50%</div>
                         <div class="regla-monto" id="regla-monto-50">$0.00</div>
-                        <div class="regla-concepto">Necesidades y Pagos Fijos</div>
+                        <div class="regla-concepto">Inversión y Multiplicación</div>
                     </div>
                     <div class="regla-card regla-card-40">
                         <div class="regla-porcentaje regla-porcentaje-40">40%</div>
                         <div class="regla-monto" id="regla-monto-40">$0.00</div>
-                        <div class="regla-concepto">Inversión y Multiplicación</div>
+                        <div class="regla-concepto">Gastos Fijos y Necesidades</div>
                     </div>
                     <div class="regla-card regla-card-10">
                         <div class="regla-porcentaje regla-porcentaje-10">10%</div>
                         <div class="regla-monto" id="regla-monto-10">$0.00</div>
-                        <div class="regla-concepto">Fondo de Ahorro y Respaldo</div>
+                        <div class="regla-concepto">Caprichos y Ocio</div>
                     </div>
                 </div>
 
                 <div class="regla-bar-track">
-                    <div class="regla-bar-seg-50" title="50% Necesidades"></div>
-                    <div class="regla-bar-seg-40" title="40% Inversión"></div>
-                    <div class="regla-bar-seg-10" title="10% Ahorro"></div>
+                    <div class="regla-bar-seg-50" title="50% Inversión y Multiplicación"></div>
+                    <div class="regla-bar-seg-40" title="40% Gastos Fijos y Necesidades"></div>
+                    <div class="regla-bar-seg-10" title="10% Caprichos y Ocio"></div>
                 </div>
             </div>
 
@@ -3492,25 +3519,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.0"></script>
-    <script src="js/perfil.js?v=8.0"></script>
-    <script src="js/progresion.js?v=8.0"></script>
-    <script src="js/estado-personal.js?v=8.0"></script>
-    <script src="js/finanzas.js?v=8.0"></script>
-    <script src="js/ideas.js?v=8.0"></script>
-    <script src="js/dinamicas.js?v=8.0"></script>
-    <script src="js/calendario.js?v=8.0"></script>
-    <script src="js/inventario.js?v=8.0"></script>
-    <script src="js/jarvis-voz.js?v=8.0"></script>
+    <script src="js/core.js?v=8.1"></script>
+    <script src="js/perfil.js?v=8.1"></script>
+    <script src="js/progresion.js?v=8.1"></script>
+    <script src="js/estado-personal.js?v=8.1"></script>
+    <script src="js/finanzas.js?v=8.1"></script>
+    <script src="js/ideas.js?v=8.1"></script>
+    <script src="js/dinamicas.js?v=8.1"></script>
+    <script src="js/calendario.js?v=8.1"></script>
+    <script src="js/inventario.js?v=8.1"></script>
+    <script src="js/jarvis-voz.js?v=8.1"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.0"></script>
+    <script type="module" src="js/firebase-config.js?v=8.1"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.0')
+                navigator.serviceWorker.register('sw.js?v=8.1')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
