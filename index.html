@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.7">
+    <link rel="stylesheet" href="style.css?v=8.8">
 </head>
 <body>
 
@@ -3136,16 +3136,24 @@
                     <input type="number" id="input-boom-bono-dia3" class="finanzas-input-clean" min="0" step="1" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f59e0b; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 700;">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
-                    <div>
-                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Horas Lunes a Viernes:</label>
-                        <input type="number" id="input-boom-horas-normal" class="finanzas-input-clean" value="8.0" step="0.5" min="1" max="12" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                <!-- Configuración de Sábados Libres del Mes (2 Sábados) -->
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                        <span style="font-size: 12px; font-weight: 800; color: #f8fafc; text-transform: uppercase;">
+                            🏖️ Sábados Libres (<span id="config-boom-mes-nombre">Mes Actual</span>)
+                        </span>
+                        <span id="config-boom-sabados-count" style="font-size: 11px; font-weight: 800; color: #38bdf8;">0 / 2 Libres</span>
                     </div>
-                    <div>
-                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Horas Sábado Laborable:</label>
-                        <input type="number" id="input-boom-horas-sabado" class="finanzas-input-clean" value="8.0" step="0.5" min="1" max="12" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    <p style="font-size: 11.5px; color: #94a3b8; margin: 0 0 10px 0; line-height: 1.4;">
+                        Toca los <strong>2 sábados</strong> de descanso para este mes. Los no seleccionados quedarán programados como sábados laborables por defecto:
+                    </p>
+                    <div id="contenedor-config-sabados-mes" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Se llena dinámicamente con los sábados del mes -->
                     </div>
                 </div>
+
+                <input type="hidden" id="input-boom-horas-normal" value="8.0">
+                <input type="hidden" id="input-boom-horas-sabado" value="8.0">
 
                 <div style="display: flex; gap: 8px;">
                     <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalConfigBoom()">Cancelar</button>
@@ -3753,25 +3761,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.7"></script>
-    <script src="js/perfil.js?v=8.7"></script>
-    <script src="js/progresion.js?v=8.7"></script>
-    <script src="js/estado-personal.js?v=8.7"></script>
-    <script src="js/finanzas.js?v=8.7"></script>
-    <script src="js/ideas.js?v=8.7"></script>
-    <script src="js/dinamicas.js?v=8.7"></script>
-    <script src="js/calendario.js?v=8.7"></script>
-    <script src="js/inventario.js?v=8.7"></script>
-    <script src="js/jarvis-voz.js?v=8.7"></script>
+    <script src="js/core.js?v=8.8"></script>
+    <script src="js/perfil.js?v=8.8"></script>
+    <script src="js/progresion.js?v=8.8"></script>
+    <script src="js/estado-personal.js?v=8.8"></script>
+    <script src="js/finanzas.js?v=8.8"></script>
+    <script src="js/ideas.js?v=8.8"></script>
+    <script src="js/dinamicas.js?v=8.8"></script>
+    <script src="js/calendario.js?v=8.8"></script>
+    <script src="js/inventario.js?v=8.8"></script>
+    <script src="js/jarvis-voz.js?v=8.8"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.7"></script>
+    <script type="module" src="js/firebase-config.js?v=8.8"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.7')
+                navigator.serviceWorker.register('sw.js?v=8.8')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

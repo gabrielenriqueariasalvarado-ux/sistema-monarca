@@ -6704,4 +6704,40 @@ body.modal-open {
     }
 }
 
+.subapp-labor-card-clean {
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.subapp-labor-card-clean:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.subapp-labor-card-clean:hover .subapp-arrow {
+    color: #f8fafc !important;
+    transform: translateX(4px);
+}
+
+.sabado-toggle-card {
+    transition: all 0.2s ease;
+}
+
+.sabado-toggle-card:hover {
+    transform: translateX(2px);
+}
+
+.sabado-toggle-card.libre {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    background: rgba(16, 185, 129, 0.05) !important;
+}
+
+.sabado-toggle-card.trabajo {
+    border-color: rgba(245, 158, 11, 0.3) !important;
+    background: rgba(245, 158, 11, 0.03) !important;
+}
+
 

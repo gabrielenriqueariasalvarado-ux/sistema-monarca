@@ -251,62 +251,20 @@ function renderizarLabores() {
             var pctHoras = totalHorasMes > 0 ? Math.round((hLab / totalHorasMes) * 100) : 0;
 
             htmlCat += `
-            <div class="subapp-labor-card" style="border-top: 3px solid ${lab.color};">
-                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 22px; border: 1px solid rgba(255,255,255,0.06);">
+            <div class="subapp-labor-card-clean" onclick="abrirSubAppLabor('${lab.id}')" style="border-top: 3px solid ${lab.color}; cursor: pointer;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 26px; border: 1px solid rgba(255,255,255,0.07);">
                             ${lab.icono}
                         </div>
                         <div>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <strong style="font-size: 14.5px; color: #f8fafc;">${lab.nombre}</strong>
-                            </div>
+                            <strong style="font-size: 16px; color: #f8fafc; display: block; letter-spacing: -0.2px;">${lab.nombre}</strong>
                             <span class="subapp-badge" style="color: ${lab.color}; border-color: ${lab.color}44;">${lab.tagline || 'Sub-App Oficial'}</span>
                         </div>
                     </div>
-                    <span class="item-badge-pill" style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255,255,255,0.08);">
-                        ${hLab.toFixed(1)} hrs
-                    </span>
-                </div>
-
-                <p style="margin: 0 0 14px 0; font-size: 12px; color: #94a3b8; line-height: 1.45;">${lab.descripcion}</p>
-
-                <!-- Resumen Mensual de la Sub-App -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 6px; margin-bottom: 12px; text-align: center;">
-                    <div>
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Dedicación</div>
-                        <div style="font-size: 13px; font-weight: 800; color: #f8fafc; margin-top: 1px;">${hLab.toFixed(1)}h</div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 18px; color: #64748b;" class="subapp-arrow">➔</span>
                     </div>
-                    <div>
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Dinero</div>
-                        <div style="font-size: 13px; font-weight: 800; color: #10b981; margin-top: 1px;">$${dLab.toFixed(0)}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Jornada</div>
-                        <div style="font-size: 13px; font-weight: 800; color: #38bdf8; margin-top: 1px;">${jLab.toFixed(1)}h</div>
-                    </div>
-                </div>
-
-                <!-- Barra de cuota mensual -->
-                <div style="margin-bottom: 14px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">
-                        <span>Participación del Mes</span>
-                        <span style="color: ${lab.color};">${pctHoras}%</span>
-                    </div>
-                    <div class="attr-progress-track" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 9999px;">
-                        <div class="attr-progress-fill" style="width: ${pctHoras}%; background: ${lab.color}; border-radius: 9999px;"></div>
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 8px; flex-direction: column;">
-                    ${lab.id === 'LAB-BOOM' ? `
-                    <button type="button" class="btn-system" onclick="cambiarVista('vista-subapp-boom')" style="width: 100%; justify-content: center; padding: 10px; font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);">
-                        🚀 Entrar a Sub-App Boom Solutions
-                    </button>
-                    ` : ''}
-                    <button type="button" class="btn-system" onclick="abrirModalRegistroJornada('${lab.id}')" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; font-weight: 700; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
-                        ⚡ Registrar Sesión en ${lab.nombre}
-                    </button>
                 </div>
             </div>`;
         });
@@ -317,6 +275,16 @@ function renderizarLabores() {
 
     // 4. Renderizar Historial de Sesiones con filtros
     renderizarHistorialLabores();
+}
+
+function abrirSubAppLabor(laborId) {
+    if (laborId === 'LAB-BOOM') {
+        cambiarVista('vista-subapp-boom');
+    } else if (laborId === 'LAB-BARBER') {
+        alert("💈 La Sub-App de Barbería se encuentra en desarrollo para la próxima actualización.");
+    } else if (laborId === 'LAB-TRAINER') {
+        alert("🏋️‍♂️ La Sub-App de Personal Trainer se encuentra en desarrollo para la próxima actualización.");
+    }
 }
 
 function renderizarGraficaLabores() {
@@ -973,11 +941,11 @@ function renderizarSubAppBoom() {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
             <div>
                 <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">📅 Planificación de Semanas Laborales</h3>
-                <span style="font-size: 11.5px; color: #6b7280;">Toca cualquier <strong>Sábado</strong> para alternar Libre/Trabajado. Toca un día laboral para marcar <strong>Cumplido</strong>.</span>
+                <span style="font-size: 11.5px; color: #6b7280;">Toca cualquier día laborable para marcar tu jornada de <strong>8.0 horas cumplida</strong> (se suma automáticamente a tu cuenta).</span>
             </div>
             <div style="display: flex; gap: 8px; font-size: 11px; color: #94a3b8; align-items: center; flex-wrap: wrap;">
                 <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #6366f1;"></span> Laborable (8h)</span>
-                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span> Sábado Libre</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span> Sábado Libre (Ajustes)</span>
                 <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #f59e0b;"></span> Sábado Trabajo</span>
             </div>
         </div>
@@ -1011,7 +979,7 @@ function renderizarSubAppBoom() {
         var badgeText = '8.0h';
         var badgeClass = 'badge-dia-labor';
         var onclickHandler = `toggleCumplidoDiaBoom('${fechaDia}')`;
-        var titleAttr = 'Toca para marcar cumplido o pendiente';
+        var titleAttr = 'Toca para marcar o desmarcar tu jornada de 8.0 horas';
 
         if (dInfo.tipo === 'domingo_libre') {
             cellClass = 'day-domingo';
@@ -1023,14 +991,14 @@ function renderizarSubAppBoom() {
             cellClass = 'day-sabado-libre';
             badgeText = '🏖️ Libre';
             badgeClass = 'badge-sab-libre';
-            onclickHandler = `toggleSabadoBoom('${fechaDia}')`;
-            titleAttr = 'Toca para cambiar a sábado trabajado';
+            onclickHandler = '';
+            titleAttr = 'Sábado libre de descanso (configurado en ajustes de la app)';
         } else if (dInfo.tipo === 'sabado_trabajo') {
             cellClass = 'day-sabado-trabajo';
-            badgeText = '💼 8.0h';
+            badgeText = '8.0h';
             badgeClass = 'badge-sab-trabajo';
-            onclickHandler = `toggleSabadoBoom('${fechaDia}')`;
-            titleAttr = 'Toca para cambiar a sábado libre';
+            onclickHandler = `toggleCumplidoDiaBoom('${fechaDia}')`;
+            titleAttr = 'Sábado de trabajo: toca para registrar tu jornada de 8.0 horas cumplida';
         }
 
         if (dInfo.cumplido) {
@@ -1060,54 +1028,43 @@ function renderizarSubAppBoom() {
     cont.innerHTML = html;
 }
 
-function toggleSabadoBoom(fechaStr) {
-    asegurarEstructuraBoom();
-    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
-    if (!planMes || !planMes.dias || !planMes.dias[fechaStr]) return;
-
-    var actual = planMes.dias[fechaStr];
-    var horasSab = Number(APP_STATE.subappBoom.config.horasJornadaSabado) || 8.0;
-
-    if (actual.tipo === 'sabado_libre') {
-        actual.tipo = 'sabado_trabajo';
-        actual.horas = horasSab;
-    } else {
-        actual.tipo = 'sabado_libre';
-        actual.horas = 0;
-        actual.cumplido = false;
-    }
-
-    MonarcaDB.save(APP_STATE);
-    renderizarSubAppBoom();
-}
-
 function toggleCumplidoDiaBoom(fechaStr) {
     asegurarEstructuraBoom();
     var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
     if (!planMes || !planMes.dias || !planMes.dias[fechaStr]) return;
 
     var actual = planMes.dias[fechaStr];
+    // No permitir registrar en domingos ni sábados libres asignados
     if (actual.tipo === 'domingo_libre' || actual.tipo === 'sabado_libre') return;
 
     actual.cumplido = !actual.cumplido;
 
+    var idReg = "REG-BOOM-" + fechaStr;
+    if (!Array.isArray(APP_STATE.registrosLabores)) APP_STATE.registrosLabores = [];
+
     if (actual.cumplido) {
-        var idReg = "REG-BOOM-" + fechaStr;
-        if (!Array.isArray(APP_STATE.registrosLabores)) APP_STATE.registrosLabores = [];
-        var yaExiste = APP_STATE.registrosLabores.find(function(r) { return r.id === idReg || (r.laborId === 'LAB-BOOM' && r.fecha === fechaStr); });
+        // Al marcar como cumplido, registrar automáticamente la jornada de 8.0 horas
+        var yaExiste = APP_STATE.registrosLabores.find(function(r) {
+            return r.id === idReg || (r.laborId === 'LAB-BOOM' && r.fecha === fechaStr);
+        });
 
         if (!yaExiste) {
             APP_STATE.registrosLabores.unshift({
                 id: idReg,
                 laborId: 'LAB-BOOM',
                 fecha: fechaStr,
-                horas: Number(actual.horas) || 8.0,
-                descripcion: "Jornada cumplida en Boom Solutions (8:00 AM - 4:30 PM)",
+                horas: 8.0,
+                descripcion: "Jornada laboral cumplida en Boom Solutions (8:00 AM - 4:30 PM)",
                 honorarios: 0,
                 timestamp: Date.now()
             });
-            if (typeof sumarExp === 'function') sumarExp(Math.round((Number(actual.horas) || 8.0) * 10));
+            if (typeof sumarExp === 'function') sumarExp(80);
         }
+    } else {
+        // Al desmarcar, restar automáticamente la jornada de 8.0 horas de la cuenta
+        APP_STATE.registrosLabores = APP_STATE.registrosLabores.filter(function(r) {
+            return r.id !== idReg && !(r.laborId === 'LAB-BOOM' && r.fecha === fechaStr);
+        });
     }
 
     MonarcaDB.save(APP_STATE);
@@ -1177,6 +1134,8 @@ function toggleCobroBoom(tipoPago) {
     renderizarSubAppBoom();
 }
 
+var MODAL_SABADOS_CONFIG = {};
+
 function abrirModalConfigBoom() {
     asegurarEstructuraBoom();
     var m = document.getElementById('modal-config-sueldo-boom');
@@ -1186,17 +1145,91 @@ function abrirModalConfigBoom() {
     var inQ1 = document.getElementById('input-boom-sueldo-q1');
     var inQ2 = document.getElementById('input-boom-sueldo-q2');
     var inB3 = document.getElementById('input-boom-bono-dia3');
-    var inHN = document.getElementById('input-boom-horas-normal');
-    var inHS = document.getElementById('input-boom-horas-sabado');
 
     if (inQ1) inQ1.value = config.sueldoQuincena1 || '';
     if (inQ2) inQ2.value = config.sueldoQuincena2 || '';
     if (inB3) inB3.value = config.bonoDia3 || '';
-    if (inHN) inHN.value = config.horasJornadaNormal || 8.0;
-    if (inHS) inHS.value = config.horasJornadaSabado || 8.0;
+
+    // Inicializar sábados del mes seleccionado en MODAL_SABADOS_CONFIG
+    MODAL_SABADOS_CONFIG = {};
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    var partes = MES_BOOM_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+    var diasEnMes = new Date(anio, mes, 0).getDate();
+
+    for (var d = 1; d <= diasEnMes; d++) {
+        var dt = new Date(anio, mes - 1, d);
+        if (dt.getDay() === 6) {
+            var fStr = MES_BOOM_ACTUAL + '-' + String(d).padStart(2, '0');
+            var dInfo = (planMes && planMes.dias) ? planMes.dias[fStr] : null;
+            MODAL_SABADOS_CONFIG[fStr] = dInfo ? (dInfo.tipo === 'sabado_libre') : false;
+        }
+    }
+
+    renderizarSelectorSabadosModal();
 
     document.body.classList.add('modal-open');
     m.style.display = 'flex';
+}
+
+function renderizarSelectorSabadosModal() {
+    var cont = document.getElementById('contenedor-config-sabados-mes');
+    var labelMes = document.getElementById('config-boom-mes-nombre');
+    var badgeCount = document.getElementById('config-boom-sabados-count');
+    if (!cont) return;
+
+    if (labelMes) labelMes.innerText = formatearNombreMesLabor(MES_BOOM_ACTUAL);
+
+    var html = '';
+    var libresCount = 0;
+
+    var fechasSabados = Object.keys(MODAL_SABADOS_CONFIG).sort();
+
+    fechasSabados.forEach(function(fStr) {
+        var esLibre = !!MODAL_SABADOS_CONFIG[fStr];
+        if (esLibre) libresCount++;
+        var diaNum = parseInt(fStr.split('-')[2], 10);
+
+        html += `
+        <div class="sabado-toggle-card ${esLibre ? 'libre' : 'trabajo'}" onclick="toggleSabadoModal('${fStr}')" style="display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-radius: 10px; cursor: pointer; user-select: none;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">${esLibre ? '🏖️' : '💼'}</span>
+                <div>
+                    <strong style="font-size: 13.5px; color: #f8fafc; display: block;">Sábado ${diaNum} de ${formatearNombreMesSolo(MES_BOOM_ACTUAL)}</strong>
+                    <span style="font-size: 11px; color: ${esLibre ? '#34d399' : '#94a3b8'};">
+                        ${esLibre ? 'Día de descanso asignado (Libre)' : 'Día laborable programado (8.0 hrs)'}
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="boom-pay-badge ${esLibre ? 'cobrado' : 'pendiente'}" style="font-size: 10.5px; font-weight: 800;">
+                    ${esLibre ? '🏖️ LIBRE' : '💼 TRABAJO'}
+                </span>
+            </div>
+        </div>`;
+    });
+
+    cont.innerHTML = html;
+    if (badgeCount) {
+        badgeCount.innerText = libresCount + ' / 2 Libres';
+        badgeCount.style.color = (libresCount === 2) ? '#34d399' : '#fbbf24';
+    }
+}
+
+function toggleSabadoModal(fechaStr) {
+    if (MODAL_SABADOS_CONFIG[fechaStr] !== undefined) {
+        MODAL_SABADOS_CONFIG[fechaStr] = !MODAL_SABADOS_CONFIG[fechaStr];
+        renderizarSelectorSabadosModal();
+    }
+}
+
+function formatearNombreMesSolo(mesClave) {
+    if (!mesClave || mesClave.indexOf('-') === -1) return '';
+    var partes = mesClave.split('-');
+    var mesNum = parseInt(partes[1], 10);
+    var nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    return nombres[mesNum - 1] || partes[1];
 }
 
 function cerrarModalConfigBoom() {
@@ -1210,25 +1243,52 @@ function guardarConfigBoom() {
     var inQ1 = document.getElementById('input-boom-sueldo-q1');
     var inQ2 = document.getElementById('input-boom-sueldo-q2');
     var inB3 = document.getElementById('input-boom-bono-dia3');
-    var inHN = document.getElementById('input-boom-horas-normal');
-    var inHS = document.getElementById('input-boom-horas-sabado');
 
     var q1 = inQ1 ? (Number(inQ1.value) || 0) : 0;
     var q2 = inQ2 ? (Number(inQ2.value) || 0) : 0;
     var b3 = inB3 ? (Number(inB3.value) || 0) : 0;
-    var hn = inHN ? (Number(inHN.value) || 8.0) : 8.0;
-    var hs = inHS ? (Number(inHS.value) || 8.0) : 8.0;
 
     APP_STATE.subappBoom.config.sueldoQuincena1 = q1;
     APP_STATE.subappBoom.config.sueldoQuincena2 = q2;
     APP_STATE.subappBoom.config.bonoDia3 = b3;
-    APP_STATE.subappBoom.config.horasJornadaNormal = hn;
-    APP_STATE.subappBoom.config.horasJornadaSabado = hs;
+
+    // Aplicar configuración de sábados libres al mes
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (planMes && planMes.dias) {
+        var sabadosLibresArray = [];
+        Object.keys(MODAL_SABADOS_CONFIG).forEach(function(fStr) {
+            var esLibre = !!MODAL_SABADOS_CONFIG[fStr];
+            var diaNum = parseInt(fStr.split('-')[2], 10);
+            if (esLibre) {
+                sabadosLibresArray.push(diaNum);
+                planMes.dias[fStr] = {
+                    tipo: 'sabado_libre',
+                    horas: 0,
+                    cumplido: false
+                };
+                // Si estaba marcado como cumplido en registrosLabores, removerlo
+                if (Array.isArray(APP_STATE.registrosLabores)) {
+                    APP_STATE.registrosLabores = APP_STATE.registrosLabores.filter(function(r) {
+                        return !(r.laborId === 'LAB-BOOM' && r.fecha === fStr);
+                    });
+                }
+            } else {
+                var prev = planMes.dias[fStr];
+                planMes.dias[fStr] = {
+                    tipo: 'sabado_trabajo',
+                    horas: 8.0,
+                    cumplido: prev ? !!prev.cumplido : false
+                };
+            }
+        });
+        planMes.sabadosLibres = sabadosLibresArray;
+    }
 
     MonarcaDB.save(APP_STATE);
     cerrarModalConfigBoom();
     renderizarSubAppBoom();
-    alert("🚀 Parámetros y sueldos de Boom Solutions guardados exitosamente.");
+    if (typeof renderizarLabores === 'function') renderizarLabores();
+    alert("🚀 Sueldos y sábados libres de Boom Solutions guardados exitosamente.");
 }
 
 
