@@ -7,12 +7,116 @@
 var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
     mesOffset: 0,
     chartInstance: null,
-    tabIngresosActivo: 'fijos'
+    tabIngresosActivo: 'fijos',
+    vistaQuincena: 'mes',
+    modoGrafico: 'comparativa',
+    filtroGastos: 'todos'
 };
 window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
 function cargarFinanzas() {
     renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function cambiarModoGrafico(modo) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.modoGrafico = modo;
+    var b50 = document.getElementById('btn-chart-504010');
+    var bDona = document.getElementById('btn-chart-dona');
+    if (b50) b50.classList.toggle('active', modo === 'comparativa');
+    if (bDona) bDona.classList.toggle('active', modo === 'dona');
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function cambiarFiltroGastosUI(filtro) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.filtroGastos = filtro;
+    var bT = document.getElementById('tab-gastos-todos');
+    var bP = document.getElementById('tab-gastos-programados');
+    var bO = document.getElementById('tab-gastos-ocasionales');
+    if (bT) bT.classList.toggle('active', filtro === 'todos');
+    if (bP) bP.classList.toggle('active', filtro === 'programados');
+    if (bO) bO.classList.toggle('active', filtro === 'ocasionales');
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function seleccionarTipoGastoModal(tipo) {
+    var inTipo = document.getElementById('modal-gasto-tipo');
+    if (inTipo) inTipo.value = tipo;
+
+    var btnP = document.getElementById('btn-modal-gasto-tipo-prog');
+    var btnO = document.getElementById('btn-modal-gasto-tipo-ocas');
+    var grpDia = document.getElementById('grupo-gasto-dia');
+    var grpFecha = document.getElementById('grupo-gasto-fecha');
+    var inF = document.getElementById('modal-gasto-fuente');
+
+    if (tipo === 'programado') {
+        if (btnP) {
+            btnP.style.background = '#1e263c';
+            btnP.style.borderColor = '#f59e0b';
+            btnP.style.color = '#fbbf24';
+        }
+        if (btnO) {
+            btnO.style.background = 'transparent';
+            btnO.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            btnO.style.color = '#94a3b8';
+        }
+        if (grpDia) grpDia.style.display = 'block';
+        if (grpFecha) grpFecha.style.display = 'none';
+        if (inF) inF.placeholder = "Ej: Gasolina (todos los 16), Alquiler, Internet...";
+    } else {
+        if (btnP) {
+            btnP.style.background = 'transparent';
+            btnP.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            btnP.style.color = '#94a3b8';
+        }
+        if (btnO) {
+            btnO.style.background = '#1e263c';
+            btnO.style.borderColor = '#ef4444';
+            btnO.style.color = '#f87171';
+        }
+        if (grpDia) grpDia.style.display = 'none';
+        if (grpFecha) grpFecha.style.display = 'block';
+        if (inF) inF.placeholder = "Ej: Salida fin de semana, Repuesto urgente...";
+
+        var inFecha = document.getElementById('modal-gasto-fecha');
+        if (inFecha && !inFecha.value) {
+            var hoy = new Date();
+            var y = hoy.getFullYear();
+            var m = String(hoy.getMonth() + 1).padStart(2, '0');
+            var d = String(hoy.getDate()).padStart(2, '0');
+            inFecha.value = y + '-' + m + '-' + d;
+        }
+    }
+}
+
+function alCambiarCategoriaEnModalGasto() {
+    var inCat = document.getElementById('modal-gasto-categoria');
+    var inPilar = document.getElementById('modal-gasto-pilar');
+    if (!inCat || !inPilar) return;
+
+    var cat = inCat.value.toLowerCase();
+    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
+        inPilar.value = 'inversion';
+    } else if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1) {
+        inPilar.value = 'caprichos';
+    } else {
+        inPilar.value = 'gastos';
+    }
+}
+
+function obtenerPilarGasto(gasto) {
+    if (gasto.pilar && (gasto.pilar === 'inversion' || gasto.pilar === 'gastos' || gasto.pilar === 'caprichos')) {
+        return gasto.pilar;
+    }
+    var cat = (gasto.categoria || "").toLowerCase();
+    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
+        return 'inversion';
+    }
+    if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1 || cat.indexOf('salida') !== -1) {
+        return 'caprichos';
+    }
+    return 'gastos';
 }
 
 function cambiarTabIngresos(tab) {
@@ -242,8 +346,12 @@ function renderizarFinanzas(fin) {
     var resPorCobrarTxt = document.getElementById('resumen-por-cobrar-txt');
     if (resPorCobrarTxt) resPorCobrarTxt.innerText = 'Pendiente: $' + ingresosPendientesVista.toFixed(2);
 
-    // 3. Gastos (Agrupados y Ordenados por Categorías, Filtrados por Quincena)
+    // 3. Gastos (Programados vs Ocasionales, Pilares 50/40/10 y Categorías)
     var totGastos = 0;
+    var totGastosPagados = 0;
+    var countProg = 0;
+    var countOcas = 0;
+
     var gastosPorCategoria = {};
     var gastosAgrupados = {};
 
@@ -257,13 +365,44 @@ function renderizarFinanzas(fin) {
         };
     });
 
+    // Cuotas Abonadas a Metas en la Quincena / Mes (Cuentan como Inversión Real)
+    var cuotasAbonadasVista = 0;
+    (f.aportesMetas || []).forEach(function(ap) {
+        if (coincideQuincena(ap.dia, ap.fecha)) {
+            cuotasAbonadasVista += (Number(ap.monto) || 0);
+        }
+    });
+
+    var realInversionVista = cuotasAbonadasVista; // Inversión real arranca con cuotas a metas de ahorro
+    var realGastosVista = 0;
+    var realCaprichosVista = 0;
+
+    var filtroG = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.filtroGastos) || 'todos';
+
     (f.gastos || []).forEach(function(item) {
         if (!coincideQuincena(item.dia, item.fecha)) return;
 
         var m = Number(item.monto) || 0;
         totGastos += m;
-        var catNombre = item.categoria || "Otros";
+        if (item.pagado) totGastosPagados += m;
 
+        var esOcas = item.tipo === 'ocasional';
+        if (esOcas) {
+            countOcas++;
+        } else {
+            countProg++;
+        }
+
+        var pilar = obtenerPilarGasto(item);
+        if (pilar === 'inversion') {
+            realInversionVista += m;
+        } else if (pilar === 'caprichos') {
+            realCaprichosVista += m;
+        } else {
+            realGastosVista += m;
+        }
+
+        var catNombre = item.categoria || "Otros";
         gastosPorCategoria[catNombre] = (gastosPorCategoria[catNombre] || 0) + m;
 
         if (!gastosAgrupados[catNombre]) {
@@ -276,9 +415,22 @@ function renderizarFinanzas(fin) {
             };
         }
 
-        gastosAgrupados[catNombre].items.push(item);
-        gastosAgrupados[catNombre].subtotal += m;
+        // Respetar filtro de gastos si está activo
+        var incluirEnLista = true;
+        if (filtroG === 'programados' && esOcas) incluirEnLista = false;
+        if (filtroG === 'ocasionales' && !esOcas) incluirEnLista = false;
+
+        if (incluirEnLista) {
+            gastosAgrupados[catNombre].items.push(item);
+            gastosAgrupados[catNombre].subtotal += m;
+        }
     });
+
+    // Actualizar badges en tabs de gastos
+    var bGProg = document.getElementById('badge-count-gastos-prog');
+    var bGOcas = document.getElementById('badge-count-gastos-ocas');
+    if (bGProg) bGProg.innerText = countProg;
+    if (bGOcas) bGOcas.innerText = countOcas;
 
     var contGastosCat = document.getElementById('contenedor-gastos-categorias');
     if (contGastosCat) {
@@ -309,19 +461,39 @@ function renderizarFinanzas(fin) {
 
             grupo.items.forEach(function(gasto) {
                 var gm = Number(gasto.monto) || 0;
-                var gDia = gasto.dia || 5;
+                var gDia = gasto.dia || 16;
+                var esOcasG = gasto.tipo === 'ocasional';
+                var pilarG = obtenerPilarGasto(gasto);
+                var estaPagadoG = !!gasto.pagado;
+
+                var badgeTipoHtml = esOcasG
+                    ? `<span class="badge-gasto-ocasional">⚡ ${gasto.fecha || 'Ocasional'}</span>`
+                    : `<span class="badge-gasto-programado">📅 Día ${gDia} (Fijo)</span>`;
+
+                var badgePilarHtml = '';
+                if (pilarG === 'inversion') badgePilarHtml = `<span class="badge-pilar-inversion">🚀 50% Inversión</span>`;
+                else if (pilarG === 'caprichos') badgePilarHtml = `<span class="badge-pilar-caprichos">🎉 10% Caprichos</span>`;
+                else badgePilarHtml = `<span class="badge-pilar-gastos">🏠 40% Fijos</span>`;
+
+                var badgePagoHtml = estaPagadoG
+                    ? `<span class="badge-ingreso-cobrado">✅ PAGADO</span>
+                       <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerPagoGastoUI('${gasto.id}')" title="Desmarcar pago">↩</button>`
+                    : `<button class="btn-pagar-deuda" onclick="pagarGastoUI('${gasto.id}')" title="Marcar como pagado / debitado">💳 Marcar Pagado</button>`;
+
                 htmlGrupos += `
-                    <div class="finanzas-tx-item" style="background: rgba(255, 255, 255, 0.02); margin-bottom: 6px;">
+                    <div class="finanzas-tx-item" style="background: rgba(255, 255, 255, 0.02); margin-bottom: 6px; ${estaPagadoG ? 'opacity: 0.85;' : ''}">
                         <div class="finanzas-tx-main">
                             <div class="finanzas-tx-details">
-                                <div class="finanzas-tx-title">${gasto.concepto}</div>
-                                <div class="finanzas-tx-meta">
-                                    <span>📅 Pago programado: Día ${gDia}</span>
+                                <div class="finanzas-tx-title" style="${estaPagadoG ? 'color: #f8fafc;' : ''}">${gasto.concepto}</div>
+                                <div class="finanzas-tx-meta" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 3px;">
+                                    ${badgeTipoHtml}
+                                    ${badgePilarHtml}
                                 </div>
                             </div>
                         </div>
-                        <div class="finanzas-tx-right">
+                        <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                             <div class="finanzas-tx-monto monto-negativo">-$${gm.toFixed(2)}</div>
+                            ${badgePagoHtml}
                             <button class="btn-delete-row" title="Eliminar gasto" onclick="eliminarRegistroFinanzasUI('${gasto.id}', 'gasto')">✕</button>
                         </div>
                     </div>`;
@@ -336,8 +508,8 @@ function renderizarFinanzas(fin) {
             htmlGrupos = `
             <div class="finanzas-empty-hint">
                 <div style="font-size: 24px; margin-bottom: 6px;">💳</div>
-                <div>Sin gastos registrados para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>
-                <div style="font-size: 11.5px; margin-top: 4px; color: #64748b;">Usa el botón "+ Registrar Gasto" para clasificar tus salidas por categoría.</div>
+                <div>Sin gastos registrados para ${filtroG === 'programados' ? 'la sección de Programados' : (filtroG === 'ocasionales' ? 'la sección de Ocasionales' : (vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')))}.</div>
+                <div style="font-size: 11.5px; margin-top: 4px; color: #64748b;">Usa el botón "+ Gasto Programado" o "+ Gasto Ocasional" para clasificar tus salidas.</div>
             </div>`;
         }
 
@@ -350,18 +522,95 @@ function renderizarFinanzas(fin) {
     var resGasEl = document.getElementById('resumen-total-gastos');
     if (resGasEl) resGasEl.innerText = '$' + totGastos.toFixed(2);
 
-    // 4. Regla 50 / 40 / 10 (Calculada sobre el Total Proyectado Mensual)
-    var baseCalculoRegla = totIngresosMes > 0 ? totIngresosMes : totIngresosVista;
+    // 4. Regla 50 / 40 / 10 (Estimado vs Real para el Período Activo)
+    var baseCalculoRegla = totIngresosVista > 0 ? totIngresosVista : totIngresosMes;
     var meta50 = baseCalculoRegla * 0.50; // 50% Inversión y Multiplicación
     var meta40 = baseCalculoRegla * 0.40; // 40% Gastos Fijos y Necesidades
     var meta10 = baseCalculoRegla * 0.10; // 10% Caprichos y Ocio
 
+    // Actualizar subtítulo del período en la regla
+    var reglaSub = document.getElementById('regla-subtitulo-periodo');
+    if (reglaSub) {
+        reglaSub.innerText = `${vq === 'mes' ? 'Mes Completo' : (vq === 'q1' ? '1.ª Quincena (1-15)' : '2.ª Quincena (16-31)')} · Base: $${baseCalculoRegla.toFixed(2)}`;
+    }
+
+    // Tarjeta 50% Inversión
     var el50Monto = document.getElementById('regla-monto-50') || document.getElementById('regla-50-monto');
-    var el40Monto = document.getElementById('regla-monto-40') || document.getElementById('regla-40-monto');
-    var el10Monto = document.getElementById('regla-monto-10') || document.getElementById('regla-10-monto');
+    var el50Real = document.getElementById('regla-real-50');
+    var el50Fill = document.getElementById('regla-bar-fill-50');
+    var el50PctLbl = document.getElementById('regla-pct-label-50');
+    var el50Tag = document.getElementById('regla-tag-50');
     if (el50Monto) el50Monto.innerText = '$' + meta50.toFixed(2);
+    if (el50Real) el50Real.innerText = '$' + realInversionVista.toFixed(2);
+    var pct50 = meta50 > 0 ? Math.round((realInversionVista / meta50) * 100) : 0;
+    if (el50Fill) {
+        el50Fill.style.width = Math.min(100, pct50) + '%';
+        el50Fill.style.background = pct50 >= 100 ? '#10b981' : '#06b6d4';
+    }
+    if (el50PctLbl) el50PctLbl.innerText = pct50 + '% de meta';
+    if (el50Tag) {
+        if (pct50 >= 100) {
+            el50Tag.innerText = "⭐ Meta Cumplida";
+            el50Tag.style.background = "rgba(16, 185, 129, 0.15)";
+            el50Tag.style.color = "#34d399";
+        } else {
+            el50Tag.innerText = "En curso";
+            el50Tag.style.background = "rgba(6, 182, 212, 0.15)";
+            el50Tag.style.color = "#22d3ee";
+        }
+    }
+
+    // Tarjeta 40% Gastos Fijos
+    var el40Monto = document.getElementById('regla-monto-40') || document.getElementById('regla-40-monto');
+    var el40Real = document.getElementById('regla-real-40');
+    var el40Fill = document.getElementById('regla-bar-fill-40');
+    var el40PctLbl = document.getElementById('regla-pct-label-40');
+    var el40Tag = document.getElementById('regla-tag-40');
     if (el40Monto) el40Monto.innerText = '$' + meta40.toFixed(2);
+    if (el40Real) el40Real.innerText = '$' + realGastosVista.toFixed(2);
+    var pct40 = meta40 > 0 ? Math.round((realGastosVista / meta40) * 100) : 0;
+    if (el40Fill) {
+        el40Fill.style.width = Math.min(100, pct40) + '%';
+        el40Fill.style.background = pct40 > 100 ? '#ef4444' : '#f59e0b';
+    }
+    if (el40PctLbl) el40PctLbl.innerText = pct40 + '% de límite';
+    if (el40Tag) {
+        if (pct40 > 100) {
+            el40Tag.innerText = `⚠️ Excedido (+$${(realGastosVista - meta40).toFixed(2)})`;
+            el40Tag.style.background = "rgba(239, 68, 68, 0.15)";
+            el40Tag.style.color = "#f87171";
+        } else {
+            el40Tag.innerText = "Dentro de límite";
+            el40Tag.style.background = "rgba(245, 158, 11, 0.15)";
+            el40Tag.style.color = "#fbbf24";
+        }
+    }
+
+    // Tarjeta 10% Caprichos
+    var el10Monto = document.getElementById('regla-monto-10') || document.getElementById('regla-10-monto');
+    var el10Real = document.getElementById('regla-real-10');
+    var el10Fill = document.getElementById('regla-bar-fill-10');
+    var el10PctLbl = document.getElementById('regla-pct-label-10');
+    var el10Tag = document.getElementById('regla-tag-10');
     if (el10Monto) el10Monto.innerText = '$' + meta10.toFixed(2);
+    if (el10Real) el10Real.innerText = '$' + realCaprichosVista.toFixed(2);
+    var pct10 = meta10 > 0 ? Math.round((realCaprichosVista / meta10) * 100) : 0;
+    if (el10Fill) {
+        el10Fill.style.width = Math.min(100, pct10) + '%';
+        el10Fill.style.background = pct10 > 100 ? '#f43f5e' : '#ec4899';
+    }
+    if (el10PctLbl) el10PctLbl.innerText = pct10 + '% de límite';
+    if (el10Tag) {
+        if (pct10 > 100) {
+            el10Tag.innerText = `⚠️ Excedido (+$${(realCaprichosVista - meta10).toFixed(2)})`;
+            el10Tag.style.background = "rgba(244, 63, 94, 0.15)";
+            el10Tag.style.color = "#f43f5e";
+        } else {
+            el10Tag.innerText = "Dentro de límite";
+            el10Tag.style.background = "rgba(236, 72, 153, 0.15)";
+            el10Tag.style.color = "#f472b6";
+        }
+    }
 
     // Actualizar tarjeta métrica superior: 50% Inversión y Multiplicación
     var resInversionEl = document.getElementById('resumen-total-inversion') || document.getElementById('resumen-total-ahorro-inversion');
@@ -424,14 +673,7 @@ function renderizarFinanzas(fin) {
     var resDeuEl = document.getElementById('resumen-total-deudas');
     if (resDeuEl) resDeuEl.innerText = '$' + totDeudasPendientes.toFixed(2);
 
-    // 6. Metas Quincenales y Cuotas Abonadas
-    var cuotasAbonadasVista = 0;
-    (f.aportesMetas || []).forEach(function(ap) {
-        if (coincideQuincena(ap.dia, ap.fecha)) {
-            cuotasAbonadasVista += (Number(ap.monto) || 0);
-        }
-    });
-
+    // 6. Metas Quincenales
     var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
     if (gridMetas) {
         var htmlMetas = '';
@@ -520,14 +762,25 @@ function renderizarFinanzas(fin) {
         }
     }
 
-    // 8. Gráfico de Distribución Financiera
-    renderizarGraficoFinanzas(gastosPorCategoria, totIngresosVista, totGastos);
+    // 8. Gráfico de Métricas (Comparativa 50/40/10 vs Dona)
+    renderizarGraficoFinanzas({
+        gastosPorCat: gastosPorCategoria,
+        totIng: totIngresosVista,
+        totGas: totGastos,
+        estimadoInversion: meta50,
+        realInversion: realInversionVista,
+        estimadoGastos: meta40,
+        realGastos: realGastosVista,
+        estimadoCaprichos: meta10,
+        realCaprichos: realCaprichosVista,
+        vq: vq
+    });
 
     // Actualizar selector dinámico de categorías para el modal de gastos
     poblarSelectCategoriasGastos();
 }
 
-function renderizarGraficoFinanzas(gastosPorCat, totIng, totGas) {
+function renderizarGraficoFinanzas(opts) {
     var ctx = document.getElementById('graficoFinanzas') || document.getElementById('chart-finanzas-resumen');
     if (!ctx) return;
 
@@ -536,65 +789,161 @@ function renderizarGraficoFinanzas(gastosPorCat, totIng, totGas) {
         ESTADO_FINANZAS.chartInstance = null;
     }
 
-    var labels = Object.keys(gastosPorCat);
-    var dataValues = Object.values(gastosPorCat);
-
-    var tieneGastosReales = labels.length > 0 && totGas > 0;
-
-    if (!tieneGastosReales) {
-        labels = ["Sin gastos registrados"];
-        dataValues = [1];
-    }
-
-    var cyberPalette = [
-        '#6366f1', '#38bdf8', '#10b981', '#f59e0b',
-        '#ec4899', '#8b5cf6', '#f43f5e', '#06b6d4',
-        '#14b8a6', '#a855f7'
-    ];
-
     try {
         if (typeof Chart === 'undefined') return;
 
-        ESTADO_FINANZAS.chartInstance = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: dataValues,
-                    backgroundColor: tieneGastosReales ? cyberPalette : ['rgba(255, 255, 255, 0.08)'],
-                    borderWidth: 2,
-                    borderColor: '#0f131d',
-                    hoverOffset: tieneGastosReales ? 6 : 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#94a3b8',
-                            boxWidth: 12,
-                            padding: 12,
-                            font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+        var modo = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.modoGrafico) || 'comparativa';
+
+        if (modo === 'comparativa') {
+            // GRÁFICO COMPARATIVO: ESTIMADO VS REAL (REGLA 50 / 40 / 10)
+            var labels = ['Inversión (50%)', 'Gastos Fijos (40%)', 'Caprichos (10%)'];
+            var dataEstimado = [
+                opts.estimadoInversion || 0,
+                opts.estimadoGastos || 0,
+                opts.estimadoCaprichos || 0
+            ];
+            var dataReal = [
+                opts.realInversion || 0,
+                opts.realGastos || 0,
+                opts.realCaprichos || 0
+            ];
+
+            var colorRealInversion = '#10b981';
+            var colorRealGastos = (opts.realGastos || 0) > (opts.estimadoGastos || 0) ? '#ef4444' : '#38bdf8';
+            var colorRealCaprichos = (opts.realCaprichos || 0) > (opts.estimadoCaprichos || 0) ? '#f43f5e' : '#a855f7';
+
+            ESTADO_FINANZAS.chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Presupuesto Estimado ($)',
+                            data: dataEstimado,
+                            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                            borderColor: ['#06b6d4', '#f59e0b', '#ec4899'],
+                            borderWidth: 2,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Ejecución Real ($)',
+                            data: dataReal,
+                            backgroundColor: [colorRealInversion, colorRealGastos, colorRealCaprichos],
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(val) { return '$' + val; },
+                                font: { family: 'Plus Jakarta Sans', size: 10 }
+                            }
                         }
                     },
-                    tooltip: {
-                        enabled: tieneGastosReales,
-                        callbacks: {
-                            label: function(context) {
-                                var val = context.raw || 0;
-                                return ' ' + context.label + ': $' + Number(val).toFixed(2);
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#cbd5e1',
+                                boxWidth: 12,
+                                padding: 12,
+                                font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.raw || 0;
+                                    return ' ' + context.dataset.label + ': $' + Number(val).toFixed(2);
+                                },
+                                afterBody: function(items) {
+                                    if (!items || items.length === 0) return '';
+                                    var idx = items[0].dataIndex;
+                                    var est = dataEstimado[idx];
+                                    var real = dataReal[idx];
+                                    var pct = est > 0 ? Math.round((real / est) * 100) : 0;
+                                    var dif = real - est;
+                                    var txtDif = dif >= 0 ? '+$' + dif.toFixed(2) : '-$' + Math.abs(dif).toFixed(2);
+                                    return `Ejecución: ${pct}% | Diferencia: ${txtDif}`;
+                                }
                             }
                         }
                     }
-                },
-                cutout: '72%'
+                }
+            });
+        } else {
+            // GRÁFICO DE DONA: DISTRIBUCIÓN POR CATEGORÍAS
+            var gastosPorCat = opts.gastosPorCat || {};
+            var catLabels = Object.keys(gastosPorCat);
+            var catData = Object.values(gastosPorCat);
+            var tieneGastosReales = catLabels.length > 0 && (opts.totGas || 0) > 0;
+
+            if (!tieneGastosReales) {
+                catLabels = ["Sin gastos registrados"];
+                catData = [1];
             }
-        });
+
+            var cyberPalette = [
+                '#6366f1', '#38bdf8', '#10b981', '#f59e0b',
+                '#ec4899', '#8b5cf6', '#f43f5e', '#06b6d4',
+                '#14b8a6', '#a855f7'
+            ];
+
+            ESTADO_FINANZAS.chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catData,
+                        backgroundColor: tieneGastosReales ? cyberPalette : ['rgba(255, 255, 255, 0.08)'],
+                        borderWidth: 2,
+                        borderColor: '#0f131d',
+                        hoverOffset: tieneGastosReales ? 6 : 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#94a3b8',
+                                boxWidth: 12,
+                                padding: 12,
+                                font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+                            }
+                        },
+                        tooltip: {
+                            enabled: tieneGastosReales,
+                            callbacks: {
+                                label: function(context) {
+                                    var val = context.raw || 0;
+                                    return ' ' + context.label + ': $' + Number(val).toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    cutout: '72%'
+                }
+            });
+        }
     } catch (e) {
-        console.warn("Chart.js no disponible para renderizar dona de finanzas:", e);
+        console.warn("Chart.js no disponible para renderizar gráfico de finanzas:", e);
     }
 }
 
@@ -790,11 +1139,13 @@ function confirmarAgregarIngreso() {
     cambiarTabIngresos(tipo === 'aleatoria' ? 'aleatorios' : 'fijos');
 }
 
-function abrirModalGasto() {
+function abrirModalGasto(tipoPorDefecto) {
     var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
     if (m) {
         m.style.display = 'flex';
         poblarSelectCategoriasGastos();
+        seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
+        alCambiarCategoriaEnModalGasto();
     }
 }
 
@@ -807,12 +1158,18 @@ function confirmarAgregarGasto() {
     var inC = document.getElementById('modal-gasto-categoria') || document.getElementById('modal-gasto-cat');
     var inCp = document.getElementById('modal-gasto-fuente') || document.getElementById('modal-gasto-concepto');
     var inD = document.getElementById('modal-gasto-dia');
+    var inFecha = document.getElementById('modal-gasto-fecha');
     var inM = document.getElementById('modal-gasto-monto');
+    var inTipo = document.getElementById('modal-gasto-tipo');
+    var inPilar = document.getElementById('modal-gasto-pilar');
 
+    var tipo = inTipo ? inTipo.value : 'programado';
     var c = inC ? inC.value : "Otros";
     var cp = inCp ? inCp.value.trim() : "";
-    var d = inD ? (Number(inD.value) || 5) : 5;
+    var d = inD ? (Number(inD.value) || 16) : 16;
+    var fecha = inFecha ? inFecha.value : "";
     var m = inM ? (Number(inM.value) || 0) : 0;
+    var pilar = inPilar ? inPilar.value : "gastos";
 
     if (!cp || m <= 0) {
         alert("Completa el concepto del gasto y un monto válido.");
@@ -822,19 +1179,51 @@ function confirmarAgregarGasto() {
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
 
-    APP_STATE.finanzas.gastos.push({
+    var nuevoGasto = {
         id: "GAS-" + Date.now(),
+        tipo: tipo,
         categoria: c,
         concepto: cp,
         dia: d,
-        monto: m
-    });
+        fecha: fecha,
+        monto: m,
+        pilar: pilar,
+        pagado: false
+    };
+
+    APP_STATE.finanzas.gastos.push(nuevoGasto);
 
     if (inCp) inCp.value = "";
     if (inM) inM.value = "";
 
     MonarcaDB.save(APP_STATE);
     cerrarModalGasto();
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function pagarGastoUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.gastos) return;
+    for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
+        if (APP_STATE.finanzas.gastos[i].id === id) {
+            APP_STATE.finanzas.gastos[i].pagado = true;
+            APP_STATE.finanzas.gastos[i].fechaPago = new Date().toISOString();
+            break;
+        }
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function deshacerPagoGastoUI(id) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.gastos) return;
+    for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
+        if (APP_STATE.finanzas.gastos[i].id === id) {
+            APP_STATE.finanzas.gastos[i].pagado = false;
+            delete APP_STATE.finanzas.gastos[i].fechaPago;
+            break;
+        }
+    }
+    MonarcaDB.save(APP_STATE);
     renderizarFinanzas(APP_STATE.finanzas);
 }
 

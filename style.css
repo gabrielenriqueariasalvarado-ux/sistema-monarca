@@ -1036,6 +1036,145 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
     border-radius: 8px;
 }
 
+/* Selector de Modo de Gráfica (Comparativa vs Distribución) */
+.chart-mode-tabs {
+    display: inline-flex;
+    background: #0b0e15;
+    padding: 3px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 4px;
+}
+
+.btn-chart-mode {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-chart-mode:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-chart-mode.active {
+    background: #1e263c;
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+/* Comparativa Estimado vs Real en Regla 50/40/10 */
+.regla-real-box {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.regla-real-numbers {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    color: #94a3b8;
+}
+
+.regla-real-monto {
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.regla-progress-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 2px;
+}
+
+.regla-progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease, background-color 0.3s ease;
+}
+
+.regla-status-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-top: 3px;
+    text-align: center;
+}
+
+/* Badges de Gastos Programados vs Ocasionales y Pilares */
+.badge-gasto-programado {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.badge-gasto-ocasional {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.badge-pilar-inversion {
+    background: rgba(6, 182, 212, 0.15);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    color: #22d3ee;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.badge-pilar-gastos {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.badge-pilar-caprichos {
+    background: rgba(236, 72, 153, 0.15);
+    border: 1px solid rgba(236, 72, 153, 0.3);
+    color: #f472b6;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
 .monto-positivo {
     color: #34d399 !important;
     font-weight: 700;
