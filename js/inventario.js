@@ -584,12 +584,14 @@ function abrirModalNuevoProducto(productoId) {
 
     calcularMargenGananciaModal();
     modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
     if (inNom) setTimeout(function() { inNom.focus(); }, 100);
 }
 
 function cerrarModalNuevoProducto() {
     var modal = document.getElementById('modal-nuevo-producto');
     if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
     _PROD_EDITANDO_ID = null;
 }
 
@@ -848,7 +850,7 @@ function renderizarCategoriasInventario() {
                 <button type="button" onclick="abrirModalNuevaCategoria('${cat.id}')" style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar categoría">
                     ✏️
                 </button>
-                <button type="button" onclick="eliminarCategoriaInventario('${cat.id}')" style="border: 1px solid #fee2e2; background: #fff5f5; color: #b91c1c; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar categoría">
+                <button type="button" onclick="eliminarCategoriaInventario('${cat.id}')" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar categoría">
                     🗑️
                 </button>
             </div>
@@ -890,6 +892,7 @@ function abrirModalNuevaCategoria(categoriaId) {
     }
 
     modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
     if (inNom) setTimeout(function() { inNom.focus(); }, 100);
 }
 
@@ -901,6 +904,7 @@ function abrirModalNuevaCategoriaDesdeProducto() {
 function cerrarModalNuevaCategoria() {
     var modal = document.getElementById('modal-nueva-categoria');
     if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
     _CAT_EDITANDO_ID = null;
 }
 
@@ -1067,6 +1071,7 @@ function abrirModalRegistrarVenta(productoId) {
 
     actualizarTotalVentaCalculado();
     modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
     if (inObs) setTimeout(function() { inObs.focus(); }, 120);
 }
 
@@ -1186,6 +1191,7 @@ function alSeleccionarVarianteVenta() {
 function cerrarModalRegistrarVenta() {
     var modal = document.getElementById('modal-registrar-venta');
     if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
     _VENTA_PROD_ACTUAL = null;
 }
 
