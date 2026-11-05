@@ -199,19 +199,13 @@ function renderizarProductosInventario(listaManual) {
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Agotado (0)
                </span>`;
 
-        // Etiquetas opcionales (Marca, Género, Estado)
+        // Etiquetas opcionales (Marca y Género)
         var tagsHtml = '';
         if (prod.marca) {
             tagsHtml += `<span style="font-size: 10px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">🏷️ ${prod.marca}</span>`;
         }
         if (prod.genero && prod.genero !== 'No aplica') {
             tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">👤 ${prod.genero}</span>`;
-        }
-        if (prod.estado && prod.estado !== 'Normal') {
-            var bgEst = (prod.estado === 'Nuevo') ? 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;' :
-                        (prod.estado === 'Oferta' || prod.estado === 'Liquidación') ? 'background: #fff1f2; color: #be123c; border-color: #fecdd3;' :
-                        'background: #fef3c7; color: #92400e; border-color: #fde68a;';
-            tagsHtml += `<span style="font-size: 10px; font-weight: 800; ${bgEst} border: 1px solid; padding: 2px 7px; border-radius: 5px;">${prod.estado}</span>`;
         }
 
         // Variantes (Tallas y Colores)
@@ -241,7 +235,7 @@ function renderizarProductosInventario(listaManual) {
                     ${statusBadge}
                 </div>
 
-                <!-- Etiquetas de Atributos Rápidos (Marca, Género, Estado) -->
+                <!-- Etiquetas de Atributos Rápidos (Marca y Género) -->
                 ${tagsHtml ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">${tagsHtml}</div>` : ''}
 
                 <!-- Nombre del Producto -->
@@ -256,19 +250,19 @@ function renderizarProductosInventario(listaManual) {
                 ${variantesHtml}
 
                 <!-- Métricas Clave: Precios y Rentabilidad -->
-                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 8px; background: #0b0e15; border: 1px solid #f3f4f6; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
+                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
                     <div>
                         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">Precio de Venta</span>
                         <div style="font-size: 17px; font-weight: 800; color: #f8fafc; margin-top: 1px;">
                             $${precioVenta.toFixed(2)}
                         </div>
                         <div style="font-size: 10.5px; color: #6b7280; margin-top: 2px;">
-                            Costo: <strong>$${precioCosto.toFixed(2)}</strong> · <span style="color: ${ganancia >= 0 ? '#065f46' : '#991b1b'}; font-weight: 700;">${ganancia >= 0 ? '+' : ''}${margenPct.toFixed(0)}%</span>
+                            Costo: <strong>$${precioCosto.toFixed(2)}</strong> · <span style="color: ${ganancia >= 0 ? '#34d399' : '#f87171'}; font-weight: 700;">${ganancia >= 0 ? '+' : ''}${margenPct.toFixed(0)}%</span>
                         </div>
                     </div>
                     <div>
                         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">Existencias</span>
-                        <div style="font-size: 16px; font-weight: 800; color: ${enStock ? '#111827' : '#991b1b'}; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
+                        <div style="font-size: 16px; font-weight: 800; color: ${enStock ? '#f8fafc' : '#f87171'}; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
                             <span>${stock} unids</span>
                             <div style="display: flex; gap: 3px;">
                                 <button onclick="ajustarStockRapido('${prod.id}', -1)" title="Restar 1 unidad" style="border: 1px solid rgba(255, 255, 255, 0.1); background: #121725; color: #f8fafc; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">-</button>
@@ -291,7 +285,7 @@ function renderizarProductosInventario(listaManual) {
                 <button type="button" 
                         class="btn-system" 
                         onclick="abrirModalRegistrarVenta('${prod.id}')"
-                        style="width: 100%; justify-content: center; font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 9px; margin-bottom: 8px; ${enStock ? 'background: #111827; color: #ffffff;' : 'background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.08); cursor: not-allowed;'}"
+                        style="width: 100%; justify-content: center; font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 9px; margin-bottom: 8px; ${enStock ? 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none;' : 'background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.08); cursor: not-allowed;'}"
                         ${enStock ? '' : 'disabled title="Producto agotado. Añade existencias para vender."'}>
                     <span>💵</span> ${enStock ? 'Registrar Venta (Vendido)' : 'Agotado (Sin Stock)'}
                 </button>
@@ -301,7 +295,7 @@ function renderizarProductosInventario(listaManual) {
                     <button type="button" onclick="abrirModalNuevoProducto('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
                         ✏️ Editar
                     </button>
-                    <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid #fee2e2; background: #fff5f5; color: #b91c1c; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar producto">
+                    <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar producto">
                         🗑️
                     </button>
                 </div>
@@ -1117,8 +1111,8 @@ function generarFilasCuotasVenta() {
 
     if (!contCuotas) return;
 
-    var numPartes = selNum ? parseInt(selNum.value, 10) : 2;
-    if (isNaN(numPartes) || numPartes < 1) numPartes = 2;
+    var numPartes = selNum ? parseInt(selNum.value, 10) : 1;
+    if (isNaN(numPartes) || numPartes < 1) numPartes = 1;
 
     var cant = inCant ? parseInt(inCant.value, 10) : 1;
     var pre = inPre ? parseFloat(inPre.value) : 0;
@@ -1129,18 +1123,23 @@ function generarFilasCuotasVenta() {
 
     var html = '';
     for (var i = 1; i <= numPartes; i++) {
-        // Fechas sugeridas quincenales / mensuales
+        // Fechas sugeridas: si es 1 sola parte diferida, sugerir a 15 días adelante por defecto
         var fechaSugerida = new Date(hoy);
-        fechaSugerida.setDate(hoy.getDate() + ((i - 1) * 15));
+        if (numPartes === 1) {
+            fechaSugerida.setDate(hoy.getDate() + 15);
+        } else {
+            fechaSugerida.setDate(hoy.getDate() + ((i - 1) * 15));
+        }
         var strFecha = fechaSugerida.toISOString().split('T')[0];
+        var badgeText = (numPartes === 1) ? 'Parte Única (100% a Crédito)' : `Parte ${i} de ${numPartes}`;
 
         html += `
         <div class="cuota-row-item">
             <div class="cuota-row-badge">
-                Parte ${i} de ${numPartes}
+                ${badgeText}
             </div>
             <div>
-                <label style="font-size: 10px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 2px;">Monto Cuota ($):</label>
+                <label style="font-size: 10px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 2px;">Monto Acordado ($):</label>
                 <input type="number" class="modal-input input-cuota-monto" data-cuota-num="${i}" step="0.01" min="0.01" value="${montoPorParte.toFixed(2)}" style="margin-bottom: 0; padding: 6px 10px; font-weight: 800; color: #34d399;">
             </div>
             <div>
@@ -1359,7 +1358,8 @@ function confirmarVentaProducto() {
         if (modalidad === 'credito') {
             // Cada cuota pactada se registra como una entrada independiente vinculada
             cuotasArr.forEach(function(cItem) {
-                var conceptoCuota = `Crédito: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (Cuota ${cItem.numero}/${cuotasArr.length})${cliente ? ' - ' + cliente : ''}`;
+                var sufijoCuota = (cuotasArr.length === 1) ? '(Pago Diferido)' : `(Cuota ${cItem.numero}/${cuotasArr.length})`;
+                var conceptoCuota = `Crédito: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} ${sufijoCuota}${cliente ? ' - ' + cliente : ''}`;
                 APP_STATE.finanzas.ingresos.push({
                     id: "ING-CR-" + cItem.id,
                     fuente: conceptoCuota,
@@ -1400,7 +1400,9 @@ function confirmarVentaProducto() {
     if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
 
     var detalleFinal = varianteDetalle ? ` [${varianteDetalle}]` : '';
-    var modalMsg = modalidad === 'credito' ? `\n• Modalidad: A Crédito en ${cuotasArr.length} cuotas pactadas` : '\n• Modalidad: Al Contado (Cobrado)';
+    var modalMsg = modalidad === 'credito' 
+        ? (cuotasArr.length === 1 ? '\n• Modalidad: A Crédito en 1 parte (Pago Diferido)' : `\n• Modalidad: A Crédito en ${cuotasArr.length} cuotas pactadas`)
+        : '\n• Modalidad: Al Contado (Cobrado)';
     alert(`✓ ¡Venta registrada exitosamente!
 
 • Producto: ${prod.nombre}${detalleFinal}
@@ -1459,7 +1461,7 @@ function renderizarVendidosInventario(listaManual) {
         }
 
         var badgeModalidadHtml = esCredito
-            ? `<span class="badge-pago-credito">💳 Crédito (${cuotas.length} cuotas)</span>`
+            ? `<span class="badge-pago-credito">💳 Crédito (${cuotas.length === 1 ? '1 parte diferida' : cuotas.length + ' cuotas'})</span>`
             : `<span class="badge-pago-contado">💵 Al Contado</span>`;
 
         var htmlCuotasBloque = '';
@@ -1475,10 +1477,11 @@ function renderizarVendidosInventario(listaManual) {
             cuotas.forEach(function(cq) {
                 var yaCobrada = !!cq.cobrado;
                 var mMonto = (Number(cq.monto) || 0).toFixed(2);
+                var labelParteVendidos = (cuotas.length === 1) ? 'Parte Única' : `Parte ${cq.numero}`;
                 htmlCuotasBloque += `
                 <div class="cuota-card-vendidos ${yaCobrada ? 'cobrada' : 'pendiente'}">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">Parte ${cq.numero}: $${mMonto}</span>
+                        <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">${labelParteVendidos}: $${mMonto}</span>
                         <span style="font-size: 11px; color: #94a3b8;">📅 Acordado: ${cq.fecha}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -1514,7 +1517,7 @@ function renderizarVendidosInventario(listaManual) {
                 <!-- Nombre del Producto Vendido y Variante -->
                 <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span>${venta.productoNombre}</span>
-                    ${venta.varianteDetalle ? `<span class="variant-pill" style="font-size: 11.5px; background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">👕 ${venta.varianteDetalle}</span>` : ''}
+                    ${venta.varianteDetalle ? `<span class="variant-pill" style="font-size: 11.5px; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">👕 ${venta.varianteDetalle}</span>` : ''}
                 </h4>
 
                 <!-- Cantidad y Precio -->

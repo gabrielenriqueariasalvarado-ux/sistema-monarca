@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.3">
+    <link rel="stylesheet" href="style.css?v=8.4">
 </head>
 <body>
 
@@ -3265,28 +3265,16 @@
                     <input type="text" id="modal-prod-nombre" class="modal-input" placeholder="Ej: Franela Dry-Fit Training Manga Corta">
                 </div>
 
-                <!-- Fila 3: Género y Estado Comercial -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Género / Destinatario:</label>
-                        <select id="modal-prod-genero" class="modal-input" style="background: #0f131d;">
-                            <option value="Unisex">Unisex</option>
-                            <option value="Hombre">Hombre</option>
-                            <option value="Mujer">Mujer</option>
-                            <option value="Niños">Niños / Juvenil</option>
-                            <option value="No aplica">No aplica / General</option>
-                        </select>
-                    </div>
-                    <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Estado / Etiqueta Comercial:</label>
-                        <select id="modal-prod-estado" class="modal-input" style="background: #0f131d;">
-                            <option value="Nuevo">✨ Nuevo Ingreso</option>
-                            <option value="Destacado">⭐ Destacado</option>
-                            <option value="Normal">📦 Estándar</option>
-                            <option value="Oferta">🔥 Oferta / Promoción</option>
-                            <option value="Liquidación">🏷️ Liquidación</option>
-                        </select>
-                    </div>
+                <!-- Fila 3: Género / Destinatario -->
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Género / Destinatario:</label>
+                    <select id="modal-prod-genero" class="modal-input" style="background: #0f131d;">
+                        <option value="Unisex">Unisex</option>
+                        <option value="Hombre">Hombre</option>
+                        <option value="Mujer">Mujer</option>
+                        <option value="Niños">Niños / Juvenil</option>
+                        <option value="No aplica">No aplica / General</option>
+                    </select>
                 </div>
 
                 <!-- Fila 4: Separación de Costo y Precio de Venta -->
@@ -3313,10 +3301,10 @@
 
                 <!-- Fila 5: Switch de Variantes (Tallas y Colores) -->
                 <div class="toggle-switch-container" style="margin-top: 10px; margin-bottom: 12px;">
-                    <input type="checkbox" id="modal-prod-tiene-variantes" onchange="alCambiarSwitchVariantes()" style="accent-color: #f8fafc; width: 18px; height: 18px; cursor: pointer;">
+                    <input type="checkbox" id="modal-prod-tiene-variantes" onchange="alCambiarSwitchVariantes()" style="accent-color: #38bdf8; width: 18px; height: 18px; cursor: pointer;">
                     <div style="flex: 1;" onclick="toggleCheckboxVariantes(event)">
                         <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Este producto tiene variantes (Tallas / Colores)</div>
-                        <div style="font-size: 11px; color: #6b7280; line-height: 1.35;">Actívalo para ropa deportiva, calzado o artículos con múltiples combinaciones y stock individual.</div>
+                        <div style="font-size: 11px; color: #94a3b8; line-height: 1.35;">Actívalo para ropa deportiva, calzado o artículos con múltiples combinaciones y stock individual.</div>
                     </div>
                 </div>
 
@@ -3327,13 +3315,13 @@
                 </div>
 
                 <!-- Bloque B: Variantes Dinámicas (si SÍ tiene variantes) -->
-                <div id="modal-prod-bloque-variantes" style="display: none; margin-bottom: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px;">
+                <div id="modal-prod-bloque-variantes" style="display: none; margin-bottom: 14px; background: #0f1422; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <div>
                             <span style="font-size: 12px; font-weight: 800; color: #f8fafc; text-transform: uppercase;">Combinaciones de Talla / Color</span>
                             <div style="font-size: 10.5px; color: #6b7280;">Añade cada combinación con su stock disponible.</div>
                         </div>
-                        <button type="button" onclick="agregarFilaVariante()" style="background: #111827; color: #ffffff; border: none; border-radius: 6px; padding: 6px 11px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <button type="button" onclick="agregarFilaVariante()" style="background: #1e263c; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 6px 11px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                             <span>+</span> Añadir Variante
                         </button>
                     </div>
@@ -3342,16 +3330,10 @@
                         <!-- Filas dinámicas generadas por JS -->
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed #d1d5db; margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.1); margin-top: 8px;">
                         <span style="font-size: 11.5px; font-weight: 700; color: #94a3b8;">Stock Total Sumado:</span>
-                        <span id="modal-prod-total-stock-variantes" style="font-size: 12.5px; font-weight: 800; color: #f8fafc; background: #e5e7eb; padding: 2px 8px; border-radius: 6px;">0 unidades</span>
+                        <span id="modal-prod-total-stock-variantes" style="font-size: 12.5px; font-weight: 800; color: #34d399; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 8px; border-radius: 6px;">0 unidades</span>
                     </div>
-                </div>
-
-                <!-- Fila 6: Detalle u Observación del Producto -->
-                <div class="modal-form-group">
-                    <label style="font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Detalle u Observación del Producto (Opcional):</label>
-                    <textarea id="modal-prod-descripcion" class="modal-input" rows="2" placeholder="Ej: 100% poliéster transpirable, corte ergonómico, tejido elástico..."></textarea>
                 </div>
 
                 <!-- Botones de Acción -->
@@ -3431,7 +3413,7 @@
                 <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                         <div>
-                            <span id="modal-venta-prod-cat" style="font-size: 10.5px; font-weight: 800; background: #e5e7eb; color: #f8fafc; padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">Franela</span>
+                            <span id="modal-venta-prod-cat" style="font-size: 10.5px; font-weight: 800; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">Franela</span>
                             <h4 id="modal-venta-prod-nombre" style="margin: 4px 0 0 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Franela Adidas negra talla SM</h4>
                         </div>
                         <div style="text-align: right;">
@@ -3463,9 +3445,9 @@
                 </div>
 
                 <!-- Total Calculado -->
-                <div style="background: #111827; color: #ffffff; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Venta:</span>
-                    <span id="modal-venta-total-calculado" style="font-size: 18px; font-weight: 800;">$0.00</span>
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); color: #ffffff; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8;">Total Venta:</span>
+                    <span id="modal-venta-total-calculado" style="font-size: 18px; font-weight: 800; color: #34d399;">$0.00</span>
                 </div>
 
                 <!-- Modalidad de Pago: Contado vs Crédito en Cuotas -->
@@ -3493,6 +3475,7 @@
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label style="font-size: 11px; color: #cbd5e1; font-weight: 700;">N.° Partes:</label>
                             <select id="modal-venta-num-cuotas" class="modal-input" style="width: auto; padding: 4px 8px; font-size: 12px; margin-bottom: 0;" onchange="alCambiarNumeroCuotasVenta()">
+                                <option value="1">1 sola parte (Pago diferido)</option>
                                 <option value="2" selected>2 partes</option>
                                 <option value="3">3 partes</option>
                                 <option value="4">4 partes</option>
@@ -3535,7 +3518,7 @@
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalRegistrarVenta()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: #111827; color: #ffffff;" onclick="confirmarVentaProducto()">
+                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="confirmarVentaProducto()">
                         💵 Confirmar Venta (Restar Stock)
                     </button>
                 </div>
@@ -3689,25 +3672,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.3"></script>
-    <script src="js/perfil.js?v=8.3"></script>
-    <script src="js/progresion.js?v=8.3"></script>
-    <script src="js/estado-personal.js?v=8.3"></script>
-    <script src="js/finanzas.js?v=8.3"></script>
-    <script src="js/ideas.js?v=8.3"></script>
-    <script src="js/dinamicas.js?v=8.3"></script>
-    <script src="js/calendario.js?v=8.3"></script>
-    <script src="js/inventario.js?v=8.3"></script>
-    <script src="js/jarvis-voz.js?v=8.3"></script>
+    <script src="js/core.js?v=8.4"></script>
+    <script src="js/perfil.js?v=8.4"></script>
+    <script src="js/progresion.js?v=8.4"></script>
+    <script src="js/estado-personal.js?v=8.4"></script>
+    <script src="js/finanzas.js?v=8.4"></script>
+    <script src="js/ideas.js?v=8.4"></script>
+    <script src="js/dinamicas.js?v=8.4"></script>
+    <script src="js/calendario.js?v=8.4"></script>
+    <script src="js/inventario.js?v=8.4"></script>
+    <script src="js/jarvis-voz.js?v=8.4"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.3"></script>
+    <script type="module" src="js/firebase-config.js?v=8.4"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.3')
+                navigator.serviceWorker.register('sw.js?v=8.4')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
