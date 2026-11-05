@@ -127,6 +127,16 @@ const DEFAULT_STATE = {
             mes: "",
             objetivo: ""
         },
+        categoriasGastos: [
+            { id: "CAT-VIVIENDA", nombre: "Vivienda", icono: "🏠", color: "#3b82f6" },
+            { id: "CAT-ALIMENTACION", nombre: "Alimentación", icono: "🛒", color: "#10b981" },
+            { id: "CAT-MOTO", nombre: "Moto & Transporte", icono: "🏍️", color: "#f59e0b" },
+            { id: "CAT-SERVICIOS", nombre: "Servicios", icono: "💡", color: "#06b6d4" },
+            { id: "CAT-SALUD", nombre: "Salud", icono: "🏥", color: "#ec4899" },
+            { id: "CAT-ENTRETENIMIENTO", nombre: "Entretenimiento & Ocio", icono: "🎮", color: "#8b5cf6" },
+            { id: "CAT-INVERSION", nombre: "Inversión & Trabajo", icono: "💼", color: "#6366f1" },
+            { id: "CAT-OTROS", nombre: "Otros", icono: "📦", color: "#64748b" }
+        ],
         ingresos: [],
         gastos: [],
         deudas: [],
@@ -157,6 +167,7 @@ const DEFAULT_STATE = {
         calendario: [],
         finanzas_ingresos: [],
         finanzas_gastos: [],
+        finanzas_categoriasGastos: [],
         finanzas_deudas: [],
         finanzas_metas: []
     }
@@ -264,6 +275,9 @@ const MonarcaDB = {
                 if (!data.finanzas.cabecera) data.finanzas.cabecera = { nombre: data.jugador ? data.jugador.titulo : "Gabriel Arias", mes: "", objetivo: "" };
                 if (!data.finanzas.ingresos || !Array.isArray(data.finanzas.ingresos)) data.finanzas.ingresos = [];
                 if (!data.finanzas.gastos || !Array.isArray(data.finanzas.gastos)) data.finanzas.gastos = [];
+                if (!data.finanzas.categoriasGastos || !Array.isArray(data.finanzas.categoriasGastos) || data.finanzas.categoriasGastos.length === 0) {
+                    data.finanzas.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
+                }
                 if (!data.finanzas.deudas || !Array.isArray(data.finanzas.deudas)) data.finanzas.deudas = [];
                 if (!data.finanzas.metas || !Array.isArray(data.finanzas.metas)) data.finanzas.metas = [];
             }

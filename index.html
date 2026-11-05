@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=7.9">
+    <link rel="stylesheet" href="style.css?v=8.0">
 </head>
 <body>
 
@@ -943,7 +943,7 @@
                 </div>
                 <div>
                     <span class="finanzas-field-label">🎯 Objetivo Financiero del Mes:</span>
-                    <input type="text" id="finanzas-input-objetivo" class="finanzas-input-clean" placeholder="Ej: Ahorrar para la moto, liquidar deudas y optimizar gastos..." onchange="alCambiarDatoGeneralFinanzas()">
+                    <textarea id="finanzas-input-objetivo" class="finanzas-input-clean" rows="2" style="resize: vertical; min-height: 48px; line-height: 1.4;" placeholder="Ej: Ahorrar para la moto, liquidar deudas y optimizar gastos..." onchange="alCambiarDatoGeneralFinanzas()"></textarea>
                 </div>
             </div>
 
@@ -1027,70 +1027,80 @@
                 </div>
             </div>
 
-            <!-- 2. SECCIÓN 1: INGRESOS MENSUALES -->
+            <!-- 2. SECCIÓN 1: INGRESOS MENSUALES (ENTRADAS FIJAS & ALEATORIAS) -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
                         <span>💵</span> INGRESOS MENSUALES
                     </h3>
-                    <button class="btn-add-finanza" onclick="abrirModalIngreso()">
-                        <span>➕</span> Nueva Entrada
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-add-finanza" onclick="abrirModalIngreso('fija')" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399;">
+                            <span>📅</span> + Entrada Fija
+                        </button>
+                        <button class="btn-add-finanza" onclick="abrirModalIngreso('aleatoria')" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8;">
+                            <span>⚡</span> + Entrada Aleatoria
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabs de Navegación Fijas vs Aleatorias -->
+                <div class="finanzas-tabs-nav">
+                    <button class="finanzas-tab-btn active" id="tab-ingresos-fijos" onclick="cambiarTabIngresos('fijos')">
+                        <span>📅</span> Entradas Fijas (<span id="badge-count-fijos">0</span>)
+                    </button>
+                    <button class="finanzas-tab-btn" id="tab-ingresos-aleatorios" onclick="cambiarTabIngresos('aleatorios')">
+                        <span>⚡</span> Entradas Aleatorias (<span id="badge-count-aleatorios">0</span>)
                     </button>
                 </div>
 
-                <div class="table-finanzas-wrapper">
-                    <table class="table-finanzas">
-                        <thead>
-                            <tr>
-                                <th>Fuente / Concepto</th>
-                                <th style="text-align: center; width: 90px;">Día Cobro</th>
-                                <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-ingresos">
-                            <!-- Filas generadas dinámicamente -->
-                        </tbody>
-                    </table>
+                <!-- Lista de Entradas Fijas -->
+                <div id="vista-ingresos-fijos">
+                    <div id="lista-ingresos-fijos" class="finanzas-tx-list"></div>
+                    <div class="total-box-finanzas" style="margin-top: 10px;">
+                        <span class="total-box-label">Subtotal Fijas:</span>
+                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-fijos">$0.00</span>
+                    </div>
                 </div>
 
-                <div class="total-box-finanzas">
-                    <span class="total-box-label">Total Ingresos:</span>
-                    <span class="total-box-val monto-positivo" id="label-total-ingresos">$0.00</span>
+                <!-- Lista de Entradas Aleatorias -->
+                <div id="vista-ingresos-aleatorios" style="display: none;">
+                    <div id="lista-ingresos-aleatorios" class="finanzas-tx-list"></div>
+                    <div class="total-box-finanzas" style="margin-top: 10px;">
+                        <span class="total-box-label">Subtotal Aleatorias:</span>
+                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-aleatorios">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="total-box-finanzas" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
+                    <span class="total-box-label" style="color: #34d399;">Total Ingresos Mensuales:</span>
+                    <span class="total-box-val monto-positivo" id="label-total-ingresos" style="font-size: 20px;">$0.00</span>
                 </div>
             </div>
 
-            <!-- 3. SECCIÓN 2: GASTOS MENSUALES -->
+            <!-- 3. SECCIÓN 2: GASTOS MENSUALES (SALIDAS POR CATEGORÍA) -->
             <div class="finanzas-section-card">
                 <div class="finanzas-section-header">
                     <h3 class="finanzas-section-title">
                         <span>💳</span> GASTOS MENSUALES (SALIDAS)
                     </h3>
-                    <button class="btn-add-finanza" onclick="abrirModalGasto()" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
-                        <span>➕</span> Nueva Salida / Gasto
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-add-finanza" onclick="abrirModalCategoriasGastos()" style="border-color: rgba(255, 255, 255, 0.2); color: #cbd5e1; background: #161c2d;">
+                            <span>🏷️</span> Categorías
+                        </button>
+                        <button class="btn-add-finanza" onclick="abrirModalGasto()" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
+                            <span>➕</span> Registrar Gasto
+                        </button>
+                    </div>
                 </div>
 
-                <div class="table-finanzas-wrapper">
-                    <table class="table-finanzas">
-                        <thead>
-                            <tr>
-                                <th>Fuente / Concepto</th>
-                                <th style="width: 140px;">Categoría</th>
-                                <th style="text-align: center; width: 90px;">Día Pago</th>
-                                <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-gastos">
-                            <!-- Filas generadas dinámicamente -->
-                        </tbody>
-                    </table>
+                <!-- Contenedor de Gastos Agrupados por Categoría -->
+                <div id="contenedor-gastos-categorias">
+                    <!-- Grupos y gastos generados dinámicamente -->
                 </div>
 
-                <div class="total-box-finanzas">
-                    <span class="total-box-label">Total Gastos:</span>
-                    <span class="total-box-val monto-negativo" id="label-total-gastos">$0.00</span>
+                <div class="total-box-finanzas" style="background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25);">
+                    <span class="total-box-label" style="color: #f87171;">Total Gastos Mensuales:</span>
+                    <span class="total-box-val monto-negativo" id="label-total-gastos" style="font-size: 20px;">$0.00</span>
                 </div>
             </div>
 
@@ -1105,20 +1115,8 @@
                     </button>
                 </div>
 
-                <div class="table-finanzas-wrapper">
-                    <table class="table-finanzas">
-                        <thead>
-                            <tr>
-                                <th>Acreedor / Deuda</th>
-                                <th style="text-align: center; width: 90px;">Día Pago</th>
-                                <th style="text-align: right; width: 120px;">Monto</th>
-                                <th style="text-align: center; width: 60px;">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-deudas">
-                            <!-- Filas generadas dinámicamente -->
-                        </tbody>
-                    </table>
+                <div id="lista-deudas-tx" class="finanzas-tx-list">
+                    <!-- Transacciones de deudas generadas dinámicamente -->
                 </div>
 
                 <div class="total-box-finanzas">
@@ -1149,7 +1147,7 @@
          MODALES EMERGENTES DEL MÓDULO FINANCIERO
          ====================================================================== -->
 
-    <!-- MODAL 1: NUEVA ENTRADA (INGRESO) -->
+    <!-- MODAL 1: NUEVA ENTRADA (INGRESO: FIJA O ALEATORIA) -->
     <div id="modal-finanzas-ingreso" class="modal-overlay" style="display: none;">
         <div class="modal-system-window">
             <div class="modal-system-header">
@@ -1160,18 +1158,38 @@
                 <button onclick="cerrarModalIngreso()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 18px;">
-                <div class="modal-form-group">
-                    <label>Nombre de la Entrada / Fuente:</label>
-                    <input type="text" id="modal-ingreso-fuente" class="modal-input" placeholder="Ej: Sueldo Principal, Freelance, Bono...">
+                <input type="hidden" id="modal-ingreso-tipo" value="fija">
+                
+                <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Entrada:</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <button type="button" id="btn-modal-tipo-fija" class="btn-system" style="flex: 1; padding: 10px; font-size: 12px; background: #1e263c; border-color: #38bdf8; color: #38bdf8;" onclick="seleccionarTipoIngresoModal('fija')">
+                        📅 Entrada Fija
+                    </button>
+                    <button type="button" id="btn-modal-tipo-aleatoria" class="btn-back-system" style="flex: 1; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoIngresoModal('aleatoria')">
+                        ⚡ Entrada Aleatoria
+                    </button>
                 </div>
+
                 <div class="modal-form-group">
-                    <label>Día de Cobro (1 al 31):</label>
+                    <label id="label-modal-ingreso-fuente">Nombre de la Entrada / Fuente:</label>
+                    <input type="text" id="modal-ingreso-fuente" class="modal-input" placeholder="Ej: Sueldo Principal, Freelance, Bono, Venta...">
+                </div>
+
+                <div class="modal-form-group" id="grupo-ingreso-dia">
+                    <label>Día Programado de Cobro (1 al 31):</label>
                     <input type="number" id="modal-ingreso-dia" class="modal-input" min="1" max="31" value="15">
                 </div>
+
+                <div class="modal-form-group" id="grupo-ingreso-fecha" style="display: none;">
+                    <label>Fecha del Ingreso:</label>
+                    <input type="date" id="modal-ingreso-fecha" class="modal-input">
+                </div>
+
                 <div class="modal-form-group">
                     <label>Monto ($):</label>
                     <input type="number" id="modal-ingreso-monto" class="modal-input" step="0.01" min="0" placeholder="0.00">
                 </div>
+
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalIngreso()">
                         Cancelar
@@ -1196,19 +1214,18 @@
             </div>
             <div style="padding: 18px;">
                 <div class="modal-form-group">
-                    <label>Nombre del Gasto / Fuente:</label>
+                    <label>Nombre del Gasto / Concepto:</label>
                     <input type="text" id="modal-gasto-fuente" class="modal-input" placeholder="Ej: Alquiler, Supermercado, Repuesto Moto...">
                 </div>
                 <div class="modal-form-group">
-                    <label>Categoría del Gasto:</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="margin-bottom: 0;">Categoría del Gasto:</label>
+                        <button type="button" onclick="abrirModalCategoriasGastos()" style="background: none; border: none; color: #38bdf8; font-size: 11.5px; font-weight: 700; cursor: pointer; padding: 0;">
+                            + Crear Categoría
+                        </button>
+                    </div>
                     <select id="modal-gasto-categoria" class="ideas-select">
-                        <option value="Vivienda">🏠 Vivienda</option>
-                        <option value="Alimentación">🛒 Alimentación</option>
-                        <option value="Moto">🏍️ Moto</option>
-                        <option value="Servicios">💡 Servicios</option>
-                        <option value="Salud">🏥 Salud</option>
-                        <option value="Entretenimiento">🎮 Entretenimiento</option>
-                        <option value="Otros">📦 Otros</option>
+                        <!-- Generado dinámicamente con las categorías del usuario -->
                     </select>
                 </div>
                 <div class="modal-form-group">
@@ -1223,8 +1240,56 @@
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalGasto()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarGasto()">
+                    <button class="btn-system" style="flex: 1; background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); border-color: #f87171;" onclick="confirmarAgregarGasto()">
                         ✓ Guardar Gasto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2.1: GESTIÓN Y CREACIÓN DE CATEGORÍAS DE GASTOS -->
+    <div id="modal-gestion-categorias-gastos" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏷️</span>
+                    <span style="color: #818cf8; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">CATEGORÍAS DE GASTOS</span>
+                </div>
+                <button onclick="cerrarModalCategoriasGastos()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 18px;">
+                <!-- Formulario Nueva Categoría -->
+                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #f8fafc; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ➕ Crear Nueva Categoría
+                    </div>
+                    <div style="display: grid; grid-template-columns: 70px 1fr; gap: 8px; margin-bottom: 10px;">
+                        <div>
+                            <label style="font-size: 10.5px; color: #94a3b8; display: block; margin-bottom: 4px;">Icono:</label>
+                            <input type="text" id="nueva-cat-icono" class="modal-input" style="text-align: center; font-size: 18px; padding: 8px;" value="🏷️" maxlength="4">
+                        </div>
+                        <div>
+                            <label style="font-size: 10.5px; color: #94a3b8; display: block; margin-bottom: 4px;">Nombre Categoría:</label>
+                            <input type="text" id="nueva-cat-nombre" class="modal-input" placeholder="Ej: Mascotas, Estudios...">
+                        </div>
+                    </div>
+                    <button class="btn-system" style="width: 100%; justify-content: center; padding: 9px; font-size: 12px;" onclick="guardarNuevaCategoriaGasto()">
+                        ✓ Guardar Categoría
+                    </button>
+                </div>
+
+                <!-- Lista de Categorías Existentes -->
+                <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: block;">
+                    Categorías Activas:
+                </label>
+                <div id="lista-categorias-activas" style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                    <!-- Renderizado dinámicamente -->
+                </div>
+
+                <div style="margin-top: 16px;">
+                    <button class="btn-back-system" style="width: 100%; justify-content: center; margin-bottom: 0;" onclick="cerrarModalCategoriasGastos()">
+                        Listo / Cerrar
                     </button>
                 </div>
             </div>
@@ -3427,25 +3492,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=7.9"></script>
-    <script src="js/perfil.js?v=7.9"></script>
-    <script src="js/progresion.js?v=7.9"></script>
-    <script src="js/estado-personal.js?v=7.9"></script>
-    <script src="js/finanzas.js?v=7.9"></script>
-    <script src="js/ideas.js?v=7.9"></script>
-    <script src="js/dinamicas.js?v=7.9"></script>
-    <script src="js/calendario.js?v=7.9"></script>
-    <script src="js/inventario.js?v=7.9"></script>
-    <script src="js/jarvis-voz.js?v=7.9"></script>
+    <script src="js/core.js?v=8.0"></script>
+    <script src="js/perfil.js?v=8.0"></script>
+    <script src="js/progresion.js?v=8.0"></script>
+    <script src="js/estado-personal.js?v=8.0"></script>
+    <script src="js/finanzas.js?v=8.0"></script>
+    <script src="js/ideas.js?v=8.0"></script>
+    <script src="js/dinamicas.js?v=8.0"></script>
+    <script src="js/calendario.js?v=8.0"></script>
+    <script src="js/inventario.js?v=8.0"></script>
+    <script src="js/jarvis-voz.js?v=8.0"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=7.9"></script>
+    <script type="module" src="js/firebase-config.js?v=8.0"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=7.9')
+                navigator.serviceWorker.register('sw.js?v=8.0')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

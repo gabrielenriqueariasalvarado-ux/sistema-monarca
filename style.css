@@ -685,11 +685,15 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
 }
 
+/* ==========================================================================
+   SISTEMA DE TRANSACCIONES Y FINANZAS RESPONSIVE (MÓVIL & PC)
+   ========================================================================== */
+
 .table-finanzas-wrapper {
-    overflow-x: auto;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: var(--card-bg);
+    overflow: hidden;
 }
 
 .table-finanzas {
@@ -704,164 +708,458 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
-    padding: 12px 14px;
+    padding: 10px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .table-finanzas td {
-    padding: 12px 14px;
-    font-size: 13.5px;
+    padding: 11px 12px;
+    font-size: 13px;
     color: #e2e8f0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.table-finanzas tr:hover td {
-    background-color: rgba(255, 255, 255, 0.025);
+/* Transacciones Ultra-Adaptativas (Cero Recortes en Móvil) */
+.finanzas-tx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.finanzas-tx-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.finanzas-tx-item:hover {
+    background: #161c2d;
+    border-color: rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.finanzas-tx-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+}
+
+.finanzas-tx-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finanzas-tx-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.finanzas-tx-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f8fafc;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+.finanzas-tx-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.finanzas-tx-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.finanzas-tx-monto {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+}
+
+/* Grupos de Categorías de Gastos */
+.categoria-gastos-group {
+    background: #0f131f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.categoria-gastos-group:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.categoria-gastos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.categoria-gastos-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.categoria-gastos-subtotal {
+    font-size: 13px;
+    font-weight: 800;
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 3px 10px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+/* Píldoras de Navegación de Ingresos (Fijas vs Aleatorias) */
+.finanzas-tabs-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    background: #0b0e15;
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finanzas-tab-btn {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.finanzas-tab-btn.active {
+    background: #1e263c;
+    color: #ffffff;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .monto-positivo {
-    color: #34d399;
+    color: #34d399 !important;
     font-weight: 700;
     text-shadow: 0 0 10px rgba(52, 211, 153, 0.25);
 }
 
 .monto-negativo {
-        color: #dc2626;
-        font-weight: 700;
-    }
+    color: #f87171 !important;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.25);
+}
 
-    .monto-deuda {
-        color: #d97706;
-        font-weight: 700;
-    }
+.monto-deuda {
+    color: #fbbf24 !important;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.25);
+}
 
-    .total-box-finanzas {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-top: 12px;
-        padding: 10px 16px;
-        background: #f9fafb;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-    }
+.total-box-finanzas {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px 18px;
+    background: #121725;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
 
-    .total-box-label {
-        font-size: 12px;
-        color: #6b7280;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+.total-box-label {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 
-    .total-box-val {
-        font-size: 16px;
-        font-weight: 800;
-    }
+.total-box-val {
+    font-size: 17px;
+    font-weight: 800;
+}
 
-    /* Badges de Categorías Sobrios */
-    .badge-cat {
-        font-size: 11px;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-weight: 600;
-        display: inline-block;
-        white-space: nowrap;
-    }
+/* Badges de Categorías Sobrios y Cibernéticos */
+.badge-cat {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
 
-    .cat-vivienda { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .cat-alimentacion { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-    .cat-moto { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-    .cat-servicios { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
-    .cat-salud { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .cat-entretenimiento { background: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; }
-    .cat-otros { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.cat-vivienda { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.cat-alimentacion { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.cat-moto { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.cat-servicios { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+.cat-salud { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+.cat-entretenimiento { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+.cat-inversion { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+.cat-otros { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); }
 
-    /* Regla 50/40/10 */
+/* Regla 50/40/10 de Alta Legibilidad y Contraste */
+.regla-504010-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
     .regla-504010-grid {
-        display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 14px;
-        margin-bottom: 16px;
+        gap: 6px;
     }
-
-    @media (max-width: 640px) {
-        .regla-504010-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
     .regla-card {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 16px;
-        text-align: center;
-        transition: all 0.2s;
+        padding: 10px 6px !important;
     }
-
-    .regla-card:hover {
-        background: #ffffff;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-    }
-
     .regla-porcentaje {
-        font-size: 26px;
-        font-weight: 800;
-        margin-bottom: 2px;
-        color: #111827;
+        font-size: 18px !important;
     }
-
     .regla-monto {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1f2937;
-        margin-bottom: 4px;
+        font-size: 13px !important;
     }
-
     .regla-concepto {
-        font-size: 11px;
-        color: #6b7280;
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.5px;
+        font-size: 9px !important;
     }
+}
 
-    .regla-bar-track {
-        height: 8px;
-        border-radius: 9999px;
-        background-color: #e5e7eb;
-        display: flex;
-        overflow: hidden;
-        margin-top: 8px;
-    }
+.regla-card {
+    background: #121725 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px;
+    padding: 16px 14px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
 
-    .regla-bar-seg-50 { width: 50%; background: #111827; }
-    .regla-bar-seg-40 { width: 40%; background: #4b5563; }
-    .regla-bar-seg-10 { width: 10%; background: #9ca3af; }
+.regla-card:hover {
+    background: #161c2d !important;
+    border-color: rgba(99, 102, 241, 0.4) !important;
+    transform: translateY(-1px);
+}
 
-    /* Metas Financieras */
-    .metas-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-    }
+.regla-porcentaje {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 2px;
+    color: #f8fafc !important;
+    letter-spacing: -0.5px;
+}
 
-    .meta-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        padding: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
+.regla-card-50 .regla-porcentaje { color: #38bdf8 !important; }
+.regla-card-40 .regla-porcentaje { color: #818cf8 !important; }
+.regla-card-10 .regla-porcentaje { color: #34d399 !important; }
 
-    .meta-card-header {
-        display: flex;
-        align-items: center;
+.regla-monto {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f8fafc !important;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.regla-concepto {
+    font-size: 10.5px;
+    color: #94a3b8 !important;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+}
+
+.regla-bar-track {
+    height: 7px;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.08);
+    display: flex;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.regla-bar-seg-50 { width: 50%; background: #38bdf8; }
+.regla-bar-seg-40 { width: 40%; background: #6366f1; }
+.regla-bar-seg-10 { width: 10%; background: #10b981; }
+
+/* Metas Financieras */
+.metas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.meta-card {
+    background: #121725 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 18px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+}
+
+.meta-card:hover {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    background: #161c2d !important;
+}
+
+.meta-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.meta-card-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #f8fafc !important;
+    margin: 0;
+}
+
+.meta-numbers-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.meta-numbers-row strong {
+    color: #f8fafc;
+}
+
+.meta-progress-track {
+    height: 8px;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.meta-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #059669 0%, #10b981 100%);
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+}
+
+.meta-cuotas-info {
+    font-size: 11.5px;
+    color: #94a3b8;
+    background: #0b0e15;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meta-cuotas-info strong {
+    color: #f8fafc;
+}
+
+.btn-sumar-cuota {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    border: 1px solid #34d399;
+    padding: 10px 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-sumar-cuota:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.btn-delete-row {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-delete-row:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #f87171;
+    transform: scale(1.08);
+}
         justify-content: space-between;
         margin-bottom: 12px;
     }
@@ -1299,69 +1597,96 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
     }
 
     .btn-month-nav {
-        background: #f4f4f5;
-        border: 1px solid #e4e4e7;
-        color: #18181b;
-        padding: 6px 12px;
-        border-radius: 8px;
+        background: #141926 !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: #f8fafc !important;
+        padding: 6px 14px;
+        border-radius: 10px;
         cursor: pointer;
         font-size: 13px;
         font-weight: 700;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
     }
 
     .btn-month-nav:hover {
-        background: #111827;
-        color: #ffffff;
-        border-color: #111827;
+        background: #1e263c !important;
+        border-color: rgba(99, 102, 241, 0.4) !important;
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.25);
     }
 
     .current-month-label {
         font-weight: 700;
-        color: #111827;
+        color: #f8fafc !important;
         font-size: 14.5px;
     }
 
     .operatividad-metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
         margin-bottom: 22px;
     }
 
+    @media (max-width: 600px) {
+        .operatividad-metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .operatividad-metrics-grid .metric-card-ideas:last-child {
+            grid-column: span 2;
+        }
+        .metric-card-ideas {
+            padding: 12px 10px !important;
+        }
+        .metric-card-ideas .metric-num {
+            font-size: 19px !important;
+        }
+        .metric-card-ideas .metric-title {
+            font-size: 10px !important;
+        }
+    }
+
     .metric-card-ideas {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #121725 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 16px;
-        padding: 18px 16px;
+        padding: 16px 14px;
         text-align: center;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 14px rgba(0, 0, 0, 0.4);
+        transition: all 0.2s ease;
+    }
+
+    .metric-card-ideas:hover {
+        background: #161c2d !important;
+        border-color: rgba(99, 102, 241, 0.35) !important;
+        transform: translateY(-1px);
     }
 
     .metric-card-ideas .metric-num {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 800;
-        color: #111827;
+        color: #f8fafc;
         letter-spacing: -0.5px;
+        font-variant-numeric: tabular-nums;
     }
 
     .metric-card-ideas .metric-title {
-        font-size: 11.5px;
-        color: #6b7280;
+        font-size: 11px;
+        color: #94a3b8 !important;
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.5px;
         margin-top: 4px;
     }
 
     .chart-container-ideas {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: #121725 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 20px;
-        padding: 20px;
+        padding: 18px;
         margin-bottom: 22px;
         position: relative;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     }
 
     .chart-container-ideas h3 {
@@ -5582,3 +5907,43 @@ input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, 
 .card div[style*="color: #111827"] {
     color: #f8fafc !important;
 }
+
+/* Modal de Gestión de Categorías de Gastos */
+.category-manager-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #141926;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.category-manager-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.finanzas-empty-hint {
+    text-align: center;
+    padding: 22px 16px;
+    color: #94a3b8;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    margin: 8px 0;
+}
+
+/* Espacio inferior móvil para evitar solapamientos con botones flotantes y barra de navegación */
+@media (max-width: 600px) {
+    #vista-finanzas {
+        padding-bottom: 130px !important;
+    }
+}
+

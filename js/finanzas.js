@@ -1,14 +1,97 @@
 /**
- * SISTEMA MONARCA · MÓDULO DE FINANZAS PERSONALES
- * Ingresos, Gastos, Deudas, Metas de Ahorro Quincenales, Regla 50/40/10 y Gráficas.
+ * SISTEMA MONARCA / EMILY OS · MÓDULO DE FINANZAS PERSONALES
+ * Ingresos (Fijos vs Aleatorios), Gastos agrupados por Categorías Dinámicas,
+ * Deudas, Metas de Ahorro Quincenales, Regla 50/40/10 y Gráfica Ejecutiva.
  */
+
+var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
+    mesOffset: 0,
+    chartInstance: null,
+    tabIngresosActivo: 'fijos'
+};
+window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
 function cargarFinanzas() {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
+function cambiarTabIngresos(tab) {
+    ESTADO_FINANZAS.tabIngresosActivo = tab;
+    var btnF = document.getElementById('tab-ingresos-fijos');
+    var btnA = document.getElementById('tab-ingresos-aleatorios');
+    var visF = document.getElementById('vista-ingresos-fijos');
+    var visA = document.getElementById('vista-ingresos-aleatorios');
+
+    if (tab === 'fijos') {
+        if (btnF) btnF.classList.add('active');
+        if (btnA) btnA.classList.remove('active');
+        if (visF) visF.style.display = 'block';
+        if (visA) visA.style.display = 'none';
+    } else {
+        if (btnF) btnF.classList.remove('active');
+        if (btnA) btnA.classList.add('active');
+        if (visF) visF.style.display = 'none';
+        if (visA) visA.style.display = 'block';
+    }
+}
+
+function seleccionarTipoIngresoModal(tipo) {
+    var inTipo = document.getElementById('modal-ingreso-tipo');
+    if (inTipo) inTipo.value = tipo;
+
+    var btnF = document.getElementById('btn-modal-tipo-fija');
+    var btnA = document.getElementById('btn-modal-tipo-aleatoria');
+    var grpDia = document.getElementById('grupo-ingreso-dia');
+    var grpFecha = document.getElementById('grupo-ingreso-fecha');
+    var inF = document.getElementById('modal-ingreso-fuente');
+
+    if (tipo === 'fija') {
+        if (btnF) {
+            btnF.style.background = '#1e263c';
+            btnF.style.borderColor = '#38bdf8';
+            btnF.style.color = '#38bdf8';
+        }
+        if (btnA) {
+            btnA.style.background = 'transparent';
+            btnA.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            btnA.style.color = '#94a3b8';
+        }
+        if (grpDia) grpDia.style.display = 'block';
+        if (grpFecha) grpFecha.style.display = 'none';
+        if (inF) inF.placeholder = "Ej: Sueldo Principal, Renta, Nómina...";
+    } else {
+        if (btnF) {
+            btnF.style.background = 'transparent';
+            btnF.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            btnF.style.color = '#94a3b8';
+        }
+        if (btnA) {
+            btnA.style.background = '#1e263c';
+            btnA.style.borderColor = '#38bdf8';
+            btnA.style.color = '#38bdf8';
+        }
+        if (grpDia) grpDia.style.display = 'none';
+        if (grpFecha) grpFecha.style.display = 'block';
+        if (inF) inF.placeholder = "Ej: Bono Freelance, Venta Ocasional, Comisión...";
+
+        var inFecha = document.getElementById('modal-ingreso-fecha');
+        if (inFecha && !inFecha.value) {
+            var hoy = new Date();
+            var y = hoy.getFullYear();
+            var m = String(hoy.getMonth() + 1).padStart(2, '0');
+            var d = String(hoy.getDate()).padStart(2, '0');
+            inFecha.value = y + '-' + m + '-' + d;
+        }
+    }
+}
+
 function renderizarFinanzas(fin) {
     var f = fin || APP_STATE.finanzas || DEFAULT_STATE.finanzas;
+
+    // Asegurar estructura de categorías
+    if (!f.categoriasGastos || !Array.isArray(f.categoriasGastos) || f.categoriasGastos.length === 0) {
+        f.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
+    }
 
     // 1. Cabecera
     if (f.cabecera) {
@@ -20,69 +103,197 @@ function renderizarFinanzas(fin) {
         if (inObj) inObj.value = f.cabecera.objetivo || "";
     }
 
-    // 2. Ingresos
+    // 2. Ingresos (Separados en Fijos vs Aleatorios)
     var totIngresos = 0;
-    var tbodyIng = document.getElementById('tbody-ingresos') || document.getElementById('tbody-finanzas-ingresos');
-    if (tbodyIng) {
-        var htmlIng = '';
-        (f.ingresos || []).forEach(function(item) {
-            var m = Number(item.monto) || 0;
-            totIngresos += m;
-            htmlIng += `<tr>
-                <td><strong>${item.fuente}</strong></td>
-                <td style="text-align: center;">Día ${item.dia || 15}</td>
-                <td class="monto-positivo" style="text-align: right; font-weight: 700;">$${m.toFixed(2)}</td>
-                <td style="text-align: center;">
+    var totFijos = 0;
+    var totAleatorios = 0;
+    var countFijos = 0;
+    var countAleatorios = 0;
+
+    var htmlFijos = '';
+    var htmlAleatorios = '';
+
+    (f.ingresos || []).forEach(function(item) {
+        var m = Number(item.monto) || 0;
+        totIngresos += m;
+
+        var esAleatoria = item.tipo === 'aleatoria';
+        if (esAleatoria) {
+            totAleatorios += m;
+            countAleatorios++;
+            var fechaStr = item.fecha || 'Fecha no esp.';
+            htmlAleatorios += `
+            <div class="finanzas-tx-item">
+                <div class="finanzas-tx-main">
+                    <div class="finanzas-tx-icon" style="color: #38bdf8;">⚡</div>
+                    <div class="finanzas-tx-details">
+                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-meta">
+                            <span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                                ⚡ Variable · ${fechaStr}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="finanzas-tx-right">
+                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
-                </td>
-            </tr>`;
-        });
-        if (!f.ingresos || f.ingresos.length === 0) {
-            htmlIng = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 18px;">Sin ingresos registrados. Agrega una nueva entrada con el botón superior.</td></tr>';
+                </div>
+            </div>`;
+        } else {
+            totFijos += m;
+            countFijos++;
+            var diaNum = item.dia || 15;
+            htmlFijos += `
+            <div class="finanzas-tx-item">
+                <div class="finanzas-tx-main">
+                    <div class="finanzas-tx-icon" style="color: #34d399;">📅</div>
+                    <div class="finanzas-tx-details">
+                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-meta">
+                            <span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                📅 Cobro Día ${diaNum} de cada mes
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="finanzas-tx-right">
+                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
+                </div>
+            </div>`;
         }
-        tbodyIng.innerHTML = htmlIng;
+    });
+
+    if (countFijos === 0) {
+        htmlFijos = '<div class="finanzas-empty-hint">Sin entradas fijas programadas. Agrega tu sueldo o ingresos fijos con el botón superior.</div>';
+    }
+    if (countAleatorios === 0) {
+        htmlAleatorios = '<div class="finanzas-empty-hint">Sin entradas aleatorias o variables registradas en este mes.</div>';
     }
 
-    // Actualizar etiquetas de Total Ingresos
+    var elContFijos = document.getElementById('lista-ingresos-fijos');
+    if (elContFijos) elContFijos.innerHTML = htmlFijos;
+
+    var elContAleatorios = document.getElementById('lista-ingresos-aleatorios');
+    if (elContAleatorios) elContAleatorios.innerHTML = htmlAleatorios;
+
+    // Badges y Subtotales de Ingresos
+    var bCountF = document.getElementById('badge-count-fijos');
+    if (bCountF) bCountF.innerText = countFijos;
+    var bCountA = document.getElementById('badge-count-aleatorios');
+    if (bCountA) bCountA.innerText = countAleatorios;
+
+    var subF = document.getElementById('subtotal-ingresos-fijos');
+    if (subF) subF.innerText = '$' + totFijos.toFixed(2);
+    var subA = document.getElementById('subtotal-ingresos-aleatorios');
+    if (subA) subA.innerText = '$' + totAleatorios.toFixed(2);
+
+    // Total General Ingresos
     var totalIngEl = document.getElementById('label-total-ingresos') || document.getElementById('total-ingresos-display');
     if (totalIngEl) totalIngEl.innerText = '$' + totIngresos.toFixed(2);
     var resIngEl = document.getElementById('resumen-total-ingresos');
     if (resIngEl) resIngEl.innerText = '$' + totIngresos.toFixed(2);
 
-    // 3. Gastos
+    // 3. Gastos (Agrupados y Ordenados por Categorías)
     var totGastos = 0;
     var gastosPorCategoria = {};
-    var tbodyGas = document.getElementById('tbody-gastos') || document.getElementById('tbody-finanzas-gastos');
-    if (tbodyGas) {
-        var htmlGas = '';
-        (f.gastos || []).forEach(function(item) {
-            var m = Number(item.monto) || 0;
-            totGastos += m;
-            gastosPorCategoria[item.categoria] = (gastosPorCategoria[item.categoria] || 0) + m;
+    var gastosAgrupados = {};
 
-            var catClass = 'cat-otros';
-            var catLower = (item.categoria || '').toLowerCase();
-            if (catLower.includes('vivienda')) catClass = 'cat-vivienda';
-            else if (catLower.includes('alimento') || catLower.includes('supermercado')) catClass = 'cat-alimentacion';
-            else if (catLower.includes('moto') || catLower.includes('transporte')) catClass = 'cat-moto';
-            else if (catLower.includes('servicio')) catClass = 'cat-servicios';
-            else if (catLower.includes('salud')) catClass = 'cat-salud';
-            else if (catLower.includes('entretenimiento')) catClass = 'cat-entretenimiento';
+    // Inicializar grupos con las categorías existentes para preservar orden
+    f.categoriasGastos.forEach(function(cat) {
+        gastosAgrupados[cat.nombre] = {
+            id: cat.id,
+            icono: cat.icono || "🏷️",
+            color: cat.color || "#64748b",
+            items: [],
+            subtotal: 0
+        };
+    });
 
-            htmlGas += `<tr>
-                <td><strong>${item.concepto}</strong></td>
-                <td><span class="badge-cat ${catClass}">${item.categoria}</span></td>
-                <td style="text-align: center;">Día ${item.dia || 5}</td>
-                <td class="monto-negativo" style="text-align: right; font-weight: 700;">-$${m.toFixed(2)}</td>
-                <td style="text-align: center;">
-                    <button class="btn-delete-row" title="Eliminar gasto" onclick="eliminarRegistroFinanzasUI('${item.id}', 'gasto')">✕</button>
-                </td>
-            </tr>`;
-        });
-        if (!f.gastos || f.gastos.length === 0) {
-            htmlGas = '<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding: 18px;">Sin gastos registrados. Agrega un nuevo gasto con el botón superior.</td></tr>';
+    (f.gastos || []).forEach(function(item) {
+        var m = Number(item.monto) || 0;
+        totGastos += m;
+        var catNombre = item.categoria || "Otros";
+
+        gastosPorCategoria[catNombre] = (gastosPorCategoria[catNombre] || 0) + m;
+
+        if (!gastosAgrupados[catNombre]) {
+            gastosAgrupados[catNombre] = {
+                id: "CAT-CUSTOM-" + catNombre.replace(/\s+/g, '-'),
+                icono: "🏷️",
+                color: "#64748b",
+                items: [],
+                subtotal: 0
+            };
         }
-        tbodyGas.innerHTML = htmlGas;
+
+        gastosAgrupados[catNombre].items.push(item);
+        gastosAgrupados[catNombre].subtotal += m;
+    });
+
+    var contGastosCat = document.getElementById('contenedor-gastos-categorias');
+    if (contGastosCat) {
+        var htmlGrupos = '';
+        var categoriasConGastos = 0;
+
+        Object.keys(gastosAgrupados).forEach(function(catNombre) {
+            var grupo = gastosAgrupados[catNombre];
+            if (!grupo.items || grupo.items.length === 0) return; // Solo mostrar categorías que tengan gastos para máxima limpieza
+
+            categoriasConGastos++;
+            var subMonto = grupo.subtotal;
+            var numItems = grupo.items.length;
+
+            htmlGrupos += `
+            <div class="categoria-gastos-group">
+                <div class="categoria-gastos-header">
+                    <div class="categoria-gastos-title">
+                        <span style="font-size: 18px;">${grupo.icono}</span>
+                        <span>${catNombre}</span>
+                        <span class="badge-cat" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            ${numItems} ${numItems === 1 ? 'salida' : 'salidas'}
+                        </span>
+                    </div>
+                    <div class="categoria-gastos-subtotal">-$${subMonto.toFixed(2)}</div>
+                </div>
+                <div class="finanzas-tx-list">`;
+
+            grupo.items.forEach(function(gasto) {
+                var gm = Number(gasto.monto) || 0;
+                var gDia = gasto.dia || 5;
+                htmlGrupos += `
+                    <div class="finanzas-tx-item" style="background: rgba(255, 255, 255, 0.02); margin-bottom: 6px;">
+                        <div class="finanzas-tx-main">
+                            <div class="finanzas-tx-details">
+                                <div class="finanzas-tx-title">${gasto.concepto}</div>
+                                <div class="finanzas-tx-meta">
+                                    <span>📅 Pago programado: Día ${gDia}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="finanzas-tx-right">
+                            <div class="finanzas-tx-monto monto-negativo">-$${gm.toFixed(2)}</div>
+                            <button class="btn-delete-row" title="Eliminar gasto" onclick="eliminarRegistroFinanzasUI('${gasto.id}', 'gasto')">✕</button>
+                        </div>
+                    </div>`;
+            });
+
+            htmlGrupos += `
+                </div>
+            </div>`;
+        });
+
+        if (categoriasConGastos === 0) {
+            htmlGrupos = `
+            <div class="finanzas-empty-hint">
+                <div style="font-size: 24px; margin-bottom: 6px;">💳</div>
+                <div>Sin gastos registrados este mes.</div>
+                <div style="font-size: 11.5px; margin-top: 4px; color: #64748b;">Usa el botón "+ Registrar Gasto" para clasificar tus salidas por categoría.</div>
+            </div>`;
+        }
+
+        contGastosCat.innerHTML = htmlGrupos;
     }
 
     // Actualizar etiquetas de Total Gastos
@@ -105,25 +316,33 @@ function renderizarFinanzas(fin) {
 
     // 5. Deudas
     var totDeudas = 0;
-    var tbodyDeu = document.getElementById('tbody-deudas') || document.getElementById('tbody-finanzas-deudas');
-    if (tbodyDeu) {
+    var contDeudas = document.getElementById('lista-deudas-tx');
+    if (contDeudas) {
         var htmlDeu = '';
         (f.deudas || []).forEach(function(item) {
             var m = Number(item.montoTotal) || 0;
             totDeudas += m;
-            htmlDeu += `<tr>
-                <td><strong>${item.nombre}</strong></td>
-                <td style="text-align: center;">Día ${item.dia || 20}</td>
-                <td class="monto-deuda" style="text-align: right; font-weight: 700;">$${m.toFixed(2)}</td>
-                <td style="text-align: center;">
+            htmlDeu += `
+            <div class="finanzas-tx-item">
+                <div class="finanzas-tx-main">
+                    <div class="finanzas-tx-icon" style="color: #fbbf24;">🛡️</div>
+                    <div class="finanzas-tx-details">
+                        <div class="finanzas-tx-title">${item.nombre}</div>
+                        <div class="finanzas-tx-meta">
+                            <span>📅 Día de pago: ${item.dia || 20}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="finanzas-tx-right">
+                    <div class="finanzas-tx-monto monto-deuda">$${m.toFixed(2)}</div>
                     <button class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI('${item.id}', 'deuda')">✕</button>
-                </td>
-            </tr>`;
+                </div>
+            </div>`;
         });
         if (!f.deudas || f.deudas.length === 0) {
-            htmlDeu = '<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 18px;">No tienes deudas activas registradas.</td></tr>';
+            htmlDeu = '<div class="finanzas-empty-hint">No tienes deudas activas registradas. ¡Excelente!</div>';
         }
-        tbodyDeu.innerHTML = htmlDeu;
+        contDeudas.innerHTML = htmlDeu;
     }
 
     var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
@@ -136,11 +355,26 @@ function renderizarFinanzas(fin) {
     var resFlujoEl = document.getElementById('resumen-flujo-neto');
     if (resFlujoEl) {
         resFlujoEl.innerText = (flujoNeto >= 0 ? '+$' : '-$') + Math.abs(flujoNeto).toFixed(2);
-        resFlujoEl.style.color = flujoNeto >= 0 ? '#10b981' : '#ef4444';
+        resFlujoEl.style.color = flujoNeto >= 0 ? '#34d399' : '#f87171';
     }
     var resAhorroEl = document.getElementById('resumen-total-ahorro-inversion');
     if (resAhorroEl) {
         resAhorroEl.innerText = '$' + (meta40 + meta10).toFixed(2);
+    }
+
+    var badgeEstado = document.getElementById('badge-balance-estado');
+    if (badgeEstado) {
+        if (flujoNeto >= 0) {
+            badgeEstado.innerText = "FLUJO SALUDABLE";
+            badgeEstado.style.background = "rgba(16, 185, 129, 0.15)";
+            badgeEstado.style.color = "#34d399";
+            badgeEstado.style.borderColor = "rgba(16, 185, 129, 0.3)";
+        } else {
+            badgeEstado.innerText = "DÉFICIT FINANCIERO";
+            badgeEstado.style.background = "rgba(239, 68, 68, 0.15)";
+            badgeEstado.style.color = "#f87171";
+            badgeEstado.style.borderColor = "rgba(239, 68, 68, 0.3)";
+        }
     }
 
     // 6. Metas Quincenales
@@ -179,51 +413,82 @@ function renderizarFinanzas(fin) {
             </div>`;
         });
         if (!f.metas || f.metas.length === 0) {
-            htmlMetas = '<p style="color:#6b7280; text-align:center; padding:20px; grid-column:1/-1;">No hay metas de ahorro registradas.</p>';
+            htmlMetas = '<div class="finanzas-empty-hint" style="grid-column: 1/-1;">No hay metas de ahorro registradas. Agrega una nueva meta con el botón superior.</div>';
         }
         gridMetas.innerHTML = htmlMetas;
     }
 
     // 7. Gráfico de Distribución Financiera
     renderizarGraficoFinanzas(gastosPorCategoria, totIngresos, totGastos);
+
+    // Actualizar selector dinámico de categorías para el modal de gastos
+    poblarSelectCategoriasGastos();
 }
+
 function renderizarGraficoFinanzas(gastosPorCat, totIng, totGas) {
-    var ctx = document.getElementById('chart-finanzas-resumen');
+    var ctx = document.getElementById('graficoFinanzas') || document.getElementById('chart-finanzas-resumen');
     if (!ctx) return;
 
     if (ESTADO_FINANZAS.chartInstance) {
         ESTADO_FINANZAS.chartInstance.destroy();
+        ESTADO_FINANZAS.chartInstance = null;
     }
 
     var labels = Object.keys(gastosPorCat);
     var dataValues = Object.values(gastosPorCat);
 
-    if (labels.length === 0) {
-        labels = ["Sin gastos aún"];
+    var tieneGastosReales = labels.length > 0 && totGas > 0;
+
+    if (!tieneGastosReales) {
+        labels = ["Sin gastos registrados"];
         dataValues = [1];
     }
 
+    var cyberPalette = [
+        '#6366f1', '#38bdf8', '#10b981', '#f59e0b',
+        '#ec4899', '#8b5cf6', '#f43f5e', '#06b6d4',
+        '#14b8a6', '#a855f7'
+    ];
+
     try {
+        if (typeof Chart === 'undefined') return;
+
         ESTADO_FINANZAS.chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
                     data: dataValues,
-                    backgroundColor: [
-                        '#111827', '#374151', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db', '#10b981', '#3b82f6'
-                    ],
+                    backgroundColor: tieneGastosReales ? cyberPalette : ['rgba(255, 255, 255, 0.08)'],
                     borderWidth: 2,
-                    borderColor: '#ffffff'
+                    borderColor: '#0f131d',
+                    hoverOffset: tieneGastosReales ? 6 : 0
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 11 } } }
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#94a3b8',
+                            boxWidth: 12,
+                            padding: 12,
+                            font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+                        }
+                    },
+                    tooltip: {
+                        enabled: tieneGastosReales,
+                        callbacks: {
+                            label: function(context) {
+                                var val = context.raw || 0;
+                                return ' ' + context.label + ': $' + Number(val).toFixed(2);
+                            }
+                        }
+                    }
                 },
-                cutout: '68%'
+                cutout: '72%'
             }
         });
     } catch (e) {
@@ -231,33 +496,185 @@ function renderizarGraficoFinanzas(gastosPorCat, totIng, totGas) {
     }
 }
 
-// Modales Financieros
-function abrirModalIngreso() {
-    var m = document.getElementById('modal-finanzas-ingreso') || document.getElementById('modal-finanza-ingreso');
-    if (m) m.style.display = 'flex';
+// ==========================================================================
+// GESTIÓN DINÁMICA DE CATEGORÍAS DE GASTOS
+// ==========================================================================
+
+function abrirModalCategoriasGastos() {
+    var m = document.getElementById('modal-gestion-categorias-gastos');
+    if (m) {
+        m.style.display = 'flex';
+        renderizarListaCategorias();
+    }
 }
+
+function cerrarModalCategoriasGastos() {
+    var m = document.getElementById('modal-gestion-categorias-gastos');
+    if (m) m.style.display = 'none';
+    poblarSelectCategoriasGastos();
+}
+
+function poblarSelectCategoriasGastos() {
+    var select = document.getElementById('modal-gasto-categoria');
+    if (!select) return;
+
+    var fin = APP_STATE.finanzas || DEFAULT_STATE.finanzas;
+    var cats = fin.categoriasGastos || DEFAULT_STATE.finanzas.categoriasGastos;
+
+    var actual = select.value;
+    var html = '';
+
+    cats.forEach(function(cat) {
+        var icon = cat.icono || "🏷️";
+        html += `<option value="${cat.nombre}">${icon} ${cat.nombre}</option>`;
+    });
+
+    select.innerHTML = html;
+    if (actual) select.value = actual;
+}
+
+function renderizarListaCategorias() {
+    var cont = document.getElementById('lista-categorias-activas');
+    if (!cont) return;
+
+    var fin = APP_STATE.finanzas || DEFAULT_STATE.finanzas;
+    var cats = fin.categoriasGastos || DEFAULT_STATE.finanzas.categoriasGastos;
+
+    var html = '';
+    cats.forEach(function(cat) {
+        var esDefault = ['CAT-VIVIENDA', 'CAT-ALIMENTACION', 'CAT-MOTO', 'CAT-SERVICIOS', 'CAT-SALUD', 'CAT-ENTRETENIMIENTO', 'CAT-INVERSION', 'CAT-OTROS'].includes(cat.id);
+        var icon = cat.icono || "🏷️";
+
+        html += `
+        <div class="category-manager-item">
+            <div class="category-manager-info">
+                <span style="font-size: 20px;">${icon}</span>
+                <span>${cat.nombre}</span>
+            </div>
+            <div>
+                ${!esDefault ? `
+                    <button class="btn-delete-row" title="Eliminar categoría" onclick="eliminarCategoriaGasto('${cat.id}')">✕</button>
+                ` : `
+                    <span style="font-size: 10.5px; color: #64748b; font-weight: 600;">Base</span>
+                `}
+            </div>
+        </div>`;
+    });
+
+    cont.innerHTML = html;
+}
+
+function guardarNuevaCategoriaGasto() {
+    var inNom = document.getElementById('nueva-cat-nombre');
+    var inIco = document.getElementById('nueva-cat-icono');
+
+    var nom = inNom ? inNom.value.trim() : "";
+    var ico = inIco ? inIco.value.trim() : "🏷️";
+
+    if (!nom) {
+        alert("Por favor escribe un nombre para la categoría.");
+        return;
+    }
+
+    if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
+    if (!APP_STATE.finanzas.categoriasGastos) {
+        APP_STATE.finanzas.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
+    }
+
+    // Verificar si ya existe una categoría con ese nombre
+    var existe = APP_STATE.finanzas.categoriasGastos.some(function(c) {
+        return c.nombre.toLowerCase() === nom.toLowerCase();
+    });
+
+    if (existe) {
+        alert("Ya existe una categoría con este nombre.");
+        return;
+    }
+
+    var nuevaCat = {
+        id: "CAT-" + Date.now(),
+        nombre: nom,
+        icono: ico || "🏷️",
+        color: "#6366f1"
+    };
+
+    APP_STATE.finanzas.categoriasGastos.push(nuevaCat);
+    MonarcaDB.save(APP_STATE);
+
+    if (inNom) inNom.value = "";
+    if (inIco) inIco.value = "🏷️";
+
+    renderizarListaCategorias();
+    poblarSelectCategoriasGastos();
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function eliminarCategoriaGasto(id) {
+    if (!confirm("¿Deseas eliminar esta categoría personalizada?")) return;
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.categoriasGastos) return;
+
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('finanzas_categoriasGastos', id);
+    }
+
+    APP_STATE.finanzas.categoriasGastos = APP_STATE.finanzas.categoriasGastos.filter(function(c) {
+        return c.id !== id;
+    });
+
+    MonarcaDB.save(APP_STATE);
+    renderizarListaCategorias();
+    poblarSelectCategoriasGastos();
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+// ==========================================================================
+// MODALES Y OPERACIONES FINANCIERAS
+// ==========================================================================
+
+function abrirModalIngreso(tipoPorDefecto) {
+    var m = document.getElementById('modal-finanzas-ingreso') || document.getElementById('modal-finanza-ingreso');
+    if (m) {
+        m.style.display = 'flex';
+        seleccionarTipoIngresoModal(tipoPorDefecto || 'fija');
+    }
+}
+
 function cerrarModalIngreso() {
     var m = document.getElementById('modal-finanzas-ingreso') || document.getElementById('modal-finanza-ingreso');
     if (m) m.style.display = 'none';
 }
+
 function confirmarAgregarIngreso() {
     var inF = document.getElementById('modal-ingreso-fuente');
     var inD = document.getElementById('modal-ingreso-dia');
+    var inFecha = document.getElementById('modal-ingreso-fecha');
     var inM = document.getElementById('modal-ingreso-monto');
+    var inTipo = document.getElementById('modal-ingreso-tipo');
+
+    var tipo = inTipo ? inTipo.value : 'fija';
     var f = inF ? inF.value.trim() : "";
-    var d = inD ? (Number(inD.value) || 15) : 15;
     var m = inM ? (Number(inM.value) || 0) : 0;
-    if (!f || m <= 0) { alert("Completa la fuente y un monto válido."); return; }
+    var d = inD ? (Number(inD.value) || 15) : 15;
+    var fecha = inFecha ? inFecha.value : "";
+
+    if (!f || m <= 0) {
+        alert("Completa la fuente/concepto y un monto válido.");
+        return;
+    }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
 
-    APP_STATE.finanzas.ingresos.push({
+    var nuevoIngreso = {
         id: "ING-" + Date.now(),
         fuente: f,
+        tipo: tipo,
         dia: d,
+        fecha: fecha,
         monto: m
-    });
+    };
+
+    APP_STATE.finanzas.ingresos.push(nuevoIngreso);
 
     if (inF) inF.value = "";
     if (inM) inM.value = "";
@@ -265,16 +682,24 @@ function confirmarAgregarIngreso() {
     MonarcaDB.save(APP_STATE);
     cerrarModalIngreso();
     renderizarFinanzas(APP_STATE.finanzas);
+
+    // Cambiar al tab correspondiente para ver el nuevo ingreso de inmediato
+    cambiarTabIngresos(tipo === 'aleatoria' ? 'aleatorios' : 'fijos');
 }
 
 function abrirModalGasto() {
     var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
-    if (m) m.style.display = 'flex';
+    if (m) {
+        m.style.display = 'flex';
+        poblarSelectCategoriasGastos();
+    }
 }
+
 function cerrarModalGasto() {
     var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
     if (m) m.style.display = 'none';
 }
+
 function confirmarAgregarGasto() {
     var inC = document.getElementById('modal-gasto-categoria') || document.getElementById('modal-gasto-cat');
     var inCp = document.getElementById('modal-gasto-fuente') || document.getElementById('modal-gasto-concepto');
@@ -286,7 +711,10 @@ function confirmarAgregarGasto() {
     var d = inD ? (Number(inD.value) || 5) : 5;
     var m = inM ? (Number(inM.value) || 0) : 0;
 
-    if (!cp || m <= 0) { alert("Completa el concepto del gasto y un monto válido."); return; }
+    if (!cp || m <= 0) {
+        alert("Completa el concepto del gasto y un monto válido.");
+        return;
+    }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
@@ -311,10 +739,12 @@ function abrirModalDeuda() {
     var m = document.getElementById('modal-finanzas-deuda') || document.getElementById('modal-finanza-deuda');
     if (m) m.style.display = 'flex';
 }
+
 function cerrarModalDeuda() {
     var m = document.getElementById('modal-finanzas-deuda') || document.getElementById('modal-finanza-deuda');
     if (m) m.style.display = 'none';
 }
+
 function confirmarAgregarDeuda() {
     var inN = document.getElementById('modal-deuda-nombre');
     var inD = document.getElementById('modal-deuda-dia');
@@ -324,7 +754,10 @@ function confirmarAgregarDeuda() {
     var d = inD ? (Number(inD.value) || 20) : 20;
     var m = inM ? (Number(inM.value) || 0) : 0;
 
-    if (!n || m <= 0) { alert("Completa el nombre y un monto válido."); return; }
+    if (!n || m <= 0) {
+        alert("Completa el nombre del acreedor y un monto válido.");
+        return;
+    }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
@@ -351,10 +784,12 @@ function abrirModalMeta() {
         actualizarCalculoCuotaMeta();
     }
 }
+
 function cerrarModalMeta() {
     var m = document.getElementById('modal-finanzas-meta') || document.getElementById('modal-finanza-meta');
     if (m) m.style.display = 'none';
 }
+
 function actualizarCalculoCuotaMeta() {
     var inT = document.getElementById('modal-meta-total');
     var inA = document.getElementById('modal-meta-ahorrado');
@@ -375,6 +810,7 @@ function actualizarCalculoCuotaMeta() {
     if (elC) elC.innerText = cuotas + ' cuotas (quince y último)';
     if (elV) elV.innerText = '$' + cuotaVal.toFixed(2);
 }
+
 function confirmarAgregarMeta() {
     var inN = document.getElementById('modal-meta-nombre');
     var inT = document.getElementById('modal-meta-total');
@@ -386,7 +822,10 @@ function confirmarAgregarMeta() {
     var a = inA ? (Number(inA.value) || 0) : 0;
     var m = inM ? (Number(inM.value) || 1) : 1;
 
-    if (!n || t <= 0) { alert("Completa el nombre y una meta total válida."); return; }
+    if (!n || t <= 0) {
+        alert("Completa el nombre y una meta total válida.");
+        return;
+    }
 
     var falt = Math.max(0, t - a);
     var cuotas = m * 2;
@@ -452,9 +891,14 @@ function eliminarRegistroFinanzasUI(id, tipo) {
 }
 
 function alCambiarDatoGeneralFinanzas() {
-    var n = document.getElementById('finanzas-input-nombre').value;
-    var m = document.getElementById('finanzas-input-mes').value;
-    var o = document.getElementById('finanzas-input-objetivo').value;
+    var inNom = document.getElementById('finanzas-input-nombre');
+    var inMes = document.getElementById('finanzas-input-mes');
+    var inObj = document.getElementById('finanzas-input-objetivo');
+
+    var n = inNom ? inNom.value : "Gabriel Arias";
+    var m = inMes ? inMes.value : "";
+    var o = inObj ? inObj.value : "";
+
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     APP_STATE.finanzas.cabecera = { nombre: n, mes: m, objetivo: o };
     MonarcaDB.save(APP_STATE);
@@ -474,7 +918,3 @@ function cambiarMesFinanzas(delta) {
 function inicializarHojaFinanzasDesdeUI() {
     MonarcaDB.exportBackup();
 }
-
-// ==========================================================================
-// 11. BANCO DE IDEAS MONARCA
-// ==========================================================================

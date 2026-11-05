@@ -241,7 +241,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
         'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
-        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_deudas', 'finanzas_metas'
+        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas'
     ];
 
     allKeys.forEach(function(k) {
@@ -301,10 +301,14 @@ function fusionarEstadosInteligente(local, remoto) {
     }
 
     // 6. FINANZAS (Con protección de tombstones por cada categoría)
-    if (!fusion.finanzas) fusion.finanzas = { ingresos: [], gastos: [], deudas: [], metas: [] };
+    if (!fusion.finanzas) fusion.finanzas = { ingresos: [], gastos: [], categoriasGastos: [], deudas: [], metas: [] };
     if (local.finanzas) {
         fusion.finanzas.ingresos = fusionarColeccionPorId(local.finanzas.ingresos, fusion.finanzas.ingresos, tombstones.finanzas_ingresos);
         fusion.finanzas.gastos = fusionarColeccionPorId(local.finanzas.gastos, fusion.finanzas.gastos, tombstones.finanzas_gastos);
+        if (Array.isArray(local.finanzas.categoriasGastos) || Array.isArray(fusion.finanzas.categoriasGastos)) {
+            var catMerged = fusionarColeccionPorId(local.finanzas.categoriasGastos || [], fusion.finanzas.categoriasGastos || [], tombstones.finanzas_categoriasGastos);
+            fusion.finanzas.categoriasGastos = deduplicarColeccionPorNombre(catMerged, tombstones.finanzas_categoriasGastos, 'nombre');
+        }
         fusion.finanzas.deudas = fusionarColeccionPorId(local.finanzas.deudas, fusion.finanzas.deudas, tombstones.finanzas_deudas);
         fusion.finanzas.metas = fusionarColeccionPorId(local.finanzas.metas, fusion.finanzas.metas, tombstones.finanzas_metas);
     }
