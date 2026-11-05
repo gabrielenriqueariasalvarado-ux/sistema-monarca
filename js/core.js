@@ -99,6 +99,19 @@ const DEFAULT_STATE = {
         { id: "LAB-TRAINER", nombre: "Personal Trainer", icono: "🏋️‍♂️", descripcion: "Entrenamientos personalizados, asesoría física y técnica deportiva.", color: "#10b981" }
     ],
     registrosLabores: [],
+    subappBoom: {
+        config: {
+            sueldoQuincena1: 0,
+            sueldoQuincena2: 0,
+            bonoDia3: 0,
+            horarioInicio: "08:00",
+            horarioFin: "16:30",
+            breakMinutos: 30,
+            horasJornadaNormal: 8.0,
+            horasJornadaSabado: 8.0
+        },
+        planificaciones: {}
+    },
     agendaPersonas: [],
     ubicacionesAgenda: [
         "💈 Barbería",
@@ -626,6 +639,9 @@ function cambiarVista(vistaId, noPushState) {
             break;
         case 'vista-labores':
             if (typeof cargarLabores === 'function') cargarLabores();
+            break;
+        case 'vista-subapp-boom':
+            if (typeof cargarSubAppBoom === 'function') cargarSubAppBoom();
             break;
         case 'vista-personas':
             if (typeof cargarAgendaPersonas === 'function') cargarAgendaPersonas();

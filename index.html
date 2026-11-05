@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.6">
+    <link rel="stylesheet" href="style.css?v=8.7">
 </head>
 <body>
 
@@ -2270,6 +2270,44 @@
         </div>
     </div>
 
+    <!-- VISTA: SUB-APP BOOM SOLUTIONS (TRABAJO PRINCIPAL & HORARIOS) -->
+    <div id="vista-subapp-boom" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-labores')">
+            <span style="font-size: 16px;">◀</span> VOLVER A LABORES
+        </button>
+
+        <div class="card" style="margin-bottom: 20px; border-top: 3px solid #6366f1;">
+            <!-- CABECERA DE SUB-APP -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); display: flex; align-items: center; justify-content: center; font-size: 26px;">
+                        🚀
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Boom Solutions</h2>
+                            <span class="subapp-badge" style="color: #818cf8; border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.1);">TRABAJO PRINCIPAL</span>
+                        </div>
+                        <span style="font-size: 12px; color: #94a3b8;">Horario: <strong>8:00 AM – 4:30 PM</strong> (8.5h / 30m break = <strong>8.0h netas</strong>) · 2 Sábados libres/mes</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="btn-system" onclick="abrirModalConfigBoom()" style="font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>⚙️</span> Sueldos & Parámetros
+                    </button>
+                    <button type="button" class="btn-system" onclick="abrirModalRegistroJornada('LAB-BOOM')" style="font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>⚡</span> Registrar Sesión Hoy
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR REACTIVO DINÁMICO DE LA SUB-APP BOOM -->
+            <div id="subapp-boom-content">
+                <!-- Se inyecta dinámicamente con selector de mes, métricas, sueldos y calendario de planificación -->
+            </div>
+        </div>
+    </div>
+
     <!-- VISTA: AGENDA DE CONVERSACIONES & UBICACIONES -->
     <div id="vista-personas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
@@ -3067,6 +3105,56 @@
         </div>
     </div>
 
+    <!-- MODAL: CONFIGURAR SUELDO, BONO Y HORARIOS (BOOM SOLUTIONS) -->
+    <div id="modal-config-sueldo-boom" class="modal-overlay" style="display: none;" onclick="if(event.target === this) cerrarModalConfigBoom()">
+        <div class="modal-system-window" style="max-width: 480px; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column;">
+            <div class="modal-system-header" style="flex-shrink: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💰</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">SUELDO Y HORARIO · BOOM SOLUTIONS</span>
+                </div>
+                <button onclick="cerrarModalConfigBoom()" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-system-body" style="padding: 20px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
+                <p style="color: #94a3b8; font-size: 12.5px; margin: 0 0 16px 0;">
+                    Define tu remuneración mensual proporcionada (quincenas 15 y 30 + bono del 3) y los parámetros de tu jornada.
+                </p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Sueldo Quincena 1 (Día 15):</label>
+                        <input type="number" id="input-boom-sueldo-q1" class="finanzas-input-clean" min="0" step="1" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Sueldo Quincena 2 (Día 30):</label>
+                        <input type="number" id="input-boom-sueldo-q2" class="finanzas-input-clean" min="0" step="1" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 700;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Bono Mensual (Día 3 de cada mes):</label>
+                    <input type="number" id="input-boom-bono-dia3" class="finanzas-input-clean" min="0" step="1" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f59e0b; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 700;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Horas Lunes a Viernes:</label>
+                        <input type="number" id="input-boom-horas-normal" class="finanzas-input-clean" value="8.0" step="0.5" min="1" max="12" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Horas Sábado Laborable:</label>
+                        <input type="number" id="input-boom-horas-sabado" class="finanzas-input-clean" value="8.0" step="0.5" min="1" max="12" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalConfigBoom()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarConfigBoom()">💾 Guardar Ajustes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: AGREGAR CONTACTO Y TEMAS -->
     <div id="modal-nueva-persona" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
@@ -3665,25 +3753,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.6"></script>
-    <script src="js/perfil.js?v=8.6"></script>
-    <script src="js/progresion.js?v=8.6"></script>
-    <script src="js/estado-personal.js?v=8.6"></script>
-    <script src="js/finanzas.js?v=8.6"></script>
-    <script src="js/ideas.js?v=8.6"></script>
-    <script src="js/dinamicas.js?v=8.6"></script>
-    <script src="js/calendario.js?v=8.6"></script>
-    <script src="js/inventario.js?v=8.6"></script>
-    <script src="js/jarvis-voz.js?v=8.6"></script>
+    <script src="js/core.js?v=8.7"></script>
+    <script src="js/perfil.js?v=8.7"></script>
+    <script src="js/progresion.js?v=8.7"></script>
+    <script src="js/estado-personal.js?v=8.7"></script>
+    <script src="js/finanzas.js?v=8.7"></script>
+    <script src="js/ideas.js?v=8.7"></script>
+    <script src="js/dinamicas.js?v=8.7"></script>
+    <script src="js/calendario.js?v=8.7"></script>
+    <script src="js/inventario.js?v=8.7"></script>
+    <script src="js/jarvis-voz.js?v=8.7"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.6"></script>
+    <script type="module" src="js/firebase-config.js?v=8.7"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.6')
+                navigator.serviceWorker.register('sw.js?v=8.7')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

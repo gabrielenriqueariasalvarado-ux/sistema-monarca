@@ -6468,4 +6468,240 @@ body.modal-open {
     color: #f8fafc;
 }
 
+/* ==========================================================================
+   SUB-APP BOOM SOLUTIONS: ESTILOS DE PLANIFICACIÓN, PAGOS Y CALENDARIO
+   ========================================================================== */
+
+.boom-pay-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.boom-pay-card {
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.boom-pay-card:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+.boom-pay-card.cobrado {
+    border-left: 4px solid #10b981;
+}
+
+.boom-pay-card.pendiente {
+    border-left: 4px solid #f59e0b;
+}
+
+.boom-pay-badge {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.boom-pay-badge.cobrado {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.boom-pay-badge.pendiente {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.boom-calendar-container {
+    background: #0f1422;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 22px;
+}
+
+.boom-weekdays-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.boom-weekday-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 0;
+}
+
+.boom-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.boom-day-cell {
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    min-height: 72px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    position: relative;
+}
+
+.boom-day-cell:hover {
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateY(-2px);
+}
+
+.boom-day-cell.day-fuera-mes {
+    opacity: 0.22;
+    pointer-events: none;
+    background: #0b0e15;
+}
+
+.boom-day-cell.day-laborable {
+    border-left: 3px solid #6366f1;
+}
+
+.boom-day-cell.day-sabado-libre {
+    border-left: 3px solid #10b981;
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.boom-day-cell.day-sabado-trabajo {
+    border-left: 3px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.04);
+}
+
+.boom-day-cell.day-domingo {
+    border-left: 3px solid #475569;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.boom-day-cell.day-cumplido {
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.boom-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.boom-day-number {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.boom-day-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.badge-sab-libre {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-sab-trabajo {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-dom-libre {
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+}
+
+.badge-dia-labor {
+    background: rgba(99, 102, 241, 0.18);
+    color: #a5b4fc;
+}
+
+.badge-cumplido-check {
+    color: #10b981;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.boom-day-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.boom-sabados-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.boom-sabados-pill.ok {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.boom-sabados-pill.alerta {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+@media (max-width: 640px) {
+    .boom-days-grid {
+        gap: 4px;
+    }
+    .boom-day-cell {
+        min-height: 60px;
+        padding: 5px;
+    }
+    .boom-day-number {
+        font-size: 12px;
+    }
+    .boom-day-badge {
+        font-size: 8px;
+        padding: 1px 3px;
+    }
+    .boom-day-footer {
+        font-size: 9px;
+    }
+}
+
 

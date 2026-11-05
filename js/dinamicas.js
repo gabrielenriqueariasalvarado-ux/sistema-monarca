@@ -298,9 +298,16 @@ function renderizarLabores() {
                     </div>
                 </div>
 
-                <button type="button" class="btn-system" onclick="abrirModalRegistroJornada('${lab.id}')" style="width: 100%; justify-content: center; padding: 9px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
-                    ⚡ Registrar Sesión en ${lab.nombre}
-                </button>
+                <div style="display: flex; gap: 8px; flex-direction: column;">
+                    ${lab.id === 'LAB-BOOM' ? `
+                    <button type="button" class="btn-system" onclick="cambiarVista('vista-subapp-boom')" style="width: 100%; justify-content: center; padding: 10px; font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);">
+                        🚀 Entrar a Sub-App Boom Solutions
+                    </button>
+                    ` : ''}
+                    <button type="button" class="btn-system" onclick="abrirModalRegistroJornada('${lab.id}')" style="width: 100%; justify-content: center; padding: 8px; font-size: 11.5px; font-weight: 700; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                        ⚡ Registrar Sesión en ${lab.nombre}
+                    </button>
+                </div>
             </div>`;
         });
 
@@ -624,7 +631,604 @@ function eliminarRegistroLabor(id) {
 
     MonarcaDB.save(APP_STATE);
     renderizarLabores();
-    if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+}
+
+
+// ==========================================================================
+// 1.1 SUB-APP OFICIAL: BOOM SOLUTIONS (PLANIFICACIÓN, HORARIO Y SUELDO)
+// ==========================================================================
+
+var MES_BOOM_ACTUAL = null;
+
+function asegurarEstructuraBoom() {
+    if (!APP_STATE) return;
+    if (!APP_STATE.subappBoom || typeof APP_STATE.subappBoom !== 'object') {
+        APP_STATE.subappBoom = {
+            config: {
+                sueldoQuincena1: 0,
+                sueldoQuincena2: 0,
+                bonoDia3: 0,
+                horarioInicio: "08:00",
+                horarioFin: "16:30",
+                breakMinutos: 30,
+                horasJornadaNormal: 8.0,
+                horasJornadaSabado: 8.0
+            },
+            planificaciones: {}
+        };
+    }
+    if (!APP_STATE.subappBoom.config) {
+        APP_STATE.subappBoom.config = {
+            sueldoQuincena1: 0,
+            sueldoQuincena2: 0,
+            bonoDia3: 0,
+            horarioInicio: "08:00",
+            horarioFin: "16:30",
+            breakMinutos: 30,
+            horasJornadaNormal: 8.0,
+            horasJornadaSabado: 8.0
+        };
+    }
+    if (!APP_STATE.subappBoom.planificaciones) {
+        APP_STATE.subappBoom.planificaciones = {};
+    }
+
+    if (!MES_BOOM_ACTUAL) {
+        var hoy = new Date();
+        var y = hoy.getFullYear();
+        var m = String(hoy.getMonth() + 1).padStart(2, '0');
+        MES_BOOM_ACTUAL = y + '-' + m;
+    }
+
+    generarPlanificacionMesBoomSiNoExiste(MES_BOOM_ACTUAL);
+}
+
+function generarPlanificacionMesBoomSiNoExiste(mesClave) {
+    if (!APP_STATE.subappBoom.planificaciones[mesClave]) {
+        APP_STATE.subappBoom.planificaciones[mesClave] = {
+            dias: {},
+            pagosCobrados: { quincena1: false, quincena2: false, bono3: false }
+        };
+    }
+
+    var planMes = APP_STATE.subappBoom.planificaciones[mesClave];
+    if (!planMes.dias) planMes.dias = {};
+    if (!planMes.pagosCobrados) planMes.pagosCobrados = { quincena1: false, quincena2: false, bono3: false };
+
+    var partes = mesClave.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+
+    var diasEnMes = new Date(anio, mes, 0).getDate();
+    var sabadosDelMes = [];
+
+    for (var d = 1; d <= diasEnMes; d++) {
+        var dt = new Date(anio, mes - 1, d);
+        var diaSemana = dt.getDay();
+        if (diaSemana === 6) {
+            sabadosDelMes.push(d);
+        }
+    }
+
+    var sabadosLibresDefault = [];
+    if (sabadosDelMes.length >= 4) {
+        sabadosLibresDefault = [sabadosDelMes[1], sabadosDelMes[3]];
+    } else if (sabadosDelMes.length >= 2) {
+        sabadosLibresDefault = [sabadosDelMes[0], sabadosDelMes[1]];
+    } else {
+        sabadosLibresDefault = sabadosDelMes.slice(0, 2);
+    }
+
+    var config = APP_STATE.subappBoom.config;
+    var horasNormal = Number(config.horasJornadaNormal) || 8.0;
+    var horasSabado = Number(config.horasJornadaSabado) || 8.0;
+
+    for (var diaNum = 1; diaNum <= diasEnMes; diaNum++) {
+        var diaStr = mesClave + '-' + String(diaNum).padStart(2, '0');
+        if (!planMes.dias[diaStr]) {
+            var dtObj = new Date(anio, mes - 1, diaNum);
+            var ds = dtObj.getDay();
+
+            if (ds === 0) {
+                planMes.dias[diaStr] = {
+                    tipo: 'domingo_libre',
+                    horas: 0,
+                    cumplido: false
+                };
+            } else if (ds === 6) {
+                var esLibre = sabadosLibresDefault.includes(diaNum);
+                planMes.dias[diaStr] = {
+                    tipo: esLibre ? 'sabado_libre' : 'sabado_trabajo',
+                    horas: esLibre ? 0 : horasSabado,
+                    cumplido: false
+                };
+            } else {
+                planMes.dias[diaStr] = {
+                    tipo: 'laborable',
+                    horas: horasNormal,
+                    cumplido: false
+                };
+            }
+        }
+    }
+}
+
+function cambiarMesBoom(delta) {
+    asegurarEstructuraBoom();
+    var partes = MES_BOOM_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+
+    mes += delta;
+    if (mes > 12) {
+        mes = 1;
+        anio++;
+    } else if (mes < 1) {
+        mes = 12;
+        anio--;
+    }
+    MES_BOOM_ACTUAL = anio + '-' + String(mes).padStart(2, '0');
+    generarPlanificacionMesBoomSiNoExiste(MES_BOOM_ACTUAL);
+    renderizarSubAppBoom();
+}
+
+function cargarSubAppBoom() {
+    asegurarEstructuraBoom();
+    renderizarSubAppBoom();
+}
+
+function renderizarSubAppBoom() {
+    asegurarEstructuraBoom();
+    var cont = document.getElementById('subapp-boom-content');
+    if (!cont) return;
+
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    var config = APP_STATE.subappBoom.config;
+
+    var partes = MES_BOOM_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+    var diasEnMes = new Date(anio, mes, 0).getDate();
+
+    var totalSabadosLibres = 0;
+    var totalSabadosTrabajados = 0;
+    var totalHorasPlanificadas = 0;
+    var totalHorasCumplidas = 0;
+    var totalDiasLaborales = 0;
+    var totalDiasCumplidos = 0;
+
+    for (var d = 1; d <= diasEnMes; d++) {
+        var fechaStr = MES_BOOM_ACTUAL + '-' + String(d).padStart(2, '0');
+        var info = planMes.dias[fechaStr] || { tipo: 'laborable', horas: 8.0, cumplido: false };
+
+        if (info.tipo === 'sabado_libre') {
+            totalSabadosLibres++;
+        } else if (info.tipo === 'sabado_trabajo') {
+            totalSabadosTrabajados++;
+            totalDiasLaborales++;
+            totalHorasPlanificadas += (Number(info.horas) || 0);
+            if (info.cumplido) {
+                totalDiasCumplidos++;
+                totalHorasCumplidas += (Number(info.horas) || 0);
+            }
+        } else if (info.tipo === 'laborable') {
+            totalDiasLaborales++;
+            totalHorasPlanificadas += (Number(info.horas) || 0);
+            if (info.cumplido) {
+                totalDiasCumplidos++;
+                totalHorasCumplidas += (Number(info.horas) || 0);
+            }
+        }
+    }
+
+    var sueldoQ1 = Number(config.sueldoQuincena1) || 0;
+    var sueldoQ2 = Number(config.sueldoQuincena2) || 0;
+    var bono3 = Number(config.bonoDia3) || 0;
+    var totalRecaudadoMes = sueldoQ1 + sueldoQ2 + bono3;
+
+    var cobradoQ1 = !!(planMes.pagosCobrados && planMes.pagosCobrados.quincena1);
+    var cobradoQ2 = !!(planMes.pagosCobrados && planMes.pagosCobrados.quincena2);
+    var cobradoB3 = !!(planMes.pagosCobrados && planMes.pagosCobrados.bono3);
+
+    var totalDineroCobrado = (cobradoQ1 ? sueldoQ1 : 0) + (cobradoQ2 ? sueldoQ2 : 0) + (cobradoB3 ? bono3 : 0);
+    var totalDineroPendiente = totalRecaudadoMes - totalDineroCobrado;
+
+    var pctHoras = totalHorasPlanificadas > 0 ? Math.round((totalHorasCumplidas / totalHorasPlanificadas) * 100) : 0;
+    var sabadosOk = (totalSabadosLibres === 2);
+
+    var html = `
+    <!-- BARRA SELECTORA DE MES & ALERTA SÁBADOS -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+        <div class="mes-selector-pill">
+            <button type="button" class="btn-mes-nav" onclick="cambiarMesBoom(-1)" title="Mes Anterior">◀</button>
+            <span>📅 ${formatearNombreMesLabor(MES_BOOM_ACTUAL)}</span>
+            <button type="button" class="btn-mes-nav" onclick="cambiarMesBoom(1)" title="Mes Siguiente">▶</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="boom-sabados-pill ${sabadosOk ? 'ok' : 'alerta'}">
+                <span>${sabadosOk ? '✅' : '⚠️'}</span>
+                <span>Sábados Libres: <strong>${totalSabadosLibres} / 2</strong></span>
+            </div>
+            ${!sabadosOk ? `<span style="font-size: 11px; color: #fbbf24; font-weight: 700;">(Debes definir exactamente 2 sábados libres)</span>` : ''}
+        </div>
+    </div>
+
+    <!-- TARJETAS KPIS DE LA SUB-APP BOOM -->
+    <div class="operatividad-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">Recaudación Mensual</span>
+                <span style="font-size: 16px;">💵</span>
+            </div>
+            <div class="metric-num" style="color: #10b981; font-size: 24px; font-weight: 800;">$${totalRecaudadoMes.toFixed(2)}</div>
+            <div class="metric-title" style="color: #64748b; font-size: 11px; margin-top: 4px;">
+                Cobrado: <strong style="color: #34d399;">$${totalDineroCobrado.toFixed(0)}</strong> · Pendiente: <strong style="color: #fbbf24;">$${totalDineroPendiente.toFixed(0)}</strong>
+            </div>
+        </div>
+
+        <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px;">Tiempo al Mes</span>
+                <span style="font-size: 16px;">⏱️</span>
+            </div>
+            <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalHorasCumplidas.toFixed(1)} <span style="font-size: 12.5px; color: #94a3b8;">/ ${totalHorasPlanificadas.toFixed(1)}h</span></div>
+            <div style="margin-top: 6px;">
+                <div class="attr-progress-track" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 9999px;">
+                    <div class="attr-progress-fill" style="width: ${pctHoras}%; background: #6366f1; border-radius: 9999px;"></div>
+                </div>
+                <div style="font-size: 10.5px; color: #818cf8; font-weight: 700; margin-top: 3px;">${pctHoras}% cumplido</div>
+            </div>
+        </div>
+
+        <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Días Laborables</span>
+                <span style="font-size: 16px;">💼</span>
+            </div>
+            <div class="metric-num" style="color: #38bdf8; font-size: 24px; font-weight: 800;">${totalDiasCumplidos} <span style="font-size: 12.5px; color: #94a3b8;">/ ${totalDiasLaborales} días</span></div>
+            <div class="metric-title" style="color: #64748b; font-size: 11px; margin-top: 4px;">Jornadas de 8:00am - 4:30pm</div>
+        </div>
+
+        <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px;">Sábados de Trabajo</span>
+                <span style="font-size: 16px;">⚡</span>
+            </div>
+            <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalSabadosTrabajados} <span style="font-size: 12.5px; color: #94a3b8;">sábados</span></div>
+            <div class="metric-title" style="color: #64748b; font-size: 11px; margin-top: 4px;">+ ${totalSabadosLibres} sábados libres</div>
+        </div>
+    </div>
+
+    <!-- REMUNERACIÓN PROPORCIONADA & PAGOS FIJOS (15, 30 Y 3) -->
+    <div style="margin-bottom: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div>
+                <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">💰 Pagos y Sueldo Proporcionado del Mes</h3>
+                <span style="font-size: 11.5px; color: #6b7280;">Sueldo quincenal (15 y 30) junto con bono mensual (día 3). Pulsa para marcar cobrado.</span>
+            </div>
+            <button type="button" onclick="abrirModalConfigBoom()" style="background: none; border: none; color: #818cf8; font-size: 11.5px; font-weight: 700; cursor: pointer; text-decoration: underline;">
+                ✏️ Editar Montos
+            </button>
+        </div>
+
+        <div class="boom-pay-grid">
+            <!-- PAGO 1: BONO DÍA 3 -->
+            <div class="boom-pay-card ${cobradoB3 ? 'cobrado' : 'pendiente'}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase;">🎁 Bono Mensual</span>
+                        <h4 style="margin: 2px 0 0 0; font-size: 14px; color: #f8fafc;">Día 3 de Cada Mes</h4>
+                    </div>
+                    <span class="boom-pay-badge ${cobradoB3 ? 'cobrado' : 'pendiente'}">${cobradoB3 ? 'COBRADO' : 'PENDIENTE'}</span>
+                </div>
+                <div style="margin: 8px 0 12px 0;">
+                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${bono3.toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">Incentivo mensual fijo</span>
+                </div>
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('bono3')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoB3 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoB3 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoB3 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
+                    ${cobradoB3 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                </button>
+            </div>
+
+            <!-- PAGO 2: QUINCENA DÍA 15 -->
+            <div class="boom-pay-card ${cobradoQ1 ? 'cobrado' : 'pendiente'}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase;">💵 Sueldo Quincena 1</span>
+                        <h4 style="margin: 2px 0 0 0; font-size: 14px; color: #f8fafc;">Día 15 del Mes</h4>
+                    </div>
+                    <span class="boom-pay-badge ${cobradoQ1 ? 'cobrado' : 'pendiente'}">${cobradoQ1 ? 'COBRADO' : 'PENDIENTE'}</span>
+                </div>
+                <div style="margin: 8px 0 12px 0;">
+                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${sueldoQ1.toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">Primer corte quincenal</span>
+                </div>
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena1')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ1 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ1 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ1 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
+                    ${cobradoQ1 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                </button>
+            </div>
+
+            <!-- PAGO 3: QUINCENA DÍA 30 -->
+            <div class="boom-pay-card ${cobradoQ2 ? 'cobrado' : 'pendiente'}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase;">💵 Sueldo Quincena 2</span>
+                        <h4 style="margin: 2px 0 0 0; font-size: 14px; color: #f8fafc;">Día 30 del Mes</h4>
+                    </div>
+                    <span class="boom-pay-badge ${cobradoQ2 ? 'cobrado' : 'pendiente'}">${cobradoQ2 ? 'COBRADO' : 'PENDIENTE'}</span>
+                </div>
+                <div style="margin: 8px 0 12px 0;">
+                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${sueldoQ2.toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">Segundo corte quincenal</span>
+                </div>
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena2')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ2 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ2 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ2 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
+                    ${cobradoQ2 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALENDARIO DE PLANIFICACIÓN MENSUAL (SEMANAS Y SÁBADOS) -->
+    <div class="boom-calendar-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+            <div>
+                <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">📅 Planificación de Semanas Laborales</h3>
+                <span style="font-size: 11.5px; color: #6b7280;">Toca cualquier <strong>Sábado</strong> para alternar Libre/Trabajado. Toca un día laboral para marcar <strong>Cumplido</strong>.</span>
+            </div>
+            <div style="display: flex; gap: 8px; font-size: 11px; color: #94a3b8; align-items: center; flex-wrap: wrap;">
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #6366f1;"></span> Laborable (8h)</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span> Sábado Libre</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #f59e0b;"></span> Sábado Trabajo</span>
+            </div>
+        </div>
+
+        <div class="boom-weekdays-row">
+            <div class="boom-weekday-label">Lun</div>
+            <div class="boom-weekday-label">Mar</div>
+            <div class="boom-weekday-label">Mié</div>
+            <div class="boom-weekday-label">Jue</div>
+            <div class="boom-weekday-label">Vie</div>
+            <div class="boom-weekday-label" style="color: #fbbf24;">Sáb</div>
+            <div class="boom-weekday-label" style="color: #94a3b8;">Dom</div>
+        </div>
+
+        <div class="boom-days-grid">
+    `;
+
+    var primerDiaObj = new Date(anio, mes - 1, 1);
+    var diaSemanaPrimerDia = primerDiaObj.getDay();
+    var paddingInicio = (diaSemanaPrimerDia === 0) ? 6 : (diaSemanaPrimerDia - 1);
+
+    for (var p = 0; p < paddingInicio; p++) {
+        html += `<div class="boom-day-cell day-fuera-mes"></div>`;
+    }
+
+    for (var diaI = 1; diaI <= diasEnMes; diaI++) {
+        var fechaDia = MES_BOOM_ACTUAL + '-' + String(diaI).padStart(2, '0');
+        var dInfo = planMes.dias[fechaDia] || { tipo: 'laborable', horas: 8.0, cumplido: false };
+
+        var cellClass = 'day-laborable';
+        var badgeText = '8.0h';
+        var badgeClass = 'badge-dia-labor';
+        var onclickHandler = `toggleCumplidoDiaBoom('${fechaDia}')`;
+        var titleAttr = 'Toca para marcar cumplido o pendiente';
+
+        if (dInfo.tipo === 'domingo_libre') {
+            cellClass = 'day-domingo';
+            badgeText = 'Libre';
+            badgeClass = 'badge-dom-libre';
+            onclickHandler = '';
+            titleAttr = 'Domingo de descanso';
+        } else if (dInfo.tipo === 'sabado_libre') {
+            cellClass = 'day-sabado-libre';
+            badgeText = '🏖️ Libre';
+            badgeClass = 'badge-sab-libre';
+            onclickHandler = `toggleSabadoBoom('${fechaDia}')`;
+            titleAttr = 'Toca para cambiar a sábado trabajado';
+        } else if (dInfo.tipo === 'sabado_trabajo') {
+            cellClass = 'day-sabado-trabajo';
+            badgeText = '💼 8.0h';
+            badgeClass = 'badge-sab-trabajo';
+            onclickHandler = `toggleSabadoBoom('${fechaDia}')`;
+            titleAttr = 'Toca para cambiar a sábado libre';
+        }
+
+        if (dInfo.cumplido) {
+            cellClass += ' day-cumplido';
+        }
+
+        html += `
+        <div class="boom-day-cell ${cellClass}" onclick="${onclickHandler}" title="${titleAttr}">
+            <div class="boom-day-header">
+                <span class="boom-day-number">${diaI}</span>
+                <span class="boom-day-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="boom-day-footer">
+                <span>${dInfo.tipo === 'sabado_libre' ? 'Descanso' : (dInfo.tipo === 'domingo_libre' ? 'Descanso' : '8am-4:30pm')}</span>
+                ${(dInfo.tipo !== 'domingo_libre' && dInfo.tipo !== 'sabado_libre') ? `
+                    <span class="badge-cumplido-check">${dInfo.cumplido ? '✓' : '○'}</span>
+                ` : ''}
+            </div>
+        </div>`;
+    }
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    cont.innerHTML = html;
+}
+
+function toggleSabadoBoom(fechaStr) {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes || !planMes.dias || !planMes.dias[fechaStr]) return;
+
+    var actual = planMes.dias[fechaStr];
+    var horasSab = Number(APP_STATE.subappBoom.config.horasJornadaSabado) || 8.0;
+
+    if (actual.tipo === 'sabado_libre') {
+        actual.tipo = 'sabado_trabajo';
+        actual.horas = horasSab;
+    } else {
+        actual.tipo = 'sabado_libre';
+        actual.horas = 0;
+        actual.cumplido = false;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBoom();
+}
+
+function toggleCumplidoDiaBoom(fechaStr) {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes || !planMes.dias || !planMes.dias[fechaStr]) return;
+
+    var actual = planMes.dias[fechaStr];
+    if (actual.tipo === 'domingo_libre' || actual.tipo === 'sabado_libre') return;
+
+    actual.cumplido = !actual.cumplido;
+
+    if (actual.cumplido) {
+        var idReg = "REG-BOOM-" + fechaStr;
+        if (!Array.isArray(APP_STATE.registrosLabores)) APP_STATE.registrosLabores = [];
+        var yaExiste = APP_STATE.registrosLabores.find(function(r) { return r.id === idReg || (r.laborId === 'LAB-BOOM' && r.fecha === fechaStr); });
+
+        if (!yaExiste) {
+            APP_STATE.registrosLabores.unshift({
+                id: idReg,
+                laborId: 'LAB-BOOM',
+                fecha: fechaStr,
+                horas: Number(actual.horas) || 8.0,
+                descripcion: "Jornada cumplida en Boom Solutions (8:00 AM - 4:30 PM)",
+                honorarios: 0,
+                timestamp: Date.now()
+            });
+            if (typeof sumarExp === 'function') sumarExp(Math.round((Number(actual.horas) || 8.0) * 10));
+        }
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBoom();
+    if (typeof renderizarLabores === 'function') renderizarLabores();
+}
+
+function toggleCobroBoom(tipoPago) {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes || !planMes.pagosCobrados) return;
+
+    var config = APP_STATE.subappBoom.config;
+    var nuevoEstado = !planMes.pagosCobrados[tipoPago];
+    planMes.pagosCobrados[tipoPago] = nuevoEstado;
+
+    var monto = 0;
+    var concepto = '';
+    var diaCobro = 1;
+
+    if (tipoPago === 'bono3') {
+        monto = Number(config.bonoDia3) || 0;
+        concepto = "Bono Boom Solutions (Día 3)";
+        diaCobro = 3;
+    } else if (tipoPago === 'quincena1') {
+        monto = Number(config.sueldoQuincena1) || 0;
+        concepto = "Sueldo Quincena 1 Boom Solutions (Día 15)";
+        diaCobro = 15;
+    } else if (tipoPago === 'quincena2') {
+        monto = Number(config.sueldoQuincena2) || 0;
+        concepto = "Sueldo Quincena 2 Boom Solutions (Día 30)";
+        diaCobro = 30;
+    }
+
+    var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
+
+    if (APP_STATE.finanzas) {
+        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
+
+        if (nuevoEstado && monto > 0) {
+            var existe = APP_STATE.finanzas.ingresos.find(function(ig) { return ig.id === idFinanza; });
+            var fechaCobro = MES_BOOM_ACTUAL + '-' + String(diaCobro).padStart(2, '0');
+            if (existe) {
+                existe.cobrado = true;
+                existe.monto = monto;
+            } else {
+                APP_STATE.finanzas.ingresos.push({
+                    id: idFinanza,
+                    fuente: concepto,
+                    tipo: 'labor',
+                    categoria: "Labores & Servicios",
+                    monto: monto,
+                    fecha: fechaCobro,
+                    dia: diaCobro,
+                    cobrado: true
+                });
+            }
+        } else {
+            APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+                return ig.id !== idFinanza;
+            });
+        }
+        if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBoom();
+}
+
+function abrirModalConfigBoom() {
+    asegurarEstructuraBoom();
+    var m = document.getElementById('modal-config-sueldo-boom');
+    if (!m) return;
+
+    var config = APP_STATE.subappBoom.config;
+    var inQ1 = document.getElementById('input-boom-sueldo-q1');
+    var inQ2 = document.getElementById('input-boom-sueldo-q2');
+    var inB3 = document.getElementById('input-boom-bono-dia3');
+    var inHN = document.getElementById('input-boom-horas-normal');
+    var inHS = document.getElementById('input-boom-horas-sabado');
+
+    if (inQ1) inQ1.value = config.sueldoQuincena1 || '';
+    if (inQ2) inQ2.value = config.sueldoQuincena2 || '';
+    if (inB3) inB3.value = config.bonoDia3 || '';
+    if (inHN) inHN.value = config.horasJornadaNormal || 8.0;
+    if (inHS) inHS.value = config.horasJornadaSabado || 8.0;
+
+    document.body.classList.add('modal-open');
+    m.style.display = 'flex';
+}
+
+function cerrarModalConfigBoom() {
+    var m = document.getElementById('modal-config-sueldo-boom');
+    if (m) m.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function guardarConfigBoom() {
+    asegurarEstructuraBoom();
+    var inQ1 = document.getElementById('input-boom-sueldo-q1');
+    var inQ2 = document.getElementById('input-boom-sueldo-q2');
+    var inB3 = document.getElementById('input-boom-bono-dia3');
+    var inHN = document.getElementById('input-boom-horas-normal');
+    var inHS = document.getElementById('input-boom-horas-sabado');
+
+    var q1 = inQ1 ? (Number(inQ1.value) || 0) : 0;
+    var q2 = inQ2 ? (Number(inQ2.value) || 0) : 0;
+    var b3 = inB3 ? (Number(inB3.value) || 0) : 0;
+    var hn = inHN ? (Number(inHN.value) || 8.0) : 8.0;
+    var hs = inHS ? (Number(inHS.value) || 8.0) : 8.0;
+
+    APP_STATE.subappBoom.config.sueldoQuincena1 = q1;
+    APP_STATE.subappBoom.config.sueldoQuincena2 = q2;
+    APP_STATE.subappBoom.config.bonoDia3 = b3;
+    APP_STATE.subappBoom.config.horasJornadaNormal = hn;
+    APP_STATE.subappBoom.config.horasJornadaSabado = hs;
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalConfigBoom();
+    renderizarSubAppBoom();
+    alert("🚀 Parámetros y sueldos de Boom Solutions guardados exitosamente.");
 }
 
 
