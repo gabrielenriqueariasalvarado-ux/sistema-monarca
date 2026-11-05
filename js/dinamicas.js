@@ -6,188 +6,533 @@
  */
 
 // ==========================================================================
-// 1. GESTIÓN Y CATEGORIZACIÓN DE LABORES
+// 1. GESTIÓN Y CATEGORIZACIÓN DE LABORES (SUB-APPS OFICIALES Y ANALÍTICA)
 // ==========================================================================
 
-var FILTRO_LABOR_ACTIVA = "TODAS";
+const LABORES_OFICIALES = [
+    {
+        id: "LAB-BOOM",
+        nombre: "Boom Solutions",
+        icono: "🚀",
+        descripcion: "Desarrollo tecnológico, software a medida, automatizaciones y proyectos de innovación digital.",
+        color: "#6366f1",
+        tagline: "Sub-App Tecnológica"
+    },
+    {
+        id: "LAB-BARBER",
+        nombre: "Barbería",
+        icono: "💈",
+        descripcion: "Cortes, estilismo masculino, afeitado clásico, asesoría de imagen y atención a clientes.",
+        color: "#38bdf8",
+        tagline: "Sub-App Estilismo & Cortes"
+    },
+    {
+        id: "LAB-TRAINER",
+        nombre: "Personal Trainer",
+        icono: "🏋️‍♂️",
+        descripcion: "Entrenamientos personalizados, acondicionamiento físico, nutrición y asesorías deportivas.",
+        color: "#10b981",
+        tagline: "Sub-App Fitness & Salud"
+    }
+];
+
+var MES_LABORES_ACTUAL = null; // "YYYY-MM"
+var METRICA_LABORES_ACTIVA = 'horas'; // 'horas' | 'dinero' | 'jornada'
+var FILTRO_HISTORIAL_LABOR = 'TODAS';
+var _CHART_LABORES_INSTANCE = null;
+
+function asegurarEstructuraLabores() {
+    if (!APP_STATE) return;
+
+    // Normalizar categorías a las 3 oficiales
+    if (!Array.isArray(APP_STATE.categoriasLabores) || APP_STATE.categoriasLabores.length === 0) {
+        APP_STATE.categoriasLabores = JSON.parse(JSON.stringify(LABORES_OFICIALES));
+    } else {
+        LABORES_OFICIALES.forEach(function(oficial) {
+            var idx = APP_STATE.categoriasLabores.findIndex(function(c) { return c.id === oficial.id; });
+            if (idx === -1) {
+                APP_STATE.categoriasLabores.push(JSON.parse(JSON.stringify(oficial)));
+            } else {
+                APP_STATE.categoriasLabores[idx].nombre = oficial.nombre;
+                APP_STATE.categoriasLabores[idx].icono = oficial.icono;
+                APP_STATE.categoriasLabores[idx].color = oficial.color;
+                APP_STATE.categoriasLabores[idx].tagline = oficial.tagline;
+            }
+        });
+        var idsValidos = LABORES_OFICIALES.map(function(o) { return o.id; });
+        APP_STATE.categoriasLabores = APP_STATE.categoriasLabores.filter(function(c) {
+            return idsValidos.includes(c.id);
+        });
+    }
+
+    if (!Array.isArray(APP_STATE.registrosLabores)) {
+        APP_STATE.registrosLabores = [];
+    }
+
+    // Migración de registros antiguos (LAB-DEV o nombres previos a LAB-BOOM)
+    APP_STATE.registrosLabores.forEach(function(r) {
+        if (!r.laborId || r.laborId === 'LAB-DEV' || r.laborId.indexOf('DEV') !== -1) {
+            r.laborId = 'LAB-BOOM';
+        } else if (r.laborId.indexOf('BARBER') !== -1) {
+            r.laborId = 'LAB-BARBER';
+        } else if (r.laborId.indexOf('TRAIN') !== -1) {
+            r.laborId = 'LAB-TRAINER';
+        }
+    });
+
+    if (!MES_LABORES_ACTUAL) {
+        var hoy = new Date();
+        var y = hoy.getFullYear();
+        var m = String(hoy.getMonth() + 1).padStart(2, '0');
+        MES_LABORES_ACTUAL = y + '-' + m;
+    }
+}
+
+function normalizarMesRegistroLabor(fechaStr) {
+    if (!fechaStr) return '';
+    fechaStr = String(fechaStr).trim();
+    if (fechaStr.indexOf('-') !== -1) {
+        var partes = fechaStr.split('-');
+        if (partes.length >= 2 && partes[0].length === 4) {
+            return partes[0] + '-' + partes[1].padStart(2, '0');
+        }
+    }
+    if (fechaStr.indexOf('/') !== -1) {
+        var partesD = fechaStr.split('/');
+        if (partesD.length === 3) {
+            var anio = partesD[2].length === 4 ? partesD[2] : ('20' + partesD[2]);
+            var mes = partesD[1].padStart(2, '0');
+            return anio + '-' + mes;
+        }
+    }
+    return '';
+}
+
+function formatearNombreMesLabor(mesClave) {
+    if (!mesClave || mesClave.indexOf('-') === -1) return mesClave || '';
+    var partes = mesClave.split('-');
+    var anio = partes[0];
+    var mesNum = parseInt(partes[1], 10);
+    var nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    var nombreMes = nombres[mesNum - 1] || partes[1];
+    return nombreMes + " " + anio;
+}
+
+function cambiarMesLabores(delta) {
+    asegurarEstructuraLabores();
+    var partes = MES_LABORES_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+
+    mes += delta;
+    if (mes > 12) {
+        mes = 1;
+        anio++;
+    } else if (mes < 1) {
+        mes = 12;
+        anio--;
+    }
+    MES_LABORES_ACTUAL = anio + '-' + String(mes).padStart(2, '0');
+    renderizarLabores();
+}
+
+function cambiarMetricaGraficaLabores(metrica) {
+    METRICA_LABORES_ACTIVA = metrica;
+    var btnH = document.getElementById('tab-lab-chart-horas');
+    var btnD = document.getElementById('tab-lab-chart-dinero');
+    var btnJ = document.getElementById('tab-lab-chart-jornada');
+    if (btnH) btnH.classList.toggle('active', metrica === 'horas');
+    if (btnD) btnD.classList.toggle('active', metrica === 'dinero');
+    if (btnJ) btnJ.classList.toggle('active', metrica === 'jornada');
+
+    renderizarGraficaLabores();
+}
+
+function filtrarHistorialLabores(laborId) {
+    FILTRO_HISTORIAL_LABOR = laborId;
+    renderizarHistorialLabores();
+}
 
 function cargarLabores() {
+    asegurarEstructuraLabores();
     renderizarLabores();
 }
 
 function renderizarLabores() {
+    asegurarEstructuraLabores();
+
     var contEstadisticas = document.getElementById('contenedor-estadisticas-labores');
     var contCategorias = document.getElementById('contenedor-categorias-labores');
-    var contRegistros = document.getElementById('contenedor-registros-labores');
-    if (!contEstadisticas && !contCategorias && !contRegistros) return;
 
-    if (!APP_STATE.categoriasLabores || !Array.isArray(APP_STATE.categoriasLabores)) {
-        APP_STATE.categoriasLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.categoriasLabores || []));
-    }
-    if (!APP_STATE.registrosLabores || !Array.isArray(APP_STATE.registrosLabores)) {
-        APP_STATE.registrosLabores = [];
-    }
-
-    var categorias = APP_STATE.categoriasLabores;
-    var registros = APP_STATE.registrosLabores;
-
-    // Calcular totales de horas
-    var totalHoras = 0;
-    var totalHonorarios = 0;
-    var horasPorLabor = {};
-    categorias.forEach(function(c) { horasPorLabor[c.id] = 0; });
-
-    registros.forEach(function(r) {
-        var h = Number(r.horas) || 0;
-        totalHoras += h;
-        totalHonorarios += (Number(r.honorarios) || 0);
-        if (horasPorLabor[r.laborId] !== undefined) {
-            horasPorLabor[r.laborId] += h;
-        } else {
-            horasPorLabor[r.laborId] = h;
-        }
+    var registros = APP_STATE.registrosLabores || [];
+    var registrosMes = registros.filter(function(r) {
+        return normalizarMesRegistroLabor(r.fecha) === MES_LABORES_ACTUAL;
     });
 
-    // 1. Estadísticas Globales
+    var totalHorasMes = 0;
+    var totalDineroMes = 0;
+    registrosMes.forEach(function(r) {
+        totalHorasMes += (Number(r.horas) || 0);
+        totalDineroMes += (Number(r.honorarios) || 0);
+    });
+    var totalSesionesMes = registrosMes.length;
+    var promedioJornadaMes = totalSesionesMes > 0 ? (totalHorasMes / totalSesionesMes) : 0;
+
+    // 1. Selector de Mes y Tarjetas de Métricas Mensuales
     if (contEstadisticas) {
         contEstadisticas.innerHTML = `
-        <div class="operatividad-metrics-grid" style="margin-bottom: 20px;">
-            <div class="metric-card-ideas">
-                <div class="metric-num" style="color: #f8fafc;">${totalHoras.toFixed(1)}h</div>
-                <div class="metric-title">Horas Totales Dedicadas</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+            <div class="mes-selector-pill">
+                <button type="button" class="btn-mes-nav" onclick="cambiarMesLabores(-1)" title="Mes Anterior">◀</button>
+                <span>📅 ${formatearNombreMesLabor(MES_LABORES_ACTUAL)}</span>
+                <button type="button" class="btn-mes-nav" onclick="cambiarMesLabores(1)" title="Mes Siguiente">▶</button>
             </div>
-            <div class="metric-card-ideas">
-                <div class="metric-num" style="color: #f8fafc;">${registros.length}</div>
-                <div class="metric-title">Sesiones de Labor Registradas</div>
+            <div style="font-size: 11.5px; color: #94a3b8;">
+                Mostrando métricas calculadas para este período
             </div>
-            <div class="metric-card-ideas">
-                <div class="metric-num" style="color: #059669;">$${totalHonorarios}</div>
-                <div class="metric-title">Honorarios / Rendimiento</div>
+        </div>
+
+        <div class="operatividad-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px;">Horas del Mes</span>
+                    <span style="font-size: 16px;">⏱️</span>
+                </div>
+                <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalHorasMes.toFixed(1)} <span style="font-size: 13px; color: #94a3b8; font-weight: 600;">hrs</span></div>
+                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Dedicación acumulada</div>
+            </div>
+
+            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px;">Dinero Generado</span>
+                    <span style="font-size: 16px;">💵</span>
+                </div>
+                <div class="metric-num" style="color: #10b981; font-size: 24px; font-weight: 800;">$${totalDineroMes.toFixed(2)}</div>
+                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Honorarios de labores</div>
+            </div>
+
+            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Jornada Promedio</span>
+                    <span style="font-size: 16px;">⏳</span>
+                </div>
+                <div class="metric-num" style="color: #38bdf8; font-size: 24px; font-weight: 800;">${promedioJornadaMes.toFixed(1)} <span style="font-size: 13px; color: #94a3b8; font-weight: 600;">hrs/ses</span></div>
+                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Duración media de sesión</div>
+            </div>
+
+            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px;">Sesiones del Mes</span>
+                    <span style="font-size: 16px;">🎯</span>
+                </div>
+                <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalSesionesMes}</div>
+                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Registros de actividad</div>
             </div>
         </div>`;
     }
 
-    // 2. Desglose de Categorías de Labores
-    if (contCategorias) {
-        var htmlCat = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 20px;">`;
+    // 2. Gráfica mensual
+    renderizarGraficaLabores();
 
-        categorias.forEach(function(cat) {
-            var hDed = horasPorLabor[cat.id] || 0;
-            var pct = totalHoras > 0 ? Math.round((hDed / totalHoras) * 100) : 0;
+    // 3. Renderizar las 3 Sub-Apps de Labores Oficiales
+    if (contCategorias) {
+        var htmlCat = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">';
+
+        LABORES_OFICIALES.forEach(function(lab) {
+            var regsLabMes = registrosMes.filter(function(r) { return r.laborId === lab.id; });
+            var hLab = 0;
+            var dLab = 0;
+            regsLabMes.forEach(function(r) {
+                hLab += (Number(r.horas) || 0);
+                dLab += (Number(r.honorarios) || 0);
+            });
+            var sesionesLab = regsLabMes.length;
+            var jLab = sesionesLab > 0 ? (hLab / sesionesLab) : 0;
+            var pctHoras = totalHorasMes > 0 ? Math.round((hLab / totalHorasMes) * 100) : 0;
 
             htmlCat += `
-            <div class="card" style="margin: 0; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid ${cat.color || '#111827'};">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 22px;">${cat.icono || '💼'}</span>
-                        <strong style="font-size: 14px; color: #f8fafc;">${cat.nombre}</strong>
+            <div class="subapp-labor-card" style="border-top: 3px solid ${lab.color};">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 22px; border: 1px solid rgba(255,255,255,0.06);">
+                            ${lab.icono}
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <strong style="font-size: 14.5px; color: #f8fafc;">${lab.nombre}</strong>
+                            </div>
+                            <span class="subapp-badge" style="color: ${lab.color}; border-color: ${lab.color}44;">${lab.tagline || 'Sub-App Oficial'}</span>
+                        </div>
                     </div>
-                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${hDed.toFixed(1)} hrs</span>
+                    <span class="item-badge-pill" style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255,255,255,0.08);">
+                        ${hLab.toFixed(1)} hrs
+                    </span>
                 </div>
-                <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #6b7280; line-height: 1.4;">${cat.descripcion}</p>
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 3px;">
-                    <span>Dedicación</span>
-                    <span>${pct}% del total</span>
+
+                <p style="margin: 0 0 14px 0; font-size: 12px; color: #94a3b8; line-height: 1.45;">${lab.descripcion}</p>
+
+                <!-- Resumen Mensual de la Sub-App -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 6px; margin-bottom: 12px; text-align: center;">
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Dedicación</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #f8fafc; margin-top: 1px;">${hLab.toFixed(1)}h</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Dinero</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #10b981; margin-top: 1px;">$${dLab.toFixed(0)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Jornada</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #38bdf8; margin-top: 1px;">${jLab.toFixed(1)}h</div>
+                    </div>
                 </div>
-                <div class="attr-progress-track" style="height: 6px;">
-                    <div class="attr-progress-fill" style="width: ${pct}%; background: ${cat.color || '#111827'};"></div>
+
+                <!-- Barra de cuota mensual -->
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">
+                        <span>Participación del Mes</span>
+                        <span style="color: ${lab.color};">${pctHoras}%</span>
+                    </div>
+                    <div class="attr-progress-track" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 9999px;">
+                        <div class="attr-progress-fill" style="width: ${pctHoras}%; background: ${lab.color}; border-radius: 9999px;"></div>
+                    </div>
                 </div>
+
+                <button type="button" class="btn-system" onclick="abrirModalRegistroJornada('${lab.id}')" style="width: 100%; justify-content: center; padding: 9px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                    ⚡ Registrar Sesión en ${lab.nombre}
+                </button>
             </div>`;
         });
 
-        htmlCat += `</div>`;
+        htmlCat += '</div>';
         contCategorias.innerHTML = htmlCat;
     }
 
-    // 3. Historial de Jornadas / Sesiones de Labor
-    if (contRegistros) {
-        if (registros.length === 0) {
-            contRegistros.innerHTML = '<p style="color:#6b7280; text-align:center; padding:16px; background: #0b0e15; border-radius:10px;">No has registrado jornadas de labor aún. Presiona "+ Registrar Sesión de Labor".</p>';
-            return;
-        }
+    // 4. Renderizar Historial de Sesiones con filtros
+    renderizarHistorialLabores();
+}
 
-        var htmlReg = '<div style="display: flex; flex-direction: column; gap: 8px;">';
-        registros.forEach(function(r) {
-            var catInfo = categorias.find(function(c) { return c.id === r.laborId; }) || { nombre: "Labor", icono: "💼", color: "#111827" };
-            htmlReg += `
-            <div style="background: #121725; border:1px solid #e5e7eb; border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                    <span style="font-size: 24px;">${catInfo.icono}</span>
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                            <strong style="color: #f8fafc; font-size: 13.5px;">${catInfo.nombre}</strong>
-                            <span class="item-badge-pill" style="font-size: 11px; background: rgba(255, 255, 255, 0.05); color: #cbd5e1;">⏱️ ${r.horas}h</span>
-                            ${r.honorarios ? `<span class="item-badge-pill" style="font-size: 11px; background: #ecfdf5; color: #059669; font-weight: 700;">+$${r.honorarios}</span>` : ''}
-                        </div>
-                        <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">${r.descripcion}</p>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 11.5px; color: #9ca3af;">${r.fecha}</span>
-                    <button onclick="eliminarRegistroLabor('${r.id}')" title="Eliminar sesión" style="background:none; border:none; color:#9ca3af; cursor:pointer; padding:4px 6px; font-size:13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
-                </div>
-            </div>`;
+function renderizarGraficaLabores() {
+    var canvas = document.getElementById('chart-analisis-labores');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var registros = APP_STATE.registrosLabores || [];
+    var registrosMes = registros.filter(function(r) {
+        return normalizarMesRegistroLabor(r.fecha) === MES_LABORES_ACTUAL;
+    });
+
+    var labels = LABORES_OFICIALES.map(function(l) { return l.icono + ' ' + l.nombre; });
+    var colores = LABORES_OFICIALES.map(function(l) { return l.color; });
+
+    var dataValores = [];
+    var datasetLabel = '';
+    var tooltipUnit = '';
+
+    if (METRICA_LABORES_ACTIVA === 'horas') {
+        datasetLabel = 'Horas Dedicadas en el Mes';
+        tooltipUnit = ' hrs';
+        dataValores = LABORES_OFICIALES.map(function(l) {
+            var sum = 0;
+            registrosMes.forEach(function(r) {
+                if (r.laborId === l.id) sum += (Number(r.horas) || 0);
+            });
+            return Number(sum.toFixed(1));
         });
-        htmlReg += '</div>';
-        contRegistros.innerHTML = htmlReg;
+    } else if (METRICA_LABORES_ACTIVA === 'dinero') {
+        datasetLabel = 'Dinero / Honorarios Generados ($)';
+        tooltipUnit = ' $';
+        dataValores = LABORES_OFICIALES.map(function(l) {
+            var sum = 0;
+            registrosMes.forEach(function(r) {
+                if (r.laborId === l.id) sum += (Number(r.honorarios) || 0);
+            });
+            return Number(sum.toFixed(2));
+        });
+    } else if (METRICA_LABORES_ACTIVA === 'jornada') {
+        datasetLabel = 'Tiempo de Jornada Promedio (hrs/sesión)';
+        tooltipUnit = ' hrs/ses';
+        dataValores = LABORES_OFICIALES.map(function(l) {
+            var sumH = 0;
+            var cnt = 0;
+            registrosMes.forEach(function(r) {
+                if (r.laborId === l.id) {
+                    sumH += (Number(r.horas) || 0);
+                    cnt++;
+                }
+            });
+            return cnt > 0 ? Number((sumH / cnt).toFixed(2)) : 0;
+        });
     }
+
+    if (_CHART_LABORES_INSTANCE) {
+        _CHART_LABORES_INSTANCE.destroy();
+        _CHART_LABORES_INSTANCE = null;
+    }
+
+    var ctx = canvas.getContext('2d');
+    _CHART_LABORES_INSTANCE = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: datasetLabel,
+                data: dataValores,
+                backgroundColor: colores.map(function(c) { return c + 'CC'; }),
+                borderColor: colores,
+                borderWidth: 2,
+                borderRadius: 8,
+                barPercentage: 0.55
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return (context.dataset.label || '') + ': ' + (METRICA_LABORES_ACTIVA === 'dinero' ? '$' : '') + context.raw + (METRICA_LABORES_ACTIVA !== 'dinero' ? tooltipUnit : '');
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.06)'
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#f8fafc',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                }
+            }
+        }
+    });
 }
 
-function abrirModalNuevaLabor() {
-    var m = document.getElementById('modal-nueva-categoria-labor');
-    if (m) m.style.display = 'flex';
+function renderizarHistorialLabores() {
+    var contFiltros = document.getElementById('filtro-labores-historial');
+    var contRegistros = document.getElementById('contenedor-registros-labores');
+    if (!contRegistros) return;
+
+    if (contFiltros) {
+        var htmlFiltros = `
+        <button type="button" class="btn-labor-filter ${FILTRO_HISTORIAL_LABOR === 'TODAS' ? 'active' : ''}" onclick="filtrarHistorialLabores('TODAS')">
+            Todas
+        </button>`;
+        LABORES_OFICIALES.forEach(function(l) {
+            htmlFiltros += `
+            <button type="button" class="btn-labor-filter ${FILTRO_HISTORIAL_LABOR === l.id ? 'active' : ''}" onclick="filtrarHistorialLabores('${l.id}')">
+                ${l.icono} ${l.nombre}
+            </button>`;
+        });
+        contFiltros.innerHTML = htmlFiltros;
+    }
+
+    var registros = APP_STATE.registrosLabores || [];
+
+    var filtrados = registros.filter(function(r) {
+        var coincideMes = normalizarMesRegistroLabor(r.fecha) === MES_LABORES_ACTUAL;
+        var coincideLabor = (FILTRO_HISTORIAL_LABOR === 'TODAS') || (r.laborId === FILTRO_HISTORIAL_LABOR);
+        return coincideMes && coincideLabor;
+    });
+
+    if (filtrados.length === 0) {
+        contRegistros.innerHTML = `
+        <div style="color: #64748b; text-align: center; padding: 24px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 12px;">
+            <span style="font-size: 26px; display: block; margin-bottom: 8px;">📋</span>
+            No hay sesiones registradas en <strong>${formatearNombreMesLabor(MES_LABORES_ACTUAL)}</strong> para este filtro.<br>
+            <span style="font-size: 11.5px; color: #475569;">Pulsa "⚡ Registrar Sesión de Labor" para añadir tu jornada diaria.</span>
+        </div>`;
+        return;
+    }
+
+    var htmlReg = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+    filtrados.forEach(function(r) {
+        var catInfo = LABORES_OFICIALES.find(function(c) { return c.id === r.laborId; }) || { nombre: "Labor", icono: "💼", color: "#6366f1" };
+
+        htmlReg += `
+        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid ${catInfo.color}; border-radius: 12px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 220px;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;">
+                    ${catInfo.icono}
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap;">
+                        <strong style="color: #f8fafc; font-size: 13.5px;">${catInfo.nombre}</strong>
+                        <span class="item-badge-pill" style="font-size: 11px; background: rgba(255, 255, 255, 0.05); color: #38bdf8; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.2);">
+                            ⏱️ ${Number(r.horas).toFixed(1)} hrs
+                        </span>
+                        ${Number(r.honorarios) > 0 ? `<span class="item-badge-pill" style="font-size: 11px; background: rgba(16, 185, 129, 0.1); color: #34d399; font-weight: 800; border: 1px solid rgba(16, 185, 129, 0.25);">+$${Number(r.honorarios).toFixed(2)}</span>` : ''}
+                    </div>
+                    <p style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">${r.descripcion}</p>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                <span style="font-size: 12px; color: #64748b; font-weight: 600;">📅 ${r.fecha}</span>
+                <button onclick="eliminarRegistroLabor('${r.id}')" title="Eliminar sesión" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; border-radius: 6px; cursor: pointer; padding: 5px 8px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+                    🗑️
+                </button>
+            </div>
+        </div>`;
+    });
+    htmlReg += '</div>';
+    contRegistros.innerHTML = htmlReg;
 }
-function cerrarModalNuevaLabor() {
-    var m = document.getElementById('modal-nueva-categoria-labor');
-    if (m) m.style.display = 'none';
-}
-function guardarNuevaLabor() {
-    var inNom = document.getElementById('input-lab-nombre');
-    var inIco = document.getElementById('input-lab-icono');
-    var inDesc = document.getElementById('input-lab-desc');
-    var inCol = document.getElementById('input-lab-color');
 
-    var nom = inNom ? inNom.value.trim() : '';
-    var ico = inIco ? inIco.value.trim() : '💼';
-    var desc = inDesc ? inDesc.value.trim() : '';
-    var col = inCol ? inCol.value : '#111827';
-
-    if (!nom) { alert("Ingresa el nombre de la labor u oficio."); if (inNom) inNom.focus(); return; }
-
-    if (!APP_STATE.categoriasLabores) APP_STATE.categoriasLabores = [];
-    var nuevo = {
-        id: "LAB-" + Date.now(),
-        nombre: nom,
-        icono: ico || '💼',
-        descripcion: desc || "Actividad laboral del avatar.",
-        color: col
-    };
-    APP_STATE.categoriasLabores.push(nuevo);
-    MonarcaDB.save(APP_STATE);
-
-    cerrarModalNuevaLabor();
-    renderizarLabores();
-    actualizarSelectsLabores();
-    alert("💼 Nueva categoría de labor agregada exitosamente.");
-}
-
-function abrirModalRegistroJornada() {
+function abrirModalRegistroJornada(laborIdOpt) {
     var m = document.getElementById('modal-registro-jornada-labor');
     if (!m) return;
     actualizarSelectsLabores();
+
+    if (laborIdOpt) {
+        var sel = document.getElementById('select-reg-labor-id');
+        if (sel) sel.value = laborIdOpt;
+    }
+
+    var inFecha = document.getElementById('input-reg-labor-fecha');
+    if (inFecha) {
+        inFecha.value = new Date().toISOString().split('T')[0];
+    }
+
+    var inHor = document.getElementById('input-reg-labor-horas');
+    if (inHor) inHor.value = "2.0";
+
+    var inHon = document.getElementById('input-reg-labor-honorarios');
+    if (inHon) inHon.value = "0";
+
+    var inDesc = document.getElementById('input-reg-labor-desc');
+    if (inDesc) inDesc.value = "";
+
+    document.body.classList.add('modal-open');
     m.style.display = 'flex';
 }
+
 function cerrarModalRegistroJornada() {
     var m = document.getElementById('modal-registro-jornada-labor');
     if (m) m.style.display = 'none';
+    document.body.classList.remove('modal-open');
 }
+
 function actualizarSelectsLabores() {
     var sel = document.getElementById('select-reg-labor-id');
     if (!sel) return;
-    var cats = APP_STATE.categoriasLabores || [];
     sel.innerHTML = '';
-    cats.forEach(function(c) {
+    LABORES_OFICIALES.forEach(function(c) {
         var opt = document.createElement('option');
         opt.value = c.id;
         opt.innerText = (c.icono || '💼') + ' ' + c.nombre;
@@ -197,24 +542,27 @@ function actualizarSelectsLabores() {
 
 function guardarRegistroJornada() {
     var inLab = document.getElementById('select-reg-labor-id');
+    var inFecha = document.getElementById('input-reg-labor-fecha');
     var inHor = document.getElementById('input-reg-labor-horas');
     var inDesc = document.getElementById('input-reg-labor-desc');
     var inHon = document.getElementById('input-reg-labor-honorarios');
 
     var laborId = inLab ? inLab.value : '';
+    var fechaVal = inFecha && inFecha.value ? inFecha.value : new Date().toISOString().split('T')[0];
     var horas = inHor ? (Number(inHor.value) || 0) : 0;
     var desc = inDesc ? inDesc.value.trim() : '';
     var hon = inHon ? (Number(inHon.value) || 0) : 0;
 
     if (!laborId) { alert("Selecciona una labor."); return; }
-    if (horas <= 0) { alert("Ingresa las horas dedicadas (mínimo 0.5)."); if (inHor) inHor.focus(); return; }
-    if (!desc) { alert("Ingresa una breve descripción de lo realizado."); if (inDesc) inDesc.focus(); return; }
+    if (horas <= 0) { alert("Ingresa las horas dedicadas (mínimo 0.25 hrs)."); if (inHor) inHor.focus(); return; }
+    if (!desc) { alert("Ingresa una breve descripción de lo realizado en la jornada."); if (inDesc) inDesc.focus(); return; }
 
     if (!APP_STATE.registrosLabores) APP_STATE.registrosLabores = [];
+
     var nuevo = {
         id: "REG-LAB-" + Date.now(),
         laborId: laborId,
-        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        fecha: fechaVal,
         horas: horas,
         descripcion: desc,
         honorarios: hon,
@@ -222,21 +570,28 @@ function guardarRegistroJornada() {
     };
 
     APP_STATE.registrosLabores.unshift(nuevo);
-    sumarExp(Math.round(horas * 10));
+    if (typeof sumarExp === 'function') {
+        sumarExp(Math.round(horas * 10));
+    }
 
-    // Si generó honorarios, registrar automáticamente como ingreso en Finanzas (Apartado Almacén & Labores)
     if (hon > 0 && APP_STATE.finanzas) {
         if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
-        var catInfo = (APP_STATE.categoriasLabores || []).find(function(c) { return c.id === laborId; }) || { nombre: "Labor" };
-        var fechaISO = new Date().toISOString().split('T')[0];
+        var catInfo = LABORES_OFICIALES.find(function(c) { return c.id === laborId; }) || { nombre: "Labor" };
+        var diaNum = 1;
+        try {
+            diaNum = parseInt(fechaVal.split('-')[2], 10) || new Date().getDate();
+        } catch(e) {
+            diaNum = new Date().getDate();
+        }
+
         APP_STATE.finanzas.ingresos.push({
             id: "ING-LAB-" + nuevo.id,
             fuente: "Labor: " + catInfo.nombre + (desc ? " - " + desc : ""),
             tipo: 'labor',
             categoria: "Labores & Servicios",
             monto: hon,
-            fecha: fechaISO,
-            dia: new Date().getDate(),
+            fecha: fechaVal,
+            dia: diaNum,
             cobrado: true,
             laborId: nuevo.id
         });
@@ -245,20 +600,22 @@ function guardarRegistroJornada() {
 
     MonarcaDB.save(APP_STATE);
 
+    var mesReg = normalizarMesRegistroLabor(fechaVal);
+    if (mesReg) MES_LABORES_ACTUAL = mesReg;
+
     cerrarModalRegistroJornada();
     renderizarLabores();
-    alert("💼 Jornada de labor registrada con éxito (+ " + Math.round(horas * 10) + " EXP" + (hon > 0 ? `, +$${hon} en Finanzas` : '') + ").");
+    alert("💼 Sesión laboral registrada exitosamente (+ " + Math.round(horas * 10) + " EXP" + (hon > 0 ? `, +$${hon.toFixed(2)} sincronizado en Finanzas` : '') + ").");
 }
 
 function eliminarRegistroLabor(id) {
-    if (!confirm("¿Deseas eliminar este registro de labor?")) return;
+    if (!confirm("¿Deseas eliminar este registro de sesión laboral?")) return;
     if (!APP_STATE.registrosLabores) return;
     if (typeof registrarTombstone === 'function') {
         registrarTombstone('registrosLabores', id);
     }
     APP_STATE.registrosLabores = APP_STATE.registrosLabores.filter(function(r) { return r.id !== id; });
 
-    // Limpiar ingreso de labor en Finanzas si existía
     if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
         APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
             return ig.laborId !== id && ig.id !== ('ING-LAB-' + id);

@@ -94,9 +94,9 @@ const DEFAULT_STATE = {
     ejerciciosCerebrales: [],
     conocimientos: [],
     categoriasLabores: [
-        { id: "LAB-DEV", nombre: "Desarrollo de Software", icono: "💻", descripcion: "Programación web, backend, bases de datos y arquitectura.", color: "#111827" },
-        { id: "LAB-TRAINER", nombre: "Personal Trainer", icono: "🏋️‍♂️", descripcion: "Entrenamientos personalizados, asesoría física y técnica deportiva.", color: "#374151" },
-        { id: "LAB-BARBER", nombre: "Barbero / Oficio", icono: "💈", descripcion: "Corte de cabello masculino, degradados, afeitado y estética capilar.", color: "#1f2937" }
+        { id: "LAB-BOOM", nombre: "Boom Solutions", icono: "🚀", descripcion: "Agencia de software, desarrollo web y soluciones digitales.", color: "#6366f1" },
+        { id: "LAB-BARBER", nombre: "Barbería", icono: "💈", descripcion: "Corte de cabello masculino, degradados, afeitado y estética capilar.", color: "#38bdf8" },
+        { id: "LAB-TRAINER", nombre: "Personal Trainer", icono: "🏋️‍♂️", descripcion: "Entrenamientos personalizados, asesoría física y técnica deportiva.", color: "#10b981" }
     ],
     registrosLabores: [],
     agendaPersonas: [],
