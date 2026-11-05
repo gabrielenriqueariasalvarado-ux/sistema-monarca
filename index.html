@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=8.8">
+    <link rel="stylesheet" href="style.css?v=8.9">
 </head>
 <body>
 
@@ -2308,6 +2308,44 @@
         </div>
     </div>
 
+    <!-- VISTA: SUB-APP BARBERÍA (ESTILISMO & CORTES A DOMICILIO) -->
+    <div id="vista-subapp-barberia" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-labores')">
+            <span style="font-size: 16px;">◀</span> VOLVER A LABORES
+        </button>
+
+        <div class="card" style="margin-bottom: 20px; border-top: 3px solid #38bdf8;">
+            <!-- CABECERA DE SUB-APP BARBERÍA -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; font-size: 26px;">
+                        💈
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Barbería</h2>
+                            <span class="subapp-badge" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1);">CORTES A DOMICILIO</span>
+                        </div>
+                        <span style="font-size: 12px; color: #94a3b8;">Estilismo profesional por citas y domicilio · Timer de corte en tiempo real · Catálogo de clientes</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="barber-header-actions">
+                    <button type="button" class="btn-system" onclick="abrirModalClienteBarberia()" style="font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>👤</span> + Nuevo Cliente
+                    </button>
+                    <button type="button" class="btn-system" id="btn-iniciar-corte-top" onclick="abrirModalIniciarCorte()" style="font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>✂️</span> Iniciar Corte
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR REACTIVO DINÁMICO DE BARBERÍA -->
+            <div id="subapp-barberia-content">
+                <!-- Se inyecta dinámicamente: banner timer, métricas del mes, tabs (calendario / catálogo / historial) -->
+            </div>
+        </div>
+    </div>
+
     <!-- VISTA: AGENDA DE CONVERSACIONES & UBICACIONES -->
     <div id="vista-personas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
@@ -3163,6 +3201,190 @@
         </div>
     </div>
 
+    <!-- MODAL 1 BARBERÍA: INICIAR CORTE -->
+    <div id="modal-iniciar-corte-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">✂️</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #38bdf8;">INICIAR CORTE (TIMER EN VIVO)</span>
+                </div>
+                <button onclick="cerrarModalIniciarCorte()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0 0 16px 0; line-height: 1.4;">
+                    El cronómetro iniciará en segundo plano (tiempo promedio: <strong>30 min</strong>). Al terminar, detén el timer para registrar cliente, corte y cobro.
+                </p>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Cliente:</label>
+                    <select id="select-iniciar-corte-cliente" class="finanzas-input-clean" onchange="alCambiarClienteEnIniciarCorte()" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                        <!-- Se llena dinámicamente con catálogo + opción libre -->
+                    </select>
+                </div>
+
+                <div id="contenedor-cliente-nuevo-express" style="display: none; margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Cliente Nuevo:</label>
+                    <input type="text" id="input-iniciar-cliente-nuevo-nombre" class="finanzas-input-clean" placeholder="Ej: Marcos Silva..." style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tipo de Corte Tentativo:</label>
+                    <input type="text" id="input-iniciar-corte-tipo" class="finanzas-input-clean" placeholder="Ej: Fade medio, Degradado + barba, Clásico..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Fade Medio'">Fade Medio</button>
+                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Degradado + Barba'">Degradado + Barba</button>
+                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Corte Clásico'">Clásico</button>
+                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'High Fade'">High Fade</button>
+                        <button type="button" class="tag-filtro" onclick="document.getElementById('input-iniciar-corte-tipo').value = 'Perfilado y Afeitado'">Afeitado</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalIniciarCorte()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800;" onclick="confirmarIniciarCorteBarberia()">✂️ Comenzar Corte Ahora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2 BARBERÍA: FINALIZAR Y REGISTRAR CORTE -->
+    <div id="modal-finalizar-corte-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏁</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">REGISTRAR CORTE FINALIZADO</span>
+                </div>
+                <button onclick="cerrarModalFinalizarCorte()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- Duración Destacada -->
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 18px;">
+                    <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981; letter-spacing: 1px; display: block; margin-bottom: 4px;">⏱️ Duración del Corte</span>
+                    <div id="fin-corte-display-tiempo" style="font-size: 28px; font-weight: 800; color: #ffffff; font-family: monospace;">00:00</div>
+                    <span id="fin-corte-display-minutos" style="font-size: 12px; color: #94a3b8;">(0 min equivalentes)</span>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Cliente Atendido:</label>
+                    <input type="text" id="fin-corte-input-cliente" class="finanzas-input-clean" placeholder="Nombre del cliente..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Corte Realizado:</label>
+                    <input type="text" id="fin-corte-input-tipo" class="finanzas-input-clean" placeholder="Ej: Fade medio + barba" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Cobro Realizado ($):</label>
+                    <input type="number" id="fin-corte-input-cobro" class="finanzas-input-clean" min="0" step="0.5" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 16px; font-weight: 800;">
+                </div>
+
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div>
+                        <div style="font-size: 12px; font-weight: 700; color: #f8fafc;">💵 Registrar en Finanzas</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Sumar este cobro automáticamente a los ingresos de Labores</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="fin-corte-check-finanzas" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalFinalizarCorte()">Volver al Timer</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarCorteFinalizado()">✓ Guardar Corte y Sesión</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3 BARBERÍA: CREAR / EDITAR CLIENTE -->
+    <div id="modal-cliente-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">👤</span>
+                    <span id="titulo-modal-cliente-barber" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #38bdf8;">CREAR NUEVO CLIENTE</span>
+                </div>
+                <button onclick="cerrarModalClienteBarberia()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="input-cliente-barber-id">
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre Completo del Cliente:</label>
+                    <input type="text" id="input-cliente-barber-nombre" class="finanzas-input-clean" placeholder="Ej: Gabriel Martínez..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Cobro Habitual ($):</label>
+                        <input type="number" id="input-cliente-barber-cobro" class="finanzas-input-clean" min="0" step="0.5" placeholder="10.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Teléfono / WhatsApp:</label>
+                        <input type="text" id="input-cliente-barber-telefono" class="finanzas-input-clean" placeholder="+58 412..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Corte Habitual / Preferido:</label>
+                    <input type="text" id="input-cliente-barber-corte" class="finanzas-input-clean" placeholder="Ej: Fade medio, degradado de barba..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Dirección habitual (Domicilio):</label>
+                    <input type="text" id="input-cliente-barber-direccion" class="finanzas-input-clean" placeholder="Ej: Urbanización Los Samanes, Casa 12..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Notas o Preferencias Técnicas:</label>
+                    <textarea id="input-cliente-barber-notas" class="finanzas-input-clean" rows="2" placeholder="Ej: Piel sensible en el cuello, no usar navaja directa, degradar con 0.5..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalClienteBarberia()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarClienteBarberia()">💾 Guardar Cliente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4 BARBERÍA: FICHA COMPLETA DEL CLIENTE -->
+    <div id="modal-ficha-cliente-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 540px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📋</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #38bdf8;">FICHA DE CLIENTE</span>
+                </div>
+                <button onclick="cerrarModalFichaClienteBarberia()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;" id="contenido-ficha-cliente-barber">
+                <!-- Se llena dinámicamente con los detalles completos del cliente y su historial -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5 BARBERÍA: DETALLE DEL DÍA (CALENDARIO) -->
+    <div id="modal-detalle-dia-barber" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📅</span>
+                    <span id="titulo-modal-detalle-dia-barber" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #38bdf8;">JORNADA DE BARBERÍA</span>
+                </div>
+                <button onclick="cerrarModalDetalleDiaBarber()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;" id="contenido-modal-detalle-dia-barber">
+                <!-- Se llena dinámicamente con los cortes del día seleccionado -->
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: AGREGAR CONTACTO Y TEMAS -->
     <div id="modal-nueva-persona" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
@@ -3761,25 +3983,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=8.8"></script>
-    <script src="js/perfil.js?v=8.8"></script>
-    <script src="js/progresion.js?v=8.8"></script>
-    <script src="js/estado-personal.js?v=8.8"></script>
-    <script src="js/finanzas.js?v=8.8"></script>
-    <script src="js/ideas.js?v=8.8"></script>
-    <script src="js/dinamicas.js?v=8.8"></script>
-    <script src="js/calendario.js?v=8.8"></script>
-    <script src="js/inventario.js?v=8.8"></script>
-    <script src="js/jarvis-voz.js?v=8.8"></script>
+    <script src="js/core.js?v=8.9"></script>
+    <script src="js/perfil.js?v=8.9"></script>
+    <script src="js/progresion.js?v=8.9"></script>
+    <script src="js/estado-personal.js?v=8.9"></script>
+    <script src="js/finanzas.js?v=8.9"></script>
+    <script src="js/ideas.js?v=8.9"></script>
+    <script src="js/dinamicas.js?v=8.9"></script>
+    <script src="js/calendario.js?v=8.9"></script>
+    <script src="js/inventario.js?v=8.9"></script>
+    <script src="js/jarvis-voz.js?v=8.9"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=8.8"></script>
+    <script type="module" src="js/firebase-config.js?v=8.9"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=8.8')
+                navigator.serviceWorker.register('sw.js?v=8.9')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

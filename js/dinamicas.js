@@ -281,7 +281,7 @@ function abrirSubAppLabor(laborId) {
     if (laborId === 'LAB-BOOM') {
         cambiarVista('vista-subapp-boom');
     } else if (laborId === 'LAB-BARBER') {
-        alert("💈 La Sub-App de Barbería se encuentra en desarrollo para la próxima actualización.");
+        cambiarVista('vista-subapp-barberia');
     } else if (laborId === 'LAB-TRAINER') {
         alert("🏋️‍♂️ La Sub-App de Personal Trainer se encuentra en desarrollo para la próxima actualización.");
     }
@@ -1886,3 +1886,1138 @@ function eliminarOpcionRuleta(categoria, id) {
     MonarcaDB.save(APP_STATE);
     renderizarRuletaSemanal();
 }
+
+// ==========================================================================
+// SUB-APP 2: BARBERÍA (ESTILISMO PROFESIONAL & CORTES A DOMICILIO)
+// ==========================================================================
+
+var MES_BARBERIA_ACTUAL = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+var TAB_BARBERIA_ACTIVA = 'calendario'; // 'calendario' | 'clientes' | 'historial'
+var INTERVALO_TIMER_BARBERIA = null;
+var CORTE_TEMPORAL_FINALIZANDO = null;
+var BUSQUEDA_CLIENTE_BARBERIA = '';
+
+function escapeHtmlBarber(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(new RegExp('"', 'g'), '&quot;')
+        .replace(new RegExp("'", "g"), '&#39;');
+}
+
+function asegurarEstructuraBarberia() {
+    if (!APP_STATE.subappBarberia || typeof APP_STATE.subappBarberia !== 'object') {
+        APP_STATE.subappBarberia = {};
+    }
+    if (!Array.isArray(APP_STATE.subappBarberia.clientes)) {
+        APP_STATE.subappBarberia.clientes = [];
+    }
+    if (!Array.isArray(APP_STATE.subappBarberia.cortes)) {
+        APP_STATE.subappBarberia.cortes = [];
+    }
+    if (typeof APP_STATE.subappBarberia.tiempoPromedioMetaMin !== 'number') {
+        APP_STATE.subappBarberia.tiempoPromedioMetaMin = 30;
+    }
+    if (APP_STATE.subappBarberia.timerActivo === undefined) {
+        APP_STATE.subappBarberia.timerActivo = null;
+    }
+}
+
+function cargarSubAppBarberia() {
+    asegurarEstructuraBarberia();
+    iniciarIntervaloTimerBarberia();
+    renderizarSubAppBarberia();
+}
+
+function setTabBarberia(tab) {
+    TAB_BARBERIA_ACTIVA = tab;
+    renderizarSubAppBarberia();
+}
+
+function cambiarMesBarberia(delta) {
+    var partes = MES_BARBERIA_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10) - 1;
+    var nuevaFecha = new Date(anio, mes + delta, 1);
+    var mNum = nuevaFecha.getMonth() + 1;
+    MES_BARBERIA_ACTUAL = nuevaFecha.getFullYear() + '-' + (mNum < 10 ? '0' + mNum : mNum);
+    renderizarSubAppBarberia();
+}
+
+function formatearSegundosBarber(segundosTotales) {
+    var hrs = Math.floor(segundosTotales / 3600);
+    var mins = Math.floor((segundosTotales % 3600) / 60);
+    var segs = segundosTotales % 60;
+    var segsStr = segs < 10 ? '0' + segs : String(segs);
+    if (hrs > 0) {
+        var minsStr = mins < 10 ? '0' + mins : String(mins);
+        return hrs + ':' + minsStr + ':' + segsStr;
+    }
+    var minsTotal = Math.floor(segundosTotales / 60);
+    var minsTotalStr = minsTotal < 10 ? '0' + minsTotal : String(minsTotal);
+    return minsTotalStr + ':' + segsStr;
+}
+
+function iniciarIntervaloTimerBarberia() {
+    if (INTERVALO_TIMER_BARBERIA) {
+        clearInterval(INTERVALO_TIMER_BARBERIA);
+        INTERVALO_TIMER_BARBERIA = null;
+    }
+    if (APP_STATE.subappBarberia && APP_STATE.subappBarberia.timerActivo) {
+        INTERVALO_TIMER_BARBERIA = setInterval(function() {
+            actualizarDisplayTimerBarberiaVivo();
+        }, 1000);
+    }
+}
+
+function actualizarDisplayTimerBarberiaVivo() {
+    var timer = APP_STATE.subappBarberia ? APP_STATE.subappBarberia.timerActivo : null;
+    if (!timer) return;
+
+    var elDisplay = document.getElementById('barber-timer-clock-display');
+    var elBarra = document.getElementById('barber-timer-progress-fill');
+    var elPorc = document.getElementById('barber-timer-percent-text');
+
+    var ahora = Date.now();
+    var segsTranscurridos = Math.max(0, Math.floor((ahora - timer.inicioTimestamp) / 1000));
+    var textoReloj = formatearSegundosBarber(segsTranscurridos);
+
+    if (elDisplay) elDisplay.textContent = textoReloj;
+
+    var metaSegs = (APP_STATE.subappBarberia.tiempoPromedioMetaMin || 30) * 60;
+    var porc = Math.min(100, Math.round((segsTranscurridos / metaSegs) * 100));
+
+    if (elBarra) {
+        elBarra.style.width = porc + '%';
+        if (porc >= 100) {
+            elBarra.style.background = 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
+        }
+    }
+    if (elPorc) {
+        elPorc.textContent = Math.round(segsTranscurridos / 60) + ' / 30 min (' + porc + '%)';
+    }
+}
+
+function renderizarSubAppBarberia() {
+    asegurarEstructuraBarberia();
+    var cont = document.getElementById('subapp-barberia-content');
+    if (!cont) return;
+
+    var clientes = APP_STATE.subappBarberia.clientes || [];
+    var cortes = APP_STATE.subappBarberia.cortes || [];
+    var timerActivo = APP_STATE.subappBarberia.timerActivo;
+
+    // Actualizar botón superior si hay corte activo
+    var btnTop = document.getElementById('btn-iniciar-corte-top');
+    if (btnTop) {
+        if (timerActivo) {
+            btnTop.innerHTML = '<span>🛑</span> Finalizar Corte';
+            btnTop.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            btnTop.onclick = function() { pararTimerCorteBarberia(); };
+        } else {
+            btnTop.innerHTML = '<span>✂️</span> Iniciar Corte';
+            btnTop.style.background = 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)';
+            btnTop.onclick = function() { abrirModalIniciarCorte(); };
+        }
+    }
+
+    // Filtrar cortes del mes seleccionado
+    var cortesMes = cortes.filter(function(c) {
+        return c.fecha && c.fecha.startsWith(MES_BARBERIA_ACTUAL);
+    });
+
+    var totalGananciasMes = cortesMes.reduce(function(acc, c) { return acc + (parseFloat(c.cobro) || 0); }, 0);
+    var totalMinutosMes = cortesMes.reduce(function(acc, c) { return acc + (parseInt(c.duracionMinutos, 10) || 0); }, 0);
+    var totalHorasMes = (totalMinutosMes / 60).toFixed(1);
+
+    var clientesUnicosSet = {};
+    cortesMes.forEach(function(c) {
+        if (c.clienteNombre) clientesUnicosSet[c.clienteNombre.trim().toLowerCase()] = true;
+    });
+    var clientesUnicosCount = Object.keys(clientesUnicosSet).length;
+
+    var partes = MES_BARBERIA_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10) - 1;
+    var nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    var nombreMesStr = (nombresMeses[mes] || '') + ' ' + anio;
+
+    var html = '';
+
+    // 1. BANNER TIMER ACTIVO
+    if (timerActivo) {
+        var segsAhora = Math.max(0, Math.floor((Date.now() - timerActivo.inicioTimestamp) / 1000));
+        var relojInit = formatearSegundosBarber(segsAhora);
+        var metaSegs = 30 * 60;
+        var porcInit = Math.min(100, Math.round((segsAhora / metaSegs) * 100));
+
+        html += `
+        <div class="barber-timer-banner-active">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                        💈
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13.5px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Corte en Proceso (Tiempo Real)</span>
+                            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">ACTIVO</span>
+                        </div>
+                        <div style="font-size: 13px; color: #f8fafc; font-weight: 700; margin-top: 2px;">
+                            Cliente: <strong>${escapeHtmlBarber(timerActivo.clienteNombre || 'Cliente Express')}</strong> · Estilo: <em>${escapeHtmlBarber(timerActivo.tipoCorte || 'Corte Personalizado')}</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-back-system" onclick="descartarTimerCorteBarberia()" style="margin-bottom: 0; padding: 8px 14px; font-size: 11.5px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Descartar este timer">
+                        ✕ Descartar
+                    </button>
+                    <button type="button" class="btn-system" onclick="pararTimerCorteBarberia()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-size: 12.5px; font-weight: 800; padding: 10px 18px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                        🛑 FINALIZAR CORTE
+                    </button>
+                </div>
+            </div>
+
+            <div style="background: #07090e; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                        <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">Cronómetro:</span>
+                        <span id="barber-timer-clock-display" style="font-size: 26px; font-weight: 800; color: #38bdf8; font-family: monospace; letter-spacing: 1px;">${relojInit}</span>
+                    </div>
+                    <span id="barber-timer-percent-text" style="font-size: 12px; font-weight: 700; color: #94a3b8;">${Math.round(segsAhora / 60)} / 30 min (${porcInit}%)</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
+                    <div id="barber-timer-progress-fill" style="width: ${porcInit}%; height: 100%; background: linear-gradient(90deg, #38bdf8 0%, #0284c7 100%); transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    // 2. SELECTOR DE MES Y MÉTRICAS CLAVE
+    html += `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesBarberia(-1)" title="Mes Anterior">◀</button>
+            <span style="font-size: 14px; font-weight: 800; color: #f8fafc; min-width: 150px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">${nombreMesStr}</span>
+            <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesBarberia(1)" title="Mes Siguiente">▶</button>
+        </div>
+        <div style="font-size: 11.5px; color: #94a3b8;">
+            Atención a domicilio · Total histórico: <strong style="color: #38bdf8;">${cortes.length} cortes</strong>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE MÉTRICAS DEL MES -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
+        <div style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981; margin-bottom: 4px;">💵 Recaudado</div>
+            <div style="font-size: 20px; font-weight: 800; color: #10b981;">$${totalGananciasMes.toFixed(2)}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">en cortes del mes</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">✂️ Cortes</div>
+            <div style="font-size: 20px; font-weight: 800; color: #38bdf8;">${cortesMes.length}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">servicios realizados</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">⏱️ Tiempo</div>
+            <div style="font-size: 20px; font-weight: 800; color: #f59e0b;">${totalHorasMes}h</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${totalMinutosMes} min dedicados</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #c084fc; margin-bottom: 4px;">👥 Clientes</div>
+            <div style="font-size: 20px; font-weight: 800; color: #c084fc;">${clientesUnicosCount}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">personas atendidas</div>
+        </div>
+    </div>
+
+    <!-- TABS DE NAVEGACIÓN INTERNA -->
+    <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 18px; gap: 4px; overflow-x: auto;">
+        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'calendario' ? 'active' : ''}" onclick="setTabBarberia('calendario')">
+            <span>📅</span> Calendario de Jornadas
+        </button>
+        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'clientes' ? 'active' : ''}" onclick="setTabBarberia('clientes')">
+            <span>👥</span> Catálogo de Clientes (${clientes.length})
+        </button>
+        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'historial' ? 'active' : ''}" onclick="setTabBarberia('historial')">
+            <span>📜</span> Historial de Cortes (${cortes.length})
+        </button>
+    </div>
+    `;
+
+    // 3. RENDERIZADO DEL CONTENIDO DE LA TAB ACTIVA
+    if (TAB_BARBERIA_ACTIVA === 'calendario') {
+        html += renderizarHtmlCalendarioBarberia(MES_BARBERIA_ACTUAL, cortes);
+    } else if (TAB_BARBERIA_ACTIVA === 'clientes') {
+        html += renderizarHtmlCatalogoClientesBarberia(clientes, cortes);
+    } else if (TAB_BARBERIA_ACTIVA === 'historial') {
+        html += renderizarHtmlHistorialCortesBarberia(cortes);
+    }
+
+    cont.innerHTML = html;
+}
+
+function renderizarHtmlCalendarioBarberia(mesClave, cortes) {
+    var partes = mesClave.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10);
+    var diasEnMes = new Date(anio, mes, 0).getDate();
+
+    var primerDiaSemana = new Date(anio, mes - 1, 1).getDay();
+    // Ajustar para que Lunes = 0, Domingo = 6
+    var offset = (primerDiaSemana === 0) ? 6 : primerDiaSemana - 1;
+
+    var hoyStr = new Date().toISOString().slice(0, 10);
+
+    var diasSemana = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+
+    var html = `
+    <div>
+        <p style="font-size: 12px; color: #94a3b8; margin: 0 0 12px 0;">
+            Sin días libres obligatorios: toca cualquier día para ver los cortes realizados o registrar servicios puntuales.
+        </p>
+
+        <!-- Cabecera de días de la semana -->
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; text-align: center;">
+    `;
+
+    diasSemana.forEach(function(d) {
+        html += `<div style="font-size: 11px; font-weight: 800; color: #64748b; padding: 4px 0;">${d}</div>`;
+    });
+
+    html += `</div>
+        <!-- Grid de días del mes -->
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+    `;
+
+    // Celdas vacías de compensación previa
+    for (var o = 0; o < offset; o++) {
+        html += `<div style="min-height: 84px; background: transparent; border: 1px dashed rgba(255, 255, 255, 0.03); border-radius: 12px; opacity: 0.3;"></div>`;
+    }
+
+    // Celdas de cada día del mes
+    for (var d = 1; d <= diasEnMes; d++) {
+        var fechaStr = mesClave + '-' + (d < 10 ? '0' + d : d);
+        var esHoy = (fechaStr === hoyStr);
+
+        var cortesDia = cortes.filter(function(c) { return c.fecha === fechaStr; });
+        var totalCortesDia = cortesDia.length;
+        var dineroDia = cortesDia.reduce(function(acc, c) { return acc + (parseFloat(c.cobro) || 0); }, 0);
+        var minutosDia = cortesDia.reduce(function(acc, c) { return acc + (parseInt(c.duracionMinutos, 10) || 0); }, 0);
+
+        var clasesDia = 'barber-dia-card' + (totalCortesDia > 0 ? ' con-cortes' : '') + (esHoy ? ' hoy' : '');
+
+        html += `
+        <div class="${clasesDia}" onclick="verDetalleDiaBarber('${fechaStr}')" title="Ver detalles del ${fechaStr}">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; font-weight: 800; color: ${esHoy ? '#38bdf8' : '#f8fafc'};">${d}</span>
+                ${totalCortesDia > 0 ? `<span style="font-size: 9px; font-weight: 800; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 4px; padding: 1px 4px;">✂️ ${totalCortesDia}</span>` : ''}
+            </div>
+
+            <div style="margin-top: 4px;">
+                ${totalCortesDia > 0 ? `
+                    <div style="font-size: 11px; font-weight: 800; color: #10b981;">+$${dineroDia.toFixed(0)}</div>
+                    <div style="font-size: 9.5px; color: #94a3b8;">${minutosDia} min</div>
+                ` : `
+                    <div style="font-size: 9.5px; color: #475569; margin-top: 8px;">Disponible</div>
+                `}
+            </div>
+        </div>
+        `;
+    }
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
+function renderizarHtmlCatalogoClientesBarberia(clientes, cortes) {
+    var filtro = (BUSQUEDA_CLIENTE_BARBERIA || '').trim().toLowerCase();
+    var clientesFiltrados = clientes.filter(function(cl) {
+        if (!filtro) return true;
+        var nom = (cl.nombre || '').toLowerCase();
+        var cor = (cl.corteHabitual || '').toLowerCase();
+        var dir = (cl.direccion || '').toLowerCase();
+        return nom.includes(filtro) || cor.includes(filtro) || dir.includes(filtro);
+    });
+
+    var hoyMs = Date.now();
+
+    var html = `
+    <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" value="${escapeHtmlBarber(BUSQUEDA_CLIENTE_BARBERIA)}" placeholder="🔍 Buscar cliente por nombre, corte o dirección..." oninput="filtrarClientesBarberia(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+            </div>
+            <button type="button" class="btn-system" onclick="abrirModalClienteBarberia()" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800; font-size: 12px; padding: 10px 16px; border-radius: 10px; cursor: pointer;">
+                <span>➕</span> Crear Nuevo Cliente
+            </button>
+        </div>
+    `;
+
+    if (clientesFiltrados.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 30px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">👥</div>
+            <div style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No hay clientes registrados</div>
+            <p style="font-size: 12px; color: #94a3b8; margin: 0 0 14px 0;">
+                Registra a las personas que atiendes a domicilio para recordar su cobro acordado, corte habitual y fecha de su último afeitado.
+            </p>
+            <button type="button" class="btn-system" onclick="abrirModalClienteBarberia()" style="background: #0284c7; color: #ffffff; border: none; font-weight: 800; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                + Registrar Primer Cliente
+            </button>
+        </div>
+        `;
+    } else {
+        html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">`;
+
+        clientesFiltrados.forEach(function(cl) {
+            // Calcular iniciales
+            var partesNom = (cl.nombre || 'Cliente').trim().split(/\s+/);
+            var iniciales = (partesNom[0] ? partesNom[0][0] : '') + (partesNom[1] ? partesNom[1][0] : '');
+            iniciales = iniciales.toUpperCase() || 'CL';
+
+            // Cortes de este cliente
+            var cortesDeEste = cortes.filter(function(c) {
+                return (c.clienteId && c.clienteId === cl.id) || (c.clienteNombre && c.clienteNombre.trim().toLowerCase() === cl.nombre.trim().toLowerCase());
+            });
+
+            // Última vez atendido
+            var ultimaVezTexto = 'Nunca atendido';
+            if (cl.ultimaVez) {
+                var partesF = cl.ultimaVez.split('-');
+                if (partesF.length === 3) {
+                    var fechaUlt = new Date(parseInt(partesF[0], 10), parseInt(partesF[1], 10) - 1, parseInt(partesF[2], 10));
+                    var difDias = Math.floor((hoyMs - fechaUlt.getTime()) / (1000 * 60 * 60 * 24));
+                    if (difDias === 0) {
+                        ultimaVezTexto = 'Hoy';
+                    } else if (difDias === 1) {
+                        ultimaVezTexto = 'Ayer';
+                    } else if (difDias > 1) {
+                        ultimaVezTexto = 'Hace ' + difDias + ' días (' + cl.ultimaVez + ')';
+                    } else {
+                        ultimaVezTexto = cl.ultimaVez;
+                    }
+                } else {
+                    ultimaVezTexto = cl.ultimaVez;
+                }
+            }
+
+            html += `
+            <div class="barber-cliente-card">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="barber-avatar-initials">${escapeHtmlBarber(iniciales)}</div>
+                        <div>
+                            <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${escapeHtmlBarber(cl.nombre)}</div>
+                            <div style="font-size: 11px; color: #94a3b8;">${cl.telefono ? '📞 ' + escapeHtmlBarber(cl.telefono) : 'Sin teléfono'}</div>
+                        </div>
+                    </div>
+                    <span style="font-size: 13px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 3px 8px;">
+                        $${parseFloat(cl.cobroHabitual || 0).toFixed(0)}
+                    </span>
+                </div>
+
+                <div style="background: #0b0e15; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11.5px;">
+                    <div style="color: #cbd5e1; margin-bottom: 3px;">
+                        ✂️ <strong>Corte:</strong> ${escapeHtmlBarber(cl.corteHabitual || 'Sin estilo registrado')}
+                    </div>
+                    <div style="color: #94a3b8;">
+                        🕒 <strong>Última vez:</strong> <span style="color: #38bdf8; font-weight: 700;">${escapeHtmlBarber(ultimaVezTexto)}</span>
+                    </div>
+                    ${cl.direccion ? `<div style="color: #64748b; margin-top: 3px;">📍 ${escapeHtmlBarber(cl.direccion)}</div>` : ''}
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn-system" onclick="abrirModalIniciarCorte('${cl.id}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+                        ✂️ Iniciar Corte
+                    </button>
+                    <button type="button" class="btn-system" onclick="verFichaClienteBarberia('${cl.id}')" style="flex: 1; justify-content: center; font-size: 11.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 7px 8px; border-radius: 8px; cursor: pointer;">
+                        📋 Ficha
+                    </button>
+                    <button type="button" class="btn-system" onclick="abrirModalClienteBarberia('${cl.id}')" style="font-size: 11.5px; background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Editar Cliente">
+                        ✏️
+                    </button>
+                </div>
+            </div>
+            `;
+        });
+
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+function filtrarClientesBarberia(query) {
+    BUSQUEDA_CLIENTE_BARBERIA = query;
+    renderizarSubAppBarberia();
+}
+
+function renderizarHtmlHistorialCortesBarberia(cortes) {
+    if (!cortes || cortes.length === 0) {
+        return `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 30px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📜</div>
+            <div style="font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No hay cortes registrados en el historial</div>
+            <p style="font-size: 12px; color: #94a3b8; margin: 0 0 14px 0;">
+                Cada vez que inicies un corte con el timer y lo finalices, se acumulará automáticamente aquí.
+            </p>
+            <button type="button" class="btn-system" onclick="abrirModalIniciarCorte()" style="background: #0284c7; color: #ffffff; border: none; font-weight: 800; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                ✂️ Iniciar Primer Corte
+            </button>
+        </div>
+        `;
+    }
+
+    var cortesOrdenados = cortes.slice().sort(function(a, b) {
+        return (b.fecha + ' ' + (b.hora || '00:00')).localeCompare(a.fecha + ' ' + (a.hora || '00:00'));
+    });
+
+    var html = `
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+    `;
+
+    cortesOrdenados.forEach(function(c) {
+        html += `
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    ✂️
+                </div>
+                <div>
+                    <div style="font-size: 13.5px; font-weight: 800; color: #f8fafc;">
+                        ${escapeHtmlBarber(c.clienteNombre || 'Cliente')} 
+                        <span style="font-size: 11px; font-weight: 600; color: #38bdf8; margin-left: 6px;">${escapeHtmlBarber(c.tipoCorte || 'Corte')}</span>
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                        📅 ${c.fecha} ${c.hora ? '· 🕒 ' + c.hora : ''} · ⏱️ ${c.duracionMinutos || 0} min
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 15px; font-weight: 800; color: #10b981;">+$${parseFloat(c.cobro || 0).toFixed(2)}</span>
+                <button type="button" onclick="eliminarCorteBarberia('${c.id}')" style="background: none; border: none; color: #ef4444; font-size: 14px; cursor: pointer; padding: 4px;" title="Eliminar registro de corte">
+                    🗑️
+                </button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+// --------------------------------------------------------------------------
+// LÓGICA DE TIMER Y REGISTRO DE CORTES
+// --------------------------------------------------------------------------
+
+function abrirModalIniciarCorte(clienteIdPreseleccionado) {
+    asegurarEstructuraBarberia();
+    var modal = document.getElementById('modal-iniciar-corte-barber');
+    if (!modal) return;
+
+    var sel = document.getElementById('select-iniciar-corte-cliente');
+    var inTipo = document.getElementById('input-iniciar-corte-tipo');
+    var inNuevo = document.getElementById('input-iniciar-cliente-nuevo-nombre');
+    var contNuevo = document.getElementById('contenedor-cliente-nuevo-express');
+
+    if (sel) {
+        var clientes = APP_STATE.subappBarberia.clientes || [];
+        var opts = '<option value="">-- Cliente Rápido / Escribir Nombre --</option>';
+        clientes.forEach(function(cl) {
+            var selected = (clienteIdPreseleccionado && cl.id === clienteIdPreseleccionado) ? 'selected' : '';
+            opts += `<option value="${cl.id}" ${selected}>${escapeHtmlBarber(cl.nombre)} ($${cl.cobroHabitual || 0})</option>`;
+        });
+        sel.innerHTML = opts;
+    }
+
+    if (clienteIdPreseleccionado) {
+        var clFound = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === clienteIdPreseleccionado; });
+        if (clFound && inTipo) {
+            inTipo.value = clFound.corteHabitual || '';
+        }
+        if (contNuevo) contNuevo.style.display = 'none';
+    } else {
+        if (contNuevo) contNuevo.style.display = 'block';
+        if (inNuevo) inNuevo.value = '';
+        if (inTipo) inTipo.value = '';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalIniciarCorte() {
+    var modal = document.getElementById('modal-iniciar-corte-barber');
+    if (modal) modal.style.display = 'none';
+}
+
+function alCambiarClienteEnIniciarCorte() {
+    var sel = document.getElementById('select-iniciar-corte-cliente');
+    var contNuevo = document.getElementById('contenedor-cliente-nuevo-express');
+    var inTipo = document.getElementById('input-iniciar-corte-tipo');
+    if (!sel) return;
+
+    if (!sel.value) {
+        if (contNuevo) contNuevo.style.display = 'block';
+    } else {
+        if (contNuevo) contNuevo.style.display = 'none';
+        var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === sel.value; });
+        if (cl && inTipo && !inTipo.value) {
+            inTipo.value = cl.corteHabitual || '';
+        }
+    }
+}
+
+function confirmarIniciarCorteBarberia() {
+    asegurarEstructuraBarberia();
+    var sel = document.getElementById('select-iniciar-corte-cliente');
+    var inNuevo = document.getElementById('input-iniciar-cliente-nuevo-nombre');
+    var inTipo = document.getElementById('input-iniciar-corte-tipo');
+
+    var clienteId = sel ? sel.value : '';
+    var clienteNombre = '';
+
+    if (clienteId) {
+        var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === clienteId; });
+        if (cl) clienteNombre = cl.nombre;
+    } else {
+        clienteNombre = inNuevo ? inNuevo.value.trim() : '';
+        if (!clienteNombre) clienteNombre = 'Cliente Express';
+    }
+
+    var tipoCorte = inTipo ? inTipo.value.trim() : '';
+    if (!tipoCorte) tipoCorte = 'Corte Estándar';
+
+    APP_STATE.subappBarberia.timerActivo = {
+        inicioTimestamp: Date.now(),
+        clienteId: clienteId || null,
+        clienteNombre: clienteNombre,
+        tipoCorte: tipoCorte
+    };
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalIniciarCorte();
+    iniciarIntervaloTimerBarberia();
+    renderizarSubAppBarberia();
+}
+
+function descartarTimerCorteBarberia() {
+    if (!confirm("¿Deseas descartar el timer del corte en curso? No se guardará ningún registro.")) return;
+    asegurarEstructuraBarberia();
+    APP_STATE.subappBarberia.timerActivo = null;
+    if (INTERVALO_TIMER_BARBERIA) {
+        clearInterval(INTERVALO_TIMER_BARBERIA);
+        INTERVALO_TIMER_BARBERIA = null;
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBarberia();
+}
+
+function pararTimerCorteBarberia() {
+    asegurarEstructuraBarberia();
+    var timer = APP_STATE.subappBarberia.timerActivo;
+    if (!timer) return;
+
+    var ahora = Date.now();
+    var segs = Math.max(0, Math.floor((ahora - timer.inicioTimestamp) / 1000));
+    var mins = Math.max(1, Math.round(segs / 60));
+
+    CORTE_TEMPORAL_FINALIZANDO = {
+        inicioTimestamp: timer.inicioTimestamp,
+        finTimestamp: ahora,
+        duracionSegundos: segs,
+        duracionMinutos: mins,
+        clienteId: timer.clienteId,
+        clienteNombre: timer.clienteNombre,
+        tipoCorte: timer.tipoCorte
+    };
+
+    // Pre-cargar modal de finalización
+    var modal = document.getElementById('modal-finalizar-corte-barber');
+    if (!modal) return;
+
+    var elDisplay = document.getElementById('fin-corte-display-tiempo');
+    var elMins = document.getElementById('fin-corte-display-minutos');
+    var inCliente = document.getElementById('fin-corte-input-cliente');
+    var inTipo = document.getElementById('fin-corte-input-tipo');
+    var inCobro = document.getElementById('fin-corte-input-cobro');
+
+    if (elDisplay) elDisplay.textContent = formatearSegundosBarber(segs);
+    if (elMins) elMins.textContent = '(' + mins + ' min de servicio)';
+    if (inCliente) inCliente.value = timer.clienteNombre || '';
+    if (inTipo) inTipo.value = timer.tipoCorte || '';
+
+    // Buscar si el cliente tiene cobro habitual
+    var cobroSugerido = 10;
+    if (timer.clienteId) {
+        var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === timer.clienteId; });
+        if (cl && cl.cobroHabitual) cobroSugerido = parseFloat(cl.cobroHabitual);
+    }
+    if (inCobro) inCobro.value = cobroSugerido;
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFinalizarCorte() {
+    var modal = document.getElementById('modal-finalizar-corte-barber');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarCorteFinalizado() {
+    asegurarEstructuraBarberia();
+    if (!CORTE_TEMPORAL_FINALIZANDO) {
+        cerrarModalFinalizarCorte();
+        return;
+    }
+
+    var inCliente = document.getElementById('fin-corte-input-cliente');
+    var inTipo = document.getElementById('fin-corte-input-tipo');
+    var inCobro = document.getElementById('fin-corte-input-cobro');
+    var checkFinanzas = document.getElementById('fin-corte-check-finanzas');
+
+    var clienteNom = inCliente ? inCliente.value.trim() : '';
+    if (!clienteNom) clienteNom = CORTE_TEMPORAL_FINALIZANDO.clienteNombre || 'Cliente';
+
+    var tipoCorte = inTipo ? inTipo.value.trim() : '';
+    if (!tipoCorte) tipoCorte = CORTE_TEMPORAL_FINALIZANDO.tipoCorte || 'Corte Personalizado';
+
+    var cobro = inCobro ? parseFloat(inCobro.value) || 0 : 0;
+    var duracionMinutos = CORTE_TEMPORAL_FINALIZANDO.duracionMinutos || 1;
+
+    var hoy = new Date();
+    var hoyFechaStr = hoy.toISOString().slice(0, 10);
+    var horaStr = hoy.toTimeString().slice(0, 5);
+
+    // 1. Vincular o actualizar cliente en el catálogo
+    var clienteId = CORTE_TEMPORAL_FINALIZANDO.clienteId;
+    var clExistente = null;
+
+    if (clienteId) {
+        clExistente = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === clienteId; });
+    }
+    if (!clExistente) {
+        clExistente = (APP_STATE.subappBarberia.clientes || []).find(function(c) {
+            return c.nombre.trim().toLowerCase() === clienteNom.trim().toLowerCase();
+        });
+    }
+
+    if (clExistente) {
+        clExistente.ultimaVez = hoyFechaStr;
+        if (!clExistente.cobroHabitual && cobro > 0) clExistente.cobroHabitual = cobro;
+        if (!clExistente.corteHabitual && tipoCorte) clExistente.corteHabitual = tipoCorte;
+        clienteId = clExistente.id;
+    } else {
+        // Crear cliente automático si no existe
+        clienteId = 'CLI-' + Date.now();
+        var nuevoCl = {
+            id: clienteId,
+            nombre: clienteNom,
+            cobroHabitual: cobro,
+            corteHabitual: tipoCorte,
+            telefono: '',
+            direccion: '',
+            ultimaVez: hoyFechaStr,
+            notas: 'Creado automáticamente tras finalizar corte'
+        };
+        APP_STATE.subappBarberia.clientes.push(nuevoCl);
+    }
+
+    // 2. Crear registro de Corte
+    var nuevoCorte = {
+        id: 'CORTE-' + Date.now(),
+        fecha: hoyFechaStr,
+        hora: horaStr,
+        clienteId: clienteId,
+        clienteNombre: clienteNom,
+        tipoCorte: tipoCorte,
+        duracionMinutos: duracionMinutos,
+        cobro: cobro,
+        registradoEnFinanzas: checkFinanzas ? checkFinanzas.checked : true
+    };
+    APP_STATE.subappBarberia.cortes.unshift(nuevoCorte);
+
+    // 3. Acumular el tiempo a la sesión del día en registrosLabores (LAB-BARBER)
+    if (!Array.isArray(APP_STATE.registrosLabores)) APP_STATE.registrosLabores = [];
+    var horasCorte = +(duracionMinutos / 60).toFixed(2);
+
+    // Buscar si ya existe una sesión de Barbería hoy
+    var sesionHoy = APP_STATE.registrosLabores.find(function(r) {
+        return r.laborId === 'LAB-BARBER' && r.fecha === hoyFechaStr;
+    });
+
+    if (sesionHoy) {
+        sesionHoy.horas = +(parseFloat(sesionHoy.horas || 0) + horasCorte).toFixed(2);
+        sesionHoy.descripcion = 'Cortes del día (' + duracionMinutos + ' min corte a ' + clienteNom + ')';
+    } else {
+        APP_STATE.registrosLabores.unshift({
+            id: 'SES-BARBER-' + Date.now(),
+            laborId: 'LAB-BARBER',
+            fecha: hoyFechaStr,
+            horas: horasCorte,
+            descripcion: 'Corte: ' + tipoCorte + ' a ' + clienteNom + ' (' + duracionMinutos + ' min)',
+            notas: 'Registrado desde Sub-App Barbería',
+            timestamp: Date.now()
+        });
+    }
+
+    // Sumar EXP al jugador
+    if (typeof sumarExpJugador === 'function') {
+        var expGained = Math.max(10, Math.round(horasCorte * 10));
+        sumarExpJugador(expGained, "Corte de Barbería a " + clienteNom);
+    }
+
+    // 4. Si el checkbox está activo, registrar ingreso en Finanzas
+    if (checkFinanzas && checkFinanzas.checked && cobro > 0) {
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = {};
+        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
+        APP_STATE.finanzas.ingresos.unshift({
+            id: 'ING-' + Date.now(),
+            fecha: hoyFechaStr,
+            categoria: '💼 Labores & Servicios',
+            descripcion: 'Barbería: Corte a ' + clienteNom + ' (' + tipoCorte + ')',
+            monto: cobro,
+            tipo: 'Laboral',
+            recurrencia: 'Puntual'
+        });
+    }
+
+    // 5. Limpiar timer activo
+    APP_STATE.subappBarberia.timerActivo = null;
+    CORTE_TEMPORAL_FINALIZANDO = null;
+    if (INTERVALO_TIMER_BARBERIA) {
+        clearInterval(INTERVALO_TIMER_BARBERIA);
+        INTERVALO_TIMER_BARBERIA = null;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalFinalizarCorte();
+    renderizarSubAppBarberia();
+
+    alert("💈 ¡Corte registrado con éxito!\n- Duración: " + duracionMinutos + " min (" + horasCorte + " hrs sumadas a la labor)\n- Cobro: $" + cobro.toFixed(2) + "\n- Cliente: " + clienteNom);
+}
+
+function eliminarCorteBarberia(corteId) {
+    if (!confirm("¿Deseas eliminar este registro de corte del historial?")) return;
+    asegurarEstructuraBarberia();
+    registrarTombstone('subappBarberia_cortes', corteId);
+    APP_STATE.subappBarberia.cortes = APP_STATE.subappBarberia.cortes.filter(function(c) { return c.id !== corteId; });
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppBarberia();
+}
+
+// --------------------------------------------------------------------------
+// GESTIÓN DEL CATÁLOGO DE CLIENTES
+// --------------------------------------------------------------------------
+
+function abrirModalClienteBarberia(clienteId) {
+    asegurarEstructuraBarberia();
+    var modal = document.getElementById('modal-cliente-barber');
+    if (!modal) return;
+
+    var inId = document.getElementById('input-cliente-barber-id');
+    var inNom = document.getElementById('input-cliente-barber-nombre');
+    var inCob = document.getElementById('input-cliente-barber-cobro');
+    var inTel = document.getElementById('input-cliente-barber-telefono');
+    var inCor = document.getElementById('input-cliente-barber-corte');
+    var inDir = document.getElementById('input-cliente-barber-direccion');
+    var inNot = document.getElementById('input-cliente-barber-notas');
+    var tit = document.getElementById('titulo-modal-cliente-barber');
+
+    if (clienteId) {
+        var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === clienteId; });
+        if (cl) {
+            if (tit) tit.textContent = 'EDITAR CLIENTE';
+            if (inId) inId.value = cl.id;
+            if (inNom) inNom.value = cl.nombre || '';
+            if (inCob) inCob.value = cl.cobroHabitual || '';
+            if (inTel) inTel.value = cl.telefono || '';
+            if (inCor) inCor.value = cl.corteHabitual || '';
+            if (inDir) inDir.value = cl.direccion || '';
+            if (inNot) inNot.value = cl.notas || '';
+        }
+    } else {
+        if (tit) tit.textContent = 'CREAR NUEVO CLIENTE';
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inCob) inCob.value = '10.00';
+        if (inTel) inTel.value = '';
+        if (inCor) inCor.value = '';
+        if (inDir) inDir.value = '';
+        if (inNot) inNot.value = '';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalClienteBarberia() {
+    var modal = document.getElementById('modal-cliente-barber');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarClienteBarberia() {
+    asegurarEstructuraBarberia();
+    var inId = document.getElementById('input-cliente-barber-id');
+    var inNom = document.getElementById('input-cliente-barber-nombre');
+    var inCob = document.getElementById('input-cliente-barber-cobro');
+    var inTel = document.getElementById('input-cliente-barber-telefono');
+    var inCor = document.getElementById('input-cliente-barber-corte');
+    var inDir = document.getElementById('input-cliente-barber-direccion');
+    var inNot = document.getElementById('input-cliente-barber-notas');
+
+    var nom = inNom ? inNom.value.trim() : '';
+    if (!nom) {
+        alert("Por favor ingresa el nombre del cliente.");
+        return;
+    }
+
+    var id = inId ? inId.value : '';
+    var cobro = inCob ? parseFloat(inCob.value) || 0 : 0;
+    var tel = inTel ? inTel.value.trim() : '';
+    var cor = inCor ? inCor.value.trim() : '';
+    var dir = inDir ? inDir.value.trim() : '';
+    var not = inNot ? inNot.value.trim() : '';
+
+    if (id) {
+        var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === id; });
+        if (cl) {
+            cl.nombre = nom;
+            cl.cobroHabitual = cobro;
+            cl.telefono = tel;
+            cl.corteHabitual = cor;
+            cl.direccion = dir;
+            cl.notas = not;
+        }
+    } else {
+        var nuevo = {
+            id: 'CLI-' + Date.now(),
+            nombre: nom,
+            cobroHabitual: cobro,
+            telefono: tel,
+            corteHabitual: cor,
+            direccion: dir,
+            notas: not,
+            ultimaVez: ''
+        };
+        APP_STATE.subappBarberia.clientes.push(nuevo);
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalClienteBarberia();
+    renderizarSubAppBarberia();
+    alert("💾 Cliente guardado correctamente en el catálogo.");
+}
+
+function verFichaClienteBarberia(clienteId) {
+    asegurarEstructuraBarberia();
+    var cl = (APP_STATE.subappBarberia.clientes || []).find(function(c) { return c.id === clienteId; });
+    if (!cl) return;
+
+    var modal = document.getElementById('modal-ficha-cliente-barber');
+    var cont = document.getElementById('contenido-ficha-cliente-barber');
+    if (!modal || !cont) return;
+
+    var cortes = (APP_STATE.subappBarberia.cortes || []).filter(function(c) {
+        return (c.clienteId && c.clienteId === cl.id) || (c.clienteNombre && c.clienteNombre.trim().toLowerCase() === cl.nombre.trim().toLowerCase());
+    });
+
+    var totalGastado = cortes.reduce(function(acc, c) { return acc + (parseFloat(c.cobro) || 0); }, 0);
+    var totalMinutos = cortes.reduce(function(acc, c) { return acc + (parseInt(c.duracionMinutos, 10) || 0); }, 0);
+
+    // Calcular días desde última vez
+    var ultimaVezTexto = 'Nunca atendido';
+    if (cl.ultimaVez) {
+        var partesF = cl.ultimaVez.split('-');
+        if (partesF.length === 3) {
+            var fechaUlt = new Date(parseInt(partesF[0], 10), parseInt(partesF[1], 10) - 1, parseInt(partesF[2], 10));
+            var difDias = Math.floor((Date.now() - fechaUlt.getTime()) / (1000 * 60 * 60 * 24));
+            if (difDias === 0) ultimaVezTexto = 'Hoy (' + cl.ultimaVez + ')';
+            else if (difDias === 1) ultimaVezTexto = 'Ayer (' + cl.ultimaVez + ')';
+            else ultimaVezTexto = 'Hace ' + difDias + ' días (' + cl.ultimaVez + ')';
+        } else {
+            ultimaVezTexto = cl.ultimaVez;
+        }
+    }
+
+    var html = `
+    <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="barber-avatar-initials" style="width: 48px; height: 48px; font-size: 18px;">
+                    ${escapeHtmlBarber(cl.nombre.slice(0, 2).toUpperCase())}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">${escapeHtmlBarber(cl.nombre)}</h3>
+                    <div style="font-size: 12px; color: #94a3b8;">${cl.telefono ? '📞 ' + escapeHtmlBarber(cl.telefono) : 'Sin teléfono registrado'}</div>
+                </div>
+            </div>
+            <button type="button" class="btn-system" onclick="cerrarModalFichaClienteBarberia(); abrirModalClienteBarberia('${cl.id}')" style="background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 11.5px; padding: 6px 12px; border-radius: 8px;">
+                ✏️ Editar
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+            <div style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px 12px;">
+                <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: #10b981; display: block; margin-bottom: 2px;">Cobro Acordado</span>
+                <span style="font-size: 18px; font-weight: 800; color: #10b981;">$${parseFloat(cl.cobroHabitual || 0).toFixed(2)}</span>
+            </div>
+            <div style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 10px 12px;">
+                <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: #38bdf8; display: block; margin-bottom: 2px;">Cortes Recibidos</span>
+                <span style="font-size: 18px; font-weight: 800; color: #38bdf8;">${cortes.length}</span>
+            </div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px; margin-bottom: 16px; font-size: 12.5px; line-height: 1.5;">
+            <div style="color: #cbd5e1; margin-bottom: 6px;">
+                ✂️ <strong>Corte Preferido:</strong> <span style="color: #38bdf8;">${escapeHtmlBarber(cl.corteHabitual || 'Sin estilo registrado')}</span>
+            </div>
+            <div style="color: #cbd5e1; margin-bottom: 6px;">
+                🕒 <strong>Última vez afeitado:</strong> <strong style="color: #f59e0b;">${escapeHtmlBarber(ultimaVezTexto)}</strong>
+            </div>
+            ${cl.direccion ? `<div style="color: #cbd5e1; margin-bottom: 6px;">📍 <strong>Domicilio:</strong> ${escapeHtmlBarber(cl.direccion)}</div>` : ''}
+            ${cl.notas ? `<div style="color: #94a3b8; font-size: 11.5px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255, 255, 255, 0.08);">📝 <em>${escapeHtmlBarber(cl.notas)}</em></div>` : ''}
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 800; color: #f8fafc; text-transform: uppercase; margin-bottom: 8px;">
+                📜 Historial de Cortes de este Cliente (${cortes.length})
+            </div>
+            <div style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+    `;
+
+    if (cortes.length === 0) {
+        html += `<div style="font-size: 12px; color: #64748b; padding: 10px; text-align: center;">Aún no hay cortes registrados con este cliente.</div>`;
+    } else {
+        cortes.forEach(function(c) {
+            html += `
+            <div style="background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px;">
+                <div>
+                    <span style="font-weight: 700; color: #f8fafc;">${escapeHtmlBarber(c.tipoCorte)}</span>
+                    <span style="color: #64748b; margin-left: 6px;">${c.fecha}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #94a3b8;">${c.duracionMinutos || 0} min</span>
+                    <span style="font-weight: 800; color: #10b981;">+$${parseFloat(c.cobro || 0).toFixed(0)}</span>
+                </div>
+            </div>
+            `;
+        });
+    }
+
+    html += `
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalFichaClienteBarberia()">Cerrar</button>
+            <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800;" onclick="cerrarModalFichaClienteBarberia(); abrirModalIniciarCorte('${cl.id}')">✂️ Iniciar Corte con este Cliente</button>
+        </div>
+    </div>
+    `;
+
+    cont.innerHTML = html;
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFichaClienteBarberia() {
+    var modal = document.getElementById('modal-ficha-cliente-barber');
+    if (modal) modal.style.display = 'none';
+}
+
+function verDetalleDiaBarber(fechaStr) {
+    asegurarEstructuraBarberia();
+    var modal = document.getElementById('modal-detalle-dia-barber');
+    var cont = document.getElementById('contenido-modal-detalle-dia-barber');
+    var tit = document.getElementById('titulo-modal-detalle-dia-barber');
+    if (!modal || !cont) return;
+
+    if (tit) tit.textContent = 'JORNADA: ' + fechaStr;
+
+    var cortes = (APP_STATE.subappBarberia.cortes || []).filter(function(c) {
+        return c.fecha === fechaStr;
+    });
+
+    var totalDinero = cortes.reduce(function(acc, c) { return acc + (parseFloat(c.cobro) || 0); }, 0);
+    var totalMinutos = cortes.reduce(function(acc, c) { return acc + (parseInt(c.duracionMinutos, 10) || 0); }, 0);
+
+    var html = `
+    <div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+            <div style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 10px; text-align: center;">
+                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #10b981; display: block;">Recaudado</span>
+                <span style="font-size: 16px; font-weight: 800; color: #10b981;">+$${totalDinero.toFixed(2)}</span>
+            </div>
+            <div style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 10px; text-align: center;">
+                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #38bdf8; display: block;">Cortes</span>
+                <span style="font-size: 16px; font-weight: 800; color: #38bdf8;">${cortes.length}</span>
+            </div>
+            <div style="background: #0b0e15; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 10px; text-align: center;">
+                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #f59e0b; display: block;">Tiempo</span>
+                <span style="font-size: 16px; font-weight: 800; color: #f59e0b;">${totalMinutos} min</span>
+            </div>
+        </div>
+
+        <div style="font-size: 12px; font-weight: 800; color: #f8fafc; text-transform: uppercase; margin-bottom: 8px;">
+            ✂️ Cortes del Día
+        </div>
+        <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+    `;
+
+    if (cortes.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+            No hubo servicios de barbería registrados en este día.
+        </div>
+        `;
+    } else {
+        cortes.forEach(function(c) {
+            html += `
+            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 13px; font-weight: 800; color: #f8fafc;">
+                        ${escapeHtmlBarber(c.clienteNombre || 'Cliente')} 
+                        <span style="font-size: 11px; color: #38bdf8; font-weight: 600;">(${escapeHtmlBarber(c.tipoCorte)})</span>
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8;">
+                        🕒 ${c.hora || 'Sin hora'} · ⏱️ ${c.duracionMinutos || 0} min
+                    </div>
+                </div>
+                <div style="font-size: 14px; font-weight: 800; color: #10b981;">
+                    +$${parseFloat(c.cobro || 0).toFixed(2)}
+                </div>
+            </div>
+            `;
+        });
+    }
+
+    html += `
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalDetalleDiaBarber()">Listo / Cerrar</button>
+            <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: none; font-weight: 800;" onclick="cerrarModalDetalleDiaBarber(); abrirModalIniciarCorte()">✂️ Iniciar Nuevo Corte</button>
+        </div>
+    </div>
+    `;
+
+    cont.innerHTML = html;
+    modal.style.display = 'flex';
+}
+
+function cerrarModalDetalleDiaBarber() {
+    var modal = document.getElementById('modal-detalle-dia-barber');
+    if (modal) modal.style.display = 'none';
+}
+

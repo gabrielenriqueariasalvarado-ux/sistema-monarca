@@ -112,6 +112,12 @@ const DEFAULT_STATE = {
         },
         planificaciones: {}
     },
+    subappBarberia: {
+        timerActivo: null,
+        tiempoPromedioMetaMin: 30,
+        clientes: [],
+        cortes: []
+    },
     agendaPersonas: [],
     ubicacionesAgenda: [
         "💈 Barbería",
@@ -324,6 +330,16 @@ const MonarcaDB = {
                 if (!data.inventario.productos || !Array.isArray(data.inventario.productos)) data.inventario.productos = [];
                 if (!data.inventario.categorias || !Array.isArray(data.inventario.categorias)) data.inventario.categorias = [];
                 if (!data.inventario.ventas || !Array.isArray(data.inventario.ventas)) data.inventario.ventas = [];
+            }
+            if (!data.subappBoom) {
+                data.subappBoom = JSON.parse(JSON.stringify(DEFAULT_STATE.subappBoom));
+            }
+            if (!data.subappBarberia) {
+                data.subappBarberia = JSON.parse(JSON.stringify(DEFAULT_STATE.subappBarberia));
+            } else {
+                if (!Array.isArray(data.subappBarberia.clientes)) data.subappBarberia.clientes = [];
+                if (!Array.isArray(data.subappBarberia.cortes)) data.subappBarberia.cortes = [];
+                if (typeof data.subappBarberia.tiempoPromedioMetaMin !== 'number') data.subappBarberia.tiempoPromedioMetaMin = 30;
             }
             return data;
         } catch (e) {
@@ -642,6 +658,9 @@ function cambiarVista(vistaId, noPushState) {
             break;
         case 'vista-subapp-boom':
             if (typeof cargarSubAppBoom === 'function') cargarSubAppBoom();
+            break;
+        case 'vista-subapp-barberia':
+            if (typeof cargarSubAppBarberia === 'function') cargarSubAppBarberia();
             break;
         case 'vista-personas':
             if (typeof cargarAgendaPersonas === 'function') cargarAgendaPersonas();

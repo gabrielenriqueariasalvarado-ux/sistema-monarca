@@ -6740,4 +6740,113 @@ body.modal-open {
     background: rgba(245, 158, 11, 0.03) !important;
 }
 
+/* ==========================================================================
+   SUB-APP BARBERÍA: ESTILOS CYBERNETIC PARA CORTES, TIMER Y CATÁLOGO
+   ========================================================================== */
+
+@keyframes barber-pulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.25), inset 0 0 15px rgba(56, 189, 248, 0.1);
+        border-color: rgba(56, 189, 248, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.45), inset 0 0 25px rgba(56, 189, 248, 0.2);
+        border-color: #38bdf8;
+    }
+}
+
+.barber-timer-banner-active {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    animation: barber-pulse 2.5s infinite ease-in-out;
+}
+
+.barber-subtab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #94a3b8;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.barber-subtab-btn:hover {
+    color: #f8fafc;
+}
+
+.barber-subtab-btn.active {
+    color: #38bdf8;
+    border-bottom-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.05);
+    border-radius: 8px 8px 0 0;
+}
+
+.barber-cliente-card {
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.barber-cliente-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.barber-avatar-initials {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(2, 132, 199, 0.15) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    color: #38bdf8;
+    flex-shrink: 0;
+}
+
+.barber-dia-card {
+    min-height: 84px;
+    background: #0b0e15;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.barber-dia-card:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.03);
+    transform: translateY(-1px);
+}
+
+.barber-dia-card.con-cortes {
+    border-color: rgba(56, 189, 248, 0.35);
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, #0b0e15 100%);
+}
+
+.barber-dia-card.hoy {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+
 

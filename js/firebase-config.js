@@ -241,7 +241,8 @@ function fusionarEstadosInteligente(local, remoto) {
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
         'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
-        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas'
+        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas',
+        'subappBarberia_cortes', 'subappBarberia_clientes'
     ];
 
     allKeys.forEach(function(k) {
@@ -335,6 +336,21 @@ function fusionarEstadosInteligente(local, remoto) {
     }
     if (Array.isArray(local.registrosLabores) || Array.isArray(remoto.registrosLabores)) {
         fusion.registrosLabores = fusionarColeccionPorId(local.registrosLabores, remoto.registrosLabores, tombstones.registrosLabores);
+    }
+
+    // 6.5 SUB-APPS LABORALES (BOOM SOLUTIONS & BARBERÍA)
+    if (local.subappBoom || remoto.subappBoom) {
+        fusion.subappBoom = Object.assign({}, remoto.subappBoom || {}, local.subappBoom || {});
+        if (local.subappBoom && local.subappBoom.planificaciones) {
+            fusion.subappBoom.planificaciones = Object.assign({}, (remoto.subappBoom ? remoto.subappBoom.planificaciones : {}) || {}, local.subappBoom.planificaciones || {});
+        }
+    }
+    if (local.subappBarberia || remoto.subappBarberia) {
+        var barbL = local.subappBarberia || { clientes: [], cortes: [] };
+        var barbR = remoto.subappBarberia || { clientes: [], cortes: [] };
+        fusion.subappBarberia = Object.assign({}, barbR, barbL);
+        fusion.subappBarberia.clientes = fusionarColeccionPorId(barbL.clientes || [], barbR.clientes || [], tombstones.subappBarberia_clientes || []);
+        fusion.subappBarberia.cortes = fusionarColeccionPorId(barbL.cortes || [], barbR.cortes || [], tombstones.subappBarberia_cortes || []);
     }
 
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)
