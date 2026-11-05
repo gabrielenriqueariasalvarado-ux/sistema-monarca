@@ -242,7 +242,8 @@ function fusionarEstadosInteligente(local, remoto) {
         'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas',
-        'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte'
+        'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
+        'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
     ];
 
     allKeys.forEach(function(k) {
@@ -352,6 +353,14 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.subappBarberia.clientes = fusionarColeccionPorId(barbL.clientes || [], barbR.clientes || [], tombstones.subappBarberia_clientes || []);
         fusion.subappBarberia.cortes = fusionarColeccionPorId(barbL.cortes || [], barbR.cortes || [], tombstones.subappBarberia_cortes || []);
         fusion.subappBarberia.tiposCorte = fusionarColeccionPorId(barbL.tiposCorte || [], barbR.tiposCorte || [], tombstones.subappBarberia_tiposCorte || []);
+    }
+    if (local.subappTrainer || remoto.subappTrainer) {
+        var trainL = local.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [] };
+        var trainR = remoto.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [] };
+        fusion.subappTrainer = Object.assign({}, trainR, trainL);
+        fusion.subappTrainer.alumnos = fusionarColeccionPorId(trainL.alumnos || [], trainR.alumnos || [], tombstones.subappTrainer_alumnos || []);
+        fusion.subappTrainer.sesiones = fusionarColeccionPorId(trainL.sesiones || [], trainR.sesiones || [], tombstones.subappTrainer_sesiones || []);
+        fusion.subappTrainer.rutinasEnfoques = fusionarColeccionPorId(trainL.rutinasEnfoques || [], trainR.rutinasEnfoques || [], tombstones.subappTrainer_enfoques || []);
     }
 
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)

@@ -127,6 +127,20 @@ const DEFAULT_STATE = {
             { id: "ESTILO-7", nombre: "Perfilado & Barba", precio: 6, tiempoMin: 20, descripcion: "Delineado de contornos con navaja y perfilado de barba." }
         ]
     },
+    subappTrainer: {
+        timerActivo: null,
+        tiempoPromedioMetaMin: 60,
+        alumnos: [],
+        sesiones: [],
+        rutinasEnfoques: [
+            { id: "ENF-1", nombre: "Pierna & Glúteos", tiempoMin: 60, descripcion: "Sentadilla, prensa, curl femoral, extensiones y pantorrilla." },
+            { id: "ENF-2", nombre: "Pecho & Tríceps", tiempoMin: 60, descripcion: "Press banca plano/inclinado, aperturas y fondos." },
+            { id: "ENF-3", nombre: "Espalda & Bíceps", tiempoMin: 60, descripcion: "Dominadas, jalones al pecho, remos y curls con barra." },
+            { id: "ENF-4", nombre: "Hombro & Trapecio", tiempoMin: 50, descripcion: "Press militar, elevaciones laterales y pájaros." },
+            { id: "ENF-5", nombre: "Full Body / Funcional", tiempoMin: 60, descripcion: "Circuito de alta intensidad, fuerza y resistencia metabólica." },
+            { id: "ENF-6", nombre: "Cardio & Core", tiempoMin: 45, descripcion: "HIIT, planchas, elevación de piernas y rueda abdominal." }
+        ]
+    },
     agendaPersonas: [],
     ubicacionesAgenda: [
         "💈 Barbería",
@@ -351,6 +365,16 @@ const MonarcaDB = {
                 if (typeof data.subappBarberia.tiempoPromedioMetaMin !== 'number') data.subappBarberia.tiempoPromedioMetaMin = 30;
                 if (!Array.isArray(data.subappBarberia.tiposCorte) || data.subappBarberia.tiposCorte.length === 0) {
                     data.subappBarberia.tiposCorte = JSON.parse(JSON.stringify(DEFAULT_STATE.subappBarberia.tiposCorte));
+                }
+            }
+            if (!data.subappTrainer) {
+                data.subappTrainer = JSON.parse(JSON.stringify(DEFAULT_STATE.subappTrainer));
+            } else {
+                if (!Array.isArray(data.subappTrainer.alumnos)) data.subappTrainer.alumnos = [];
+                if (!Array.isArray(data.subappTrainer.sesiones)) data.subappTrainer.sesiones = [];
+                if (typeof data.subappTrainer.tiempoPromedioMetaMin !== 'number') data.subappTrainer.tiempoPromedioMetaMin = 60;
+                if (!Array.isArray(data.subappTrainer.rutinasEnfoques) || data.subappTrainer.rutinasEnfoques.length === 0) {
+                    data.subappTrainer.rutinasEnfoques = JSON.parse(JSON.stringify(DEFAULT_STATE.subappTrainer.rutinasEnfoques));
                 }
             }
             return data;
@@ -673,6 +697,9 @@ function cambiarVista(vistaId, noPushState) {
             break;
         case 'vista-subapp-barberia':
             if (typeof cargarSubAppBarberia === 'function') cargarSubAppBarberia();
+            break;
+        case 'vista-subapp-trainer':
+            if (typeof cargarSubAppTrainer === 'function') cargarSubAppTrainer();
             break;
         case 'vista-personas':
             if (typeof cargarAgendaPersonas === 'function') cargarAgendaPersonas();

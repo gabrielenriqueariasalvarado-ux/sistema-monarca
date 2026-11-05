@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=9.0">
+    <link rel="stylesheet" href="style.css?v=9.1">
 </head>
 <body>
 
@@ -2346,6 +2346,44 @@
         </div>
     </div>
 
+    <!-- VISTA: SUB-APP PERSONAL TRAINER (FITNESS, ALUMNOS & ENTRENAMIENTOS) -->
+    <div id="vista-subapp-trainer" class="tab-content">
+        <button class="btn-back-system" onclick="cambiarVista('vista-labores')">
+            <span style="font-size: 16px;">◀</span> VOLVER A LABORES
+        </button>
+
+        <div class="card" style="margin-bottom: 20px; border-top: 3px solid #10b981;">
+            <!-- CABECERA DE SUB-APP PERSONAL TRAINER -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 26px;">
+                        🏋️‍♂️
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Personal Trainer</h2>
+                            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">FITNESS & SALUD</span>
+                        </div>
+                        <span style="font-size: 12px; color: #94a3b8;">Entrenamiento personalizado y coaching físico · Timer de sesión en vivo · Catálogo de alumnos con ficha biométrica</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="trainer-header-actions">
+                    <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>👤</span> + Nuevo Alumno
+                    </button>
+                    <button type="button" class="btn-system" id="btn-iniciar-entrenamiento-top" onclick="abrirModalIniciarEntrenamiento()" style="font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <span>🏋️‍♂️</span> Iniciar Entrenamiento
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTENEDOR REACTIVO DINÁMICO DE PERSONAL TRAINER -->
+            <div id="subapp-trainer-content">
+                <!-- Se inyecta dinámicamente: banner timer, métricas del mes, tabs (calendario / alumnos / enfoques / historial) -->
+            </div>
+        </div>
+    </div>
+
     <!-- VISTA: AGENDA DE CONVERSACIONES & UBICACIONES -->
     <div id="vista-personas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
@@ -3429,6 +3467,272 @@
         </div>
     </div>
 
+    <!-- ==========================================================
+         MODALES DE SUB-APP PERSONAL TRAINER
+         ========================================================== -->
+
+    <!-- MODAL 1 TRAINER: INICIAR ENTRENAMIENTO -->
+    <div id="modal-iniciar-entrenamiento-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏋️‍♂️</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">INICIAR ENTRENAMIENTO (TIMER EN VIVO)</span>
+                </div>
+                <button onclick="cerrarModalIniciarEntrenamiento()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0 0 16px 0; line-height: 1.4;">
+                    El cronómetro iniciará en segundo plano (tiempo promedio: <strong>60 min</strong>). Al terminar la rutina, detén el timer para registrar alumno, enfoque muscular y cobro.
+                </p>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Alumno / Atleta:</label>
+                    <select id="select-iniciar-entrenamiento-alumno" class="finanzas-input-clean" onchange="alCambiarAlumnoEnIniciarEntrenamiento()" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                        <!-- Se llena dinámicamente con catálogo + opción libre -->
+                    </select>
+                </div>
+
+                <div id="contenedor-alumno-nuevo-express" style="display: none; margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Nuevo Alumno:</label>
+                    <input type="text" id="input-iniciar-alumno-nuevo-nombre" class="finanzas-input-clean" placeholder="Ej: Daniel Gómez..." style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Enfoque / Grupo Muscular Tentativo:</label>
+                    <input type="text" id="input-iniciar-entrenamiento-enfoque" class="finanzas-input-clean" placeholder="Ej: Pierna & Glúteos, Pecho & Tríceps, Fullbody..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    
+                    <div id="chips-enfoques-iniciar" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                        <!-- Se llena dinámicamente desde el Catálogo de Enfoques -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalIniciarEntrenamiento()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="confirmarIniciarEntrenamiento()">🏋️‍♂️ Comenzar Sesión Ahora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2 TRAINER: FINALIZAR Y REGISTRAR ENTRENAMIENTO -->
+    <div id="modal-finalizar-entrenamiento-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏁</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">REGISTRAR ENTRENAMIENTO FINALIZADO</span>
+                </div>
+                <button onclick="cerrarModalFinalizarEntrenamiento()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- Duración Destacada -->
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 18px;">
+                    <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981; letter-spacing: 1px; display: block; margin-bottom: 4px;">⏱️ Duración del Entrenamiento</span>
+                    <div id="fin-entrenamiento-display-tiempo" style="font-size: 28px; font-weight: 800; color: #ffffff; font-family: monospace;">00:00:00</div>
+                    <span id="fin-entrenamiento-display-minutos" style="font-size: 12px; color: #94a3b8;">(0 min equivalentes)</span>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Alumno Atendido:</label>
+                    <input type="text" id="fin-entrenamiento-input-alumno" class="finanzas-input-clean" placeholder="Nombre del alumno..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Rutina / Enfoque Realizado:</label>
+                    <input type="text" id="fin-entrenamiento-input-enfoque" class="finanzas-input-clean" placeholder="Ej: Pierna Pesada + Isquios" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    <div id="chips-enfoques-finalizar" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                        <!-- Se llena dinámicamente desde el Catálogo de Enfoques -->
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Cobro Realizado ($):</label>
+                    <input type="number" id="fin-entrenamiento-input-cobro" class="finanzas-input-clean" min="0" step="0.5" placeholder="0.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 16px; font-weight: 800;">
+                </div>
+
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div>
+                        <div style="font-size: 12px; font-weight: 700; color: #f8fafc;">💵 Registrar en Finanzas</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Sumar este cobro automáticamente a los ingresos de Labores</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="fin-entrenamiento-check-finanzas" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalFinalizarEntrenamiento()">Volver al Timer</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarEntrenamientoFinalizado()">✓ Guardar Entrenamiento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3 TRAINER: CREAR / EDITAR ALUMNO -->
+    <div id="modal-alumno-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">👤</span>
+                    <span id="titulo-modal-alumno-trainer" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">CREAR NUEVO ALUMNO</span>
+                </div>
+                <button onclick="cerrarModalAlumnoTrainer()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="input-alumno-trainer-id">
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre Completo del Alumno: <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="input-alumno-trainer-nombre" class="finanzas-input-clean" placeholder="Ej: Carlos Mendoza..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <!-- BIOMÉTRICOS: GÉNERO Y EDAD -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Género: <span style="color:#ef4444;">*</span></label>
+                        <select id="input-alumno-trainer-genero" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                            <option value="Masculino">Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="Otro">Otro / Prefiero no decir</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Edad (años): <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="input-alumno-trainer-edad" class="finanzas-input-clean" min="10" max="100" placeholder="25" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                </div>
+
+                <!-- BIOMÉTRICOS: ALTURA Y PESO -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Altura (cm): <span style="color:#ef4444;">*</span></label>
+                        <input type="number" id="input-alumno-trainer-altura" class="finanzas-input-clean" min="100" max="250" placeholder="175" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Peso Actual (kg):</label>
+                        <input type="number" id="input-alumno-trainer-peso" class="finanzas-input-clean" min="30" max="300" step="0.5" placeholder="75.0" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                    </div>
+                </div>
+
+                <!-- FECHA INGRESO Y TARIFA -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Fecha de Ingreso al Gym: <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="input-alumno-trainer-fecha-ingreso" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tarifa / Cobro ($):</label>
+                        <input type="number" id="input-alumno-trainer-tarifa" class="finanzas-input-clean" min="0" step="0.5" placeholder="15.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                </div>
+
+                <!-- OBJETIVO Y CONTACTO -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Objetivo Físico:</label>
+                        <select id="input-alumno-trainer-objetivo" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                            <option value="Hipertrofia">💪 Hipertrofia (Ganar masa)</option>
+                            <option value="Definición">🔥 Definición (Bajar grasa)</option>
+                            <option value="Fuerza">⚡ Fuerza / Powerlifting</option>
+                            <option value="Resistencia">🏃 Resistencia / Cardio</option>
+                            <option value="Salud">🌱 Salud & Movilidad</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Teléfono / WhatsApp:</label>
+                        <input type="text" id="input-alumno-trainer-telefono" class="finanzas-input-clean" placeholder="+58 412..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Notas Técnicas / Lesiones / Limitaciones:</label>
+                    <textarea id="input-alumno-trainer-notas" class="finanzas-input-clean" rows="2" placeholder="Ej: Molestia en rodilla derecha con sentadilla profunda, hernia discal leve L5-S1..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalAlumnoTrainer()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarAlumnoTrainer()">💾 Guardar Alumno</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4 TRAINER: FICHA COMPLETA DEL ALUMNO -->
+    <div id="modal-ficha-alumno-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 540px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📋</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">FICHA BIOMÉTRICA DE ALUMNO</span>
+                </div>
+                <button onclick="cerrarModalFichaAlumnoTrainer()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;" id="contenido-ficha-alumno-trainer">
+                <!-- Se llena dinámicamente con los detalles completos del alumno, antigüedad y su historial -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5 TRAINER: DETALLE DEL DÍA (CALENDARIO) -->
+    <div id="modal-detalle-dia-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📅</span>
+                    <span id="titulo-modal-detalle-dia-trainer" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">JORNADA DE ENTRENAMIENTOS</span>
+                </div>
+                <button onclick="cerrarModalDetalleDiaTrainer()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;" id="contenido-modal-detalle-dia-trainer">
+                <!-- Se llena dinámicamente con las sesiones de entrenamiento del día seleccionado -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6 TRAINER: CREAR / EDITAR ENFOQUE O RUTINA -->
+    <div id="modal-enfoque-trainer" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(16, 185, 129, 0.2);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🎯</span>
+                    <span id="titulo-modal-enfoque-trainer" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #10b981;">CREAR ENFOQUE DE ENTRENAMIENTO</span>
+                </div>
+                <button onclick="cerrarModalEnfoqueTrainer()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="input-enfoque-trainer-id">
+
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Enfoque / Rutina:</label>
+                    <input type="text" id="input-enfoque-trainer-nombre" class="finanzas-input-clean" placeholder="Ej: Pierna & Glúteos, Pecho & Tríceps..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tarifa Sugerida ($):</label>
+                        <input type="number" id="input-enfoque-trainer-precio" class="finanzas-input-clean" min="0" step="0.5" placeholder="15.00" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Tiempo Estimado (min):</label>
+                        <input type="number" id="input-enfoque-trainer-tiempo" class="finanzas-input-clean" min="15" step="5" placeholder="60" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 14px; font-weight: 800;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Descripción o Ejercicios Clave:</label>
+                    <textarea id="input-enfoque-trainer-descripcion" class="finanzas-input-clean" rows="2" placeholder="Ej: Sentadilla búlgara, hip thrust pesado, prensa 45°, curl femoral..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalEnfoqueTrainer()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="guardarEnfoqueTrainer()">💾 Guardar Enfoque</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: AGREGAR CONTACTO Y TEMAS -->
     <div id="modal-nueva-persona" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
@@ -4027,25 +4331,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=9.0"></script>
-    <script src="js/perfil.js?v=9.0"></script>
-    <script src="js/progresion.js?v=9.0"></script>
-    <script src="js/estado-personal.js?v=9.0"></script>
-    <script src="js/finanzas.js?v=9.0"></script>
-    <script src="js/ideas.js?v=9.0"></script>
-    <script src="js/dinamicas.js?v=9.0"></script>
-    <script src="js/calendario.js?v=9.0"></script>
-    <script src="js/inventario.js?v=9.0"></script>
-    <script src="js/jarvis-voz.js?v=9.0"></script>
+    <script src="js/core.js?v=9.1"></script>
+    <script src="js/perfil.js?v=9.1"></script>
+    <script src="js/progresion.js?v=9.1"></script>
+    <script src="js/estado-personal.js?v=9.1"></script>
+    <script src="js/finanzas.js?v=9.1"></script>
+    <script src="js/ideas.js?v=9.1"></script>
+    <script src="js/dinamicas.js?v=9.1"></script>
+    <script src="js/calendario.js?v=9.1"></script>
+    <script src="js/inventario.js?v=9.1"></script>
+    <script src="js/jarvis-voz.js?v=9.1"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=9.0"></script>
+    <script type="module" src="js/firebase-config.js?v=9.1"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=9.0')
+                navigator.serviceWorker.register('sw.js?v=9.1')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

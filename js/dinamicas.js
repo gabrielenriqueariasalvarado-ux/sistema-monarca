@@ -283,7 +283,7 @@ function abrirSubAppLabor(laborId) {
     } else if (laborId === 'LAB-BARBER') {
         cambiarVista('vista-subapp-barberia');
     } else if (laborId === 'LAB-TRAINER') {
-        alert("🏋️‍♂️ La Sub-App de Personal Trainer se encuentra en desarrollo para la próxima actualización.");
+        cambiarVista('vista-subapp-trainer');
     }
 }
 
@@ -3276,5 +3276,1525 @@ function filtrarTiposCorteBarberia(query) {
     BUSQUEDA_TIPO_CORTE_BARBERIA = query;
     renderizarSubAppBarberia();
 }
+
+/* ==========================================================================
+   SUB-APP OFICIAL: PERSONAL TRAINER (COACHING FÍSICO, ALUMNOS & ENTRENAMIENTOS)
+   ========================================================================== */
+
+var TAB_TRAINER_ACTIVA = 'calendario'; // 'calendario' | 'alumnos' | 'enfoques' | 'historial'
+var INTERVALO_TIMER_TRAINER = null;
+var ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
+var BUSQUEDA_ALUMNO_TRAINER = '';
+var BUSQUEDA_ENFOQUE_TRAINER = '';
+var FILTRO_HISTORIAL_TRAINER_ALUMNO = '';
+var MES_TRAINER_ACTUAL = (function() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m);
+})();
+
+function escapeHtmlTrainer(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(new RegExp('"', 'g'), '&quot;')
+        .replace(new RegExp("'", "g"), '&#39;');
+}
+
+function asegurarEstructuraTrainer() {
+    if (!APP_STATE.subappTrainer || typeof APP_STATE.subappTrainer !== 'object') {
+        APP_STATE.subappTrainer = {};
+    }
+    if (!Array.isArray(APP_STATE.subappTrainer.alumnos)) {
+        APP_STATE.subappTrainer.alumnos = [];
+    }
+    if (!Array.isArray(APP_STATE.subappTrainer.sesiones)) {
+        APP_STATE.subappTrainer.sesiones = [];
+    }
+    if (typeof APP_STATE.subappTrainer.tiempoPromedioMetaMin !== 'number') {
+        APP_STATE.subappTrainer.tiempoPromedioMetaMin = 60;
+    }
+    if (APP_STATE.subappTrainer.timerActivo === undefined) {
+        APP_STATE.subappTrainer.timerActivo = null;
+    }
+    if (!Array.isArray(APP_STATE.subappTrainer.rutinasEnfoques) || APP_STATE.subappTrainer.rutinasEnfoques.length === 0) {
+        APP_STATE.subappTrainer.rutinasEnfoques = [
+            { id: "ENF-1", nombre: "Pierna & Glúteos (Hipertrofia)", precio: 15, tiempoMin: 60, descripcion: "Sentadilla, peso muerto rumano, prensa 45° y accesorios de glúteo/isquios." },
+            { id: "ENF-2", nombre: "Pecho, Hombro & Tríceps (Push)", precio: 15, tiempoMin: 60, descripcion: "Press banca plano/inclinado, press militar y aperturas con extensiones de tríceps." },
+            { id: "ENF-3", nombre: "Espalda & Bíceps (Pull)", precio: 15, tiempoMin: 60, descripcion: "Dominadas / jalón al pecho, remo con barra, facepulls y curls aislados de bíceps." },
+            { id: "ENF-4", nombre: "Fullbody Funcional & MetCon", precio: 15, tiempoMin: 50, descripcion: "Circuitos metabólicos continuos de alta intensidad y fuerza global." },
+            { id: "ENF-5", nombre: "Fuerza Máxima / Powerlifting", precio: 18, tiempoMin: 75, descripcion: "Series de aproximación y cargas pesadas en los 3 básicos con descansos completos." },
+            { id: "ENF-6", nombre: "Core, Abdomen & HIIT", precio: 12, tiempoMin: 45, descripcion: "Estabilidad del core, planchas dinámicas y remate cardiovascular metabólico." }
+        ];
+    }
+}
+
+function cargarSubAppTrainer() {
+    asegurarEstructuraTrainer();
+    iniciarIntervaloTimerTrainer();
+    renderizarSubAppTrainer();
+}
+
+function setTabTrainer(tab) {
+    TAB_TRAINER_ACTIVA = tab;
+    renderizarSubAppTrainer();
+}
+
+function cambiarMesTrainer(delta) {
+    var partes = MES_TRAINER_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10) - 1;
+    var nuevaFecha = new Date(anio, mes + delta, 1);
+    var mNum = nuevaFecha.getMonth() + 1;
+    MES_TRAINER_ACTUAL = nuevaFecha.getFullYear() + '-' + (mNum < 10 ? '0' + mNum : mNum);
+    renderizarSubAppTrainer();
+}
+
+function formatearSegundosTrainer(segundosTotales) {
+    var hrs = Math.floor(segundosTotales / 3600);
+    var mins = Math.floor((segundosTotales % 3600) / 60);
+    var segs = segundosTotales % 60;
+    var segsStr = segs < 10 ? '0' + segs : String(segs);
+    var minsStr = mins < 10 ? '0' + mins : String(mins);
+    if (hrs > 0) {
+        var hrsStr = hrs < 10 ? '0' + hrs : String(hrs);
+        return hrsStr + ':' + minsStr + ':' + segsStr;
+    }
+    return minsStr + ':' + segsStr;
+}
+
+function calcularAntiguedadAlumno(fechaIngreso) {
+    if (!fechaIngreso) return 'Sin fecha registrada';
+    var ingreso = new Date(fechaIngreso + 'T00:00:00');
+    var hoy = new Date();
+    if (isNaN(ingreso.getTime())) return fechaIngreso;
+
+    var diffMs = hoy.getTime() - ingreso.getTime();
+    if (diffMs < 0) return 'Ingreso futuro programado';
+
+    var diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDias === 0) return 'Ingresó hoy';
+    if (diffDias === 1) return 'Ingresó ayer (1 día)';
+    if (diffDias < 7) return diffDias + ' días en el gym';
+
+    var semanas = Math.floor(diffDias / 7);
+    if (diffDias < 30) return semanas + (semanas === 1 ? ' semana' : ' semanas') + ' en el gym';
+
+    var meses = Math.floor(diffDias / 30.4375);
+    if (meses < 12) return meses + (meses === 1 ? ' mes' : ' meses') + ' en el gym';
+
+    var anios = Math.floor(meses / 12);
+    var mesesRest = meses % 12;
+    var texto = anios + (anios === 1 ? ' año' : ' años');
+    if (mesesRest > 0) texto += ' y ' + mesesRest + (mesesRest === 1 ? ' mes' : ' meses');
+    return texto + ' en el gym';
+}
+
+function iniciarIntervaloTimerTrainer() {
+    if (INTERVALO_TIMER_TRAINER) {
+        clearInterval(INTERVALO_TIMER_TRAINER);
+        INTERVALO_TIMER_TRAINER = null;
+    }
+    if (APP_STATE.subappTrainer && APP_STATE.subappTrainer.timerActivo) {
+        INTERVALO_TIMER_TRAINER = setInterval(function() {
+            actualizarDisplayTimerTrainerVivo();
+        }, 1000);
+    }
+}
+
+function actualizarDisplayTimerTrainerVivo() {
+    var timer = APP_STATE.subappTrainer ? APP_STATE.subappTrainer.timerActivo : null;
+    if (!timer) return;
+
+    var elDisplay = document.getElementById('trainer-timer-clock-display');
+    var elBarra = document.getElementById('trainer-timer-progress-fill');
+    var elPorc = document.getElementById('trainer-timer-percent-text');
+
+    var ahora = Date.now();
+    var segsTranscurridos = Math.max(0, Math.floor((ahora - timer.inicioTimestamp) / 1000));
+    var textoReloj = formatearSegundosTrainer(segsTranscurridos);
+
+    if (elDisplay) elDisplay.textContent = textoReloj;
+
+    var metaSegs = (APP_STATE.subappTrainer.tiempoPromedioMetaMin || 60) * 60;
+    var porc = Math.min(100, Math.round((segsTranscurridos / metaSegs) * 100));
+
+    if (elBarra) {
+        elBarra.style.width = porc + '%';
+        if (porc >= 100) {
+            elBarra.style.background = 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
+        }
+    }
+    if (elPorc) {
+        elPorc.textContent = Math.round(segsTranscurridos / 60) + ' / 60 min (' + porc + '%)';
+    }
+}
+
+function renderizarSubAppTrainer() {
+    asegurarEstructuraTrainer();
+    var cont = document.getElementById('subapp-trainer-content');
+    if (!cont) return;
+
+    var alumnos = APP_STATE.subappTrainer.alumnos || [];
+    var sesiones = APP_STATE.subappTrainer.sesiones || [];
+    var rutinas = APP_STATE.subappTrainer.rutinasEnfoques || [];
+    var timerActivo = APP_STATE.subappTrainer.timerActivo;
+
+    // Actualizar botón superior si hay sesión activa
+    var btnTop = document.getElementById('btn-iniciar-entrenamiento-top');
+    if (btnTop) {
+        if (timerActivo) {
+            btnTop.innerHTML = '<span>🛑</span> Finalizar Sesión';
+            btnTop.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            btnTop.onclick = function() { pararTimerEntrenamiento(); };
+        } else {
+            btnTop.innerHTML = '<span>🏋️‍♂️</span> Iniciar Entrenamiento';
+            btnTop.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            btnTop.onclick = function() { abrirModalIniciarEntrenamiento(); };
+        }
+    }
+
+    // Filtrar sesiones del mes seleccionado
+    var sesionesMes = sesiones.filter(function(s) {
+        return s.fecha && s.fecha.startsWith(MES_TRAINER_ACTUAL);
+    });
+
+    var totalGananciasMes = sesionesMes.reduce(function(acc, s) { return acc + (parseFloat(s.cobro) || 0); }, 0);
+    var totalMinutosMes = sesionesMes.reduce(function(acc, s) { return acc + (parseInt(s.duracionMinutos, 10) || 0); }, 0);
+    var totalHorasMes = (totalMinutosMes / 60).toFixed(1);
+
+    var alumnosUnicosSet = {};
+    sesionesMes.forEach(function(s) {
+        if (s.alumnoNombre) alumnosUnicosSet[s.alumnoNombre.trim().toLowerCase()] = true;
+    });
+    var alumnosUnicosCount = Object.keys(alumnosUnicosSet).length;
+
+    var partes = MES_TRAINER_ACTUAL.split('-');
+    var anio = parseInt(partes[0], 10);
+    var mes = parseInt(partes[1], 10) - 1;
+    var nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    var nombreMesStr = (nombresMeses[mes] || '') + ' ' + anio;
+
+    var html = '';
+
+    // 1. BANNER TIMER ACTIVO
+    if (timerActivo) {
+        var segsAhora = Math.max(0, Math.floor((Date.now() - timerActivo.inicioTimestamp) / 1000));
+        var relojInit = formatearSegundosTrainer(segsAhora);
+        var metaSegs = 60 * 60;
+        var porcInit = Math.min(100, Math.round((segsAhora / metaSegs) * 100));
+
+        html += `
+        <div class="trainer-timer-banner-active">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                        🏋️‍♂️
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13.5px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">Entrenamiento en Curso (En Vivo)</span>
+                            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">ACTIVO</span>
+                        </div>
+                        <div style="font-size: 13px; color: #f8fafc; font-weight: 700; margin-top: 2px;">
+                            Alumno: <strong>${escapeHtmlTrainer(timerActivo.alumnoNombre || 'Alumno Express')}</strong> · Enfoque: <em>${escapeHtmlTrainer(timerActivo.enfoque || 'Rutina Personalizada')}</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-back-system" onclick="descartarTimerEntrenamiento()" style="margin-bottom: 0; padding: 8px 14px; font-size: 11.5px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Descartar este timer">
+                        ✕ Descartar
+                    </button>
+                    <button type="button" class="btn-system" onclick="pararTimerEntrenamiento()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-size: 12.5px; font-weight: 800; padding: 10px 18px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                        🛑 FINALIZAR SESIÓN
+                    </button>
+                </div>
+            </div>
+
+            <div style="background: #07090e; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                        <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">Cronómetro:</span>
+                        <span id="trainer-timer-clock-display" style="font-size: 26px; font-weight: 800; color: #10b981; font-family: monospace; letter-spacing: 1px;">${relojInit}</span>
+                    </div>
+                    <span id="trainer-timer-percent-text" style="font-size: 12px; font-weight: 700; color: #94a3b8;">${Math.round(segsAhora / 60)} / 60 min (${porcInit}%)</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
+                    <div id="trainer-timer-progress-fill" style="width: ${porcInit}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    // 2. SELECTOR DE MES Y MÉTRICAS CLAVE
+    html += `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesTrainer(-1)" title="Mes Anterior">◀</button>
+            <span style="font-size: 14px; font-weight: 800; color: #f8fafc; min-width: 150px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">${nombreMesStr}</span>
+            <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesTrainer(1)" title="Mes Siguiente">▶</button>
+        </div>
+        <div style="font-size: 11.5px; color: #94a3b8;">
+            Gimnasio & Coaching · Total histórico: <strong style="color: #10b981;">${sesiones.length} sesiones</strong>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE MÉTRICAS DEL MES -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
+        <div style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981; margin-bottom: 4px;">💵 Recaudado</div>
+            <div style="font-size: 20px; font-weight: 800; color: #10b981;">$${totalGananciasMes.toFixed(2)}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">en sesiones del mes</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">🏋️‍♂️ Entrenamientos</div>
+            <div style="font-size: 20px; font-weight: 800; color: #38bdf8;">${sesionesMes.length}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">sesiones guiadas</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">⏱️ Tiempo</div>
+            <div style="font-size: 20px; font-weight: 800; color: #f59e0b;">${totalHorasMes}h</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${totalMinutosMes} min en piso</div>
+        </div>
+
+        <div style="background: #0b0e15; border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #c084fc; margin-bottom: 4px;">👥 Alumnos</div>
+            <div style="font-size: 20px; font-weight: 800; color: #c084fc;">${alumnosUnicosCount}</div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">activos este mes</div>
+        </div>
+    </div>
+    `;
+
+    // 3. BARRA DE SUB-TABS (CALENDARIO / ALUMNOS / ENFOQUES / HISTORIAL)
+    html += `
+    <div style="display: flex; gap: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow-x: auto;">
+        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'calendario' ? 'active' : ''}" onclick="setTabTrainer('calendario')">
+            <span>📅</span> Calendario Mensual
+        </button>
+        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'alumnos' ? 'active' : ''}" onclick="setTabTrainer('alumnos')">
+            <span>👥</span> Catálogo de Alumnos (${alumnos.length})
+        </button>
+        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'enfoques' ? 'active' : ''}" onclick="setTabTrainer('enfoques')">
+            <span>🎯</span> Rutinas & Enfoques (${rutinas.length})
+        </button>
+        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'historial' ? 'active' : ''}" onclick="setTabTrainer('historial')">
+            <span>📋</span> Historial (${sesiones.length})
+        </button>
+    </div>
+    `;
+
+    // 4. CONTENIDO DEL TAB SELECCIONADO
+    if (TAB_TRAINER_ACTIVA === 'calendario') {
+        html += renderizarHtmlCalendarioTrainer(anio, mes, sesiones);
+    } else if (TAB_TRAINER_ACTIVA === 'alumnos') {
+        html += renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones);
+    } else if (TAB_TRAINER_ACTIVA === 'enfoques') {
+        html += renderizarHtmlCatalogoEnfoquesTrainer(rutinas);
+    } else if (TAB_TRAINER_ACTIVA === 'historial') {
+        html += renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos);
+    }
+
+    cont.innerHTML = html;
+}
+
+function renderizarHtmlCalendarioTrainer(anio, mes, todasLasSesiones) {
+    var primerDiaMes = new Date(anio, mes, 1);
+    var ultimoDiaMes = new Date(anio, mes + 1, 0);
+    var diasEnMes = ultimoDiaMes.getDate();
+    var primerDiaSemana = primerDiaMes.getDay(); // 0 = Domingo, 1 = Lunes
+
+    var mNum = mes + 1;
+    var mesPrefix = anio + '-' + (mNum < 10 ? '0' + mNum : mNum);
+
+    // Agrupar sesiones por día
+    var sesionesPorDia = {};
+    todasLasSesiones.forEach(function(s) {
+        if (s.fecha && s.fecha.startsWith(mesPrefix)) {
+            var diaNum = parseInt(s.fecha.split('-')[2], 10);
+            if (!sesionesPorDia[diaNum]) {
+                sesionesPorDia[diaNum] = [];
+            }
+            sesionesPorDia[diaNum].push(s);
+        }
+    });
+
+    var hoy = new Date();
+    var hoyDia = (hoy.getFullYear() === anio && hoy.getMonth() === mes) ? hoy.getDate() : -1;
+
+    var html = `
+    <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+            <div>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Jornadas de Entrenamiento por Demanda</h3>
+                <span style="font-size: 12px; color: #94a3b8;">Toca cualquier día para ver las sesiones realizadas o registrar entrenamientos.</span>
+            </div>
+            <button type="button" class="btn-system" onclick="abrirModalIniciarEntrenamiento()" style="font-size: 11.5px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+                + Iniciar Sesión Hoy
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 8px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">DOM</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">LUN</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">MAR</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">MIÉ</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">JUE</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">VIE</div>
+            <div style="font-size: 11px; font-weight: 800; color: #64748b;">SÁB</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+    `;
+
+    // Celdas vacías antes del primer día
+    for (var i = 0; i < primerDiaSemana; i++) {
+        html += '<div style="min-height: 84px; background: rgba(255, 255, 255, 0.02); border-radius: 12px; opacity: 0.3;"></div>';
+    }
+
+    // Celdas de cada día del mes
+    for (var dia = 1; dia <= diasEnMes; dia++) {
+        var sesDia = sesionesPorDia[dia] || [];
+        var cantSes = sesDia.length;
+        var gananciaDia = sesDia.reduce(function(acc, s) { return acc + (parseFloat(s.cobro) || 0); }, 0);
+        var minutosDia = sesDia.reduce(function(acc, s) { return acc + (parseInt(s.duracionMinutos, 10) || 0); }, 0);
+        var horasDia = (minutosDia / 60).toFixed(1);
+
+        var diaStr = (dia < 10 ? '0' + dia : dia);
+        var fechaCompleta = mesPrefix + '-' + diaStr;
+
+        var clases = 'trainer-dia-card';
+        if (cantSes > 0) clases += ' con-sesiones';
+        if (dia === hoyDia) clases += ' hoy';
+
+        html += `
+        <div class="${clases}" onclick="verDetalleDiaTrainer('${fechaCompleta}')">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; font-weight: 800; color: ${dia === hoyDia ? '#10b981' : '#f8fafc'};">${dia}</span>
+                ${dia === hoyDia ? '<span style="font-size: 9px; font-weight: 800; background: #10b981; color: #000; padding: 1px 4px; border-radius: 4px;">HOY</span>' : ''}
+            </div>
+
+            <div>
+                ${cantSes > 0 ? `
+                    <div style="font-size: 10px; font-weight: 800; color: #10b981; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        🏋️‍♂️ ${cantSes} ${cantSes === 1 ? 'ses.' : 'ses.'}
+                    </div>
+                    <div style="font-size: 10px; font-weight: 800; color: #38bdf8;">
+                        +$${gananciaDia.toFixed(0)}
+                    </div>
+                    <div style="font-size: 9px; color: #94a3b8;">
+                        ${horasDia}h
+                    </div>
+                ` : `
+                    <div style="font-size: 10px; color: #475569; margin-top: 6px;">—</div>
+                `}
+            </div>
+        </div>
+        `;
+    }
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
+function renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones) {
+    var query = (BUSQUEDA_ALUMNO_TRAINER || '').toLowerCase().trim();
+    var filtrados = alumnos.filter(function(a) {
+        if (!query) return true;
+        var nom = (a.nombre || '').toLowerCase();
+        var tel = (a.telefono || '').toLowerCase();
+        var obj = (a.objetivo || '').toLowerCase();
+        var gen = (a.genero || '').toLowerCase();
+        return nom.indexOf(query) !== -1 || tel.indexOf(query) !== -1 || obj.indexOf(query) !== -1 || gen.indexOf(query) !== -1;
+    });
+
+    var html = `
+    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="flex: 1; min-width: 250px;">
+            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ALUMNO_TRAINER)}" placeholder="🔍 Buscar alumno por nombre, objetivo, género o teléfono..." oninput="filtrarAlumnosTrainer(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+        </div>
+        <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <span>➕</span> + Registrar Alumno
+        </button>
+    </div>
+    `;
+
+    if (filtrados.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
+            <div style="font-size: 36px; margin-bottom: 10px;">🏋️‍♂️</div>
+            <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No se encontraron alumnos</div>
+            <div style="font-size: 12.5px;">Registra un alumno para gestionar su ficha biométrica (edad, género, altura, peso, fecha de ingreso) e historial de entrenamientos.</div>
+            <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="margin-top: 14px; font-size: 12px; background: #10b981; color: #000; border: none; padding: 8px 16px; font-weight: 800; border-radius: 8px; cursor: pointer;">
+                + Agregar Primer Alumno
+            </button>
+        </div>
+        `;
+        return html;
+    }
+
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px;">';
+
+    filtrados.forEach(function(al) {
+        var sesAlumno = sesiones.filter(function(s) {
+            return (s.alumnoId && s.alumnoId === al.id) || (s.alumnoNombre && s.alumnoNombre.toLowerCase() === al.nombre.toLowerCase());
+        });
+
+        var totalRecaudado = sesAlumno.reduce(function(acc, s) { return acc + (parseFloat(s.cobro) || 0); }, 0);
+        var iniciales = al.nombre ? al.nombre.slice(0, 2).toUpperCase() : 'AL';
+        var antiguedadTexto = calcularAntiguedadAlumno(al.fechaIngreso);
+
+        var badgeGenero = al.genero === 'Femenino' ? '♀️ Fem' : (al.genero === 'Masculino' ? '♂️ Masc' : '⚧️');
+
+        html += `
+        <div class="trainer-alumno-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="trainer-avatar-initials">${escapeHtmlTrainer(iniciales)}</div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(al.nombre)}</div>
+                            <span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.07); color: #94a3b8; padding: 2px 5px; border-radius: 4px;">${badgeGenero}</span>
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8;">${al.telefono ? '📞 ' + escapeHtmlTrainer(al.telefono) : 'Sin teléfono'}</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; font-weight: 800; color: #10b981;">$${(parseFloat(al.tarifaHabitual) || 0).toFixed(2)}</div>
+                    <div style="font-size: 9.5px; color: #64748b;">tarifa / sesión</div>
+                </div>
+            </div>
+
+            <!-- FICHA BIOMÉTRICA RESUMIDA -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px; margin-bottom: 10px; text-align: center;">
+                <div>
+                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Edad</div>
+                    <div style="font-size: 12px; font-weight: 800; color: #f8fafc;">${al.edad ? al.edad + ' años' : '—'}</div>
+                </div>
+                <div>
+                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Altura</div>
+                    <div style="font-size: 12px; font-weight: 800; color: #f8fafc;">${al.altura ? al.altura + ' cm' : '—'}</div>
+                </div>
+                <div>
+                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Peso</div>
+                    <div style="font-size: 12px; font-weight: 800; color: #10b981;">${al.peso ? al.peso + ' kg' : '—'}</div>
+                </div>
+            </div>
+
+            <div style="font-size: 11.5px; color: #cbd5e1; margin-bottom: 12px; line-height: 1.4;">
+                <div>🎯 <strong>Objetivo:</strong> <span style="color: #38bdf8;">${escapeHtmlTrainer(al.objetivo || 'Salud & Acondicionamiento')}</span></div>
+                <div style="margin-top: 2px;">📅 <strong>Antigüedad:</strong> <span style="color: #f59e0b; font-weight: 700;">${escapeHtmlTrainer(antiguedadTexto)}</span></div>
+                <div style="margin-top: 2px; color: #94a3b8; font-size: 11px;">🏋️‍♂️ <strong>Entrenamientos:</strong> ${sesAlumno.length} sesiones · Total: $${totalRecaudado.toFixed(0)}</div>
+            </div>
+
+            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px;">
+                <button type="button" class="btn-system" onclick="abrirModalIniciarEntrenamiento('${al.id}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+                    🏋️‍♂️ Iniciar Sesión
+                </button>
+                <button type="button" class="btn-back-system" onclick="verFichaAlumnoTrainer('${al.id}')" style="flex: 1; justify-content: center; font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Ver ficha biométrica e historial">
+                    📋 Ficha
+                </button>
+                <button type="button" class="btn-back-system" onclick="abrirModalAlumnoTrainer('${al.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Editar alumno">
+                    ✏️
+                </button>
+                <button type="button" class="btn-back-system" onclick="eliminarAlumnoTrainer('${al.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar alumno">
+                    🗑️
+                </button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
+    var query = (BUSQUEDA_ENFOQUE_TRAINER || '').toLowerCase().trim();
+    var filtrados = rutinas.filter(function(r) {
+        if (!query) return true;
+        var nom = (r.nombre || '').toLowerCase();
+        var des = (r.descripcion || '').toLowerCase();
+        return nom.indexOf(query) !== -1 || des.indexOf(query) !== -1;
+    });
+
+    var html = `
+    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="flex: 1; min-width: 250px;">
+            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ENFOQUE_TRAINER)}" placeholder="🔍 Buscar enfoque o rutina por nombre o ejercicios..." oninput="filtrarEnfoquesTrainer(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+        </div>
+        <button type="button" class="btn-system" onclick="abrirModalEnfoqueTrainer()" style="font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <span>➕</span> + Nuevo Enfoque / Rutina
+        </button>
+    </div>
+    `;
+
+    if (filtrados.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
+            <div style="font-size: 36px; margin-bottom: 10px;">🎯</div>
+            <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No se encontraron rutinas</div>
+            <div style="font-size: 12.5px;">Agrega enfoques musculares (Pierna, Push, Pull, Fullbody) para auto-completar los entrenamientos.</div>
+            <button type="button" class="btn-system" onclick="abrirModalEnfoqueTrainer()" style="margin-top: 14px; font-size: 12px; background: #10b981; color: #000; border: none; padding: 8px 16px; font-weight: 800; border-radius: 8px; cursor: pointer;">
+                + Crear Primer Enfoque
+            </button>
+        </div>
+        `;
+        return html;
+    }
+
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">';
+
+    filtrados.forEach(function(r) {
+        html += `
+        <div class="trainer-enfoque-card">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(r.nombre)}</div>
+                        <span style="font-size: 11px; color: #10b981; font-weight: 700;">⏱️ ${r.tiempoMin || 60} min estimados</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 16px; font-weight: 800; color: #10b981;">$${(parseFloat(r.precio) || 0).toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div style="font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 14px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 10px;">
+                    ${escapeHtmlTrainer(r.descripcion || 'Sin descripción técnica registrada.')}
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px;">
+                <button type="button" class="btn-system" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(r.nombre)}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+                    🏋️‍♂️ Iniciar Rutina
+                </button>
+                <button type="button" class="btn-back-system" onclick="abrirModalEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Editar enfoque">
+                    ✏️
+                </button>
+                <button type="button" class="btn-back-system" onclick="eliminarEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar enfoque">
+                    🗑️
+                </button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
+    var alumnoFiltro = FILTRO_HISTORIAL_TRAINER_ALUMNO || '';
+    var filtradas = sesiones.filter(function(s) {
+        if (!alumnoFiltro) return true;
+        return (s.alumnoId && s.alumnoId === alumnoFiltro) || (s.alumnoNombre && s.alumnoNombre.toLowerCase() === alumnoFiltro.toLowerCase());
+    });
+
+    var html = `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;">
+            <label style="font-size: 12px; color: #94a3b8; font-weight: 700;">Filtrar por Alumno:</label>
+            <select class="finanzas-input-clean" onchange="filtrarHistorialTrainerPorAlumno(this.value)" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 8px; padding: 6px 12px; font-size: 12.5px;">
+                <option value="">Todos los Alumnos (${sesiones.length})</option>
+    `;
+
+    alumnos.forEach(function(al) {
+        var sel = alumnoFiltro === al.id ? 'selected' : '';
+        html += `<option value="${al.id}" ${sel}>${escapeHtmlTrainer(al.nombre)}</option>`;
+    });
+
+    html += `
+            </select>
+        </div>
+        <div style="font-size: 12px; color: #94a3b8;">
+            Mostrando: <strong style="color: #10b981;">${filtradas.length}</strong> de ${sesiones.length} sesiones
+        </div>
+    </div>
+    `;
+
+    if (filtradas.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
+            <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">No hay entrenamientos en este historial</div>
+            <div style="font-size: 12px; margin-top: 4px;">Usa el botón "Iniciar Entrenamiento" para registrar una sesión en vivo.</div>
+        </div>
+        `;
+        return html;
+    }
+
+    html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+
+    filtradas.forEach(function(s) {
+        html += `
+        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+                    🏋️‍♂️
+                </div>
+                <div>
+                    <div style="font-size: 13.5px; font-weight: 800; color: #f8fafc;">
+                        ${escapeHtmlTrainer(s.alumnoNombre || 'Alumno')} 
+                        <span style="font-size: 11px; font-weight: 600; color: #10b981; margin-left: 6px;">${escapeHtmlTrainer(s.enfoque || 'Entrenamiento')}</span>
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8;">
+                        📅 ${s.fecha} · ⏱️ ${s.duracionMinutos || 60} min
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="text-align: right;">
+                    <div style="font-size: 15px; font-weight: 800; color: #10b981;">+$${(parseFloat(s.cobro) || 0).toFixed(2)}</div>
+                    <div style="font-size: 9.5px; color: #64748b;">cobrado</div>
+                </div>
+                <button type="button" class="btn-back-system" onclick="eliminarEntrenamientoTrainer('${s.id}')" style="margin-bottom: 0; padding: 6px 10px; font-size: 11px; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar registro">
+                    🗑️
+                </button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function filtrarHistorialTrainerPorAlumno(alumnoId) {
+    FILTRO_HISTORIAL_TRAINER_ALUMNO = alumnoId;
+    renderizarSubAppTrainer();
+}
+
+function renderizarChipsEnfoquesTrainer() {
+    asegurarEstructuraTrainer();
+    var rutinas = APP_STATE.subappTrainer.rutinasEnfoques || [];
+
+    var contIniciar = document.getElementById('chips-enfoques-iniciar');
+    if (contIniciar) {
+        var html = '';
+        rutinas.forEach(function(r) {
+            var nomEsc = escapeHtmlTrainer(r.nombre);
+            html += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('iniciar', '${nomEsc}', ${r.precio || 15})">${nomEsc}</span>`;
+        });
+        contIniciar.innerHTML = html;
+    }
+
+    var contFin = document.getElementById('chips-enfoques-finalizar');
+    if (contFin) {
+        var html2 = '';
+        rutinas.forEach(function(r) {
+            var nomEsc = escapeHtmlTrainer(r.nombre);
+            html2 += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('finalizar', '${nomEsc}', ${r.precio || 15})">${nomEsc}</span>`;
+        });
+        contFin.innerHTML = html2;
+    }
+}
+
+function seleccionarChipEnfoqueTrainer(modalContext, nombreEnfoque, precio) {
+    if (modalContext === 'iniciar') {
+        var inEnf = document.getElementById('input-iniciar-entrenamiento-enfoque');
+        if (inEnf) inEnf.value = nombreEnfoque;
+    } else if (modalContext === 'finalizar') {
+        var inEnfFin = document.getElementById('fin-entrenamiento-input-enfoque');
+        var inCobro = document.getElementById('fin-entrenamiento-input-cobro');
+        if (inEnfFin) inEnfFin.value = nombreEnfoque;
+        if (inCobro && (!inCobro.value || parseFloat(inCobro.value) === 0)) {
+            inCobro.value = precio.toFixed(2);
+        }
+    }
+}
+
+function abrirModalIniciarEntrenamiento(alumnoIdPreseleccionado, enfoquePreseleccionado) {
+    asegurarEstructuraTrainer();
+    var modal = document.getElementById('modal-iniciar-entrenamiento-trainer');
+    if (!modal) return;
+
+    var sel = document.getElementById('select-iniciar-entrenamiento-alumno');
+    var inEnfoque = document.getElementById('input-iniciar-entrenamiento-enfoque');
+    var contNuevo = document.getElementById('contenedor-alumno-nuevo-express');
+    var inNuevo = document.getElementById('input-iniciar-alumno-nuevo-nombre');
+
+    if (sel) {
+        var alumnos = APP_STATE.subappTrainer.alumnos || [];
+        var opts = '<option value="">-- Selecciona un Alumno del Catálogo --</option>';
+        opts += '<option value="__NUEVO__">➕ + Registrar Alumno Nuevo Express</option>';
+
+        alumnos.forEach(function(al) {
+            var selected = (alumnoIdPreseleccionado && al.id === alumnoIdPreseleccionado) ? 'selected' : '';
+            opts += `<option value="${al.id}" ${selected}>${escapeHtmlTrainer(al.nombre)} ($${al.tarifaHabitual || 0})</option>`;
+        });
+        sel.innerHTML = opts;
+
+        if (alumnoIdPreseleccionado) {
+            sel.value = alumnoIdPreseleccionado;
+            if (contNuevo) contNuevo.style.display = 'none';
+        } else {
+            if (contNuevo) contNuevo.style.display = 'none';
+        }
+    }
+
+    if (inNuevo) inNuevo.value = '';
+    if (inEnfoque) {
+        if (enfoquePreseleccionado) {
+            inEnfoque.value = enfoquePreseleccionado;
+        } else if (alumnoIdPreseleccionado) {
+            var alFound = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoIdPreseleccionado; });
+            inEnfoque.value = alFound ? (alFound.objetivo || 'Pierna & Glúteos') : '';
+        } else {
+            inEnfoque.value = 'Pierna & Glúteos (Hipertrofia)';
+        }
+    }
+
+    renderizarChipsEnfoquesTrainer();
+    modal.style.display = 'flex';
+}
+
+function cerrarModalIniciarEntrenamiento() {
+    var modal = document.getElementById('modal-iniciar-entrenamiento-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function alCambiarAlumnoEnIniciarEntrenamiento() {
+    var sel = document.getElementById('select-iniciar-entrenamiento-alumno');
+    var contNuevo = document.getElementById('contenedor-alumno-nuevo-express');
+    var inEnfoque = document.getElementById('input-iniciar-entrenamiento-enfoque');
+    if (!sel) return;
+
+    if (sel.value === '__NUEVO__') {
+        if (contNuevo) contNuevo.style.display = 'block';
+    } else {
+        if (contNuevo) contNuevo.style.display = 'none';
+        if (sel.value) {
+            var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === sel.value; });
+            if (al && inEnfoque && !inEnfoque.value) {
+                inEnfoque.value = al.objetivo || 'Fuerza & Acondicionamiento';
+            }
+        }
+    }
+}
+
+function confirmarIniciarEntrenamiento() {
+    asegurarEstructuraTrainer();
+    var sel = document.getElementById('select-iniciar-entrenamiento-alumno');
+    var inNuevo = document.getElementById('input-iniciar-alumno-nuevo-nombre');
+    var inEnfoque = document.getElementById('input-iniciar-entrenamiento-enfoque');
+
+    var alumnoId = sel ? sel.value : '';
+    var alumnoNombre = '';
+
+    if (alumnoId === '__NUEVO__') {
+        alumnoNombre = inNuevo ? inNuevo.value.trim() : '';
+        if (!alumnoNombre) {
+            alert("Por favor ingresa el nombre del nuevo alumno.");
+            return;
+        }
+        alumnoId = null;
+    } else if (alumnoId) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+        alumnoNombre = al ? al.nombre : 'Alumno';
+    } else {
+        alumnoNombre = 'Alumno General';
+        alumnoId = null;
+    }
+
+    var enfoque = inEnfoque ? inEnfoque.value.trim() : 'Entrenamiento Personalizado';
+    if (!enfoque) enfoque = 'Entrenamiento Personalizado';
+
+    APP_STATE.subappTrainer.timerActivo = {
+        inicioTimestamp: Date.now(),
+        alumnoId: alumnoId,
+        alumnoNombre: alumnoNombre,
+        enfoque: enfoque
+    };
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalIniciarEntrenamiento();
+    iniciarIntervaloTimerTrainer();
+    renderizarSubAppTrainer();
+}
+
+function descartarTimerEntrenamiento() {
+    if (!confirm("¿Deseas descartar el cronómetro de la sesión en curso? Los datos no se guardarán.")) return;
+    asegurarEstructuraTrainer();
+    APP_STATE.subappTrainer.timerActivo = null;
+    if (INTERVALO_TIMER_TRAINER) {
+        clearInterval(INTERVALO_TIMER_TRAINER);
+        INTERVALO_TIMER_TRAINER = null;
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function pararTimerEntrenamiento() {
+    asegurarEstructuraTrainer();
+    var timer = APP_STATE.subappTrainer.timerActivo;
+    if (!timer) return;
+
+    var ahora = Date.now();
+    var segundosTotales = Math.max(1, Math.floor((ahora - timer.inicioTimestamp) / 1000));
+    var minutosTotales = Math.max(1, Math.round(segundosTotales / 60));
+
+    ENTRENAMIENTO_TEMPORAL_FINALIZANDO = {
+        segundos: segundosTotales,
+        minutos: minutosTotales,
+        alumnoId: timer.alumnoId,
+        alumnoNombre: timer.alumnoNombre,
+        enfoque: timer.enfoque
+    };
+
+    var modal = document.getElementById('modal-finalizar-entrenamiento-trainer');
+    if (!modal) return;
+
+    var elDisplay = document.getElementById('fin-entrenamiento-display-tiempo');
+    var elMinutos = document.getElementById('fin-entrenamiento-display-minutos');
+    var inAlumno = document.getElementById('fin-entrenamiento-input-alumno');
+    var inEnfoque = document.getElementById('fin-entrenamiento-input-enfoque');
+    var inCobro = document.getElementById('fin-entrenamiento-input-cobro');
+
+    if (elDisplay) elDisplay.textContent = formatearSegundosTrainer(segundosTotales);
+    if (elMinutos) elMinutos.textContent = '(' + minutosTotales + ' min equivalentes)';
+    if (inAlumno) inAlumno.value = timer.alumnoNombre || '';
+    if (inEnfoque) inEnfoque.value = timer.enfoque || '';
+
+    // Sugerir cobro habitual del alumno o enfoque
+    var cobroSugerido = 15.00;
+    if (timer.alumnoId) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === timer.alumnoId; });
+        if (al && al.tarifaHabitual) cobroSugerido = parseFloat(al.tarifaHabitual);
+    } else if (timer.enfoque) {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) { return e.nombre.toLowerCase() === timer.enfoque.toLowerCase(); });
+        if (enf && enf.precio) cobroSugerido = parseFloat(enf.precio);
+    }
+    if (inCobro) inCobro.value = cobroSugerido.toFixed(2);
+
+    renderizarChipsEnfoquesTrainer();
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFinalizarEntrenamiento() {
+    var modal = document.getElementById('modal-finalizar-entrenamiento-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarEntrenamientoFinalizado() {
+    if (!ENTRENAMIENTO_TEMPORAL_FINALIZANDO) {
+        alert("No hay un entrenamiento activo para guardar.");
+        return;
+    }
+    asegurarEstructuraTrainer();
+
+    var inAlumno = document.getElementById('fin-entrenamiento-input-alumno');
+    var inEnfoque = document.getElementById('fin-entrenamiento-input-enfoque');
+    var inCobro = document.getElementById('fin-entrenamiento-input-cobro');
+    var checkFin = document.getElementById('fin-entrenamiento-check-finanzas');
+
+    var alumnoNombre = inAlumno ? inAlumno.value.trim() : '';
+    if (!alumnoNombre) {
+        alert("Por favor ingresa o confirma el nombre del alumno.");
+        return;
+    }
+
+    var enfoque = inEnfoque ? inEnfoque.value.trim() : 'Entrenamiento Personalizado';
+    var cobro = inCobro ? parseFloat(inCobro.value) || 0 : 0;
+    var duracionMinutos = ENTRENAMIENTO_TEMPORAL_FINALIZANDO.minutos || 60;
+
+    var hoy = new Date();
+    var hoyMes = hoy.getMonth() + 1;
+    var hoyDia = hoy.getDate();
+    var fechaHoyStr = hoy.getFullYear() + '-' + (hoyMes < 10 ? '0' + hoyMes : hoyMes) + '-' + (hoyDia < 10 ? '0' + hoyDia : hoyDia);
+
+    var alumnoId = ENTRENAMIENTO_TEMPORAL_FINALIZANDO.alumnoId;
+    var alExistente = null;
+
+    if (alumnoId) {
+        alExistente = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+    }
+    if (!alExistente && alumnoNombre) {
+        alExistente = (APP_STATE.subappTrainer.alumnos || []).find(function(a) {
+            return a.nombre.toLowerCase().trim() === alumnoNombre.toLowerCase().trim();
+        });
+        if (alExistente) alumnoId = alExistente.id;
+    }
+
+    // Si el alumno no existe en el catálogo, auto-registrarlo con los datos iniciales
+    if (!alExistente) {
+        alumnoId = 'ALU-' + Date.now();
+        var nuevoAl = {
+            id: alumnoId,
+            nombre: alumnoNombre,
+            genero: 'Masculino',
+            edad: 25,
+            altura: 175,
+            peso: 75,
+            fechaIngreso: fechaHoyStr,
+            tarifaHabitual: cobro || 15.00,
+            objetivo: enfoque,
+            telefono: '',
+            notas: 'Registrado automáticamente al finalizar sesión de entrenamiento.'
+        };
+        APP_STATE.subappTrainer.alumnos.push(nuevoAl);
+    }
+
+    var nuevoEntrenamiento = {
+        id: 'ENT-' + Date.now(),
+        fecha: fechaHoyStr,
+        timestamp: Date.now(),
+        alumnoId: alumnoId,
+        alumnoNombre: alumnoNombre,
+        enfoque: enfoque,
+        duracionMinutos: duracionMinutos,
+        cobro: cobro,
+        registradoEnFinanzas: checkFin ? checkFin.checked : true
+    };
+
+    APP_STATE.subappTrainer.sesiones.unshift(nuevoEntrenamiento);
+
+    // 1. Integración automática con Finanzas
+    if (checkFin && checkFin.checked && cobro > 0) {
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [] };
+        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
+
+        var nuevoIngreso = {
+            id: 'ING-' + Date.now(),
+            descripcion: 'Personal Trainer - ' + alumnoNombre + ' (' + enfoque + ')',
+            monto: cobro,
+            fecha: fechaHoyStr,
+            categoria: 'Labores & Servicios'
+        };
+        APP_STATE.finanzas.ingresos.unshift(nuevoIngreso);
+    }
+
+    // 2. Acumular tiempo a la sesión del día en LAB-TRAINER
+    var horasSesion = parseFloat((duracionMinutos / 60).toFixed(2));
+    if (!Array.isArray(APP_STATE.registrosLabores)) APP_STATE.registrosLabores = [];
+
+    var regHoy = APP_STATE.registrosLabores.find(function(r) {
+        return r.laborId === 'LAB-TRAINER' && r.fecha === fechaHoyStr;
+    });
+
+    if (regHoy) {
+        regHoy.horasTrabajadas = parseFloat(((parseFloat(regHoy.horasTrabajadas) || 0) + horasSesion).toFixed(2));
+        regHoy.ingresoCalculado = parseFloat(((parseFloat(regHoy.ingresoCalculado) || 0) + cobro).toFixed(2));
+        var notaEnt = alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)';
+        regHoy.notas = regHoy.notas ? (regHoy.notas + ' | ' + notaEnt) : notaEnt;
+    } else {
+        var nuevoRegLabor = {
+            id: 'REG-LAB-' + Date.now(),
+            laborId: 'LAB-TRAINER',
+            fecha: fechaHoyStr,
+            horasTrabajadas: horasSesion,
+            ingresoCalculado: cobro,
+            notas: 'Entrenamiento con ' + alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)'
+        };
+        APP_STATE.registrosLabores.unshift(nuevoRegLabor);
+    }
+
+    // 3. Otorgar EXP de Jugador
+    if (typeof otorgarExpJugador === 'function') {
+        var expSesion = Math.min(60, Math.max(15, Math.round(duracionMinutos * 0.6)));
+        otorgarExpJugador(expSesion, 'Sesión de Coaching Trainer: ' + alumnoNombre);
+    }
+
+    // Limpiar estado del timer
+    APP_STATE.subappTrainer.timerActivo = null;
+    ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
+    if (INTERVALO_TIMER_TRAINER) {
+        clearInterval(INTERVALO_TIMER_TRAINER);
+        INTERVALO_TIMER_TRAINER = null;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalFinalizarEntrenamiento();
+    renderizarSubAppTrainer();
+    alert("🏋️‍♂️ ¡Entrenamiento guardado con éxito! Se sumaron " + duracionMinutos + " min a tu jornada de Personal Trainer.");
+}
+
+function eliminarEntrenamientoTrainer(entrenamientoId) {
+    if (!confirm("¿Deseas eliminar este registro de entrenamiento del historial?")) return;
+    asegurarEstructuraTrainer();
+    registrarTombstone('subappTrainer_sesiones', entrenamientoId);
+    APP_STATE.subappTrainer.sesiones = APP_STATE.subappTrainer.sesiones.filter(function(s) { return s.id !== entrenamientoId; });
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function abrirModalAlumnoTrainer(alumnoId) {
+    asegurarEstructuraTrainer();
+    var modal = document.getElementById('modal-alumno-trainer');
+    if (!modal) return;
+
+    var tit = document.getElementById('titulo-modal-alumno-trainer');
+    var inId = document.getElementById('input-alumno-trainer-id');
+    var inNom = document.getElementById('input-alumno-trainer-nombre');
+    var inGen = document.getElementById('input-alumno-trainer-genero');
+    var inEdad = document.getElementById('input-alumno-trainer-edad');
+    var inAlt = document.getElementById('input-alumno-trainer-altura');
+    var inPeso = document.getElementById('input-alumno-trainer-peso');
+    var inIng = document.getElementById('input-alumno-trainer-fecha-ingreso');
+    var inTar = document.getElementById('input-alumno-trainer-tarifa');
+    var inObj = document.getElementById('input-alumno-trainer-objetivo');
+    var inTel = document.getElementById('input-alumno-trainer-telefono');
+    var inNot = document.getElementById('input-alumno-trainer-notas');
+
+    if (alumnoId) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+        if (al) {
+            if (tit) tit.textContent = 'EDITAR FICHA DE ALUMNO';
+            if (inId) inId.value = al.id;
+            if (inNom) inNom.value = al.nombre || '';
+            if (inGen) inGen.value = al.genero || 'Masculino';
+            if (inEdad) inEdad.value = al.edad || 25;
+            if (inAlt) inAlt.value = al.altura || 175;
+            if (inPeso) inPeso.value = al.peso || '';
+            if (inIng) inIng.value = al.fechaIngreso || '';
+            if (inTar) inTar.value = al.tarifaHabitual || 15.00;
+            if (inObj) inObj.value = al.objetivo || 'Hipertrofia';
+            if (inTel) inTel.value = al.telefono || '';
+            if (inNot) inNot.value = al.notas || '';
+        }
+    } else {
+        if (tit) tit.textContent = 'CREAR NUEVO ALUMNO';
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inGen) inGen.value = 'Masculino';
+        if (inEdad) inEdad.value = '25';
+        if (inAlt) inAlt.value = '175';
+        if (inPeso) inPeso.value = '75.0';
+
+        var hoy = new Date();
+        var hoyM = hoy.getMonth() + 1;
+        var hoyD = hoy.getDate();
+        var hoyStr = hoy.getFullYear() + '-' + (hoyM < 10 ? '0' + hoyM : hoyM) + '-' + (hoyD < 10 ? '0' + hoyD : hoyD);
+        if (inIng) inIng.value = hoyStr;
+
+        if (inTar) inTar.value = '15.00';
+        if (inObj) inObj.value = 'Hipertrofia';
+        if (inTel) inTel.value = '';
+        if (inNot) inNot.value = '';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalAlumnoTrainer() {
+    var modal = document.getElementById('modal-alumno-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarAlumnoTrainer() {
+    asegurarEstructuraTrainer();
+    var inId = document.getElementById('input-alumno-trainer-id');
+    var inNom = document.getElementById('input-alumno-trainer-nombre');
+    var inGen = document.getElementById('input-alumno-trainer-genero');
+    var inEdad = document.getElementById('input-alumno-trainer-edad');
+    var inAlt = document.getElementById('input-alumno-trainer-altura');
+    var inPeso = document.getElementById('input-alumno-trainer-peso');
+    var inIng = document.getElementById('input-alumno-trainer-fecha-ingreso');
+    var inTar = document.getElementById('input-alumno-trainer-tarifa');
+    var inObj = document.getElementById('input-alumno-trainer-objetivo');
+    var inTel = document.getElementById('input-alumno-trainer-telefono');
+    var inNot = document.getElementById('input-alumno-trainer-notas');
+
+    var nom = inNom ? inNom.value.trim() : '';
+    if (!nom) {
+        alert("Por favor ingresa el nombre del alumno.");
+        return;
+    }
+
+    var id = inId ? inId.value : '';
+    var gen = inGen ? inGen.value : 'Masculino';
+    var edad = inEdad ? parseInt(inEdad.value, 10) || 25 : 25;
+    var alt = inAlt ? parseInt(inAlt.value, 10) || 175 : 175;
+    var peso = inPeso ? parseFloat(inPeso.value) || 0 : 0;
+    var fechaIng = inIng ? inIng.value : '';
+    var tar = inTar ? parseFloat(inTar.value) || 0 : 0;
+    var obj = inObj ? inObj.value : 'Hipertrofia';
+    var tel = inTel ? inTel.value.trim() : '';
+    var not = inNot ? inNot.value.trim() : '';
+
+    if (!fechaIng) {
+        var hoy = new Date();
+        var hoyM = hoy.getMonth() + 1;
+        var hoyD = hoy.getDate();
+        fechaIng = hoy.getFullYear() + '-' + (hoyM < 10 ? '0' + hoyM : hoyM) + '-' + (hoyD < 10 ? '0' + hoyD : hoyD);
+    }
+
+    if (id) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === id; });
+        if (al) {
+            al.nombre = nom;
+            al.genero = gen;
+            al.edad = edad;
+            al.altura = alt;
+            al.peso = peso;
+            al.fechaIngreso = fechaIng;
+            al.tarifaHabitual = tar;
+            al.objetivo = obj;
+            al.telefono = tel;
+            al.notas = not;
+        }
+    } else {
+        var nuevo = {
+            id: 'ALU-' + Date.now(),
+            nombre: nom,
+            genero: gen,
+            edad: edad,
+            altura: alt,
+            peso: peso,
+            fechaIngreso: fechaIng,
+            tarifaHabitual: tar,
+            objetivo: obj,
+            telefono: tel,
+            notas: not
+        };
+        APP_STATE.subappTrainer.alumnos.push(nuevo);
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalAlumnoTrainer();
+    renderizarSubAppTrainer();
+    alert("🏋️‍♂️ Alumno guardado con éxito.");
+}
+
+function eliminarAlumnoTrainer(alumnoId) {
+    if (!confirm("¿Deseas eliminar este alumno del catálogo? (Sus sesiones históricas se conservarán)")) return;
+    asegurarEstructuraTrainer();
+    registrarTombstone('subappTrainer_alumnos', alumnoId);
+    APP_STATE.subappTrainer.alumnos = APP_STATE.subappTrainer.alumnos.filter(function(a) { return a.id !== alumnoId; });
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function filtrarAlumnosTrainer(query) {
+    BUSQUEDA_ALUMNO_TRAINER = query;
+    renderizarSubAppTrainer();
+}
+
+function verFichaAlumnoTrainer(alumnoId) {
+    asegurarEstructuraTrainer();
+    var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+    if (!al) return;
+
+    var modal = document.getElementById('modal-ficha-alumno-trainer');
+    var cont = document.getElementById('contenido-ficha-alumno-trainer');
+    if (!modal || !cont) return;
+
+    var sesiones = (APP_STATE.subappTrainer.sesiones || []).filter(function(s) {
+        return (s.alumnoId && s.alumnoId === al.id) || (s.alumnoNombre && s.alumnoNombre.toLowerCase() === al.nombre.toLowerCase());
+    });
+
+    var totalRecaudado = sesiones.reduce(function(acc, s) { return acc + (parseFloat(s.cobro) || 0); }, 0);
+    var totalMinutos = sesiones.reduce(function(acc, s) { return acc + (parseInt(s.duracionMinutos, 10) || 0); }, 0);
+    var totalHoras = (totalMinutos / 60).toFixed(1);
+    var antiguedad = calcularAntiguedadAlumno(al.fechaIngreso);
+
+    // Cálculo IMC orientativo si hay altura y peso
+    var imcHtml = '—';
+    if (al.altura > 0 && al.peso > 0) {
+        var altM = al.altura / 100;
+        var imc = (al.peso / (altM * altM)).toFixed(1);
+        var imcClasif = imc < 18.5 ? 'Bajo peso' : (imc < 25 ? 'Normal' : (imc < 30 ? 'Sobrepeso' : 'Obesidad'));
+        imcHtml = `<strong>${imc}</strong> (${imcClasif})`;
+    }
+
+    var iniciales = al.nombre ? al.nombre.slice(0, 2).toUpperCase() : 'AL';
+
+    var html = `
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; background: #07090e; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 14px; padding: 14px 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="trainer-avatar-initials" style="width: 48px; height: 48px; font-size: 18px;">
+                ${escapeHtmlTrainer(iniciales)}
+            </div>
+            <div>
+                <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(al.nombre)}</h3>
+                <div style="font-size: 12px; color: #94a3b8;">${al.telefono ? '📞 ' + escapeHtmlTrainer(al.telefono) : 'Sin teléfono registrado'}</div>
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1); font-size: 11px;">${al.genero || 'Masculino'}</span>
+        </div>
+    </div>
+
+    <!-- CUADRO BIOMÉTRICO EXHAUSTIVO -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 4px;">
+            <div style="font-size: 10px; color: #64748b; text-transform: uppercase;">Edad</div>
+            <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${al.edad ? al.edad + ' a' : '—'}</div>
+        </div>
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 4px;">
+            <div style="font-size: 10px; color: #64748b; text-transform: uppercase;">Altura</div>
+            <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${al.altura ? al.altura + ' cm' : '—'}</div>
+        </div>
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 4px;">
+            <div style="font-size: 10px; color: #64748b; text-transform: uppercase;">Peso</div>
+            <div style="font-size: 14px; font-weight: 800; color: #10b981;">${al.peso ? al.peso + ' kg' : '—'}</div>
+        </div>
+        <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 4px;">
+            <div style="font-size: 10px; color: #64748b; text-transform: uppercase;">IMC</div>
+            <div style="font-size: 12px; font-weight: 800; color: #38bdf8;">${imcHtml}</div>
+        </div>
+    </div>
+
+    <!-- DATOS DE COACHING Y ANTIGÜEDAD -->
+    <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 16px; font-size: 12.5px;">
+        <div style="color: #cbd5e1; margin-bottom: 6px;">
+            🎯 <strong>Objetivo Físico:</strong> <span style="color: #38bdf8; font-weight: 700;">${escapeHtmlTrainer(al.objetivo || 'Sin objetivo')}</span>
+        </div>
+        <div style="color: #cbd5e1; margin-bottom: 6px;">
+            📅 <strong>Fecha de Ingreso:</strong> ${al.fechaIngreso || 'No registrada'} · <span style="color: #f59e0b; font-weight: 700;">${escapeHtmlTrainer(antiguedad)}</span>
+        </div>
+        <div style="color: #cbd5e1; margin-bottom: 6px;">
+            💵 <strong>Tarifa Habitual:</strong> <span style="color: #10b981; font-weight: 800;">$${(parseFloat(al.tarifaHabitual) || 0).toFixed(2)}</span> por sesión
+        </div>
+        ${al.notas ? `
+            <div style="color: #94a3b8; font-size: 11.5px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.08);">
+                📝 <strong>Notas técnicas / Lesiones:</strong> <em>${escapeHtmlTrainer(al.notas)}</em>
+            </div>
+        ` : ''}
+    </div>
+
+    <!-- RESUMEN DE RENDIMIENTO ACUMULADO -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="background: #07090e; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #10b981; text-transform: uppercase; font-weight: 700;">Sesiones</div>
+            <div style="font-size: 18px; font-weight: 800; color: #10b981;">${sesiones.length}</div>
+        </div>
+        <div style="background: #07090e; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #38bdf8; text-transform: uppercase; font-weight: 700;">Horas Guía</div>
+            <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">${totalHoras}h</div>
+        </div>
+        <div style="background: #07090e; border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #f59e0b; text-transform: uppercase; font-weight: 700;">Total Pagado</div>
+            <div style="font-size: 18px; font-weight: 800; color: #f59e0b;">$${totalRecaudado.toFixed(0)}</div>
+        </div>
+    </div>
+
+    <!-- HISTORIAL RECIENTE CON EL ALUMNO -->
+    <div style="margin-bottom: 18px;">
+        <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block; margin-bottom: 8px;">Historial de Entrenamientos</span>
+        <div style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+    `;
+
+    if (sesiones.length === 0) {
+        html += '<div style="font-size: 12px; color: #64748b; padding: 10px; text-align: center;">Aún no hay entrenamientos registrados con este alumno.</div>';
+    } else {
+        sesiones.forEach(function(s) {
+            html += `
+            <div style="background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                <div>
+                    <span style="font-weight: 700; color: #f8fafc;">${escapeHtmlTrainer(s.enfoque)}</span>
+                    <span style="color: #64748b; margin-left: 6px;">(${s.fecha} · ${s.duracionMinutos} min)</span>
+                </div>
+                <span style="font-weight: 800; color: #10b981;">+$${(parseFloat(s.cobro) || 0).toFixed(2)}</span>
+            </div>
+            `;
+        });
+    }
+
+    html += `
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalFichaAlumnoTrainer()">Cerrar</button>
+        <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="cerrarModalFichaAlumnoTrainer(); abrirModalIniciarEntrenamiento('${al.id}');">🏋️‍♂️ Iniciar Entrenamiento Ahora</button>
+    </div>
+    `;
+
+    cont.innerHTML = html;
+    modal.style.display = 'flex';
+}
+
+function cerrarModalFichaAlumnoTrainer() {
+    var modal = document.getElementById('modal-ficha-alumno-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function verDetalleDiaTrainer(fechaStr) {
+    asegurarEstructuraTrainer();
+    var modal = document.getElementById('modal-detalle-dia-trainer');
+    var tit = document.getElementById('titulo-modal-detalle-dia-trainer');
+    var cont = document.getElementById('contenido-modal-detalle-dia-trainer');
+    if (!modal || !cont) return;
+
+    if (tit) tit.textContent = 'JORNADA DE TRAINER: ' + fechaStr;
+
+    var sesiones = (APP_STATE.subappTrainer.sesiones || []).filter(function(s) {
+        return s.fecha === fechaStr;
+    });
+
+    var totalCobro = sesiones.reduce(function(acc, s) { return acc + (parseFloat(s.cobro) || 0); }, 0);
+    var totalMinutos = sesiones.reduce(function(acc, s) { return acc + (parseInt(s.duracionMinutos, 10) || 0); }, 0);
+    var totalHoras = (totalMinutos / 60).toFixed(1);
+
+    var html = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; text-align: center;">
+        <div style="background: #07090e; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #10b981; text-transform: uppercase; font-weight: 700;">Sesiones</div>
+            <div style="font-size: 18px; font-weight: 800; color: #10b981;">${sesiones.length}</div>
+        </div>
+        <div style="background: #07090e; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #38bdf8; text-transform: uppercase; font-weight: 700;">Horas Guía</div>
+            <div style="font-size: 18px; font-weight: 800; color: #38bdf8;">${totalHoras}h</div>
+        </div>
+        <div style="background: #07090e; border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 10px;">
+            <div style="font-size: 10px; color: #f59e0b; text-transform: uppercase; font-weight: 700;">Recaudado</div>
+            <div style="font-size: 18px; font-weight: 800; color: #f59e0b;">$${totalCobro.toFixed(0)}</div>
+        </div>
+    </div>
+    `;
+
+    if (sesiones.length === 0) {
+        html += `
+        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 30px 16px; text-align: center; color: #94a3b8; margin-bottom: 16px;">
+            <div style="font-size: 28px; margin-bottom: 6px;">📅</div>
+            <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc;">No se realizaron entrenamientos esta fecha</div>
+            <div style="font-size: 11.5px; margin-top: 2px;">Puedes registrar una sesión en vivo o retroactiva.</div>
+        </div>
+        `;
+    } else {
+        html += '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; max-height: 220px; overflow-y: auto;">';
+        sesiones.forEach(function(s) {
+            html += `
+            <div style="background: #07090e; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-size: 13px; font-weight: 800; color: #f8fafc;">
+                        ${escapeHtmlTrainer(s.alumnoNombre || 'Alumno')} 
+                        <span style="font-size: 11px; color: #10b981; font-weight: 600;">(${escapeHtmlTrainer(s.enfoque)})</span>
+                    </div>
+                    <div style="font-size: 11px; color: #94a3b8;">⏱️ ${s.duracionMinutos || 60} min</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; font-weight: 800; color: #10b981;">+$${(parseFloat(s.cobro) || 0).toFixed(2)}</div>
+                </div>
+            </div>
+            `;
+        });
+        html += '</div>';
+    }
+
+    html += `
+    <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalDetalleDiaTrainer()">Cerrar</button>
+        <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-weight: 800;" onclick="cerrarModalDetalleDiaTrainer(); abrirModalIniciarEntrenamiento();">🏋️‍♂️ Iniciar Entrenamiento</button>
+    </div>
+    `;
+
+    cont.innerHTML = html;
+    modal.style.display = 'flex';
+}
+
+function cerrarModalDetalleDiaTrainer() {
+    var modal = document.getElementById('modal-detalle-dia-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function abrirModalEnfoqueTrainer(enfoqueId) {
+    asegurarEstructuraTrainer();
+    var modal = document.getElementById('modal-enfoque-trainer');
+    if (!modal) return;
+
+    var tit = document.getElementById('titulo-modal-enfoque-trainer');
+    var inId = document.getElementById('input-enfoque-trainer-id');
+    var inNom = document.getElementById('input-enfoque-trainer-nombre');
+    var inPre = document.getElementById('input-enfoque-trainer-precio');
+    var inTie = document.getElementById('input-enfoque-trainer-tiempo');
+    var inDes = document.getElementById('input-enfoque-trainer-descripcion');
+
+    if (enfoqueId) {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === enfoqueId; });
+        if (enf) {
+            if (tit) tit.textContent = 'EDITAR ENFOQUE DE ENTRENAMIENTO';
+            if (inId) inId.value = enf.id;
+            if (inNom) inNom.value = enf.nombre || '';
+            if (inPre) inPre.value = enf.precio || 15;
+            if (inTie) inTie.value = enf.tiempoMin || 60;
+            if (inDes) inDes.value = enf.descripcion || '';
+        }
+    } else {
+        if (tit) tit.textContent = 'CREAR ENFOQUE DE ENTRENAMIENTO';
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inPre) inPre.value = '15.00';
+        if (inTie) inTie.value = '60';
+        if (inDes) inDes.value = '';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalEnfoqueTrainer() {
+    var modal = document.getElementById('modal-enfoque-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarEnfoqueTrainer() {
+    asegurarEstructuraTrainer();
+    var inId = document.getElementById('input-enfoque-trainer-id');
+    var inNom = document.getElementById('input-enfoque-trainer-nombre');
+    var inPre = document.getElementById('input-enfoque-trainer-precio');
+    var inTie = document.getElementById('input-enfoque-trainer-tiempo');
+    var inDes = document.getElementById('input-enfoque-trainer-descripcion');
+
+    var nom = inNom ? inNom.value.trim() : '';
+    if (!nom) {
+        alert("Por favor ingresa el nombre del enfoque o rutina.");
+        return;
+    }
+
+    var id = inId ? inId.value : '';
+    var pre = inPre ? parseFloat(inPre.value) || 0 : 0;
+    var tie = inTie ? parseInt(inTie.value, 10) || 60 : 60;
+    var des = inDes ? inDes.value.trim() : '';
+
+    if (id) {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === id; });
+        if (enf) {
+            enf.nombre = nom;
+            enf.precio = pre;
+            enf.tiempoMin = tie;
+            enf.descripcion = des;
+        }
+    } else {
+        var nuevo = {
+            id: 'ENF-' + Date.now(),
+            nombre: nom,
+            precio: pre,
+            tiempoMin: tie,
+            descripcion: des
+        };
+        APP_STATE.subappTrainer.rutinasEnfoques.push(nuevo);
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalEnfoqueTrainer();
+    renderizarSubAppTrainer();
+    alert("🎯 Enfoque de entrenamiento guardado exitosamente en el catálogo.");
+}
+
+function eliminarEnfoqueTrainer(enfoqueId) {
+    if (!confirm("¿Deseas eliminar este enfoque o rutina del catálogo?")) return;
+    asegurarEstructuraTrainer();
+    registrarTombstone('subappTrainer_enfoques', enfoqueId);
+    APP_STATE.subappTrainer.rutinasEnfoques = APP_STATE.subappTrainer.rutinasEnfoques.filter(function(r) { return r.id !== enfoqueId; });
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function filtrarEnfoquesTrainer(query) {
+    BUSQUEDA_ENFOQUE_TRAINER = query;
+    renderizarSubAppTrainer();
+}
+
+
 
 
