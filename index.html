@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=9.4">
+    <link rel="stylesheet" href="style.css?v=9.5">
 </head>
 <body>
 
@@ -595,9 +595,14 @@
                         <button class="btn-subfiltro-ej" data-subfiltro="gym" onclick="filtrarSubcategoriaEjercicios('gym')">🏋️ Gym / Pesas</button>
                         <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia</button>
                     </div>
-                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
-                        ➕ Nuevo Ejercicio Físico
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="font-size: 12px; padding: 6px 12px;" title="Cargar ejercicios base estructurados por grupos musculares en tu Banco">
+                            📥 Cargar Recomendados
+                        </button>
+                        <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
+                            ➕ Nuevo Ejercicio Físico
+                        </button>
+                    </div>
                 </div>
                 <div id="contenedor-ejercicios">
                     <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios físicos...</p>
@@ -1852,14 +1857,23 @@
                     <input type="text" id="modal-ejercicio-nombre" class="modal-input" placeholder="Ej: Press de Banca Plano, Sentadillas, Dominadas...">
                 </div>
 
-                <!-- 2. CLASIFICACIÓN / TIPO -->
-                <div class="modal-form-group">
-                    <label>Clasificación / Modalidad:</label>
-                    <select id="modal-ejercicio-tipo" class="modal-input" style="background: #0f131d; font-weight: 600;">
-                        <option value="gym">🏋️ Gym / Pesas (Fuerza e Hipertrofia)</option>
-                        <option value="calistenia">🤸 Calistenia (Peso Corporal y Tensión)</option>
-                        <option value="movilidad">🥋 Movilidad, Core & Calentamiento</option>
-                    </select>
+                <!-- 2. CLASIFICACIÓN / MODALIDAD Y JERARQUÍA -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Modalidad:</label>
+                        <select id="modal-ejercicio-tipo" class="modal-input" style="background: #0f131d; font-weight: 600;">
+                            <option value="gym">🏋️ Gym / Pesas</option>
+                            <option value="calistenia">🤸 Calistenia</option>
+                            <option value="movilidad">🥋 Movilidad & Core</option>
+                        </select>
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Tipo de Ejercicio:</label>
+                        <select id="modal-ejercicio-jerarquia" class="modal-input" style="background: #0f131d; font-weight: 600;">
+                            <option value="compuesto">⭐ Principal / Compuesto</option>
+                            <option value="accesorio">🎯 Accesorio / Aislamiento</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- 3. ESPECIFICACIONES TÉCNICAS -->
@@ -1873,21 +1887,16 @@
                     <div class="modal-form-group" style="margin-bottom: 0;">
                         <label>Grupo Muscular Principal:</label>
                         <select id="modal-ejercicio-musculo-principal" class="modal-input" style="background: #0f131d; font-weight: 600;">
-                            <option value="Pectoral Mayor">⚔️ Pectoral Mayor (Pecho)</option>
-                            <option value="Pectoral Menor">⚔️ Pectoral Menor (Pecho)</option>
-                            <option value="Dorsales">🦅 Dorsales (Espalda / Tracción)</option>
-                            <option value="Trapecios">🦅 Trapecios (Espalda Alta)</option>
-                            <option value="Lumbares">🏛️ Lumbares (Espalda Baja)</option>
-                            <option value="Deltoides">🛡️ Hombros (Deltoides)</option>
-                            <option value="Bíceps">💪 Bíceps (Brazos)</option>
-                            <option value="Tríceps">🦾 Tríceps (Brazos)</option>
-                            <option value="Antebrazos">✊ Antebrazos (Agarre)</option>
-                            <option value="Cuádriceps">🦵 Cuádriceps (Piernas)</option>
-                            <option value="Isquiotibiales">🦵 Isquiotibiales (Femorales)</option>
-                            <option value="Glúteos">🍑 Glúteos (Cadera / Pelvis)</option>
-                            <option value="Pantorrillas">🧦 Pantorrillas (Gemelos y Sóleo)</option>
-                            <option value="Core">⚡ Core / Abdominales</option>
-                            <option value="Cadera y Movilidad">🥋 Cadera y Movilidad</option>
+                            <option value="Pecho">⚔️ Pecho</option>
+                            <option value="Espalda">🦅 Espalda</option>
+                            <option value="Hombros">🛡️ Hombros</option>
+                            <option value="Bíceps">💪 Bíceps</option>
+                            <option value="Tríceps">🦾 Tríceps</option>
+                            <option value="Cuádriceps">🦵 Cuádriceps</option>
+                            <option value="Isquios">🦵 Isquios (Femorales)</option>
+                            <option value="Glúteos">🍑 Glúteos</option>
+                            <option value="Pantorrillas">🧦 Pantorrillas</option>
+                            <option value="Core">⚡ Core (Abdominales)</option>
                         </select>
                     </div>
                     <div class="modal-form-group" style="margin-bottom: 0;">
@@ -1913,17 +1922,15 @@
                     <label style="margin-bottom: 6px; display: block;">Estímulo Secundario / Zonas de Apoyo (Opcional):</label>
                     <div class="muscle-selector-chips" id="selector-chips-musculos">
                         <button type="button" class="muscle-chip-btn" data-cat="Pecho" onclick="toggleChipMusculo(this)">⚔️ Pecho</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Espalda" onclick="toggleChipMusculo(this)">🦅 Espalda</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Hombros" onclick="toggleChipMusculo(this)">🛡️ Hombros</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Tríceps" onclick="toggleChipMusculo(this)">🦾 Tríceps</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Bíceps" onclick="toggleChipMusculo(this)">💪 Bíceps</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Dorsales" onclick="toggleChipMusculo(this)">🦅 Dorsales</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Trapecios" onclick="toggleChipMusculo(this)">🦅 Trapecios</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Lumbares" onclick="toggleChipMusculo(this)">🏛️ Lumbares</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Core" onclick="toggleChipMusculo(this)">⚡ Core</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Cuádriceps" onclick="toggleChipMusculo(this)">🦵 Cuádriceps</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Isquios" onclick="toggleChipMusculo(this)">🦵 Isquios</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Glúteos" onclick="toggleChipMusculo(this)">🍑 Glúteos</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Pantorrillas" onclick="toggleChipMusculo(this)">🧦 Pantorrillas</button>
+                        <button type="button" class="muscle-chip-btn" data-cat="Core" onclick="toggleChipMusculo(this)">⚡ Core</button>
                         <button type="button" class="muscle-chip-btn" data-cat="Antebrazos" onclick="toggleChipMusculo(this)">✊ Antebrazos</button>
                     </div>
                 </div>
@@ -4481,25 +4488,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=9.4"></script>
-    <script src="js/perfil.js?v=9.4"></script>
-    <script src="js/progresion.js?v=9.4"></script>
-    <script src="js/estado-personal.js?v=9.4"></script>
-    <script src="js/finanzas.js?v=9.4"></script>
-    <script src="js/ideas.js?v=9.4"></script>
-    <script src="js/dinamicas.js?v=9.4"></script>
-    <script src="js/calendario.js?v=9.4"></script>
-    <script src="js/inventario.js?v=9.4"></script>
-    <script src="js/jarvis-voz.js?v=9.4"></script>
+    <script src="js/core.js?v=9.5"></script>
+    <script src="js/perfil.js?v=9.5"></script>
+    <script src="js/progresion.js?v=9.5"></script>
+    <script src="js/estado-personal.js?v=9.5"></script>
+    <script src="js/finanzas.js?v=9.5"></script>
+    <script src="js/ideas.js?v=9.5"></script>
+    <script src="js/dinamicas.js?v=9.5"></script>
+    <script src="js/calendario.js?v=9.5"></script>
+    <script src="js/inventario.js?v=9.5"></script>
+    <script src="js/jarvis-voz.js?v=9.5"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=9.4"></script>
+    <script type="module" src="js/firebase-config.js?v=9.5"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=9.4')
+                navigator.serviceWorker.register('sw.js?v=9.5')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
