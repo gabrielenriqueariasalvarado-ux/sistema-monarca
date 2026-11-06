@@ -212,71 +212,71 @@ function obtenerEstiloFatigaGris(val) {
     if (v <= 15) {
         return {
             fill: '#151b2a',
-            stroke: '#d1d5db',
+            stroke: '#2d3748',
             label: '0-15% · Óptimo',
             levelText: 'Completamente fresco y listo para rendir',
-            cardBg: '#0f131d',
+            cardBg: '#0b0e15',
             cardBorder: 'rgba(255, 255, 255, 0.08)',
             cardText: '#f8fafc',
-            cardVal: '#6b7280',
-            dot: '#d1d5db',
-            color: '#6b7280',
-            bg: '#0f131d',
-            border: '#e5e7eb',
-            texto: '#111827',
+            cardVal: '#10b981',
+            dot: '#10b981',
+            color: '#10b981',
+            bg: '#0b0e15',
+            border: 'rgba(16, 185, 129, 0.3)',
+            texto: '#10b981',
             clase: 'status-optimo'
         };
     }
     if (v <= 40) {
         return {
-            fill: '#e5e7eb',
-            stroke: '#9ca3af',
+            fill: '#0369a1',
+            stroke: '#38bdf8',
             label: '16-40% · Carga Leve',
             levelText: 'Carga ligera, óptimo para entrenar',
-            cardBg: '#f3f4f6',
-            cardBorder: '#d1d5db',
+            cardBg: '#0b0e15',
+            cardBorder: 'rgba(56, 189, 248, 0.25)',
             cardText: '#f8fafc',
-            cardVal: '#374151',
-            dot: '#9ca3af',
-            color: '#4b5563',
-            bg: '#f3f4f6',
-            border: '#d1d5db',
-            texto: '#111827',
+            cardVal: '#38bdf8',
+            dot: '#38bdf8',
+            color: '#38bdf8',
+            bg: '#0b0e15',
+            border: 'rgba(56, 189, 248, 0.3)',
+            texto: '#38bdf8',
             clase: 'status-activo'
         };
     }
     if (v <= 70) {
         return {
-            fill: '#4b5563',
-            stroke: '#374151',
+            fill: '#b45309',
+            stroke: '#f59e0b',
             label: '41-70% · Fatiga Media',
             levelText: 'Fatiga media acumulada, técnica cuidada',
-            cardBg: '#374151',
-            cardBorder: '#4b5563',
-            cardText: '#ffffff',
-            cardVal: '#ffffff',
-            dot: '#e5e7eb',
-            color: '#ffffff',
-            bg: '#374151',
-            border: '#4b5563',
-            texto: '#ffffff',
+            cardBg: '#0b0e15',
+            cardBorder: 'rgba(245, 158, 11, 0.25)',
+            cardText: '#f8fafc',
+            cardVal: '#f59e0b',
+            dot: '#f59e0b',
+            color: '#f59e0b',
+            bg: '#0b0e15',
+            border: 'rgba(245, 158, 11, 0.3)',
+            texto: '#f59e0b',
             clase: 'status-moderado'
         };
     }
     return {
-        fill: '#111827',
-        stroke: '#000000',
+        fill: '#b91c1c',
+        stroke: '#ef4444',
         label: '71-100% · Carga Alta',
         levelText: 'Sobrecarga elevada, se sugiere descanso',
-        cardBg: '#111827',
-        cardBorder: '#000000',
-        cardText: '#ffffff',
-        cardVal: '#ffffff',
-        dot: '#ffffff',
-        color: '#ffffff',
-        bg: '#111827',
-        border: '#000000',
-        texto: '#ffffff',
+        cardBg: '#0b0e15',
+        cardBorder: 'rgba(239, 68, 68, 0.3)',
+        cardText: '#f8fafc',
+        cardVal: '#ef4444',
+        dot: '#ef4444',
+        color: '#ef4444',
+        bg: '#0b0e15',
+        border: 'rgba(239, 68, 68, 0.35)',
+        texto: '#ef4444',
         clase: 'status-sobrecarga'
     };
 }
@@ -721,24 +721,24 @@ function actualizarHudMusculo(key, subclave) {
     });
 
     hudCont.innerHTML = `
-    <div class="hud-muscle-card" style="border-left: 4px solid #111827; background: #ffffff; border-radius: 12px; padding: 14px; border-top: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
+    <div class="hud-muscle-card" style="border-left: 4px solid ${estiloInfo.stroke || '#38bdf8'}; background: #121725; border-radius: 12px; padding: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
         <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span class="hud-muscle-region" style="font-size: 11px; font-weight: 800; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase;">${meta.region}</span>
-            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #f8fafc; padding: 3px 8px; border-radius: 6px; border: 1px solid #e5e7eb;">${estiloInfo.label}</span>
+            <span class="hud-muscle-region" style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px; text-transform: uppercase;">${meta.region}</span>
+            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; background: ${estiloInfo.bg || '#0b0e15'}; color: ${estiloInfo.color || '#38bdf8'}; padding: 3px 8px; border-radius: 6px; border: 1px solid ${estiloInfo.border || 'rgba(56, 189, 248, 0.3)'};">${estiloInfo.label}</span>
         </div>
         <h3 class="hud-muscle-title" style="margin: 6px 0 8px 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${meta.icono} ${meta.nombre}</h3>
         <div class="hud-fatigue-big" style="font-size: 28px; font-weight: 800; color: #f8fafc; margin-bottom: 8px;">
-            ${val}% <span style="font-size: 13px; font-weight: 600; color: #6b7280;">Nivel de Desgaste</span>
+            ${val}% <span style="font-size: 13px; font-weight: 600; color: #94a3b8;">Nivel de Desgaste</span>
         </div>
-        <div class="hud-progress-track" style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 9999px; overflow: hidden; margin-bottom: 12px;">
-            <div class="hud-progress-fill" style="width: ${val}%; height: 100%; background: #111827; border-radius: 9999px; transition: width 0.3s ease;"></div>
+        <div class="hud-progress-track" style="width: 100%; height: 8px; background: #0b0e15; border-radius: 9999px; overflow: hidden; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.06);">
+            <div class="hud-progress-fill" style="width: ${val}%; height: 100%; background: ${estiloInfo.stroke || '#38bdf8'}; border-radius: 9999px; transition: width 0.3s ease;"></div>
         </div>
-        <div class="hud-recovery-tip" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #94a3b8; line-height: 1.45;">
+        <div class="hud-recovery-tip" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #cbd5e1; line-height: 1.45;">
             <strong style="color: #f8fafc;">Consejo de Recuperación:</strong> ${meta.descanso}
         </div>
     </div>
     <div style="margin-top: 14px;">
-        <div class="hud-quick-chips-title" style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 6px;">Selección Rápida de Zona:</div>
+        <div class="hud-quick-chips-title" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Selección Rápida de Zona:</div>
         <div class="hud-quick-chips-grid">${chipsHtml}</div>
     </div>`;
 }
@@ -810,12 +810,12 @@ function renderizarGraficoGeneralAvatar() {
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 11px; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.6px;">REINICIO DIARIO AUTOMÁTICO</span>
-                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: #f3f4f6; color: #cbd5e1; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(16, 185, 129, 0.3);">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> EN VIVO
                         </span>
                     </div>
                     <div style="font-size: 12.5px; color: #94a3b8; margin-top: 3px;">
-                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #f8fafc; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; border: 1px solid #e5e7eb;">--h --m --s</strong>
+                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #38bdf8; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #0b0e15; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">--h --m --s</strong>
                     </div>
                 </div>
             </div>
@@ -831,8 +831,8 @@ function renderizarGraficoGeneralAvatar() {
                 <span>Progreso de Jornada</span>
                 <span>00:00 AM (Medianoche)</span>
             </div>
-            <div style="height: 5px; width: 100%; background: #f3f4f6; border-radius: 9999px; overflow: hidden; border: 1px solid #e5e7eb;">
-                <div class="barra-jornada-progreso" style="height: 100%; width: 50%; background: #111827; border-radius: 9999px; transition: width 1s linear;"></div>
+            <div style="height: 6px; width: 100%; background: #0b0e15; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <div class="barra-jornada-progreso" style="height: 100%; width: 50%; background: linear-gradient(90deg, #6366f1, #38bdf8); border-radius: 9999px; transition: width 1s linear;"></div>
             </div>
         </div>
     </div>
@@ -845,18 +845,18 @@ function renderizarGraficoGeneralAvatar() {
             </div>
             <div class="general-wear-meta">
                 <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #f8fafc;">Desgaste General Diario del Avatar</h4>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">Porcentaje ponderado de carga física y fatiga neural acumulada.</p>
-                <div style="font-size: 11px; font-weight: 700; color: #6b7280; margin-top: 3px;">
-                    📅 ${hoyFechaStr} · <span style="color: #f8fafc; font-weight: 800;">● Actualización automática diaria</span>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #94a3b8;">Porcentaje ponderado de carga física y fatiga neural acumulada.</p>
+                <div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 3px;">
+                    📅 ${hoyFechaStr} · <span style="color: #10b981; font-weight: 800;">● Actualización automática diaria</span>
                 </div>
             </div>
         </div>
         <div class="general-breakdown-chips">
-            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #f8fafc;">
-                <span>🦾 Cuerpo:</span> <strong>${metricas.cuerpo}% · ${estadoCuerpo.label}</strong>
+            <div class="breakdown-chip" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #f8fafc;">
+                <span style="color: #10b981;">🦾 Cuerpo:</span> <strong style="color: #10b981;">${metricas.cuerpo}%</strong> <span style="font-size: 11px; color: #94a3b8;">· ${estadoCuerpo.label}</span>
             </div>
-            <div class="breakdown-chip" style="background: #f9fafb; border: 1px solid #e5e7eb; color: #f8fafc;">
-                <span>🧠 Mente:</span> <strong>${metricas.mente}% · ${estadoMente.label}</strong>
+            <div class="breakdown-chip" style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.3); color: #f8fafc;">
+                <span style="color: #38bdf8;">🧠 Mente:</span> <strong style="color: #38bdf8;">${metricas.mente}%</strong> <span style="font-size: 11px; color: #94a3b8;">· ${estadoMente.label}</span>
             </div>
         </div>
     </div>
@@ -980,19 +980,19 @@ function renderizarGraficoGeneralAvatar() {
                 <!-- LEYENDA DEL MAPA DE CALOR MINIMALISTA EN ESCALA DE GRISES -->
                 <div class="heatmap-legend-box" style="margin-top: 12px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
                     <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #111827; border: 1.5px solid rgba(255, 255, 255, 0.2);"></span>
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #151b2a; border: 1.5px solid #2d3748;"></span>
                         <span>0-15% Óptimo</span>
                     </div>
                     <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #e5e7eb; border: 1.5px solid #9ca3af;"></span>
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #0369a1; border: 1.5px solid #38bdf8;"></span>
                         <span>16-40% Leve</span>
                     </div>
                     <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #4b5563; border: 1.5px solid #374151;"></span>
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b45309; border: 1.5px solid #f59e0b;"></span>
                         <span>41-70% Media</span>
                     </div>
                     <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #111827; border: 1.5px solid #000000;"></span>
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b91c1c; border: 1.5px solid #ef4444;"></span>
                         <span>71-100% Alta</span>
                     </div>
                 </div>
@@ -1069,7 +1069,7 @@ function renderizarDesgloseCuerpoAnatomico() {
         var promCuerpo = countTotalCuerpo > 0 ? Math.round(sumaTotalCuerpo / countTotalCuerpo) : 0;
         var estCuerpo = obtenerEstadoZona(promCuerpo);
         badgeResumen.innerHTML = `
-            <span class="item-badge-pill" style="border:1px solid #d1d5db; background:#f3f4f6; color:#111827; font-weight:700; padding:4px 10px; border-radius:9999px; font-size:12px;">
+            <span class="item-badge-pill" style="border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.12); color: #10b981; font-weight: 700; padding: 4px 10px; border-radius: 9999px; font-size: 12px;">
                 Desgaste Total: ${promCuerpo}% · ${estCuerpo.label}
             </span>`;
     }
@@ -1131,7 +1131,7 @@ function renderizarDesgloseMenteCognitiva() {
         var promMente = countTotalMente > 0 ? Math.round(sumaTotalMente / countTotalMente) : 0;
         var estMente = obtenerEstadoZona(promMente);
         badgeResumen.innerHTML = `
-            <span class="item-badge-pill" style="border:1px solid #d1d5db; background:#f3f4f6; color:#111827; font-weight:700; padding:4px 10px; border-radius:9999px; font-size:12px;">
+            <span class="item-badge-pill" style="border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.12); color: #38bdf8; font-weight: 700; padding: 4px 10px; border-radius: 9999px; font-size: 12px;">
                 Carga Mental: ${promMente}% · ${estMente.label}
             </span>`;
     }
@@ -1155,20 +1155,146 @@ var CHIPS_SELECCIONADOS_MUSCULOS = [];
 var MAPA_CATEGORIAS_A_MUSCULOS = {
     "Mente": ["mente"],
     "Hombros": ["delt_ant", "delt_lat", "delt_post"],
+    "Deltoides": ["delt_ant", "delt_lat", "delt_post"],
     "Pecho": ["pect_mayor", "pect_menor"],
+    "Pectorales": ["pect_mayor", "pect_menor"],
+    "Pectoral": ["pect_mayor", "pect_menor"],
     "Bíceps": ["biceps"],
+    "Biceps": ["biceps"],
     "Tríceps": ["triceps"],
+    "Triceps": ["triceps"],
     "Antebrazos": ["antebrazos"],
     "Trapecios": ["trapecios"],
     "Dorsales": ["dorsales"],
+    "Espalda": ["dorsales", "trapecios"],
+    "Espalda Alta": ["dorsales", "trapecios"],
+    "Espalda Baja": ["lumbares"],
     "Lumbares": ["lumbares"],
     "Core": ["core"],
+    "Abdomen": ["core"],
     "Glúteos": ["gluteos"],
+    "Gluteos": ["gluteos"],
     "Cadera": ["cadera"],
     "Cuádriceps": ["cuadriceps"],
+    "Cuadriceps": ["cuadriceps"],
+    "Piernas": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
+    "Pierna": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
     "Isquios": ["isquios"],
-    "Pantorrillas": ["pantorrillas"]
+    "Isquiotibiales": ["isquios"],
+    "Femorales": ["isquios"],
+    "Pantorrillas": ["pantorrillas"],
+    "Gemelos": ["pantorrillas"]
 };
+
+/**
+ * Normaliza y mapea texto o listas de categorías a claves anatómicas exactas de fatiga
+ */
+function mapearTextoAMusculos(entrada) {
+    if (!entrada) return [];
+    if (Array.isArray(entrada)) {
+        var unicos = [];
+        entrada.forEach(function(item) {
+            var res = mapearTextoAMusculos(item);
+            res.forEach(function(k) {
+                if (!unicos.includes(k)) unicos.push(k);
+            });
+        });
+        return unicos;
+    }
+
+    var str = String(entrada).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    var claves = [];
+
+    if (/pect|pecho/.test(str)) claves.push('pect_mayor', 'pect_menor');
+    if (/dorsal|espalda|pull|lats/.test(str)) claves.push('dorsales');
+    if (/hombro|deltoid|militar|elevacion/.test(str)) claves.push('delt_ant', 'delt_lat', 'delt_post');
+    if (/bicep|curl/.test(str)) claves.push('biceps');
+    if (/tricep|fondo/.test(str)) claves.push('triceps');
+    if (/antebrazo|agarre|muneca/.test(str)) claves.push('antebrazos');
+    if (/trapecio|romboide/.test(str)) claves.push('trapecios');
+    if (/lumbar|espinal/.test(str)) claves.push('lumbares');
+    if (/core|abdom|plancha|crunch/.test(str)) claves.push('core');
+    if (/gluteo|puente/.test(str)) claves.push('gluteos');
+    if (/cadera|aductor|abductor/.test(str)) claves.push('cadera');
+    if (/cuadricep|muslo|sentadilla|squat|prensa|zancada|pierna/.test(str)) claves.push('cuadriceps');
+    if (/isquio|femoral/.test(str)) claves.push('isquios');
+    if (/pantorrilla|gemelo|soleo/.test(str)) claves.push('pantorrillas');
+    if (/mente|cognit|cerebr|snc|neural/.test(str)) claves.push('mente');
+
+    // Mapeo directo por clave exacta en MAPA_CATEGORIAS_A_MUSCULOS si no hubo coincidencia por regex
+    if (claves.length === 0 && MAPA_CATEGORIAS_A_MUSCULOS[entrada]) {
+        claves = MAPA_CATEGORIAS_A_MUSCULOS[entrada];
+    }
+
+    return claves.filter(function(item, pos, self) {
+        return self.indexOf(item) === pos;
+    });
+}
+
+/**
+ * Aplica o revierte el desgaste de un ejercicio individual en tiempo real en Estado Personal
+ */
+function aplicarDesgasteEjercicioIndividual(ej, sumar) {
+    if (!ej) return;
+    if (!APP_STATE.fatiga) APP_STATE.fatiga = JSON.parse(JSON.stringify(DEFAULT_STATE.fatiga || {}));
+    asegurarDesgasteMente();
+
+    var factor = (sumar === false) ? -1 : 1;
+
+    if (ej.esMental) {
+        var delta = (Number(ej.fatigaEstimada) || 15) * factor;
+        var subclave = ej.musculoPrincipal || 'enfoque';
+        if (APP_STATE.desgasteMente) {
+            var actM = Number(APP_STATE.desgasteMente[subclave]) || 0;
+            APP_STATE.desgasteMente[subclave] = Math.min(100, Math.max(0, actM + delta));
+        }
+        if (APP_STATE.fatigaMentalDiaria) {
+            var actSNC = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
+            APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, Math.max(0, actSNC + Math.round(delta * 0.7)));
+        }
+    } else {
+        var fatigaVal = (Number(ej.fatigaPorcentaje) || 20) * factor;
+        var mKeys = [];
+
+        if (ej.categorias && ej.categorias.length > 0) {
+            mKeys = mapearTextoAMusculos(ej.categorias);
+        }
+        if (ej.musculoPrincipal) {
+            var extra = mapearTextoAMusculos(ej.musculoPrincipal);
+            extra.forEach(function(k) { if (!mKeys.includes(k)) mKeys.push(k); });
+        }
+        if (mKeys.length === 0 && ej.nombre) {
+            mKeys = mapearTextoAMusculos(ej.nombre);
+        }
+        if (mKeys.length === 0) {
+            mKeys = ['core', 'pect_mayor'];
+        }
+
+        mKeys.forEach(function(k) {
+            var actF = Number(APP_STATE.fatiga[k]) || 0;
+            APP_STATE.fatiga[k] = Math.min(100, Math.max(0, actF + fatigaVal));
+        });
+
+        // Recalcular promedio de fatiga del cuerpo hoy
+        var keysFatiga = Object.keys(METADATOS_MUSCULOS);
+        var sumaTotal = 0;
+        keysFatiga.forEach(function(k) {
+            sumaTotal += (Number(APP_STATE.fatiga[k]) || 0);
+        });
+        APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
+    }
+
+    calcularMetricasGeneralesDesgaste();
+    MonarcaDB.save(APP_STATE, false);
+
+    // Actualizar gráficos en tiempo real si el contenedor está en DOM
+    var contAv = document.getElementById('hud-avatar-overview');
+    if (contAv) {
+        renderizarGraficoGeneralAvatar();
+        renderizarDesgloseCuerpoAnatomico();
+        renderizarDesgloseMenteCognitiva();
+    }
+}
 
 var RUTINA_ACTIVA = null;
 
@@ -2116,7 +2242,10 @@ function guardarCalentamientoPersonalizado() {
 
 // --- VISTA DETALLADA DEL EJERCICIO ---
 
+var EJERCICIO_MODAL_ACTIVO = null;
+
 function abrirModalDetalleEjercicio(ej) {
+    EJERCICIO_MODAL_ACTIVO = ej;
     var modal = document.getElementById('modal-detalle-ejercicio');
     if (!modal) return;
 
@@ -2148,6 +2277,13 @@ function abrirModalDetalleEjercicio(ej) {
     if (tecEl) tecEl.innerText = consejos;
 
     modal.style.display = 'flex';
+}
+
+function registrarEjercicioDesdeModal() {
+    if (!EJERCICIO_MODAL_ACTIVO) return;
+    aplicarDesgasteEjercicioIndividual(EJERCICIO_MODAL_ACTIVO, true);
+    cerrarModalDetalleEjercicio();
+    alert("⚡ ¡Ejercicio registrado! Se ha cargado el porcentaje de fatiga muscular en tu Estado Personal.");
 }
 
 function cerrarModalDetalleEjercicio() {
@@ -2259,6 +2395,12 @@ function toggleCheckEjercicio(e, idx) {
         if (row) row.classList.remove('checked-active');
     }
     actualizarProgresoRutinaDinamica();
+
+    // Actualización instantánea en vivo del Estado Personal al hacer cada ejercicio de la rutina
+    if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[idx]) {
+        var ej = RUTINA_ACTIVA.rutina.ejercicios[idx];
+        aplicarDesgasteEjercicioIndividual(ej, chk.checked);
+    }
 }
 
 // ==========================================================================
@@ -2488,12 +2630,13 @@ function ejecutarRutinaDinamica() {
             } else {
                 tieneFisicos = true;
                 var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
-                (ej.categorias || []).forEach(function(cat) {
-                    var mKeys = MAPA_CATEGORIAS_A_MUSCULOS[cat] || [];
-                    mKeys.forEach(function(mKey) {
-                        var actual = Number(APP_STATE.fatiga[mKey]) || 0;
-                        APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
-                    });
+                var mKeys = mapearTextoAMusculos(ej.categorias || []);
+                if (mKeys.length === 0 && ej.nombre) {
+                    mKeys = mapearTextoAMusculos(ej.nombre);
+                }
+                mKeys.forEach(function(mKey) {
+                    var actual = Number(APP_STATE.fatiga[mKey]) || 0;
+                    APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
                 });
             }
         });
@@ -2508,6 +2651,8 @@ function ejecutarRutinaDinamica() {
         APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
         APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + rutina.nombre;
     }
+
+    calcularMetricasGeneralesDesgaste();
 
     var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
     if (!APP_STATE.gym) APP_STATE.gym = [];

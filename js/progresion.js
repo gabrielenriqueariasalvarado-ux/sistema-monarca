@@ -199,19 +199,22 @@ function aplicarImpactoAtributos(atributos) {
             var actual = Number(APP_STATE.fatiga[item.clave]) || 0;
             APP_STATE.fatiga[item.clave] = Math.min(100, actual + pct);
         } else if (item.tipo === 'mente') {
-            var actualMente = Number(APP_STATE.desgasteMente[item.clave]) || 15;
+            var actualMente = Number(APP_STATE.desgasteMente[item.clave]) || 0;
             APP_STATE.desgasteMente[item.clave] = Math.min(100, actualMente + pct);
 
             var actualAtributo = Number(APP_STATE.menteAtributos[item.clave]) || 10;
             APP_STATE.menteAtributos[item.clave] = Math.min(100, actualAtributo + pct);
 
             if (APP_STATE.fatigaMentalDiaria) {
-                var actualSNC = Number(APP_STATE.fatigaMentalDiaria.nivel) || 20;
-                APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, actualSNC + Math.round(pct * 0.3));
+                var actualSNC = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
+                APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, actualSNC + Math.round(pct * 0.5));
             }
         }
     });
 
+    if (typeof calcularMetricasGeneralesDesgaste === 'function') {
+        calcularMetricasGeneralesDesgaste();
+    }
     MonarcaDB.save(APP_STATE);
 
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
@@ -226,6 +229,77 @@ function aplicarImpactoAtributos(atributos) {
     if (typeof renderizarDesgloseMenteCognitiva === 'function') {
         renderizarDesgloseMenteCognitiva();
     }
+}
+
+/**
+ * Aplica impacto inteligente en Estado Personal para quests que no tienen atributos explícitos configurados
+ */
+function aplicarImpactoInteligenteQuest(q) {
+    if (!q) return;
+    if (!APP_STATE.fatiga) APP_STATE.fatiga = {};
+    if (!APP_STATE.desgasteMente) APP_STATE.desgasteMente = {};
+
+    var texto = ((q.titulo || '') + ' ' + (q.categoria || '')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    var impactoAplicado = [];
+
+    // Detección física / deportiva
+    var esFisico = /gym|entren|ejercicio|flexion|sentadilla|cardio|correr|caminar|rutina|muscul|pierna|brazo|pecho|espalda|abdomen|estiram/.test(texto);
+    // Detección mental / cognitiva / laboral
+    var esMental = /estudio|leer|lectura|trabajo|boom|barber|trainer|program|codigo|reunion|cliente|planific|analisis|foco|concentr|meditacion/.test(texto);
+
+    if (esFisico) {
+        var mKeys = [];
+        if (typeof mapearTextoAMusculos === 'function') {
+            mKeys = mapearTextoAMusculos(texto);
+        }
+        if (mKeys.length === 0) {
+            if (/flexion|pecho|push/.test(texto)) mKeys = ['pect_mayor', 'triceps'];
+            else if (/sentadilla|pierna|correr|caminar|squat/.test(texto)) mKeys = ['cuadriceps', 'pantorrillas'];
+            else if (/dominada|espalda|pull/.test(texto)) mKeys = ['dorsales', 'biceps'];
+            else mKeys = ['core', 'cuadriceps'];
+        }
+
+        mKeys.forEach(function(k) {
+            var actual = Number(APP_STATE.fatiga[k]) || 0;
+            APP_STATE.fatiga[k] = Math.min(100, actual + 20);
+        });
+        impactoAplicado.push("Cuerpo (+" + mKeys.join(", ") + " +20%)");
+    }
+
+    if (esMental || !esFisico) {
+        var clavesMente = ['enfoque', 'procesamiento'];
+        if (/estudio|lectura|leer/.test(texto)) clavesMente = ['memoria', 'procesamiento'];
+        else if (/cliente|reunion|barber|trainer/.test(texto)) clavesMente = ['inteligencia_social', 'control_emocional'];
+        else if (/boom|trabajo|planific|codigo/.test(texto)) clavesMente = ['enfoque', 'claridad_decision'];
+
+        clavesMente.forEach(function(k) {
+            var actM = Number(APP_STATE.desgasteMente[k]) || 0;
+            APP_STATE.desgasteMente[k] = Math.min(100, actM + 20);
+        });
+
+        if (APP_STATE.fatigaMentalDiaria) {
+            var actSNC = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
+            APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, actSNC + 12);
+        }
+        impactoAplicado.push("Mente (" + clavesMente.join(", ") + " +20%)");
+    }
+
+    if (typeof calcularMetricasGeneralesDesgaste === 'function') {
+        calcularMetricasGeneralesDesgaste();
+    }
+    MonarcaDB.save(APP_STATE);
+
+    if (typeof renderizarGraficoGeneralAvatar === 'function') {
+        renderizarGraficoGeneralAvatar();
+    }
+    if (typeof renderizarDesgloseCuerpoAnatomico === 'function') {
+        renderizarDesgloseCuerpoAnatomico();
+    }
+    if (typeof renderizarDesgloseMenteCognitiva === 'function') {
+        renderizarDesgloseMenteCognitiva();
+    }
+
+    return impactoAplicado;
 }
 
 function revertirImpactoAtributos(atributos) {
@@ -1735,16 +1809,20 @@ function completarQuestDiaria(id) {
     q.pospuestaHasta = null;
     sumarExp(q.exp || 40);
 
+    var detalleAtrs = "";
     if (q.atributos && q.atributos.length > 0) {
         aplicarImpactoAtributos(q.atributos);
+        detalleAtrs = "\nDesarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(", ");
+    } else {
+        var autoImpact = aplicarImpactoInteligenteQuest(q);
+        if (autoImpact && autoImpact.length > 0) {
+            detalleAtrs = "\nCarga cargada a Estado Personal: " + autoImpact.join(" · ");
+        }
     }
 
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
 
-    var detalleAtrs = (q.atributos && q.atributos.length > 0)
-        ? ("\nDesarrollo aplicado: " + q.atributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(", "))
-        : "";
     alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
     renderizarQuestsDiarios();
 }
