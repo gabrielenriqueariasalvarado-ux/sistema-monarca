@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=9.2">
+    <link rel="stylesheet" href="style.css?v=9.3">
 </head>
 <body>
 
@@ -420,35 +420,97 @@
             <!-- Inyectado dinámicamente con esquema del cuerpo, esquema de la mente y % general de desgaste diario -->
         </div>
 
-        <!-- 🟢 1. CUERPO -->
-        <div class="card area-master-card" style="margin-bottom: 22px;">
-            <div class="area-master-header">
-                <div>
-                    <h2 class="area-master-title">
-                        <span style="font-size: 20px;">🟢</span> 1. CUERPO
-                    </h2>
-                    <span style="font-size: 12.5px; color: #6b7280;">Nivel de desgaste, fatiga muscular acumulada y salud postural.</span>
+        <!-- BARRA DE PESTAÑAS DE TELEMETRÍA EJECUTIVA -->
+        <div class="telemetry-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 2px;">
+            <button type="button" class="btn-telemetry-tab active" id="tab-btn-telemetria-graficas" onclick="cambiarTabTelemetriaEstadoPersonal('graficas')">
+                <span>📊</span> Gráficas de Telemetría (Biometría)
+            </button>
+            <button type="button" class="btn-telemetry-tab" id="tab-btn-telemetria-cuerpo" onclick="cambiarTabTelemetriaEstadoPersonal('cuerpo')">
+                <span>🦾</span> Detalle Cuerpo
+            </button>
+            <button type="button" class="btn-telemetry-tab" id="tab-btn-telemetria-mente" onclick="cambiarTabTelemetriaEstadoPersonal('mente')">
+                <span>🧠</span> Detalle Mente
+            </button>
+        </div>
+
+        <!-- 1. VISTA TAB: DASHBOARD DE GRÁFICAS DE TELEMETRÍA (RADAR DUAL) -->
+        <div id="vista-telemetria-tab-graficas" class="telemetry-tab-panel active" style="margin-bottom: 24px;">
+            <div class="telemetry-charts-grid">
+                <!-- GRÁFICA RADAR: CUERPO -->
+                <div class="telemetry-chart-box">
+                    <div class="telemetry-chart-header">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="telemetry-chart-icon-box" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">🦾</div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Biometría Muscular · Cuerpo</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #94a3b8;">Balance de desgaste y carga por zonas corporales</p>
+                            </div>
+                        </div>
+                        <div id="badge-radar-cuerpo" class="telemetry-chart-pill" style="border-color: rgba(16, 185, 129, 0.3); color: #10b981; background: rgba(16, 185, 129, 0.12);">0% Promedio</div>
+                    </div>
+                    <div style="position: relative; height: 280px; width: 100%; margin: 8px 0;">
+                        <canvas id="chart-radar-cuerpo"></canvas>
+                    </div>
+                    <div class="telemetry-chart-footer" id="resumen-ejes-cuerpo">
+                        <!-- Chips interactivos de zonas corporales -->
+                    </div>
                 </div>
-                <div id="badge-resumen-cuerpo"></div>
-            </div>
-            <div id="contenedor-desglose-cuerpo">
-                <!-- Inyectado dinámicamente con las 5 categorías y tarjetas compactas -->
+
+                <!-- GRÁFICA RADAR: MENTE -->
+                <div class="telemetry-chart-box">
+                    <div class="telemetry-chart-header">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="telemetry-chart-icon-box" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8;">🧠</div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Telemetría Neural · Mente</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #94a3b8;">Carga cognitiva y fatiga del sistema nervioso central</p>
+                            </div>
+                        </div>
+                        <div id="badge-radar-mente" class="telemetry-chart-pill" style="border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; background: rgba(56, 189, 248, 0.12);">0% Promedio</div>
+                    </div>
+                    <div style="position: relative; height: 280px; width: 100%; margin: 8px 0;">
+                        <canvas id="chart-radar-mente"></canvas>
+                    </div>
+                    <div class="telemetry-chart-footer" id="resumen-ejes-mente">
+                        <!-- Chips interactivos de facultades cognitivas -->
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 🔵 2. MENTE -->
-        <div class="card area-master-card" style="margin-bottom: 22px;">
-            <div class="area-master-header">
-                <div>
-                    <h2 class="area-master-title">
-                        <span style="font-size: 20px;">🔵</span> 2. MENTE
-                    </h2>
-                    <span style="font-size: 12.5px; color: #6b7280;">Carga cognitiva, esfuerzo neural, disciplina y psicología estratégica.</span>
+        <!-- 2. VISTA TAB: DETALLE LINEAL COMPACTO - CUERPO -->
+        <div id="vista-telemetria-tab-cuerpo" class="telemetry-tab-panel" style="display: none; margin-bottom: 24px;">
+            <div class="card area-master-card" style="margin-bottom: 22px;">
+                <div class="area-master-header">
+                    <div>
+                        <h2 class="area-master-title">
+                            <span style="font-size: 20px;">🟢</span> 1. CUERPO · TELEMETRÍA MUSCULAR
+                        </h2>
+                        <span style="font-size: 12.5px; color: #94a3b8;">Nivel de desgaste, fatiga muscular acumulada y salud postural.</span>
+                    </div>
+                    <div id="badge-resumen-cuerpo"></div>
                 </div>
-                <div id="badge-resumen-mente"></div>
+                <div id="contenedor-desglose-cuerpo">
+                    <!-- Filas compactas inyectadas -->
+                </div>
             </div>
-            <div id="contenedor-desglose-mente">
-                <!-- Inyectado dinámicamente con las 5 categorías y tarjetas compactas -->
+        </div>
+
+        <!-- 3. VISTA TAB: DETALLE LINEAL COMPACTO - MENTE -->
+        <div id="vista-telemetria-tab-mente" class="telemetry-tab-panel" style="display: none; margin-bottom: 24px;">
+            <div class="card area-master-card" style="margin-bottom: 22px;">
+                <div class="area-master-header">
+                    <div>
+                        <h2 class="area-master-title">
+                            <span style="font-size: 20px;">🔵</span> 2. MENTE · TELEMETRÍA COGNITIVA
+                        </h2>
+                        <span style="font-size: 12.5px; color: #94a3b8;">Carga cognitiva, esfuerzo neural, disciplina y psicología estratégica.</span>
+                    </div>
+                    <div id="badge-resumen-mente"></div>
+                </div>
+                <div id="contenedor-desglose-mente">
+                    <!-- Filas compactas inyectadas -->
+                </div>
             </div>
         </div>
     </div>
@@ -4336,25 +4398,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=9.2"></script>
-    <script src="js/perfil.js?v=9.2"></script>
-    <script src="js/progresion.js?v=9.2"></script>
-    <script src="js/estado-personal.js?v=9.2"></script>
-    <script src="js/finanzas.js?v=9.2"></script>
-    <script src="js/ideas.js?v=9.2"></script>
-    <script src="js/dinamicas.js?v=9.2"></script>
-    <script src="js/calendario.js?v=9.2"></script>
-    <script src="js/inventario.js?v=9.2"></script>
-    <script src="js/jarvis-voz.js?v=9.2"></script>
+    <script src="js/core.js?v=9.3"></script>
+    <script src="js/perfil.js?v=9.3"></script>
+    <script src="js/progresion.js?v=9.3"></script>
+    <script src="js/estado-personal.js?v=9.3"></script>
+    <script src="js/finanzas.js?v=9.3"></script>
+    <script src="js/ideas.js?v=9.3"></script>
+    <script src="js/dinamicas.js?v=9.3"></script>
+    <script src="js/calendario.js?v=9.3"></script>
+    <script src="js/inventario.js?v=9.3"></script>
+    <script src="js/jarvis-voz.js?v=9.3"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=9.2"></script>
+    <script type="module" src="js/firebase-config.js?v=9.3"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=9.2')
+                navigator.serviceWorker.register('sw.js?v=9.3')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

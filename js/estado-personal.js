@@ -641,6 +641,7 @@ function cargarEstadoPersonal() {
     renderizarGraficoGeneralAvatar();
     renderizarDesgloseCuerpoAnatomico();
     renderizarDesgloseMenteCognitiva();
+    actualizarGraficosRadarEstadoPersonal();
     iniciarMonitorMedianocheDiaria();
 }
 
@@ -1010,7 +1011,220 @@ function renderizarGraficoGeneralAvatar() {
 }
 
 // ==========================================================================
-// RENDERIZADO DE LAS TARJETAS COMPACTAS: 🟢 1. CUERPO
+// TELEMETRÍA GRÁFICA INTERACTIVA CON CHART.JS & NAVEGACIÓN DE PESTAÑAS (v9.3)
+// ==========================================================================
+
+var CHART_RADAR_CUERPO = null;
+var CHART_RADAR_MENTE = null;
+var TAB_TELEMETRIA_ACTIVA = 'graficas';
+
+function cambiarTabTelemetriaEstadoPersonal(tab) {
+    TAB_TELEMETRIA_ACTIVA = tab || 'graficas';
+    ['graficas', 'cuerpo', 'mente'].forEach(function(t) {
+        var btn = document.getElementById('tab-btn-telemetria-' + t);
+        var panel = document.getElementById('vista-telemetria-tab-' + t);
+        if (btn) {
+            if (t === tab) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+        if (panel) {
+            panel.style.display = (t === tab) ? 'block' : 'none';
+        }
+    });
+
+    if (tab === 'graficas') {
+        setTimeout(function() {
+            actualizarGraficosRadarEstadoPersonal();
+        }, 60);
+    }
+}
+
+function calcularDatosRadarCuerpo() {
+    var f = APP_STATE.fatiga || {};
+    function avg(claves) {
+        var sum = 0;
+        claves.forEach(function(k) { sum += (Number(f[k]) || 0); });
+        return Math.round(sum / claves.length);
+    }
+    return {
+        pecho: avg(['pect_mayor', 'pect_menor']),
+        espalda: avg(['dorsales', 'trapecios', 'lumbares']),
+        hombrosBrazos: avg(['delt_ant', 'delt_lat', 'delt_post', 'biceps', 'triceps', 'antebrazos']),
+        core: avg(['core', 'cadera']),
+        piernas: avg(['cuadriceps', 'isquios', 'gluteos', 'pantorrillas']),
+        articular: avg(['cuello', 'articulaciones'])
+    };
+}
+
+function calcularDatosRadarMente() {
+    asegurarDesgasteMente();
+    var dm = APP_STATE.desgasteMente || {};
+    function avg(claves) {
+        var sum = 0;
+        claves.forEach(function(k) { sum += (Number(dm[k]) || 0); });
+        return Math.round(sum / claves.length);
+    }
+    return {
+        cognicion: avg(['memoria', 'procesamiento', 'conocimiento']),
+        creatividad: avg(['pensamiento_lateral', 'diseno_expresion']),
+        disciplina: avg(['enfoque', 'gratificacion', 'resiliencia']),
+        psicologia: avg(['microexpresiones', 'persuasion', 'control_emocional', 'inteligencia_social']),
+        recuperacion: avg(['estres_desconexion', 'claridad_decision'])
+    };
+}
+
+function actualizarGraficosRadarEstadoPersonal() {
+    if (typeof Chart === 'undefined') return;
+
+    var canvasCuerpo = document.getElementById('chart-radar-cuerpo');
+    var canvasMente = document.getElementById('chart-radar-mente');
+    if (!canvasCuerpo || !canvasMente) return;
+
+    var metricas = calcularMetricasPurasSinActualizar();
+    var datosCuerpo = calcularDatosRadarCuerpo();
+    var datosMente = calcularDatosRadarMente();
+
+    // Actualizar Badges
+    var badgeCuerpo = document.getElementById('badge-radar-cuerpo');
+    if (badgeCuerpo) badgeCuerpo.textContent = metricas.cuerpo + '% Promedio';
+    var badgeMente = document.getElementById('badge-radar-mente');
+    if (badgeMente) badgeMente.textContent = metricas.mente + '% Promedio';
+
+    // Rellenar Chips de ejes en el footer
+    var footerCuerpo = document.getElementById('resumen-ejes-cuerpo');
+    if (footerCuerpo) {
+        footerCuerpo.innerHTML = `
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('pect_mayor')">⚔️ Pecho: <strong>${datosCuerpo.pecho}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('dorsales')">🦅 Espalda: <strong>${datosCuerpo.espalda}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('delt_ant')">🛡️ Hombros/Brazos: <strong>${datosCuerpo.hombrosBrazos}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('core')">⚡ Núcleo: <strong>${datosCuerpo.core}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('cuadriceps')">🦵 Piernas: <strong>${datosCuerpo.piernas}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('cuello')">🔄 Articular: <strong>${datosCuerpo.articular}%</strong></span>
+        `;
+    }
+
+    var footerMente = document.getElementById('resumen-ejes-mente');
+    if (footerMente) {
+        footerMente.innerHTML = `
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('mente', 'memoria')">🧠 Cognición: <strong>${datosMente.cognicion}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('mente', 'pensamiento_lateral')">💡 Creatividad: <strong>${datosMente.creatividad}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('mente', 'enfoque')">🛡️ Disciplina: <strong>${datosMente.disciplina}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('mente', 'inteligencia_social')">♟️ Psicología: <strong>${datosMente.psicologia}%</strong></span>
+            <span class="telemetry-chip-axis" onclick="seleccionarMusculoHeatmap('mente', 'claridad_decision')">🌙 Recuperación: <strong>${datosMente.recuperacion}%</strong></span>
+        `;
+    }
+
+    // Configuración base para Radar Dark
+    var radarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            r: {
+                angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
+                grid: { color: 'rgba(255, 255, 255, 0.07)' },
+                pointLabels: {
+                    color: '#cbd5e1',
+                    font: { size: 11, weight: '700', family: "'Plus Jakarta Sans', sans-serif" }
+                },
+                ticks: {
+                    display: false,
+                    stepSize: 25,
+                    backdropColor: 'transparent'
+                },
+                suggestedMin: 0,
+                suggestedMax: 100
+            }
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0b0e15',
+                titleColor: '#f8fafc',
+                bodyColor: '#38bdf8',
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                borderWidth: 1,
+                padding: 10,
+                callbacks: {
+                    label: function(ctx) {
+                        return ' ' + ctx.dataset.label + ': ' + ctx.raw + '%';
+                    }
+                }
+            }
+        }
+    };
+
+    // 1. Radar Cuerpo
+    var valoresCuerpo = [
+        datosCuerpo.pecho,
+        datosCuerpo.espalda,
+        datosCuerpo.hombrosBrazos,
+        datosCuerpo.core,
+        datosCuerpo.piernas,
+        datosCuerpo.articular
+    ];
+
+    if (CHART_RADAR_CUERPO) {
+        CHART_RADAR_CUERPO.data.datasets[0].data = valoresCuerpo;
+        CHART_RADAR_CUERPO.update();
+    } else {
+        CHART_RADAR_CUERPO = new Chart(canvasCuerpo, {
+            type: 'radar',
+            data: {
+                labels: ['Pecho', 'Espalda', 'Brazos/Hombros', 'Core/Núcleo', 'Piernas', 'Articular'],
+                datasets: [{
+                    label: 'Carga Muscular',
+                    data: valoresCuerpo,
+                    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#ffffff',
+                    pointHoverBackgroundColor: '#ffffff',
+                    pointHoverBorderColor: '#10b981',
+                    pointRadius: 4
+                }]
+            },
+            options: radarOptions
+        });
+    }
+
+    // 2. Radar Mente
+    var valoresMente = [
+        datosMente.cognicion,
+        datosMente.creatividad,
+        datosMente.disciplina,
+        datosMente.psicologia,
+        datosMente.recuperacion
+    ];
+
+    if (CHART_RADAR_MENTE) {
+        CHART_RADAR_MENTE.data.datasets[0].data = valoresMente;
+        CHART_RADAR_MENTE.update();
+    } else {
+        CHART_RADAR_MENTE = new Chart(canvasMente, {
+            type: 'radar',
+            data: {
+                labels: ['Cognición', 'Creatividad', 'Disciplina', 'Psicología', 'Recuperación SNC'],
+                datasets: [{
+                    label: 'Carga Cognitiva',
+                    data: valoresMente,
+                    backgroundColor: 'rgba(56, 189, 248, 0.22)',
+                    borderColor: '#38bdf8',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#38bdf8',
+                    pointBorderColor: '#ffffff',
+                    pointHoverBackgroundColor: '#ffffff',
+                    pointHoverBorderColor: '#38bdf8',
+                    pointRadius: 4
+                }]
+            },
+            options: radarOptions
+        });
+    }
+}
+
+// ==========================================================================
+// RENDERIZADO LINEAL COMPACTO: 🟢 1. CUERPO
 // ==========================================================================
 
 function renderizarDesgloseCuerpoAnatomico() {
@@ -1024,7 +1238,7 @@ function renderizarDesgloseCuerpoAnatomico() {
     var countTotalCuerpo = 0;
 
     DESGLOSE_ANATOMICO_CUERPO.forEach(function(bloque) {
-        var tarjetasHtml = '';
+        var filasHtml = '';
 
         bloque.subpartes.forEach(function(sub) {
             var sumSub = 0;
@@ -1038,28 +1252,29 @@ function renderizarDesgloseCuerpoAnatomico() {
             var estado = obtenerEstadoZona(valSub);
             var targetMuscle = (sub.clavesFatiga && sub.clavesFatiga[0]) ? sub.clavesFatiga[0] : sub.clave;
 
-            tarjetasHtml += `
-            <div class="subpart-compact-card ${estado.clase}" id="card-subpart-${sub.clave}" data-target-muscle="${targetMuscle}" onclick="seleccionarMusculoHeatmap('${targetMuscle}', '${sub.clave}')" title="${sub.nombre}: ${valSub}% (${estado.label})" style="cursor: pointer;">
-                <div class="subpart-card-top">
-                    <span class="subpart-card-name">${sub.nombre}</span>
-                    <span class="subpart-card-dot"></span>
+            filasHtml += `
+            <div class="telemetry-row-item" onclick="seleccionarMusculoHeatmap('${targetMuscle}', '${sub.clave}')" title="Click para inspeccionar ${sub.nombre} en el HUD">
+                <div class="telemetry-row-info">
+                    <span class="telemetry-row-dot" style="background: ${estado.color};"></span>
+                    <span class="telemetry-row-name">${sub.nombre}</span>
                 </div>
-                <div class="subpart-card-bottom">
-                    <span class="subpart-card-val">${valSub}%</span>
-                    <span class="subpart-card-status">${estado.label}</span>
+                <div class="telemetry-row-track">
+                    <div class="telemetry-row-fill" style="width: ${valSub}%; background: ${estado.color};"></div>
+                </div>
+                <div class="telemetry-row-meta">
+                    <span class="telemetry-row-val" style="color: ${estado.color};">${valSub}%</span>
+                    <span class="telemetry-row-badge" style="background: ${estado.bg}; color: ${estado.color}; border: 1px solid ${estado.border};">${estado.label}</span>
                 </div>
             </div>`;
         });
 
         html += `
-        <div class="area-category-block">
-            <div class="area-category-title">
+        <div class="telemetry-linear-group">
+            <div class="telemetry-linear-title">
                 <span>${bloque.icono} ${bloque.categoria}</span>
-                <span class="count-tag">${bloque.subpartes.length} subpartes</span>
+                <span style="color: #64748b; font-size: 10.5px; font-weight: 600;">· ${bloque.subpartes.length} subpartes</span>
             </div>
-            <div class="subparts-compact-grid">
-                ${tarjetasHtml}
-            </div>
+            ${filasHtml}
         </div>`;
     });
 
@@ -1076,7 +1291,7 @@ function renderizarDesgloseCuerpoAnatomico() {
 }
 
 // ==========================================================================
-// RENDERIZADO DE LAS TARJETAS COMPACTAS: 🔵 2. MENTE
+// RENDERIZADO LINEAL COMPACTO: 🔵 2. MENTE
 // ==========================================================================
 
 function renderizarDesgloseMenteCognitiva() {
@@ -1091,7 +1306,7 @@ function renderizarDesgloseMenteCognitiva() {
     var countTotalMente = 0;
 
     DESGLOSE_COGNITIVO_MENTE.forEach(function(bloque) {
-        var tarjetasHtml = '';
+        var filasHtml = '';
 
         bloque.subpartes.forEach(function(sub) {
             var valSub = Math.min(100, Math.max(0, Number(desgasteMente[sub.clave]) || 0));
@@ -1100,28 +1315,29 @@ function renderizarDesgloseMenteCognitiva() {
 
             var estado = obtenerEstadoZona(valSub);
 
-            tarjetasHtml += `
-            <div class="subpart-compact-card ${estado.clase}" id="card-subpart-${sub.clave}" data-target-muscle="mente" onclick="seleccionarMusculoHeatmap('mente', '${sub.clave}')" title="${sub.nombre}: ${valSub}% (${estado.label})" style="cursor: pointer;">
-                <div class="subpart-card-top">
-                    <span class="subpart-card-name">${sub.nombre}</span>
-                    <span class="subpart-card-dot"></span>
+            filasHtml += `
+            <div class="telemetry-row-item" onclick="seleccionarMusculoHeatmap('mente', '${sub.clave}')" title="Click para inspeccionar ${sub.nombre} en el HUD">
+                <div class="telemetry-row-info">
+                    <span class="telemetry-row-dot" style="background: ${estado.color};"></span>
+                    <span class="telemetry-row-name">${sub.nombre}</span>
                 </div>
-                <div class="subpart-card-bottom">
-                    <span class="subpart-card-val">${valSub}%</span>
-                    <span class="subpart-card-status">${estado.label}</span>
+                <div class="telemetry-row-track">
+                    <div class="telemetry-row-fill" style="width: ${valSub}%; background: ${estado.color};"></div>
+                </div>
+                <div class="telemetry-row-meta">
+                    <span class="telemetry-row-val" style="color: ${estado.color};">${valSub}%</span>
+                    <span class="telemetry-row-badge" style="background: ${estado.bg}; color: ${estado.color}; border: 1px solid ${estado.border};">${estado.label}</span>
                 </div>
             </div>`;
         });
 
         html += `
-        <div class="area-category-block">
-            <div class="area-category-title">
+        <div class="telemetry-linear-group">
+            <div class="telemetry-linear-title">
                 <span>${bloque.icono} ${bloque.categoria}</span>
-                <span class="count-tag">${bloque.subpartes.length} subpartes</span>
+                <span style="color: #64748b; font-size: 10.5px; font-weight: 600;">· ${bloque.subpartes.length} facultades</span>
             </div>
-            <div class="subparts-compact-grid">
-                ${tarjetasHtml}
-            </div>
+            ${filasHtml}
         </div>`;
     });
 
