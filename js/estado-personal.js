@@ -1614,21 +1614,25 @@ function cambiarCategoriaEjercicios(cat) {
     var btnRut = document.getElementById('btn-cat-rutinas');
     var btnBancoFis = document.getElementById('btn-cat-banco-fisico');
     var btnBancoMen = document.getElementById('btn-cat-banco-mental');
+    var btnRutAleatoria = document.getElementById('btn-cat-rutina-aleatoria');
     var btnHist = document.getElementById('btn-cat-historial');
 
     var secRut = document.getElementById('seccion-categoria-rutinas');
     var secBancoFis = document.getElementById('seccion-categoria-banco-fisico');
     var secBancoMen = document.getElementById('seccion-categoria-banco-mental');
+    var secRutAleatoria = document.getElementById('seccion-categoria-rutina-aleatoria');
     var secHist = document.getElementById('seccion-categoria-historial');
 
     if (btnRut) btnRut.classList.remove('active');
     if (btnBancoFis) btnBancoFis.classList.remove('active');
     if (btnBancoMen) btnBancoMen.classList.remove('active');
+    if (btnRutAleatoria) btnRutAleatoria.classList.remove('active');
     if (btnHist) btnHist.classList.remove('active');
 
     if (secRut) secRut.style.display = 'none';
     if (secBancoFis) secBancoFis.style.display = 'none';
     if (secBancoMen) secBancoMen.style.display = 'none';
+    if (secRutAleatoria) secRutAleatoria.style.display = 'none';
     if (secHist) secHist.style.display = 'none';
 
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutinas') {
@@ -1643,6 +1647,10 @@ function cambiarCategoriaEjercicios(cat) {
         if (btnBancoMen) btnBancoMen.classList.add('active');
         if (secBancoMen) secBancoMen.style.display = 'block';
         renderizarBancoEjerciciosCerebrales();
+    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutina-aleatoria') {
+        if (btnRutAleatoria) btnRutAleatoria.classList.add('active');
+        if (secRutAleatoria) secRutAleatoria.style.display = 'block';
+        renderizarModuloRutinaAleatoria();
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'historial') {
         if (btnHist) btnHist.classList.add('active');
         if (secHist) secHist.style.display = 'block';
@@ -1667,10 +1675,10 @@ function renderizarPortalesRutinasEjercicios() {
     var rList = APP_STATE.rutinas || [];
     if (!rList || rList.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">📋</span>
             <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Arma tus sesiones de entrenamiento físico, cognitivo o híbrido seleccionando ejercicios de tus bancos.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
@@ -1859,10 +1867,10 @@ function renderizarEjercicios(ejercicios) {
 
     if (!filtrados || filtrados.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
             <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay ejercicios en esta subcategoría</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Crea tus ejercicios especificando series, repeticiones, zonas musculares trabajadas y nivel de fatiga.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()">
@@ -2121,10 +2129,10 @@ function renderizarPortalesRutinas(rutinas) {
 
     if (!rList || rList.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 35px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
             <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Arma tus sesiones de entrenamiento personalizadas seleccionando los ejercicios que has creado.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
@@ -2930,13 +2938,13 @@ function renderizarGym(registros) {
 
     // 1. BLOQUE DESTACADO: RUTINAS HECHAS HOY
     html += `
-    <div style="background: #fafafa; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 20px;">
+    <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 20px;">🏆</span>
                 <strong style="color: #f8fafc; font-size: 14px;">Rutinas Realizadas Hoy</strong>
             </div>
-            <span class="quest-badge-rank" style="background: ${hechasHoy.length > 0 ? '#10b981' : '#f3f4f6'}; color: ${hechasHoy.length > 0 ? '#ffffff' : '#6b7280'}; font-weight: 800;">
+            <span class="quest-badge-rank" style="background: ${hechasHoy.length > 0 ? '#10b981' : 'rgba(255,255,255,0.08)'}; color: ${hechasHoy.length > 0 ? '#ffffff' : '#94a3b8'}; font-weight: 800;">
                 ${hechasHoy.length} ${hechasHoy.length === 1 ? 'Sesión' : 'Sesiones'}
             </span>
         </div>`;
@@ -2946,12 +2954,12 @@ function renderizarGym(registros) {
         hechasHoy.forEach(function(reg) {
             var esMen = reg.detalle && reg.detalle.includes('[MENTAL]');
             var esHib = reg.detalle && reg.detalle.includes('[HÍBRIDA]');
-            var badgeBg = esMen ? '#eff6ff' : (esHib ? '#fef3c7' : '#ecfdf5');
-            var badgeColor = esMen ? '#1e40af' : (esHib ? '#92400e' : '#065f46');
-            var badgeBorder = esMen ? '#bfdbfe' : (esHib ? '#fde68a' : '#a7f3d0');
+            var badgeBg = esMen ? 'rgba(37, 99, 235, 0.2)' : (esHib ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)');
+            var badgeColor = esMen ? '#93c5fd' : (esHib ? '#fcd34d' : '#6ee7b7');
+            var badgeBorder = esMen ? 'rgba(59, 130, 246, 0.4)' : (esHib ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)');
 
             html += `
-            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 16px;">${esMen ? '🧠' : (esHib ? '⚡' : '🏋️')}</span>
                     <span style="font-weight: 700; color: #f8fafc; font-size: 13.5px;">${reg.detalle}</span>
@@ -2964,8 +2972,8 @@ function renderizarGym(registros) {
         html += '</div>';
     } else {
         html += `
-        <p style="color: #6b7280; font-size: 12.5px; margin: 4px 0 0 0;">
-            Aún no has completado ninguna rutina hoy. ¡Ve al apartado de <strong>"Sesiones &amp; Rutinas"</strong> y pulsa <strong>"Entrar"</strong> para iniciar tu entrenamiento!
+        <p style="color: #94a3b8; font-size: 12.5px; margin: 4px 0 0 0;">
+            Aún no has completado ninguna rutina hoy. ¡Ve al apartado de <strong>"Sesiones &amp; Rutinas"</strong> o <strong>"Rutina Aleatoria"</strong> para iniciar tu entrenamiento!
         </p>`;
     }
     html += '</div>';
@@ -2978,15 +2986,15 @@ function renderizarGym(registros) {
     if (anteriores.length > 0) {
         anteriores.forEach(function(reg) {
             html += `
-            <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <span style="font-weight: 600; color: #f8fafc; font-size: 13px;">${reg.detalle}</span>
-                <span style="color: #6b7280; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
+                <span style="color: #64748b; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
             </div>`;
         });
     } else if (hechasHoy.length === 0) {
-        html += '<p style="color: #6b7280; text-align: center; padding: 15px;">No hay entrenamientos registrados aún.</p>';
+        html += '<p style="color: #94a3b8; text-align: center; padding: 15px;">No hay entrenamientos registrados aún.</p>';
     } else {
-        html += '<p style="color: #9ca3af; font-size: 12px; font-style: italic;">No hay registros de sesiones anteriores.</p>';
+        html += '<p style="color: #64748b; font-size: 12px; font-style: italic;">No hay registros de sesiones anteriores.</p>';
     }
 
     html += '</div>';
@@ -3565,5 +3573,641 @@ function eliminarEjercicioCerebral(id) {
     MonarcaDB.save(APP_STATE);
     renderizarBancoEjerciciosCerebrales();
 }
+
+// ==========================================================================
+// MÓDULO: GENERADOR DE RUTINA ALEATORIA & SPLIT SEMANAL INTELIGENTE (v9.4)
+// ==========================================================================
+
+var GRUPOS_MUSCULARES_SPLIT = [
+    'Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps',
+    'Cuádriceps', 'Isquios', 'Glúteos', 'Pantorrillas', 'Core'
+];
+
+var DIAS_SEMANA_NOMBRES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+var SPLIT_SEMANAL_DEFAULT = {
+    hombre: [
+        { dia: 'Lunes', descanso: false, grupos: ['Pecho', 'Tríceps', 'Hombros'] },
+        { dia: 'Martes', descanso: false, grupos: ['Espalda', 'Bíceps'] },
+        { dia: 'Miércoles', descanso: false, grupos: ['Cuádriceps', 'Isquios', 'Glúteos', 'Pantorrillas'] },
+        { dia: 'Jueves', descanso: false, grupos: ['Pecho', 'Espalda'] },
+        { dia: 'Viernes', descanso: false, grupos: ['Hombros', 'Bíceps', 'Tríceps', 'Core'] },
+        { dia: 'Sábado', descanso: false, grupos: ['Cuádriceps', 'Glúteos', 'Core'] },
+        { dia: 'Domingo', descanso: true, grupos: [] }
+    ],
+    mujer: [
+        { dia: 'Lunes', descanso: false, grupos: ['Glúteos', 'Isquios', 'Pantorrillas'] },
+        { dia: 'Martes', descanso: false, grupos: ['Espalda', 'Hombros', 'Core'] },
+        { dia: 'Miércoles', descanso: false, grupos: ['Cuádriceps', 'Glúteos'] },
+        { dia: 'Jueves', descanso: true, grupos: [] },
+        { dia: 'Viernes', descanso: false, grupos: ['Glúteos', 'Isquios', 'Core'] },
+        { dia: 'Sábado', descanso: false, grupos: ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps'] },
+        { dia: 'Domingo', descanso: true, grupos: [] }
+    ]
+};
+
+var BANCO_MAESTRO_EJERCICIOS = [
+    // --- PECHO ---
+    { nombre: 'Press de Banca Plano con Barra', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 25, compuesto: true, musculoPrincipal: 'Pecho', categorias: ['Pecho', 'Tríceps', 'Hombros'] },
+    { nombre: 'Press Inclinado con Mancuernas', series: 4, repeticiones: '10-12 reps', fatigaPorcentaje: 22, compuesto: true, musculoPrincipal: 'Pecho', categorias: ['Pecho', 'Hombros'] },
+    { nombre: 'Aperturas en Polea / Cruces', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Pecho', categorias: ['Pecho'] },
+    { nombre: 'Fondos en Paralelas (Dips)', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 22, compuesto: true, musculoPrincipal: 'Pecho', categorias: ['Pecho', 'Tríceps'] },
+    { nombre: 'Press Declinado con Mancuernas', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 20, compuesto: true, musculoPrincipal: 'Pecho', categorias: ['Pecho', 'Tríceps'] },
+    { nombre: 'Flexiones de Pecho (Push-ups)', series: 3, repeticiones: '15-20 reps', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Pecho', categorias: ['Pecho', 'Core'] },
+
+    // --- ESPALDA ---
+    { nombre: 'Dominadas Pronas / Pull-ups', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 26, compuesto: true, musculoPrincipal: 'Espalda', categorias: ['Espalda', 'Bíceps'] },
+    { nombre: 'Remo con Barra Pendlay', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 25, compuesto: true, musculoPrincipal: 'Espalda', categorias: ['Espalda', 'Bíceps'] },
+    { nombre: 'Jalón al Pecho en Polea', series: 4, repeticiones: '10-12 reps', fatigaPorcentaje: 20, compuesto: true, musculoPrincipal: 'Espalda', categorias: ['Espalda', 'Bíceps'] },
+    { nombre: 'Remo Unilateral con Mancuerna', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Espalda', categorias: ['Espalda'] },
+    { nombre: 'Pullover en Polea Alta', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Espalda', categorias: ['Espalda'] },
+    { nombre: 'Remo en Polea Baja (Gironda)', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: true, musculoPrincipal: 'Espalda', categorias: ['Espalda', 'Bíceps'] },
+
+    // --- HOMBROS ---
+    { nombre: 'Press Militar con Barra / Mancuernas', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 22, compuesto: true, musculoPrincipal: 'Hombros', categorias: ['Hombros', 'Tríceps'] },
+    { nombre: 'Elevaciones Laterales con Mancuernas', series: 4, repeticiones: '12-15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Hombros', categorias: ['Hombros'] },
+    { nombre: 'Pájaros / Deltoides Posterior en Polea', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Hombros', categorias: ['Hombros'] },
+    { nombre: 'Press Arnold con Mancuernas', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 20, compuesto: true, musculoPrincipal: 'Hombros', categorias: ['Hombros', 'Tríceps'] },
+    { nombre: 'Face Pulls en Polea', series: 3, repeticiones: '15 reps', fatigaPorcentaje: 14, compuesto: false, musculoPrincipal: 'Hombros', categorias: ['Hombros', 'Espalda'] },
+
+    // --- BÍCEPS ---
+    { nombre: 'Curl con Barra Z', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Bíceps', categorias: ['Bíceps'] },
+    { nombre: 'Curl Martillo con Mancuernas', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Bíceps', categorias: ['Bíceps'] },
+    { nombre: 'Curl en Banco Scott / Predicador', series: 3, repeticiones: '12 reps', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Bíceps', categorias: ['Bíceps'] },
+    { nombre: 'Curl Concentrado Unilateral', series: 3, repeticiones: '12 reps/lado', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Bíceps', categorias: ['Bíceps'] },
+
+    // --- TRÍCEPS ---
+    { nombre: 'Press Francés con Mancuernas / Barra Z', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Tríceps', categorias: ['Tríceps'] },
+    { nombre: 'Extensiones de Tríceps en Polea Alta', series: 4, repeticiones: '12-15 reps', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Tríceps', categorias: ['Tríceps'] },
+    { nombre: 'Extensiones Sobre Cabeza (Copa)', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Tríceps', categorias: ['Tríceps'] },
+    { nombre: 'Fondos en Banco para Tríceps', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Tríceps', categorias: ['Tríceps'] },
+
+    // --- CUÁDRICEPS ---
+    { nombre: 'Sentadilla Libre con Barra (Squat)', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 30, compuesto: true, musculoPrincipal: 'Cuádriceps', categorias: ['Cuádriceps', 'Glúteos'] },
+    { nombre: 'Prensa Inclinada de Piernas', series: 4, repeticiones: '10-12 reps', fatigaPorcentaje: 25, compuesto: true, musculoPrincipal: 'Cuádriceps', categorias: ['Cuádriceps', 'Glúteos'] },
+    { nombre: 'Extensiones de Cuádriceps en Máquina', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Cuádriceps', categorias: ['Cuádriceps'] },
+    { nombre: 'Zancadas / Desplantes Caminando', series: 3, repeticiones: '12 reps/lado', fatigaPorcentaje: 22, compuesto: true, musculoPrincipal: 'Cuádriceps', categorias: ['Cuádriceps', 'Glúteos'] },
+    { nombre: 'Sentadilla Hack en Máquina', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 24, compuesto: true, musculoPrincipal: 'Cuádriceps', categorias: ['Cuádriceps', 'Glúteos'] },
+
+    // --- ISQUIOS ---
+    { nombre: 'Peso Muerto Rumano con Barra', series: 4, repeticiones: '8-10 reps', fatigaPorcentaje: 28, compuesto: true, musculoPrincipal: 'Isquios', categorias: ['Isquios', 'Glúteos'] },
+    { nombre: 'Curl Femoral Tumbado en Máquina', series: 4, repeticiones: '10-12 reps', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Isquios', categorias: ['Isquios'] },
+    { nombre: 'Curl Femoral Sentado', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Isquios', categorias: ['Isquios'] },
+    { nombre: 'Buenos Días con Barra Ligera', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 20, compuesto: true, musculoPrincipal: 'Isquios', categorias: ['Isquios', 'Glúteos'] },
+
+    // --- GLÚTEOS ---
+    { nombre: 'Hip Thrust con Barra', series: 4, repeticiones: '10-12 reps', fatigaPorcentaje: 28, compuesto: true, musculoPrincipal: 'Glúteos', categorias: ['Glúteos', 'Isquios'] },
+    { nombre: 'Sentadilla Búlgara con Mancuernas', series: 3, repeticiones: '10-12 reps/lado', fatigaPorcentaje: 25, compuesto: true, musculoPrincipal: 'Glúteos', categorias: ['Glúteos', 'Cuádriceps'] },
+    { nombre: 'Abducciones de Cadera en Polea / Máquina', series: 3, repeticiones: '15-20 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Glúteos', categorias: ['Glúteos'] },
+    { nombre: 'Patada de Glúteo en Polea', series: 3, repeticiones: '12-15 reps/lado', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Glúteos', categorias: ['Glúteos'] },
+    { nombre: 'Puente de Glúteos Unilateral', series: 3, repeticiones: '15 reps/lado', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Glúteos', categorias: ['Glúteos'] },
+
+    // --- PANTORRILLAS ---
+    { nombre: 'Elevaciones de Talones de Pie', series: 4, repeticiones: '15-20 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Pantorrillas', categorias: ['Pantorrillas'] },
+    { nombre: 'Elevación de Talones Sentado en Máquina', series: 3, repeticiones: '15 reps', fatigaPorcentaje: 15, compuesto: false, musculoPrincipal: 'Pantorrillas', categorias: ['Pantorrillas'] },
+
+    // --- CORE ---
+    { nombre: 'Plancha Abdominal Isométrica', series: 3, repeticiones: '45-60 seg', fatigaPorcentaje: 18, compuesto: false, musculoPrincipal: 'Core', categorias: ['Core'] },
+    { nombre: 'Elevación de Piernas Colgado', series: 3, repeticiones: '12-15 reps', fatigaPorcentaje: 20, compuesto: false, musculoPrincipal: 'Core', categorias: ['Core'] },
+    { nombre: 'Rueda Abdominal (Ab Wheel)', series: 3, repeticiones: '10-12 reps', fatigaPorcentaje: 22, compuesto: false, musculoPrincipal: 'Core', categorias: ['Core'] },
+    { nombre: 'Russian Twists con Disco', series: 3, repeticiones: '20 giros', fatigaPorcentaje: 16, compuesto: false, musculoPrincipal: 'Core', categorias: ['Core'] }
+];
+
+var PERFIL_RUTINA_ALEATORIA_ACTIVO = 'hombre';
+var PERFIL_SETTINGS_SPLIT_ACTIVO = 'hombre';
+var RUTINA_ALEATORIA_GENERADA = null;
+
+function obtenerSplitSemanalActual(perfil) {
+    var p = perfil || PERFIL_RUTINA_ALEATORIA_ACTIVO || 'hombre';
+    if (!APP_STATE.splitSemanal) {
+        APP_STATE.splitSemanal = JSON.parse(JSON.stringify(SPLIT_SEMANAL_DEFAULT));
+    }
+    if (!APP_STATE.splitSemanal[p] || !Array.isArray(APP_STATE.splitSemanal[p]) || APP_STATE.splitSemanal[p].length !== 7) {
+        APP_STATE.splitSemanal[p] = JSON.parse(JSON.stringify(SPLIT_SEMANAL_DEFAULT[p] || SPLIT_SEMANAL_DEFAULT.hombre));
+    }
+    return APP_STATE.splitSemanal[p];
+}
+
+function guardarSplitSemanalActual(perfil, split) {
+    var p = perfil || PERFIL_SETTINGS_SPLIT_ACTIVO || 'hombre';
+    if (!APP_STATE.splitSemanal) APP_STATE.splitSemanal = {};
+    APP_STATE.splitSemanal[p] = split;
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+}
+
+function obtenerDiaSemanaActualIdx() {
+    var jsDay = new Date().getDay(); // 0: Dom, 1: Lun, ..., 6: Sab
+    return (jsDay + 6) % 7; // 0: Lun, 1: Mar, ..., 6: Dom
+}
+
+function renderizarModuloRutinaAleatoria() {
+    var btnH = document.getElementById('btn-perfil-hombre');
+    var btnM = document.getElementById('btn-perfil-mujer');
+    if (btnH) btnH.classList.toggle('active', PERFIL_RUTINA_ALEATORIA_ACTIVO === 'hombre');
+    if (btnM) btnM.classList.toggle('active', PERFIL_RUTINA_ALEATORIA_ACTIVO === 'mujer');
+
+    var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx] || { dia: DIAS_SEMANA_NOMBRES[diaIdx], descanso: false, grupos: [] };
+
+    // Renderizar Banner de Hoy
+    var banner = document.getElementById('banner-deteccion-dia-hoy');
+    if (banner) {
+        var nombreDia = DIAS_SEMANA_NOMBRES[diaIdx];
+        var esDescanso = !!diaConfig.descanso;
+        var grupos = diaConfig.grupos || [];
+        var perfilEtiqueta = PERFIL_RUTINA_ALEATORIA_ACTIVO === 'mujer' ? '👩 Perfil Mujer' : '👨 Perfil Hombre';
+
+        var gruposHtml = '';
+        if (esDescanso) {
+            gruposHtml = `<span style="display: inline-block; padding: 4px 12px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.3); color: #cbd5e1; border-radius: 9999px; font-size: 12px; font-weight: 700;">🏖️ Día de Descanso Programado</span>`;
+        } else if (grupos.length > 0) {
+            gruposHtml = grupos.map(function(g) {
+                return `<span style="display: inline-block; padding: 4px 10px; background: rgba(37, 99, 235, 0.2); border: 1px solid rgba(37, 99, 235, 0.4); color: #93c5fd; border-radius: 9999px; font-size: 11.5px; font-weight: 700; margin-right: 6px; margin-top: 4px;">⚡ ${g}</span>`;
+            }).join('');
+        } else {
+            gruposHtml = `<span style="color: #94a3b8; font-size: 12px;">Sin grupos asignados para hoy en el split.</span>`;
+        }
+
+        banner.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 8px; border-radius: 6px;">${perfilEtiqueta}</span>
+                    <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">· Detección en Tiempo Real</span>
+                </div>
+                <h3 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 18px; font-weight: 800;">
+                    📅 Hoy es <span style="color: #38bdf8;">${nombreDia}</span>
+                </h3>
+                <div style="display: flex; align-items: flex-wrap; gap: 4px;">
+                    ${gruposHtml}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaRutinaAleatoria('settings')" style="font-size: 11.5px; padding: 6px 12px;">
+                    ⚙️ Cambiar Split
+                </button>
+            </div>
+        </div>`;
+    }
+
+    // Renderizar Contenedor de Rutina Generada
+    var contRutina = document.getElementById('contenedor-rutina-aleatoria-generada');
+    if (!contRutina) return;
+
+    if (!RUTINA_ALEATORIA_GENERADA || RUTINA_ALEATORIA_GENERADA.length === 0) {
+        contRutina.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
+            <span style="font-size: 34px; display: block; margin-bottom: 8px;">🎲</span>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Generador de Rutinas Inteligente</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto;">
+                Pulsa el botón superior para estructurar tu sesión de hoy: se seleccionan entre 4 y 6 ejercicios sin repetición, priorizando ejercicios multiarticulares principales primero y accesorios después.
+            </p>
+        </div>`;
+        return;
+    }
+
+    var html = `
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <h4 style="margin: 0; color: #f8fafc; font-size: 15px; font-weight: 800;">
+                🔥 Sesión Estructurada para Hoy (${RUTINA_ALEATORIA_GENERADA.length} Ejercicios)
+            </h4>
+            <span style="font-size: 12px; color: #94a3b8;">Revisa tus ejercicios. Puedes re-rollear individualmente cualquiera que no te convenza.</span>
+        </div>
+        <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaHoy()" style="font-size: 11.5px;">
+            🔄 Regenerar Todo
+        </button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">`;
+
+    RUTINA_ALEATORIA_GENERADA.forEach(function(ej, idx) {
+        var esComp = !!ej.compuesto;
+        var badgeComp = esComp 
+            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL / COMPUESTO</span>`
+            : `<span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
+        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).map(function(c) {
+            return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">${c}</span>`;
+        }).join(' ');
+
+        html += `
+        <div class="random-exercise-card">
+            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #38bdf8; flex-shrink: 0;">
+                    ${idx + 1}
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                        <h4 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc;">${ej.nombre}</h4>
+                        ${badgeComp}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                        <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${ej.repeticiones || '10-12 reps'}</span>
+                        <span style="color: #64748b; font-size: 12px;">·</span>
+                        ${muscleBadges}
+                    </div>
+                </div>
+            </div>
+            <div>
+                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorio(${idx})" title="Cambiar por otro ejercicio del mismo grupo">
+                    <span>🔄</span> Re-roll
+                </button>
+            </div>
+        </div>`;
+    });
+
+    html += `
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+        <button type="button" class="btn-system" onclick="iniciarRutinaAleatoriaGenerada()" style="flex: 1; min-width: 200px; padding: 14px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-weight: 800; font-size: 14px; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            <span>▶️</span> Iniciar Esta Sesión
+        </button>
+        <button type="button" class="btn-subfiltro-ej" onclick="guardarRutinaAleatoriaEnMisRutinas()" style="padding: 14px 20px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <span>💾</span> Guardar como Rutina
+        </button>
+    </div>`;
+
+    contRutina.innerHTML = html;
+}
+
+function mostrarSubvistaRutinaAleatoria(subvista) {
+    var vGen = document.getElementById('subvista-generador-principal');
+    var vSet = document.getElementById('subvista-settings-split');
+    if (subvista === 'settings') {
+        if (vGen) vGen.style.display = 'none';
+        if (vSet) vSet.style.display = 'block';
+        PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_RUTINA_ALEATORIA_ACTIVO;
+        renderizarSettingsSplitSemanal();
+    } else {
+        if (vSet) vSet.style.display = 'none';
+        if (vGen) vGen.style.display = 'block';
+        renderizarModuloRutinaAleatoria();
+    }
+}
+
+function cambiarPerfilRutinaAleatoria(perfil) {
+    PERFIL_RUTINA_ALEATORIA_ACTIVO = perfil || 'hombre';
+    RUTINA_ALEATORIA_GENERADA = null;
+    renderizarModuloRutinaAleatoria();
+}
+
+function cambiarPerfilSettingsSplit(perfil) {
+    PERFIL_SETTINGS_SPLIT_ACTIVO = perfil || 'hombre';
+    renderizarSettingsSplitSemanal();
+}
+
+function renderizarSettingsSplitSemanal() {
+    var btnH = document.getElementById('btn-settings-perfil-hombre');
+    var btnM = document.getElementById('btn-settings-perfil-mujer');
+    if (btnH) btnH.classList.toggle('active', PERFIL_SETTINGS_SPLIT_ACTIVO === 'hombre');
+    if (btnM) btnM.classList.toggle('active', PERFIL_SETTINGS_SPLIT_ACTIVO === 'mujer');
+
+    var cont = document.getElementById('contenedor-split-semanal-editor');
+    if (!cont) return;
+
+    var split = obtenerSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO);
+    var diaActualIdx = obtenerDiaSemanaActualIdx();
+
+    var html = '';
+    split.forEach(function(item, idx) {
+        var esHoy = (idx === diaActualIdx);
+        var esDescanso = !!item.descanso;
+        var grupos = item.grupos || [];
+
+        var chipsHtml = GRUPOS_MUSCULARES_SPLIT.map(function(m) {
+            var activo = grupos.includes(m);
+            return `<span class="split-muscle-chip ${activo ? 'active' : ''}" onclick="toggleMusculoDiaSplit(${idx}, '${m}')">${m}</span>`;
+        }).join('');
+
+        html += `
+        <div class="split-day-card ${esHoy ? 'today' : ''} ${esDescanso ? 'is-rest' : ''}">
+            <div class="split-day-header">
+                <div>
+                    <strong style="color: #f8fafc; font-size: 14px;">${item.dia}</strong>
+                    ${esHoy ? '<span style="font-size: 10px; font-weight: 800; background: #38bdf8; color: #080a0f; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">HOY</span>' : ''}
+                </div>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: #94a3b8; user-select: none;">
+                    <input type="checkbox" ${esDescanso ? 'checked' : ''} onchange="toggleDescansoDiaSplit(${idx})" style="cursor: pointer;">
+                    <span>Descanso</span>
+                </label>
+            </div>
+            <div>
+                <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+                    ${esDescanso ? 'Día Libre (Sin entrenamiento programado)' : 'Grupos Musculares Objetivo:'}
+                </span>
+                <div class="split-chips-container" style="${esDescanso ? 'opacity: 0.4; pointer-events: none;' : ''}">
+                    ${chipsHtml}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    cont.innerHTML = html;
+}
+
+function toggleDescansoDiaSplit(diaIdx) {
+    var split = obtenerSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO);
+    if (!split[diaIdx]) return;
+    split[diaIdx].descanso = !split[diaIdx].descanso;
+    guardarSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO, split);
+    renderizarSettingsSplitSemanal();
+}
+
+function toggleMusculoDiaSplit(diaIdx, musculo) {
+    var split = obtenerSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO);
+    if (!split[diaIdx]) return;
+    if (split[diaIdx].descanso) {
+        split[diaIdx].descanso = false;
+    }
+    if (!Array.isArray(split[diaIdx].grupos)) split[diaIdx].grupos = [];
+    var pos = split[diaIdx].grupos.indexOf(musculo);
+    if (pos >= 0) {
+        split[diaIdx].grupos.splice(pos, 1);
+    } else {
+        split[diaIdx].grupos.push(musculo);
+    }
+    guardarSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO, split);
+    renderizarSettingsSplitSemanal();
+}
+
+function restablecerSplitDefault() {
+    if (!confirm("¿Deseas restablecer el Split Semanal por defecto para el perfil " + (PERFIL_SETTINGS_SPLIT_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + "?")) {
+        return;
+    }
+    var def = JSON.parse(JSON.stringify(SPLIT_SEMANAL_DEFAULT[PERFIL_SETTINGS_SPLIT_ACTIVO] || SPLIT_SEMANAL_DEFAULT.hombre));
+    guardarSplitSemanalActual(PERFIL_SETTINGS_SPLIT_ACTIVO, def);
+    renderizarSettingsSplitSemanal();
+}
+
+function obtenerBancoCompletoEjercicios() {
+    var delUsuario = (APP_STATE.ejercicios || []).filter(function(e) {
+        return e && e.nombre && (e.tipo === 'gym' || e.tipo === 'calistenia' || !e.tipo);
+    });
+    // Unir evitando nombres duplicados exactos
+    var mapa = {};
+    BANCO_MAESTRO_EJERCICIOS.forEach(function(e) {
+        mapa[e.nombre.toLowerCase().trim()] = e;
+    });
+    delUsuario.forEach(function(e) {
+        var nombreKey = e.nombre.toLowerCase().trim();
+        var grupos = e.categorias || (e.musculoPrincipal ? [e.musculoPrincipal] : ['Cuerpo']);
+        mapa[nombreKey] = {
+            nombre: e.nombre,
+            series: Number(e.series) || 4,
+            repeticiones: e.repeticiones || '10-12 reps',
+            fatigaPorcentaje: Number(e.fatigaPorcentaje) || 20,
+            compuesto: !!e.compuesto,
+            musculoPrincipal: e.musculoPrincipal || grupos[0],
+            categorias: grupos
+        };
+    });
+    return Object.values(mapa);
+}
+
+function shuffleArray(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = a[i];
+        a[i] = a[j];
+        a[j] = temp;
+    }
+    return a;
+}
+
+function generarRutinaAleatoriaHoy() {
+    var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx];
+
+    if (diaConfig && diaConfig.descanso) {
+        if (!confirm("Hoy " + DIAS_SEMANA_NOMBRES[diaIdx] + " es tu DÍA DE DESCANSO programado según tu split semanal.\n\n¿Deseas generar una rutina activa de todos modos?")) {
+            return;
+        }
+    }
+
+    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
+        ? diaConfig.grupos
+        : ['Pecho', 'Espalda', 'Pierna', 'Core']; // Fallback general si no hay grupos asignados
+
+    var todos = obtenerBancoCompletoEjercicios();
+
+    // Normalizador de búsqueda de texto de músculos
+    function coincideConGrupos(ej, grupos) {
+        var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
+            return (c || '').toLowerCase();
+        });
+        return grupos.some(function(g) {
+            var gLow = g.toLowerCase();
+            return categorias.some(function(c) {
+                return c.includes(gLow) || gLow.includes(c);
+            });
+        });
+    }
+
+    var candidatos = todos.filter(function(ej) {
+        return coincideConGrupos(ej, gruposObjetivo);
+    });
+
+    if (candidatos.length < 4) {
+        // Si hay muy pocos candidatos exactos, ampliar al resto del banco para no dejar la rutina vacía
+        candidatos = candidatos.concat(todos.filter(function(ej) {
+            return !candidatos.some(function(c) { return c.nombre === ej.nombre; });
+        }));
+    }
+
+    // Dividir en compuestos y accesorios
+    var compuestos = candidatos.filter(function(e) { return e.compuesto; });
+    var accesorios = candidatos.filter(function(e) { return !e.compuesto; });
+
+    compuestos = shuffleArray(compuestos);
+    accesorios = shuffleArray(accesorios);
+
+    var seleccionados = [];
+    var nombresUsados = {};
+
+    function agregar(ej) {
+        if (!ej) return false;
+        var key = ej.nombre.toLowerCase().trim();
+        if (nombresUsados[key]) return false;
+        nombresUsados[key] = true;
+        seleccionados.push(JSON.parse(JSON.stringify(ej)));
+        return true;
+    }
+
+    // 1. Tomar 2 a 3 compuestos prioritariamente
+    var metaComp = Math.min(compuestos.length, Math.floor(Math.random() * 2) + 2); // 2 o 3
+    for (var i = 0; i < compuestos.length && seleccionados.length < metaComp; i++) {
+        agregar(compuestos[i]);
+    }
+
+    // 2. Rellenar con accesorios hasta llegar a 5 o 6 ejercicios totales
+    var metaTotal = Math.min(5, seleccionados.length + accesorios.length);
+    if (candidatos.length >= 6) metaTotal = 6;
+
+    for (var j = 0; j < accesorios.length && seleccionados.length < metaTotal; j++) {
+        agregar(accesorios[j]);
+    }
+
+    // Si aún faltan para llegar a mínimo 4, tomar de cualquier resto de candidatos
+    if (seleccionados.length < 4) {
+        var resto = shuffleArray(candidatos);
+        for (var k = 0; k < resto.length && seleccionados.length < 4; k++) {
+            agregar(resto[k]);
+        }
+    }
+
+    RUTINA_ALEATORIA_GENERADA = seleccionados;
+    renderizarModuloRutinaAleatoria();
+}
+
+function reRollearEjercicioAleatorio(idx) {
+    if (!RUTINA_ALEATORIA_GENERADA || !RUTINA_ALEATORIA_GENERADA[idx]) return;
+
+    var actual = RUTINA_ALEATORIA_GENERADA[idx];
+    var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx];
+    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
+        ? diaConfig.grupos
+        : ['Pecho', 'Espalda', 'Pierna', 'Core'];
+
+    var todos = shuffleArray(obtenerBancoCompletoEjercicios());
+    var nombresActuales = RUTINA_ALEATORIA_GENERADA.map(function(e) { return e.nombre.toLowerCase().trim(); });
+
+    // Buscar sustituto que coincida con el grupo del ejercicio actual o los del día
+    var grupoActual = actual.musculoPrincipal || (actual.categorias && actual.categorias[0]) || '';
+    var sustituto = todos.find(function(e) {
+        var nKey = e.nombre.toLowerCase().trim();
+        if (nombresActuales.includes(nKey)) return false;
+        if (actual.compuesto && !e.compuesto && Math.random() < 0.7) return false; // Tratar de mantener tipo
+        var cat = (e.categorias || []).concat([e.musculoPrincipal || '']).map(function(c) { return (c || '').toLowerCase(); });
+        var matchMismo = grupoActual && cat.some(function(c) { return c.includes(grupoActual.toLowerCase()); });
+        var matchDia = gruposObjetivo.some(function(g) {
+            return cat.some(function(c) { return c.includes(g.toLowerCase()); });
+        });
+        return matchMismo || matchDia;
+    });
+
+    if (!sustituto) {
+        // Fallback: cualquier ejercicio no repetido
+        sustituto = todos.find(function(e) {
+            return !nombresActuales.includes(e.nombre.toLowerCase().trim());
+        });
+    }
+
+    if (sustituto) {
+        RUTINA_ALEATORIA_GENERADA[idx] = JSON.parse(JSON.stringify(sustituto));
+        renderizarModuloRutinaAleatoria();
+    } else {
+        alert("No se encontraron más ejercicios alternativos en el banco.");
+    }
+}
+
+function iniciarRutinaAleatoriaGenerada() {
+    if (!RUTINA_ALEATORIA_GENERADA || RUTINA_ALEATORIA_GENERADA.length === 0) {
+        generarRutinaAleatoriaHoy();
+    }
+    if (!RUTINA_ALEATORIA_GENERADA || RUTINA_ALEATORIA_GENERADA.length === 0) return;
+
+    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var rutina = {
+        nombre: "Rutina Aleatoria - " + hoyNombre + " (" + (PERFIL_RUTINA_ALEATORIA_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + ")",
+        tipo: "fisica",
+        rankLabel: "SESIÓN ALEATORIA · " + hoyNombre.toUpperCase(),
+        ejercicios: JSON.parse(JSON.stringify(RUTINA_ALEATORIA_GENERADA))
+    };
+
+    abrirDetalleRutinaDinamicaGenerada(rutina);
+}
+
+function abrirDetalleRutinaDinamicaGenerada(rutina) {
+    RUTINA_ACTIVA = { rutina: rutina, idx: -1 };
+
+    cambiarVista('vista-detalle-rutina-dinamica');
+
+    var tituloEl = document.getElementById('detalle-rutina-titulo');
+    var badgeEl = document.getElementById('detalle-rutina-badge');
+    if (tituloEl) tituloEl.innerText = rutina.nombre;
+    if (badgeEl) badgeEl.innerText = (rutina.rankLabel || 'SESIÓN ALEATORIA').replace(/[^\w\s·-]/gi, '').trim();
+
+    var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
+    if (!cont) return;
+
+    var numEj = rutina.ejercicios ? rutina.ejercicios.length : 0;
+    var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
+    var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
+    var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
+    var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
+
+    if (progrCont) progrCont.style.display = 'block';
+    if (progrBarra) progrBarra.style.width = '0%';
+    if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
+    if (btnReg) {
+        btnReg.style.display = 'block';
+        btnReg.disabled = true;
+    }
+
+    var html = '';
+    if (rutina.ejercicios && rutina.ejercicios.length > 0) {
+        rutina.ejercicios.forEach(function(ej, ejIdx) {
+            var muscleList = (ej.categorias || []).join(' · ');
+            var seriesReps = `${ej.series || 4} series · ${ej.repeticiones || '10-12 reps'}`;
+            var ejJson = encodeURIComponent(JSON.stringify(ej));
+
+            html += `
+            <div class="routine-exercise-clean-row" id="row-ej-${ejIdx}" onclick="alClickFilaEjercicio(event, '${ejJson}', ${ejIdx})">
+                <div class="clean-row-checkbox-box" onclick="toggleCheckEjercicio(event, ${ejIdx})">
+                    ✓
+                </div>
+                <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
+                <div class="clean-row-info">
+                    <div class="clean-row-title">${ejIdx + 1}. 🏋️ ${ej.nombre}</div>
+                    <div class="clean-row-meta">${seriesReps} ${muscleList ? '· ' + muscleList : ''}</div>
+                </div>
+                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones">
+                    Detalle
+                </button>
+            </div>`;
+        });
+    }
+
+    cont.innerHTML = html;
+}
+
+function guardarRutinaAleatoriaEnMisRutinas() {
+    if (!RUTINA_ALEATORIA_GENERADA || RUTINA_ALEATORIA_GENERADA.length === 0) {
+        alert("Primero genera una rutina aleatoria.");
+        return;
+    }
+
+    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var nombreDefecto = "Rutina " + hoyNombre + " (" + (PERFIL_RUTINA_ALEATORIA_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + ") - " + new Date().toLocaleDateString('es-ES');
+    var nombre = prompt("Ingresa el nombre para guardar esta rutina en tu catálogo:", nombreDefecto);
+    if (!nombre || !nombre.trim()) return;
+
+    if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
+
+    var nueva = {
+        id: "RUT-" + Date.now(),
+        codigo: "RUT-" + (APP_STATE.rutinas.length + 1),
+        nombre: nombre.trim(),
+        tipo: "fisica",
+        rankLabel: "SESIÓN · " + hoyNombre.toUpperCase(),
+        descripcion: "Rutina generada inteligentemente según el Split Semanal.",
+        ejercicios: JSON.parse(JSON.stringify(RUTINA_ALEATORIA_GENERADA)),
+        fechaCreacion: Date.now()
+    };
+
+    APP_STATE.rutinas.push(nueva);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+
+    alert("✓ Rutina '" + nueva.nombre + "' guardada exitosamente en 'Rutinas & Sesiones'.");
+}
+
 
 
