@@ -1857,14 +1857,50 @@ function quitarZonaFisicaModal(clave) {
     renderizarFilasZonasFisicas();
 }
 
+function actualizarPromedioRepsModal(manual) {
+    var inReps = document.getElementById('modal-ejercicio-reps');
+    var inProm = document.getElementById('modal-ejercicio-reps-promedio');
+    var inPeso = document.getElementById('modal-ejercicio-peso');
+    var txtRes = document.getElementById('modal-ejercicio-resumen-promedio-txt');
+    if (!inReps || !inProm) return;
+
+    var prom = parseFloat(inProm.value) || 10;
+    if (!manual) {
+        var str = inReps.value || '';
+        var nums = str.match(/\d+(\.\d+)?/g);
+        if (nums && nums.length > 0) {
+            if (nums.length === 1) {
+                prom = parseFloat(nums[0]) || 10;
+            } else {
+                var n1 = parseFloat(nums[0]);
+                var n2 = parseFloat(nums[1]);
+                prom = Math.round(((n1 + n2) / 2) * 10) / 10;
+            }
+            inProm.value = prom;
+        }
+    }
+
+    var peso = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
+    if (txtRes) {
+        var pesoTxt = peso > 0 ? (peso + ' kg × ') : '';
+        txtRes.innerHTML = '<strong style="color: #38bdf8;">Base 100% Fatiga:</strong> ' + pesoTxt + prom + ' reps promedio. Si en tu rutina haces 8 o 12 reps, el sistema escalará la fatiga de cada serie proporcionalmente.';
+    }
+}
+
 function abrirModalNuevoEjercicio(grupoPreseleccionado) {
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inDesc = document.getElementById('modal-ejercicio-desc');
+    var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
+    var inProm = document.getElementById('modal-ejercicio-reps-promedio');
 
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
-    if (inReps) inReps.value = "8-10 reps";
+    if (inPeso) inPeso.value = "80";
+    if (inReps) inReps.value = "8-12 reps";
+    if (inProm) inProm.value = "10";
+
+    actualizarPromedioRepsModal();
 
     ZONAS_EJERCICIO_FISICO_TEMP = [];
     var preZona = grupoPreseleccionado || "Pecho";
@@ -1892,14 +1928,18 @@ function confirmarAgregarEjercicio() {
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inTipo = document.getElementById('modal-ejercicio-tipo');
     var inDesc = document.getElementById('modal-ejercicio-desc');
+    var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
+    var inProm = document.getElementById('modal-ejercicio-reps-promedio');
 
     var nom = inNom ? inNom.value.trim() : "";
     var tipoEj = inTipo ? inTipo.value : "gym";
     var esCompuesto = true;
     var desc = inDesc ? inDesc.value.trim() : "";
-    var series = 1; // Por defecto 1 serie en el catálogo (configurable al crear rutinas)
-    var reps = inReps ? inReps.value.trim() : "8-10 reps";
+    var pesoBase = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
+    var reps = inReps ? inReps.value.trim() : "8-12 reps";
+    var repsProm = inProm ? (parseFloat(inProm.value) || 10) : 10;
+    var series = 1;
 
     if (!nom) {
         alert("Por favor ingresa el nombre del ejercicio.");
@@ -1941,7 +1981,10 @@ function confirmarAgregarEjercicio() {
         descripcion: desc || "Técnica biomecánica controlada.",
         musculoPrincipal: muscPrincipal,
         series: series,
+        peso: pesoBase,
+        pesoReferencia: pesoBase,
         repeticiones: reps,
+        repeticionesPromedio: repsProm,
         zonas: zonasCopia,
         categorias: categorias,
         fatigaPorcentaje: fatigaEstimada,
@@ -1959,7 +2002,7 @@ function confirmarAgregarEjercicio() {
     if (typeof TAB_TRAINER_ACTIVA !== 'undefined' && TAB_TRAINER_ACTIVA === 'aleatoria' && typeof renderizarSubAppTrainer === 'function') {
         renderizarSubAppTrainer();
     }
-    alert("⚡ Ejercicio '" + nom + "' guardado con " + zonasCopia.length + " zona(s) (" + muscPrincipal + " principal).");
+    alert("⚡ Ejercicio '" + nom + "' guardado con éxito.\nReferencia Base: " + (pesoBase ? pesoBase + " kg × " : "") + repsProm + " reps promedio (" + fatigaEstimada + "% a " + muscPrincipal + ").");
 }
 
 function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
@@ -3110,6 +3153,83 @@ function alVerDetalleEjercicio(e, ejJson) {
     }
 }
 
+var HISTORIAL_FACTOR_SERIES = {};
+
+function obtenerRepsPromedioEjercicio(ej) {
+    if (!ej) return 10;
+    if (typeof ej.repeticionesPromedio === 'number' && ej.repeticionesPromedio > 0) {
+        return ej.repeticionesPromedio;
+    }
+    var str = String(ej.repeticiones || '');
+    var nums = str.match(/\d+(\.\d+)?/g);
+    if (!nums || nums.length === 0) return 10;
+    if (nums.length === 1) return parseFloat(nums[0]) || 10;
+    var n1 = parseFloat(nums[0]);
+    var n2 = parseFloat(nums[1]);
+    return Math.round(((n1 + n2) / 2) * 10) / 10;
+}
+
+function cambiarRepsSerie(ejIdx, serieNum, delta, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+    if (!inReps) return;
+    var val = (parseFloat(inReps.value) || 10) + delta;
+    if (val < 1) val = 1;
+    inReps.value = val;
+    alCambiarRepsInput(ejIdx, serieNum, val);
+}
+
+function alCambiarRepsInput(ejIdx, serieNum, val) {
+    var repsHechas = parseFloat(val) || 1;
+    if (repsHechas < 1) repsHechas = 1;
+
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios || !RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) return;
+    var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    var numSeries = ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
+    var repsProm = obtenerRepsPromedioEjercicio(ej);
+    var key = ejIdx + '_' + serieNum;
+    var factorNuevo = repsProm > 0 ? (repsHechas / repsProm) : 1;
+
+    var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
+    if (chk && chk.checked) {
+        var factorViejo = HISTORIAL_FACTOR_SERIES[key] || 1;
+        // Revertir desgaste con factor anterior y aplicar con nuevo factor
+        aplicarDesgasteEjercicioIndividual(ej, false, (1 / numSeries) * factorViejo);
+        aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * factorNuevo);
+        HISTORIAL_FACTOR_SERIES[key] = factorNuevo;
+    }
+
+    actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm);
+}
+
+function actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm) {
+    var badge = document.getElementById('badge-fatiga-ej-' + ejIdx + '-s-' + serieNum);
+    if (!badge) return;
+
+    var pct = Math.round((repsHechas / repsProm) * 100);
+    var diff = Math.round((repsHechas - repsProm) * 10) / 10;
+
+    if (diff === 0) {
+        badge.innerText = '100% fatiga (Promedio exacto: ' + repsProm + ' reps)';
+        badge.style.color = '#10b981';
+        badge.style.background = 'rgba(16, 185, 129, 0.12)';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    } else if (diff < 0) {
+        badge.innerText = pct + '% fatiga (' + diff + ' reps de ' + repsProm + ' prom)';
+        badge.style.color = '#38bdf8';
+        badge.style.background = 'rgba(56, 189, 248, 0.12)';
+        badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+    } else {
+        badge.innerText = pct + '% fatiga (+' + diff + ' reps · Límite Superior)';
+        badge.style.color = '#fbbf24';
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+    }
+}
+
 function toggleCheckSerie(e, ejIdx, serieNum) {
     if (e) {
         e.stopPropagation();
@@ -3118,13 +3238,16 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
     var row = document.getElementById('row-ej-' + ejIdx + '-s-' + serieNum);
     var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
+    var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
     if (!chk) return;
 
     chk.checked = !chk.checked;
+    var key = ejIdx + '_' + serieNum;
 
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
         if (ind) ind.classList.add('checked');
+        if (panelReps) panelReps.style.display = 'flex';
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
         // Iniciar cronómetro de descanso automáticamente
@@ -3132,15 +3255,30 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     } else {
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
+        if (panelReps) panelReps.style.display = 'none';
     }
 
     actualizarProgresoRutinaDinamica();
 
-    // Actualización de fatiga proporcional por serie en tiempo real
+    // Actualización de fatiga proporcional por serie con factor de repeticiones reales
     if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
         var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
         var numSeries = ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
-        aplicarDesgasteEjercicioIndividual(ej, chk.checked, 1 / numSeries);
+        var repsProm = obtenerRepsPromedioEjercicio(ej);
+        var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+        var repsHechas = inReps ? (parseFloat(inReps.value) || repsProm) : repsProm;
+        var factorReps = repsProm > 0 ? (repsHechas / repsProm) : 1;
+
+        if (chk.checked) {
+            HISTORIAL_FACTOR_SERIES[key] = factorReps;
+            aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * factorReps);
+        } else {
+            var factorViejo = HISTORIAL_FACTOR_SERIES[key] || factorReps || 1;
+            aplicarDesgasteEjercicioIndividual(ej, false, (1 / numSeries) * factorViejo);
+            delete HISTORIAL_FACTOR_SERIES[key];
+        }
+
+        actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm);
     }
 }
 
@@ -3195,6 +3333,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         var icono = esM ? '🧠' : '🏋️';
         var pesoVal = (!esM && ej.peso) ? parseFloat(ej.peso) : null;
         var repsStr = ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps');
+        var repsProm = obtenerRepsPromedioEjercicio(ej);
 
         html += `
         <div class="routine-exercise-session-card" id="card-ej-${ejIdx}" style="${esM ? 'border-left: 3px solid #6366f1;' : ''}">
@@ -3206,7 +3345,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                             ${icono} ${ej.nombre}
                         </div>
                         <div style="font-size: 11.5px; color: #94a3b8; margin-top: 1px;">
-                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}${muscleList ? (' · ' + muscleList) : ''}
+                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''} · Base: ${repsProm} reps${muscleList ? (' · ' + muscleList) : ''}
                         </div>
                     </div>
                 </div>
@@ -3218,6 +3357,8 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
 
         for (var s = 1; s <= numSeries; s++) {
             var esFallo = (!esM && ej.alFallo && s === numSeries);
+            var dropsetHtml = '';
+
             if (esFallo) {
                 var etapas = [];
                 try {
@@ -3240,18 +3381,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                 var d3 = e3.discos || e3.detalle || 'Bajar peso';
                 var d4 = e4.discos || e4.detalle || 'Barra sola / sin carga';
 
-                html += `
-                <div class="series-check-row series-al-fallo" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
-                    <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
-                    <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                        <div>
-                            <span class="series-label">SERIE ${s} (FINAL)</span>
-                            <span class="series-target">${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}</span>
-                        </div>
-                        <span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>
-                    </div>
-                </div>
+                dropsetHtml = `
                 <div class="series-dropset-mini-strip">
                     <div style="font-weight: 800; color: #fbbf24; margin-bottom: 5px; font-size: 11px; display: flex; align-items: center; gap: 5px;">
                         <span>⚡</span>
@@ -3272,20 +3402,40 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                         </div>
                     </div>
                 </div>`;
-            } else {
-                html += `
-                <div class="series-check-row" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
+            }
+
+            html += `
+            <div class="series-item-wrapper" id="wrapper-ej-${ejIdx}-s-${s}" style="margin-bottom: 6px;">
+                <div class="series-check-row${esFallo ? ' series-al-fallo' : ''}" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
                     <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
                     <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                         <div>
-                            <span class="series-label">${esM ? 'SESIÓN COMPLETA' : ('SERIE ' + s)}</span>
+                            <span class="series-label">${esM ? 'SESIÓN COMPLETA' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s))}</span>
                             <span class="series-target">${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}</span>
                         </div>
-                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>
+                        ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
                     </div>
-                </div>`;
-            }
+                </div>
+
+                ${!esM ? `
+                <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" style="display: none;" onclick="event.stopPropagation()">
+                    <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap;">
+                        <span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px;">🎯 Reps Límite:</span>
+                        <div style="display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.04); padding: 2px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                            <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
+                            <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsProm}" min="1" max="100" oninput="alCambiarRepsInput(${ejIdx}, ${s}, this.value)" onclick="event.stopPropagation()">
+                            <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
+                        </div>
+                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">reps</span>
+                    </div>
+                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px;">
+                        100% fatiga (${repsProm} reps prom)
+                    </div>
+                </div>` : ''}
+
+                ${dropsetHtml}
+            </div>`;
         }
 
         html += `
@@ -3320,6 +3470,7 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     }
 
     RUTINA_ACTIVA = { rutina: rutina, idx: idx };
+    HISTORIAL_FACTOR_SERIES = {};
 
     cambiarVista('vista-detalle-rutina-dinamica');
 
@@ -5272,6 +5423,7 @@ function iniciarRutinaAleatoriaGenerada() {
 
 function abrirDetalleRutinaDinamicaGenerada(rutina) {
     RUTINA_ACTIVA = { rutina: rutina, idx: -1 };
+    HISTORIAL_FACTOR_SERIES = {};
 
     cambiarVista('vista-detalle-rutina-dinamica');
 
