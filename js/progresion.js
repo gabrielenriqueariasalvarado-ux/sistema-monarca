@@ -333,22 +333,15 @@ function revertirImpactoAtributos(atributos) {
 }
 
 function cargarMisiones() {
-    renderizarMisiones(APP_STATE.misiones);
+    cargarQuestsDiarios();
 }
 
 function abrirModalNuevaMision() {
-    ATRIBUTOS_MODAL_TEMP.mision = [];
-    poblarSelectAtributos('mision');
-    renderizarFilasAtributos('mision');
-    var inNombre = document.getElementById('modal-mision-nombre');
-    if (inNombre) inNombre.value = "";
-    var m = document.getElementById('modal-nueva-mision');
-    if (m) m.style.display = 'flex';
+    abrirModalNuevaQuestDiaria();
 }
 
 function cerrarModalNuevaMision() {
-    var m = document.getElementById('modal-nueva-mision');
-    if (m) m.style.display = 'none';
+    cerrarModalNuevaQuestDiaria();
 }
 
 function confirmarAgregarMision() {
@@ -1371,8 +1364,50 @@ function sanitizarQuestsDiarios() {
     }
 }
 
+function migrarMisionesAQuestsDiarios() {
+    if (!APP_STATE.questsDiarios) APP_STATE.questsDiarios = [];
+    if (Array.isArray(APP_STATE.misiones) && APP_STATE.misiones.length > 0) {
+        var nombresExistentes = new Set(APP_STATE.questsDiarios.map(function(q) {
+            return (q.titulo || q.nombre || '').trim().toLowerCase();
+        }));
+        var migrados = 0;
+        APP_STATE.misiones.forEach(function(m) {
+            if (!m || !m.nombre) return;
+            var nom = m.nombre.trim().toLowerCase();
+            if (!nombresExistentes.has(nom)) {
+                APP_STATE.questsDiarios.push({
+                    id: m.id || ('QD-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4)),
+                    titulo: m.nombre,
+                    categoria: '⚡ Misión / Hábito',
+                    tipoTiempo: 'libre',
+                    horaActivacion: null,
+                    tiempoMinutos: 0,
+                    horaLimite: null,
+                    esOmitible: true,
+                    penitencia: 'Sin penitencia obligatoria',
+                    exp: m.exp || 25,
+                    atributos: Array.isArray(m.atributos) ? m.atributos : [],
+                    estado: m.completada ? 'completada' : 'pendiente',
+                    tiempoRestante: 0,
+                    temporizadorActivo: false,
+                    ultimaActivacionFecha: null,
+                    pospuestaHasta: null,
+                    timestamp: m.creadoEn ? new Date(m.creadoEn).getTime() : Date.now(),
+                    fechaActualizacion: Date.now()
+                });
+                nombresExistentes.add(nom);
+                migrados++;
+            }
+        });
+        if (migrados > 0) {
+            MonarcaDB.save(APP_STATE, false);
+        }
+    }
+}
+
 function cargarQuestsDiarios() {
     try {
+        migrarMisionesAQuestsDiarios();
         sanitizarQuestsDiarios();
         actualizarBotonNotificacionesUI();
         verificarPenalizacionesPendientes();
@@ -1380,12 +1415,12 @@ function cargarQuestsDiarios() {
         iniciarLoopQuestsDiarios();
         if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
     } catch(err) {
-        console.error("[Quests Diarios] Error al cargar:", err);
+        console.error("[Hábitos & Misiones] Error al cargar:", err);
         var cont = document.getElementById('contenedor-quests-diarios');
         if (cont) {
             cont.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">' +
-                             '<p>Se han sincronizado tus quests. Pulsa para refrescar:</p>' +
-                             '<button class="btn-subfiltro-ej" onclick="renderizarQuestsDiarios()">🔄 Recargar Quests</button>' +
+                             '<p>Se han sincronizado tus hábitos y misiones. Pulsa para refrescar:</p>' +
+                             '<button class="btn-subfiltro-ej" onclick="renderizarQuestsDiarios()">🔄 Recargar</button>' +
                              '</div>';
         }
     }
@@ -1604,13 +1639,13 @@ function renderizarQuestsDiarios() {
     if (qList.length === 0) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
-            <span style="font-size: 32px; display: block; margin-bottom: 8px;">⏳</span>
-            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes quests diarias configuradas</h4>
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚔️</span>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes hábitos o misiones configuradas</h4>
             <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                Agrega tus hábitos y rutinas matutinas con una hora programada de activación, cronómetro y penitencia si no las cumples.
+                Agrega tus hábitos, misiones y rutinas diarias. Puedes configurarlos con temporizador, hora fija con alarma o cumplimiento libre en el día.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
-                ➕ Crear Primera Quest Diaria
+                ➕ Crear Primer Hábito o Misión
             </button>
         </div>`;
         return;
@@ -1618,6 +1653,7 @@ function renderizarQuestsDiarios() {
 
     var html = '';
     qList.forEach(function(q) {
+        var esLibre = (q.tipoTiempo === 'libre');
         var esPenalizada = (q.estado === 'penalizada');
         var esCompletada = (q.estado === 'completada');
         var esPenitenciaCumplida = (q.estado === 'penitencia_cumplida');
@@ -1632,24 +1668,41 @@ function renderizarQuestsDiarios() {
         else if (esEnProgreso) cardClass += ' en-progreso';
 
         var badgeEstado = '';
-        if (esPenalizada) badgeEstado = '<span class="qd-badge qd-badge-danger">💀 PENALIZADA</span>';
-        else if (esCompletada) badgeEstado = '<span class="qd-badge qd-badge-success">✓ COMPLETADA A TIEMPO</span>';
-        else if (esPenitenciaCumplida) badgeEstado = '<span class="qd-badge qd-badge-neutral">✓ PENITENCIA CUMPLIDA</span>';
-        else if (esEnProgreso) badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
-        else if (esPospuesta) {
+        if (esLibre) {
+            badgeEstado = esCompletada
+                ? '<span class="qd-badge qd-badge-success">✓ CUMPLIDO</span>'
+                : '<span class="qd-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700;">🎯 HÁBITO LIBRE</span>';
+        } else if (esPenalizada) {
+            badgeEstado = '<span class="qd-badge qd-badge-danger">💀 PENALIZADA</span>';
+        } else if (esCompletada) {
+            badgeEstado = '<span class="qd-badge qd-badge-success">✓ COMPLETADA A TIEMPO</span>';
+        } else if (esPenitenciaCumplida) {
+            badgeEstado = '<span class="qd-badge qd-badge-neutral">✓ PENITENCIA CUMPLIDA</span>';
+        } else if (esEnProgreso) {
+            badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
+        } else if (esPospuesta) {
             var minPosp = q.pospuestaHasta ? Math.max(1, Math.round((q.pospuestaHasta - Date.now()) / 60000)) : 60;
             badgeEstado = `<span class="qd-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
+        } else {
+            badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
         }
-        else badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
 
         // Badge de Omitible vs No Omitible
-        var badgeOmitible = esOmitible
-            ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">⏳ Omitible</span>`
-            : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🚨 NO OMITIBLE</span>`;
+        var badgeOmitible = esLibre
+            ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">🗓️ Flexible</span>`
+            : (esOmitible
+                ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">⏳ Omitible</span>`
+                : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🚨 NO OMITIBLE</span>`);
 
         // Sección de tiempo asignado
         var bloqueTiempo = '';
-        if (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion') {
+        if (esLibre) {
+            bloqueTiempo = `
+            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">🗓️ CUMPLIMIENTO LIBRE:</span>
+                <span style="font-size: 12px; color: #34d399; font-weight: 700;">Sin límite de tiempo · Todo el día</span>
+            </div>`;
+        } else if (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion') {
             var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
             var tiempoStr = formatearSegundos(segsRest);
             var totalSegs = (q.tiempoMinutos || 15) * 60;
@@ -1681,7 +1734,19 @@ function renderizarQuestsDiarios() {
 
         // Botones de acción
         var botonesAccion = '';
-        if (esPenalizada) {
+        if (esLibre) {
+            if (esCompletada) {
+                botonesAccion = `
+                <button class="btn-qd-action btn-qd-done" disabled>
+                    ✓ Cumplido (+${q.exp || 40}% EXP)
+                </button>`;
+            } else {
+                botonesAccion = `
+                <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
+                    ✓ Completar
+                </button>`;
+            }
+        } else if (esPenalizada) {
             botonesAccion = `
             <button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">
                 💀 Pagar Penitencia: ${q.penitencia || '30 Flexiones'}
@@ -1726,10 +1791,14 @@ function renderizarQuestsDiarios() {
                 ${btnOmit}
                 ${btnTimer}
                 <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
-                    ✓ Completar Quest
+                    ✓ Completar
                 </button>
             </div>`;
         }
+
+        var detallePenitencia = (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria')
+            ? '<span style="color: #94a3b8; font-weight: 500; font-size: 12px;">🎯 Cumplimiento Flexible</span>'
+            : `<span style="color: #ef4444; font-weight: 600; font-size: 12px;">💀 Castigo: ${q.penitencia}</span>`;
 
         html += `
         <div class="${cardClass}">
@@ -1751,10 +1820,10 @@ function renderizarQuestsDiarios() {
                     <div class="qd-details-row">
                         <span style="color: #10b981; font-weight: 700; font-size: 12px;">+${q.exp || 40}% EXP Nivel</span>
                         <span style="color: #4b5563;">•</span>
-                        <span style="color: #ef4444; font-weight: 600; font-size: 12px;">💀 Castigo: ${q.penitencia || '30 Flexiones'}</span>
+                        ${detallePenitencia}
                     </div>
                 </div>
-                <button class="btn-delete-row" title="Eliminar quest" onclick="eliminarQuestDiaria('${q.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;">✕</button>
+                <button class="btn-delete-row" title="Eliminar ítem" onclick="eliminarQuestDiaria('${q.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;">✕</button>
             </div>
 
             ${bloqueTiempo}
@@ -1940,13 +2009,13 @@ function purgarQuestsDuplicadas(mostrarAlerta) {
 }
 
 function reiniciarCicloQuestsDiarios() {
-    if (!confirm("¿Deseas reiniciar todas tus quests del día para un nuevo ciclo matutino?")) return;
+    if (!confirm("¿Deseas reiniciar todos tus hábitos y misiones para un nuevo ciclo diario?")) return;
     if (!APP_STATE.questsDiarios) return;
 
     APP_STATE.questsDiarios.forEach(function(q) {
         q.estado = 'pendiente';
         q.temporizadorActivo = false;
-        q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+        q.tiempoRestante = (q.tipoTiempo === 'libre') ? 0 : (q.tiempoMinutos || 15) * 60;
         q.pospuestaHasta = null;
         q.ultimaActivacionFecha = null;
     });
@@ -1954,7 +2023,7 @@ function reiniciarCicloQuestsDiarios() {
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
-    alert("¡Ciclo de quests reiniciado! Listo para una nueva jornada.");
+    alert("¡Ciclo de hábitos y misiones reiniciado! Listo para una nueva jornada.");
 }
 
 function abrirModalNuevaQuestDiaria() {
@@ -1975,7 +2044,7 @@ function abrirModalNuevaQuestDiaria() {
     var chkOmit = document.getElementById('modal-qd-es-omitible');
 
     if (inNom) inNom.value = '';
-    if (selTipoT) selTipoT.value = 'programada';
+    if (selTipoT) selTipoT.value = 'libre';
     if (inHoraAct) inHoraAct.value = '08:00';
     if (inMin) inMin.value = '15';
     if (inHoraLim) inHoraLim.value = '23:59';
@@ -2005,22 +2074,36 @@ function toggleTipoTiempoQuestModal() {
     var grpHoraAct = document.getElementById('grupo-qd-hora-activacion');
     var grpDur = document.getElementById('grupo-qd-duracion');
     var grpHora = document.getElementById('grupo-qd-hora');
+    var grpOmit = document.getElementById('grupo-qd-omitible');
+    var grpPen = document.getElementById('grupo-qd-penitencia');
 
     if (!sel) return;
     var val = sel.value;
 
-    if (val === 'programada') {
+    if (val === 'libre') {
+        if (grpHoraAct) grpHoraAct.style.display = 'none';
+        if (grpDur) grpDur.style.display = 'none';
+        if (grpHora) grpHora.style.display = 'none';
+        if (grpOmit) grpOmit.style.display = 'none';
+        if (grpPen) grpPen.style.display = 'none';
+    } else if (val === 'programada') {
         if (grpHoraAct) grpHoraAct.style.display = 'block';
         if (grpDur) grpDur.style.display = 'block';
         if (grpHora) grpHora.style.display = 'none';
+        if (grpOmit) grpOmit.style.display = 'flex';
+        if (grpPen) grpPen.style.display = 'block';
     } else if (val === 'duracion') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
         if (grpDur) grpDur.style.display = 'block';
         if (grpHora) grpHora.style.display = 'none';
+        if (grpOmit) grpOmit.style.display = 'flex';
+        if (grpPen) grpPen.style.display = 'block';
     } else if (val === 'hora_limite') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
         if (grpDur) grpDur.style.display = 'none';
         if (grpHora) grpHora.style.display = 'block';
+        if (grpOmit) grpOmit.style.display = 'flex';
+        if (grpPen) grpPen.style.display = 'block';
     }
 }
 
@@ -2073,19 +2156,25 @@ function confirmarAgregarQuestDiaria() {
 
     var nombre = inNom ? inNom.value.trim() : '';
     if (!nombre) {
-        alert("Por favor ingresa un título para la quest o hábito.");
+        alert("Por favor ingresa un título para el hábito o misión.");
         return;
     }
 
-    var categoria = selCat ? selCat.value : '🌅 Rutina Matutina';
-    var tipoTiempo = selTipoT ? selTipoT.value : 'programada';
+    var categoria = selCat ? selCat.value : '⚡ Misión / Hábito';
+    var tipoTiempo = selTipoT ? selTipoT.value : 'libre';
     var horaActivacion = inHoraAct ? inHoraAct.value : '08:00';
     var minutos = inMin ? (parseInt(inMin.value, 10) || 15) : 15;
     var horaLimite = inHora ? inHora.value : '23:59';
     var esOmitible = chkOmit ? chkOmit.checked : true;
 
     var penitencia = '30 Flexiones inmediatas';
-    if (selPen) {
+    if (tipoTiempo === 'libre') {
+        penitencia = 'Sin penitencia obligatoria';
+        minutos = 0;
+        horaActivacion = null;
+        horaLimite = null;
+        esOmitible = true;
+    } else if (selPen) {
         if (selPen.value === 'custom') {
             penitencia = (inPenCustom && inPenCustom.value.trim()) ? inPenCustom.value.trim() : '30 Flexiones inmediatas';
         } else {
@@ -2102,7 +2191,7 @@ function confirmarAgregarQuestDiaria() {
         return q && q.titulo && q.titulo.trim().toLowerCase() === nombre.toLowerCase();
     });
     if (yaExiste) {
-        if (!confirm("Ya tienes una quest con el título \"" + nombre + "\".\n¿Deseas agregar otra con el mismo nombre de todas formas?")) {
+        if (!confirm("Ya tienes un hábito o misión con el título \"" + nombre + "\".\n¿Deseas agregar otro con el mismo nombre de todas formas?")) {
             return;
         }
     }
@@ -2121,7 +2210,7 @@ function confirmarAgregarQuestDiaria() {
     var nuevaQ = {
         id: "QD-" + Date.now(),
         titulo: nombre,
-        categoria: categoria,
+        categoria: (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : categoria,
         tipoTiempo: tipoTiempo,
         horaActivacion: horaActivacion,
         tiempoMinutos: minutos,
@@ -2131,7 +2220,7 @@ function confirmarAgregarQuestDiaria() {
         exp: exp,
         atributos: listaAtrsQ,
         estado: 'pendiente',
-        tiempoRestante: minutos * 60,
+        tiempoRestante: (tipoTiempo === 'libre') ? 0 : minutos * 60,
         temporizadorActivo: false,
         ultimaActivacionFecha: null,
         pospuestaHasta: null,
@@ -2222,10 +2311,10 @@ function cambiarTabAccionesDesarrollo(tabId) {
         return;
     }
 
-    if (!tabId || tabId === 'conocimiento') tabId = 'quests';
+    if (!tabId || tabId === 'conocimiento' || tabId === 'quests') tabId = 'habitos';
     window.TAB_ACCIONES_DESARROLLO_ACTIVA = tabId;
 
-    var tabs = ['quests', 'habitos', 'skills'];
+    var tabs = ['habitos', 'skills'];
     tabs.forEach(function(t) {
         var btn = document.getElementById('tab-btn-ad-' + t);
         var panel = document.getElementById('panel-ad-' + t);
@@ -2242,11 +2331,8 @@ function cambiarTabAccionesDesarrollo(tabId) {
     });
 
     switch(window.TAB_ACCIONES_DESARROLLO_ACTIVA) {
-        case 'quests':
-            cargarQuestsDiarios();
-            break;
         case 'habitos':
-            cargarMisiones();
+            cargarQuestsDiarios();
             break;
         case 'skills':
             cargarHabilidades();
