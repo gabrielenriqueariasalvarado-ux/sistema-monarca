@@ -1450,12 +1450,13 @@ function mapearTextoAMusculos(entrada) {
 /**
  * Aplica o revierte el desgaste de un ejercicio individual en tiempo real en Estado Personal
  */
-function aplicarDesgasteEjercicioIndividual(ej, sumar) {
+function aplicarDesgasteEjercicioIndividual(ej, sumar, fraccion) {
     if (!ej) return;
     if (!APP_STATE.fatiga) APP_STATE.fatiga = JSON.parse(JSON.stringify(DEFAULT_STATE.fatiga || {}));
     asegurarDesgasteMente();
 
-    var factor = (sumar === false) ? -1 : 1;
+    var frac = (typeof fraccion === 'number' && fraccion > 0) ? fraccion : 1;
+    var factor = ((sumar === false) ? -1 : 1) * frac;
 
     if (ej.esMental) {
         var delta = (Number(ej.fatigaEstimada) || 15) * factor;
@@ -2966,11 +2967,30 @@ function cerrarModalDetalleEjercicio() {
 
 // --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER) ---
 
+var TIEMPO_DESCANSO_SELECCIONADO = 60;
+
 var ASISTENTE_GYM = {
     descansoRestante: 0,
     descansoTotal: 0,
     intervaloId: null
 };
+
+function seleccionarTiempoDescanso(segundos) {
+    TIEMPO_DESCANSO_SELECCIONADO = segundos || 60;
+    var botones = [30, 60, 90, 120];
+    botones.forEach(function(s) {
+        var b = document.getElementById('btn-rest-' + s);
+        if (b) {
+            if (s === TIEMPO_DESCANSO_SELECCIONADO) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        }
+    });
+    // Iniciar cronómetro de descanso con el tiempo seleccionado
+    iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO);
+}
 
 function iniciarDescansoGym(segundos) {
     if (ASISTENTE_GYM.intervaloId) {
@@ -2978,8 +2998,9 @@ function iniciarDescansoGym(segundos) {
         ASISTENTE_GYM.intervaloId = null;
     }
 
-    ASISTENTE_GYM.descansoTotal = segundos;
-    ASISTENTE_GYM.descansoRestante = segundos;
+    var duracion = segundos || TIEMPO_DESCANSO_SELECCIONADO || 60;
+    ASISTENTE_GYM.descansoTotal = duracion;
+    ASISTENTE_GYM.descansoRestante = duracion;
 
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'flex';
@@ -3028,10 +3049,10 @@ function actualizarDisplayRestTimer() {
     }
 }
 
-// --- INTERACCIÓN DE FILAS DE RUTINA ---
+// --- INTERACCIÓN DE FILAS Y SERIES DE RUTINA (v10.6) ---
 
 function alClickFilaEjercicio(e, ejJson, idx) {
-    if (e.target.closest('.clean-row-checkbox-box') || e.target.closest('.btn-clean-detail')) return;
+    if (e.target.closest('.clean-row-checkbox-box') || e.target.closest('.btn-clean-detail') || e.target.closest('.series-check-row')) return;
     try {
         var ej = JSON.parse(decodeURIComponent(ejJson));
         abrirModalDetalleEjercicio(ej);
@@ -3053,6 +3074,40 @@ function alVerDetalleEjercicio(e, ejJson) {
     }
 }
 
+function toggleCheckSerie(e, ejIdx, serieNum) {
+    if (e) {
+        e.stopPropagation();
+        if (e.preventDefault) e.preventDefault();
+    }
+    var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
+    var row = document.getElementById('row-ej-' + ejIdx + '-s-' + serieNum);
+    var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
+    if (!chk) return;
+
+    chk.checked = !chk.checked;
+
+    if (chk.checked) {
+        if (row) row.classList.add('checked-active');
+        if (ind) ind.classList.add('checked');
+        emitirTonoAudio(880, 0.12, 'sine');
+        if (navigator.vibrate) navigator.vibrate(60);
+        // Iniciar cronómetro de descanso automáticamente
+        iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60);
+    } else {
+        if (row) row.classList.remove('checked-active');
+        if (ind) ind.classList.remove('checked');
+    }
+
+    actualizarProgresoRutinaDinamica();
+
+    // Actualización de fatiga proporcional por serie en tiempo real
+    if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
+        var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+        var numSeries = ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
+        aplicarDesgasteEjercicioIndividual(ej, chk.checked, 1 / numSeries);
+    }
+}
+
 function toggleCheckEjercicio(e, idx) {
     if (e) {
         e.stopPropagation();
@@ -3064,12 +3119,12 @@ function toggleCheckEjercicio(e, idx) {
     chk.checked = !chk.checked;
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
+        iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60);
     } else {
         if (row) row.classList.remove('checked-active');
     }
     actualizarProgresoRutinaDinamica();
 
-    // Actualización instantánea en vivo del Estado Personal al hacer cada ejercicio de la rutina
     if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[idx]) {
         var ej = RUTINA_ACTIVA.rutina.ejercicios[idx];
         aplicarDesgasteEjercicioIndividual(ej, chk.checked);
@@ -3077,8 +3132,113 @@ function toggleCheckEjercicio(e, idx) {
 }
 
 // ==========================================================================
-// 9. DETALLE Y PROGRESO DE RUTINAS (DISEÑO MINIMALISTA & SERIO)
+// 9. DETALLE Y PROGRESO DE RUTINAS (SERIES INDIVIDUALES & REST TIMER v10.6)
 // ==========================================================================
+
+function calcularTotalSeriesRutina(ejercicios) {
+    var total = 0;
+    if (ejercicios && ejercicios.length > 0) {
+        ejercicios.forEach(function(ej) {
+            total += ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
+        });
+    }
+    return total;
+}
+
+function renderizarTarjetasEjerciciosSesion(ejercicios) {
+    if (!ejercicios || ejercicios.length === 0) {
+        return '<p style="color: #64748b; text-align: center; padding: 25px;">Esta rutina no tiene ejercicios asignados aún.</p>';
+    }
+
+    var html = '';
+    ejercicios.forEach(function(ej, ejIdx) {
+        var esM = !!ej.esMental;
+        var numSeries = esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
+        var muscleList = (ej.categorias || []).join(' · ');
+        var ejJson = encodeURIComponent(JSON.stringify(ej));
+        var icono = esM ? '🧠' : '🏋️';
+        var pesoVal = (!esM && ej.peso) ? parseFloat(ej.peso) : null;
+        var repsStr = ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps');
+
+        html += `
+        <div class="routine-exercise-session-card" id="card-ej-${ejIdx}" style="${esM ? 'border-left: 3px solid #6366f1;' : ''}">
+            <div class="exercise-session-header">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <span class="exercise-session-number">${ejIdx + 1}</span>
+                    <div style="min-width: 0;">
+                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${icono} ${ej.nombre}
+                        </div>
+                        <div style="font-size: 11.5px; color: #94a3b8; margin-top: 1px;">
+                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}${muscleList ? (' · ' + muscleList) : ''}
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones técnicas">
+                    Detalle
+                </button>
+            </div>
+            <div class="exercise-series-list">`;
+
+        for (var s = 1; s <= numSeries; s++) {
+            var esFallo = (!esM && ej.alFallo && s === numSeries);
+            if (esFallo) {
+                var etapas = calcularEtapasDropset(ej.peso || 80);
+                html += `
+                <div class="series-check-row series-al-fallo" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
+                    <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
+                    <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                        <div>
+                            <span class="series-label">SERIE ${s} (FINAL)</span>
+                            <span class="series-target">${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}</span>
+                        </div>
+                        <span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>
+                    </div>
+                </div>
+                <div class="series-dropset-mini-strip">
+                    <div style="font-weight: 800; color: #fbbf24; margin-bottom: 5px; font-size: 11px; display: flex; align-items: center; gap: 5px;">
+                        <span>⚡</span>
+                        <span>Plan Dropset al Fallo (Bajar peso en 4 etapas):</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; font-size: 11px;">
+                        <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #38bdf8;">
+                            <strong style="color:#38bdf8;">1ª:</strong> ${etapas.etapa1.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa1.detalle}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #818cf8;">
+                            <strong style="color:#818cf8;">2ª:</strong> ${etapas.etapa2.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa2.detalle}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #f59e0b;">
+                            <strong style="color:#f59e0b;">3ª:</strong> ${etapas.etapa3.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa3.detalle}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #ef4444;">
+                            <strong style="color:#ef4444;">4ª:</strong> ${etapas.etapa4.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa4.detalle}</div>
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                html += `
+                <div class="series-check-row" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
+                    <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
+                    <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <span class="series-label">${esM ? 'SESIÓN COMPLETA' : ('SERIE ' + s)}</span>
+                            <span class="series-target">${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}</span>
+                        </div>
+                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>
+                    </div>
+                </div>`;
+            }
+        }
+
+        html += `
+            </div>
+        </div>`;
+    });
+
+    return html;
+}
 
 function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
     var rutina = APP_STATE.rutinas[idx];
@@ -3095,7 +3255,7 @@ function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
     var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
     if (!cont) return;
 
-    var numEj = rutina.ejercicios ? rutina.ejercicios.length : 0;
+    var totalSeries = calcularTotalSeriesRutina(rutina.ejercicios);
     var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
     var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
     var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
@@ -3103,42 +3263,13 @@ function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
 
     if (progrCont) progrCont.style.display = 'block';
     if (progrBarra) progrBarra.style.width = '0%';
-    if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
+    if (progrTexto) progrTexto.innerText = '0 / ' + totalSeries + ' series (0%)';
     if (btnReg) {
         btnReg.style.display = 'block';
         btnReg.disabled = true;
     }
 
-    var html = '';
-    if (rutina.ejercicios && rutina.ejercicios.length > 0) {
-        rutina.ejercicios.forEach(function(ej, ejIdx) {
-            var esM = !!ej.esMental;
-            var muscleList = (ej.categorias || []).join(' · ');
-            var seriesReps = esM ? `1 bloque · ${ej.repeticiones || (ej.duracionMinutos + ' min')}` : `${ej.series || 3} series × ${ej.repeticiones || '8-10 reps'}${ej.peso ? (' @ ' + ej.peso + ' kg') : ''}`;
-            var falloBadge = (!esM && ej.alFallo) ? '<span style="display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:2px 7px; border-radius:6px; font-size:10.5px; font-weight:800; background:rgba(245, 158, 11, 0.2); color:#fbbf24; border:1px solid rgba(245, 158, 11, 0.4);">🔥 Al Fallo (Dropset)</span>' : '';
-            var ejJson = encodeURIComponent(JSON.stringify(ej));
-            var icono = esM ? '🧠' : '🏋️';
-
-            html += `
-            <div class="routine-exercise-clean-row" id="row-ej-${ejIdx}" onclick="alClickFilaEjercicio(event, '${ejJson}', ${ejIdx})" style="${esM ? 'border-left: 3px solid #2563eb;' : ''}">
-                <div class="clean-row-checkbox-box" onclick="toggleCheckEjercicio(event, ${ejIdx})">
-                    ✓
-                </div>
-                <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                <div class="clean-row-info">
-                    <div class="clean-row-title">${ejIdx + 1}. ${icono} ${ej.nombre}</div>
-                    <div class="clean-row-meta">${seriesReps} ${falloBadge} ${muscleList ? '· ' + muscleList : ''}</div>
-                </div>
-                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones">
-                    Detalle
-                </button>
-            </div>`;
-        });
-    } else {
-        html = '<p style="color: #6b7280; text-align: center; padding: 25px;">Esta rutina no tiene ejercicios asignados aún.</p>';
-    }
-
-    cont.innerHTML = html;
+    cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
 
     if (!omitirAutoCalentamiento) {
         setTimeout(function() {
@@ -3153,12 +3284,15 @@ function actualizarProgresoRutinaDinamica() {
     var completados = 0;
 
     checks.forEach(function(c, i) {
-        var row = document.getElementById('row-ej-' + i) || c.closest('.routine-exercise-clean-row');
+        var row = c.closest('.series-check-row') || c.closest('.routine-exercise-clean-row') || document.getElementById('row-ej-' + i);
+        var ind = row ? row.querySelector('.series-checkbox-indicator') : null;
         if (c.checked) {
             completados++;
             if (row) row.classList.add('checked-active');
+            if (ind) ind.classList.add('checked');
         } else {
             if (row) row.classList.remove('checked-active');
+            if (ind) ind.classList.remove('checked');
         }
     });
 
@@ -3168,7 +3302,7 @@ function actualizarProgresoRutinaDinamica() {
     var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
 
     if (progrBarra) progrBarra.style.width = pct + '%';
-    if (progrTexto) progrTexto.innerText = completados + ' / ' + total + ' (' + pct + '%)';
+    if (progrTexto) progrTexto.innerText = completados + ' / ' + total + ' series (' + pct + '%)';
 
     if (btnReg) {
         btnReg.disabled = (completados < total);
@@ -5068,7 +5202,7 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
     if (!cont) return;
 
-    var numEj = rutina.ejercicios ? rutina.ejercicios.length : 0;
+    var totalSeries = calcularTotalSeriesRutina(rutina.ejercicios);
     var progrCont = document.getElementById('progreso-rutina-dinamica-cont');
     var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
     var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
@@ -5076,38 +5210,13 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
 
     if (progrCont) progrCont.style.display = 'block';
     if (progrBarra) progrBarra.style.width = '0%';
-    if (progrTexto) progrTexto.innerText = '0 / ' + numEj + ' (0%)';
+    if (progrTexto) progrTexto.innerText = '0 / ' + totalSeries + ' series (0%)';
     if (btnReg) {
         btnReg.style.display = 'block';
         btnReg.disabled = true;
     }
 
-    var html = '';
-    if (rutina.ejercicios && rutina.ejercicios.length > 0) {
-        rutina.ejercicios.forEach(function(ej, ejIdx) {
-            var muscleList = (ej.categorias || []).join(' · ');
-            var seriesReps = `${ej.series || 3} series × ${ej.repeticiones || '8-10 reps'}${ej.peso ? (' @ ' + ej.peso + ' kg') : ''}`;
-            var falloBadge = ej.alFallo ? '<span style="display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:2px 7px; border-radius:6px; font-size:10.5px; font-weight:800; background:rgba(245, 158, 11, 0.2); color:#fbbf24; border:1px solid rgba(245, 158, 11, 0.4);">🔥 Al Fallo (Dropset)</span>' : '';
-            var ejJson = encodeURIComponent(JSON.stringify(ej));
-
-            html += `
-            <div class="routine-exercise-clean-row" id="row-ej-${ejIdx}" onclick="alClickFilaEjercicio(event, '${ejJson}', ${ejIdx})">
-                <div class="clean-row-checkbox-box" onclick="toggleCheckEjercicio(event, ${ejIdx})">
-                    ✓
-                </div>
-                <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                <div class="clean-row-info">
-                    <div class="clean-row-title">${ejIdx + 1}. 🏋️ ${ej.nombre}</div>
-                    <div class="clean-row-meta">${seriesReps} ${falloBadge} ${muscleList ? '· ' + muscleList : ''}</div>
-                </div>
-                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones">
-                    Detalle
-                </button>
-            </div>`;
-        });
-    }
-
-    cont.innerHTML = html;
+    cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
 }
 
 function guardarRutinaAleatoriaEnMisRutinas() {
