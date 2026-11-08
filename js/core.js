@@ -85,11 +85,16 @@ const DEFAULT_STATE = {
         historial: []
     },
     musculosMentales: {
-        creatividad: { nivel: 1, exp: 0, nombre: "Creatividad", icono: "🎨", descripcion: "Pensamiento lateral, originalidad e invención de soluciones disruptivas." },
-        descanso: { nivel: 1, exp: 0, nombre: "Descanso", icono: "🌙", descripcion: "Recuperación neural profunda, desconexión y descompresión del sistema nervioso." },
-        anulacion: { nivel: 1, exp: 0, nombre: "Anulación", icono: "🛡️", descripcion: "Supresión de impulsos, control de gratificación inmediata y estoicismo radical." },
-        percepcion: { nivel: 1, exp: 0, nombre: "Percepción Psicológica", icono: "♟️", descripcion: "Lectura no verbal, microexpresiones, calibración social y detección de intenciones." },
-        inteligencia: { nivel: 1, exp: 0, nombre: "Inteligencia", icono: "⚡", descripcion: "Velocidad de procesamiento, razonamiento lógico, modelado y asimilación técnica." }
+        enfoque: { nivel: 1, exp: 0, nombre: "Enfoque & Concentración", icono: "🎯", descripcion: "Lóbulo frontal, atención sostenida, Deep Work y bloqueo de distracciones." },
+        inteligencia: { nivel: 1, exp: 0, nombre: "Lógica & Inteligencia", icono: "⚡", descripcion: "Razonamiento deductivo, modelado analítico y resolución algorítmica." },
+        memoria: { nivel: 1, exp: 0, nombre: "Memoria & Retención", icono: "🧠", descripcion: "Memoria de trabajo, retención de datos, asimilación y mnemotecnia." },
+        creatividad: { nivel: 1, exp: 0, nombre: "Creatividad & Divergencia", icono: "🎨", descripcion: "Pensamiento lateral, originalidad e invención de soluciones disruptivas." },
+        disciplina: { nivel: 1, exp: 0, nombre: "Disciplina & Voluntad", icono: "🛡️", descripcion: "Veto de impulsos, persistencia, tolerancia a la fricción y estoicismo." },
+        velocidad: { nivel: 1, exp: 0, nombre: "Velocidad de Procesamiento", icono: "🚀", descripcion: "Reflejos cognitivos, agilidad mental y toma de decisiones rápida." },
+        calma: { nivel: 1, exp: 0, nombre: "Calma & Resiliencia", icono: "🌊", descripcion: "Regulación emocional, serenidad bajo presión y descompresión neural." },
+        estrategia: { nivel: 1, exp: 0, nombre: "Estrategia & Claridad", icono: "♟️", descripcion: "Visión táctica, planificación de segundo orden y anticipación." },
+        descanso: { nivel: 1, exp: 0, nombre: "Descanso & Regeneración", icono: "🌙", descripcion: "Recuperación neural profunda, desconexión y descompresión del sistema nervioso." },
+        anulacion: { nivel: 1, exp: 0, nombre: "Anulación de Gratificación", icono: "🛑", descripcion: "Supresión de impulsos, control de gratificación inmediata y dominio propio." }
     },
     ejerciciosCerebrales: [],
     conocimientos: [],

@@ -1737,10 +1737,10 @@ function renderizarPortalesRutinasEjercicios() {
 }
 
 function filtrarSubcategoriaEjercicios(subfiltro) {
-    SUBFILTRO_BANCO_ACTIVO = subfiltro;
+    SUBFILTRO_BANCO_ACTIVO = subfiltro || 'todos';
     var btns = document.querySelectorAll('#seccion-categoria-banco-fisico .btn-subfiltro-ej');
     btns.forEach(function(b) {
-        if (b.getAttribute('data-subfiltro') === subfiltro) {
+        if (b.getAttribute('data-subfiltro') === SUBFILTRO_BANCO_ACTIVO) {
             b.classList.add('active');
         } else {
             b.classList.remove('active');
@@ -1863,83 +1863,181 @@ function confirmarAgregarEjercicio() {
     alert("⚡ Ejercicio '" + nom + "' guardado en " + muscPrincipal + " (" + (esCompuesto ? "Principal / Compuesto" : "Accesorio") + ").");
 }
 
+function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
+    if (!subfiltro || subfiltro === 'todos') return true;
+    var mp = (ej.musculoPrincipal || '').toLowerCase();
+    var cats = (ej.categorias || []).map(function(c) { return (c || '').toLowerCase(); });
+    var tipo = (ej.tipo || '').toLowerCase();
+    var sub = subfiltro.toLowerCase();
+
+    if (sub === 'calistenia') {
+        return tipo === 'calistenia' || cats.includes('calistenia');
+    }
+    if (sub === 'movilidad') {
+        return tipo === 'movilidad' || cats.includes('movilidad');
+    }
+    if (sub === 'brazos') {
+        return mp.includes('brazo') || mp.includes('bíceps') || mp.includes('biceps') || mp.includes('tríceps') || mp.includes('triceps') ||
+               cats.some(function(c) { return c.includes('brazo') || c.includes('bíceps') || c.includes('biceps') || c.includes('tríceps') || c.includes('triceps'); });
+    }
+    if (sub === 'piernas') {
+        return mp.includes('pierna') || mp.includes('cuádricep') || mp.includes('cuadricep') || mp.includes('isquio') || mp.includes('femoral') || mp.includes('glúteo') || mp.includes('gluteo') || mp.includes('pantorrilla') ||
+               cats.some(function(c) { return c.includes('pierna') || c.includes('cuádricep') || c.includes('cuadricep') || c.includes('isquio') || c.includes('femoral') || c.includes('glúteo') || c.includes('gluteo') || c.includes('pantorrilla'); });
+    }
+    if (sub === 'pecho') {
+        return mp.includes('pecho') || cats.some(function(c) { return c.includes('pecho'); });
+    }
+    if (sub === 'espalda') {
+        return mp.includes('espalda') || cats.some(function(c) { return c.includes('espalda'); });
+    }
+    if (sub === 'hombros') {
+        return mp.includes('hombro') || cats.some(function(c) { return c.includes('hombro'); });
+    }
+    if (sub === 'core') {
+        return mp.includes('core') || mp.includes('abdo') || cats.some(function(c) { return c.includes('core') || c.includes('abdo'); });
+    }
+    return mp === sub || cats.includes(sub) || tipo === sub;
+}
+
+function generarCardEjercicioFisicoHtml(ej) {
+    var muscTarget = ej.musculoPrincipal || (ej.categorias && ej.categorias.length ? ej.categorias[0] : 'Cuerpo');
+    var fatigaImpactBadge = `<span class="badge-exercise-fatiga">🎯 +${ej.fatigaPorcentaje || 20}% a ${muscTarget}</span>`;
+
+    var muscleBadges = (ej.categorias || []).filter(function(c) { return c !== muscTarget; }).map(function(cat) {
+        return `<span class="badge-exercise-muscle">${cat}</span>`;
+    }).join('');
+
+    var tipoBadge = (ej.tipo === 'calistenia')
+        ? '<span class="muscle-tag" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3);">🤸 Calistenia</span>'
+        : (ej.tipo === 'movilidad'
+            ? '<span class="muscle-tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">🥋 Movilidad</span>'
+            : '<span class="muscle-tag" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">🏋️ Gym</span>');
+
+    var jerarquiaBadge = ej.compuesto
+        ? '<span class="muscle-tag" style="background: rgba(99, 102, 241, 0.2); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.4); font-weight: 700;">⭐ Principal</span>'
+        : '<span class="muscle-tag" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">🎯 Accesorio</span>';
+
+    var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
+
+    return `
+    <div class="exercise-card">
+        <div class="exercise-card-header">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+                    ${tipoBadge}
+                    ${jerarquiaBadge}
+                    <h3 class="exercise-card-name" style="margin: 0;">${ej.nombre}</h3>
+                </div>
+                <p class="exercise-card-desc">${specsTexto}</p>
+            </div>
+            <button class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">✕</button>
+        </div>
+
+        <div class="exercise-badges-row">
+            ${fatigaImpactBadge}
+            <span class="badge-exercise-reps">${ej.series || 4} Series × ${ej.repeticiones || '8-10 reps'}</span>
+            ${muscleBadges}
+        </div>
+    </div>`;
+}
+
 function renderizarEjercicios(ejercicios) {
     var eList = ejercicios || APP_STATE.ejercicios || [];
     var cont = document.getElementById('contenedor-ejercicios');
     if (!cont) return;
 
-    // Aplicar filtro si no es 'todos'
-    var filtrados = eList;
-    if (SUBFILTRO_BANCO_ACTIVO === 'gym') {
-        filtrados = eList.filter(function(e) { return (e.tipo === 'gym' || !e.tipo); });
-    } else if (SUBFILTRO_BANCO_ACTIVO === 'calistenia') {
-        filtrados = eList.filter(function(e) { return e.tipo === 'calistenia'; });
-    }
-
-    if (!filtrados || filtrados.length === 0) {
+    if (!eList || eList.length === 0) {
         cont.innerHTML = `
         <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
-            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay ejercicios en esta subcategoría</h4>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Tu Arsenal Físico está vacío</h4>
             <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
-                Crea tus ejercicios especificando series, repeticiones y grupos musculares trabajados, o importa el banco base recomendado.
+                Crea tus ejercicios especificando series, repeticiones y grupos musculares trabajados, o importa el arsenal maestro recomendado.
             </p>
             <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()">
                     ➕ Crear Nuevo Ejercicio
                 </button>
-                <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 9px 16px; font-size: 13px;">
-                    📥 Cargar Recomendados
+                <button type="button" class="btn-subfiltro-ej active" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 9px 16px; font-size: 13px;">
+                    📥 Cargar Arsenal Recomendado
                 </button>
             </div>
         </div>`;
         return;
     }
 
-    var html = '';
-    filtrados.forEach(function(ej) {
-        var muscTarget = ej.musculoPrincipal || (ej.categorias && ej.categorias.length ? ej.categorias[0] : 'Cuerpo');
-        var fatigaImpactBadge = `<span class="badge-exercise-fatiga" style="background:#111827; color:#ffffff; font-weight:800;">🎯 +${ej.fatigaPorcentaje || 20}% a ${muscTarget}</span>`;
+    var subfiltro = SUBFILTRO_BANCO_ACTIVO || 'todos';
 
-        var muscleBadges = (ej.categorias || []).filter(function(c) { return c !== muscTarget; }).map(function(cat) {
-            return `<span class="badge-exercise-muscle">${cat}</span>`;
-        }).join('');
+    // Si es una subcategoría específica, filtrar directamente
+    if (subfiltro !== 'todos') {
+        var filtrados = eList.filter(function(e) {
+            return ejercicioCoincideSubfiltroFisico(e, subfiltro);
+        });
 
-        var tipoBadge = (ej.tipo === 'calistenia')
-            ? '<span class="muscle-tag" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">🤸 Calistenia</span>'
-            : (ej.tipo === 'movilidad'
-                ? '<span class="muscle-tag" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0;">🥋 Movilidad</span>'
-                : '<span class="muscle-tag" style="background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff;">🏋️ Gym</span>');
+        if (filtrados.length === 0) {
+            cont.innerHTML = `
+            <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
+                No hay ejercicios en la categoría <strong>${subfiltro}</strong>.<br>
+                <button class="btn-subfiltro-ej" onclick="abrirModalNuevoEjercicio('${subfiltro}')" style="margin-top: 12px;">➕ Crear Ejercicio en ${subfiltro}</button>
+            </div>`;
+            return;
+        }
 
-        var jerarquiaBadge = ej.compuesto
-            ? '<span class="muscle-tag" style="background: rgba(99, 102, 241, 0.2); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.4); font-weight: 700;">⭐ Principal</span>'
-            : '<span class="muscle-tag" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">🎯 Accesorio</span>';
+        var html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        filtrados.forEach(function(ej) {
+            html += generarCardEjercicioFisicoHtml(ej);
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+        return;
+    }
 
-        var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
+    // Si 'todos' está activo, agrupar de manera ordenada por categorías
+    var grupos = [
+        { key: 'Pecho', label: '⚔️ Pecho & Pectorales' },
+        { key: 'Espalda', label: '🦅 Espalda & Dorsales' },
+        { key: 'Hombros', label: '🛡️ Hombros & Deltoides' },
+        { key: 'Brazos', label: '💪 Brazos (Bíceps & Tríceps)' },
+        { key: 'Piernas', label: '🦵 Piernas (Cuádriceps, Isquios & Glúteos)' },
+        { key: 'Core', label: '⚡ Core & Abdomen' },
+        { key: 'calistenia', label: '🤸 Calistenia & Peso Corporal' },
+        { key: 'movilidad', label: '🥋 Movilidad & Flexibilidad' }
+    ];
 
-        html += `
-        <div class="exercise-card">
-            <div class="exercise-card-header">
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
-                        ${tipoBadge}
-                        ${jerarquiaBadge}
-                        <h3 class="exercise-card-name" style="margin: 0;">${ej.nombre}</h3>
-                    </div>
-                    <p class="exercise-card-desc">${specsTexto}</p>
-                </div>
-                <button class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;">✕</button>
-            </div>
+    var asignados = new Set();
+    var htmlAgrupado = '';
 
-            <div class="exercise-badges-row">
-                ${fatigaImpactBadge}
-                <span class="badge-exercise-reps">${ej.series} Series × ${ej.repeticiones}</span>
-                ${muscleBadges}
-            </div>
-        </div>`;
+    grupos.forEach(function(g) {
+        var itemsDelGrupo = eList.filter(function(ej) {
+            if (asignados.has(ej.id || ej.nombre)) return false;
+            return ejercicioCoincideSubfiltroFisico(ej, g.key);
+        });
+
+        if (itemsDelGrupo.length > 0) {
+            itemsDelGrupo.forEach(function(ej) { asignados.add(ej.id || ej.nombre); });
+            htmlAgrupado += `<div class="exercise-group-title">${g.label} <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${itemsDelGrupo.length})</span></div>`;
+            htmlAgrupado += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            itemsDelGrupo.forEach(function(ej) {
+                htmlAgrupado += generarCardEjercicioFisicoHtml(ej);
+            });
+            htmlAgrupado += '</div>';
+        }
     });
 
-    cont.innerHTML = html;
+    // Cualquier ejercicio no clasificado en los grupos anteriores
+    var restantes = eList.filter(function(ej) {
+        return !asignados.has(ej.id || ej.nombre);
+    });
+    if (restantes.length > 0) {
+        htmlAgrupado += `<div class="exercise-group-title">🔮 Otros Ejercicios <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${restantes.length})</span></div>`;
+        htmlAgrupado += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        restantes.forEach(function(ej) {
+            htmlAgrupado += generarCardEjercicioFisicoHtml(ej);
+        });
+        htmlAgrupado += '</div>';
+    }
+
+    cont.innerHTML = htmlAgrupado;
 }
 
 function eliminarEjercicio(id) {
@@ -3359,6 +3457,13 @@ function renderizarMusculosMentales() {
 
     if (!APP_STATE.musculosMentales) {
         APP_STATE.musculosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales));
+    } else {
+        // Garantizar que cualquier músculo mental nuevo en DEFAULT_STATE se incorpore sin sobreescribir niveles
+        Object.keys(DEFAULT_STATE.musculosMentales).forEach(function(k) {
+            if (!APP_STATE.musculosMentales[k]) {
+                APP_STATE.musculosMentales[k] = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales[k]));
+            }
+        });
     }
     var mm = APP_STATE.musculosMentales;
 
@@ -3379,10 +3484,10 @@ function renderizarMusculosMentales() {
                     <span style="font-size: 22px;">${m.icono}</span>
                     <strong style="font-size: 14px; color: #f8fafc;">${m.nombre}</strong>
                 </div>
-                <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff;">Nv. ${nivel}</span>
+                <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.1);">Nv. ${nivel}</span>
             </div>
-            <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #6b7280; line-height: 1.4;">${m.descripcion}</p>
-            <div style="display: justify; display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 3px;">
+            <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #94a3b8; line-height: 1.4;">${m.descripcion}</p>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 3px;">
                 <span>EXP</span>
                 <span>${exp} / ${expMax} (${pct}%)</span>
             </div>
@@ -3397,7 +3502,16 @@ function renderizarMusculosMentales() {
 }
 
 function sumarExpMusculoMental(clave, cantidad) {
-    if (!APP_STATE.musculosMentales || !APP_STATE.musculosMentales[clave]) return;
+    if (!APP_STATE.musculosMentales) {
+        APP_STATE.musculosMentales = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales));
+    }
+    if (!APP_STATE.musculosMentales[clave]) {
+        if (DEFAULT_STATE.musculosMentales && DEFAULT_STATE.musculosMentales[clave]) {
+            APP_STATE.musculosMentales[clave] = JSON.parse(JSON.stringify(DEFAULT_STATE.musculosMentales[clave]));
+        } else {
+            return;
+        }
+    }
     var m = APP_STATE.musculosMentales[clave];
     m.exp = (m.exp || 0) + cantidad;
     var expMax = (m.nivel || 1) * 100;
@@ -3405,8 +3519,205 @@ function sumarExpMusculoMental(clave, cantidad) {
         m.exp -= expMax;
         m.nivel = (m.nivel || 1) + 1;
         expMax = m.nivel * 100;
-        alert("✨ ¡SUBIÓ DE NIVEL EL MÚSCULO MENTAL! " + m.icono + " " + m.nombre + " ha alcanzado el Nivel " + m.nivel + "!");
+        alert("✨ ¡SUBIÓ DE NIVEL LA FACULTAD COGNITIVA! " + (m.icono || '🧠') + " " + m.nombre + " ha alcanzado el Nivel " + m.nivel + "!");
     }
+}
+
+var SUBFILTRO_MENTAL_ACTIVO = 'todas';
+var CHIPS_SELECCIONADOS_MUSCULOS_MENTALES = [];
+
+function filtrarSubcategoriaMental(subfiltro) {
+    SUBFILTRO_MENTAL_ACTIVO = subfiltro || 'todas';
+    var btns = document.querySelectorAll('#seccion-categoria-banco-mental .btn-subfiltro-ej');
+    btns.forEach(function(b) {
+        if (b.getAttribute('data-subfiltro') === SUBFILTRO_MENTAL_ACTIVO) {
+            b.classList.add('active');
+        } else {
+            b.classList.remove('active');
+        }
+    });
+    renderizarBancoEjerciciosCerebrales();
+}
+
+function toggleChipMusculoMental(btn) {
+    var cat = btn.getAttribute('data-cat');
+    if (btn.classList.contains('selected')) {
+        btn.classList.remove('selected');
+        CHIPS_SELECCIONADOS_MUSCULOS_MENTALES = CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.filter(function(c) { return c !== cat; });
+    } else {
+        btn.classList.add('selected');
+        if (!CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.includes(cat)) {
+            CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.push(cat);
+        }
+    }
+}
+
+var PROTOCOLOS_MENTALES_RECOMENDADOS = [
+    {
+        id: "EC-REC-1",
+        nombre: "Deep Work & Foco Monotarea",
+        musculoPrincipal: "enfoque",
+        musculoSecundario: "disciplina",
+        musculosSecundarios: ["disciplina"],
+        duracionMinutos: 45,
+        descripcion: "Inmersión cognitiva profunda en una sola tarea crítica sin distracciones, notificaciones ni interrupciones.",
+        protocolo: "1. Eliminar pantallas secundarias y silenciar móviles.\n2. Definir un objetivo único y medible para el bloque.\n3. Ejecutar foco sostenido durante 45 minutos continuos.\n4. Registrar entregable o avance técnico al sonar la alarma.",
+        fatigaEstimada: 20,
+        expRecompensa: 40
+    },
+    {
+        id: "EC-REC-2",
+        nombre: "Primeros Principios & Desglose Lógico",
+        musculoPrincipal: "inteligencia",
+        musculoSecundario: "estrategia",
+        musculosSecundarios: ["estrategia"],
+        duracionMinutos: 30,
+        descripcion: "Desarticular un problema complejo hasta sus verdades fundamentales más básicas y reconstruir la solución desde cero.",
+        protocolo: "1. Escribir la premisa del problema en papel.\n2. Cuestionar cada supuesto: ¿Es un hecho biológico/físico o una convención?\n3. Desprenderse de analogías y crear la solución desde los axiomas base.",
+        fatigaEstimada: 25,
+        expRecompensa: 45
+    },
+    {
+        id: "EC-REC-3",
+        nombre: "Palacio de la Memoria & Active Recall",
+        musculoPrincipal: "memoria",
+        musculoSecundario: "enfoque",
+        musculosSecundarios: ["enfoque"],
+        duracionMinutos: 20,
+        descripcion: "Entrenamiento mnemotécnico espacial y evocación activa de conceptos sin recurrir a notas.",
+        protocolo: "1. Visualizar una ruta espacial conocida (tu casa o vecindario).\n2. Anclar 5-10 conceptos clave a hitos visuales vívidos y exagerados.\n3. Recorrer la ruta mentalmente en reversa y recitar los conceptos.",
+        fatigaEstimada: 15,
+        expRecompensa: 35
+    },
+    {
+        id: "EC-REC-4",
+        nombre: "Lluvia Divergente & Conexiones Laterales",
+        musculoPrincipal: "creatividad",
+        musculoSecundario: "velocidad",
+        musculosSecundarios: ["velocidad"],
+        duracionMinutos: 25,
+        descripcion: "Generación acelerada de ideas no convencionales cruzando dos industrias o conceptos aparentemente opuestos.",
+        protocolo: "1. Elegir dos conceptos al azar (ej: Biología marina + Finanzas).\n2. Cronometrar 10 minutos y forzar al menos 15 ideas o analogías híbridas.\n3. Seleccionar las 2 más viables e iterar un prototipo conceptual.",
+        fatigaEstimada: 15,
+        expRecompensa: 35
+    },
+    {
+        id: "EC-REC-5",
+        nombre: "Veto de Impulsos & Resistencia a Gratificación",
+        musculoPrincipal: "disciplina",
+        musculoSecundario: "anulacion",
+        musculosSecundarios: ["anulacion"],
+        duracionMinutos: 15,
+        descripcion: "Entrenamiento de corteza prefrontal: identificar y vetar impulsos reactivos de procrastinación o dopamina barata.",
+        protocolo: "1. Cada vez que sientas el impulso de abrir redes, comer por ansiedad o posponer, aplica la regla de los 10 minutos.\n2. Respira profundamente y observa la urgencia sin actuar sobre ella.\n3. Registra la victoria cognitiva en tu bitácora.",
+        fatigaEstimada: 10,
+        expRecompensa: 30
+    },
+    {
+        id: "EC-REC-6",
+        nombre: "Cálculo Aritmético Veloz & Agilidad Mental",
+        musculoPrincipal: "velocidad",
+        musculoSecundario: "inteligencia",
+        musculosSecundarios: ["inteligencia"],
+        duracionMinutos: 15,
+        descripcion: "Sprint de operaciones matemáticas mentales y toma de decisiones a alta velocidad bajo presión controlada.",
+        protocolo: "1. Resolver 20 operaciones matemáticas consecutivas de 2 dígitos sin papel ni calculadora.\n2. Medir tiempo total y penalizar errores.\n3. Intentar batir el récord personal cada sesión.",
+        fatigaEstimada: 15,
+        expRecompensa: 30
+    },
+    {
+        id: "EC-REC-7",
+        nombre: "Meditación Vipassana & Regulación Neural",
+        musculoPrincipal: "calma",
+        musculoSecundario: "descanso",
+        musculosSecundarios: ["descanso"],
+        duracionMinutos: 20,
+        descripcion: "Desactivación del sistema nervioso simpático, observación no reactiva y recuperación activa de la fatiga mental.",
+        protocolo: "1. Postura erguida, ojos cerrados o mirada suave al suelo.\n2. Ciclo de respiración en caja: 4s inhalar, 4s sostener, 4s exhalar, 4s pausa.\n3. Observar sensaciones corporales sin juzgar ni engancharse con pensamientos.",
+        fatigaEstimada: -25,
+        expRecompensa: 30
+    },
+    {
+        id: "EC-REC-8",
+        nombre: "Simulación de Escenarios & Estrategia",
+        musculoPrincipal: "estrategia",
+        musculoSecundario: "inteligencia",
+        musculosSecundarios: ["inteligencia"],
+        duracionMinutos: 30,
+        descripcion: "Modelado prospectivo de decisiones críticas calculando ramificaciones a segundo y tercer orden.",
+        protocolo: "1. Plantear una decisión compleja: 'Si tomo el camino A, ¿qué pasa a 1 mes, 6 meses y 2 años?'.\n2. Realizar un pre-mortem: 'Imaginemos que este proyecto fracasó estrepitosamente. ¿Qué lo causó?'.\n3. Diseñar salvaguardas y planes de contingencia anticipados.",
+        fatigaEstimada: 20,
+        expRecompensa: 40
+    }
+];
+
+function importarProtocolosMentalesRecomendados() {
+    if (!APP_STATE.ejerciciosCerebrales) APP_STATE.ejerciciosCerebrales = [];
+    var agregados = 0;
+    PROTOCOLOS_MENTALES_RECOMENDADOS.forEach(function(rec) {
+        var yaExiste = APP_STATE.ejerciciosCerebrales.some(function(e) {
+            return (e.nombre && e.nombre.toLowerCase().trim() === rec.nombre.toLowerCase().trim()) || e.id === rec.id;
+        });
+        if (!yaExiste) {
+            APP_STATE.ejerciciosCerebrales.push(JSON.parse(JSON.stringify(rec)));
+            agregados++;
+        }
+    });
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+    renderizarBancoEjerciciosCerebrales();
+    alert("🧠 " + (agregados > 0 ? "Se han importado " + agregados + " protocolos cognitivos recomendados a tu Arsenal Mental." : "Todos los protocolos recomendados ya estaban en tu Arsenal Mental."));
+}
+
+function generarCardEjercicioCerebralHtml(ec) {
+    var fatigaLabel = ec.fatigaEstimada > 0 ? `+${ec.fatigaEstimada}% Fatiga` : `${ec.fatigaEstimada}% Alivio`;
+    var fatigaBg = ec.fatigaEstimada > 0 ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)";
+    var fatigaBorder = ec.fatigaEstimada > 0 ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.3)";
+    var fatigaColor = ec.fatigaEstimada > 0 ? "#fca5a5" : "#6ee7b7";
+
+    var mm = APP_STATE.musculosMentales || (DEFAULT_STATE && DEFAULT_STATE.musculosMentales) || {};
+    var pInfo = mm[ec.musculoPrincipal] || { icono: '🧠', nombre: ec.musculoPrincipal };
+    var muscP = `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(192, 132, 252, 0.15); color:#e9d5ff; border:1px solid rgba(192, 132, 252, 0.3); padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:700;">${pInfo.icono} ${pInfo.nombre}</span>`;
+
+    var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
+    var muscSecHtml = secList.map(function(sClave) {
+        var sInfo = mm[sClave] || { icono: '⚡', nombre: sClave };
+        return `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(56, 189, 248, 0.1); color:#38bdf8; border:1px solid rgba(56, 189, 248, 0.25); padding:2px 7px; border-radius:9999px; font-size:10.5px; font-weight:600;">${sInfo.icono} ${sInfo.nombre}</span>`;
+    }).join(' ');
+
+    return `
+    <div class="cerebral-exercise-card">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+            <div>
+                <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: #f8fafc;">${ec.nombre}</h4>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">⏱️ ${ec.duracionMinutos || 25} min</span>
+                    ${muscP}
+                    ${muscSecHtml}
+                </div>
+            </div>
+            <button onclick="eliminarEjercicioCerebral('${ec.id}')" title="Eliminar protocolo" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px 6px; font-size: 14px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+        </div>
+
+        <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #94a3b8; line-height: 1.45;">${ec.descripcion || 'Entrenamiento cognitivo estructurado.'}</p>
+
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
+            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #c084fc; margin-bottom: 4px;">📜 Protocolo de Ejecución:</div>
+            <div style="font-size: 11.5px; color: #cbd5e1; line-height: 1.5; white-space: pre-line;">${ec.protocolo || '1. Concentración plena. 2. Ejecutar bloque de foco. 3. Documentar resultados.'}</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 11px; font-weight: 700; background: ${fatigaBg}; color: ${fatigaColor}; border: 1px solid ${fatigaBorder}; padding: 3px 8px; border-radius: 6px;">${fatigaLabel}</span>
+                <span style="font-size: 11px; font-weight: 700; background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); padding: 3px 8px; border-radius: 6px;">+${ec.expRecompensa || 30} EXP</span>
+            </div>
+            <button class="btn-subfiltro-ej active" style="padding: 6px 14px; font-size: 12px;" onclick="ejecutarEjercicioCerebral('${ec.id}')">
+                ⚡ Ejecutar Protocolo
+            </button>
+        </div>
+    </div>`;
 }
 
 function renderizarBancoEjerciciosCerebrales() {
@@ -3414,60 +3725,107 @@ function renderizarBancoEjerciciosCerebrales() {
     if (!cont) return;
 
     if (!APP_STATE.ejerciciosCerebrales || !Array.isArray(APP_STATE.ejerciciosCerebrales)) {
-        APP_STATE.ejerciciosCerebrales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosCerebrales));
+        APP_STATE.ejerciciosCerebrales = JSON.parse(JSON.stringify(DEFAULT_STATE.ejerciciosCerebrales || []));
     }
     var list = APP_STATE.ejerciciosCerebrales;
 
     if (list.length === 0) {
-        cont.innerHTML = '<p style="color:#6b7280; text-align:center; padding:16px;">No hay ejercicios cerebrales registrados.</p>';
-        return;
-    }
-
-    var html = `
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">`;
-
-    list.forEach(function(ec) {
-        var fatigaLabel = ec.fatigaEstimada > 0 ? `+${ec.fatigaEstimada}% Fatiga` : `${ec.fatigaEstimada}% Fatiga (Alivio)`;
-        var fatigaBg = ec.fatigaEstimada > 0 ? "#fef2f2" : "#ecfdf5";
-        var fatigaColor = ec.fatigaEstimada > 0 ? "#991b1b" : "#065f46";
-
-        var muscP = APP_STATE.musculosMentales && APP_STATE.musculosMentales[ec.musculoPrincipal] ?
-            (APP_STATE.musculosMentales[ec.musculoPrincipal].icono + " " + APP_STATE.musculosMentales[ec.musculoPrincipal].nombre) : ec.musculoPrincipal;
-
-        var muscS = ec.musculoSecundario && APP_STATE.musculosMentales && APP_STATE.musculosMentales[ec.musculoSecundario] ?
-            (APP_STATE.musculosMentales[ec.musculoSecundario].icono + " " + APP_STATE.musculosMentales[ec.musculoSecundario].nombre) : "";
-
-        html += `
-        <div class="cerebral-exercise-card">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                <div>
-                    <h4 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 800; color: #f8fafc;">${ec.nombre}</h4>
-                    <span style="font-size: 11.5px; color: #6b7280;">⏱️ ${ec.duracionMinutos} min · ${muscP}${muscS ? ' + ' + muscS : ''}</span>
-                </div>
-                <button onclick="eliminarEjercicioCerebral('${ec.id}')" title="Eliminar ejercicio" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
-            </div>
-
-            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #94a3b8; line-height: 1.4;">${ec.descripcion}</p>
-
-            <div style="background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px;">
-                <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 2px;">Protocolo:</div>
-                <div style="font-size: 11.5px; color: #f8fafc; line-height: 1.4;">${ec.protocolo}</div>
-            </div>
-
-            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px; flex-wrap: wrap; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 11px; font-weight: 700; background: ${fatigaBg}; color: ${fatigaColor}; padding: 2px 7px; border-radius: 9999px;">${fatigaLabel}</span>
-                    <span style="font-size: 11px; font-weight: 700; background: #f3f4f6; color: #f8fafc; padding: 2px 7px; border-radius: 9999px;">+${ec.expRecompensa} EXP</span>
-                </div>
-                <button class="btn-system" style="padding: 6px 12px; font-size: 12px; border-radius: 8px;" onclick="ejecutarEjercicioCerebral('${ec.id}')">
-                    ⚡ Ejecutar Protocolo
+        cont.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">🧠</span>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Tu Arsenal Mental está listo para ser forjado</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
+                Registra tus protocolos cognitivos personalizados o importa los 8 protocolos fundamentales recomendados.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()">
+                    ➕ Registrar Protocolo
+                </button>
+                <button type="button" class="btn-subfiltro-ej active" onclick="importarProtocolosMentalesRecomendados()" style="padding: 9px 16px; font-size: 13px;">
+                    📥 Cargar Protocolos Recomendados
                 </button>
             </div>
         </div>`;
+        return;
+    }
+
+    var subfiltro = SUBFILTRO_MENTAL_ACTIVO || 'todas';
+
+    // Si es una facultad cognitiva específica
+    if (subfiltro !== 'todas') {
+        var filtrados = list.filter(function(ec) {
+            var mp = (ec.musculoPrincipal || '').toLowerCase();
+            var secs = (ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : [])).map(function(s) { return (s || '').toLowerCase(); });
+            var target = subfiltro.toLowerCase();
+            return mp === target || secs.includes(target);
+        });
+
+        if (filtrados.length === 0) {
+            cont.innerHTML = `
+            <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
+                No hay protocolos para la facultad cognitiva <strong>${subfiltro}</strong>.<br>
+                <button class="btn-subfiltro-ej" onclick="abrirModalNuevoEjercicioCerebral()" style="margin-top: 12px;">➕ Crear Protocolo</button>
+            </div>`;
+            return;
+        }
+
+        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">';
+        filtrados.forEach(function(ec) {
+            html += generarCardEjercicioCerebralHtml(ec);
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+        return;
+    }
+
+    // Si 'todas' está activo, agrupar ordenadamente por facultades cognitivas
+    var facultades = [
+        { key: 'enfoque', label: '🎯 Enfoque & Deep Work' },
+        { key: 'inteligencia', label: '⚡ Lógica & Análisis' },
+        { key: 'memoria', label: '🧠 Memoria & Retención' },
+        { key: 'creatividad', label: '🎨 Creatividad & Síntesis' },
+        { key: 'disciplina', label: '🛡️ Disciplina & Autocontrol' },
+        { key: 'velocidad', label: '🚀 Agilidad Mental & Velocidad' },
+        { key: 'calma', label: '🌊 Calma & Regulación Neural' },
+        { key: 'estrategia', label: '♟️ Pensamiento Estratégico' },
+        { key: 'descanso', label: '💤 Recuperación Neural' },
+        { key: 'anulacion', label: '🛑 Inhibición de Impulsos' }
+    ];
+
+    var asignados = new Set();
+    var htmlAgrupado = '';
+
+    facultades.forEach(function(f) {
+        var itemsDeFacultad = list.filter(function(ec) {
+            if (asignados.has(ec.id || ec.nombre)) return false;
+            var mp = (ec.musculoPrincipal || '').toLowerCase();
+            return mp === f.key;
+        });
+
+        if (itemsDeFacultad.length > 0) {
+            itemsDeFacultad.forEach(function(ec) { asignados.add(ec.id || ec.nombre); });
+            htmlAgrupado += `<div class="mental-group-title">${f.label} <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${itemsDeFacultad.length})</span></div>`;
+            htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 14px;">';
+            itemsDeFacultad.forEach(function(ec) {
+                htmlAgrupado += generarCardEjercicioCerebralHtml(ec);
+            });
+            htmlAgrupado += '</div>';
+        }
     });
 
-    html += `</div>`;
-    cont.innerHTML = html;
+    var restantes = list.filter(function(ec) {
+        return !asignados.has(ec.id || ec.nombre);
+    });
+    if (restantes.length > 0) {
+        htmlAgrupado += `<div class="mental-group-title">🔮 Otros Protocolos Cognitivos <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${restantes.length})</span></div>`;
+        htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">';
+        restantes.forEach(function(ec) {
+            htmlAgrupado += generarCardEjercicioCerebralHtml(ec);
+        });
+        htmlAgrupado += '</div>';
+    }
+
+    cont.innerHTML = htmlAgrupado;
 }
 
 function ejecutarEjercicioCerebral(id) {
@@ -3487,18 +3845,25 @@ function ejecutarEjercicioCerebral(id) {
     fm.estado = nuevoNivelFatiga <= 25 ? "Mente Despejada" : (nuevoNivelFatiga <= 60 ? "Carga Moderada" : (nuevoNivelFatiga <= 85 ? "Fatiga Elevada" : "Saturación Neural"));
     APP_STATE.fatigaMentalDiaria = fm;
 
-    sumarExpMusculoMental(ec.musculoPrincipal, ec.expRecompensa);
-    if (ec.musculoSecundario) {
-        sumarExpMusculoMental(ec.musculoSecundario, Math.round(ec.expRecompensa * 0.5));
+    sumarExpMusculoMental(ec.musculoPrincipal, ec.expRecompensa || 30);
+    var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
+    secList.forEach(function(sec) {
+        sumarExpMusculoMental(sec, Math.round((ec.expRecompensa || 30) * 0.5));
+    });
+
+    sumarExp(ec.expRecompensa || 30);
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
     }
-
-    sumarExp(ec.expRecompensa);
-
-    MonarcaDB.save(APP_STATE);
     renderizarBarraFatigaMentalDiaria();
     renderizarGimnasioMental();
 
-    alert("🧠 ¡Protocolo cerebral completado!\n• " + ec.nombre + " ejecutado con éxito.\n• +" + ec.expRecompensa + " EXP general y muscular asignados.\n• Fatiga mental actual: " + nuevoNivelFatiga + "%.");
+    var msgFatiga = (ec.fatigaEstimada <= 0)
+        ? "Fatiga mental reducida a: " + nuevoNivelFatiga + "% (Alivio activo)."
+        : "Fatiga mental actual: " + nuevoNivelFatiga + "%.";
+
+    alert("🧠 ¡Protocolo cognitivo completado!\n• " + ec.nombre + " ejecutado con éxito.\n• +" + (ec.expRecompensa || 30) + " EXP general y facultades cognitivas asignados.\n• " + msgFatiga);
 }
 
 function abrirModalNuevoEjercicioCerebral() {
@@ -3510,6 +3875,7 @@ function abrirModalNuevoEjercicioCerebral() {
     var inDur = document.getElementById('input-ec-dur');
     var inFat = document.getElementById('input-ec-fatiga');
     var inExp = document.getElementById('input-ec-exp');
+    var inMusP = document.getElementById('input-ec-musculo-p');
 
     if (inNom) inNom.value = '';
     if (inDesc) inDesc.value = '';
@@ -3517,6 +3883,11 @@ function abrirModalNuevoEjercicioCerebral() {
     if (inDur) inDur.value = '30';
     if (inFat) inFat.value = '20';
     if (inExp) inExp.value = '35';
+    if (inMusP) inMusP.value = 'enfoque';
+
+    CHIPS_SELECCIONADOS_MUSCULOS_MENTALES = [];
+    var chips = document.querySelectorAll('#selector-chips-musculos-mentales .mental-muscle-chip-btn');
+    chips.forEach(function(c) { c.classList.remove('selected'); });
 
     modal.style.display = 'flex';
 }
@@ -3529,7 +3900,6 @@ function cerrarModalNuevoEjercicioCerebral() {
 function guardarNuevoEjercicioCerebral() {
     var inNom = document.getElementById('input-ec-nombre');
     var inMusP = document.getElementById('input-ec-musculo-p');
-    var inMusS = document.getElementById('input-ec-musculo-s');
     var inDur = document.getElementById('input-ec-dur');
     var inDesc = document.getElementById('input-ec-desc');
     var inProt = document.getElementById('input-ec-prot');
@@ -3537,8 +3907,7 @@ function guardarNuevoEjercicioCerebral() {
     var inExp = document.getElementById('input-ec-exp');
 
     var nom = inNom ? inNom.value.trim() : '';
-    var musP = inMusP ? inMusP.value : 'inteligencia';
-    var musS = inMusS ? inMusS.value : '';
+    var musP = inMusP ? inMusP.value : 'enfoque';
     var dur = inDur ? (Number(inDur.value) || 25) : 25;
     var desc = inDesc ? inDesc.value.trim() : '';
     var prot = inProt ? inProt.value.trim() : '';
@@ -3562,13 +3931,16 @@ function guardarNuevoEjercicioCerebral() {
         }
     }
 
+    var musculosSecundarios = [].concat(CHIPS_SELECCIONADOS_MUSCULOS_MENTALES).filter(function(m) { return m !== musP; });
+
     var nuevo = {
         id: "EC-" + Date.now(),
         nombre: nom,
         musculoPrincipal: musP,
-        musculoSecundario: musS || null,
+        musculoSecundario: musculosSecundarios.length ? musculosSecundarios[0] : null,
+        musculosSecundarios: musculosSecundarios,
         duracionMinutos: dur,
-        descripcion: desc || "Entrenamiento cognitivo personalizado.",
+        descripcion: desc || "Entrenamiento cognitivo estructurado.",
         protocolo: prot || "1. Concentración plena. 2. Ejecutar bloque de foco. 3. Documentar resultados.",
         fatigaEstimada: fat,
         expRecompensa: exp,
@@ -3577,11 +3949,13 @@ function guardarNuevoEjercicioCerebral() {
     };
 
     APP_STATE.ejerciciosCerebrales.push(nuevo);
-    MonarcaDB.save(APP_STATE);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
 
     cerrarModalNuevoEjercicioCerebral();
     renderizarBancoEjerciciosCerebrales();
-    alert("⚡ Ejercicio cerebral '" + nom + "' agregado exitosamente.");
+    alert("⚡ Protocolo cognitivo '" + nom + "' agregado exitosamente al Arsenal Mental.");
 }
 
 function eliminarEjercicioCerebral(id) {

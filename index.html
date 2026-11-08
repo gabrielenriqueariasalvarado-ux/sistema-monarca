@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.1">
+    <link rel="stylesheet" href="style.css?v=10.2">
 </head>
 <body>
 
@@ -565,10 +565,10 @@
                     <span>📋</span> Rutinas & Sesiones
                 </button>
                 <button id="btn-cat-banco-fisico" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-fisico')">
-                    <span>🏋️</span> Banco Físico
+                    <span>🏋️</span> Arsenal Físico
                 </button>
                 <button id="btn-cat-banco-mental" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-mental')">
-                    <span>🧠</span> Banco Mental
+                    <span>🧠</span> Arsenal Mental
                 </button>
                 <button id="btn-cat-historial" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('historial')">
                     <span>📜</span> Historial
@@ -599,16 +599,15 @@
                 </div>
             </div>
 
-            <!-- 2. APARTADO: BANCO DE EJERCICIOS FÍSICOS -->
+            <!-- 2. APARTADO: ARSENAL DE EJERCICIOS FÍSICOS -->
             <div id="seccion-categoria-banco-fisico" style="display: none;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
-                        <button class="btn-subfiltro-ej" data-subfiltro="gym" onclick="filtrarSubcategoriaEjercicios('gym')">🏋️ Gym / Pesas</button>
-                        <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia</button>
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 800;">🏋️ Arsenal Físico &amp; Biomecánica</h3>
+                        <span style="font-size: 12px; color: #94a3b8;">Catálogo de ejercicios organizados por grupos musculares y jerarquía anatómica.</span>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="font-size: 12px; padding: 6px 12px;" title="Cargar ejercicios base estructurados por grupos musculares en tu Banco">
+                        <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="font-size: 12px; padding: 6px 12px;" title="Cargar ejercicios base estructurados por grupos musculares">
                             📥 Cargar Recomendados
                         </button>
                         <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="font-size: 12px; padding: 6px 12px;">
@@ -616,22 +615,55 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- BARRA DE CATEGORÍAS MUSCULARES -->
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Pecho" onclick="filtrarSubcategoriaEjercicios('Pecho')">⚔️ Pecho</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Espalda" onclick="filtrarSubcategoriaEjercicios('Espalda')">🦅 Espalda</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Hombros" onclick="filtrarSubcategoriaEjercicios('Hombros')">🛡️ Hombros</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Brazos" onclick="filtrarSubcategoriaEjercicios('Brazos')">💪 Brazos</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Piernas" onclick="filtrarSubcategoriaEjercicios('Piernas')">🦵 Piernas</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Core" onclick="filtrarSubcategoriaEjercicios('Core')">⚡ Core</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="movilidad" onclick="filtrarSubcategoriaEjercicios('movilidad')">🥋 Movilidad</button>
+                </div>
+
                 <div id="contenedor-ejercicios">
                     <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios físicos...</p>
                 </div>
             </div>
 
-            <!-- 3. APARTADO: BANCO DE EJERCICIOS MENTALES -->
+            <!-- 3. APARTADO: ARSENAL DE EJERCICIOS MENTALES -->
             <div id="seccion-categoria-banco-mental" style="display: none;">
-                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
                     <div>
-                        <h3 style="margin: 0; font-size: 15px; color: #f8fafc;">Banco de Ejercicios Mentales &amp; Cognitivos</h3>
-                        <span style="font-size: 12px; color: #94a3b8;">Ejercicios de enfoque, análisis y lógica listos para incluir en tus rutinas.</span>
+                        <h3 style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 800;">🧠 Arsenal Mental &amp; Facultades Cognitivas</h3>
+                        <span style="font-size: 12px; color: #94a3b8;">Entrenamiento anatómico de lóbulo frontal, enfoque, memoria, lógica y regulación emocional.</span>
                     </div>
-                    <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()" style="font-size: 12px; padding: 6px 12px; background: #111827;">
-                        ➕ Nuevo Ejercicio Mental
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-subfiltro-ej" onclick="importarProtocolosMentalesRecomendados()" style="font-size: 12px; padding: 6px 12px;" title="Cargar protocolos recomendados de Deep Work, memoria y lógica">
+                            📥 Cargar Protocolos Recomendados
+                        </button>
+                        <button class="btn-add-finanza" onclick="abrirModalNuevoEjercicioCerebral()" style="font-size: 12px; padding: 6px 12px;">
+                            ➕ Nuevo Ejercicio Mental
+                        </button>
+                    </div>
                 </div>
+
+                <!-- BARRA DE CATEGORÍAS COGNITIVAS (MÚSCULOS DE LA MENTE) -->
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <button class="btn-subfiltro-ej active" data-subfiltro-mental="todos" onclick="filtrarSubcategoriaMental('todos')">Todas</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="enfoque" onclick="filtrarSubcategoriaMental('enfoque')">🎯 Enfoque</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="inteligencia" onclick="filtrarSubcategoriaMental('inteligencia')">⚡ Lógica</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="memoria" onclick="filtrarSubcategoriaMental('memoria')">🧠 Memoria</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="creatividad" onclick="filtrarSubcategoriaMental('creatividad')">🎨 Creatividad</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="disciplina" onclick="filtrarSubcategoriaMental('disciplina')">🛡️ Disciplina</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="velocidad" onclick="filtrarSubcategoriaMental('velocidad')">🚀 Agilidad</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="calma" onclick="filtrarSubcategoriaMental('calma')">🌊 Calma</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro-mental="estrategia" onclick="filtrarSubcategoriaMental('estrategia')">♟️ Estrategia</button>
+                </div>
+
                 <div id="contenedor-ejercicios-cerebrales">
                     <p style="text-align: center; color: #6b7280; padding: 20px;">Cargando ejercicios cerebrales...</p>
                 </div>
@@ -3037,48 +3069,54 @@
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">🧠</span>
                     <div>
-                        <span class="quest-badge-rank" style="background: #111827; color: #ffffff; font-size: 10px; padding: 2px 6px;">CLASIFICACIÓN: MENTE</span>
-                        <div style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR EJERCICIO / PROTOCOLO MENTAL</div>
+                        <span class="quest-badge-rank" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; font-size: 10px; padding: 2px 6px;">FACULTADES COGNITIVAS</span>
+                        <div style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">REGISTRAR PROTOCOLO EN ARSENAL MENTAL</div>
                     </div>
                 </div>
                 <button onclick="cerrarModalNuevoEjercicioCerebral()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
 
             <div style="padding: 20px;">
-                <p style="color: #6b7280; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
-                    Estructura: Nombre, especificaciones técnicas y porcentaje exacto de desarrollo o impacto en el músculo mental correspondiente.
+                <p style="color: #94a3b8; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.4;">
+                    Estructura el protocolo cognitivo especificando la parte de la mente a desarrollar (músculo mental primario y de apoyo) y su impacto de EXP.
                 </p>
 
                 <div style="margin-bottom: 14px;">
                     <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Ejercicio / Protocolo Mental:</label>
                     <input type="text" id="input-ec-nombre" class="finanzas-input-clean"
-                        placeholder="Ej: Sprint de Análisis Algorítmico, Meditación Sin Estímulos..."
+                        placeholder="Ej: Sprint de Análisis Algorítmico, Meditación Sin Estímulos, Deep Work..."
                         style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                    <div>
-                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Principal:</label>
-                        <select id="input-ec-musculo-p" class="finanzas-input-clean"
-                            style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
-                            <option value="inteligencia">⚡ Inteligencia</option>
-                            <option value="creatividad">🎨 Creatividad</option>
-                            <option value="anulacion">🛡️ Anulación</option>
-                            <option value="percepcion">♟️ Percepción</option>
-                            <option value="descanso">🌙 Descanso</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Secundario:</label>
-                        <select id="input-ec-musculo-s" class="finanzas-input-clean"
-                            style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
-                            <option value="">(Ninguno)</option>
-                            <option value="inteligencia">⚡ Inteligencia</option>
-                            <option value="creatividad">🎨 Creatividad</option>
-                            <option value="anulacion">🛡️ Anulación</option>
-                            <option value="percepcion">♟️ Percepción</option>
-                            <option value="descanso">🌙 Descanso</option>
-                        </select>
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Mental Principal (Facultad Primaria):</label>
+                    <select id="input-ec-musculo-p" class="finanzas-input-clean"
+                        style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                        <option value="enfoque">🎯 Enfoque & Concentración (Lóbulo Frontal / Deep Work)</option>
+                        <option value="inteligencia">⚡ Lógica & Inteligencia (Razonamiento y Modelado)</option>
+                        <option value="memoria">🧠 Memoria & Retención (Memoria de Trabajo y Evocación)</option>
+                        <option value="creatividad">🎨 Creatividad & Divergencia (Pensamiento Lateral)</option>
+                        <option value="disciplina">🛡️ Disciplina & Voluntad (Autocontrol y Fricción)</option>
+                        <option value="velocidad">🚀 Velocidad de Procesamiento (Reflejos Mentales)</option>
+                        <option value="calma">🌊 Calma & Resiliencia (Regulación Emocional y Mindfulness)</option>
+                        <option value="estrategia">♟️ Estrategia & Claridad (Planificación de 2do Orden)</option>
+                        <option value="descanso">🌙 Descanso & Regeneración Neural</option>
+                        <option value="anulacion">🛑 Anulación de Gratificación (Veto de Impulsos)</option>
+                    </select>
+                </div>
+
+                <!-- CHIPS DE MÚSCULOS MENTALES SECUNDARIOS -->
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculos Mentales Secundarios / Áreas de Apoyo (Opcional):</label>
+                    <div class="mental-selector-chips" id="selector-chips-musculos-mentales">
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="enfoque" onclick="toggleChipMusculoMental(this)">🎯 Enfoque</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="inteligencia" onclick="toggleChipMusculoMental(this)">⚡ Lógica</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="memoria" onclick="toggleChipMusculoMental(this)">🧠 Memoria</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="creatividad" onclick="toggleChipMusculoMental(this)">🎨 Creatividad</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="disciplina" onclick="toggleChipMusculoMental(this)">🛡️ Disciplina</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="velocidad" onclick="toggleChipMusculoMental(this)">🚀 Agilidad</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="calma" onclick="toggleChipMusculoMental(this)">🌊 Calma</button>
+                        <button type="button" class="mental-muscle-chip-btn" data-mcat="estrategia" onclick="toggleChipMusculoMental(this)">♟️ Estrategia</button>
                     </div>
                 </div>
 
@@ -4503,25 +4541,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.1"></script>
-    <script src="js/perfil.js?v=10.1"></script>
-    <script src="js/progresion.js?v=10.1"></script>
-    <script src="js/estado-personal.js?v=10.1"></script>
-    <script src="js/finanzas.js?v=10.1"></script>
-    <script src="js/ideas.js?v=10.1"></script>
-    <script src="js/dinamicas.js?v=10.1"></script>
-    <script src="js/calendario.js?v=10.1"></script>
-    <script src="js/inventario.js?v=10.1"></script>
-    <script src="js/jarvis-voz.js?v=10.1"></script>
+    <script src="js/core.js?v=10.2"></script>
+    <script src="js/perfil.js?v=10.2"></script>
+    <script src="js/progresion.js?v=10.2"></script>
+    <script src="js/estado-personal.js?v=10.2"></script>
+    <script src="js/finanzas.js?v=10.2"></script>
+    <script src="js/ideas.js?v=10.2"></script>
+    <script src="js/dinamicas.js?v=10.2"></script>
+    <script src="js/calendario.js?v=10.2"></script>
+    <script src="js/inventario.js?v=10.2"></script>
+    <script src="js/jarvis-voz.js?v=10.2"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.1"></script>
+    <script type="module" src="js/firebase-config.js?v=10.2"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.1')
+                navigator.serviceWorker.register('sw.js?v=10.2')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
