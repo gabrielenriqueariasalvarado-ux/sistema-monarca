@@ -695,6 +695,18 @@ function confirmarAgregarHabilidad() {
     renderizarHabilidades(APP_STATE.habilidades);
 }
 
+var SKILLS_EXPANDIDAS = (typeof SKILLS_EXPANDIDAS !== 'undefined') ? SKILLS_EXPANDIDAS : new Set();
+
+function toggleDetalleSkill(id) {
+    var sid = String(id);
+    if (SKILLS_EXPANDIDAS.has(sid)) {
+        SKILLS_EXPANDIDAS.delete(sid);
+    } else {
+        SKILLS_EXPANDIDAS.add(sid);
+    }
+    renderizarHabilidades();
+}
+
 function renderizarHabilidades(skills) {
     var sList = skills || APP_STATE.habilidades || [];
     var html = "";
@@ -703,48 +715,60 @@ function renderizarHabilidades(skills) {
         sList.forEach(function(s) {
             var calc = calcularRangoYProgreso(s.horasTotales);
             var porcentaje = calc.porcentaje;
+            var isExpanded = SKILLS_EXPANDIDAS.has(String(s.id));
 
             html += `
             <div class="skill-card">
-                <div class="skill-card-header">
-                    <div>
+                <div class="skill-card-header" style="align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
                         <span class="skill-rank-badge ${calc.badgeClass}">${calc.rango}</span>
-                        <h3 class="skill-name">${s.nombre}</h3>
-                        <div class="skill-desc-tier">${calc.descripcion}</div>
+                        <h3 class="skill-name" style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.nombre}</h3>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <button onclick="sumarHorasHabilidad('${s.id}', 1)" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">
-                            +1h
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button onclick="sumarHorasHabilidad('${s.id}', 1)" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">+1h</button>
+                        <button onclick="sumarHorasHabilidad('${s.id}', 2)" class="btn-add-hora" title="Sumar 2 horas de práctica y +20 EXP">+2h</button>
+                        <button onclick="sumarHorasHabilidad('${s.id}', 3)" class="btn-add-hora" title="Sumar 3 horas de práctica y +30 EXP">+3h</button>
+                        <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleSkill('${s.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
+                            <span>${isExpanded ? '▲' : '▼'}</span>
                         </button>
-                        <button onclick="sumarHorasHabilidad('${s.id}', 2)" class="btn-add-hora" title="Sumar 2 horas de práctica y +20 EXP">
-                            +2h
-                        </button>
-                        <button onclick="sumarHorasHabilidad('${s.id}', 3)" class="btn-add-hora" title="Sumar 3 horas de práctica y +30 EXP">
-                            +3h
-                        </button>
-                        <button class="btn-delete-row" title="Eliminar habilidad" onclick="eliminarHabilidad('${s.id}')" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 4px 6px; border-radius: 6px;">✕</button>
                     </div>
                 </div>
 
-                <div class="skill-progress-track">
+                <div class="skill-progress-track" style="margin: 10px 0 6px 0;">
                     <div class="skill-progress-fill" style="width: ${porcentaje}%;"></div>
                 </div>
 
                 <div class="skill-progress-info">
                     <span>Progreso: <strong>${calc.horasEnNivel} / ${calc.horasReqNivel} hrs</strong> &nbsp;·&nbsp; Total: ${s.horasTotales} hrs</span>
-                    <span>${calc.siguiente} (${porcentaje}%)</span>
+                    <span style="font-weight: 700; color: #a5b4fc;">${calc.siguiente} (${porcentaje}%)</span>
                 </div>
-                <div class="skill-benefit-row">
-                    🎁 <em>Beneficio:</em> ${s.beneficio || "Incremento de destreza y productividad"}
-                </div>
-                ${(s.atributos && s.atributos.length > 0) ? `
-                    <div class="atributos-chips-container" style="margin-top: 6px;">
-                        <span style="font-size: 11px; color: #cbd5e1; font-weight: 700; display: inline-flex; align-items: center;">Desarrollo:</span>
-                        ${s.atributos.map(function(a) {
-                            return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '🔮'} ${a.nombre} (+${a.porcentaje}% / h)</span>`;
-                        }).join('')}
+
+                <!-- PANEL DESPLEGABLE: BENEFICIO, DESCRIPCIÓN Y DESARROLLO -->
+                <div class="card-detalle-desplegable" id="skill-detalle-${s.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
+                    <div style="font-size: 12px; color: #94a3b8; line-height: 1.4;">
+                        <strong>Nivel de Maestría:</strong> ${calc.descripcion}
                     </div>
-                ` : ''}
+                    ${s.beneficio ? `
+                        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
+                            🎁 <strong>Beneficio / Recompensa:</strong> ${s.beneficio}
+                        </div>
+                    ` : ''}
+                    ${(s.atributos && s.atributos.length > 0) ? `
+                        <div style="margin-top: 2px;">
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Desarrolla (+% por hora):</span>
+                            <div class="atributos-chips-container">
+                                ${s.atributos.map(function(a) {
+                                    return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '🔮'} ${a.nombre} (+${a.porcentaje}% / h)</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: flex-end; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 6px;">
+                        <button onclick="eliminarHabilidad('${s.id}')" style="background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 11px; border-radius: 6px; padding: 4px 8px; cursor: pointer;">
+                            ✕ Eliminar Habilidad
+                        </button>
+                    </div>
+                </div>
             </div>`;
         });
     } else {
@@ -1551,26 +1575,41 @@ function esHoraLimiteSuperada(horaLimiteStr) {
     return false;
 }
 
+var QUESTS_EXPANDIDAS = (typeof QUESTS_EXPANDIDAS !== 'undefined') ? QUESTS_EXPANDIDAS : new Set();
+
+function toggleDetalleQuest(id) {
+    var qid = String(id);
+    if (QUESTS_EXPANDIDAS.has(qid)) {
+        QUESTS_EXPANDIDAS.delete(qid);
+    } else {
+        QUESTS_EXPANDIDAS.add(qid);
+    }
+    renderizarQuestsDiarios();
+}
+
 function aplicarPenalizacionAutomatica(q) {
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
-    restarExp(30);
+    var penalizacionExp = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.expPenalizacion !== undefined)
+        ? APP_STATE.configPenitencias.expPenalizacion
+        : 30;
+    if (penalizacionExp > 0) restarExp(penalizacionExp);
     MonarcaDB.save(APP_STATE);
 
     reproducirAlarmaQuest(true);
+    var castigoDesc = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
     emitirNotificacionQuest(
         "💀 ¡PENITENCIA ACTIVADA!",
-        `Expiró el tiempo de: "${q.titulo}". Castigo: ${q.penitencia || '30 Flexiones'}. Se dedujeron -30 EXP.`,
+        `Expiró el tiempo de: "${q.titulo}". Castigo: ${castigoDesc}. ${penalizacionExp > 0 ? 'Se dedujeron -' + penalizacionExp + ' EXP.' : ''}`,
         true,
         'penitencia-' + q.id
     );
 
     setTimeout(function() {
-        var castigoDesc = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
-        alert("⚠️ ¡ALERTA DEL SISTEMA: QUEST DIARIA NO COMPLETADA A TIEMPO!\n\n" +
+        alert("⚠️ ¡ALERTA DEL SISTEMA: MISIÓN NO COMPLETADA A TIEMPO!\n\n" +
               "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.\n\n" +
               "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + castigoDesc + "\n\n" +
-              "Se han deducido -30 EXP por quiebre de disciplina.");
+              (penalizacionExp > 0 ? "Se han deducido -" + penalizacionExp + " EXP por quiebre de disciplina." : "Salda tu penitencia física para restaurar tu honor."));
         renderizarQuestsDiarios();
     }, 100);
 }
@@ -1584,257 +1623,255 @@ function renderizarQuestsDiarios() {
         sanitizarQuestsDiarios();
         var qList = APP_STATE.questsDiarios || [];
 
-    // Actualizar métricas HUD
-    var completadas = qList.filter(function(q) { return q.estado === 'completada'; }).length;
-    var enCurso = qList.filter(function(q) { return q.temporizadorActivo || q.estado === 'en_progreso'; }).length;
-    var penalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; }).length;
+        // Actualizar métricas HUD
+        var completadas = qList.filter(function(q) { return q.estado === 'completada'; }).length;
+        var enCurso = qList.filter(function(q) { return q.temporizadorActivo || q.estado === 'en_progreso'; }).length;
+        var penalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; }).length;
 
-    var mComp = document.getElementById('qd-metric-completadas');
-    var mCurso = document.getElementById('qd-metric-en-curso');
-    var mPen = document.getElementById('qd-metric-penalizadas');
+        var mComp = document.getElementById('qd-metric-completadas');
+        var mCurso = document.getElementById('qd-metric-en-curso');
+        var mPen = document.getElementById('qd-metric-penalizadas');
 
-    if (mComp) mComp.innerText = completadas + " / " + qList.length;
-    if (mCurso) mCurso.innerText = String(enCurso);
-    if (mPen) mPen.innerText = String(penalizadas);
+        if (mComp) mComp.innerText = completadas + " / " + qList.length;
+        if (mCurso) mCurso.innerText = String(enCurso);
+        if (mPen) mPen.innerText = String(penalizadas);
 
-    // Renderizar caja de alertas de penitencia activa
-    if (contAlertas) {
-        var questsPenalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; });
-        if (questsPenalizadas.length > 0) {
-            var itemsPenitencia = questsPenalizadas.map(function(qp) {
-                return `
-                <div class="alerta-penitencia-item">
-                    <div>
-                        <div style="font-weight: 800; font-size: 13.5px; color: #991b1b;">⚠️ ${qp.titulo}</div>
-                        <div style="font-size: 13px; color: #b91c1c; margin-top: 3px;">
-                            <strong>CASTIGO OBLIGATORIO:</strong> ${qp.penitencia || '30 Flexiones'}
+        // Renderizar caja de alertas de penitencia activa
+        if (contAlertas) {
+            var questsPenalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; });
+            if (questsPenalizadas.length > 0) {
+                var itemsPenitencia = questsPenalizadas.map(function(qp) {
+                    return `
+                    <div class="alerta-penitencia-item">
+                        <div>
+                            <div style="font-weight: 800; font-size: 13.5px; color: #991b1b;">⚠️ ${qp.titulo}</div>
+                            <div style="font-size: 13px; color: #b91c1c; margin-top: 3px;">
+                                <strong>CASTIGO OBLIGATORIO:</strong> ${qp.penitencia || '30 Flexiones'}
+                            </div>
+                        </div>
+                        <button class="btn-cumplir-penitencia-sm" onclick="cumplirPenitenciaQuest('${qp.id}')">
+                            ✓ Cumplir Castigo
+                        </button>
+                    </div>`;
+                }).join('');
+
+                contAlertas.innerHTML = `
+                <div class="alerta-penitencia-box">
+                    <div class="alerta-penitencia-header">
+                        <span style="font-size: 20px;">💀</span>
+                        <div>
+                            <h4 style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
+                                PENITENCIAS ACTIVAS DEL SISTEMA (${questsPenalizadas.length})
+                            </h4>
+                            <span style="font-size: 12px; color: #b91c1c;">No completaste estas acciones a tiempo. Cumple tu penitencia para restaurar tu honor:</span>
                         </div>
                     </div>
-                    <button class="btn-cumplir-penitencia-sm" onclick="cumplirPenitenciaQuest('${qp.id}')">
-                        ✓ Cumplir Castigo
-                    </button>
-                </div>`;
-            }).join('');
-
-            contAlertas.innerHTML = `
-            <div class="alerta-penitencia-box">
-                <div class="alerta-penitencia-header">
-                    <span style="font-size: 20px;">💀</span>
-                    <div>
-                        <h4 style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
-                            PENITENCIAS ACTIVAS DEL SISTEMA (${questsPenalizadas.length})
-                        </h4>
-                        <span style="font-size: 12px; color: #b91c1c;">No completaste estas quests en su tiempo. Cumple tu penitencia para restaurar tu honor:</span>
+                    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        ${itemsPenitencia}
                     </div>
-                </div>
-                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
-                    ${itemsPenitencia}
-                </div>
-            </div>`;
-        } else {
-            contAlertas.innerHTML = '';
-        }
-    }
-
-    if (qList.length === 0) {
-        cont.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
-            <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚔️</span>
-            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes hábitos o misiones configuradas</h4>
-            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                Agrega tus hábitos, misiones y rutinas diarias. Puedes configurarlos con temporizador, hora fija con alarma o cumplimiento libre en el día.
-            </p>
-            <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
-                ➕ Crear Primer Hábito o Misión
-            </button>
-        </div>`;
-        return;
-    }
-
-    var html = '';
-    qList.forEach(function(q) {
-        var esLibre = (q.tipoTiempo === 'libre');
-        var esPenalizada = (q.estado === 'penalizada');
-        var esCompletada = (q.estado === 'completada');
-        var esPenitenciaCumplida = (q.estado === 'penitencia_cumplida');
-        var esEnProgreso = (q.estado === 'en_progreso' || q.temporizadorActivo);
-        var esPospuesta = (q.estado === 'pospuesta');
-        var esOmitible = (q.esOmitible !== false);
-
-        var cardClass = 'quest-diario-card';
-        if (esPenalizada) cardClass += ' penalizada';
-        else if (esCompletada) cardClass += ' completada';
-        else if (esPenitenciaCumplida) cardClass += ' penitencia-saldada';
-        else if (esEnProgreso) cardClass += ' en-progreso';
-
-        var badgeEstado = '';
-        if (esLibre) {
-            badgeEstado = esCompletada
-                ? '<span class="qd-badge qd-badge-success">✓ CUMPLIDO</span>'
-                : '<span class="qd-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700;">🎯 HÁBITO LIBRE</span>';
-        } else if (esPenalizada) {
-            badgeEstado = '<span class="qd-badge qd-badge-danger">💀 PENALIZADA</span>';
-        } else if (esCompletada) {
-            badgeEstado = '<span class="qd-badge qd-badge-success">✓ COMPLETADA A TIEMPO</span>';
-        } else if (esPenitenciaCumplida) {
-            badgeEstado = '<span class="qd-badge qd-badge-neutral">✓ PENITENCIA CUMPLIDA</span>';
-        } else if (esEnProgreso) {
-            badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
-        } else if (esPospuesta) {
-            var minPosp = q.pospuestaHasta ? Math.max(1, Math.round((q.pospuestaHasta - Date.now()) / 60000)) : 60;
-            badgeEstado = `<span class="qd-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
-        } else {
-            badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
-        }
-
-        // Badge de Omitible vs No Omitible
-        var badgeOmitible = esLibre
-            ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">🗓️ Flexible</span>`
-            : (esOmitible
-                ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">⏳ Omitible</span>`
-                : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🚨 NO OMITIBLE</span>`);
-
-        // Sección de tiempo asignado
-        var bloqueTiempo = '';
-        if (esLibre) {
-            bloqueTiempo = `
-            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">🗓️ CUMPLIMIENTO LIBRE:</span>
-                <span style="font-size: 12px; color: #34d399; font-weight: 700;">Sin límite de tiempo · Todo el día</span>
-            </div>`;
-        } else if (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion') {
-            var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
-            var tiempoStr = formatearSegundos(segsRest);
-            var totalSegs = (q.tiempoMinutos || 15) * 60;
-            var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
-
-            var labelTiempo = (q.tipoTiempo === 'programada')
-                ? `⏰ SE ACTIVA A LAS: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN) <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="margin-left: 6px; padding: 2px 7px; font-size: 11px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: #131826; color: #cbd5e1; cursor: pointer;">⏰ Alarma Móvil</button>`
-                : `⏱️ TIEMPO ASIGNADO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
-
-            bloqueTiempo = `
-            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
-                    <span style="color: #94a3b8; font-weight: 600;">${labelTiempo}</span>
-                    <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 14px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
-                        ${tiempoStr}
-                    </span>
-                </div>
-                <div style="background: rgba(255, 255, 255, 0.1); height: 6px; border-radius: 9999px; overflow: hidden;">
-                    <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')}; transition: width 0.3s ease;"></div>
-                </div>
-            </div>`;
-        } else {
-            bloqueTiempo = `
-            <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">⏰ HORA LÍMITE ASIGNADA:</span>
-                <span style="font-weight: 800; font-size: 13.5px; color: #f8fafc;">Antes de las ${q.horaLimite || '08:30'}</span>
-            </div>`;
-        }
-
-        // Botones de acción
-        var botonesAccion = '';
-        if (esLibre) {
-            if (esCompletada) {
-                botonesAccion = `
-                <button class="btn-qd-action btn-qd-done" disabled>
-                    ✓ Cumplido (+${q.exp || 40}% EXP)
-                </button>`;
+                </div>`;
             } else {
-                botonesAccion = `
-                <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
-                    ✓ Completar
-                </button>`;
+                contAlertas.innerHTML = '';
             }
-        } else if (esPenalizada) {
-            botonesAccion = `
-            <button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">
-                💀 Pagar Penitencia: ${q.penitencia || '30 Flexiones'}
-            </button>`;
-        } else if (esCompletada) {
-            botonesAccion = `
-            <button class="btn-qd-action btn-qd-done" disabled>
-                ✓ Hecho a Tiempo (+${q.exp || 40}% EXP)
-            </button>`;
-        } else if (esPenitenciaCumplida) {
-            botonesAccion = `
-            <button class="btn-qd-action btn-qd-done" disabled>
-                ✓ Penitencia Saldada
-            </button>`;
-        } else if (esPospuesta) {
-            botonesAccion = `
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">
-                    ▶️ Empezar Ahora
-                </button>
-                <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
-                    ✓ Completar Quest
+        }
+
+        if (qList.length === 0) {
+            cont.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
+                <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚔️</span>
+                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes hábitos o misiones configuradas</h4>
+                <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+                    Agrega tus hábitos, misiones y rutinas diarias. Puedes configurarlos con temporizador, hora fija con alarma o cumplimiento libre en el día.
+                </p>
+                <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
+                    ➕ Crear Primer Hábito o Misión
                 </button>
             </div>`;
-        } else {
-            // Pendiente o en progreso
+            return;
+        }
+
+        var html = '';
+        qList.forEach(function(q) {
+            var esLibre = (q.tipoTiempo === 'libre');
+            var esPenalizada = (q.estado === 'penalizada');
+            var esCompletada = (q.estado === 'completada');
+            var esPenitenciaCumplida = (q.estado === 'penitencia_cumplida');
+            var esEnProgreso = (q.estado === 'en_progreso' || q.temporizadorActivo);
+            var esPospuesta = (q.estado === 'pospuesta');
+            var esOmitible = (q.esOmitible !== false);
+            var isExpanded = QUESTS_EXPANDIDAS.has(String(q.id));
+
+            var cardClass = 'quest-diario-card';
+            if (esPenalizada) cardClass += ' penalizada';
+            else if (esCompletada) cardClass += ' completada';
+            else if (esPenitenciaCumplida) cardClass += ' penitencia-saldada';
+            else if (esEnProgreso) cardClass += ' en-progreso';
+
+            var badgeEstado = '';
+            if (esLibre) {
+                badgeEstado = esCompletada
+                    ? '<span class="qd-badge qd-badge-success">✓ CUMPLIDO</span>'
+                    : '<span class="qd-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700;">🎯 HÁBITO LIBRE</span>';
+            } else if (esPenalizada) {
+                badgeEstado = '<span class="qd-badge qd-badge-danger">💀 PENALIZADA</span>';
+            } else if (esCompletada) {
+                badgeEstado = '<span class="qd-badge qd-badge-success">✓ COMPLETADA A TIEMPO</span>';
+            } else if (esPenitenciaCumplida) {
+                badgeEstado = '<span class="qd-badge qd-badge-neutral">✓ PENITENCIA CUMPLIDA</span>';
+            } else if (esEnProgreso) {
+                badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
+            } else if (esPospuesta) {
+                var minPosp = q.pospuestaHasta ? Math.max(1, Math.round((q.pospuestaHasta - Date.now()) / 60000)) : 60;
+                badgeEstado = `<span class="qd-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
+            } else {
+                badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
+            }
+
+            // Barra de temporizador visible cuando hay un tiempo asignado
+            var bloqueTiempo = '';
+            if (!esLibre && (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion')) {
+                var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
+                var tiempoStr = formatearSegundos(segsRest);
+                var totalSegs = (q.tiempoMinutos || 15) * 60;
+                var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
+
+                var labelTiempo = (q.tipoTiempo === 'programada')
+                    ? `⏰ SE ACTIVA: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN)`
+                    : `⏱️ TIEMPO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
+
+                bloqueTiempo = `
+                <div style="margin-top: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 6px 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px;">
+                        <span style="color: #94a3b8; font-weight: 600;">${labelTiempo}</span>
+                        <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 13px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
+                            ${tiempoStr}
+                        </span>
+                    </div>
+                    <div style="background: rgba(255, 255, 255, 0.1); height: 5px; border-radius: 9999px; overflow: hidden;">
+                        <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')}; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>`;
+            }
+
+            // Botones de acción compactos
+            var botonesAccion = '';
+            if (esLibre) {
+                if (esCompletada) {
+                    botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Cumplido</button>`;
+                } else {
+                    botonesAccion = `<button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
+                }
+            } else if (esPenalizada) {
+                botonesAccion = `
+                <button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">
+                    💀 Penitencia
+                </button>`;
+            } else if (esCompletada) {
+                botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Hecho</button>`;
+            } else if (esPenitenciaCumplida) {
+                botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Saldada</button>`;
+            } else if (esPospuesta) {
+                botonesAccion = `
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶️ Iniciar</button>
+                    <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
+                </div>`;
+            } else {
+                // Pendiente o en progreso
+                var btnTimer = '';
+                if (q.tipoTiempo === 'duracion' || q.tipoTiempo === 'programada') {
+                    if (q.temporizadorActivo) {
+                        btnTimer = `<button class="btn-qd-timer btn-qd-pause" onclick="pausarTemporizadorQuest('${q.id}')">⏸ Pausar</button>`;
+                    } else {
+                        btnTimer = `<button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶ Iniciar</button>`;
+                    }
+                }
+
+                botonesAccion = `
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    ${btnTimer}
+                    <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
+                </div>`;
+            }
+
             var btnOmit = (esEnProgreso && esOmitible)
                 ? `<button type="button" class="btn-qd-omit" onclick="posponerQuestUnaHora('${q.id}')" title="Posponer 1 hora">⏸️ Omitir (1h)</button>`
                 : '';
 
-            var btnTimer = '';
-            if (q.tipoTiempo === 'duracion' || q.tipoTiempo === 'programada') {
-                if (q.temporizadorActivo) {
-                    btnTimer = `<button class="btn-qd-timer btn-qd-pause" onclick="pausarTemporizadorQuest('${q.id}')">⏸ Pausar</button>`;
-                } else {
-                    btnTimer = `<button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶ Iniciar Tiempo</button>`;
-                }
-            }
+            var detallePenitencia = (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria')
+                ? '<span style="color: #94a3b8; font-weight: 500;">🎯 Cumplimiento Flexible</span>'
+                : `<span style="color: #ef4444; font-weight: 600;">💀 Castigo: ${q.penitencia}</span>`;
 
-            botonesAccion = `
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                ${btnOmit}
-                ${btnTimer}
-                <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">
-                    ✓ Completar
-                </button>
-            </div>`;
-        }
+            var badgeOmitible = esLibre
+                ? `<span style="color: #cbd5e1;">🗓️ Flexible</span>`
+                : (esOmitible
+                    ? `<span style="color: #cbd5e1;">⏳ Omitible</span>`
+                    : `<span style="color: #f87171; font-weight: 800;">🚨 NO OMITIBLE</span>`);
 
-        var detallePenitencia = (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria')
-            ? '<span style="color: #94a3b8; font-weight: 500; font-size: 12px;">🎯 Cumplimiento Flexible</span>'
-            : `<span style="color: #ef4444; font-weight: 600; font-size: 12px;">💀 Castigo: ${q.penitencia}</span>`;
-
-        html += `
-        <div class="${cardClass}">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
-                <div style="flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+            html += `
+            <div class="${cardClass}">
+                <!-- FILA PRINCIPAL COMPACTA (Solo Nombre, Estado, Botón Principal y Flecha) -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
                         ${badgeEstado}
-                        ${badgeOmitible}
+                        <h3 class="qd-title" style="margin: 0; font-size: 15px; font-weight: 700; ${(esCompletada || esPenitenciaCumplida) ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc;'}">${q.titulo}</h3>
                     </div>
-                    ${(q.atributos && q.atributos.length > 0) ? `
-                        <div class="atributos-chips-container" style="margin-bottom: 6px;">
-                            ${q.atributos.map(function(a) {
-                                return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '⚡'} ${a.nombre} (+${a.porcentaje}%)</span>`;
-                            }).join('')}
-                        </div>
-                    ` : ''}
-                    <h3 class="qd-title" style="${(esCompletada || esPenitenciaCumplida) ? 'text-decoration: line-through; color: #6b7280;' : ''}">${q.titulo}</h3>
-                    
-                    <div class="qd-details-row">
-                        <span style="color: #10b981; font-weight: 700; font-size: 12px;">+${q.exp || 40}% EXP Nivel</span>
-                        <span style="color: #4b5563;">•</span>
-                        ${detallePenitencia}
+
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        ${botonesAccion}
+                        <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleQuest('${q.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
+                            <span>${isExpanded ? '▲' : '▼'}</span>
+                        </button>
                     </div>
                 </div>
-                <button class="btn-delete-row" title="Eliminar ítem" onclick="eliminarQuestDiaria('${q.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;">✕</button>
-            </div>
 
-            ${bloqueTiempo}
+                ${bloqueTiempo}
 
-            <div style="margin-top: 12px; display: flex; align-items: center; justify-content: flex-end;">
-                ${botonesAccion}
-            </div>
-        </div>`;
-    });
+                <!-- PANEL DESPLEGABLE CON INFORMACIÓN COMPLETA -->
+                <div class="card-detalle-desplegable" id="quest-detalle-${q.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
+                    ${q.beneficio ? `
+                        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
+                            🎁 <strong>Beneficio / Recompensa:</strong> ${q.beneficio}
+                        </div>
+                    ` : ''}
 
-    cont.innerHTML = html;
+                    <div style="display: flex; gap: 12px; font-size: 12px; flex-wrap: wrap; align-items: center;">
+                        <span style="color: #10b981; font-weight: 700;">+${q.exp || 40}% EXP de Nivel</span>
+                        <span style="color: #4b5563;">•</span>
+                        ${detallePenitencia}
+                        <span style="color: #4b5563;">•</span>
+                        ${badgeOmitible}
+                    </div>
+
+                    ${(q.atributos && q.atributos.length > 0) ? `
+                        <div style="margin-top: 2px;">
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Desarrolla:</span>
+                            <div class="atributos-chips-container">
+                                ${q.atributos.map(function(a) {
+                                    return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '⚡'} ${a.nombre} (+${a.porcentaje}%)</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            ${btnOmit}
+                            ${q.tipoTiempo === 'programada' ? `
+                                <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="padding: 4px 8px; font-size: 11px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: #131826; color: #cbd5e1; cursor: pointer;">
+                                    ⏰ Alarma Móvil
+                                </button>
+                            ` : ''}
+                        </div>
+                        <button onclick="eliminarQuestDiaria('${q.id}')" style="background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 11px; border-radius: 6px; padding: 4px 8px; cursor: pointer;">
+                            ✕ Eliminar Hábito/Misión
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        cont.innerHTML = html;
     } catch(err) {
         console.error("[Renderizar Quests] Error:", err);
         cont.innerHTML = '<div style="text-align:center; padding:20px; color:#6b7280;">' +
@@ -2034,6 +2071,7 @@ function abrirModalNuevaQuestDiaria() {
     renderizarFilasAtributos('quest');
 
     var inNom = document.getElementById('modal-qd-nombre');
+    var inBen = document.getElementById('modal-qd-beneficio');
     var inMin = document.getElementById('modal-qd-minutos');
     var inHoraAct = document.getElementById('modal-qd-hora-activacion');
     var inHoraLim = document.getElementById('modal-qd-hora');
@@ -2044,6 +2082,7 @@ function abrirModalNuevaQuestDiaria() {
     var chkOmit = document.getElementById('modal-qd-es-omitible');
 
     if (inNom) inNom.value = '';
+    if (inBen) inBen.value = '';
     if (selTipoT) selTipoT.value = 'libre';
     if (inHoraAct) inHoraAct.value = '08:00';
     if (inMin) inMin.value = '15';
@@ -2051,11 +2090,19 @@ function abrirModalNuevaQuestDiaria() {
     if (inExp) inExp.value = '40';
     if (chkOmit) chkOmit.checked = true;
 
+    if (selPen) {
+        poblarSelectPenitenciasModalNuevaQuest(selPen);
+    }
+
     if (inPenCustom) {
         inPenCustom.value = '';
         inPenCustom.style.display = 'none';
     }
-    if (selPen) selPen.value = '30 Flexiones inmediatas';
+
+    var defPen = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
+    if (selPen && selPen.querySelector(`option[value="${defPen}"]`)) {
+        selPen.value = defPen;
+    }
 
     toggleTipoTiempoQuestModal();
     alCambiarOmitibleQuestModal();
@@ -2144,6 +2191,7 @@ function togglePenitenciaCustomModal() {
 
 function confirmarAgregarQuestDiaria() {
     var inNom = document.getElementById('modal-qd-nombre');
+    var inBen = document.getElementById('modal-qd-beneficio');
     var selCat = document.getElementById('modal-qd-categoria');
     var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
     var inHoraAct = document.getElementById('modal-qd-hora-activacion');
@@ -2160,6 +2208,7 @@ function confirmarAgregarQuestDiaria() {
         return;
     }
 
+    var beneficio = inBen ? inBen.value.trim() : '';
     var categoria = selCat ? selCat.value : '⚡ Misión / Hábito';
     var tipoTiempo = selTipoT ? selTipoT.value : 'libre';
     var horaActivacion = inHoraAct ? inHoraAct.value : '08:00';
@@ -2210,6 +2259,7 @@ function confirmarAgregarQuestDiaria() {
     var nuevaQ = {
         id: "QD-" + Date.now(),
         titulo: nombre,
+        beneficio: beneficio,
         categoria: (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : categoria,
         tipoTiempo: tipoTiempo,
         horaActivacion: horaActivacion,
@@ -2241,6 +2291,179 @@ function confirmarAgregarQuestDiaria() {
             solicitarPermisoNotificaciones(false);
         }, 300);
     }
+}
+
+// ==========================================================================
+// CONFIGURACIÓN Y GESTIÓN DE PENITENCIAS (SETTINGS)
+// ==========================================================================
+
+var PENITENCIAS_PREDETERMINADAS = [
+    "30 Flexiones inmediatas",
+    "50 Flexiones inmediatas",
+    "1 Minuto de Plancha estricta",
+    "Ducha de agua fría obligatoria",
+    "Pérdida de 40 EXP del Avatar",
+    "15 Minutos de limpieza sin móvil",
+    "10 Burpees inmediatos",
+    "20 Sentadillas profundas",
+    "Desconexión digital de 1 hora"
+];
+
+function obtenerListaPenitencias() {
+    if (!APP_STATE.configPenitencias) {
+        APP_STATE.configPenitencias = {
+            default: "30 Flexiones inmediatas",
+            expPenalizacion: 30,
+            lista: [...PENITENCIAS_PREDETERMINADAS]
+        };
+    }
+    if (!Array.isArray(APP_STATE.configPenitencias.lista) || APP_STATE.configPenitencias.lista.length === 0) {
+        APP_STATE.configPenitencias.lista = [...PENITENCIAS_PREDETERMINADAS];
+    }
+    return APP_STATE.configPenitencias.lista;
+}
+
+function poblarSelectPenitenciasModalNuevaQuest(sel) {
+    if (!sel) return;
+    var lista = obtenerListaPenitencias();
+    var def = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
+    
+    var html = '';
+    lista.forEach(function(pen) {
+        html += `<option value="${pen}">${pen.startsWith('💀') ? pen : '💀 ' + pen}</option>`;
+    });
+    html += '<option value="custom">✏️ Personalizada (Escribir abajo)</option>';
+    sel.innerHTML = html;
+    if (lista.includes(def)) {
+        sel.value = def;
+    } else if (lista.length > 0) {
+        sel.value = lista[0];
+    }
+}
+
+function abrirModalSettingsPenitencias() {
+    var m = document.getElementById('modal-settings-penitencias');
+    if (!m) return;
+
+    if (!APP_STATE.configPenitencias) {
+        APP_STATE.configPenitencias = {
+            default: "30 Flexiones inmediatas",
+            expPenalizacion: 30,
+            lista: [...PENITENCIAS_PREDETERMINADAS]
+        };
+    }
+
+    renderizarSelectYListaPenitencias();
+
+    var selExp = document.getElementById('settings-penitencia-exp');
+    if (selExp) {
+        var currentExp = (APP_STATE.configPenitencias.expPenalizacion !== undefined) ? APP_STATE.configPenitencias.expPenalizacion : 30;
+        selExp.value = String(currentExp);
+    }
+
+    var inNueva = document.getElementById('settings-nueva-penitencia-txt');
+    if (inNueva) inNueva.value = '';
+
+    m.style.display = 'flex';
+}
+
+function cerrarModalSettingsPenitencias() {
+    var m = document.getElementById('modal-settings-penitencias');
+    if (m) m.style.display = 'none';
+}
+
+function renderizarSelectYListaPenitencias() {
+    var lista = obtenerListaPenitencias();
+    var selDef = document.getElementById('settings-penitencia-default');
+    var contLista = document.getElementById('settings-lista-penitencias');
+
+    var currentDef = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
+
+    if (selDef) {
+        selDef.innerHTML = lista.map(function(pen) {
+            var selected = (pen === currentDef) ? 'selected' : '';
+            return `<option value="${pen}" ${selected}>💀 ${pen}</option>`;
+        }).join('');
+    }
+
+    if (contLista) {
+        if (lista.length === 0) {
+            contLista.innerHTML = '<div style="color: #64748b; font-size: 12px; text-align: center; padding: 10px;">No hay penitencias registradas.</div>';
+        } else {
+            contLista.innerHTML = lista.map(function(pen, idx) {
+                var isDef = (pen === currentDef);
+                return `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span style="font-size: 13px;">💀</span>
+                        <span style="font-size: 12.5px; color: ${isDef ? '#f59e0b' : '#f8fafc'}; font-weight: ${isDef ? '700' : '500'};">${pen} ${isDef ? '<span style="font-size: 10.5px; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Por defecto</span>' : ''}</span>
+                    </div>
+                    <button type="button" onclick="eliminarPenitenciaSettings(${idx})" title="Eliminar penitencia" style="background: none; border: none; color: #ef4444; font-size: 13px; cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">✕</button>
+                </div>`;
+            }).join('');
+        }
+    }
+}
+
+function agregarPenitenciaDesdeSettings() {
+    var inTxt = document.getElementById('settings-nueva-penitencia-txt');
+    if (!inTxt) return;
+    var texto = inTxt.value.trim();
+    if (!texto) {
+        alert("Por favor escribe el texto de la penitencia.");
+        return;
+    }
+
+    var lista = obtenerListaPenitencias();
+    if (lista.some(function(p) { return p.toLowerCase() === texto.toLowerCase(); })) {
+        alert("Esta penitencia ya existe en la biblioteca.");
+        return;
+    }
+
+    lista.push(texto);
+    APP_STATE.configPenitencias.lista = lista;
+    MonarcaDB.save(APP_STATE);
+    inTxt.value = '';
+    renderizarSelectYListaPenitencias();
+}
+
+function eliminarPenitenciaSettings(idx) {
+    var lista = obtenerListaPenitencias();
+    if (idx < 0 || idx >= lista.length) return;
+
+    var eliminada = lista[idx];
+    lista.splice(idx, 1);
+    APP_STATE.configPenitencias.lista = lista;
+
+    if (APP_STATE.configPenitencias.default === eliminada) {
+        APP_STATE.configPenitencias.default = lista.length > 0 ? lista[0] : '';
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarSelectYListaPenitencias();
+}
+
+function guardarSettingsPenitencias() {
+    var selDef = document.getElementById('settings-penitencia-default');
+    var selExp = document.getElementById('settings-penitencia-exp');
+
+    if (!APP_STATE.configPenitencias) APP_STATE.configPenitencias = {};
+
+    if (selDef && selDef.value) {
+        APP_STATE.configPenitencias.default = selDef.value;
+    }
+    if (selExp) {
+        APP_STATE.configPenitencias.expPenalizacion = parseInt(selExp.value, 10) || 0;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalSettingsPenitencias();
+
+    // Actualizar select de penitencias en modal de nueva quest si está presente
+    var selPen = document.getElementById('modal-qd-penitencia-select');
+    if (selPen) poblarSelectPenitenciasModalNuevaQuest(selPen);
+
+    alert("✓ Ajustes de penitencias y disciplina guardados correctamente.");
 }
 
 

@@ -3706,62 +3706,148 @@ body.modal-open {
     border-radius: 8px;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .btn-qd-start {
-    background: #eff6ff;
-    color: #2563eb;
-    border-color: #bfdbfe;
+    background: rgba(56, 189, 248, 0.12) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
 }
 
 .btn-qd-start:hover {
-    background: #dbeafe;
+    background: rgba(56, 189, 248, 0.22) !important;
+    border-color: #38bdf8 !important;
 }
 
 .btn-qd-pause {
-    background: #fef3c7;
-    color: #b45309;
-    border-color: #fde68a;
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
 }
 
 .btn-qd-pause:hover {
-    background: #fde68a;
+    background: rgba(245, 158, 11, 0.22) !important;
+    border-color: #fbbf24 !important;
+}
+
+.btn-qd-omit {
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #cbd5e1 !important;
+    padding: 7px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-qd-omit:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.btn-qd-omit:active {
+    transform: scale(0.97);
 }
 
 .btn-qd-action {
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 700;
-    padding: 8px 14px;
+    padding: 7px 14px;
     border-radius: 8px;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .btn-qd-success {
-    background: #111827;
-    color: #ffffff;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(16, 185, 129, 0.4) !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
 }
 
 .btn-qd-success:hover {
-    background: #1f2937;
+    filter: brightness(1.1);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
 }
 
 .btn-qd-done {
-    background: #e5e7eb;
-    color: #6b7280;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #64748b !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     cursor: default;
 }
 
 .btn-qd-danger {
-    background: #dc2626;
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
 }
 
 .btn-qd-danger:hover {
-    background: #b91c1c;
+    background: rgba(239, 68, 68, 0.25) !important;
+    color: #ffffff !important;
+}
+
+/* Botón flecha / chevron para expandir detalles en cards */
+.btn-toggle-detalle {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    gap: 4px;
+}
+
+.btn-toggle-detalle:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-toggle-detalle.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+}
+
+/* Panel Desplegable de Detalles en Cards */
+.card-detalle-desplegable {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: #0b0e15;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeInDetalle 0.2s ease;
+}
+
+@keyframes fadeInDetalle {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ==========================================================================
@@ -5483,32 +5569,6 @@ body.modal-open {
         width: 46px;
         height: 46px;
     }
-}
-
-/* Botón de Omitir / Posponer Quests */
-.btn-qd-omit {
-    border: 1px solid #d1d5db;
-    background: #ffffff;
-    color: #4b5563;
-    padding: 7px 12px;
-    font-size: 11.5px;
-    font-weight: 700;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.btn-qd-omit:hover {
-    background: #f3f4f6;
-    color: #111827;
-    border-color: #9ca3af;
-}
-
-.btn-qd-omit:active {
-    transform: scale(0.97);
 }
 
 
