@@ -1716,7 +1716,7 @@ function renderizarPortalesRutinasEjercicios() {
         var borderAccent = esMental ? '#2563eb' : (esHibrida ? '#f59e0b' : '#111827');
 
         html += `
-        <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid ${borderAccent};">
+        <div class="quest-card" onclick="abrirDetalleRutina('${rut.id || idx}')" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid ${borderAccent};">
             <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
             <div style="flex:1; padding-left: 4px;">
               <span class="quest-badge-rank">${cleanRank}</span>
@@ -1728,7 +1728,7 @@ function renderizarPortalesRutinasEjercicios() {
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button class="btn-delete-row" title="Eliminar rutina" onclick="eliminarRutina(${idx}, event)" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 6px;">✕</button>
+                <button type="button" class="btn-delete-row" title="Eliminar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); eliminarRutina('${rut.id || idx}', event)" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 8px; z-index: 5; position: relative;">✕</button>
                 <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
             </div>
         </div>`;
@@ -2220,36 +2220,47 @@ function calcularEtapasDropset(pesoTotal) {
     var bajada2 = Math.round((p2 - p3) * 10) / 10;
     var bajada3 = Math.round((p3 - p4) * 10) / 10;
 
-    return [
+    var arr = [
         {
             num: 1,
             titulo: "Serie Base (100% Carga)",
             peso: p1,
             repsInfo: "Reps objetivo completas",
-            discos: esBarra ? ("Carga completa (" + Math.round((p1 - 20) / 2) + " kg en discos por lado)") : "Carga inicial total"
+            discos: esBarra ? ("Carga completa (" + Math.round((p1 - 20) / 2) + " kg en discos por lado)") : "Carga inicial total",
+            detalle: esBarra ? ("Carga completa (" + Math.round((p1 - 20) / 2) + " kg en discos por lado)") : "Carga inicial total"
         },
         {
             num: 2,
             titulo: "Bajada 1 · Al Fallo",
             peso: p2,
             repsInfo: "Reps al fallo muscular",
-            discos: detalleDiscosLado(bajada1)
+            discos: detalleDiscosLado(bajada1),
+            detalle: detalleDiscosLado(bajada1)
         },
         {
             num: 3,
             titulo: "Bajada 2 · Al Fallo",
             peso: p3,
             repsInfo: "Reps al fallo muscular",
-            discos: detalleDiscosLado(bajada2)
+            discos: detalleDiscosLado(bajada2),
+            detalle: detalleDiscosLado(bajada2)
         },
         {
             num: 4,
             titulo: "Bajada 3 · Agotamiento Total",
             peso: p4,
             repsInfo: "Reps al fallo extremo (vaciamiento)",
-            discos: (p4 === 20 && esBarra) ? "Retirar todos los discos restantes (Barra sola 20 kg)" : (bajada3 > 0 ? detalleDiscosLado(bajada3) : "Sin carga adicional")
+            discos: (p4 === 20 && esBarra) ? "Retirar todos los discos restantes (Barra sola 20 kg)" : (bajada3 > 0 ? detalleDiscosLado(bajada3) : "Sin carga adicional"),
+            detalle: (p4 === 20 && esBarra) ? "Retirar todos los discos restantes (Barra sola 20 kg)" : (bajada3 > 0 ? detalleDiscosLado(bajada3) : "Sin carga adicional")
         }
     ];
+
+    arr.etapa1 = arr[0];
+    arr.etapa2 = arr[1];
+    arr.etapa3 = arr[2];
+    arr.etapa4 = arr[3];
+
+    return arr;
 }
 
 function alCambiarCheckEjercicioRutina(ejId) {
@@ -2531,17 +2542,42 @@ function confirmarAgregarRutina() {
     alert("✓ Rutina '" + nom + "' guardada con éxito con " + selectedEjercicios.length + " ejercicios.");
 }
 
-function eliminarRutina(idx, event) {
-    if (event) event.stopPropagation();
+function eliminarRutina(rutinaIdOIdx, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
     if (!confirm("¿Deseas eliminar esta rutina programada?")) return;
     if (!APP_STATE.rutinas) return;
-    var r = APP_STATE.rutinas[idx];
+
+    var targetIdx = -1;
+    if (typeof rutinaIdOIdx === 'string') {
+        targetIdx = APP_STATE.rutinas.findIndex(function(r) { return r && (r.id === rutinaIdOIdx || r.codigo === rutinaIdOIdx); });
+        if (targetIdx === -1 && !isNaN(parseInt(rutinaIdOIdx))) {
+            targetIdx = parseInt(rutinaIdOIdx);
+        }
+    } else {
+        targetIdx = rutinaIdOIdx;
+    }
+
+    if (targetIdx < 0 || targetIdx >= APP_STATE.rutinas.length) {
+        console.warn("No se encontró rutina a eliminar:", rutinaIdOIdx);
+        return;
+    }
+
+    var r = APP_STATE.rutinas[targetIdx];
     if (r && r.id && typeof registrarTombstone === 'function') {
         registrarTombstone('rutinas', r.id);
     }
-    APP_STATE.rutinas.splice(idx, 1);
+    APP_STATE.rutinas.splice(targetIdx, 1);
     MonarcaDB.save(APP_STATE);
-    renderizarPortalesRutinas(APP_STATE.rutinas);
+
+    // Re-renderizar ambas vistas para actualizar la pantalla al instante
+    renderizarPortalesRutinasEjercicios();
+    if (typeof renderizarPortalesRutinas === 'function') {
+        renderizarPortalesRutinas(APP_STATE.rutinas);
+    }
 }
 
 function renderizarPortalesRutinas(rutinas) {
@@ -2573,7 +2609,7 @@ function renderizarPortalesRutinas(rutinas) {
         var cleanRank = (rut.rankLabel || 'SESIÓN').replace(/[^\w\s·-]/gi, '').trim();
 
         html += `
-        <div class="quest-card" onclick="abrirDetalleRutina(${idx})" style="position: relative; cursor: pointer; border-radius: 14px;">
+        <div class="quest-card" onclick="abrirDetalleRutina('${rut.id || idx}')" style="position: relative; cursor: pointer; border-radius: 14px;">
             <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
             <div style="flex:1; padding-left: 4px;">
               <span class="quest-badge-rank">${cleanRank}</span>
@@ -2584,7 +2620,7 @@ function renderizarPortalesRutinas(rutinas) {
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button class="btn-delete-row" title="Eliminar rutina" onclick="eliminarRutina(${idx}, event)" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 6px; border-radius: 6px;">✕</button>
+                <button type="button" class="btn-delete-row" title="Eliminar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); eliminarRutina('${rut.id || idx}', event)" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 8px; z-index: 5; position: relative;">✕</button>
                 <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
             </div>
         </div>`;
@@ -3183,7 +3219,27 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         for (var s = 1; s <= numSeries; s++) {
             var esFallo = (!esM && ej.alFallo && s === numSeries);
             if (esFallo) {
-                var etapas = calcularEtapasDropset(ej.peso || 80);
+                var etapas = [];
+                try {
+                    etapas = calcularEtapasDropset(ej.peso || 80);
+                } catch(err) {
+                    console.error("Error calculando dropset:", err);
+                }
+                var e1 = (Array.isArray(etapas) ? etapas[0] : (etapas ? etapas.etapa1 : null)) || {};
+                var e2 = (Array.isArray(etapas) ? etapas[1] : (etapas ? etapas.etapa2 : null)) || {};
+                var e3 = (Array.isArray(etapas) ? etapas[2] : (etapas ? etapas.etapa3 : null)) || {};
+                var e4 = (Array.isArray(etapas) ? etapas[3] : (etapas ? etapas.etapa4 : null)) || {};
+
+                var p1 = e1.peso != null ? e1.peso : (ej.peso || 80);
+                var p2 = e2.peso != null ? e2.peso : Math.max(0, p1 - 20);
+                var p3 = e3.peso != null ? e3.peso : Math.max(0, p2 - 20);
+                var p4 = e4.peso != null ? e4.peso : (p1 >= 30 ? 20 : 0);
+
+                var d1 = e1.discos || e1.detalle || 'Carga inicial completa';
+                var d2 = e2.discos || e2.detalle || 'Bajar peso';
+                var d3 = e3.discos || e3.detalle || 'Bajar peso';
+                var d4 = e4.discos || e4.detalle || 'Barra sola / sin carga';
+
                 html += `
                 <div class="series-check-row series-al-fallo" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
                     <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
@@ -3203,16 +3259,16 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; font-size: 11px;">
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #38bdf8;">
-                            <strong style="color:#38bdf8;">1ª:</strong> ${etapas.etapa1.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa1.detalle}</div>
+                            <strong style="color:#38bdf8;">1ª:</strong> ${p1} kg <div style="color:#94a3b8; font-size:10px;">${d1}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #818cf8;">
-                            <strong style="color:#818cf8;">2ª:</strong> ${etapas.etapa2.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa2.detalle}</div>
+                            <strong style="color:#818cf8;">2ª:</strong> ${p2} kg <div style="color:#94a3b8; font-size:10px;">${d2}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #f59e0b;">
-                            <strong style="color:#f59e0b;">3ª:</strong> ${etapas.etapa3.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa3.detalle}</div>
+                            <strong style="color:#f59e0b;">3ª:</strong> ${p3} kg <div style="color:#94a3b8; font-size:10px;">${d3}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #ef4444;">
-                            <strong style="color:#ef4444;">4ª:</strong> ${etapas.etapa4.peso} kg <div style="color:#94a3b8; font-size:10px;">${etapas.etapa4.detalle}</div>
+                            <strong style="color:#ef4444;">4ª:</strong> ${p4} kg <div style="color:#94a3b8; font-size:10px;">${d4}</div>
                         </div>
                     </div>
                 </div>`;
@@ -3240,9 +3296,29 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
     return html;
 }
 
-function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
-    var rutina = APP_STATE.rutinas[idx];
-    if (!rutina) return;
+function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
+    if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
+    var rutina = null;
+    var idx = -1;
+
+    if (typeof idxOrId === 'string') {
+        idx = APP_STATE.rutinas.findIndex(function(r) { return r && (r.id === idxOrId || r.codigo === idxOrId); });
+        if (idx !== -1) {
+            rutina = APP_STATE.rutinas[idx];
+        } else if (!isNaN(parseInt(idxOrId))) {
+            idx = parseInt(idxOrId);
+            rutina = APP_STATE.rutinas[idx];
+        }
+    } else if (typeof idxOrId === 'number') {
+        idx = idxOrId;
+        rutina = APP_STATE.rutinas[idx];
+    }
+
+    if (!rutina) {
+        console.warn("Rutina no encontrada para:", idxOrId);
+        return;
+    }
+
     RUTINA_ACTIVA = { rutina: rutina, idx: idx };
 
     cambiarVista('vista-detalle-rutina-dinamica');
@@ -3269,7 +3345,12 @@ function abrirDetalleRutina(idx, omitirAutoCalentamiento) {
         btnReg.disabled = true;
     }
 
-    cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
+    try {
+        cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
+    } catch(err) {
+        console.error("Error al renderizar tarjetas de ejercicios de sesión:", err);
+        cont.innerHTML = '<p style="color: #ef4444; padding: 20px; text-align: center;">Error al cargar ejercicios: ' + err.message + '</p>';
+    }
 
     if (!omitirAutoCalentamiento) {
         setTimeout(function() {
