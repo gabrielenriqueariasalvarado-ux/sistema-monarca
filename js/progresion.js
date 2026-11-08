@@ -157,7 +157,7 @@ function renderizarFilasAtributos(contexto) {
             </div>
             <div class="fila-atributo-pct-box">
                 <input type="number" class="input-atributo-pct" min="1" max="100" value="${item.porcentaje || 20}" onchange="actualizarPorcentajeAtributo('${contexto}', '${item.clave}', this.value)" title="Porcentaje de desarrollo / impacto">
-                <span style="font-size: 12px; font-weight: 800; color: #4b5563;">%</span>
+                <span style="font-size: 12px; font-weight: 800; color: #94a3b8;">%</span>
                 <button type="button" class="btn-quitar-atributo" onclick="quitarAtributoModal('${contexto}', '${item.clave}')" title="Quitar atributo">✕</button>
             </div>
         </div>`;
@@ -746,7 +746,7 @@ function renderizarHabilidades(skills) {
                 </div>
                 ${(s.atributos && s.atributos.length > 0) ? `
                     <div class="atributos-chips-container" style="margin-top: 6px;">
-                        <span style="font-size: 11px; color: #6b7280; font-weight: 700; display: inline-flex; align-items: center;">Desarrollo:</span>
+                        <span style="font-size: 11px; color: #cbd5e1; font-weight: 700; display: inline-flex; align-items: center;">Desarrollo:</span>
                         ${s.atributos.map(function(a) {
                             return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '🔮'} ${a.nombre} (+${a.porcentaje}% / h)</span>`;
                         }).join('')}

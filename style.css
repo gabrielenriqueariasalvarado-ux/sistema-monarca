@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SISTEMA MONARCA · CYBERNETIC BIO-TELEMETRY & EXECUTIVE OS (v9.6)
+   SISTEMA MONARCA · CYBERNETIC BIO-TELEMETRY & EXECUTIVE OS (v9.7)
    Diseño de Alta Fidelidad: Estilo PaceFuel / Huly / Dark Modern Precision
    ========================================================================== */
 
@@ -4941,17 +4941,17 @@ body.modal-open {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
-    padding: 7px 12px;
+    padding: 8px 12px;
     gap: 10px;
     transition: all 0.2s ease;
 }
 
 .fila-atributo-item:hover {
-    border-color: #d1d5db;
-    background: #ffffff;
+    border-color: rgba(99, 102, 241, 0.4);
+    background: #161c2d;
 }
 
 .fila-atributo-info {
@@ -4961,28 +4961,28 @@ body.modal-open {
     flex: 1;
     font-size: 13px;
     font-weight: 700;
-    color: #111827;
+    color: #f8fafc;
 }
 
 .fila-atributo-tipo-badge {
     font-size: 10px;
     font-weight: 800;
-    padding: 2px 6px;
+    padding: 2px 7px;
     border-radius: 6px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .tipo-badge-cuerpo {
-    background: #e5e7eb;
-    color: #111827;
-    border: 1px solid #d1d5db;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .tipo-badge-mente {
-    background: #374151;
-    color: #ffffff;
-    border: 1px solid #111827;
+    background: rgba(139, 92, 246, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(139, 92, 246, 0.35);
 }
 
 .fila-atributo-pct-box {
@@ -4993,31 +4993,39 @@ body.modal-open {
 
 .input-atributo-pct {
     width: 60px;
-    padding: 5px 8px;
+    padding: 6px 8px;
     border-radius: 8px;
-    border: 1px solid #d1d5db;
-    background: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: #0b0e15;
     font-size: 13px;
     font-weight: 800;
-    color: #111827;
+    color: #f8fafc;
     text-align: right;
+    transition: all 0.2s ease;
+}
+
+.input-atributo-pct:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+    outline: none;
 }
 
 .btn-quitar-atributo {
     background: none;
     border: none;
-    color: #ef4444;
+    color: #f87171;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
     padding: 4px 6px;
     border-radius: 6px;
     line-height: 1;
-    transition: background 0.15s ease;
+    transition: all 0.15s ease;
 }
 
 .btn-quitar-atributo:hover {
-    background: #fee2e2;
+    background: rgba(239, 68, 68, 0.18);
+    color: #ef4444;
 }
 
 /* Badges / Chips de Atributos en Tarjetas de Quests, Misiones y Skills */
@@ -5031,26 +5039,42 @@ body.modal-open {
 .chip-atributo-impacto {
     font-size: 11px;
     font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #1f2937;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: #121725;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f8fafc;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+
+.chip-atributo-impacto:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .chip-atributo-impacto.cuerpo {
-    background: #f9fafb;
-    border-color: #d1d5db;
-    color: #111827;
+    background: rgba(245, 158, 11, 0.14) !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    color: #fbbf24 !important;
+}
+
+.chip-atributo-impacto.cuerpo:hover {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    background: rgba(245, 158, 11, 0.22) !important;
 }
 
 .chip-atributo-impacto.mente {
-    background: #f3f4f6;
-    border-color: #cbd5e1;
-    color: #0f172a;
+    background: rgba(139, 92, 246, 0.14) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #c084fc !important;
+}
+
+.chip-atributo-impacto.mente:hover {
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    background: rgba(139, 92, 246, 0.22) !important;
 }
 
 /* ==========================================================================

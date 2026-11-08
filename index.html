@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=9.6">
+    <link rel="stylesheet" href="style.css?v=9.7">
 </head>
 <body>
 
@@ -2108,12 +2108,12 @@
                 <div class="modal-form-group">
                     <label>Horas Iniciales:</label>
                     <input type="number" id="modal-habilidad-horas" class="modal-input" min="0" max="4" value="0">
-                    <span style="font-size: 11.5px; color: #6b7280; margin-top: 4px; display: block;">Toda habilidad nueva inicia estrictamente en <strong>Rango E</strong> (0 a 5 hrs) y escala progresivamente hasta <strong>Rango SSS</strong> (340+ hrs).</span>
+                    <span style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; display: block;">Toda habilidad nueva inicia estrictamente en <strong>Rango E</strong> (0 a 5 hrs) y escala progresivamente hasta <strong>Rango SSS</strong> (340+ hrs).</span>
                 </div>
                 <div class="modal-form-group">
                     <label style="font-weight: 700; color: #f8fafc; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span>🎯 Atributos que Potencia al Entrenar (por hora):</span>
-                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % por sesión</span>
+                        <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">Ajusta el % por sesión</span>
                     </label>
                     <div id="lista-atributos-habilidad" class="atributos-seleccionados-box"></div>
                     <div style="display: flex; gap: 8px; margin-top: 6px;">
@@ -4478,25 +4478,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=9.6"></script>
-    <script src="js/perfil.js?v=9.6"></script>
-    <script src="js/progresion.js?v=9.6"></script>
-    <script src="js/estado-personal.js?v=9.6"></script>
-    <script src="js/finanzas.js?v=9.6"></script>
-    <script src="js/ideas.js?v=9.6"></script>
-    <script src="js/dinamicas.js?v=9.6"></script>
-    <script src="js/calendario.js?v=9.6"></script>
-    <script src="js/inventario.js?v=9.6"></script>
-    <script src="js/jarvis-voz.js?v=9.6"></script>
+    <script src="js/core.js?v=9.7"></script>
+    <script src="js/perfil.js?v=9.7"></script>
+    <script src="js/progresion.js?v=9.7"></script>
+    <script src="js/estado-personal.js?v=9.7"></script>
+    <script src="js/finanzas.js?v=9.7"></script>
+    <script src="js/ideas.js?v=9.7"></script>
+    <script src="js/dinamicas.js?v=9.7"></script>
+    <script src="js/calendario.js?v=9.7"></script>
+    <script src="js/inventario.js?v=9.7"></script>
+    <script src="js/jarvis-voz.js?v=9.7"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=9.6"></script>
+    <script type="module" src="js/firebase-config.js?v=9.7"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=9.6')
+                navigator.serviceWorker.register('sw.js?v=9.7')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
