@@ -447,10 +447,10 @@ function renderizarMisiones(misiones) {
         });
     } else {
         html = `
-        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚡</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes misiones activas</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes misiones activas</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
                 Empieza a construir tu disciplina. Registra un nuevo hábito diario o semanal para comenzar a ganar EXP y subir de nivel.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaMision()">
@@ -508,121 +508,121 @@ function eliminarMision(id) {
 // ==========================================================================
 
 /**
- * Escala exacta requerida por el usuario:
- * Rango E (Mínimo): 0 - 5 horas (Entiendes la sintaxis básica y los "Hola mundo").
- * Rango D: 5 - 10 horas (Puedes hacer scripts sencillos tú solo).
- * Rango C: 10 - 20 horas (Empiezas a crear proyectos funcionales pequeños).
- * Rango B: 20 - 30 horas (Dominas lógica avanzada y depuración).
- * Rango A: 30 - 40 horas (Capaz de desarrollar software estructurado y eficiente).
- * Rango S: 40 - 50 horas (Nivel profesional junior / resolución de problemas complejos).
- * Rango SS: 50 - 60 horas (Dominio avanzado, arquitectura de sistemas) -> meta 70 hrs hacia SSS.
- * Rango SSS (Máximo): 70+ horas (Maestría absoluta / Nivel experto).
+ * Escala Progresiva de Maestría (Plazos alargados progresivamente):
+ * Rango E: 0 - 5 horas (Meta: 5 hrs | Duración: 5 hrs)
+ * Rango D: 5 - 15 horas (Meta: 15 hrs | Duración: 10 hrs)
+ * Rango C: 15 - 35 horas (Meta: 35 hrs | Duración: 20 hrs)
+ * Rango B: 35 - 70 horas (Meta: 70 hrs | Duración: 35 hrs)
+ * Rango A: 70 - 125 horas (Meta: 125 hrs | Duración: 55 hrs)
+ * Rango S: 125 - 210 horas (Meta: 210 hrs | Duración: 85 hrs)
+ * Rango SS: 210 - 340 horas (Meta: 340 hrs | Duración: 130 hrs)
+ * Rango SSS (Máximo): 340+ horas (Maestría Legendaria Absoluta)
  */
 function calcularRangoYProgreso(horas) {
     var h = Math.max(0, Number(horas) || 0);
 
-    if (h >= 70) {
+    if (h >= 340) {
         return {
             rango: "Rango SSS (Máximo)",
             badgeClass: "badge-rank-sss",
-            descripcion: "Maestría absoluta / Nivel experto.",
+            descripcion: "Maestría absoluta / Nivel legendario supremo alcanzado.",
             horasEnNivel: h,
-            horasReqNivel: 70,
+            horasReqNivel: 340,
             porcentaje: 100,
-            siguiente: "¡Maestría Absoluta Alcanzada!"
+            siguiente: "¡Maestría Legendaria Alcanzada!"
         };
-    } else if (h >= 50) {
-        // Rango SS: 50 - 70 hrs (meta SSS en 70)
-        var enNivel = h - 50;
-        var req = 20;
+    } else if (h >= 210) {
+        // Rango SS: 210 - 340 hrs (meta 340 hrs, req 130 hrs)
+        var enNivel = h - 210;
+        var req = 130;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 70 - h;
+        var faltan = 340 - h;
         return {
             rango: "Rango SS",
             badgeClass: "badge-rank-ss",
-            descripcion: "Dominio avanzado, arquitectura de sistemas.",
+            descripcion: "Dominio supremo, arquitectura y maestría avanzada.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para SSS"
         };
-    } else if (h >= 40) {
-        // Rango S: 40 - 50 hrs
-        var enNivel = h - 40;
-        var req = 10;
+    } else if (h >= 125) {
+        // Rango S: 125 - 210 hrs (meta 210 hrs, req 85 hrs)
+        var enNivel = h - 125;
+        var req = 85;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 50 - h;
+        var faltan = 210 - h;
         return {
             rango: "Rango S",
             badgeClass: "badge-rank-s",
-            descripcion: "Nivel profesional junior / resolución de problemas complejos.",
+            descripcion: "Nivel élite profesional / resolución de problemas de máxima complejidad.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para SS"
         };
-    } else if (h >= 30) {
-        // Rango A: 30 - 40 hrs
-        var enNivel = h - 30;
-        var req = 10;
+    } else if (h >= 70) {
+        // Rango A: 70 - 125 hrs (meta 125 hrs, req 55 hrs)
+        var enNivel = h - 70;
+        var req = 55;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 40 - h;
+        var faltan = 125 - h;
         return {
             rango: "Rango A",
             badgeClass: "badge-rank-a",
-            descripcion: "Capaz de desarrollar software estructurado y eficiente.",
+            descripcion: "Capacidad de estructuración eficiente y autonomía técnica total.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para S"
         };
-    } else if (h >= 20) {
-        // Rango B: 20 - 30 hrs
-        var enNivel = h - 20;
-        var req = 10;
+    } else if (h >= 35) {
+        // Rango B: 35 - 70 hrs (meta 70 hrs, req 35 hrs)
+        var enNivel = h - 35;
+        var req = 35;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 30 - h;
+        var faltan = 70 - h;
         return {
             rango: "Rango B",
             badgeClass: "badge-rank-b",
-            descripcion: "Dominas lógica avanzada y depuración.",
+            descripcion: "Dominas lógica avanzada, patrones y depuración de alto nivel.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para A"
         };
-    } else if (h >= 10) {
-        // Rango C: 10 - 20 hrs
-        var enNivel = h - 10;
-        var req = 10;
+    } else if (h >= 15) {
+        // Rango C: 15 - 35 hrs (meta 35 hrs, req 20 hrs)
+        var enNivel = h - 15;
+        var req = 20;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 20 - h;
+        var faltan = 35 - h;
         return {
             rango: "Rango C",
             badgeClass: "badge-rank-c",
-            descripcion: "Empiezas a crear proyectos funcionales pequeños.",
+            descripcion: "Desarrollas soluciones funcionales y proyectos pequeños con soltura.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para B"
         };
     } else if (h >= 5) {
-        // Rango D: 5 - 10 hrs
+        // Rango D: 5 - 15 hrs (meta 15 hrs, req 10 hrs)
         var enNivel = h - 5;
-        var req = 5;
+        var req = 10;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 10 - h;
+        var faltan = 15 - h;
         return {
             rango: "Rango D",
             badgeClass: "badge-rank-d",
-            descripcion: "Puedes hacer scripts sencillos tú solo.",
+            descripcion: "Ejecución práctica de conceptos y resolución de problemas guiados.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para C"
         };
     } else {
-        // Rango E: 0 - 5 hrs
+        // Rango E: 0 - 5 hrs (meta 5 hrs, req 5 hrs)
         var enNivel = h;
         var req = 5;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
@@ -630,7 +630,7 @@ function calcularRangoYProgreso(horas) {
         return {
             rango: "Rango E",
             badgeClass: "badge-rank-e",
-            descripcion: "Entiendes la sintaxis básica y los \"Hola mundo\".",
+            descripcion: "Iniciación y fundamentos básicos de la disciplina.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
@@ -719,11 +719,17 @@ function renderizarHabilidades(skills) {
                         <h3 class="skill-name">${s.nombre}</h3>
                         <div class="skill-desc-tier">${calc.descripcion}</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <button onclick="sumarHora('${s.id}')" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">
-                            +1 Hora
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <button onclick="sumarHorasHabilidad('${s.id}', 1)" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">
+                            +1h
                         </button>
-                        <button class="btn-delete-row" title="Eliminar habilidad" onclick="eliminarHabilidad('${s.id}')" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 6px;">✕</button>
+                        <button onclick="sumarHorasHabilidad('${s.id}', 2)" class="btn-add-hora" title="Sumar 2 horas de práctica y +20 EXP">
+                            +2h
+                        </button>
+                        <button onclick="sumarHorasHabilidad('${s.id}', 3)" class="btn-add-hora" title="Sumar 3 horas de práctica y +30 EXP">
+                            +3h
+                        </button>
+                        <button class="btn-delete-row" title="Eliminar habilidad" onclick="eliminarHabilidad('${s.id}')" style="background: none; border: none; color: #9ca3af; font-size: 16px; cursor: pointer; padding: 4px 6px; border-radius: 6px;">✕</button>
                     </div>
                 </div>
 
@@ -750,11 +756,11 @@ function renderizarHabilidades(skills) {
         });
     } else {
         html = `
-        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">🔮</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No hay habilidades registradas</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
-                Registra una nueva disciplina o tecnología. Comenzará en Rango E e irá ascendiendo automáticamente de rango a medida que acumules horas.
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay habilidades registradas</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
+                Registra una nueva disciplina o tecnología. Comenzará en Rango E e irá ascendiendo automáticamente de rango hasta Rango SSS a medida que acumules horas.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()">
                 ➕ Registrar Nueva Habilidad
@@ -766,24 +772,29 @@ function renderizarHabilidades(skills) {
     if (cont) cont.innerHTML = html;
 }
 
-function sumarHora(id) {
+function sumarHorasHabilidad(id, cantidad) {
+    var cant = Math.max(1, parseInt(cantidad, 10) || 1);
     if (!APP_STATE.habilidades) return;
     for (var i = 0; i < APP_STATE.habilidades.length; i++) {
         if (String(APP_STATE.habilidades[i].id) === String(id)) {
             var s = APP_STATE.habilidades[i];
             var prevCalc = calcularRangoYProgreso(s.horasTotales);
-            s.horasTotales = (s.horasTotales || 0) + 1;
+            s.horasTotales = (s.horasTotales || 0) + cant;
             var newCalc = calcularRangoYProgreso(s.horasTotales);
 
-            // Recompensa de EXP y desarrollo de atributos
-            sumarExp(10);
+            // Recompensa de EXP (+10 EXP por cada hora)
+            sumarExp(10 * cant);
+
+            // Desarrollo de atributos por cada hora sumada
             if (s.atributos && s.atributos.length > 0) {
-                aplicarImpactoAtributos(s.atributos);
+                for (var k = 0; k < cant; k++) {
+                    aplicarImpactoAtributos(s.atributos);
+                }
             }
 
             if (newCalc.rango !== prevCalc.rango) {
                 setTimeout(function() {
-                    alert("🎖️ ¡ASCENSO DE RANGO! Has alcanzado " + newCalc.rango + " en " + s.nombre + ".");
+                    alert("🎖️ ¡ASCENSO DE RANGO! Has alcanzado " + newCalc.rango + " en " + s.nombre + " (Total: " + s.horasTotales + " hrs).");
                 }, 100);
             }
             break;
@@ -791,6 +802,10 @@ function sumarHora(id) {
     }
     MonarcaDB.save(APP_STATE);
     renderizarHabilidades(APP_STATE.habilidades);
+}
+
+function sumarHora(id) {
+    sumarHorasHabilidad(id, 1);
 }
 
 function eliminarHabilidad(id) {
@@ -1588,10 +1603,10 @@ function renderizarQuestsDiarios() {
 
     if (qList.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 16px;">
+        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
             <span style="font-size: 32px; display: block; margin-bottom: 8px;">⏳</span>
-            <h4 style="margin: 0 0 6px 0; color: #111827; font-size: 16px;">No tienes quests diarias configuradas</h4>
-            <p style="color: #6b7280; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes quests diarias configuradas</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
                 Agrega tus hábitos y rutinas matutinas con una hora programada de activación, cronómetro y penitencia si no las cumples.
             </p>
             <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
@@ -1623,14 +1638,14 @@ function renderizarQuestsDiarios() {
         else if (esEnProgreso) badgeEstado = '<span class="qd-badge qd-badge-active">⏱️ TIEMPO CORRIENDO</span>';
         else if (esPospuesta) {
             var minPosp = q.pospuestaHasta ? Math.max(1, Math.round((q.pospuestaHasta - Date.now()) / 60000)) : 60;
-            badgeEstado = `<span class="qd-badge" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
+            badgeEstado = `<span class="qd-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800;">⏸️ POSPUESTA (${minPosp}m)</span>`;
         }
         else badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
 
         // Badge de Omitible vs No Omitible
         var badgeOmitible = esOmitible
-            ? `<span class="qd-badge" style="background: #f3f4f6; color: #4b5563; font-size: 10.5px;">⏳ Omitible</span>`
-            : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;">🚨 NO OMITIBLE</span>`;
+            ? `<span class="qd-badge" style="background: rgba(255, 255, 255, 0.06); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 10.5px;">⏳ Omitible</span>`
+            : `<span class="qd-badge qd-badge-danger" style="font-size: 10.5px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🚨 NO OMITIBLE</span>`;
 
         // Sección de tiempo asignado
         var bloqueTiempo = '';
@@ -1647,20 +1662,20 @@ function renderizarQuestsDiarios() {
             bloqueTiempo = `
             <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
-                    <span style="color: #4b5563; font-weight: 600;">${labelTiempo}</span>
-                    <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 14px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#2563eb' : '#111827')};">
+                    <span style="color: #94a3b8; font-weight: 600;">${labelTiempo}</span>
+                    <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 14px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
                         ${tiempoStr}
                     </span>
                 </div>
-                <div style="background: #e5e7eb; height: 6px; border-radius: 9999px; overflow: hidden;">
+                <div style="background: rgba(255, 255, 255, 0.1); height: 6px; border-radius: 9999px; overflow: hidden;">
                     <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')}; transition: width 0.3s ease;"></div>
                 </div>
             </div>`;
         } else {
             bloqueTiempo = `
             <div style="margin-top: 10px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 12px; color: #4b5563; font-weight: 600;">⏰ HORA LÍMITE ASIGNADA:</span>
-                <span style="font-weight: 800; font-size: 13.5px; color: #111827;">Antes de las ${q.horaLimite || '08:30'}</span>
+                <span style="font-size: 12px; color: #94a3b8; font-weight: 600;">⏰ HORA LÍMITE ASIGNADA:</span>
+                <span style="font-weight: 800; font-size: 13.5px; color: #f8fafc;">Antes de las ${q.horaLimite || '08:30'}</span>
             </div>`;
         }
 
@@ -1674,7 +1689,7 @@ function renderizarQuestsDiarios() {
         } else if (esCompletada) {
             botonesAccion = `
             <button class="btn-qd-action btn-qd-done" disabled>
-                ✓ Hecho a Tiempo (+${q.exp} EXP)
+                ✓ Hecho a Tiempo (+${q.exp || 40}% EXP)
             </button>`;
         } else if (esPenitenciaCumplida) {
             botonesAccion = `
@@ -1721,7 +1736,6 @@ function renderizarQuestsDiarios() {
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
-                        <span class="qd-category-badge">${q.categoria || '🌅 Rutina'}</span>
                         ${badgeEstado}
                         ${badgeOmitible}
                     </div>
@@ -1735,8 +1749,8 @@ function renderizarQuestsDiarios() {
                     <h3 class="qd-title" style="${(esCompletada || esPenitenciaCumplida) ? 'text-decoration: line-through; color: #6b7280;' : ''}">${q.titulo}</h3>
                     
                     <div class="qd-details-row">
-                        <span style="color: #10b981; font-weight: 700; font-size: 12px;">+${q.exp || 40} EXP</span>
-                        <span style="color: #d1d5db;">•</span>
+                        <span style="color: #10b981; font-weight: 700; font-size: 12px;">+${q.exp || 40}% EXP Nivel</span>
+                        <span style="color: #4b5563;">•</span>
                         <span style="color: #ef4444; font-weight: 600; font-size: 12px;">💀 Castigo: ${q.penitencia || '30 Flexiones'}</span>
                     </div>
                 </div>
@@ -1807,7 +1821,11 @@ function completarQuestDiaria(id) {
     q.estado = 'completada';
     q.temporizadorActivo = false;
     q.pospuestaHasta = null;
-    sumarExp(q.exp || 40);
+
+    var pct = Math.max(1, Number(q.exp) || 40);
+    var expMaxActual = (APP_STATE.jugador && APP_STATE.jugador.expMax) ? APP_STATE.jugador.expMax : 100;
+    var expGanada = Math.max(5, Math.round((pct / 100) * expMaxActual));
+    sumarExp(expGanada);
 
     var detalleAtrs = "";
     if (q.atributos && q.atributos.length > 0) {
@@ -1823,7 +1841,7 @@ function completarQuestDiaria(id) {
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
 
-    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + (q.exp || 40) + " EXP añadida a tu avatar." + detalleAtrs);
+    alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + pct + "% de EXP (" + expGanada + " EXP) añadida a tu avatar." + detalleAtrs);
     renderizarQuestsDiarios();
 }
 
@@ -2243,26 +2261,26 @@ function renderizarProtocolosDeepWork() {
     var html = '';
     PROTOCOLOS_DEEP_WORK.forEach(function(p) {
         var fatigaTag = p.fatigaImpacto > 0 ? `+${p.fatigaImpacto}% Fatiga` : `${p.fatigaImpacto}% Alivio`;
-        var fatigaBg = p.fatigaImpacto > 0 ? '#fef2f2' : '#ecfdf5';
-        var fatigaColor = p.fatigaImpacto > 0 ? '#991b1b' : '#065f46';
+        var fatigaBg = p.fatigaImpacto > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+        var fatigaColor = p.fatigaImpacto > 0 ? '#f87171' : '#34d399';
 
         html += `
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 20px;">${p.icono}</span>
-                        <strong style="font-size: 14px; color: #111827;">${p.nombre}</strong>
+                        <strong style="font-size: 14px; color: #f8fafc;">${p.nombre}</strong>
                     </div>
-                    <span style="font-size: 11px; font-weight: 700; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 6px;">${p.duracion}</span>
+                    <span style="font-size: 11px; font-weight: 700; color: #cbd5e1; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); padding: 2px 8px; border-radius: 6px;">${p.duracion}</span>
                 </div>
-                <p style="margin: 0 0 10px 0; font-size: 12px; color: #4b5563; line-height: 1.4;">${p.descripcion}</p>
+                <p style="margin: 0 0 10px 0; font-size: 12px; color: #94a3b8; line-height: 1.4;">${p.descripcion}</p>
             </div>
             <div>
-                <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px; margin-top: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px; margin-top: 6px;">
                     <div style="display: flex; gap: 6px;">
-                        <span style="font-size: 10.5px; font-weight: 700; background: ${fatigaBg}; color: ${fatigaColor}; padding: 2px 6px; border-radius: 9999px;">${fatigaTag}</span>
-                        <span style="font-size: 10.5px; font-weight: 700; background: #f3f4f6; color: #111827; padding: 2px 6px; border-radius: 9999px;">+${p.exp} EXP</span>
+                        <span style="font-size: 10.5px; font-weight: 700; background: ${fatigaBg}; color: ${fatigaColor}; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 6px; border-radius: 9999px;">${fatigaTag}</span>
+                        <span style="font-size: 10.5px; font-weight: 700; background: rgba(255, 255, 255, 0.08); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.1); padding: 2px 6px; border-radius: 9999px;">+${p.exp} EXP</span>
                     </div>
                     <button class="btn-system" style="padding: 5px 10px; font-size: 11.5px; border-radius: 6px;" onclick="ejecutarProtocoloDeepWork('${p.id}')">
                         ⚡ Iniciar

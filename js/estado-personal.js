@@ -1698,7 +1698,7 @@ function renderizarPortalesRutinasEjercicios() {
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 30px 20px; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 14px; color: #6b7280; font-size: 13px;">
+        <div style="text-align: center; padding: 30px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
             No tienes rutinas en la categoría seleccionada.<br>
             <button class="btn-subfiltro-ej" onclick="abrirModalNuevaRutina()" style="margin-top: 10px;">➕ Crear Rutina</button>
         </div>`;

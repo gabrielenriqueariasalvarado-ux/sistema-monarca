@@ -817,108 +817,108 @@ function eliminarMision(id) {
 function calcularRangoYProgreso(horas) {
     var h = Math.max(0, Number(horas) || 0);
 
-    if (h >= 70) {
+    if (h >= 340) {
         return {
             rango: "Rango SSS (Máximo)",
             badgeClass: "badge-rank-sss",
-            descripcion: "Maestría absoluta / Nivel experto.",
+            descripcion: "Maestría absoluta / Nivel legendario supremo alcanzado.",
             horasEnNivel: h,
-            horasReqNivel: 70,
+            horasReqNivel: 340,
             porcentaje: 100,
-            siguiente: "¡Maestría Absoluta Alcanzada!"
+            siguiente: "¡Maestría Legendaria Alcanzada!"
         };
-    } else if (h >= 50) {
-        // Rango SS: 50 - 70 hrs (meta SSS en 70)
-        var enNivel = h - 50;
-        var req = 20;
+    } else if (h >= 210) {
+        // Rango SS: 210 - 340 hrs (meta 340 hrs, req 130 hrs)
+        var enNivel = h - 210;
+        var req = 130;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 70 - h;
+        var faltan = 340 - h;
         return {
             rango: "Rango SS",
             badgeClass: "badge-rank-ss",
-            descripcion: "Dominio avanzado, arquitectura de sistemas.",
+            descripcion: "Dominio supremo, arquitectura y maestría avanzada.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para SSS"
         };
-    } else if (h >= 40) {
-        // Rango S: 40 - 50 hrs
-        var enNivel = h - 40;
-        var req = 10;
+    } else if (h >= 125) {
+        // Rango S: 125 - 210 hrs (meta 210 hrs, req 85 hrs)
+        var enNivel = h - 125;
+        var req = 85;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 50 - h;
+        var faltan = 210 - h;
         return {
             rango: "Rango S",
             badgeClass: "badge-rank-s",
-            descripcion: "Nivel profesional junior / resolución de problemas complejos.",
+            descripcion: "Nivel élite profesional / resolución de problemas de máxima complejidad.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para SS"
         };
-    } else if (h >= 30) {
-        // Rango A: 30 - 40 hrs
-        var enNivel = h - 30;
-        var req = 10;
+    } else if (h >= 70) {
+        // Rango A: 70 - 125 hrs (meta 125 hrs, req 55 hrs)
+        var enNivel = h - 70;
+        var req = 55;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 40 - h;
+        var faltan = 125 - h;
         return {
             rango: "Rango A",
             badgeClass: "badge-rank-a",
-            descripcion: "Capaz de desarrollar software estructurado y eficiente.",
+            descripcion: "Capacidad de estructuración eficiente y autonomía técnica total.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para S"
         };
-    } else if (h >= 20) {
-        // Rango B: 20 - 30 hrs
-        var enNivel = h - 20;
-        var req = 10;
+    } else if (h >= 35) {
+        // Rango B: 35 - 70 hrs (meta 70 hrs, req 35 hrs)
+        var enNivel = h - 35;
+        var req = 35;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 30 - h;
+        var faltan = 70 - h;
         return {
             rango: "Rango B",
             badgeClass: "badge-rank-b",
-            descripcion: "Dominas lógica avanzada y depuración.",
+            descripcion: "Dominas lógica avanzada, patrones y depuración de alto nivel.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para A"
         };
-    } else if (h >= 10) {
-        // Rango C: 10 - 20 hrs
-        var enNivel = h - 10;
-        var req = 10;
+    } else if (h >= 15) {
+        // Rango C: 15 - 35 hrs (meta 35 hrs, req 20 hrs)
+        var enNivel = h - 15;
+        var req = 20;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 20 - h;
+        var faltan = 35 - h;
         return {
             rango: "Rango C",
             badgeClass: "badge-rank-c",
-            descripcion: "Empiezas a crear proyectos funcionales pequeños.",
+            descripcion: "Desarrollas soluciones funcionales y proyectos pequeños con soltura.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para B"
         };
     } else if (h >= 5) {
-        // Rango D: 5 - 10 hrs
+        // Rango D: 5 - 15 hrs (meta 15 hrs, req 10 hrs)
         var enNivel = h - 5;
-        var req = 5;
+        var req = 10;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 10 - h;
+        var faltan = 15 - h;
         return {
             rango: "Rango D",
             badgeClass: "badge-rank-d",
-            descripcion: "Puedes hacer scripts sencillos tú solo.",
+            descripcion: "Ejecución práctica de conceptos y resolución de problemas guiados.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
             siguiente: "Faltan " + faltan + " hrs para C"
         };
     } else {
-        // Rango E: 0 - 5 hrs
+        // Rango E: 0 - 5 hrs (meta 5 hrs, req 5 hrs)
         var enNivel = h;
         var req = 5;
         var pct = Math.min(100, Math.floor((enNivel / req) * 100));
@@ -926,7 +926,7 @@ function calcularRangoYProgreso(horas) {
         return {
             rango: "Rango E",
             badgeClass: "badge-rank-e",
-            descripcion: "Entiendes la sintaxis básica y los \"Hola mundo\".",
+            descripcion: "Iniciación y fundamentos básicos de la disciplina.",
             horasEnNivel: enNivel,
             horasReqNivel: req,
             porcentaje: pct,
