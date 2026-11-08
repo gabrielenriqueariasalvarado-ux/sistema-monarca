@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.8">
+    <link rel="stylesheet" href="style.css?v=10.9">
 </head>
 <body>
 
@@ -736,6 +736,25 @@
                 </div>
                 <div class="timer-bar-bg" style="margin-top: 0;">
                     <div id="progreso-barra-rutina-dinamica" class="timer-bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Lista de ejercicios: Solo muestra casillas de verificación directas -->
+            <!-- MONITOR DE FATIGA MUSCULAR & IMPACTO EN TIEMPO REAL (CHART.JS v10.9) -->
+            <div id="panel-grafica-rutina-cont" class="card-hud-grafica-rutina" style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 15px;">📊</span>
+                        <span style="font-size: 12px; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.5px;">Fatiga Muscular & Carga en Tiempo Real</span>
+                    </div>
+                    <div style="display: flex; gap: 6px; font-size: 11px; flex-wrap: wrap;">
+                        <span class="badge-stat-pill" id="hud-rutina-volumen">Volumen: 0 kg</span>
+                        <span class="badge-stat-pill" id="hud-rutina-series-count">Series: 0/0</span>
+                        <span class="badge-stat-pill" id="hud-rutina-fatiga-media" style="color: #38bdf8;">Fatiga: 0%</span>
+                    </div>
+                </div>
+                <div style="position: relative; height: 160px; width: 100%;">
+                    <canvas id="grafica-fatiga-rutina-sesion"></canvas>
                 </div>
             </div>
 
@@ -4517,25 +4536,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.8"></script>
-    <script src="js/perfil.js?v=10.8"></script>
-    <script src="js/progresion.js?v=10.8"></script>
-    <script src="js/estado-personal.js?v=10.8"></script>
-    <script src="js/finanzas.js?v=10.8"></script>
-    <script src="js/ideas.js?v=10.8"></script>
-    <script src="js/dinamicas.js?v=10.8"></script>
-    <script src="js/calendario.js?v=10.8"></script>
-    <script src="js/inventario.js?v=10.8"></script>
-    <script src="js/jarvis-voz.js?v=10.8"></script>
+    <script src="js/core.js?v=10.9"></script>
+    <script src="js/perfil.js?v=10.9"></script>
+    <script src="js/progresion.js?v=10.9"></script>
+    <script src="js/estado-personal.js?v=10.9"></script>
+    <script src="js/finanzas.js?v=10.9"></script>
+    <script src="js/ideas.js?v=10.9"></script>
+    <script src="js/dinamicas.js?v=10.9"></script>
+    <script src="js/calendario.js?v=10.9"></script>
+    <script src="js/inventario.js?v=10.9"></script>
+    <script src="js/jarvis-voz.js?v=10.9"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.8"></script>
+    <script type="module" src="js/firebase-config.js?v=10.9"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.8')
+                navigator.serviceWorker.register('sw.js?v=10.9')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

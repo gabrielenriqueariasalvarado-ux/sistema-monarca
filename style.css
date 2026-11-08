@@ -8117,9 +8117,62 @@ body.modal-open {
     animation: fadeIn 0.2s ease;
 }
 
-.btn-rep-step {
-    width: 25px;
-    height: 25px;
+/* --- MONITOR DE FATIGA & IMPACTO EN TIEMPO REAL (CHART.JS v10.9) --- */
+.card-hud-grafica-rutina {
+    background: #080c14;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 14px;
+    padding: 13px 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(56, 189, 248, 0.03);
+    transition: all 0.25s ease;
+}
+
+.badge-stat-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    color: #cbd5e1;
+    font-family: monospace;
+}
+
+/* --- CONTROL DUAL DE CARGA (KG) Y REPETICIONES POR SERIE (v10.9) --- */
+.series-reps-control-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    margin: 4px 0 8px 34px;
+    background: #080c14;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 10px;
+    animation: fadeIn 0.2s ease;
+    flex-wrap: wrap;
+}
+
+.series-dual-controls-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.stepper-pill-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 4px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-kg-step, .btn-rep-step {
+    width: 26px;
+    height: 26px;
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     background: rgba(255, 255, 255, 0.05);
@@ -8134,19 +8187,19 @@ body.modal-open {
     user-select: none;
 }
 
-.btn-rep-step:hover {
+.btn-kg-step:hover, .btn-rep-step:hover {
     background: rgba(56, 189, 248, 0.2);
     border-color: #38bdf8;
     color: #38bdf8;
 }
 
-.btn-rep-step:active {
+.btn-kg-step:active, .btn-rep-step:active {
     transform: scale(0.92);
 }
 
-.input-reps-realizadas {
-    width: 44px;
-    height: 25px;
+.input-peso-realizado, .input-reps-realizadas {
+    width: 48px;
+    height: 26px;
     border-radius: 6px;
     border: 1px solid rgba(56, 189, 248, 0.4);
     background: #0b0e15;
@@ -8159,9 +8212,47 @@ body.modal-open {
     transition: all 0.15s ease;
 }
 
+.input-peso-realizado {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.45);
+}
+
+.input-peso-realizado:focus {
+    border-color: #fbbf24;
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.35);
+}
+
 .input-reps-realizadas:focus {
     border-color: #38bdf8;
     box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+.btn-check-serie-hecha {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #10b981;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 5px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-check-serie-hecha:hover {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: #10b981;
+    color: #ffffff;
+}
+
+.btn-check-serie-hecha.active {
+    background: #10b981;
+    color: #07090f;
+    border-color: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
 }
 
 .badge-fatiga-reps {

@@ -3154,6 +3154,15 @@ function alVerDetalleEjercicio(e, ejJson) {
 }
 
 var HISTORIAL_FACTOR_SERIES = {};
+var CHART_FATIGA_RUTINA_SESION = null;
+
+function obtenerPesoBaseEjercicio(ej) {
+    if (!ej) return 80;
+    if (typeof ej.pesoReferencia === 'number' && ej.pesoReferencia > 0) return ej.pesoReferencia;
+    if (typeof ej.peso === 'number' && ej.peso > 0) return ej.peso;
+    var p = parseFloat(ej.pesoReferencia || ej.peso);
+    return (p && !isNaN(p) && p > 0) ? p : 80;
+}
 
 function obtenerRepsPromedioEjercicio(ej) {
     if (!ej) return 10;
@@ -3169,6 +3178,48 @@ function obtenerRepsPromedioEjercicio(ej) {
     return Math.round(((n1 + n2) / 2) * 10) / 10;
 }
 
+function calcularFactorSerie(ejIdx, serieNum) {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios || !RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
+        return { factorTotal: 1, factorPeso: 1, factorReps: 1, pesoReal: 80, pesoBase: 80, repsHechas: 10, repsProm: 10 };
+    }
+    var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    var pesoBase = obtenerPesoBaseEjercicio(ej);
+    var repsProm = obtenerRepsPromedioEjercicio(ej);
+
+    var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + serieNum);
+    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+
+    var pesoReal = inPeso ? (parseFloat(inPeso.value) || pesoBase) : pesoBase;
+    var repsHechas = inReps ? (parseFloat(inReps.value) || repsProm) : repsProm;
+
+    var factorPeso = pesoBase > 0 ? (pesoReal / pesoBase) : 1;
+    var factorReps = repsProm > 0 ? (repsHechas / repsProm) : 1;
+    var factorTotal = Math.round((factorPeso * factorReps) * 1000) / 1000;
+
+    return {
+        factorTotal: factorTotal,
+        factorPeso: factorPeso,
+        factorReps: factorReps,
+        pesoReal: pesoReal,
+        pesoBase: pesoBase,
+        repsHechas: repsHechas,
+        repsProm: repsProm
+    };
+}
+
+function cambiarPesoSerie(ejIdx, serieNum, delta, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + serieNum);
+    if (!inPeso) return;
+    var val = Math.round(((parseFloat(inPeso.value) || 80) + delta) * 10) / 10;
+    if (val < 0) val = 0;
+    inPeso.value = val;
+    alCambiarCargaSerie(ejIdx, serieNum);
+}
+
 function cambiarRepsSerie(ejIdx, serieNum, delta, event) {
     if (event) {
         if (event.stopPropagation) event.stopPropagation();
@@ -3179,54 +3230,65 @@ function cambiarRepsSerie(ejIdx, serieNum, delta, event) {
     var val = (parseFloat(inReps.value) || 10) + delta;
     if (val < 1) val = 1;
     inReps.value = val;
-    alCambiarRepsInput(ejIdx, serieNum, val);
+    alCambiarCargaSerie(ejIdx, serieNum);
 }
 
-function alCambiarRepsInput(ejIdx, serieNum, val) {
-    var repsHechas = parseFloat(val) || 1;
-    if (repsHechas < 1) repsHechas = 1;
-
+function alCambiarCargaSerie(ejIdx, serieNum) {
     if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios || !RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) return;
     var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
     var numSeries = ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
-    var repsProm = obtenerRepsPromedioEjercicio(ej);
+    var data = calcularFactorSerie(ejIdx, serieNum);
     var key = ejIdx + '_' + serieNum;
-    var factorNuevo = repsProm > 0 ? (repsHechas / repsProm) : 1;
 
     var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
     if (chk && chk.checked) {
         var factorViejo = HISTORIAL_FACTOR_SERIES[key] || 1;
         // Revertir desgaste con factor anterior y aplicar con nuevo factor
         aplicarDesgasteEjercicioIndividual(ej, false, (1 / numSeries) * factorViejo);
-        aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * factorNuevo);
-        HISTORIAL_FACTOR_SERIES[key] = factorNuevo;
+        aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * data.factorTotal);
+        HISTORIAL_FACTOR_SERIES[key] = data.factorTotal;
     }
 
-    actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm);
+    actualizarBadgeFatigaSerie(ejIdx, serieNum, data);
+    actualizarGraficaFatigaSesion();
 }
 
-function actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm) {
+function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
     var badge = document.getElementById('badge-fatiga-ej-' + ejIdx + '-s-' + serieNum);
     if (!badge) return;
+    if (!data) data = calcularFactorSerie(ejIdx, serieNum);
 
-    var pct = Math.round((repsHechas / repsProm) * 100);
-    var diff = Math.round((repsHechas - repsProm) * 10) / 10;
+    var pct = Math.round(data.factorTotal * 100);
+    var diffReps = Math.round((data.repsHechas - data.repsProm) * 10) / 10;
+    var diffPeso = Math.round((data.pesoReal - data.pesoBase) * 10) / 10;
 
-    if (diff === 0) {
-        badge.innerText = '100% fatiga (Promedio exacto: ' + repsProm + ' reps)';
-        badge.style.color = '#10b981';
-        badge.style.background = 'rgba(16, 185, 129, 0.12)';
-        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-    } else if (diff < 0) {
-        badge.innerText = pct + '% fatiga (' + diff + ' reps de ' + repsProm + ' prom)';
-        badge.style.color = '#38bdf8';
-        badge.style.background = 'rgba(56, 189, 248, 0.12)';
-        badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
-    } else {
-        badge.innerText = pct + '% fatiga (+' + diff + ' reps · Límite Superior)';
+    var partes = [];
+    if (diffPeso > 0) partes.push('+' + diffPeso + ' kg sobrecarga');
+    else if (diffPeso < 0) partes.push(diffPeso + ' kg descarga');
+
+    if (diffReps > 0) partes.push('+' + diffReps + ' reps límite');
+    else if (diffReps < 0) partes.push(diffReps + ' reps');
+
+    var textoDetalle = partes.length > 0 ? (' (' + partes.join(' · ') + ')') : (' (' + data.pesoBase + ' kg × ' + data.repsProm + ' reps base)');
+
+    badge.innerText = pct + '% fatiga' + textoDetalle;
+
+    if (pct >= 120) {
+        badge.style.color = '#ef4444';
+        badge.style.background = 'rgba(239, 68, 68, 0.15)';
+        badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    } else if (pct > 100) {
         badge.style.color = '#fbbf24';
         badge.style.background = 'rgba(245, 158, 11, 0.15)';
         badge.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+    } else if (pct === 100) {
+        badge.style.color = '#10b981';
+        badge.style.background = 'rgba(16, 185, 129, 0.12)';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    } else {
+        badge.style.color = '#38bdf8';
+        badge.style.background = 'rgba(56, 189, 248, 0.12)';
+        badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
     }
 }
 
@@ -3238,16 +3300,20 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
     var row = document.getElementById('row-ej-' + ejIdx + '-s-' + serieNum);
     var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
-    var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
+    var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + serieNum);
     if (!chk) return;
 
     chk.checked = !chk.checked;
     var key = ejIdx + '_' + serieNum;
+    var data = calcularFactorSerie(ejIdx, serieNum);
 
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
         if (ind) ind.classList.add('checked');
-        if (panelReps) panelReps.style.display = 'flex';
+        if (btnAction) {
+            btnAction.classList.add('active');
+            btnAction.innerHTML = '<span>✓</span> Completada';
+        }
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
         // Iniciar cronómetro de descanso automáticamente
@@ -3255,30 +3321,181 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     } else {
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
-        if (panelReps) panelReps.style.display = 'none';
+        if (btnAction) {
+            btnAction.classList.remove('active');
+            btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
+        }
     }
 
     actualizarProgresoRutinaDinamica();
 
-    // Actualización de fatiga proporcional por serie con factor de repeticiones reales
+    // Actualización de fatiga proporcional por serie con factor combinado de peso y repeticiones
     if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
         var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
         var numSeries = ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
-        var repsProm = obtenerRepsPromedioEjercicio(ej);
-        var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
-        var repsHechas = inReps ? (parseFloat(inReps.value) || repsProm) : repsProm;
-        var factorReps = repsProm > 0 ? (repsHechas / repsProm) : 1;
 
         if (chk.checked) {
-            HISTORIAL_FACTOR_SERIES[key] = factorReps;
-            aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * factorReps);
+            HISTORIAL_FACTOR_SERIES[key] = data.factorTotal;
+            aplicarDesgasteEjercicioIndividual(ej, true, (1 / numSeries) * data.factorTotal);
         } else {
-            var factorViejo = HISTORIAL_FACTOR_SERIES[key] || factorReps || 1;
+            var factorViejo = HISTORIAL_FACTOR_SERIES[key] || data.factorTotal || 1;
             aplicarDesgasteEjercicioIndividual(ej, false, (1 / numSeries) * factorViejo);
             delete HISTORIAL_FACTOR_SERIES[key];
         }
 
-        actualizarBadgeFatigaSerie(ejIdx, serieNum, repsHechas, repsProm);
+        actualizarBadgeFatigaSerie(ejIdx, serieNum, data);
+        actualizarGraficaFatigaSesion();
+    }
+}
+
+function actualizarGraficaFatigaSesion() {
+    var canvas = document.getElementById('grafica-fatiga-rutina-sesion');
+    if (!canvas) return;
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios) return;
+
+    var ejercicios = RUTINA_ACTIVA.rutina.ejercicios;
+    var musculosInvolucrados = {};
+    var volumenTotalKg = 0;
+    var seriesCompletadasTotal = 0;
+    var totalSeriesRutina = 0;
+    var sumaFactoresHechos = 0;
+
+    ejercicios.forEach(function(ej, ejIdx) {
+        var esM = !!ej.esMental;
+        var numSeries = esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
+        totalSeriesRutina += numSeries;
+        var fatigaNominal = Number(ej.fatigaPorcentaje || ej.fatigaEstimada) || 20;
+
+        var mKeys = [];
+        if (ej.categorias && ej.categorias.length > 0) mKeys = mapearTextoAMusculos(ej.categorias);
+        if (ej.musculoPrincipal) {
+            var extra = mapearTextoAMusculos(ej.musculoPrincipal);
+            extra.forEach(function(k) { if (!mKeys.includes(k)) mKeys.push(k); });
+        }
+        if (mKeys.length === 0 && ej.nombre) mKeys = mapearTextoAMusculos(ej.nombre);
+        if (mKeys.length === 0) mKeys = [esM ? 'mente' : 'pect_mayor'];
+
+        mKeys.forEach(function(mk) {
+            if (!musculosInvolucrados[mk]) {
+                var meta = METADATOS_MUSCULOS[mk] || { nombre: mk, icono: esM ? '🧠' : '💪' };
+                musculosInvolucrados[mk] = {
+                    key: mk,
+                    nombre: (meta.nombre || mk).split('(')[0].trim(),
+                    icono: meta.icono || '💪',
+                    fatigaSesion: 0,
+                    fatigaBaseEsperada: 0
+                };
+            }
+            musculosInvolucrados[mk].fatigaBaseEsperada += fatigaNominal;
+        });
+
+        for (var s = 1; s <= numSeries; s++) {
+            var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+            var isChecked = chk && chk.checked;
+            var data = calcularFactorSerie(ejIdx, s);
+
+            if (isChecked) {
+                seriesCompletadasTotal++;
+                sumaFactoresHechos += data.factorTotal;
+                if (!esM) {
+                    volumenTotalKg += Math.round(data.pesoReal * data.repsHechas);
+                }
+                var fatigaSerie = (fatigaNominal / numSeries) * data.factorTotal;
+                mKeys.forEach(function(mk) {
+                    musculosInvolucrados[mk].fatigaSesion += fatigaSerie;
+                });
+            }
+        }
+    });
+
+    // Actualizar HUD badges
+    var elVol = document.getElementById('hud-rutina-volumen');
+    var elCnt = document.getElementById('hud-rutina-series-count');
+    var elFat = document.getElementById('hud-rutina-fatiga-media');
+
+    if (elVol) elVol.innerText = 'Volumen: ' + volumenTotalKg.toLocaleString() + ' kg';
+    if (elCnt) elCnt.innerText = 'Series: ' + seriesCompletadasTotal + '/' + totalSeriesRutina;
+    var fatMediaPct = seriesCompletadasTotal > 0 ? Math.round((sumaFactoresHechos / seriesCompletadasTotal) * 100) : 0;
+    if (elFat) elFat.innerText = 'Fatiga: ' + fatMediaPct + '%';
+
+    // Preparar datos para Chart.js
+    var keys = Object.keys(musculosInvolucrados);
+    if (keys.length === 0) return;
+
+    var labels = keys.map(function(k) {
+        var m = musculosInvolucrados[k];
+        return m.icono + ' ' + m.nombre;
+    });
+
+    var valores = keys.map(function(k) {
+        return Math.round(musculosInvolucrados[k].fatigaSesion * 10) / 10;
+    });
+
+    var colores = keys.map(function(k) {
+        var m = musculosInvolucrados[k];
+        var ratio = m.fatigaBaseEsperada > 0 ? (m.fatigaSesion / m.fatigaBaseEsperada) : (m.fatigaSesion / 20);
+        if (ratio >= 1.2) return 'rgba(239, 68, 68, 0.85)';
+        if (ratio >= 1.0) return 'rgba(251, 191, 36, 0.85)';
+        if (ratio >= 0.5) return 'rgba(16, 185, 129, 0.85)';
+        return 'rgba(56, 189, 248, 0.75)';
+    });
+
+    if (CHART_FATIGA_RUTINA_SESION) {
+        CHART_FATIGA_RUTINA_SESION.data.labels = labels;
+        CHART_FATIGA_RUTINA_SESION.data.datasets[0].data = valores;
+        CHART_FATIGA_RUTINA_SESION.data.datasets[0].backgroundColor = colores;
+        CHART_FATIGA_RUTINA_SESION.update();
+    } else {
+        var ctx = canvas.getContext('2d');
+        CHART_FATIGA_RUTINA_SESION = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fatiga Muscular Añadida (%)',
+                    data: valores,
+                    backgroundColor: colores,
+                    borderRadius: 6,
+                    borderWidth: 0,
+                    barThickness: Math.min(22, Math.max(10, Math.floor(130 / keys.length)))
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 250 },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        suggestedMax: 30,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 10 },
+                            callback: function(v) { return v + '%'; }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#f8fafc',
+                            font: { size: 11, weight: '700' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(item) {
+                                return ' +' + item.raw + '% de fatiga muscular generada';
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -3405,32 +3622,52 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             }
 
             html += `
-            <div class="series-item-wrapper" id="wrapper-ej-${ejIdx}-s-${s}" style="margin-bottom: 6px;">
+            <div class="series-item-wrapper" id="wrapper-ej-${ejIdx}-s-${s}" style="margin-bottom: 8px;">
                 <div class="series-check-row${esFallo ? ' series-al-fallo' : ''}" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
                     <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
                     <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
                     <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                         <div>
                             <span class="series-label">${esM ? 'SESIÓN COMPLETA' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s))}</span>
-                            <span class="series-target">${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''}</span>
+                            <span class="series-target">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' kg') : ''}</span>
                         </div>
-                        ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
+                            <button type="button" class="btn-check-serie-hecha" id="btn-check-action-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
+                                <span>✓</span> Marcar Hecha
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 ${!esM ? `
-                <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" style="display: none;" onclick="event.stopPropagation()">
-                    <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap;">
-                        <span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px;">🎯 Reps Límite:</span>
-                        <div style="display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.04); padding: 2px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-                            <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
-                            <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsProm}" min="1" max="100" oninput="alCambiarRepsInput(${ejIdx}, ${s}, this.value)" onclick="event.stopPropagation()">
-                            <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
+                <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
+                    <div class="series-dual-controls-wrap">
+                        <!-- AJUSTE DE PESO REAL (KG) -->
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Carga:</span>
+                            <div class="stepper-pill-box">
+                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
+                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal != null ? pesoVal : 80}" step="2.5" min="0" max="500" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">kg</span>
                         </div>
-                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">reps</span>
+
+                        <!-- AJUSTE DE REPETICIONES -->
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">🎯 Reps:</span>
+                            <div class="stepper-pill-box">
+                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
+                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsProm}" min="1" max="100" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">reps</span>
+                        </div>
                     </div>
+
                     <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px;">
-                        100% fatiga (${repsProm} reps prom)
+                        100% fatiga (${pesoVal != null ? pesoVal : 80} kg × ${repsProm} reps base)
                     </div>
                 </div>` : ''}
 
@@ -3503,6 +3740,12 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
         cont.innerHTML = '<p style="color: #ef4444; padding: 20px; text-align: center;">Error al cargar ejercicios: ' + err.message + '</p>';
     }
 
+    if (CHART_FATIGA_RUTINA_SESION) {
+        CHART_FATIGA_RUTINA_SESION.destroy();
+        CHART_FATIGA_RUTINA_SESION = null;
+    }
+    actualizarGraficaFatigaSesion();
+
     if (!omitirAutoCalentamiento) {
         setTimeout(function() {
             iniciarCalentamientoAutomatico();
@@ -3518,13 +3761,22 @@ function actualizarProgresoRutinaDinamica() {
     checks.forEach(function(c, i) {
         var row = c.closest('.series-check-row') || c.closest('.routine-exercise-clean-row') || document.getElementById('row-ej-' + i);
         var ind = row ? row.querySelector('.series-checkbox-indicator') : null;
+        var btnAction = row ? row.querySelector('.btn-check-serie-hecha') : null;
         if (c.checked) {
             completados++;
             if (row) row.classList.add('checked-active');
             if (ind) ind.classList.add('checked');
+            if (btnAction) {
+                btnAction.classList.add('active');
+                btnAction.innerHTML = '<span>✓</span> Completada';
+            }
         } else {
             if (row) row.classList.remove('checked-active');
             if (ind) ind.classList.remove('checked');
+            if (btnAction) {
+                btnAction.classList.remove('active');
+                btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
+            }
         }
     });
 
@@ -3654,29 +3906,89 @@ function ejecutarRutinaDinamica() {
 
     var tieneMentales = false;
     var tieneFisicos = false;
+    var yaSeAplicoDesgasteEnVivo = Object.keys(HISTORIAL_FACTOR_SERIES || {}).length > 0;
 
     if (rutina.ejercicios) {
         rutina.ejercicios.forEach(function(ej) {
             if (ej.esMental) {
                 tieneMentales = true;
-                if (typeof sumarExpMusculoMental === 'function' && ej.musculoPrincipal) {
-                    sumarExpMusculoMental(ej.musculoPrincipal, ej.expRecompensa || 25);
+                if (!yaSeAplicoDesgasteEnVivo) {
+                    if (typeof sumarExpMusculoMental === 'function' && ej.musculoPrincipal) {
+                        sumarExpMusculoMental(ej.musculoPrincipal, ej.expRecompensa || 25);
+                    }
+                    var fm = APP_STATE.fatigaMentalDiaria || { nivel: 20 };
+                    var delta = Number(ej.fatigaEstimada) || 15;
+                    fm.nivel = Math.min(100, Math.max(0, (fm.nivel || 0) + delta));
+                    fm.estado = fm.nivel <= 25 ? "Mente Despejada" : (fm.nivel <= 60 ? "Carga Moderada" : (fm.nivel <= 85 ? "Fatiga Elevada" : "Saturación Neural"));
+                    APP_STATE.fatigaMentalDiaria = fm;
                 }
-                var fm = APP_STATE.fatigaMentalDiaria || { nivel: 20 };
-                var delta = Number(ej.fatigaEstimada) || 15;
-                fm.nivel = Math.min(100, Math.max(0, (fm.nivel || 0) + delta));
-                fm.estado = fm.nivel <= 25 ? "Mente Despejada" : (fm.nivel <= 60 ? "Carga Moderada" : (fm.nivel <= 85 ? "Fatiga Elevada" : "Saturación Neural"));
-                APP_STATE.fatigaMentalDiaria = fm;
             } else {
                 tieneFisicos = true;
-                var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
-                var mKeys = mapearTextoAMusculos(ej.categorias || []);
-                if (mKeys.length === 0 && ej.nombre) {
-                    mKeys = mapearTextoAMusculos(ej.nombre);
+                if (!yaSeAplicoDesgasteEnVivo) {
+                    var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
+                    var mKeys = mapearTextoAMusculos(ej.categorias || []);
+                    if (mKeys.length === 0 && ej.nombre) {
+                        mKeys = mapearTextoAMusculos(ej.nombre);
+                    }
+                    mKeys.forEach(function(mKey) {
+                        var actual = Number(APP_STATE.fatiga[mKey]) || 0;
+                        APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
+                    });
                 }
-                mKeys.forEach(function(mKey) {
-                    var actual = Number(APP_STATE.fatiga[mKey]) || 0;
-                    APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
+            }
+        });
+    }
+
+    // Detección y actualización de Sobrecarga Progresiva (Nuevo récord de peso base en ejercicio)
+    var sobrecargas = [];
+    if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
+        rutina.ejercicios.forEach(function(ej, ejIdx) {
+            if (ej.esMental) return;
+            var numSeries = Math.max(1, parseInt(ej.series) || 3);
+            var pesoBaseAnterior = obtenerPesoBaseEjercicio(ej);
+            var maxPesoLevantado = 0;
+            var seriesCompletadas = 0;
+
+            for (var s = 1; s <= numSeries; s++) {
+                var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+                if (chk && chk.checked) {
+                    seriesCompletadas++;
+                    var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + s);
+                    var p = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
+                    if (p > maxPesoLevantado) maxPesoLevantado = p;
+                }
+            }
+
+            if (seriesCompletadas > 0 && maxPesoLevantado > pesoBaseAnterior) {
+                var diff = Math.round((maxPesoLevantado - pesoBaseAnterior) * 10) / 10;
+                ej.peso = maxPesoLevantado;
+                ej.pesoReferencia = maxPesoLevantado;
+
+                // Actualizar en el catálogo general de ejercicios
+                if (APP_STATE.ejercicios && Array.isArray(APP_STATE.ejercicios)) {
+                    var ejCat = APP_STATE.ejercicios.find(function(item) {
+                        return item && ((ej.id && item.id === ej.id) || (item.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                    });
+                    if (ejCat) {
+                        ejCat.peso = maxPesoLevantado;
+                        ejCat.pesoReferencia = maxPesoLevantado;
+                    }
+                }
+
+                // Actualizar en la rutina guardada
+                if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
+                    var rutGuardada = APP_STATE.rutinas[RUTINA_ACTIVA.idx];
+                    if (rutGuardada.ejercicios && rutGuardada.ejercicios[ejIdx]) {
+                        rutGuardada.ejercicios[ejIdx].peso = maxPesoLevantado;
+                        rutGuardada.ejercicios[ejIdx].pesoReferencia = maxPesoLevantado;
+                    }
+                }
+
+                sobrecargas.push({
+                    nombre: ej.nombre,
+                    anterior: pesoBaseAnterior,
+                    nuevo: maxPesoLevantado,
+                    diff: diff
                 });
             }
         });
@@ -3702,6 +4014,14 @@ function ejecutarRutinaDinamica() {
         detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
     });
 
+    // Registrar logs de sobrecarga progresiva en gym log
+    sobrecargas.forEach(function(sc) {
+        APP_STATE.gym.unshift({
+            fecha: fechaHoy,
+            detalle: "🔥 SOBRECARGA PROGRESIVA: " + sc.nombre + " subió de " + sc.anterior + " kg a " + sc.nuevo + " kg (+" + sc.diff + " kg). Nuevo peso base calibrado."
+        });
+    });
+
     sumarExp(60);
     MonarcaDB.save(APP_STATE);
 
@@ -3713,7 +4033,19 @@ function ejecutarRutinaDinamica() {
     } else {
         msgAviso += "La fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.";
     }
+
+    if (sobrecargas.length > 0) {
+        msgAviso += "\n\n🚀 ¡SOBRECARGA PROGRESIVA REGISTRADA!";
+        sobrecargas.forEach(function(sc) {
+            msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " kg (+" + sc.diff + " kg sobre el anterior de " + sc.anterior + " kg). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " kg.";
+        });
+    }
+
     alert(msgAviso);
+
+    if (typeof renderizarEjercicios === 'function' && APP_STATE.ejercicios) {
+        renderizarEjercicios(APP_STATE.ejercicios);
+    }
 
     cambiarVista('vista-ejercicios');
     if (typeof cambiarCategoriaEjercicios === 'function') {
@@ -5450,6 +5782,11 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     }
 
     cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
+    if (CHART_FATIGA_RUTINA_SESION) {
+        CHART_FATIGA_RUTINA_SESION.destroy();
+        CHART_FATIGA_RUTINA_SESION = null;
+    }
+    actualizarGraficaFatigaSesion();
 }
 
 function guardarRutinaAleatoriaEnMisRutinas() {
