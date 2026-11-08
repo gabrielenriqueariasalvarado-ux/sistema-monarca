@@ -44,7 +44,7 @@ var CATALOGO_ATRIBUTOS_SISTEMA = [
     { tipo: "mente", categoria: "Recuperación y Claridad", clave: "claridad_decision", nombre: "Claridad en Decisiones", icono: "🌙" }
 ];
 
-var ATRIBUTOS_MODAL_TEMP = { quest: [], mision: [], habilidad: [] };
+var ATRIBUTOS_MODAL_TEMP = { quest: [], mision: [], habilidad: [], penitencia: [] };
 
 function poblarSelectAtributos(contexto) {
     var sel = document.getElementById('select-nuevo-atributo-' + contexto);
@@ -743,11 +743,8 @@ function renderizarHabilidades(skills) {
                     <span style="font-weight: 700; color: #a5b4fc;">${calc.siguiente} (${porcentaje}%)</span>
                 </div>
 
-                <!-- PANEL DESPLEGABLE: BENEFICIO, DESCRIPCIÓN Y DESARROLLO -->
+                <!-- PANEL DESPLEGABLE: BENEFICIO Y DESARROLLO -->
                 <div class="card-detalle-desplegable" id="skill-detalle-${s.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
-                    <div style="font-size: 12px; color: #94a3b8; line-height: 1.4;">
-                        <strong>Nivel de Maestría:</strong> ${calc.descripcion}
-                    </div>
                     ${s.beneficio ? `
                         <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
                             🎁 <strong>Beneficio / Recompensa:</strong> ${s.beneficio}
@@ -787,6 +784,12 @@ function renderizarHabilidades(skills) {
 
     var cont = document.getElementById('contenedor-habilidades');
     if (cont) cont.innerHTML = html;
+
+    setTimeout(function() {
+        if (typeof renderizarChartProductividadSkills === 'function') {
+            renderizarChartProductividadSkills(FILTRO_CHART_SKILLS);
+        }
+    }, 50);
 }
 
 function sumarHorasHabilidad(id, cantidad) {
@@ -808,6 +811,16 @@ function sumarHorasHabilidad(id, cantidad) {
                     aplicarImpactoAtributos(s.atributos);
                 }
             }
+
+            // Registrar en historial para métricas y gráficas de productividad
+            if (!APP_STATE.historialSkills) APP_STATE.historialSkills = [];
+            APP_STATE.historialSkills.push({
+                id: "HS-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+                skillId: s.id,
+                nombre: s.nombre,
+                horas: cant,
+                timestamp: Date.now()
+            });
 
             if (newCalc.rango !== prevCalc.rango) {
                 setTimeout(function() {
@@ -1590,17 +1603,16 @@ function toggleDetalleQuest(id) {
 function aplicarPenalizacionAutomatica(q) {
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
-    var penalizacionExp = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.expPenalizacion !== undefined)
-        ? APP_STATE.configPenitencias.expPenalizacion
-        : 30;
+    var penalizacionExp = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
     if (penalizacionExp > 0) restarExp(penalizacionExp);
     MonarcaDB.save(APP_STATE);
 
     reproducirAlarmaQuest(true);
-    var castigoDesc = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
+    var pNom = q.penitenciaNombre || q.penitencia || "30 Flexiones";
+    var pDesc = q.penitenciaDesc ? `\nInstrucciones: ${q.penitenciaDesc}` : "";
     emitirNotificacionQuest(
         "💀 ¡PENITENCIA ACTIVADA!",
-        `Expiró el tiempo de: "${q.titulo}". Castigo: ${castigoDesc}. ${penalizacionExp > 0 ? 'Se dedujeron -' + penalizacionExp + ' EXP.' : ''}`,
+        `Expiró el tiempo de: "${q.titulo}". Castigo: ${pNom}. ${penalizacionExp > 0 ? 'Se dedujeron -' + penalizacionExp + ' EXP.' : ''}`,
         true,
         'penitencia-' + q.id
     );
@@ -1608,7 +1620,7 @@ function aplicarPenalizacionAutomatica(q) {
     setTimeout(function() {
         alert("⚠️ ¡ALERTA DEL SISTEMA: MISIÓN NO COMPLETADA A TIEMPO!\n\n" +
               "La tarea '" + q.titulo + "' ha excedido su tiempo asignado.\n\n" +
-              "💀 PENITENCIA AUTOMÁTICA ACTIVADA: " + castigoDesc + "\n\n" +
+              "💀 CASTIGO DISCIPLINARIO OBLIGATORIO: " + pNom + pDesc + "\n\n" +
               (penalizacionExp > 0 ? "Se han deducido -" + penalizacionExp + " EXP por quiebre de disciplina." : "Salda tu penitencia física para restaurar tu honor."));
         renderizarQuestsDiarios();
     }, 100);
@@ -1641,13 +1653,20 @@ function renderizarQuestsDiarios() {
             var questsPenalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; });
             if (questsPenalizadas.length > 0) {
                 var itemsPenitencia = questsPenalizadas.map(function(qp) {
+                    var pNom = qp.penitenciaNombre || qp.penitencia || '30 Flexiones';
+                    var pDesc = qp.penitenciaDesc ? `<div style="font-size: 11.5px; color: #fca5a5; margin-top: 3px; line-height: 1.35;">${qp.penitenciaDesc}</div>` : '';
+                    var pExp = (qp.penitenciaExp !== undefined) ? qp.penitenciaExp : 30;
                     return `
                     <div class="alerta-penitencia-item">
-                        <div>
-                            <div style="font-weight: 800; font-size: 13.5px; color: #991b1b;">⚠️ ${qp.titulo}</div>
-                            <div style="font-size: 13px; color: #b91c1c; margin-top: 3px;">
-                                <strong>CASTIGO OBLIGATORIO:</strong> ${qp.penitencia || '30 Flexiones'}
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-weight: 800; font-size: 13.5px; color: #991b1b;">⚠️ ${qp.titulo}</span>
+                                <span class="badge-penitencia-exp">-${pExp} EXP</span>
                             </div>
+                            <div style="font-size: 12.5px; color: #b91c1c; margin-top: 3px;">
+                                <strong>CASTIGO OBLIGATORIO:</strong> ${pNom}
+                            </div>
+                            ${pDesc}
                         </div>
                         <button class="btn-cumplir-penitencia-sm" onclick="cumplirPenitenciaQuest('${qp.id}')">
                             ✓ Cumplir Castigo
@@ -1798,9 +1817,14 @@ function renderizarQuestsDiarios() {
                 ? `<button type="button" class="btn-qd-omit" onclick="posponerQuestUnaHora('${q.id}')" title="Posponer 1 hora">⏸️ Omitir (1h)</button>`
                 : '';
 
-            var detallePenitencia = (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria')
-                ? '<span style="color: #94a3b8; font-weight: 500;">🎯 Cumplimiento Flexible</span>'
-                : `<span style="color: #ef4444; font-weight: 600;">💀 Castigo: ${q.penitencia}</span>`;
+            var detallePenitencia = '';
+            if (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria' || q.penitenciaId === 'sin_penitencia') {
+                detallePenitencia = '<span style="color: #94a3b8; font-weight: 500;">🎯 Cumplimiento Flexible</span>';
+            } else {
+                var pNom = q.penitenciaNombre || q.penitencia || 'Penitencia';
+                var pExp = (q.penitenciaExp !== undefined) ? q.penitenciaExp : 30;
+                detallePenitencia = `<span style="color: #ef4444; font-weight: 700;">💀 Castigo: ${pNom} (-${pExp} EXP)</span>`;
+            }
 
             var badgeOmitible = esLibre
                 ? `<span style="color: #cbd5e1;">🗓️ Flexible</span>`
@@ -1843,9 +1867,26 @@ function renderizarQuestsDiarios() {
                         ${badgeOmitible}
                     </div>
 
+                    ${(q.penitenciaDesc && q.penitenciaId !== 'sin_penitencia') ? `
+                        <div style="font-size: 12px; color: #fca5a5; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 8px 10px; line-height: 1.35;">
+                            💀 <strong>Instrucciones de la Penitencia:</strong> ${q.penitenciaDesc}
+                        </div>
+                    ` : ''}
+
+                    ${(q.penitenciaAtributos && q.penitenciaAtributos.length > 0 && q.penitenciaId !== 'sin_penitencia') ? `
+                        <div style="margin-top: 2px;">
+                            <span style="font-size: 11px; color: #f87171; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Forja al Saldar la Penitencia:</span>
+                            <div class="atributos-chips-container">
+                                ${q.penitenciaAtributos.map(function(a) {
+                                    return `<span class="chip-atributo-impacto ${a.tipo}" style="border-color: rgba(239, 68, 68, 0.4);">${a.icono || '⚡'} ${a.nombre} (+${a.porcentaje}%)</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
                     ${(q.atributos && q.atributos.length > 0) ? `
                         <div style="margin-top: 2px;">
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Desarrolla:</span>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Desarrolla al Completar:</span>
                             <div class="atributos-chips-container">
                                 ${q.atributos.map(function(a) {
                                     return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '⚡'} ${a.nombre} (+${a.porcentaje}%)</span>`;
@@ -1872,6 +1913,12 @@ function renderizarQuestsDiarios() {
         });
 
         cont.innerHTML = html;
+
+        setTimeout(function() {
+            if (typeof renderizarChartProductividadHabitos === 'function') {
+                renderizarChartProductividadHabitos(FILTRO_CHART_HABITOS);
+            }
+        }, 50);
     } catch(err) {
         console.error("[Renderizar Quests] Error:", err);
         cont.innerHTML = '<div style="text-align:center; padding:20px; color:#6b7280;">' +
@@ -1944,6 +1991,16 @@ function completarQuestDiaria(id) {
         }
     }
 
+    // Registrar en historial para métricas y gráficas de productividad
+    if (!APP_STATE.historialQuests) APP_STATE.historialQuests = [];
+    APP_STATE.historialQuests.push({
+        id: "HQ-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+        questId: q.id,
+        titulo: q.titulo,
+        tipoTiempo: q.tipoTiempo,
+        timestamp: Date.now()
+    });
+
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
 
@@ -1956,16 +2013,36 @@ function cumplirPenitenciaQuest(id) {
     var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
     if (!q) return;
 
-    var castigo = (typeof q.penitencia === "string") ? q.penitencia : (q.penitencia && q.penitencia.mensaje ? q.penitencia.mensaje : "30 Flexiones");
-    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?\n\n\"" + castigo + "\"");
+    var castigo = q.penitenciaNombre || q.penitencia || "30 Flexiones";
+    var instruc = q.penitenciaDesc ? "\n\nInstrucciones:\n" + q.penitenciaDesc : "";
+    var confirma = confirm("¿Confirmas que has realizado tu penitencia obligatoria en la vida real?\n\n\"" + castigo + "\"" + instruc);
     if (!confirma) return;
 
     q.estado = 'penitencia_cumplida';
     q.temporizadorActivo = false;
     q.pospuestaHasta = null;
+
+    // Aplicar atributos desarrollados por saldar la penitencia
+    var detalleAtrs = "";
+    if (q.penitenciaAtributos && q.penitenciaAtributos.length > 0) {
+        aplicarImpactoAtributos(q.penitenciaAtributos);
+        detalleAtrs = "\nAtributos forjados en tu Avatar: " + q.penitenciaAtributos.map(function(a) { return a.nombre + " (+" + a.porcentaje + "%)"; }).join(", ");
+    }
+
+    // Registrar en historial para gráficas
+    if (!APP_STATE.historialQuests) APP_STATE.historialQuests = [];
+    APP_STATE.historialQuests.push({
+        id: "HQ-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+        questId: q.id,
+        titulo: q.titulo + ' (Penitencia)',
+        tipoTiempo: q.tipoTiempo,
+        timestamp: Date.now(),
+        esPenitencia: true
+    });
+
     MonarcaDB.save(APP_STATE);
 
-    alert("⚔️ ¡PENITENCIA CUMPLIDA! Has saldado tu falta con honor y templanza.");
+    alert("⚔️ ¡PENITENCIA CUMPLIDA! Has saldado tu falta con honor y templanza." + detalleAtrs);
     renderizarQuestsDiarios();
 }
 
@@ -2076,8 +2153,6 @@ function abrirModalNuevaQuestDiaria() {
     var inHoraAct = document.getElementById('modal-qd-hora-activacion');
     var inHoraLim = document.getElementById('modal-qd-hora');
     var inExp = document.getElementById('modal-qd-exp');
-    var inPenCustom = document.getElementById('modal-qd-penitencia-custom');
-    var selPen = document.getElementById('modal-qd-penitencia-select');
     var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
     var chkOmit = document.getElementById('modal-qd-es-omitible');
 
@@ -2090,20 +2165,7 @@ function abrirModalNuevaQuestDiaria() {
     if (inExp) inExp.value = '40';
     if (chkOmit) chkOmit.checked = true;
 
-    if (selPen) {
-        poblarSelectPenitenciasModalNuevaQuest(selPen);
-    }
-
-    if (inPenCustom) {
-        inPenCustom.value = '';
-        inPenCustom.style.display = 'none';
-    }
-
-    var defPen = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
-    if (selPen && selPen.querySelector(`option[value="${defPen}"]`)) {
-        selPen.value = defPen;
-    }
-
+    poblarSelectPenitenciasModalNuevaQuest();
     toggleTipoTiempoQuestModal();
     alCambiarOmitibleQuestModal();
 
@@ -2176,19 +2238,6 @@ function alCambiarOmitibleQuestModal() {
     }
 }
 
-function togglePenitenciaCustomModal() {
-    var sel = document.getElementById('modal-qd-penitencia-select');
-    var inCustom = document.getElementById('modal-qd-penitencia-custom');
-    if (!sel || !inCustom) return;
-
-    if (sel.value === 'custom') {
-        inCustom.style.display = 'block';
-        inCustom.focus();
-    } else {
-        inCustom.style.display = 'none';
-    }
-}
-
 function confirmarAgregarQuestDiaria() {
     var inNom = document.getElementById('modal-qd-nombre');
     var inBen = document.getElementById('modal-qd-beneficio');
@@ -2199,7 +2248,6 @@ function confirmarAgregarQuestDiaria() {
     var inHora = document.getElementById('modal-qd-hora');
     var chkOmit = document.getElementById('modal-qd-es-omitible');
     var selPen = document.getElementById('modal-qd-penitencia-select');
-    var inPenCustom = document.getElementById('modal-qd-penitencia-custom');
     var inExp = document.getElementById('modal-qd-exp');
 
     var nombre = inNom ? inNom.value.trim() : '';
@@ -2216,18 +2264,24 @@ function confirmarAgregarQuestDiaria() {
     var horaLimite = inHora ? inHora.value : '23:59';
     var esOmitible = chkOmit ? chkOmit.checked : true;
 
-    var penitencia = '30 Flexiones inmediatas';
-    if (tipoTiempo === 'libre') {
-        penitencia = 'Sin penitencia obligatoria';
-        minutos = 0;
-        horaActivacion = null;
-        horaLimite = null;
-        esOmitible = true;
-    } else if (selPen) {
-        if (selPen.value === 'custom') {
-            penitencia = (inPenCustom && inPenCustom.value.trim()) ? inPenCustom.value.trim() : '30 Flexiones inmediatas';
-        } else {
-            penitencia = selPen.value;
+    // Obtener objeto de penitencia seleccionado
+    var penitenciaId = 'sin_penitencia';
+    var penitenciaNombre = 'Sin penitencia obligatoria';
+    var penitenciaDesc = '';
+    var penitenciaExp = 0;
+    var penitenciaAtributos = [];
+
+    if (tipoTiempo !== 'libre' && selPen && selPen.value && selPen.value !== 'sin_penitencia') {
+        var cat = obtenerCatalogoPenitencias();
+        var pObj = cat.find(function(p) { return String(p.id) === String(selPen.value); });
+        if (pObj) {
+            penitenciaId = pObj.id;
+            penitenciaNombre = pObj.nombre;
+            penitenciaDesc = pObj.descripcion || '';
+            penitenciaExp = Number(pObj.expPenalizacion) || 30;
+            penitenciaAtributos = (pObj.atributos && pObj.atributos.length > 0)
+                ? JSON.parse(JSON.stringify(pObj.atributos))
+                : [];
         }
     }
 
@@ -2235,7 +2289,7 @@ function confirmarAgregarQuestDiaria() {
 
     if (!APP_STATE.questsDiarios) APP_STATE.questsDiarios = [];
 
-    // Prevenir duplicados accidentales por doble clic rápido o títulos idénticos
+    // Prevenir duplicados accidentales
     var yaExiste = APP_STATE.questsDiarios.some(function(q) {
         return q && q.titulo && q.titulo.trim().toLowerCase() === nombre.toLowerCase();
     });
@@ -2245,7 +2299,6 @@ function confirmarAgregarQuestDiaria() {
         }
     }
 
-    // Si estaba registrada en tombstones previamente, limpiarla para permitir su reactivación intencional
     if (APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.questsDiarios)) {
         APP_STATE._eliminados.questsDiarios = APP_STATE._eliminados.questsDiarios.filter(function(tid) {
             return tid !== "QD-" + nombre.toLowerCase();
@@ -2266,7 +2319,12 @@ function confirmarAgregarQuestDiaria() {
         tiempoMinutos: minutos,
         horaLimite: horaLimite,
         esOmitible: esOmitible,
-        penitencia: penitencia,
+        penitenciaId: penitenciaId,
+        penitenciaNombre: penitenciaNombre,
+        penitenciaDesc: penitenciaDesc,
+        penitenciaExp: penitenciaExp,
+        penitenciaAtributos: penitenciaAtributos,
+        penitencia: penitenciaNombre, // Compatibilidad retroactiva
         exp: exp,
         atributos: listaAtrsQ,
         estado: 'pendiente',
@@ -2285,7 +2343,6 @@ function confirmarAgregarQuestDiaria() {
     renderizarQuestsDiarios();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
-    // Solicitar permiso de notificaciones de forma amistosa si es programada
     if (tipoTiempo === 'programada' && 'Notification' in window && Notification.permission !== 'granted') {
         setTimeout(function() {
             solicitarPermisoNotificaciones(false);
@@ -2294,176 +2351,506 @@ function confirmarAgregarQuestDiaria() {
 }
 
 // ==========================================================================
-// CONFIGURACIÓN Y GESTIÓN DE PENITENCIAS (SETTINGS)
+// CATÁLOGO & GESTOR DE PENITENCIAS (UNIFICADO Y COMPLETO)
 // ==========================================================================
 
-var PENITENCIAS_PREDETERMINADAS = [
-    "30 Flexiones inmediatas",
-    "50 Flexiones inmediatas",
-    "1 Minuto de Plancha estricta",
-    "Ducha de agua fría obligatoria",
-    "Pérdida de 40 EXP del Avatar",
-    "15 Minutos de limpieza sin móvil",
-    "10 Burpees inmediatos",
-    "20 Sentadillas profundas",
-    "Desconexión digital de 1 hora"
+const PENITENCIAS_CATALOGO_DEFAULT = [
+    {
+        id: "PEN-1",
+        nombre: "30 Flexiones Inmediatas",
+        descripcion: "Realizar 30 flexiones estrictas sin pausas prolongadas tocando el pecho al piso.",
+        expPenalizacion: 30,
+        atributos: [
+            { id: "c-pecho", nombre: "Pecho y Pectorales", tipo: "cuerpo", porcentaje: 20, icono: "🛡️" },
+            { id: "c-triceps", nombre: "Tríceps", tipo: "cuerpo", porcentaje: 15, icono: "🦾" }
+        ]
+    },
+    {
+        id: "PEN-2",
+        nombre: "50 Flexiones Disciplinarias",
+        descripcion: "Realizar 50 flexiones estrictas para forjar tolerancia física y templanza mental.",
+        expPenalizacion: 50,
+        atributos: [
+            { id: "c-pecho", nombre: "Pecho y Pectorales", tipo: "cuerpo", porcentaje: 30, icono: "🛡️" },
+            { id: "m-disciplina", nombre: "Disciplina", tipo: "mente", porcentaje: 25, icono: "⚔️" }
+        ]
+    },
+    {
+        id: "PEN-3",
+        nombre: "1 Minuto de Plancha Estricta",
+        descripcion: "Sostener plancha abdominal estricta con abdomen firme y postura recta por 60 segundos.",
+        expPenalizacion: 25,
+        atributos: [
+            { id: "c-core", nombre: "Core / Abdominales", tipo: "cuerpo", porcentaje: 30, icono: "⚡" },
+            { id: "m-enfoque", nombre: "Enfoque y Voluntad", tipo: "mente", porcentaje: 20, icono: "🎯" }
+        ]
+    },
+    {
+        id: "PEN-4",
+        nombre: "Ducha de Agua Fría Obligatoria",
+        descripcion: "Tomar una ducha de agua fría completa de mínimo 3 minutos para reiniciar el sistema nervioso.",
+        expPenalizacion: 40,
+        atributos: [
+            { id: "m-disciplina", nombre: "Disciplina y Templanza", tipo: "mente", porcentaje: 35, icono: "🧊" },
+            { id: "m-resiliencia", nombre: "Resiliencia Mental", tipo: "mente", porcentaje: 20, icono: "🧠" }
+        ]
+    },
+    {
+        id: "PEN-5",
+        nombre: "15 Minutos de Limpieza sin Móvil",
+        descripcion: "Limpiar y ordenar tu habitación o espacio de trabajo durante 15 minutos sin mirar pantallas.",
+        expPenalizacion: 20,
+        atributos: [
+            { id: "m-orden", nombre: "Claridad y Orden Mental", tipo: "mente", porcentaje: 25, icono: "🧹" }
+        ]
+    },
+    {
+        id: "PEN-6",
+        nombre: "20 Sentadillas Profundas",
+        descripcion: "Realizar 20 sentadillas completas con técnica estricta rompiendo el paralelo.",
+        expPenalizacion: 25,
+        atributos: [
+            { id: "c-cuadriceps", nombre: "Cuádriceps", tipo: "cuerpo", porcentaje: 25, icono: "🦵" },
+            { id: "c-gluteos", nombre: "Glúteos y Cadera", tipo: "cuerpo", porcentaje: 15, icono: "🥋" }
+        ]
+    }
 ];
 
-function obtenerListaPenitencias() {
-    if (!APP_STATE.configPenitencias) {
-        APP_STATE.configPenitencias = {
-            default: "30 Flexiones inmediatas",
-            expPenalizacion: 30,
-            lista: [...PENITENCIAS_PREDETERMINADAS]
-        };
+function obtenerCatalogoPenitencias() {
+    if (!APP_STATE.penitenciasCatalogo || !Array.isArray(APP_STATE.penitenciasCatalogo) || APP_STATE.penitenciasCatalogo.length === 0) {
+        APP_STATE.penitenciasCatalogo = JSON.parse(JSON.stringify(PENITENCIAS_CATALOGO_DEFAULT));
+        MonarcaDB.save(APP_STATE);
     }
-    if (!Array.isArray(APP_STATE.configPenitencias.lista) || APP_STATE.configPenitencias.lista.length === 0) {
-        APP_STATE.configPenitencias.lista = [...PENITENCIAS_PREDETERMINADAS];
-    }
-    return APP_STATE.configPenitencias.lista;
+    return APP_STATE.penitenciasCatalogo;
 }
 
-function poblarSelectPenitenciasModalNuevaQuest(sel) {
+function poblarSelectPenitenciasModalNuevaQuest() {
+    var sel = document.getElementById('modal-qd-penitencia-select');
     if (!sel) return;
-    var lista = obtenerListaPenitencias();
-    var def = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
-    
-    var html = '';
-    lista.forEach(function(pen) {
-        html += `<option value="${pen}">${pen.startsWith('💀') ? pen : '💀 ' + pen}</option>`;
+
+    var cat = obtenerCatalogoPenitencias();
+    var html = '<option value="sin_penitencia">🛡️ Sin penitencia obligatoria</option>';
+
+    cat.forEach(function(pen) {
+        html += `<option value="${pen.id}">💀 ${pen.nombre} (-${pen.expPenalizacion || 30} EXP)</option>`;
     });
-    html += '<option value="custom">✏️ Personalizada (Escribir abajo)</option>';
+
     sel.innerHTML = html;
-    if (lista.includes(def)) {
-        sel.value = def;
-    } else if (lista.length > 0) {
-        sel.value = lista[0];
+    if (cat.length > 0) {
+        sel.value = cat[0].id;
+    } else {
+        sel.value = "sin_penitencia";
     }
+    alCambiarSelectPenitenciaQuestModal();
+}
+
+function alCambiarSelectPenitenciaQuestModal() {
+    var sel = document.getElementById('modal-qd-penitencia-select');
+    var box = document.getElementById('modal-qd-preview-penitencia');
+    var descEl = document.getElementById('modal-qd-preview-pen-desc');
+    var metaEl = document.getElementById('modal-qd-preview-pen-meta');
+
+    if (!sel || !box || !descEl || !metaEl) return;
+
+    if (!sel.value || sel.value === 'sin_penitencia') {
+        box.style.display = 'none';
+        return;
+    }
+
+    var cat = obtenerCatalogoPenitencias();
+    var pen = cat.find(function(p) { return String(p.id) === String(sel.value); });
+    if (!pen) {
+        box.style.display = 'none';
+        return;
+    }
+
+    box.style.display = 'block';
+    descEl.innerText = pen.descripcion || 'Sin descripción de instrucciones.';
+
+    var atrsStr = (pen.atributos && pen.atributos.length > 0)
+        ? ' · Forja: ' + pen.atributos.map(function(a) { return a.nombre + ' (+' + a.porcentaje + '%)'; }).join(', ')
+        : '';
+    metaEl.innerText = `Penalización: -${pen.expPenalizacion || 30} EXP de Avatar${atrsStr}`;
 }
 
 function abrirModalSettingsPenitencias() {
     var m = document.getElementById('modal-settings-penitencias');
     if (!m) return;
 
-    if (!APP_STATE.configPenitencias) {
-        APP_STATE.configPenitencias = {
-            default: "30 Flexiones inmediatas",
-            expPenalizacion: 30,
-            lista: [...PENITENCIAS_PREDETERMINADAS]
-        };
-    }
+    // Resetear formulario de nueva penitencia
+    var inNom = document.getElementById('modal-pen-nombre');
+    var inDesc = document.getElementById('modal-pen-descripcion');
+    var inExp = document.getElementById('modal-pen-exp');
 
-    renderizarSelectYListaPenitencias();
+    if (inNom) inNom.value = '';
+    if (inDesc) inDesc.value = '';
+    if (inExp) inExp.value = '30';
 
-    var selExp = document.getElementById('settings-penitencia-exp');
-    if (selExp) {
-        var currentExp = (APP_STATE.configPenitencias.expPenalizacion !== undefined) ? APP_STATE.configPenitencias.expPenalizacion : 30;
-        selExp.value = String(currentExp);
-    }
+    ATRIBUTOS_MODAL_TEMP.penitencia = [];
+    poblarSelectAtributos('penitencia');
+    renderizarFilasAtributos('penitencia');
 
-    var inNueva = document.getElementById('settings-nueva-penitencia-txt');
-    if (inNueva) inNueva.value = '';
-
+    renderizarCatalogoPenitenciasSettings();
     m.style.display = 'flex';
 }
 
 function cerrarModalSettingsPenitencias() {
     var m = document.getElementById('modal-settings-penitencias');
     if (m) m.style.display = 'none';
+    poblarSelectPenitenciasModalNuevaQuest();
 }
 
-function renderizarSelectYListaPenitencias() {
-    var lista = obtenerListaPenitencias();
-    var selDef = document.getElementById('settings-penitencia-default');
-    var contLista = document.getElementById('settings-lista-penitencias');
+function confirmarCrearNuevaPenitencia() {
+    var inNom = document.getElementById('modal-pen-nombre');
+    var inDesc = document.getElementById('modal-pen-descripcion');
+    var inExp = document.getElementById('modal-pen-exp');
 
-    var currentDef = (APP_STATE.configPenitencias && APP_STATE.configPenitencias.default) ? APP_STATE.configPenitencias.default : '30 Flexiones inmediatas';
-
-    if (selDef) {
-        selDef.innerHTML = lista.map(function(pen) {
-            var selected = (pen === currentDef) ? 'selected' : '';
-            return `<option value="${pen}" ${selected}>💀 ${pen}</option>`;
-        }).join('');
+    var nombre = inNom ? inNom.value.trim() : '';
+    if (!nombre) {
+        alert("Por favor ingresa un nombre para la penitencia.");
+        return;
     }
 
-    if (contLista) {
-        if (lista.length === 0) {
-            contLista.innerHTML = '<div style="color: #64748b; font-size: 12px; text-align: center; padding: 10px;">No hay penitencias registradas.</div>';
-        } else {
-            contLista.innerHTML = lista.map(function(pen, idx) {
-                var isDef = (pen === currentDef);
-                return `
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        <span style="font-size: 13px;">💀</span>
-                        <span style="font-size: 12.5px; color: ${isDef ? '#f59e0b' : '#f8fafc'}; font-weight: ${isDef ? '700' : '500'};">${pen} ${isDef ? '<span style="font-size: 10.5px; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Por defecto</span>' : ''}</span>
+    var descripcion = inDesc ? inDesc.value.trim() : '';
+    var expPenalizacion = inExp ? (parseInt(inExp.value, 10) || 30) : 30;
+
+    var listaAtrs = (ATRIBUTOS_MODAL_TEMP.penitencia && ATRIBUTOS_MODAL_TEMP.penitencia.length > 0)
+        ? JSON.parse(JSON.stringify(ATRIBUTOS_MODAL_TEMP.penitencia))
+        : [];
+
+    var nuevaPen = {
+        id: "PEN-" + Date.now(),
+        nombre: nombre,
+        descripcion: descripcion || "Completar la acción física disciplinaria con determinación.",
+        expPenalizacion: expPenalizacion,
+        atributos: listaAtrs
+    };
+
+    var cat = obtenerCatalogoPenitencias();
+    cat.push(nuevaPen);
+    APP_STATE.penitenciasCatalogo = cat;
+    MonarcaDB.save(APP_STATE);
+
+    // Limpiar formulario
+    if (inNom) inNom.value = '';
+    if (inDesc) inDesc.value = '';
+    if (inExp) inExp.value = '30';
+    ATRIBUTOS_MODAL_TEMP.penitencia = [];
+    renderizarFilasAtributos('penitencia');
+
+    renderizarCatalogoPenitenciasSettings();
+    poblarSelectPenitenciasModalNuevaQuest();
+
+    alert("✓ ¡Penitencia añadida a tu biblioteca con éxito!");
+}
+
+function eliminarPenitenciaCatalogo(id) {
+    if (!confirm("¿Deseas eliminar esta penitencia de tu biblioteca?")) return;
+    var cat = obtenerCatalogoPenitencias();
+    cat = cat.filter(function(p) { return String(p.id) !== String(id); });
+    APP_STATE.penitenciasCatalogo = cat;
+    MonarcaDB.save(APP_STATE);
+    renderizarCatalogoPenitenciasSettings();
+    poblarSelectPenitenciasModalNuevaQuest();
+}
+
+function renderizarCatalogoPenitenciasSettings() {
+    var cont = document.getElementById('settings-lista-penitencias');
+    var badgeTotal = document.getElementById('badge-total-penitencias-catalogo');
+    if (!cont) return;
+
+    var cat = obtenerCatalogoPenitencias();
+    if (badgeTotal) badgeTotal.innerText = cat.length + " registradas";
+
+    if (cat.length === 0) {
+        cont.innerHTML = '<div style="color: #64748b; font-size: 12px; text-align: center; padding: 14px;">No tienes penitencias registradas. Crea una arriba.</div>';
+        return;
+    }
+
+    var html = cat.map(function(pen) {
+        var chipsAtrs = (pen.atributos && pen.atributos.length > 0)
+            ? `<div class="atributos-chips-container" style="margin-top: 4px;">
+                ${pen.atributos.map(function(a) {
+                    return `<span class="chip-atributo-impacto ${a.tipo}" style="font-size: 10.5px; padding: 2px 7px;">${a.icono || '⚡'} ${a.nombre} (+${a.porcentaje}%)</span>`;
+                }).join('')}
+               </div>`
+            : '';
+
+        return `
+        <div class="card-penitencia-catalogo">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span style="font-size: 14px;">💀</span>
+                        <strong style="color: #f8fafc; font-size: 13.5px;">${pen.nombre}</strong>
+                        <span class="badge-penitencia-exp">-${pen.expPenalizacion || 30} EXP</span>
                     </div>
-                    <button type="button" onclick="eliminarPenitenciaSettings(${idx})" title="Eliminar penitencia" style="background: none; border: none; color: #ef4444; font-size: 13px; cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">✕</button>
-                </div>`;
-            }).join('');
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 4px; line-height: 1.35;">
+                        ${pen.descripcion || 'Sin descripción'}
+                    </div>
+                    ${chipsAtrs}
+                </div>
+                <button type="button" onclick="eliminarPenitenciaCatalogo('${pen.id}')" title="Eliminar penitencia" style="background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 11px; cursor: pointer; padding: 3px 7px; border-radius: 6px;">
+                    ✕
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+
+    cont.innerHTML = html;
+}
+
+// ==========================================================================
+// GRÁFICAS DE PRODUCTIVIDAD (HÁBITOS & MISIONES + SKILLS)
+// ==========================================================================
+
+var FILTRO_CHART_HABITOS = 'dia';
+var FILTRO_CHART_SKILLS = 'dia';
+var _CHART_HABITOS_INSTANCE = null;
+var _CHART_SKILLS_INSTANCE = null;
+
+function cambiarFiltroChartHabitos(filtro) {
+    FILTRO_CHART_HABITOS = filtro;
+    ['dia', 'semana', 'mes'].forEach(function(f) {
+        var btn = document.getElementById('btn-chart-habitos-' + f);
+        if (btn) {
+            if (f === filtro) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+    renderizarChartProductividadHabitos(filtro);
+}
+
+function cambiarFiltroChartSkills(filtro) {
+    FILTRO_CHART_SKILLS = filtro;
+    ['dia', 'semana', 'mes'].forEach(function(f) {
+        var btn = document.getElementById('btn-chart-skills-' + f);
+        if (btn) {
+            if (f === filtro) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+    renderizarChartProductividadSkills(filtro);
+}
+
+function renderizarChartProductividadHabitos(filtro) {
+    var canvas = document.getElementById('chart-habitos-productividad');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var modo = filtro || FILTRO_CHART_HABITOS || 'dia';
+    var now = Date.now();
+    var cutoff = 0;
+
+    if (modo === 'dia') {
+        var d = new Date();
+        d.setHours(0, 0, 0, 0);
+        cutoff = d.getTime();
+    } else if (modo === 'semana') {
+        cutoff = now - (7 * 24 * 60 * 60 * 1000);
+    } else if (modo === 'mes') {
+        cutoff = now - (30 * 24 * 60 * 60 * 1000);
+    }
+
+    var conteo = {};
+
+    // Inicializar con todos los hábitos/misiones configurados en 0
+    if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+        APP_STATE.questsDiarios.forEach(function(q) {
+            if (q && q.titulo) conteo[q.titulo] = 0;
+        });
+    }
+
+    // Sumar eventos del historial registrados en el período
+    var eventos = (APP_STATE.historialQuests && Array.isArray(APP_STATE.historialQuests))
+        ? APP_STATE.historialQuests.filter(function(e) { return (e.timestamp || 0) >= cutoff; })
+        : [];
+
+    if (eventos.length > 0) {
+        eventos.forEach(function(e) {
+            var t = e.titulo || 'Misión';
+            conteo[t] = (conteo[t] || 0) + 1;
+        });
+    } else {
+        // Semillero visual: si no hay historial previo pero hay tareas completadas hoy
+        if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+            APP_STATE.questsDiarios.forEach(function(q) {
+                if (q.estado === 'completada' || q.estado === 'penitencia_cumplida') {
+                    conteo[q.titulo] = (conteo[q.titulo] || 0) + 1;
+                }
+            });
         }
     }
+
+    var labels = Object.keys(conteo);
+    var data = Object.values(conteo);
+
+    if (labels.length === 0) {
+        labels = ['Sin datos registrados'];
+        data = [0];
+    }
+
+    if (_CHART_HABITOS_INSTANCE) {
+        _CHART_HABITOS_INSTANCE.destroy();
+        _CHART_HABITOS_INSTANCE = null;
+    }
+
+    var ctx = canvas.getContext('2d');
+    _CHART_HABITOS_INSTANCE = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Acciones Cumplidas',
+                data: data,
+                backgroundColor: 'rgba(16, 185, 129, 0.45)',
+                borderColor: '#10b981',
+                borderWidth: 2,
+                borderRadius: 6,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(c) {
+                            return ' ' + c.raw + ' completada' + (c.raw === 1 ? '' : 's');
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#94a3b8',
+                        stepSize: 1,
+                        font: { size: 11 }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                },
+                y: {
+                    ticks: {
+                        color: '#f8fafc',
+                        font: { size: 11, weight: '600' }
+                    },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
 }
 
-function agregarPenitenciaDesdeSettings() {
-    var inTxt = document.getElementById('settings-nueva-penitencia-txt');
-    if (!inTxt) return;
-    var texto = inTxt.value.trim();
-    if (!texto) {
-        alert("Por favor escribe el texto de la penitencia.");
-        return;
+function renderizarChartProductividadSkills(filtro) {
+    var canvas = document.getElementById('chart-skills-productividad');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var modo = filtro || FILTRO_CHART_SKILLS || 'dia';
+    var now = Date.now();
+    var cutoff = 0;
+
+    if (modo === 'dia') {
+        var d = new Date();
+        d.setHours(0, 0, 0, 0);
+        cutoff = d.getTime();
+    } else if (modo === 'semana') {
+        cutoff = now - (7 * 24 * 60 * 60 * 1000);
+    } else if (modo === 'mes') {
+        cutoff = now - (30 * 24 * 60 * 60 * 1000);
     }
 
-    var lista = obtenerListaPenitencias();
-    if (lista.some(function(p) { return p.toLowerCase() === texto.toLowerCase(); })) {
-        alert("Esta penitencia ya existe en la biblioteca.");
-        return;
+    var conteoHoras = {};
+
+    // Inicializar con todas las habilidades en 0
+    if (APP_STATE.habilidades && Array.isArray(APP_STATE.habilidades)) {
+        APP_STATE.habilidades.forEach(function(s) {
+            if (s && s.nombre) conteoHoras[s.nombre] = 0;
+        });
     }
 
-    lista.push(texto);
-    APP_STATE.configPenitencias.lista = lista;
-    MonarcaDB.save(APP_STATE);
-    inTxt.value = '';
-    renderizarSelectYListaPenitencias();
-}
+    var eventos = (APP_STATE.historialSkills && Array.isArray(APP_STATE.historialSkills))
+        ? APP_STATE.historialSkills.filter(function(e) { return (e.timestamp || 0) >= cutoff; })
+        : [];
 
-function eliminarPenitenciaSettings(idx) {
-    var lista = obtenerListaPenitencias();
-    if (idx < 0 || idx >= lista.length) return;
-
-    var eliminada = lista[idx];
-    lista.splice(idx, 1);
-    APP_STATE.configPenitencias.lista = lista;
-
-    if (APP_STATE.configPenitencias.default === eliminada) {
-        APP_STATE.configPenitencias.default = lista.length > 0 ? lista[0] : '';
+    if (eventos.length > 0) {
+        eventos.forEach(function(e) {
+            var n = e.nombre || 'Skill';
+            conteoHoras[n] = (conteoHoras[n] || 0) + (Number(e.horas) || 1);
+        });
+    } else {
+        // Si no hay eventos históricos específicos en este rango, reflejar las horas de las habilidades
+        if (APP_STATE.habilidades && Array.isArray(APP_STATE.habilidades)) {
+            APP_STATE.habilidades.forEach(function(s) {
+                conteoHoras[s.nombre] = Number(s.horasTotales) || 0;
+            });
+        }
     }
 
-    MonarcaDB.save(APP_STATE);
-    renderizarSelectYListaPenitencias();
-}
+    var labels = Object.keys(conteoHoras);
+    var data = Object.values(conteoHoras);
 
-function guardarSettingsPenitencias() {
-    var selDef = document.getElementById('settings-penitencia-default');
-    var selExp = document.getElementById('settings-penitencia-exp');
-
-    if (!APP_STATE.configPenitencias) APP_STATE.configPenitencias = {};
-
-    if (selDef && selDef.value) {
-        APP_STATE.configPenitencias.default = selDef.value;
-    }
-    if (selExp) {
-        APP_STATE.configPenitencias.expPenalizacion = parseInt(selExp.value, 10) || 0;
+    if (labels.length === 0) {
+        labels = ['Sin habilidades registradas'];
+        data = [0];
     }
 
-    MonarcaDB.save(APP_STATE);
-    cerrarModalSettingsPenitencias();
+    if (_CHART_SKILLS_INSTANCE) {
+        _CHART_SKILLS_INSTANCE.destroy();
+        _CHART_SKILLS_INSTANCE = null;
+    }
 
-    // Actualizar select de penitencias en modal de nueva quest si está presente
-    var selPen = document.getElementById('modal-qd-penitencia-select');
-    if (selPen) poblarSelectPenitenciasModalNuevaQuest(selPen);
-
-    alert("✓ Ajustes de penitencias y disciplina guardados correctamente.");
+    var ctx = canvas.getContext('2d');
+    _CHART_SKILLS_INSTANCE = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Horas Trabajadas',
+                data: data,
+                backgroundColor: 'rgba(139, 92, 246, 0.45)',
+                borderColor: '#a78bfa',
+                borderWidth: 2,
+                borderRadius: 6,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(c) {
+                            return ' ' + c.raw + ' hr' + (c.raw === 1 ? '' : 's') + ' practicadas';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' }
+                },
+                y: {
+                    ticks: {
+                        color: '#f8fafc',
+                        font: { size: 11, weight: '600' }
+                    },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
 }
 
 
@@ -2556,9 +2943,19 @@ function cambiarTabAccionesDesarrollo(tabId) {
     switch(window.TAB_ACCIONES_DESARROLLO_ACTIVA) {
         case 'habitos':
             cargarQuestsDiarios();
+            setTimeout(function() {
+                if (typeof renderizarChartProductividadHabitos === 'function') {
+                    renderizarChartProductividadHabitos(FILTRO_CHART_HABITOS);
+                }
+            }, 80);
             break;
         case 'skills':
             cargarHabilidades();
+            setTimeout(function() {
+                if (typeof renderizarChartProductividadSkills === 'function') {
+                    renderizarChartProductividadSkills(FILTRO_CHART_SKILLS);
+                }
+            }, 80);
             break;
     }
 }

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=9.9">
+    <link rel="stylesheet" href="style.css?v=10.0">
 </head>
 <body>
 
@@ -356,6 +356,26 @@
                 <div id="contenedor-quests-diarios">
                     <p style="text-align: center; color: #94a3b8; padding: 20px;">Cargando hábitos y misiones...</p>
                 </div>
+
+                <!-- GRÁFICA DE PRODUCTIVIDAD EN HÁBITOS & MISIONES -->
+                <div style="margin-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 14.5px; color: #f8fafc; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                <span>📊</span> Productividad de Hábitos & Misiones
+                            </h3>
+                            <span style="font-size: 11.5px; color: #94a3b8;">Acciones trabajadas y completadas en el período.</span>
+                        </div>
+                        <div class="tab-category-pill-container" style="display: flex; gap: 6px; margin-bottom: 0;">
+                            <button type="button" class="tab-category-pill active" id="btn-chart-habitos-dia" onclick="cambiarFiltroChartHabitos('dia')" style="padding: 5px 12px; font-size: 11.5px;">Día</button>
+                            <button type="button" class="tab-category-pill" id="btn-chart-habitos-semana" onclick="cambiarFiltroChartHabitos('semana')" style="padding: 5px 12px; font-size: 11.5px;">Semana</button>
+                            <button type="button" class="tab-category-pill" id="btn-chart-habitos-mes" onclick="cambiarFiltroChartHabitos('mes')" style="padding: 5px 12px; font-size: 11.5px;">Mes</button>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 230px; width: 100%;">
+                        <canvas id="chart-habitos-productividad"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -375,6 +395,26 @@
                     </button>
                 </div>
                 <div id="contenedor-habilidades">Cargando habilidades...</div>
+
+                <!-- GRÁFICA DE PRODUCTIVIDAD EN SKILLS -->
+                <div style="margin-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 14.5px; color: #f8fafc; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                                <span>📈</span> Productividad e Inversión en Skills
+                            </h3>
+                            <span style="font-size: 11.5px; color: #94a3b8;">Horas de práctica trabajadas por habilidad en el período.</span>
+                        </div>
+                        <div class="tab-category-pill-container" style="display: flex; gap: 6px; margin-bottom: 0;">
+                            <button type="button" class="tab-category-pill active" id="btn-chart-skills-dia" onclick="cambiarFiltroChartSkills('dia')" style="padding: 5px 12px; font-size: 11.5px;">Día</button>
+                            <button type="button" class="tab-category-pill" id="btn-chart-skills-semana" onclick="cambiarFiltroChartSkills('semana')" style="padding: 5px 12px; font-size: 11.5px;">Semana</button>
+                            <button type="button" class="tab-category-pill" id="btn-chart-skills-mes" onclick="cambiarFiltroChartSkills('mes')" style="padding: 5px 12px; font-size: 11.5px;">Mes</button>
+                        </div>
+                    </div>
+                    <div style="position: relative; height: 230px; width: 100%;">
+                        <canvas id="chart-skills-productividad"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1760,17 +1800,20 @@
                 </div>
 
                 <div class="modal-form-group" id="grupo-qd-penitencia" style="display: none;">
-                    <label>Penitencia Automática si no se completa a tiempo:</label>
-                    <select id="modal-qd-penitencia-select" class="modal-input" onchange="togglePenitenciaCustomModal()">
-                        <option value="30 Flexiones inmediatas">💀 30 Flexiones inmediatas</option>
-                        <option value="50 Flexiones inmediatas">💀 50 Flexiones inmediatas</option>
-                        <option value="1 Minuto de Plancha estricta">💀 1 Minuto de Plancha estricta</option>
-                        <option value="Ducha de agua fría obligatoria">💀 Ducha de agua fría obligatoria</option>
-                        <option value="Pérdida de 40 EXP del Avatar">💀 Pérdida de 40 EXP del Avatar</option>
-                        <option value="15 Minutos de limpieza sin móvil">💀 15 Minutos de limpieza sin móvil</option>
-                        <option value="custom">✏️ Personalizada (Escribir abajo)</option>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="margin-bottom: 0;">Penitencia si no se completa a tiempo:</label>
+                        <button type="button" onclick="abrirModalSettingsPenitencias()" style="background: none; border: none; color: #a5b4fc; font-size: 11.5px; cursor: pointer; text-decoration: underline;">
+                            ⚙️ Gestor de Penitencias
+                        </button>
+                    </div>
+                    <select id="modal-qd-penitencia-select" class="modal-input" onchange="alCambiarSelectPenitenciaQuestModal()">
+                        <!-- Poblado dinámicamente desde el catálogo de penitencias -->
                     </select>
-                    <input type="text" id="modal-qd-penitencia-custom" class="modal-input" placeholder="Escribe tu penitencia específica..." style="display: none; margin-top: 8px;">
+                    <!-- Vista previa de la penitencia seleccionada -->
+                    <div id="modal-qd-preview-penitencia" style="display: none; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 10px; margin-top: 6px;">
+                        <div id="modal-qd-preview-pen-desc" style="font-size: 12px; color: #fca5a5; line-height: 1.35;"></div>
+                        <div id="modal-qd-preview-pen-meta" style="font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 4px;"></div>
+                    </div>
                 </div>
 
                 <div class="modal-form-group">
@@ -1807,67 +1850,83 @@
         </div>
     </div>
 
-    <!-- MODAL: CONFIGURACIÓN DE PENITENCIAS (SETTINGS) -->
+    <!-- MODAL: GESTOR Y BIBLIOTECA DE PENITENCIAS -->
     <div id="modal-settings-penitencias" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window" style="max-width: 520px;">
+        <div class="modal-system-window" style="max-width: 580px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">⚙️</span>
-                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CONFIGURAR PENITENCIAS Y DISCIPLINA</span>
+                    <span style="font-size: 18px;">💀</span>
+                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">GESTOR Y BIBLIOTECA DE PENITENCIAS</span>
                 </div>
                 <button onclick="cerrarModalSettingsPenitencias()" class="modal-close-btn">&times;</button>
             </div>
-            <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+            <div style="padding: 20px; max-height: 82vh; overflow-y: auto;">
                 <p style="color: #94a3b8; font-size: 12.5px; margin: 0 0 16px 0; line-height: 1.45;">
-                    Establece los castigos disciplinarios en caso de no completar una misión o quest a tiempo, así como la penalización de experiencia.
+                    Configura tus castigos disciplinarios. Define qué debes hacer, la deducción de experiencia por incumplimiento y los atributos que forjarás en cuerpo y mente al saldar la penitencia.
                 </p>
 
-                <!-- Penitencia Predeterminada -->
-                <div class="modal-form-group">
-                    <label>Penitencia Predeterminada al Crear Tareas:</label>
-                    <select id="settings-penitencia-default" class="modal-input">
-                        <!-- Poblado dinámicamente -->
-                    </select>
-                </div>
+                <!-- 1. CREAR NUEVA PENITENCIA -->
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 13.5px; color: #f8fafc; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Registrar Nueva Penitencia
+                    </h4>
 
-                <!-- Penalización de EXP -->
-                <div class="modal-form-group">
-                    <label>Penalización de EXP por Misión No Realizada:</label>
-                    <select id="settings-penitencia-exp" class="modal-input">
-                        <option value="15">-15 EXP (Leve)</option>
-                        <option value="30">-30 EXP (Estándar)</option>
-                        <option value="50">-50 EXP (Estricto)</option>
-                        <option value="100">-100 EXP (Extremo)</option>
-                        <option value="0">0 EXP (Solo Castigo Físico sin restar EXP)</option>
-                    </select>
-                </div>
-
-                <!-- Lista de Penitencias Configuradas -->
-                <div class="modal-form-group">
-                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span>📋 Biblioteca de Penitencias Disponibles:</span>
-                    </label>
-                    <div id="settings-lista-penitencias" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px; max-height: 190px; overflow-y: auto; padding-right: 4px;">
-                        <!-- Poblado dinámicamente -->
+                    <!-- Nombre de la Penitencia -->
+                    <div class="modal-form-group">
+                        <label style="font-size: 12px;">Nombre de la Penitencia:</label>
+                        <input type="text" id="modal-pen-nombre" class="modal-input" placeholder="Ej: 30 Flexiones Inmediatas, Ducha de Agua Fría..." style="margin-bottom: 0;">
                     </div>
-                </div>
 
-                <!-- Agregar nueva penitencia -->
-                <div class="modal-form-group" style="background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.12); padding: 12px; border-radius: 10px;">
-                    <label style="font-size: 12px;">➕ Añadir Nueva Penitencia a la Biblioteca:</label>
-                    <div style="display: flex; gap: 8px; margin-top: 6px;">
-                        <input type="text" id="settings-nueva-penitencia-txt" class="modal-input" placeholder="Ej: 20 Sentadillas, 5 min meditación..." style="margin-bottom: 0;">
-                        <button type="button" class="btn-system" onclick="agregarPenitenciaDesdeSettings()" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;">
-                            + Añadir
+                    <!-- Descripción de lo que debo hacer -->
+                    <div class="modal-form-group" style="margin-top: 10px;">
+                        <label style="font-size: 12px;">Descripción / Instrucciones de lo que debes hacer:</label>
+                        <textarea id="modal-pen-descripcion" class="modal-input" rows="2" placeholder="Ej: Realizar 30 flexiones estrictas sin pausas prolongadas tocando el pecho al piso..." style="margin-bottom: 0; resize: vertical; min-height: 52px; font-family: inherit; font-size: 12.5px;"></textarea>
+                    </div>
+
+                    <!-- Penalización de EXP por no realizarla -->
+                    <div class="modal-form-group" style="margin-top: 10px;">
+                        <label style="font-size: 12px;">Penalización de Experiencia (-EXP por fallar misión):</label>
+                        <input type="number" id="modal-pen-exp" class="modal-input" value="30" min="0" max="500" placeholder="Ej: 30" style="margin-bottom: 0;">
+                        <span style="font-size: 11px; color: #6b7280; margin-top: 3px; display: block;">Cantidad exacta de EXP que se descontará de tu Avatar si expira la misión asignada.</span>
+                    </div>
+
+                    <!-- Atributos que desarrollará en Cuerpo y Mente -->
+                    <div class="modal-form-group" style="margin-top: 10px;">
+                        <label style="font-weight: 700; color: #f8fafc; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px;">
+                            <span>🎯 Atributos que Desarrolla al Saldarla (Cuerpo y Mente):</span>
+                            <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % de impacto</span>
+                        </label>
+                        <div id="lista-atributos-penitencia" class="atributos-seleccionados-box" style="margin-bottom: 8px;"></div>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="select-nuevo-atributo-penitencia" class="modal-input" style="flex: 1; margin-bottom: 0;" onchange="agregarAtributoDesdeSelect('penitencia', this.value)">
+                                <!-- Opciones inyectadas dinámicamente -->
+                            </select>
+                            <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarAtributoDesdeBoton('penitencia')">
+                                + Añadir
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+                        <button type="button" class="btn-system" onclick="confirmarCrearNuevaPenitencia()" style="padding: 8px 18px; font-size: 13px; font-weight: 700;">
+                            💾 Guardar en Biblioteca
                         </button>
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn-system" style="flex: 1;" onclick="guardarSettingsPenitencias()">
-                        GUARDAR AJUSTES
-                    </button>
-                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalSettingsPenitencias()">
+                <!-- 2. HISTORIAL / BIBLIOTECA DE PENITENCIAS CREADAS -->
+                <div class="modal-form-group">
+                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 800;">
+                        <span>📋 Historial de Penitencias Creadas:</span>
+                        <span id="badge-total-penitencias-catalogo" style="font-size: 11.5px; color: #94a3b8; font-weight: 500;">0 registradas</span>
+                    </label>
+                    <div id="settings-lista-penitencias" style="display: flex; flex-direction: column; gap: 10px; max-height: 260px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Poblado dinámicamente con tarjetas de penitencias -->
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                    <button class="btn-back-system" style="justify-content: center; margin-bottom: 0; min-width: 120px;" onclick="cerrarModalSettingsPenitencias()">
                         CERRAR
                     </button>
                 </div>
@@ -4527,25 +4586,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=9.9"></script>
-    <script src="js/perfil.js?v=9.9"></script>
-    <script src="js/progresion.js?v=9.9"></script>
-    <script src="js/estado-personal.js?v=9.9"></script>
-    <script src="js/finanzas.js?v=9.9"></script>
-    <script src="js/ideas.js?v=9.9"></script>
-    <script src="js/dinamicas.js?v=9.9"></script>
-    <script src="js/calendario.js?v=9.9"></script>
-    <script src="js/inventario.js?v=9.9"></script>
-    <script src="js/jarvis-voz.js?v=9.9"></script>
+    <script src="js/core.js?v=10.0"></script>
+    <script src="js/perfil.js?v=10.0"></script>
+    <script src="js/progresion.js?v=10.0"></script>
+    <script src="js/estado-personal.js?v=10.0"></script>
+    <script src="js/finanzas.js?v=10.0"></script>
+    <script src="js/ideas.js?v=10.0"></script>
+    <script src="js/dinamicas.js?v=10.0"></script>
+    <script src="js/calendario.js?v=10.0"></script>
+    <script src="js/inventario.js?v=10.0"></script>
+    <script src="js/jarvis-voz.js?v=10.0"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=9.9"></script>
+    <script type="module" src="js/firebase-config.js?v=10.0"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=9.9')
+                navigator.serviceWorker.register('sw.js?v=10.0')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
