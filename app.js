@@ -1463,8 +1463,8 @@ function confirmarAgregarEjercicio() {
 
     var nom = inNom ? inNom.value.trim() : "";
     var desc = inDesc ? inDesc.value.trim() : "";
-    var series = inSeries ? (Number(inSeries.value) || 4) : 4;
-    var reps = inReps ? inReps.value.trim() : "10-12 reps";
+    var series = inSeries ? (Number(inSeries.value) || 1) : 1;
+    var reps = inReps ? inReps.value.trim() : "8-10 reps";
     var fatigaPct = inFat ? (Number(inFat.value) || 20) : 20;
 
     if (!nom) {

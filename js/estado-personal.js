@@ -1859,15 +1859,11 @@ function quitarZonaFisicaModal(clave) {
 function abrirModalNuevoEjercicio(grupoPreseleccionado) {
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inDesc = document.getElementById('modal-ejercicio-desc');
-    var inJer = document.getElementById('modal-ejercicio-jerarquia');
-    var inSeries = document.getElementById('modal-ejercicio-series');
     var inReps = document.getElementById('modal-ejercicio-reps');
 
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
-    if (inSeries) inSeries.value = "4";
     if (inReps) inReps.value = "8-10 reps";
-    if (inJer) inJer.value = "compuesto";
 
     ZONAS_EJERCICIO_FISICO_TEMP = [];
     var preZona = grupoPreseleccionado || "Pecho";
@@ -1894,16 +1890,14 @@ function cerrarModalNuevoEjercicio() {
 function confirmarAgregarEjercicio() {
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inTipo = document.getElementById('modal-ejercicio-tipo');
-    var inJer = document.getElementById('modal-ejercicio-jerarquia');
     var inDesc = document.getElementById('modal-ejercicio-desc');
-    var inSeries = document.getElementById('modal-ejercicio-series');
     var inReps = document.getElementById('modal-ejercicio-reps');
 
     var nom = inNom ? inNom.value.trim() : "";
     var tipoEj = inTipo ? inTipo.value : "gym";
-    var esCompuesto = inJer ? (inJer.value === "compuesto") : true;
+    var esCompuesto = true;
     var desc = inDesc ? inDesc.value.trim() : "";
-    var series = inSeries ? (Number(inSeries.value) || 4) : 4;
+    var series = 1; // Por defecto 1 serie en el catálogo (configurable al crear rutinas)
     var reps = inReps ? inReps.value.trim() : "8-10 reps";
 
     if (!nom) {
@@ -2032,11 +2026,8 @@ function generarCardEjercicioFisicoHtml(ej) {
             ? '<span class="muscle-tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">🥋 Movilidad</span>'
             : '<span class="muscle-tag" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">🏋️ Gym</span>');
 
-    var jerarquiaBadge = ej.compuesto
-        ? '<span class="muscle-tag" style="background: rgba(99, 102, 241, 0.2); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.4); font-weight: 700;">⭐ Principal</span>'
-        : '<span class="muscle-tag" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">🎯 Accesorio</span>';
-
     var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
+    var repsDisplay = (ej.series && ej.series > 1) ? `${ej.series} Series × ${ej.repeticiones || '8-10 reps'}` : `1 Serie · ${ej.repeticiones || '8-10 reps'}`;
 
     return `
     <div class="exercise-card">
@@ -2044,7 +2035,6 @@ function generarCardEjercicioFisicoHtml(ej) {
             <div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
                     ${tipoBadge}
-                    ${jerarquiaBadge}
                     <h3 class="exercise-card-name" style="margin: 0;">${ej.nombre}</h3>
                 </div>
                 <p class="exercise-card-desc">${specsTexto}</p>
@@ -2054,7 +2044,7 @@ function generarCardEjercicioFisicoHtml(ej) {
 
         <div class="exercise-badges-row">
             ${badgesZonasHtml}
-            <span class="badge-exercise-reps">${ej.series || 4} Series × ${ej.repeticiones || '8-10 reps'}</span>
+            <span class="badge-exercise-reps">${repsDisplay}</span>
         </div>
     </div>`;
 }
@@ -2198,13 +2188,19 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
             eFisicos.forEach(function(ej) {
                 var cats = (ej.categorias || []).join(', ');
                 html += `
-                <label class="modal-checklist-item">
-                    <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}">
-                    <div style="flex: 1;">
-                        <strong style="color: #f8fafc;">${ej.nombre}</strong>
-                        <div style="font-size: 11.5px; color: #6b7280;">${ej.series} series × ${ej.repeticiones} · [${cats}] (+${ej.fatigaPorcentaje || 20}% fatiga)</div>
+                <div class="modal-checklist-item" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.02); margin-bottom: 6px;">
+                    <label style="display: flex; align-items: center; gap: 10px; flex: 1; margin: 0; cursor: pointer;">
+                        <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}">
+                        <div>
+                            <strong style="color: #f8fafc; font-size: 13px;">${ej.nombre}</strong>
+                            <div style="font-size: 11.5px; color: #94a3b8;">${ej.repeticiones || '8-10 reps'} · [${cats}]</div>
+                        </div>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8; background: #0b0e15; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                        <span>Series:</span>
+                        <input type="number" id="series_rutina_custom_${ej.id}" min="1" max="20" value="${(ej.series && ej.series > 1) ? ej.series : 3}" style="width: 44px; padding: 2px 4px; background: transparent; border: none; border-bottom: 1px solid #38bdf8; color: #38bdf8; font-weight: 800; text-align: center; font-size: 12.5px; outline: none;">
                     </div>
-                </label>`;
+                </div>`;
             });
         }
     }
@@ -2223,8 +2219,8 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 <label class="modal-checklist-item">
                     <input type="checkbox" name="ejercicios_mentales_rutina_check" value="${ec.id}">
                     <div style="flex: 1;">
-                        <strong style="color: #1e40af;">🧠 ${ec.nombre}</strong>
-                        <div style="font-size: 11.5px; color: #6b7280;">⏱️ ${ec.duracionMinutos || 15} min · ${muscP} (+${ec.fatigaEstimada || 15}% fatiga SNC · +${ec.expRecompensa || 25} EXP)</div>
+                        <strong style="color: #c084fc;">🧠 ${ec.nombre}</strong>
+                        <div style="font-size: 11.5px; color: #94a3b8;">⏱️ ${ec.duracionMinutos || 15} min · ${muscP} (+${ec.fatigaEstimada || 15}% fatiga SNC · +${ec.expRecompensa || 25} EXP)</div>
                     </div>
                 </label>`;
             });
@@ -2286,6 +2282,12 @@ function confirmarAgregarRutina() {
         if (idsFisicos.includes(String(e.id))) {
             var item = JSON.parse(JSON.stringify(e));
             item.esMental = false;
+            var inCustomSeries = document.getElementById('series_rutina_custom_' + e.id);
+            if (inCustomSeries) {
+                item.series = parseInt(inCustomSeries.value) || 1;
+            } else {
+                item.series = e.series || 1;
+            }
             selectedEjercicios.push(item);
         }
     });
