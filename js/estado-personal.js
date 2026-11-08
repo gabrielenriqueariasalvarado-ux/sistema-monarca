@@ -1614,25 +1614,21 @@ function cambiarCategoriaEjercicios(cat) {
     var btnRut = document.getElementById('btn-cat-rutinas');
     var btnBancoFis = document.getElementById('btn-cat-banco-fisico');
     var btnBancoMen = document.getElementById('btn-cat-banco-mental');
-    var btnRutAleatoria = document.getElementById('btn-cat-rutina-aleatoria');
     var btnHist = document.getElementById('btn-cat-historial');
 
     var secRut = document.getElementById('seccion-categoria-rutinas');
     var secBancoFis = document.getElementById('seccion-categoria-banco-fisico');
     var secBancoMen = document.getElementById('seccion-categoria-banco-mental');
-    var secRutAleatoria = document.getElementById('seccion-categoria-rutina-aleatoria');
     var secHist = document.getElementById('seccion-categoria-historial');
 
     if (btnRut) btnRut.classList.remove('active');
     if (btnBancoFis) btnBancoFis.classList.remove('active');
     if (btnBancoMen) btnBancoMen.classList.remove('active');
-    if (btnRutAleatoria) btnRutAleatoria.classList.remove('active');
     if (btnHist) btnHist.classList.remove('active');
 
     if (secRut) secRut.style.display = 'none';
     if (secBancoFis) secBancoFis.style.display = 'none';
     if (secBancoMen) secBancoMen.style.display = 'none';
-    if (secRutAleatoria) secRutAleatoria.style.display = 'none';
     if (secHist) secHist.style.display = 'none';
 
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutinas') {
@@ -1647,10 +1643,6 @@ function cambiarCategoriaEjercicios(cat) {
         if (btnBancoMen) btnBancoMen.classList.add('active');
         if (secBancoMen) secBancoMen.style.display = 'block';
         renderizarBancoEjerciciosCerebrales();
-    } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutina-aleatoria') {
-        if (btnRutAleatoria) btnRutAleatoria.classList.add('active');
-        if (secRutAleatoria) secRutAleatoria.style.display = 'block';
-        renderizarModuloRutinaAleatoria();
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'historial') {
         if (btnHist) btnHist.classList.add('active');
         if (secHist) secHist.style.display = 'block';
@@ -1865,8 +1857,8 @@ function confirmarAgregarEjercicio() {
 
     cerrarModalNuevoEjercicio();
     renderizarEjercicios(APP_STATE.ejercicios);
-    if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutina-aleatoria') {
-        renderizarModuloRutinaAleatoria();
+    if (typeof TAB_TRAINER_ACTIVA !== 'undefined' && TAB_TRAINER_ACTIVA === 'aleatoria' && typeof renderizarSubAppTrainer === 'function') {
+        renderizarSubAppTrainer();
     }
     alert("⚡ Ejercicio '" + nom + "' guardado en " + muscPrincipal + " (" + (esCompuesto ? "Principal / Compuesto" : "Accesorio") + ").");
 }
@@ -4024,8 +4016,8 @@ function importarBancoRecomendadoAlBancoFisico() {
         MonarcaDB.save(APP_STATE);
     }
     renderizarEjercicios(APP_STATE.ejercicios);
-    if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutina-aleatoria') {
-        renderizarModuloRutinaAleatoria();
+    if (typeof TAB_TRAINER_ACTIVA !== 'undefined' && TAB_TRAINER_ACTIVA === 'aleatoria' && typeof renderizarSubAppTrainer === 'function') {
+        renderizarSubAppTrainer();
     }
     alert("✓ Se han importado " + agregados + " ejercicios a tu Banco Físico.");
 }

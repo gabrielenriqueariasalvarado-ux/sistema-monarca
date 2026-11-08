@@ -3281,7 +3281,11 @@ function filtrarTiposCorteBarberia(query) {
    SUB-APP OFICIAL: PERSONAL TRAINER (COACHING FÍSICO, ALUMNOS & ENTRENAMIENTOS)
    ========================================================================== */
 
-var TAB_TRAINER_ACTIVA = 'calendario'; // 'calendario' | 'alumnos' | 'enfoques' | 'historial'
+var TAB_TRAINER_ACTIVA = 'calendario'; // 'calendario' | 'alumnos' | 'enfoques' | 'aleatoria' | 'historial'
+var SUBVISTA_TRAINER_ALEATORIA = 'generador'; // 'generador' | 'settings'
+var ALUMNO_RUTINA_TRAINER_SELECCIONADO = '';
+var PERFIL_TRAINER_ALEATORIA_ACTIVO = 'hombre'; // 'hombre' | 'mujer'
+var RUTINA_TRAINER_GENERADA = null;
 var INTERVALO_TIMER_TRAINER = null;
 var ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
 var BUSQUEDA_ALUMNO_TRAINER = '';
@@ -3329,6 +3333,9 @@ function asegurarEstructuraTrainer() {
             { id: "ENF-6", nombre: "Core, Abdomen & HIIT", precio: 12, tiempoMin: 45, descripcion: "Estabilidad del core, planchas dinámicas y remate cardiovascular metabólico." }
         ];
     }
+    (APP_STATE.subappTrainer.alumnos || []).forEach(function(al) {
+        if (!Array.isArray(al.rutinasAsignadas)) al.rutinasAsignadas = [];
+    });
 }
 
 function cargarSubAppTrainer() {
@@ -3571,7 +3578,7 @@ function renderizarSubAppTrainer() {
     </div>
     `;
 
-    // 3. BARRA DE SUB-TABS (CALENDARIO / ALUMNOS / ENFOQUES / HISTORIAL)
+    // 3. BARRA DE SUB-TABS (CALENDARIO / ALUMNOS / ENFOQUES / ALEATORIA / HISTORIAL)
     html += `
     <div style="display: flex; gap: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow-x: auto;">
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'calendario' ? 'active' : ''}" onclick="setTabTrainer('calendario')">
@@ -3582,6 +3589,9 @@ function renderizarSubAppTrainer() {
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'enfoques' ? 'active' : ''}" onclick="setTabTrainer('enfoques')">
             <span>🎯</span> Rutinas & Enfoques (${rutinas.length})
+        </button>
+        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'aleatoria' ? 'active' : ''}" onclick="setTabTrainer('aleatoria')">
+            <span>🎲</span> Rutina Aleatoria (Atletas)
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'historial' ? 'active' : ''}" onclick="setTabTrainer('historial')">
             <span>📋</span> Historial (${sesiones.length})
@@ -3596,6 +3606,8 @@ function renderizarSubAppTrainer() {
         html += renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones);
     } else if (TAB_TRAINER_ACTIVA === 'enfoques') {
         html += renderizarHtmlCatalogoEnfoquesTrainer(rutinas);
+    } else if (TAB_TRAINER_ACTIVA === 'aleatoria') {
+        html += renderizarHtmlRutinaAleatoriaTrainer();
     } else if (TAB_TRAINER_ACTIVA === 'historial') {
         html += renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos);
     }
@@ -3971,6 +3983,688 @@ function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
 
 function filtrarHistorialTrainerPorAlumno(alumnoId) {
     FILTRO_HISTORIAL_TRAINER_ALUMNO = alumnoId;
+    renderizarSubAppTrainer();
+}
+
+// ==========================================================================
+// SUB-APP TRAINER: GENERADOR DE RUTINA ALEATORIA & ASIGNADOR A ATLETAS
+// ==========================================================================
+
+function renderizarHtmlRutinaAleatoriaTrainer() {
+    asegurarEstructuraTrainer();
+    var alumnos = APP_STATE.subappTrainer.alumnos || [];
+
+    if (SUBVISTA_TRAINER_ALEATORIA === 'settings') {
+        return renderizarHtmlSettingsSplitTrainer();
+    }
+
+    var alumnoActivo = null;
+    if (ALUMNO_RUTINA_TRAINER_SELECCIONADO) {
+        alumnoActivo = alumnos.find(function(a) { return a.id === ALUMNO_RUTINA_TRAINER_SELECCIONADO; });
+    }
+
+    var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx] || { dia: DIAS_SEMANA_NOMBRES[diaIdx], descanso: false, grupos: [] };
+    var nombreDia = DIAS_SEMANA_NOMBRES[diaIdx];
+    var esDescanso = !!diaConfig.descanso;
+    var grupos = diaConfig.grupos || [];
+
+    var html = `
+    <div style="background: #0d121f; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+        <!-- CABECERA DEL GENERADOR DE RUTINAS PARA ATLETAS -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="font-size: 20px;">🎲</span>
+                    <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">
+                        Generador de Rutina Aleatoria para Atletas
+                    </h3>
+                    <span class="subapp-badge" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); font-size: 10px;">
+                        COACHING & ASIGNACIÓN
+                    </span>
+                </div>
+                <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
+                    Genera y asigna rutinas diarias optimizadas con ejercicios multiarticulares y accesorios del Banco Físico para tus atletas.
+                </p>
+            </div>
+            <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('settings')" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 8px 14px;">
+                <span>⚙️</span> Configurar Split Semanal
+            </button>
+        </div>
+
+        <!-- SELECTOR DE ATLETA Y PERFIL BIOMÉTRICO -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 14px 16px;">
+            <div>
+                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #10b981; margin-bottom: 6px;">
+                    👤 Atleta / Alumno Destinatario:
+                </label>
+                <select id="trainer-rutina-alumno-select" class="finanzas-input-clean" onchange="alCambiarAlumnoRutinaTrainer(this.value)" style="width: 100%; box-sizing: border-box; background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #f8fafc; border-radius: 10px; padding: 10px 12px; font-size: 13px;">
+                    <option value="">-- Sin atleta asignado (Plantilla General) --</option>
+                    ${alumnos.map(function(al) {
+                        var sel = (ALUMNO_RUTINA_TRAINER_SELECCIONADO === al.id) ? 'selected' : '';
+                        var gIcon = al.genero === 'Femenino' ? '👩' : '👨';
+                        return `<option value="${al.id}" ${sel}>${gIcon} ${escapeHtmlTrainer(al.nombre)} · ${escapeHtmlTrainer(al.objetivo || 'Fitness')}</option>`;
+                    }).join('')}
+                </select>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 6px;">
+                    🧬 Perfil Fisiológico / Split:
+                </label>
+                <div class="toggle-perfil-split-box" style="margin-top: 2px;">
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'hombre' ? 'active' : ''}" onclick="cambiarPerfilRutinaTrainer('hombre')">
+                        👨 Hombre
+                    </button>
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'mujer' ? 'active' : ''}" onclick="cambiarPerfilRutinaTrainer('mujer')">
+                        👩 Mujer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESUMEN BIOMÉTRICO SI HAY ALUMNO SELECCIONADO -->
+        ${alumnoActivo ? `
+        <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="trainer-avatar-initials" style="width: 40px; height: 40px; font-size: 15px;">
+                    ${escapeHtmlTrainer(alumnoActivo.nombre ? alumnoActivo.nombre.slice(0, 2).toUpperCase() : 'AL')}
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(alumnoActivo.nombre)}</span>
+                        <span style="font-size: 10.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.12); padding: 2px 7px; border-radius: 6px;">${escapeHtmlTrainer(alumnoActivo.genero || 'Atleta')}</span>
+                    </div>
+                    <div style="font-size: 11.5px; color: #94a3b8;">
+                        🎯 Objetivo: <strong style="color: #38bdf8;">${escapeHtmlTrainer(alumnoActivo.objetivo || 'Fitness')}</strong>
+                        ${alumnoActivo.peso ? ` · ⚖️ ${alumnoActivo.peso} kg` : ''}
+                        ${alumnoActivo.altura ? ` · 📏 ${alumnoActivo.altura} cm` : ''}
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="button" class="btn-back-system" onclick="verFichaAlumnoTrainer('${alumnoActivo.id}')" style="margin-bottom: 0; padding: 6px 12px; font-size: 11.5px;">
+                    📋 Ver Ficha
+                </button>
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- BANNER DE HOY Y GRUPOS PROGRAMADOS -->
+        <div class="generator-banner-today" style="margin-bottom: 18px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 8px; border-radius: 6px;">
+                            ${perfil === 'mujer' ? '👩 Perfil Mujer' : '👨 Perfil Hombre'}
+                        </span>
+                        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">· Detección de Calendario</span>
+                    </div>
+                    <h3 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 17px; font-weight: 800;">
+                        📅 Hoy es <span style="color: #38bdf8;">${nombreDia}</span>
+                    </h3>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+                        ${esDescanso
+                            ? '<span style="display: inline-block; padding: 4px 12px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.3); color: #cbd5e1; border-radius: 9999px; font-size: 12px; font-weight: 700;">🏖️ Día de Descanso Programado en el Split</span>'
+                            : (grupos.length > 0
+                                ? grupos.map(function(g) {
+                                    return `<span style="display: inline-block; padding: 4px 10px; background: rgba(37, 99, 235, 0.2); border: 1px solid rgba(37, 99, 235, 0.4); color: #93c5fd; border-radius: 9999px; font-size: 11.5px; font-weight: 700; margin-right: 6px; margin-top: 4px;">⚡ ${g}</span>`;
+                                }).join('')
+                                : '<span style="color: #94a3b8; font-size: 12px;">Sin grupos programados hoy en el split.</span>')}
+                    </div>
+                </div>
+                <div>
+                    <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('settings')" style="font-size: 11.5px; padding: 6px 12px;">
+                        ⚙️ Cambiar Split
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTÓN GENERAR -->
+        <div style="text-align: center; margin-bottom: 22px;">
+            <button type="button" class="btn-system" onclick="generarRutinaAleatoriaTrainer()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 15px; padding: 14px 30px; border-radius: 12px; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35); border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <span>⚡</span> Generar Rutina de Hoy ${alumnoActivo ? ('para ' + escapeHtmlTrainer(alumnoActivo.nombre)) : 'para Atleta'}
+            </button>
+        </div>
+
+        <!-- CONTENEDOR DE LA RUTINA GENERADA -->
+        <div id="trainer-rutina-generada-box">
+            ${renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos)}
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
+function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
+    if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
+        var ejerciciosBanco = (typeof obtenerBancoUsuarioEjercicios === 'function') ? obtenerBancoUsuarioEjercicios() : [];
+        if (!ejerciciosBanco || ejerciciosBanco.length === 0) {
+            return `
+            <div style="text-align: center; padding: 36px 20px; background: #07090e; border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 16px;">
+                <span style="font-size: 34px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
+                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Tu Banco Físico está vacío</h4>
+                <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
+                    El generador selecciona ejercicios registrados en tu Banco Físico para estructurar la sesión del atleta.
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 10px 18px; font-size: 13px;">
+                        📥 Cargar Banco Recomendado (30+ Ejercicios)
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        return `
+        <div style="text-align: center; padding: 40px 20px; background: #07090e; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
+            <span style="font-size: 36px; display: block; margin-bottom: 8px;">🎲</span>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Generador de Rutinas para Atletas</h4>
+            <p style="color: #94a3b8; font-size: 13px; max-width: 460px; margin: 0 auto;">
+                Selecciona un atleta y pulsa el botón superior para estructurar su sesión de hoy. Se seleccionarán entre 4 y 6 ejercicios óptimos priorizando multiarticulares y accesorios.
+            </p>
+        </div>`;
+    }
+
+    var html = `
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+        <div>
+            <h4 style="margin: 0; color: #f8fafc; font-size: 15px; font-weight: 800;">
+                🔥 Sesión Estructurada ${alumnoActivo ? ('para ' + escapeHtmlTrainer(alumnoActivo.nombre)) : 'para Atleta'} (${RUTINA_TRAINER_GENERADA.length} Ejercicios)
+            </h4>
+            <span style="font-size: 12px; color: #94a3b8;">Revisa y ajusta los ejercicios. Puedes re-rollear individualmente cualquiera que requiera variante.</span>
+        </div>
+        <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaTrainer()" style="font-size: 11.5px;">
+            🔄 Regenerar Todo
+        </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+    `;
+
+    RUTINA_TRAINER_GENERADA.forEach(function(ej, idx) {
+        var esComp = !!ej.compuesto;
+        var badgeComp = esComp 
+            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL / COMPUESTO</span>`
+            : `<span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
+        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).map(function(c) {
+            return `<span style="font-size: 10.5px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">${c}</span>`;
+        }).join(' ');
+
+        html += `
+        <div class="random-exercise-card" style="background: #07090e; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #10b981; flex-shrink: 0;">
+                    ${idx + 1}
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                        <h4 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc;">${escapeHtmlTrainer(ej.nombre)}</h4>
+                        ${badgeComp}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                        <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${ej.repeticiones || '10-12 reps'}</span>
+                        <span style="color: #64748b; font-size: 12px;">·</span>
+                        ${muscleBadges}
+                    </div>
+                </div>
+            </div>
+            <div>
+                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioTrainer(${idx})" title="Cambiar por otro ejercicio del mismo grupo">
+                    <span>🔄</span> Re-roll
+                </button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += `
+    </div>
+
+    <!-- BOTONES DE ACCIÓN PARA EL ATLETA -->
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+        <button type="button" class="btn-system" onclick="asignarRutinaGeneradaAAlumnoTrainer()" style="flex: 2; min-width: 220px; padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 14px; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            <span>📋</span> Asignar a Alumno
+        </button>
+        <button type="button" class="btn-system" onclick="iniciarEntrenamientoConRutinaTrainer()" style="flex: 1.5; min-width: 200px; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; font-weight: 800; font-size: 14px; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);">
+            <span>🏋️‍♂️</span> Iniciar Sesión con Alumno
+        </button>
+        <button type="button" class="btn-subfiltro-ej" onclick="guardarRutinaTrainerComoEnfoque()" style="padding: 14px 20px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            <span>💾</span> Guardar como Enfoque
+        </button>
+    </div>
+    `;
+
+    return html;
+}
+
+function alCambiarAlumnoRutinaTrainer(alumnoId) {
+    ALUMNO_RUTINA_TRAINER_SELECCIONADO = alumnoId || '';
+    if (alumnoId) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+        if (al && al.genero) {
+            PERFIL_TRAINER_ALEATORIA_ACTIVO = (al.genero === 'Femenino' ? 'mujer' : 'hombre');
+            PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_TRAINER_ALEATORIA_ACTIVO;
+        }
+    }
+    renderizarSubAppTrainer();
+}
+
+function cambiarPerfilRutinaTrainer(perfil) {
+    PERFIL_TRAINER_ALEATORIA_ACTIVO = perfil || 'hombre';
+    PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_TRAINER_ALEATORIA_ACTIVO;
+    renderizarSubAppTrainer();
+}
+
+function mostrarSubvistaTrainerAleatoria(sub) {
+    SUBVISTA_TRAINER_ALEATORIA = sub;
+    renderizarSubAppTrainer();
+}
+
+function generarRutinaAleatoriaTrainer() {
+    var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx];
+
+    if (diaConfig && diaConfig.descanso) {
+        if (!confirm("Hoy " + DIAS_SEMANA_NOMBRES[diaIdx] + " es DÍA DE DESCANSO programado en el split semanal.\n\n¿Deseas estructurar una rutina activa de todos modos para este atleta?")) {
+            return;
+        }
+    }
+
+    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
+        ? diaConfig.grupos
+        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
+
+    var todos = obtenerBancoUsuarioEjercicios();
+
+    if (!todos || todos.length === 0) {
+        RUTINA_TRAINER_GENERADA = null;
+        alert("El Banco Físico aún no tiene ejercicios registrados. Puedes importar los recomendados o crear tus propios ejercicios.");
+        renderizarSubAppTrainer();
+        return;
+    }
+
+    function coincideConGrupos(ej, grupos) {
+        var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
+            return (c || '').toLowerCase().trim();
+        });
+        return grupos.some(function(g) {
+            var gLow = (g || '').toLowerCase().trim();
+            return categorias.some(function(c) {
+                return c.includes(gLow) || gLow.includes(c);
+            });
+        });
+    }
+
+    var candidatos = todos.filter(function(ej) {
+        return coincideConGrupos(ej, gruposObjetivo);
+    });
+
+    if (!candidatos || candidatos.length === 0) {
+        RUTINA_TRAINER_GENERADA = null;
+        alert("No se encontraron ejercicios en tu Banco Físico que coincidan con los grupos de hoy (" + gruposObjetivo.join(', ') + ").");
+        renderizarSubAppTrainer();
+        return;
+    }
+
+    var compuestos = shuffleArray(candidatos.filter(function(e) { return !!e.compuesto; }));
+    var accesorios = shuffleArray(candidatos.filter(function(e) { return !e.compuesto; }));
+
+    var seleccionados = [];
+    var nombresUsados = {};
+
+    function agregar(ej) {
+        if (!ej) return false;
+        var key = ej.nombre.toLowerCase().trim();
+        if (nombresUsados[key]) return false;
+        nombresUsados[key] = true;
+        seleccionados.push(JSON.parse(JSON.stringify(ej)));
+        return true;
+    }
+
+    if (candidatos.length <= 4) {
+        candidatos.forEach(function(ej) { agregar(ej); });
+    } else {
+        var metaComp = Math.min(compuestos.length, Math.floor(Math.random() * 2) + 2);
+        for (var i = 0; i < compuestos.length && seleccionados.length < metaComp; i++) {
+            agregar(compuestos[i]);
+        }
+        var metaTotal = Math.min(6, candidatos.length);
+        for (var j = 0; j < accesorios.length && seleccionados.length < metaTotal; j++) {
+            agregar(accesorios[j]);
+        }
+        for (var k = 0; k < compuestos.length && seleccionados.length < metaTotal; k++) {
+            agregar(compuestos[k]);
+        }
+    }
+
+    RUTINA_TRAINER_GENERADA = seleccionados;
+    renderizarSubAppTrainer();
+}
+
+function reRollearEjercicioTrainer(idx) {
+    if (!RUTINA_TRAINER_GENERADA || !RUTINA_TRAINER_GENERADA[idx]) return;
+
+    var actual = RUTINA_TRAINER_GENERADA[idx];
+    var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaConfig = split[diaIdx];
+    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
+        ? diaConfig.grupos
+        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
+
+    var todos = shuffleArray(obtenerBancoUsuarioEjercicios());
+    var nombresActuales = RUTINA_TRAINER_GENERADA.map(function(e) { return e.nombre.toLowerCase().trim(); });
+
+    var grupoActual = actual.musculoPrincipal || (actual.categorias && actual.categorias[0]) || '';
+    var sustituto = todos.find(function(e) {
+        var nKey = e.nombre.toLowerCase().trim();
+        if (nombresActuales.includes(nKey)) return false;
+        var cat = (e.categorias || []).concat([e.musculoPrincipal || '']).map(function(c) { return (c || '').toLowerCase().trim(); });
+        var matchMismo = grupoActual && cat.some(function(c) { return c.includes(grupoActual.toLowerCase().trim()); });
+        var matchDia = gruposObjetivo.some(function(g) {
+            return cat.some(function(c) { return c.includes(g.toLowerCase().trim()); });
+        });
+        return matchMismo || matchDia;
+    });
+
+    if (sustituto) {
+        RUTINA_TRAINER_GENERADA[idx] = JSON.parse(JSON.stringify(sustituto));
+        renderizarSubAppTrainer();
+    } else {
+        alert("No tienes otros ejercicios en tu Banco Físico para este grupo muscular.");
+    }
+}
+
+function asignarRutinaGeneradaAAlumnoTrainer() {
+    if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
+        alert("Primero genera una rutina de entrenamiento.");
+        return;
+    }
+    asegurarEstructuraTrainer();
+    var alumnos = APP_STATE.subappTrainer.alumnos || [];
+
+    var alumnoId = ALUMNO_RUTINA_TRAINER_SELECCIONADO;
+    var alumno = null;
+    if (alumnoId) {
+        alumno = alumnos.find(function(a) { return a.id === alumnoId; });
+    }
+
+    if (!alumno) {
+        if (alumnos.length === 0) {
+            alert("No tienes alumnos registrados aún. Crea un alumno desde el Catálogo de Alumnos para asignarle rutinas.");
+            return;
+        }
+        var nombresLista = alumnos.map(function(a, i) { return (i + 1) + ". " + a.nombre; }).join("\n");
+        var selIdx = prompt("Selecciona el número del alumno al que deseas asignar esta rutina:\n\n" + nombresLista);
+        if (!selIdx) return;
+        var idxNum = parseInt(selIdx, 10) - 1;
+        if (isNaN(idxNum) || !alumnos[idxNum]) {
+            alert("Selección inválida.");
+            return;
+        }
+        alumno = alumnos[idxNum];
+        ALUMNO_RUTINA_TRAINER_SELECCIONADO = alumno.id;
+    }
+
+    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var d = new Date();
+    var fechaStr = d.toLocaleDateString('es-ES');
+    var nombreDefecto = "Rutina " + hoyNombre + " - " + alumno.nombre + " (" + fechaStr + ")";
+    var nombreFinal = prompt("Nombre de la rutina asignada para " + alumno.nombre + ":", nombreDefecto);
+    if (!nombreFinal || !nombreFinal.trim()) return;
+
+    if (!Array.isArray(alumno.rutinasAsignadas)) alumno.rutinasAsignadas = [];
+
+    var nuevaRutinaAsignada = {
+        id: "RUT-ASIG-" + Date.now(),
+        nombre: nombreFinal.trim(),
+        fechaAsignacion: fechaStr,
+        timestamp: Date.now(),
+        diaSemana: hoyNombre,
+        ejercicios: JSON.parse(JSON.stringify(RUTINA_TRAINER_GENERADA))
+    };
+
+    alumno.rutinasAsignadas.unshift(nuevaRutinaAsignada);
+
+    // Opcionalmente agregar también a los enfoques del trainer
+    var enfExistente = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) {
+        return e.nombre.toLowerCase().trim() === nombreFinal.toLowerCase().trim();
+    });
+    if (!enfExistente) {
+        APP_STATE.subappTrainer.rutinasEnfoques.unshift({
+            id: "ENF-" + Date.now(),
+            nombre: nombreFinal.trim(),
+            precio: parseFloat(alumno.tarifaHabitual) || 15,
+            tiempoMin: 60,
+            descripcion: "Rutina estructurada para " + alumno.nombre + " (" + (nuevaRutinaAsignada.ejercicios.length) + " ejercicios)."
+        });
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+    alert("✓ ¡Rutina '" + nuevaRutinaAsignada.nombre + "' asignada exitosamente a " + alumno.nombre + "!\n\nPuedes verla en su ficha o iniciar un entrenamiento con ella.");
+}
+
+function iniciarEntrenamientoConRutinaTrainer() {
+    if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
+        alert("Primero genera una rutina de entrenamiento.");
+        return;
+    }
+    asegurarEstructuraTrainer();
+    var alumnos = APP_STATE.subappTrainer.alumnos || [];
+
+    var alumnoId = ALUMNO_RUTINA_TRAINER_SELECCIONADO;
+    var alumno = null;
+    if (alumnoId) {
+        alumno = alumnos.find(function(a) { return a.id === alumnoId; });
+    }
+
+    var alumnoNombre = alumno ? alumno.nombre : 'Atleta';
+    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var enfoque = "Rutina " + hoyNombre + " (" + (RUTINA_TRAINER_GENERADA.length) + " ej.)";
+
+    APP_STATE.subappTrainer.timerActivo = {
+        inicioTimestamp: Date.now(),
+        alumnoId: alumno ? alumno.id : null,
+        alumnoNombre: alumnoNombre,
+        enfoque: enfoque
+    };
+
+    MonarcaDB.save(APP_STATE);
+    iniciarIntervaloTimerTrainer();
+    setTabTrainer('calendario');
+    alert("🏋️‍♂️ Sesión de entrenamiento iniciada en vivo para " + alumnoNombre + " (" + enfoque + "). Cronómetro activo.");
+}
+
+function guardarRutinaTrainerComoEnfoque() {
+    if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
+        alert("Primero genera una rutina.");
+        return;
+    }
+    asegurarEstructuraTrainer();
+    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var nombreDef = "Rutina " + hoyNombre + " (" + (PERFIL_TRAINER_ALEATORIA_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + ") - " + new Date().toLocaleDateString('es-ES');
+    var nombre = prompt("Nombre para guardar esta rutina en el catálogo de Enfoques del Trainer:", nombreDef);
+    if (!nombre || !nombre.trim()) return;
+
+    var nuevoEnfoque = {
+        id: "ENF-" + Date.now(),
+        nombre: nombre.trim(),
+        precio: 15,
+        tiempoMin: 60,
+        descripcion: "Rutina estructurada de " + RUTINA_TRAINER_GENERADA.length + " ejercicios: " + RUTINA_TRAINER_GENERADA.map(function(e) { return e.nombre; }).join(', ')
+    };
+
+    APP_STATE.subappTrainer.rutinasEnfoques.unshift(nuevoEnfoque);
+    MonarcaDB.save(APP_STATE);
+    alert("✓ Rutina '" + nuevoEnfoque.nombre + "' agregada al catálogo de 'Rutinas & Enfoques' de Personal Trainer.");
+    renderizarSubAppTrainer();
+}
+
+function iniciarEntrenamientoConRutinaAsignada(alumnoId, rIdx) {
+    asegurarEstructuraTrainer();
+    var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+    if (!al || !al.rutinasAsignadas || !al.rutinasAsignadas[rIdx]) return;
+
+    var r = al.rutinasAsignadas[rIdx];
+    cerrarModalFichaAlumnoTrainer();
+
+    APP_STATE.subappTrainer.timerActivo = {
+        inicioTimestamp: Date.now(),
+        alumnoId: al.id,
+        alumnoNombre: al.nombre,
+        enfoque: r.nombre
+    };
+
+    MonarcaDB.save(APP_STATE);
+    iniciarIntervaloTimerTrainer();
+    renderizarSubAppTrainer();
+    alert("🏋️‍♂️ Sesión de entrenamiento iniciada en vivo para " + al.nombre + " con la rutina '" + r.nombre + "'.");
+}
+
+function eliminarRutinaAsignadaTrainer(alumnoId, rIdx) {
+    if (!confirm("¿Deseas eliminar esta rutina asignada?")) return;
+    var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+    if (!al || !al.rutinasAsignadas) return;
+    al.rutinasAsignadas.splice(rIdx, 1);
+    MonarcaDB.save(APP_STATE);
+    verFichaAlumnoTrainer(alumnoId);
+}
+
+function irAGeneradorParaAlumnoTrainer(alumnoId) {
+    cerrarModalFichaAlumnoTrainer();
+    ALUMNO_RUTINA_TRAINER_SELECCIONADO = alumnoId;
+    var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+    if (al && al.genero) {
+        PERFIL_TRAINER_ALEATORIA_ACTIVO = (al.genero === 'Femenino' ? 'mujer' : 'hombre');
+        PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_TRAINER_ALEATORIA_ACTIVO;
+    }
+    setTabTrainer('aleatoria');
+}
+
+function renderizarHtmlSettingsSplitTrainer() {
+    var perfil = PERFIL_SETTINGS_SPLIT_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    var diaActualIdx = obtenerDiaSemanaActualIdx();
+
+    var html = `
+    <div style="background: #0d121f; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('generador')" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>◀</span> Volver al Generador
+            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Editando Plano:</span>
+                <div class="toggle-perfil-split-box">
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'hombre' ? 'active' : ''}" onclick="cambiarPerfilSettingsSplitTrainer('hombre')">
+                        👨 Hombre
+                    </button>
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'mujer' ? 'active' : ''}" onclick="cambiarPerfilSettingsSplitTrainer('mujer')">
+                        👩 Mujer
+                    </button>
+                </div>
+            </div>
+            <button type="button" class="btn-subfiltro-ej" onclick="restablecerSplitDefaultTrainer()" style="color: #cbd5e1;" title="Restablecer valores predeterminados para este perfil">
+                🔄 Valores por Defecto
+            </button>
+        </div>
+
+        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;">
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #f8fafc; font-weight: 800;">⚙️ Configuración del Split Semanal de Atletas (Lunes a Domingo)</h3>
+            <p style="margin: 0; font-size: 12px; color: #94a3b8;">Asigna los grupos musculares objetivo de cada día o márcalo como día de descanso para el perfil seleccionado. Estos ajustes se guardan automáticamente y rigen el generador aleatorio de rutinas.</p>
+        </div>
+
+        <!-- Grilla interactiva semanal Lunes-Domingo -->
+        <div class="training-split-grid">
+    `;
+
+    split.forEach(function(item, idx) {
+        var esHoy = (idx === diaActualIdx);
+        var esDescanso = !!item.descanso;
+        var grupos = item.grupos || [];
+
+        var chipsHtml = GRUPOS_MUSCULARES_SPLIT.map(function(m) {
+            var activo = grupos.includes(m);
+            return `<span class="split-muscle-chip ${activo ? 'active' : ''}" onclick="toggleMusculoDiaSplitTrainer(${idx}, '${m}')">${m}</span>`;
+        }).join('');
+
+        html += `
+        <div class="split-day-card ${esHoy ? 'today' : ''} ${esDescanso ? 'is-rest' : ''}">
+            <div class="split-day-header">
+                <div>
+                    <strong style="color: #f8fafc; font-size: 14px;">${item.dia}</strong>
+                    ${esHoy ? '<span style="font-size: 10px; font-weight: 800; background: #38bdf8; color: #080a0f; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">HOY</span>' : ''}
+                </div>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: #94a3b8; user-select: none;">
+                    <input type="checkbox" ${esDescanso ? 'checked' : ''} onchange="toggleDescansoDiaSplitTrainer(${idx})" style="cursor: pointer;">
+                    <span>Descanso</span>
+                </label>
+            </div>
+            <div>
+                <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+                    ${esDescanso ? 'Día Libre (Sin entrenamiento programado)' : 'Grupos Musculares Objetivo:'}
+                </span>
+                <div class="split-chips-container" style="${esDescanso ? 'opacity: 0.4; pointer-events: none;' : ''}">
+                    ${chipsHtml}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
+function cambiarPerfilSettingsSplitTrainer(perfil) {
+    PERFIL_SETTINGS_SPLIT_ACTIVO = perfil || 'hombre';
+    renderizarSubAppTrainer();
+}
+
+function toggleDescansoDiaSplitTrainer(diaIdx) {
+    var perfil = PERFIL_SETTINGS_SPLIT_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    if (!split[diaIdx]) return;
+    split[diaIdx].descanso = !split[diaIdx].descanso;
+    guardarSplitSemanalActual(perfil, split);
+    renderizarSubAppTrainer();
+}
+
+function toggleMusculoDiaSplitTrainer(diaIdx, musculo) {
+    var perfil = PERFIL_SETTINGS_SPLIT_ACTIVO || 'hombre';
+    var split = obtenerSplitSemanalActual(perfil);
+    if (!split[diaIdx]) return;
+    if (split[diaIdx].descanso) {
+        split[diaIdx].descanso = false;
+    }
+    if (!Array.isArray(split[diaIdx].grupos)) split[diaIdx].grupos = [];
+    var pos = split[diaIdx].grupos.indexOf(musculo);
+    if (pos >= 0) {
+        split[diaIdx].grupos.splice(pos, 1);
+    } else {
+        split[diaIdx].grupos.push(musculo);
+    }
+    guardarSplitSemanalActual(perfil, split);
+    renderizarSubAppTrainer();
+}
+
+function restablecerSplitDefaultTrainer() {
+    var perfil = PERFIL_SETTINGS_SPLIT_ACTIVO || 'hombre';
+    if (!confirm("¿Deseas restablecer el Split Semanal por defecto para el perfil " + (perfil === 'mujer' ? 'Mujer' : 'Hombre') + "?")) {
+        return;
+    }
+    var def = JSON.parse(JSON.stringify(SPLIT_SEMANAL_DEFAULT[perfil] || SPLIT_SEMANAL_DEFAULT.hombre));
+    guardarSplitSemanalActual(perfil, def);
     renderizarSubAppTrainer();
 }
 
@@ -4575,6 +5269,37 @@ function verFichaAlumnoTrainer(alumnoId) {
         <div style="background: #07090e; border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 10px;">
             <div style="font-size: 10px; color: #f59e0b; text-transform: uppercase; font-weight: 700;">Total Pagado</div>
             <div style="font-size: 18px; font-weight: 800; color: #f59e0b;">$${totalRecaudado.toFixed(0)}</div>
+        </div>
+    </div>
+
+    <!-- RUTINAS ASIGNADAS AL ALUMNO -->
+    <div style="margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981;">Rutinas Asignadas (${(al.rutinasAsignadas || []).length})</span>
+            <button type="button" class="btn-subfiltro-ej" onclick="irAGeneradorParaAlumnoTrainer('${al.id}')" style="font-size: 11px; padding: 4px 8px;">
+                🎲 + Generar Nueva
+            </button>
+        </div>
+        <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+            ${(!al.rutinasAsignadas || al.rutinasAsignadas.length === 0)
+                ? '<div style="font-size: 12px; color: #64748b; padding: 8px; text-align: center;">Sin rutinas asignadas aún.</div>'
+                : al.rutinasAsignadas.map(function(r, rIdx) {
+                    return `
+                    <div style="background: #07090e; border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                        <div>
+                            <div style="font-weight: 700; color: #f8fafc;">${escapeHtmlTrainer(r.nombre)}</div>
+                            <div style="color: #94a3b8; font-size: 11px;">${(r.ejercicios || []).length} ejercicios · ${r.fechaAsignacion || ''}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="btn-system" onclick="iniciarEntrenamientoConRutinaAsignada('${al.id}', ${rIdx})" style="font-size: 11px; padding: 4px 8px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; font-weight: 800; border: none; border-radius: 6px; cursor: pointer;">
+                                🏋️ Iniciar
+                            </button>
+                            <button type="button" class="btn-back-system" onclick="eliminarRutinaAsignadaTrainer('${al.id}', ${rIdx})" style="font-size: 11px; padding: 4px 7px; margin-bottom: 0; color: #f87171; border-color: rgba(239, 68, 68, 0.3); border-radius: 6px; cursor: pointer;" title="Eliminar rutina">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
         </div>
     </div>
 
