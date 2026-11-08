@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.2">
+    <link rel="stylesheet" href="style.css?v=10.3">
 </head>
 <body>
 
@@ -1929,30 +1929,7 @@
                     <textarea id="modal-ejercicio-desc" class="modal-input" rows="2" placeholder="Ej: Agarre al ancho biacromial, retracción escapular estricta, codos a 45 grados y pausa isométrica de 1s..."></textarea>
                 </div>
 
-                <!-- 4. GRUPO MUSCULAR PRINCIPAL ESPECÍFICO & IMPACTO EXACTO -->
-                <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: 14px;">
-                    <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label>Grupo Muscular Principal:</label>
-                        <select id="modal-ejercicio-musculo-principal" class="modal-input" style="background: #0f131d; font-weight: 600;">
-                            <option value="Pecho">⚔️ Pecho</option>
-                            <option value="Espalda">🦅 Espalda</option>
-                            <option value="Hombros">🛡️ Hombros</option>
-                            <option value="Bíceps">💪 Bíceps</option>
-                            <option value="Tríceps">🦾 Tríceps</option>
-                            <option value="Cuádriceps">🦵 Cuádriceps</option>
-                            <option value="Isquios">🦵 Isquios (Femorales)</option>
-                            <option value="Glúteos">🍑 Glúteos</option>
-                            <option value="Pantorrillas">🧦 Pantorrillas</option>
-                            <option value="Core">⚡ Core (Abdominales)</option>
-                        </select>
-                    </div>
-                    <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label>Impacto / Fatiga (%):</label>
-                        <input type="number" id="modal-ejercicio-fatiga" class="modal-input" min="5" max="100" value="25" placeholder="Ej: 25">
-                    </div>
-                </div>
-
-                <!-- 5. SERIES Y REPETICIONES -->
+                <!-- 4. SERIES Y REPETICIONES -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
                     <div class="modal-form-group" style="margin-bottom: 0;">
                         <label>Series Recomendadas:</label>
@@ -1964,21 +1941,20 @@
                     </div>
                 </div>
 
-                <!-- 6. GRUPOS MUSCULARES SECUNDARIOS (CHIPS) -->
+                <!-- 5. ZONAS MUSCULARES TRABAJADAS (MULTI-ZONA CON % DINÁMICO) -->
                 <div class="modal-form-group">
-                    <label style="margin-bottom: 6px; display: block;">Estímulo Secundario / Zonas de Apoyo (Opcional):</label>
-                    <div class="muscle-selector-chips" id="selector-chips-musculos">
-                        <button type="button" class="muscle-chip-btn" data-cat="Pecho" onclick="toggleChipMusculo(this)">⚔️ Pecho</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Espalda" onclick="toggleChipMusculo(this)">🦅 Espalda</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Hombros" onclick="toggleChipMusculo(this)">🛡️ Hombros</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Tríceps" onclick="toggleChipMusculo(this)">🦾 Tríceps</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Bíceps" onclick="toggleChipMusculo(this)">💪 Bíceps</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Cuádriceps" onclick="toggleChipMusculo(this)">🦵 Cuádriceps</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Isquios" onclick="toggleChipMusculo(this)">🦵 Isquios</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Glúteos" onclick="toggleChipMusculo(this)">🍑 Glúteos</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Pantorrillas" onclick="toggleChipMusculo(this)">🧦 Pantorrillas</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Core" onclick="toggleChipMusculo(this)">⚡ Core</button>
-                        <button type="button" class="muscle-chip-btn" data-cat="Antebrazos" onclick="toggleChipMusculo(this)">✊ Antebrazos</button>
+                    <label style="font-weight: 700; color: #f8fafc; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>🎯 Zonas Musculares Trabajadas:</span>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % de estímulo/fatiga</span>
+                    </label>
+                    <div id="lista-zonas-ejercicio-fisico" class="atributos-seleccionados-box"></div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <select id="select-zona-ejercicio-fisico" class="modal-input" style="flex: 1;" onchange="agregarZonaFisicaDesdeSelect(this.value)">
+                            <!-- Inyectado dinámicamente -->
+                        </select>
+                        <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarZonaFisicaDesdeBoton()">
+                            + Añadir
+                        </button>
                     </div>
                 </div>
 
@@ -3088,35 +3064,20 @@
                         style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
                 </div>
 
-                <div style="margin-bottom: 14px;">
-                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculo Mental Principal (Facultad Primaria):</label>
-                    <select id="input-ec-musculo-p" class="finanzas-input-clean"
-                        style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
-                        <option value="enfoque">🎯 Enfoque & Concentración (Lóbulo Frontal / Deep Work)</option>
-                        <option value="inteligencia">⚡ Lógica & Inteligencia (Razonamiento y Modelado)</option>
-                        <option value="memoria">🧠 Memoria & Retención (Memoria de Trabajo y Evocación)</option>
-                        <option value="creatividad">🎨 Creatividad & Divergencia (Pensamiento Lateral)</option>
-                        <option value="disciplina">🛡️ Disciplina & Voluntad (Autocontrol y Fricción)</option>
-                        <option value="velocidad">🚀 Velocidad de Procesamiento (Reflejos Mentales)</option>
-                        <option value="calma">🌊 Calma & Resiliencia (Regulación Emocional y Mindfulness)</option>
-                        <option value="estrategia">♟️ Estrategia & Claridad (Planificación de 2do Orden)</option>
-                        <option value="descanso">🌙 Descanso & Regeneración Neural</option>
-                        <option value="anulacion">🛑 Anulación de Gratificación (Veto de Impulsos)</option>
-                    </select>
-                </div>
-
-                <!-- CHIPS DE MÚSCULOS MENTALES SECUNDARIOS -->
-                <div style="margin-bottom: 14px;">
-                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Músculos Mentales Secundarios / Áreas de Apoyo (Opcional):</label>
-                    <div class="mental-selector-chips" id="selector-chips-musculos-mentales">
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="enfoque" onclick="toggleChipMusculoMental(this)">🎯 Enfoque</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="inteligencia" onclick="toggleChipMusculoMental(this)">⚡ Lógica</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="memoria" onclick="toggleChipMusculoMental(this)">🧠 Memoria</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="creatividad" onclick="toggleChipMusculoMental(this)">🎨 Creatividad</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="disciplina" onclick="toggleChipMusculoMental(this)">🛡️ Disciplina</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="velocidad" onclick="toggleChipMusculoMental(this)">🚀 Agilidad</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="calma" onclick="toggleChipMusculoMental(this)">🌊 Calma</button>
-                        <button type="button" class="mental-muscle-chip-btn" data-mcat="estrategia" onclick="toggleChipMusculoMental(this)">♟️ Estrategia</button>
+                <!-- FACULTADES MENTALES DESARROLLADAS (MULTI-FACULTAD CON % DINÁMICO) -->
+                <div class="modal-form-group" style="margin-bottom: 14px;">
+                    <label style="font-weight: 700; color: #f8fafc; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>🧠 Facultades Mentales Desarrolladas:</span>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Ajusta el % de estímulo/impacto</span>
+                    </label>
+                    <div id="lista-zonas-ejercicio-mental" class="atributos-seleccionados-box"></div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <select id="select-zona-ejercicio-mental" class="modal-input" style="flex: 1;" onchange="agregarZonaMentalDesdeSelect(this.value)">
+                            <!-- Inyectado dinámicamente con las facultades cognitivas -->
+                        </select>
+                        <button type="button" class="btn-system" style="padding: 0 14px; white-space: nowrap; font-size: 12.5px;" onclick="agregarZonaMentalDesdeBoton()">
+                            + Añadir
+                        </button>
                     </div>
                 </div>
 
@@ -4541,25 +4502,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.2"></script>
-    <script src="js/perfil.js?v=10.2"></script>
-    <script src="js/progresion.js?v=10.2"></script>
-    <script src="js/estado-personal.js?v=10.2"></script>
-    <script src="js/finanzas.js?v=10.2"></script>
-    <script src="js/ideas.js?v=10.2"></script>
-    <script src="js/dinamicas.js?v=10.2"></script>
-    <script src="js/calendario.js?v=10.2"></script>
-    <script src="js/inventario.js?v=10.2"></script>
-    <script src="js/jarvis-voz.js?v=10.2"></script>
+    <script src="js/core.js?v=10.3"></script>
+    <script src="js/perfil.js?v=10.3"></script>
+    <script src="js/progresion.js?v=10.3"></script>
+    <script src="js/estado-personal.js?v=10.3"></script>
+    <script src="js/finanzas.js?v=10.3"></script>
+    <script src="js/ideas.js?v=10.3"></script>
+    <script src="js/dinamicas.js?v=10.3"></script>
+    <script src="js/calendario.js?v=10.3"></script>
+    <script src="js/inventario.js?v=10.3"></script>
+    <script src="js/jarvis-voz.js?v=10.3"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.2"></script>
+    <script type="module" src="js/firebase-config.js?v=10.3"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.2')
+                navigator.serviceWorker.register('sw.js?v=10.3')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

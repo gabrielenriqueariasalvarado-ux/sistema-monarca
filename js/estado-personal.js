@@ -1749,40 +1749,139 @@ function filtrarSubcategoriaEjercicios(subfiltro) {
     renderizarEjercicios(APP_STATE.ejercicios);
 }
 
-function toggleChipMusculo(btn) {
-    var cat = btn.getAttribute('data-cat');
-    if (btn.classList.contains('selected')) {
-        btn.classList.remove('selected');
-        CHIPS_SELECCIONADOS_MUSCULOS = CHIPS_SELECCIONADOS_MUSCULOS.filter(function(c) { return c !== cat; });
+var CATALOGO_ZONAS_FISICAS = [
+    { clave: "Pecho", nombre: "Pecho (Pectorales)", icono: "⚔️", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Espalda", nombre: "Espalda (Dorsales / Trapecios)", icono: "🦅", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Hombros", nombre: "Hombros (Deltoides)", icono: "🛡️", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Tríceps", nombre: "Tríceps Braquial", icono: "🦾", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Bíceps", nombre: "Bíceps Braquial", icono: "💪", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Cuádriceps", nombre: "Cuádriceps Femoral", icono: "🦵", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Isquios", nombre: "Isquiosurales / Femorales", icono: "🦵", tipo: "cuerpo", defaultPct: 30 },
+    { clave: "Glúteos", nombre: "Glúteos (Mayor / Medio)", icono: "🍑", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Pantorrillas", nombre: "Pantorrillas (Gemelos)", icono: "🧦", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Core", nombre: "Core / Abdominales", icono: "⚡", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Antebrazos", nombre: "Antebrazos y Agarre", icono: "✊", tipo: "cuerpo", defaultPct: 15 },
+    { clave: "Movilidad", nombre: "Movilidad Articular", icono: "🥋", tipo: "cuerpo", defaultPct: 15 }
+];
+
+var ZONAS_EJERCICIO_FISICO_TEMP = [];
+
+function poblarSelectZonasFisicas() {
+    var sel = document.getElementById('select-zona-ejercicio-fisico');
+    if (!sel) return;
+    var html = '<option value="">-- Seleccionar zona muscular para añadir --</option>';
+    CATALOGO_ZONAS_FISICAS.forEach(function(item) {
+        html += `<option value="${item.clave}">${item.icono} ${item.nombre}</option>`;
+    });
+    sel.innerHTML = html;
+    sel.value = "";
+}
+
+function renderizarFilasZonasFisicas() {
+    var cont = document.getElementById('lista-zonas-ejercicio-fisico');
+    if (!cont) return;
+
+    if (!ZONAS_EJERCICIO_FISICO_TEMP || ZONAS_EJERCICIO_FISICO_TEMP.length === 0) {
+        cont.innerHTML = `
+            <div style="font-size: 12px; color: #9ca3af; padding: 6px 4px; font-style: italic;">
+                Ninguna zona muscular seleccionada. Elige una abajo y pulsa + Añadir para asociarla.
+            </div>`;
+        return;
+    }
+
+    var html = '';
+    ZONAS_EJERCICIO_FISICO_TEMP.forEach(function(item) {
+        html += `
+        <div class="fila-atributo-item">
+            <div class="fila-atributo-info">
+                <span>${item.icono || '⚔️'}</span>
+                <span>${item.nombre || item.clave}</span>
+                <span class="fila-atributo-tipo-badge tipo-badge-cuerpo">Cuerpo</span>
+            </div>
+            <div class="fila-atributo-pct-box">
+                <input type="number" class="input-atributo-pct" min="1" max="100" value="${item.porcentaje || 25}" onchange="actualizarPorcentajeZonaFisica('${item.clave}', this.value)" title="Porcentaje de impacto / fatiga">
+                <span style="font-size: 12px; font-weight: 800; color: #94a3b8;">%</span>
+                <button type="button" class="btn-quitar-atributo" onclick="quitarZonaFisicaModal('${item.clave}')" title="Quitar zona">✕</button>
+            </div>
+        </div>`;
+    });
+    cont.innerHTML = html;
+}
+
+function agregarZonaFisicaDesdeSelect(clave) {
+    if (!clave) return;
+    var zonaInfo = CATALOGO_ZONAS_FISICAS.find(function(z) { return z.clave === clave; });
+    if (!zonaInfo) return;
+
+    if (!ZONAS_EJERCICIO_FISICO_TEMP) ZONAS_EJERCICIO_FISICO_TEMP = [];
+    var yaExiste = ZONAS_EJERCICIO_FISICO_TEMP.some(function(z) { return z.clave === clave; });
+    if (yaExiste) {
+        alert("La zona '" + (zonaInfo.nombre || clave) + "' ya está en la lista.");
+        var sel = document.getElementById('select-zona-ejercicio-fisico');
+        if (sel) sel.value = "";
+        return;
+    }
+
+    ZONAS_EJERCICIO_FISICO_TEMP.push({
+        clave: zonaInfo.clave,
+        nombre: zonaInfo.nombre,
+        icono: zonaInfo.icono,
+        porcentaje: zonaInfo.defaultPct || 25
+    });
+
+    renderizarFilasZonasFisicas();
+    var selElem = document.getElementById('select-zona-ejercicio-fisico');
+    if (selElem) selElem.value = "";
+}
+
+function agregarZonaFisicaDesdeBoton() {
+    var sel = document.getElementById('select-zona-ejercicio-fisico');
+    if (sel && sel.value) {
+        agregarZonaFisicaDesdeSelect(sel.value);
     } else {
-        btn.classList.add('selected');
-        if (!CHIPS_SELECCIONADOS_MUSCULOS.includes(cat)) {
-            CHIPS_SELECCIONADOS_MUSCULOS.push(cat);
-        }
+        alert("Por favor selecciona una zona muscular de la lista antes de pulsar + Añadir.");
     }
 }
 
+function actualizarPorcentajeZonaFisica(clave, valor) {
+    var v = parseInt(valor, 10);
+    if (isNaN(v) || v <= 0) v = 5;
+    if (v > 100) v = 100;
+    var item = ZONAS_EJERCICIO_FISICO_TEMP.find(function(z) { return z.clave === clave; });
+    if (item) item.porcentaje = v;
+}
+
+function quitarZonaFisicaModal(clave) {
+    ZONAS_EJERCICIO_FISICO_TEMP = ZONAS_EJERCICIO_FISICO_TEMP.filter(function(z) { return z.clave !== clave; });
+    renderizarFilasZonasFisicas();
+}
+
 function abrirModalNuevoEjercicio(grupoPreseleccionado) {
-    CHIPS_SELECCIONADOS_MUSCULOS = [];
-    var chips = document.querySelectorAll('#selector-chips-musculos .muscle-chip-btn');
-    chips.forEach(function(c) { c.classList.remove('selected'); });
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inDesc = document.getElementById('modal-ejercicio-desc');
-    var inFat = document.getElementById('modal-ejercicio-fatiga');
-    var inMusc = document.getElementById('modal-ejercicio-musculo-principal');
     var inJer = document.getElementById('modal-ejercicio-jerarquia');
     var inSeries = document.getElementById('modal-ejercicio-series');
     var inReps = document.getElementById('modal-ejercicio-reps');
 
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
-    if (inFat) inFat.value = "25";
     if (inSeries) inSeries.value = "4";
     if (inReps) inReps.value = "8-10 reps";
     if (inJer) inJer.value = "compuesto";
-    if (inMusc && grupoPreseleccionado) {
-        inMusc.value = grupoPreseleccionado;
-    }
+
+    ZONAS_EJERCICIO_FISICO_TEMP = [];
+    var preZona = grupoPreseleccionado || "Pecho";
+    var infoPre = CATALOGO_ZONAS_FISICAS.find(function(z) { return z.clave === preZona; }) || CATALOGO_ZONAS_FISICAS[0];
+    ZONAS_EJERCICIO_FISICO_TEMP.push({
+        clave: infoPre.clave,
+        nombre: infoPre.nombre,
+        icono: infoPre.icono,
+        porcentaje: 40
+    });
+
+    poblarSelectZonasFisicas();
+    renderizarFilasZonasFisicas();
+
     var m = document.getElementById('modal-nuevo-ejercicio');
     if (m) m.style.display = 'flex';
 }
@@ -1797,23 +1896,24 @@ function confirmarAgregarEjercicio() {
     var inTipo = document.getElementById('modal-ejercicio-tipo');
     var inJer = document.getElementById('modal-ejercicio-jerarquia');
     var inDesc = document.getElementById('modal-ejercicio-desc');
-    var inMusc = document.getElementById('modal-ejercicio-musculo-principal');
     var inSeries = document.getElementById('modal-ejercicio-series');
     var inReps = document.getElementById('modal-ejercicio-reps');
-    var inFat = document.getElementById('modal-ejercicio-fatiga');
 
     var nom = inNom ? inNom.value.trim() : "";
     var tipoEj = inTipo ? inTipo.value : "gym";
     var esCompuesto = inJer ? (inJer.value === "compuesto") : true;
     var desc = inDesc ? inDesc.value.trim() : "";
-    var muscPrincipal = inMusc ? inMusc.value : "Pecho";
     var series = inSeries ? (Number(inSeries.value) || 4) : 4;
     var reps = inReps ? inReps.value.trim() : "8-10 reps";
-    var fatigaPct = inFat ? (Number(inFat.value) || 25) : 25;
 
     if (!nom) {
         alert("Por favor ingresa el nombre del ejercicio.");
         if (inNom) inNom.focus();
+        return;
+    }
+
+    if (!ZONAS_EJERCICIO_FISICO_TEMP || ZONAS_EJERCICIO_FISICO_TEMP.length === 0) {
+        alert("Por favor añade al menos una zona muscular trabajada con su porcentaje de estímulo.");
         return;
     }
 
@@ -1829,10 +1929,13 @@ function confirmarAgregarEjercicio() {
         }
     }
 
-    var categoriasFinales = [muscPrincipal];
-    CHIPS_SELECCIONADOS_MUSCULOS.forEach(function(c) {
-        if (!categoriasFinales.includes(c)) categoriasFinales.push(c);
-    });
+    // Ordenar zonas por mayor porcentaje para determinar la principal
+    var zonasCopia = JSON.parse(JSON.stringify(ZONAS_EJERCICIO_FISICO_TEMP));
+    zonasCopia.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
+
+    var muscPrincipal = zonasCopia[0].clave;
+    var fatigaEstimada = zonasCopia[0].porcentaje || 25;
+    var categorias = zonasCopia.map(function(z) { return z.clave; });
 
     var nuevoEjercicio = {
         id: "EJ-" + Date.now(),
@@ -1844,8 +1947,9 @@ function confirmarAgregarEjercicio() {
         musculoPrincipal: muscPrincipal,
         series: series,
         repeticiones: reps,
-        categorias: categoriasFinales,
-        fatigaPorcentaje: fatigaPct,
+        zonas: zonasCopia,
+        categorias: categorias,
+        fatigaPorcentaje: fatigaEstimada,
         timestamp: Date.now(),
         fechaActualizacion: Date.now()
     };
@@ -1860,7 +1964,7 @@ function confirmarAgregarEjercicio() {
     if (typeof TAB_TRAINER_ACTIVA !== 'undefined' && TAB_TRAINER_ACTIVA === 'aleatoria' && typeof renderizarSubAppTrainer === 'function') {
         renderizarSubAppTrainer();
     }
-    alert("⚡ Ejercicio '" + nom + "' guardado en " + muscPrincipal + " (" + (esCompuesto ? "Principal / Compuesto" : "Accesorio") + ").");
+    alert("⚡ Ejercicio '" + nom + "' guardado con " + zonasCopia.length + " zona(s) (" + muscPrincipal + " principal).");
 }
 
 function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
@@ -1901,11 +2005,26 @@ function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
 
 function generarCardEjercicioFisicoHtml(ej) {
     var muscTarget = ej.musculoPrincipal || (ej.categorias && ej.categorias.length ? ej.categorias[0] : 'Cuerpo');
-    var fatigaImpactBadge = `<span class="badge-exercise-fatiga">🎯 +${ej.fatigaPorcentaje || 20}% a ${muscTarget}</span>`;
-
-    var muscleBadges = (ej.categorias || []).filter(function(c) { return c !== muscTarget; }).map(function(cat) {
-        return `<span class="badge-exercise-muscle">${cat}</span>`;
-    }).join('');
+    
+    // Si el ejercicio tiene desglose multi-zona con porcentajes específicos:
+    var badgesZonasHtml = '';
+    if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
+        badgesZonasHtml = ej.zonas.map(function(z, idx) {
+            var zClave = z.clave || z.zona || 'Cuerpo';
+            var zPct = z.porcentaje || 25;
+            if (idx === 0) {
+                return `<span class="badge-exercise-fatiga">🎯 ${zPct}% ${zClave}</span>`;
+            } else {
+                return `<span class="badge-exercise-muscle">${zPct}% ${zClave}</span>`;
+            }
+        }).join('');
+    } else {
+        var fatigaImpactBadge = `<span class="badge-exercise-fatiga">🎯 +${ej.fatigaPorcentaje || 20}% a ${muscTarget}</span>`;
+        var muscleBadges = (ej.categorias || []).filter(function(c) { return c !== muscTarget; }).map(function(cat) {
+            return `<span class="badge-exercise-muscle">${cat}</span>`;
+        }).join('');
+        badgesZonasHtml = fatigaImpactBadge + muscleBadges;
+    }
 
     var tipoBadge = (ej.tipo === 'calistenia')
         ? '<span class="muscle-tag" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3);">🤸 Calistenia</span>'
@@ -1934,9 +2053,8 @@ function generarCardEjercicioFisicoHtml(ej) {
         </div>
 
         <div class="exercise-badges-row">
-            ${fatigaImpactBadge}
+            ${badgesZonasHtml}
             <span class="badge-exercise-reps">${ej.series || 4} Series × ${ej.repeticiones || '8-10 reps'}</span>
-            ${muscleBadges}
         </div>
     </div>`;
 }
@@ -3539,17 +3657,109 @@ function filtrarSubcategoriaMental(subfiltro) {
     renderizarBancoEjerciciosCerebrales();
 }
 
-function toggleChipMusculoMental(btn) {
-    var cat = btn.getAttribute('data-cat');
-    if (btn.classList.contains('selected')) {
-        btn.classList.remove('selected');
-        CHIPS_SELECCIONADOS_MUSCULOS_MENTALES = CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.filter(function(c) { return c !== cat; });
-    } else {
-        btn.classList.add('selected');
-        if (!CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.includes(cat)) {
-            CHIPS_SELECCIONADOS_MUSCULOS_MENTALES.push(cat);
-        }
+var CATALOGO_ZONAS_MENTALES = [
+    { clave: "enfoque", nombre: "Enfoque & Concentración (Deep Work)", icono: "🎯", defaultPct: 40 },
+    { clave: "inteligencia", nombre: "Lógica & Razonamiento Analítico", icono: "⚡", defaultPct: 35 },
+    { clave: "memoria", nombre: "Memoria & Retención Mnemotécnica", icono: "🧠", defaultPct: 30 },
+    { clave: "creatividad", nombre: "Creatividad & Pensamiento Lateral", icono: "🎨", defaultPct: 30 },
+    { clave: "disciplina", nombre: "Disciplina & Fuerza de Voluntad", icono: "🛡️", defaultPct: 30 },
+    { clave: "velocidad", nombre: "Velocidad & Reflejos Mentales", icono: "🚀", defaultPct: 25 },
+    { clave: "calma", nombre: "Calma & Regulación Neural", icono: "🌊", defaultPct: 25 },
+    { clave: "estrategia", nombre: "Estrategia & Prospectiva", icono: "♟️", defaultPct: 30 },
+    { clave: "descanso", nombre: "Descanso & Regeneración Neural", icono: "💤", defaultPct: 20 },
+    { clave: "anulacion", nombre: "Anulación de Gratificación / Impulsos", icono: "🛑", defaultPct: 25 }
+];
+
+var ZONAS_EJERCICIO_MENTAL_TEMP = [];
+
+function poblarSelectZonasMentales() {
+    var sel = document.getElementById('select-zona-ejercicio-mental');
+    if (!sel) return;
+    var html = '<option value="">-- Seleccionar facultad cognitiva para añadir --</option>';
+    CATALOGO_ZONAS_MENTALES.forEach(function(item) {
+        html += `<option value="${item.clave}">${item.icono} ${item.nombre}</option>`;
+    });
+    sel.innerHTML = html;
+    sel.value = "";
+}
+
+function renderizarFilasZonasMentales() {
+    var cont = document.getElementById('lista-zonas-ejercicio-mental');
+    if (!cont) return;
+
+    if (!ZONAS_EJERCICIO_MENTAL_TEMP || ZONAS_EJERCICIO_MENTAL_TEMP.length === 0) {
+        cont.innerHTML = `
+            <div style="font-size: 12px; color: #9ca3af; padding: 6px 4px; font-style: italic;">
+                Ninguna facultad cognitiva seleccionada. Elige una abajo y pulsa + Añadir para asociarla.
+            </div>`;
+        return;
     }
+
+    var html = '';
+    ZONAS_EJERCICIO_MENTAL_TEMP.forEach(function(item) {
+        html += `
+        <div class="fila-atributo-item">
+            <div class="fila-atributo-info">
+                <span>${item.icono || '🧠'}</span>
+                <span>${item.nombre || item.clave}</span>
+                <span class="fila-atributo-tipo-badge tipo-badge-mente">Mente</span>
+            </div>
+            <div class="fila-atributo-pct-box">
+                <input type="number" class="input-atributo-pct" min="1" max="100" value="${item.porcentaje || 25}" onchange="actualizarPorcentajeZonaMental('${item.clave}', this.value)" title="Porcentaje de desarrollo / impacto">
+                <span style="font-size: 12px; font-weight: 800; color: #94a3b8;">%</span>
+                <button type="button" class="btn-quitar-atributo" onclick="quitarZonaMentalModal('${item.clave}')" title="Quitar facultad">✕</button>
+            </div>
+        </div>`;
+    });
+    cont.innerHTML = html;
+}
+
+function agregarZonaMentalDesdeSelect(clave) {
+    if (!clave) return;
+    var facInfo = CATALOGO_ZONAS_MENTALES.find(function(f) { return f.clave === clave; });
+    if (!facInfo) return;
+
+    if (!ZONAS_EJERCICIO_MENTAL_TEMP) ZONAS_EJERCICIO_MENTAL_TEMP = [];
+    var yaExiste = ZONAS_EJERCICIO_MENTAL_TEMP.some(function(f) { return f.clave === clave; });
+    if (yaExiste) {
+        alert("La facultad '" + (facInfo.nombre || clave) + "' ya está en la lista.");
+        var sel = document.getElementById('select-zona-ejercicio-mental');
+        if (sel) sel.value = "";
+        return;
+    }
+
+    ZONAS_EJERCICIO_MENTAL_TEMP.push({
+        clave: facInfo.clave,
+        nombre: facInfo.nombre,
+        icono: facInfo.icono,
+        porcentaje: facInfo.defaultPct || 25
+    });
+
+    renderizarFilasZonasMentales();
+    var selElem = document.getElementById('select-zona-ejercicio-mental');
+    if (selElem) selElem.value = "";
+}
+
+function agregarZonaMentalDesdeBoton() {
+    var sel = document.getElementById('select-zona-ejercicio-mental');
+    if (sel && sel.value) {
+        agregarZonaMentalDesdeSelect(sel.value);
+    } else {
+        alert("Por favor selecciona una facultad cognitiva de la lista antes de pulsar + Añadir.");
+    }
+}
+
+function actualizarPorcentajeZonaMental(clave, valor) {
+    var v = parseInt(valor, 10);
+    if (isNaN(v) || v <= 0) v = 5;
+    if (v > 100) v = 100;
+    var item = ZONAS_EJERCICIO_MENTAL_TEMP.find(function(f) { return f.clave === clave; });
+    if (item) item.porcentaje = v;
+}
+
+function quitarZonaMentalModal(clave) {
+    ZONAS_EJERCICIO_MENTAL_TEMP = ZONAS_EJERCICIO_MENTAL_TEMP.filter(function(f) { return f.clave !== clave; });
+    renderizarFilasZonasMentales();
 }
 
 var PROTOCOLOS_MENTALES_RECOMENDADOS = [
@@ -3678,14 +3888,30 @@ function generarCardEjercicioCerebralHtml(ec) {
     var fatigaColor = ec.fatigaEstimada > 0 ? "#fca5a5" : "#6ee7b7";
 
     var mm = APP_STATE.musculosMentales || (DEFAULT_STATE && DEFAULT_STATE.musculosMentales) || {};
-    var pInfo = mm[ec.musculoPrincipal] || { icono: '🧠', nombre: ec.musculoPrincipal };
-    var muscP = `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(192, 132, 252, 0.15); color:#e9d5ff; border:1px solid rgba(192, 132, 252, 0.3); padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:700;">${pInfo.icono} ${pInfo.nombre}</span>`;
 
-    var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
-    var muscSecHtml = secList.map(function(sClave) {
-        var sInfo = mm[sClave] || { icono: '⚡', nombre: sClave };
-        return `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(56, 189, 248, 0.1); color:#38bdf8; border:1px solid rgba(56, 189, 248, 0.25); padding:2px 7px; border-radius:9999px; font-size:10.5px; font-weight:600;">${sInfo.icono} ${sInfo.nombre}</span>`;
-    }).join(' ');
+    var badgesFacultadesHtml = '';
+    if (ec.facultades && Array.isArray(ec.facultades) && ec.facultades.length > 0) {
+        badgesFacultadesHtml = ec.facultades.map(function(f, idx) {
+            var fClave = f.clave || f.facultad;
+            var mInfo = mm[fClave] || { icono: f.icono || '🧠', nombre: f.nombre || fClave };
+            var fPct = f.porcentaje || 25;
+            if (idx === 0) {
+                return `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(192, 132, 252, 0.15); color:#e9d5ff; border:1px solid rgba(192, 132, 252, 0.3); padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:700;">${mInfo.icono} ${mInfo.nombre} ${fPct}%</span>`;
+            } else {
+                return `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(56, 189, 248, 0.1); color:#38bdf8; border:1px solid rgba(56, 189, 248, 0.25); padding:2px 7px; border-radius:9999px; font-size:10.5px; font-weight:600;">${mInfo.icono} ${mInfo.nombre} ${fPct}%</span>`;
+            }
+        }).join(' ');
+    } else {
+        var pInfo = mm[ec.musculoPrincipal] || { icono: '🧠', nombre: ec.musculoPrincipal };
+        var muscP = `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(192, 132, 252, 0.15); color:#e9d5ff; border:1px solid rgba(192, 132, 252, 0.3); padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:700;">${pInfo.icono} ${pInfo.nombre}</span>`;
+
+        var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
+        var muscSecHtml = secList.map(function(sClave) {
+            var sInfo = mm[sClave] || { icono: '⚡', nombre: sClave };
+            return `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(56, 189, 248, 0.1); color:#38bdf8; border:1px solid rgba(56, 189, 248, 0.25); padding:2px 7px; border-radius:9999px; font-size:10.5px; font-weight:600;">${sInfo.icono} ${sInfo.nombre}</span>`;
+        }).join(' ');
+        badgesFacultadesHtml = muscP + (muscSecHtml ? ' ' + muscSecHtml : '');
+    }
 
     return `
     <div class="cerebral-exercise-card">
@@ -3694,8 +3920,7 @@ function generarCardEjercicioCerebralHtml(ec) {
                 <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 800; color: #f8fafc;">${ec.nombre}</h4>
                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                     <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">⏱️ ${ec.duracionMinutos || 25} min</span>
-                    ${muscP}
-                    ${muscSecHtml}
+                    ${badgesFacultadesHtml}
                 </div>
             </div>
             <button onclick="eliminarEjercicioCerebral('${ec.id}')" title="Eliminar protocolo" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px 6px; font-size: 14px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
@@ -3845,13 +4070,25 @@ function ejecutarEjercicioCerebral(id) {
     fm.estado = nuevoNivelFatiga <= 25 ? "Mente Despejada" : (nuevoNivelFatiga <= 60 ? "Carga Moderada" : (nuevoNivelFatiga <= 85 ? "Fatiga Elevada" : "Saturación Neural"));
     APP_STATE.fatigaMentalDiaria = fm;
 
-    sumarExpMusculoMental(ec.musculoPrincipal, ec.expRecompensa || 30);
-    var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
-    secList.forEach(function(sec) {
-        sumarExpMusculoMental(sec, Math.round((ec.expRecompensa || 30) * 0.5));
-    });
+    var expTotal = ec.expRecompensa || 30;
 
-    sumarExp(ec.expRecompensa || 30);
+    // Distribuir EXP proporcionalmente si hay desglose de facultades:
+    if (ec.facultades && Array.isArray(ec.facultades) && ec.facultades.length > 0) {
+        ec.facultades.forEach(function(f) {
+            var fClave = f.clave || f.facultad;
+            var fPct = f.porcentaje || 25;
+            var fExp = Math.max(5, Math.round(expTotal * (fPct / 100)));
+            sumarExpMusculoMental(fClave, fExp);
+        });
+    } else {
+        sumarExpMusculoMental(ec.musculoPrincipal, expTotal);
+        var secList = ec.musculosSecundarios || (ec.musculoSecundario ? [ec.musculoSecundario] : []);
+        secList.forEach(function(sec) {
+            sumarExpMusculoMental(sec, Math.round(expTotal * 0.5));
+        });
+    }
+
+    sumarExp(expTotal);
 
     if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
         MonarcaDB.save(APP_STATE);
@@ -3863,7 +4100,7 @@ function ejecutarEjercicioCerebral(id) {
         ? "Fatiga mental reducida a: " + nuevoNivelFatiga + "% (Alivio activo)."
         : "Fatiga mental actual: " + nuevoNivelFatiga + "%.";
 
-    alert("🧠 ¡Protocolo cognitivo completado!\n• " + ec.nombre + " ejecutado con éxito.\n• +" + (ec.expRecompensa || 30) + " EXP general y facultades cognitivas asignados.\n• " + msgFatiga);
+    alert("🧠 ¡Protocolo cognitivo completado!\n• " + ec.nombre + " ejecutado con éxito.\n• +" + expTotal + " EXP general y facultades cognitivas asignados.\n• " + msgFatiga);
 }
 
 function abrirModalNuevoEjercicioCerebral() {
@@ -3875,7 +4112,6 @@ function abrirModalNuevoEjercicioCerebral() {
     var inDur = document.getElementById('input-ec-dur');
     var inFat = document.getElementById('input-ec-fatiga');
     var inExp = document.getElementById('input-ec-exp');
-    var inMusP = document.getElementById('input-ec-musculo-p');
 
     if (inNom) inNom.value = '';
     if (inDesc) inDesc.value = '';
@@ -3883,11 +4119,13 @@ function abrirModalNuevoEjercicioCerebral() {
     if (inDur) inDur.value = '30';
     if (inFat) inFat.value = '20';
     if (inExp) inExp.value = '35';
-    if (inMusP) inMusP.value = 'enfoque';
 
-    CHIPS_SELECCIONADOS_MUSCULOS_MENTALES = [];
-    var chips = document.querySelectorAll('#selector-chips-musculos-mentales .mental-muscle-chip-btn');
-    chips.forEach(function(c) { c.classList.remove('selected'); });
+    ZONAS_EJERCICIO_MENTAL_TEMP = [
+        { clave: 'enfoque', nombre: 'Enfoque & Concentración (Deep Work)', icono: '🎯', porcentaje: 50 }
+    ];
+
+    poblarSelectZonasMentales();
+    renderizarFilasZonasMentales();
 
     modal.style.display = 'flex';
 }
@@ -3899,7 +4137,6 @@ function cerrarModalNuevoEjercicioCerebral() {
 
 function guardarNuevoEjercicioCerebral() {
     var inNom = document.getElementById('input-ec-nombre');
-    var inMusP = document.getElementById('input-ec-musculo-p');
     var inDur = document.getElementById('input-ec-dur');
     var inDesc = document.getElementById('input-ec-desc');
     var inProt = document.getElementById('input-ec-prot');
@@ -3907,7 +4144,6 @@ function guardarNuevoEjercicioCerebral() {
     var inExp = document.getElementById('input-ec-exp');
 
     var nom = inNom ? inNom.value.trim() : '';
-    var musP = inMusP ? inMusP.value : 'enfoque';
     var dur = inDur ? (Number(inDur.value) || 25) : 25;
     var desc = inDesc ? inDesc.value.trim() : '';
     var prot = inProt ? inProt.value.trim() : '';
@@ -3917,6 +4153,11 @@ function guardarNuevoEjercicioCerebral() {
     if (!nom) {
         alert("Ingresa el nombre del ejercicio cerebral.");
         if (inNom) inNom.focus();
+        return;
+    }
+
+    if (!ZONAS_EJERCICIO_MENTAL_TEMP || ZONAS_EJERCICIO_MENTAL_TEMP.length === 0) {
+        alert("Por favor añade al menos una facultad cognitiva con su porcentaje de estímulo.");
         return;
     }
 
@@ -3931,7 +4172,12 @@ function guardarNuevoEjercicioCerebral() {
         }
     }
 
-    var musculosSecundarios = [].concat(CHIPS_SELECCIONADOS_MUSCULOS_MENTALES).filter(function(m) { return m !== musP; });
+    // Ordenar facultades por porcentaje descendente para determinar la principal
+    var facCopia = JSON.parse(JSON.stringify(ZONAS_EJERCICIO_MENTAL_TEMP));
+    facCopia.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
+
+    var musP = facCopia[0].clave;
+    var musculosSecundarios = facCopia.slice(1).map(function(f) { return f.clave; });
 
     var nuevo = {
         id: "EC-" + Date.now(),
@@ -3939,6 +4185,7 @@ function guardarNuevoEjercicioCerebral() {
         musculoPrincipal: musP,
         musculoSecundario: musculosSecundarios.length ? musculosSecundarios[0] : null,
         musculosSecundarios: musculosSecundarios,
+        facultades: facCopia,
         duracionMinutos: dur,
         descripcion: desc || "Entrenamiento cognitivo estructurado.",
         protocolo: prot || "1. Concentración plena. 2. Ejecutar bloque de foco. 3. Documentar resultados.",
@@ -3955,7 +4202,7 @@ function guardarNuevoEjercicioCerebral() {
 
     cerrarModalNuevoEjercicioCerebral();
     renderizarBancoEjerciciosCerebrales();
-    alert("⚡ Protocolo cognitivo '" + nom + "' agregado exitosamente al Arsenal Mental.");
+    alert("⚡ Protocolo cognitivo '" + nom + "' agregado exitosamente (" + facCopia.length + " facultad(es) asociada(s)).");
 }
 
 function eliminarEjercicioCerebral(id) {
