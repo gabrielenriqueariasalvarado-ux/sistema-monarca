@@ -1861,9 +1861,11 @@ function actualizarPromedioRepsModal(manual) {
     var inReps = document.getElementById('modal-ejercicio-reps');
     var inProm = document.getElementById('modal-ejercicio-reps-promedio');
     var inPeso = document.getElementById('modal-ejercicio-peso');
+    var inUnidad = document.getElementById('modal-ejercicio-unidad-peso');
     var txtRes = document.getElementById('modal-ejercicio-resumen-promedio-txt');
     if (!inReps || !inProm) return;
 
+    var unidad = inUnidad ? inUnidad.value : 'kg';
     var prom = parseFloat(inProm.value) || 10;
     if (!manual) {
         var str = inReps.value || '';
@@ -1882,7 +1884,7 @@ function actualizarPromedioRepsModal(manual) {
 
     var peso = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
     if (txtRes) {
-        var pesoTxt = peso > 0 ? (peso + ' kg × ') : '';
+        var pesoTxt = peso > 0 ? (peso + ' ' + unidad + ' × ') : '';
         txtRes.innerHTML = '<strong style="color: #38bdf8;">Base 100% Fatiga:</strong> ' + pesoTxt + prom + ' reps promedio. Si en tu rutina haces 8 o 12 reps, el sistema escalará la fatiga de cada serie proporcionalmente.';
     }
 }
@@ -1893,12 +1895,16 @@ function abrirModalNuevoEjercicio(grupoPreseleccionado) {
     var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
     var inProm = document.getElementById('modal-ejercicio-reps-promedio');
+    var inImp = document.getElementById('modal-ejercicio-implemento');
+    var inUni = document.getElementById('modal-ejercicio-unidad-peso');
 
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
     if (inPeso) inPeso.value = "80";
     if (inReps) inReps.value = "8-12 reps";
     if (inProm) inProm.value = "10";
+    if (inImp) inImp.value = (grupoPreseleccionado === 'calistenia' ? 'peso_corporal' : 'barra');
+    if (inUni) inUni.value = "kg";
 
     actualizarPromedioRepsModal();
 
@@ -1927,6 +1933,8 @@ function cerrarModalNuevoEjercicio() {
 function confirmarAgregarEjercicio() {
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inTipo = document.getElementById('modal-ejercicio-tipo');
+    var inImp = document.getElementById('modal-ejercicio-implemento');
+    var inUni = document.getElementById('modal-ejercicio-unidad-peso');
     var inDesc = document.getElementById('modal-ejercicio-desc');
     var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
@@ -1934,6 +1942,8 @@ function confirmarAgregarEjercicio() {
 
     var nom = inNom ? inNom.value.trim() : "";
     var tipoEj = inTipo ? inTipo.value : "gym";
+    var implemento = inImp ? inImp.value : (tipoEj === 'calistenia' ? 'peso_corporal' : 'barra');
+    var unidadPeso = inUni ? inUni.value : "kg";
     var esCompuesto = true;
     var desc = inDesc ? inDesc.value.trim() : "";
     var pesoBase = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
@@ -1976,6 +1986,9 @@ function confirmarAgregarEjercicio() {
         id: "EJ-" + Date.now(),
         nombre: nom,
         tipo: tipoEj,
+        implemento: implemento,
+        equipamiento: implemento,
+        unidadPeso: unidadPeso,
         compuesto: esCompuesto,
         especificaciones: desc || "Técnica biomecánica controlada.",
         descripcion: desc || "Técnica biomecánica controlada.",
@@ -2002,7 +2015,7 @@ function confirmarAgregarEjercicio() {
     if (typeof TAB_TRAINER_ACTIVA !== 'undefined' && TAB_TRAINER_ACTIVA === 'aleatoria' && typeof renderizarSubAppTrainer === 'function') {
         renderizarSubAppTrainer();
     }
-    alert("⚡ Ejercicio '" + nom + "' guardado con éxito.\nReferencia Base: " + (pesoBase ? pesoBase + " kg × " : "") + repsProm + " reps promedio (" + fatigaEstimada + "% a " + muscPrincipal + ").");
+    alert("⚡ Ejercicio '" + nom + "' guardado con éxito.\nReferencia Base: " + (pesoBase ? pesoBase + " " + unidadPeso + " × " : "") + repsProm + " reps promedio (" + fatigaEstimada + "% a " + muscPrincipal + ").");
 }
 
 function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
@@ -2079,8 +2092,23 @@ function generarCardEjercicioFisicoHtml(ej) {
         : ((ej.pesoReferencia != null && ej.pesoReferencia !== '' && !isNaN(parseFloat(ej.pesoReferencia))) 
             ? parseFloat(ej.pesoReferencia) 
             : ((ej.tipo === 'calistenia' || ej.tipo === 'movilidad') ? null : 80));
+    var unidadPeso = ej.unidadPeso || 'kg';
     var pesoBadgeHtml = (pesoNum != null && pesoNum > 0)
-        ? `<span class="badge-exercise-peso">⚡ Base: ${pesoNum} kg</span>`
+        ? `<span class="badge-exercise-peso">⚡ Base: ${pesoNum} ${unidadPeso}</span>`
+        : '';
+
+    var mapaImplementos = {
+        'barra': { icon: '🏋️', label: 'Barra' },
+        'mancuerna': { icon: '🪙', label: 'Mancuerna' },
+        'maquina': { icon: '⚙️', label: 'Máquina' },
+        'polea': { icon: '⛓️', label: 'Polea' },
+        'discos': { icon: '💿', label: 'Discos' },
+        'peso_corporal': { icon: '🤸', label: 'Corporal' }
+    };
+    var impKey = ej.implemento || ej.equipamiento || (ej.tipo === 'calistenia' ? 'peso_corporal' : null);
+    var impObj = mapaImplementos[impKey];
+    var implementoBadgeHtml = impObj
+        ? `<span class="badge-exercise-implemento">${impObj.icon} ${impObj.label}</span>`
         : '';
 
     return `
@@ -2098,6 +2126,7 @@ function generarCardEjercicioFisicoHtml(ej) {
 
         <div class="exercise-badges-row">
             ${badgesZonasHtml}
+            ${implementoBadgeHtml}
             ${pesoBadgeHtml}
             <span class="badge-exercise-reps">${repsDisplay}</span>
         </div>
@@ -2397,6 +2426,9 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 var repsBase = ej.repeticiones || '8-10 reps';
                 var pesoDefault = ej.peso || 80;
                 var seriesDefault = (ej.series && ej.series > 1) ? ej.series : 3;
+                var uPeso = ej.unidadPeso || 'kg';
+                var mapaImp = { 'barra': '🏋️ Barra', 'mancuerna': '🪙 Mancuerna', 'maquina': '⚙️ Máquina', 'polea': '⛓️ Polea', 'discos': '💿 Discos', 'peso_corporal': '🤸 Corporal' };
+                var impTxt = mapaImp[ej.implemento || ej.equipamiento] || '';
 
                 html += `
                 <div class="routine-checklist-card" id="card_ej_rutina_${ej.id}">
@@ -2406,7 +2438,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                             <div>
                                 <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 2px;">${ej.nombre}</strong>
                                 <div style="font-size: 11.5px; color: #94a3b8;">
-                                    ${repsBase} · [${cats}]
+                                    ${repsBase} · [${cats}]${impTxt ? (' · ' + impTxt) : ''}
                                 </div>
                             </div>
                         </label>
@@ -2420,7 +2452,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                         </div>
 
                         <div class="control-pill-group">
-                            <span class="control-pill-label">Peso (kg):</span>
+                            <span class="control-pill-label">Peso (${uPeso}):</span>
                             <input type="number" id="peso_rutina_custom_${ej.id}" min="0" max="500" step="2.5" value="${pesoDefault}" class="input-routine-stat" oninput="recalcularDropsetEjercicio('${ej.id}')">
                         </div>
 
@@ -3269,18 +3301,21 @@ function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
     if (!badge) return;
     if (!data) data = calcularFactorSerie(ejIdx, serieNum);
 
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
+
     var pct = Math.round(data.factorTotal * 100);
     var diffReps = Math.round((data.repsHechas - data.repsProm) * 10) / 10;
     var diffPeso = Math.round((data.pesoReal - data.pesoBase) * 10) / 10;
 
     var partes = [];
-    if (diffPeso > 0) partes.push('+' + diffPeso + ' kg sobrecarga');
-    else if (diffPeso < 0) partes.push(diffPeso + ' kg descarga');
+    if (diffPeso > 0) partes.push('+' + diffPeso + ' ' + uPeso + ' sobrecarga');
+    else if (diffPeso < 0) partes.push(diffPeso + ' ' + uPeso + ' descarga');
 
     if (diffReps > 0) partes.push('+' + diffReps + ' reps límite');
     else if (diffReps < 0) partes.push(diffReps + ' reps');
 
-    var textoDetalle = partes.length > 0 ? (' (' + partes.join(' · ') + ')') : (' (' + data.pesoBase + ' kg × ' + data.repsProm + ' reps base)');
+    var textoDetalle = partes.length > 0 ? (' (' + partes.join(' · ') + ')') : (' (' + data.pesoBase + ' ' + uPeso + ' × ' + data.repsProm + ' reps base)');
 
     badge.innerText = pct + '% fatiga' + textoDetalle;
 
@@ -3333,6 +3368,8 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     chk.checked = !chk.checked;
     var key = ejIdx + '_' + serieNum;
     var data = calcularFactorSerie(ejIdx, serieNum);
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
 
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
@@ -3343,7 +3380,7 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
             btnAction.innerHTML = '<span>✓</span> Completada <span style="font-size: 10px; margin-left: 5px; opacity: 0.8; text-decoration: underline;" onclick="editarSerieYaHecha(event, ' + ejIdx + ', ' + serieNum + ')">Editar</span>';
         }
         if (targetEl) {
-            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' kg × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
         }
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
@@ -3357,11 +3394,10 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
             btnAction.classList.remove('active');
             btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
         }
-        if (targetEl && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
-            var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
-            var repsStr = ej.repeticiones || '8-10 reps';
-            var pesoVal = (!ej.esMental && ej.peso) ? parseFloat(ej.peso) : null;
-            targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' kg') : '');
+        if (targetEl && ejActual) {
+            var repsStr = ejActual.repeticiones || '8-10 reps';
+            var pesoVal = (!ejActual.esMental && ejActual.peso) ? parseFloat(ejActual.peso) : null;
+            targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '');
         }
     }
 
@@ -3586,7 +3622,19 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         var muscleList = (ej.categorias || []).join(' · ');
         var ejJson = encodeURIComponent(JSON.stringify(ej));
         var icono = esM ? '🧠' : '🏋️';
+        var uPeso = ej.unidadPeso || 'kg';
         var pesoVal = (!esM && ej.peso) ? parseFloat(ej.peso) : null;
+        var mapaImp = {
+            'barra': { icon: '🏋️', label: 'Barra' },
+            'mancuerna': { icon: '🪙', label: 'Mancuerna' },
+            'maquina': { icon: '⚙️', label: 'Máquina' },
+            'polea': { icon: '⛓️', label: 'Polea' },
+            'discos': { icon: '💿', label: 'Discos' },
+            'peso_corporal': { icon: '🤸', label: 'Corporal' }
+        };
+        var impKey = ej.implemento || ej.equipamiento || (ej.tipo === 'calistenia' ? 'peso_corporal' : null);
+        var impObj = mapaImp[impKey];
+        var impLabel = impObj ? (' · ' + impObj.icon + ' ' + impObj.label) : '';
         var repsStr = ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps');
         var repsProm = obtenerRepsPromedioEjercicio(ej);
 
@@ -3600,7 +3648,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                             ${icono} ${ej.nombre}
                         </div>
                         <div style="font-size: 11.5px; color: #94a3b8; margin-top: 1px;">
-                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' kg') : ''} · Base: ${repsProm} reps${muscleList ? (' · ' + muscleList) : ''}
+                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : ''}${impLabel} · Base: ${repsProm} reps${muscleList ? (' · ' + muscleList) : ''}
                         </div>
                     </div>
                 </div>
@@ -3644,16 +3692,16 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; font-size: 11px;">
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #38bdf8;">
-                            <strong style="color:#38bdf8;">1ª:</strong> ${p1} kg <div style="color:#94a3b8; font-size:10px;">${d1}</div>
+                            <strong style="color:#38bdf8;">1ª:</strong> ${p1} ${uPeso} <div style="color:#94a3b8; font-size:10px;">${d1}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #818cf8;">
-                            <strong style="color:#818cf8;">2ª:</strong> ${p2} kg <div style="color:#94a3b8; font-size:10px;">${d2}</div>
+                            <strong style="color:#818cf8;">2ª:</strong> ${p2} ${uPeso} <div style="color:#94a3b8; font-size:10px;">${d2}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #f59e0b;">
-                            <strong style="color:#f59e0b;">3ª:</strong> ${p3} kg <div style="color:#94a3b8; font-size:10px;">${d3}</div>
+                            <strong style="color:#f59e0b;">3ª:</strong> ${p3} ${uPeso} <div style="color:#94a3b8; font-size:10px;">${d3}</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #ef4444;">
-                            <strong style="color:#ef4444;">4ª:</strong> ${p4} kg <div style="color:#94a3b8; font-size:10px;">${d4}</div>
+                            <strong style="color:#ef4444;">4ª:</strong> ${p4} ${uPeso} <div style="color:#94a3b8; font-size:10px;">${d4}</div>
                         </div>
                     </div>
                 </div>`;
@@ -3667,7 +3715,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                         <div>
                             <span class="series-label">${esM ? 'SESIÓN COMPLETA' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s))}</span>
-                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' kg') : ''}</span>
+                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
@@ -3681,15 +3729,15 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                 ${!esM ? `
                 <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
                     <div class="series-dual-controls-wrap">
-                        <!-- AJUSTE DE PESO REAL (KG) -->
+                        <!-- AJUSTE DE PESO REAL (KG O LB) -->
                         <div style="display: flex; align-items: center; gap: 5px;">
                             <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Carga:</span>
                             <div class="stepper-pill-box">
                                 <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
-                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal != null ? pesoVal : 80}" step="2.5" min="0" max="500" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal != null ? pesoVal : (uPeso === 'lb' ? 175 : 80)}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
                                 <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
                             </div>
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">kg</span>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
                         </div>
 
                         <!-- AJUSTE DE REPETICIONES -->
@@ -3705,7 +3753,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
 
                     <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px;">
-                        100% fatiga (${pesoVal != null ? pesoVal : 80} kg × ${repsProm} reps base)
+                        100% fatiga (${pesoVal != null ? pesoVal : (uPeso === 'lb' ? 175 : 80)} ${uPeso} × ${repsProm} reps base)
                     </div>
                 </div>` : ''}
 
@@ -4026,7 +4074,8 @@ function ejecutarRutinaDinamica() {
                     nombre: ej.nombre,
                     anterior: pesoBaseAnterior,
                     nuevo: maxPesoLevantado,
-                    diff: diff
+                    diff: diff,
+                    unidad: ej.unidadPeso || 'kg'
                 });
             }
         });
@@ -4054,9 +4103,10 @@ function ejecutarRutinaDinamica() {
 
     // Registrar logs de sobrecarga progresiva en gym log
     sobrecargas.forEach(function(sc) {
+        var u = sc.unidad || 'kg';
         APP_STATE.gym.unshift({
             fecha: fechaHoy,
-            detalle: "🔥 SOBRECARGA PROGRESIVA: " + sc.nombre + " subió de " + sc.anterior + " kg a " + sc.nuevo + " kg (+" + sc.diff + " kg). Nuevo peso base calibrado."
+            detalle: "🔥 SOBRECARGA PROGRESIVA: " + sc.nombre + " subió de " + sc.anterior + " " + u + " a " + sc.nuevo + " " + u + " (+" + sc.diff + " " + u + "). Nuevo peso base calibrado."
         });
     });
 
