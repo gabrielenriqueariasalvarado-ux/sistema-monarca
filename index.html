@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.10">
+    <link rel="stylesheet" href="style.css?v=10.11">
 </head>
 <body>
 
@@ -1715,6 +1715,20 @@
                 <button onclick="cerrarModalNuevaQuestDiaria()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <!-- Selector de Rutina de Entrenamiento Vinculada -->
+                <div class="modal-form-group" style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: #38bdf8; font-weight: 700; font-size: 13px;">🏋️ Trabajar una Rutina de Entrenamiento:</span>
+                        <span style="font-size: 11px; color: #94a3b8; font-weight: normal;">(Opcional)</span>
+                    </label>
+                    <select id="modal-qd-rutina-vinculada" class="modal-input" onchange="alSeleccionarRutinaParaHabito(this.value)">
+                        <option value="">-- Ninguna (Hábito Manual / Personalizado) --</option>
+                    </select>
+                    <small style="display: block; font-size: 11px; color: #64748b; margin-top: 4px;">
+                        Al elegir una rutina, el hábito se auto-configurará para obligarte a trabajarla a la hora establecida con tu alarma.
+                    </small>
+                </div>
+
                 <div class="modal-form-group">
                     <label>Título del Hábito o Misión:</label>
                     <input type="text" id="modal-qd-nombre" class="modal-input" placeholder="Ej: Lectura 15 min, Rutina Matutina: Despertar & Tender Cama, Meditación...">
@@ -4536,25 +4550,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.10"></script>
-    <script src="js/perfil.js?v=10.10"></script>
-    <script src="js/progresion.js?v=10.10"></script>
-    <script src="js/estado-personal.js?v=10.10"></script>
-    <script src="js/finanzas.js?v=10.10"></script>
-    <script src="js/ideas.js?v=10.10"></script>
-    <script src="js/dinamicas.js?v=10.10"></script>
-    <script src="js/calendario.js?v=10.10"></script>
-    <script src="js/inventario.js?v=10.10"></script>
-    <script src="js/jarvis-voz.js?v=10.10"></script>
+    <script src="js/core.js?v=10.11"></script>
+    <script src="js/perfil.js?v=10.11"></script>
+    <script src="js/progresion.js?v=10.11"></script>
+    <script src="js/estado-personal.js?v=10.11"></script>
+    <script src="js/finanzas.js?v=10.11"></script>
+    <script src="js/ideas.js?v=10.11"></script>
+    <script src="js/dinamicas.js?v=10.11"></script>
+    <script src="js/calendario.js?v=10.11"></script>
+    <script src="js/inventario.js?v=10.11"></script>
+    <script src="js/jarvis-voz.js?v=10.11"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.10"></script>
+    <script type="module" src="js/firebase-config.js?v=10.11"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.10')
+                navigator.serviceWorker.register('sw.js?v=10.11')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

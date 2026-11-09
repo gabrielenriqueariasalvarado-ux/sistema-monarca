@@ -4060,6 +4060,36 @@ function ejecutarRutinaDinamica() {
         });
     });
 
+    // Auto-completar Hábitos y Misiones Diarias vinculadas a esta rutina
+    var habitosCompletadosAuto = 0;
+    if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+        APP_STATE.questsDiarios.forEach(function(q) {
+            if (!q) return;
+            var coincideId = q.rutinaId && (
+                q.rutinaId === rutina.id ||
+                q.rutinaId === rutina.codigo ||
+                String(q.rutinaId) === String(RUTINA_ACTIVA.idx)
+            );
+            var coincideNombre = q.rutinaNombre && rutina.nombre && (
+                q.rutinaNombre.trim().toLowerCase() === rutina.nombre.trim().toLowerCase()
+            );
+            var coincideTitulo = q.titulo && rutina.nombre && (
+                q.titulo.trim().toLowerCase().includes(rutina.nombre.trim().toLowerCase())
+            );
+            if (coincideId || coincideNombre || (q.rutinaId && coincideTitulo)) {
+                if (q.estado !== 'completada' && q.estado !== 'penalizada' && q.estado !== 'penitencia_cumplida') {
+                    q.estado = 'completada';
+                    q.temporizadorActivo = false;
+                    q.fechaCompletada = new Date().toISOString();
+                    habitosCompletadosAuto++;
+                }
+            }
+        });
+        if (habitosCompletadosAuto > 0 && typeof renderizarQuestsDiarios === 'function') {
+            renderizarQuestsDiarios();
+        }
+    }
+
     sumarExp(60);
     MonarcaDB.save(APP_STATE);
 
@@ -4077,6 +4107,10 @@ function ejecutarRutinaDinamica() {
         sobrecargas.forEach(function(sc) {
             msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " kg (+" + sc.diff + " kg sobre el anterior de " + sc.anterior + " kg). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " kg.";
         });
+    }
+
+    if (habitosCompletadosAuto > 0) {
+        msgAviso += "\n\n⚡ ¡Se ha marcado como completado tu Hábito/Misión diaria vinculada a esta rutina!";
     }
 
     alert(msgAviso);

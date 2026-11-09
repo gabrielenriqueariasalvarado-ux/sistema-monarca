@@ -1772,13 +1772,25 @@ function renderizarQuestsDiarios() {
                 </div>`;
             }
 
+            var badgeRutina = q.rutinaId
+                ? `<span class="badge-rutina-vinculada" onclick="event.stopPropagation(); iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Rutina Vinculada: Haz clic para abrir el entrenamiento">🏋️ ${q.rutinaNombre || 'Rutina'}</span>`
+                : '';
+
             // Botones de acción compactos
             var botonesAccion = '';
             if (esLibre) {
                 if (esCompletada) {
-                    botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Cumplido</button>`;
+                    var btnRutinaHecha = q.rutinaId ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')">👁️ Rutina</button>` : '';
+                    botonesAccion = btnRutinaHecha + `<button class="btn-qd-action btn-qd-done" disabled>✓ Cumplido</button>`;
                 } else {
-                    botonesAccion = `<button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
+                    var btnRutinaDirecto = q.rutinaId
+                        ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
+                        : '';
+                    botonesAccion = `
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        ${btnRutinaDirecto}
+                        <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
+                    </div>`;
                 }
             } else if (esPenalizada) {
                 botonesAccion = `
@@ -1786,12 +1798,17 @@ function renderizarQuestsDiarios() {
                     💀 Penitencia
                 </button>`;
             } else if (esCompletada) {
-                botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Hecho</button>`;
+                var btnRutinaComp = q.rutinaId ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')">👁️ Rutina</button>` : '';
+                botonesAccion = btnRutinaComp + `<button class="btn-qd-action btn-qd-done" disabled>✓ Hecho</button>`;
             } else if (esPenitenciaCumplida) {
                 botonesAccion = `<button class="btn-qd-action btn-qd-done" disabled>✓ Saldada</button>`;
             } else if (esPospuesta) {
+                var btnRutinaPosp = q.rutinaId
+                    ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
+                    : '';
                 botonesAccion = `
-                <div style="display: flex; gap: 6px; align-items: center;">
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    ${btnRutinaPosp}
                     <button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶️ Iniciar</button>
                     <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
                 </div>`;
@@ -1806,8 +1823,13 @@ function renderizarQuestsDiarios() {
                     }
                 }
 
+                var btnRutinaPend = q.rutinaId
+                    ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
+                    : '';
+
                 botonesAccion = `
-                <div style="display: flex; gap: 6px; align-items: center;">
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    ${btnRutinaPend}
                     ${btnTimer}
                     <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
                 </div>`;
@@ -1836,8 +1858,9 @@ function renderizarQuestsDiarios() {
             <div class="${cardClass}">
                 <!-- FILA PRINCIPAL COMPACTA (Solo Nombre, Estado, Botón Principal y Flecha) -->
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; flex-wrap: wrap;">
                         ${badgeEstado}
+                        ${badgeRutina}
                         <h3 class="qd-title" style="margin: 0; font-size: 15px; font-weight: 700; ${(esCompletada || esPenitenciaCumplida) ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc;'}">${q.titulo}</h3>
                     </div>
 
@@ -1853,6 +1876,18 @@ function renderizarQuestsDiarios() {
 
                 <!-- PANEL DESPLEGABLE CON INFORMACIÓN COMPLETA -->
                 <div class="card-detalle-desplegable" id="quest-detalle-${q.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
+                    ${q.rutinaId ? `
+                        <div style="font-size: 12px; color: #38bdf8; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div>
+                                <strong>🏋️ Rutina Vinculada:</strong> ${q.rutinaNombre || 'Sesión de Entrenamiento'}
+                                <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 2px;">Al finalizar esta sesión en el Arsenal Físico o Gimnasio Mental, este hábito se completará automáticamente.</span>
+                            </div>
+                            <button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.22); color: #38bdf8; border-color: #38bdf8; font-weight: 700; white-space: nowrap;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')">
+                                🏋️ Abrir Rutina ▶
+                            </button>
+                        </div>
+                    ` : ''}
+
                     ${q.beneficio ? `
                         <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
                             🎁 <strong>Beneficio / Recompensa:</strong> ${q.beneficio}
@@ -2140,6 +2175,139 @@ function reiniciarCicloQuestsDiarios() {
     alert("¡Ciclo de hábitos y misiones reiniciado! Listo para una nueva jornada.");
 }
 
+function iniciarRutinaDesdeHabito(rutinaId, questId) {
+    if (!rutinaId) return;
+
+    if (questId && typeof iniciarTemporizadorQuest === 'function') {
+        var q = APP_STATE.questsDiarios && APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(questId); });
+        if (q && !q.temporizadorActivo && q.estado !== 'completada' && q.estado !== 'penalizada') {
+            iniciarTemporizadorQuest(questId);
+        }
+    }
+
+    if (typeof abrirDetalleRutina === 'function') {
+        abrirDetalleRutina(rutinaId);
+    } else {
+        cambiarVista('vista-ejercicios');
+    }
+}
+
+function poblarSelectRutinasVinculadasModalQuest() {
+    var sel = document.getElementById('modal-qd-rutina-vinculada');
+    if (!sel) return;
+
+    var rList = (APP_STATE && APP_STATE.rutinas) ? APP_STATE.rutinas : [];
+    var html = '<option value="">-- Ninguna (Hábito Manual / Personalizado) --</option>';
+
+    if (rList.length > 0) {
+        html += '<optgroup label="⚡ TUS RUTINAS DE ENTRENAMIENTO">';
+        rList.forEach(function(r, idx) {
+            if (!r) return;
+            var icono = r.tipo === 'mental' ? '🧠' : (r.tipo === 'hibrida' ? '⚡' : '🏋️');
+            var tipoLabel = r.tipo === 'mental' ? 'Cognitiva' : (r.tipo === 'hibrida' ? 'Híbrida' : 'Física');
+            var numEj = (r.ejercicios && r.ejercicios.length) || 0;
+            var val = r.id || r.codigo || String(idx);
+            html += `<option value="${val}">${icono} ${r.nombre} [${tipoLabel} · ${numEj} ej.]</option>`;
+        });
+        html += '</optgroup>';
+    }
+
+    sel.innerHTML = html;
+    sel.value = '';
+}
+
+function alSeleccionarRutinaParaHabito(rutinaId) {
+    var inNom = document.getElementById('modal-qd-nombre');
+    var inBen = document.getElementById('modal-qd-beneficio');
+    var selCat = document.getElementById('modal-qd-categoria');
+    var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
+    var inMin = document.getElementById('modal-qd-minutos');
+    var chkOmit = document.getElementById('modal-qd-es-omitible');
+
+    if (!rutinaId) {
+        return;
+    }
+
+    var rList = (APP_STATE && APP_STATE.rutinas) ? APP_STATE.rutinas : [];
+    var rutina = rList.find(function(r, idx) {
+        return r && (r.id === rutinaId || r.codigo === rutinaId || String(idx) === String(rutinaId));
+    });
+
+    if (!rutina) return;
+
+    // 1. Título auto-generado
+    if (inNom) {
+        inNom.value = "Entrenar: " + rutina.nombre;
+    }
+
+    // 2. Beneficio
+    if (inBen) {
+        var tipoTxt = rutina.tipo === 'mental' ? 'cognitivo y agudeza mental' : (rutina.tipo === 'hibrida' ? 'físico-mental integral' : 'fuerza, hipertrofia y sobrecarga biomecánica');
+        inBen.value = "Completar sesión '" + rutina.nombre + "' impulsando desarrollo " + tipoTxt + ".";
+    }
+
+    // 3. Categoría adecuada
+    if (selCat) {
+        if (rutina.tipo === 'mental') selCat.value = '🧠 Misión Mental';
+        else if (rutina.tipo === 'hibrida') selCat.value = '⚡ Misión / Hábito';
+        else selCat.value = '🦾 Entrenamiento Físico';
+    }
+
+    // 4. Modo de activación: PROGRAMADA para obligar al usuario a trabajarla a una hora fija con notificación
+    if (selTipoT) {
+        selTipoT.value = 'programada';
+        toggleTipoTiempoQuestModal();
+    }
+
+    // 5. Duración calculada en base al volumen de ejercicios
+    var numEj = (rutina.ejercicios && rutina.ejercicios.length) || 3;
+    var duracionEstimada = Math.max(20, numEj * 10);
+    if (inMin) {
+        inMin.value = duracionEstimada;
+    }
+
+    // 6. Configurar como omitible para poder posponer 1h si está ocupado
+    if (chkOmit) {
+        chkOmit.checked = true;
+        alCambiarOmitibleQuestModal();
+    }
+
+    // 7. Auto-vincular atributos desarrollados
+    ATRIBUTOS_MODAL_TEMP.quest = [];
+    if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
+        var clavesEncontradas = [];
+        rutina.ejercicios.forEach(function(ej) {
+            if (ej.esMental) {
+                var mId = ej.musculoPrincipal || 'enfoque';
+                if (!clavesEncontradas.includes(mId)) clavesEncontradas.push(mId);
+            } else {
+                var mKeys = typeof mapearTextoAMusculos === 'function' ? mapearTextoAMusculos(ej.categorias || ej.nombre || '') : [];
+                mKeys.forEach(function(k) {
+                    if (!clavesEncontradas.includes(k)) clavesEncontradas.push(k);
+                });
+            }
+        });
+
+        var agregados = 0;
+        clavesEncontradas.forEach(function(clave) {
+            if (agregados >= 4) return;
+            var attr = CATALOGO_ATRIBUTOS_SISTEMA.find(function(a) { return a.clave === clave; });
+            if (attr) {
+                ATRIBUTOS_MODAL_TEMP.quest.push({
+                    clave: attr.clave,
+                    nombre: attr.nombre,
+                    tipo: attr.tipo,
+                    icono: attr.icono,
+                    categoria: attr.categoria,
+                    porcentaje: 20
+                });
+                agregados++;
+            }
+        });
+        renderizarFilasAtributos('quest');
+    }
+}
+
 function abrirModalNuevaQuestDiaria() {
     solicitarPermisoNotificaciones(false);
 
@@ -2165,6 +2333,7 @@ function abrirModalNuevaQuestDiaria() {
     if (inExp) inExp.value = '40';
     if (chkOmit) chkOmit.checked = true;
 
+    poblarSelectRutinasVinculadasModalQuest();
     poblarSelectPenitenciasModalNuevaQuest();
     toggleTipoTiempoQuestModal();
     alCambiarOmitibleQuestModal();
@@ -2305,6 +2474,21 @@ function confirmarAgregarQuestDiaria() {
         });
     }
 
+    var selRut = document.getElementById('modal-qd-rutina-vinculada');
+    var rutinaId = selRut ? selRut.value : '';
+    var rutinaNombre = null;
+    var rutinaTipo = null;
+
+    if (rutinaId && APP_STATE.rutinas) {
+        var rutObj = APP_STATE.rutinas.find(function(r, idx) {
+            return r && (r.id === rutinaId || r.codigo === rutinaId || String(idx) === String(rutinaId));
+        });
+        if (rutObj) {
+            rutinaNombre = rutObj.nombre;
+            rutinaTipo = rutObj.tipo;
+        }
+    }
+
     var listaAtrsQ = (ATRIBUTOS_MODAL_TEMP.quest && ATRIBUTOS_MODAL_TEMP.quest.length > 0)
         ? JSON.parse(JSON.stringify(ATRIBUTOS_MODAL_TEMP.quest))
         : [];
@@ -2314,6 +2498,9 @@ function confirmarAgregarQuestDiaria() {
         titulo: nombre,
         beneficio: beneficio,
         categoria: (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : categoria,
+        rutinaId: rutinaId || null,
+        rutinaNombre: rutinaNombre,
+        rutinaTipo: rutinaTipo,
         tipoTiempo: tipoTiempo,
         horaActivacion: horaActivacion,
         tiempoMinutos: minutos,
