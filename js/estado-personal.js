@@ -2072,6 +2072,16 @@ function generarCardEjercicioFisicoHtml(ej) {
 
     var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
     var repsDisplay = (ej.series && ej.series > 1) ? `${ej.series} Series × ${ej.repeticiones || '8-10 reps'}` : `1 Serie · ${ej.repeticiones || '8-10 reps'}`;
+    
+    // Obtener peso base del ejercicio (o pesoReferencia)
+    var pesoNum = (ej.peso != null && ej.peso !== '' && !isNaN(parseFloat(ej.peso))) 
+        ? parseFloat(ej.peso) 
+        : ((ej.pesoReferencia != null && ej.pesoReferencia !== '' && !isNaN(parseFloat(ej.pesoReferencia))) 
+            ? parseFloat(ej.pesoReferencia) 
+            : ((ej.tipo === 'calistenia' || ej.tipo === 'movilidad') ? null : 80));
+    var pesoBadgeHtml = (pesoNum != null && pesoNum > 0)
+        ? `<span class="badge-exercise-peso">⚡ Base: ${pesoNum} kg</span>`
+        : '';
 
     return `
     <div class="exercise-card">
@@ -2088,6 +2098,7 @@ function generarCardEjercicioFisicoHtml(ej) {
 
         <div class="exercise-badges-row">
             ${badgesZonasHtml}
+            ${pesoBadgeHtml}
             <span class="badge-exercise-reps">${repsDisplay}</span>
         </div>
     </div>`;
@@ -3292,6 +3303,20 @@ function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
     }
 }
 
+function editarSerieYaHecha(event, ejIdx, serieNum) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
+    if (!panelReps) return;
+    if (panelReps.style.display === 'none' || !panelReps.style.display) {
+        panelReps.style.display = 'flex';
+    } else {
+        panelReps.style.display = 'none';
+    }
+}
+
 function toggleCheckSerie(e, ejIdx, serieNum) {
     if (e) {
         e.stopPropagation();
@@ -3301,6 +3326,8 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     var row = document.getElementById('row-ej-' + ejIdx + '-s-' + serieNum);
     var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
     var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + serieNum);
+    var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
+    var targetEl = document.getElementById('target-ej-' + ejIdx + '-s-' + serieNum);
     if (!chk) return;
 
     chk.checked = !chk.checked;
@@ -3310,9 +3337,13 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
         if (ind) ind.classList.add('checked');
+        if (panelReps) panelReps.style.display = 'none';
         if (btnAction) {
             btnAction.classList.add('active');
-            btnAction.innerHTML = '<span>✓</span> Completada';
+            btnAction.innerHTML = '<span>✓</span> Completada <span style="font-size: 10px; margin-left: 5px; opacity: 0.8; text-decoration: underline;" onclick="editarSerieYaHecha(event, ' + ejIdx + ', ' + serieNum + ')">Editar</span>';
+        }
+        if (targetEl) {
+            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' kg × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
         }
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
@@ -3321,9 +3352,16 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     } else {
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
+        if (panelReps) panelReps.style.display = 'flex';
         if (btnAction) {
             btnAction.classList.remove('active');
             btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
+        }
+        if (targetEl && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
+            var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+            var repsStr = ej.repeticiones || '8-10 reps';
+            var pesoVal = (!ej.esMental && ej.peso) ? parseFloat(ej.peso) : null;
+            targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' kg') : '');
         }
     }
 
@@ -3629,7 +3667,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                         <div>
                             <span class="series-label">${esM ? 'SESIÓN COMPLETA' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s))}</span>
-                            <span class="series-target">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' kg') : ''}</span>
+                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' kg') : ''}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
