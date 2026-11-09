@@ -2404,6 +2404,17 @@ function inicializarHojaFinanzasDesdeUI() {
  */
 
 var ESTRUCTURA_BANCO_IDEAS = {
+    "✨ Emily": {
+        icono: "✨",
+        subcategorias: [
+            "💻 Programación & Nuevas Funciones",
+            "🎨 Diseño, Interfaz & Experiencia (UI/UX)",
+            "🧠 Módulos IA & Automatizaciones",
+            "⚡ Optimización & Rendimiento",
+            "🐛 Correcciones de Errores & Bugs",
+            "🚀 Roadmap & Próximas Versiones"
+        ]
+    },
     "💭 Ideas y Pensamientos": {
         icono: "💭",
         subcategorias: [

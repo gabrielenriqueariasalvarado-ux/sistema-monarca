@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.11">
+    <link rel="stylesheet" href="style.css?v=10.12">
 </head>
 <body>
 
@@ -2238,6 +2238,7 @@
                         <div>
                             <label style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Categoría:</label>
                             <select id="select-categoria-idea" class="ideas-select" onchange="alCambiarCategoriaIdea()">
+                                <option value="✨ Emily">✨ Emily (Programación & App)</option>
                                 <option value="💡 Ideas & Proyectos">💡 Ideas & Proyectos</option>
                                 <option value="🛒 Compras & Deseos">🛒 Compras & Deseos</option>
                                 <option value="📊 Planes & Metas">📊 Planes & Metas</option>
@@ -2253,22 +2254,9 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
-                        <div class="context-selector-box">
-                            <span class="context-label">Contexto:</span>
-                            <div class="context-pill active" id="pill-context-casa" onclick="seleccionarContextoIdea('🏠 Casa')">
-                                🏠 Casa
-                            </div>
-                            <div class="context-pill" id="pill-context-calle" onclick="seleccionarContextoIdea('🛣️ Calle')">
-                                🛣️ Calle
-                            </div>
-                            <div class="context-pill" id="pill-context-trabajo" onclick="seleccionarContextoIdea('💼 Trabajo')">
-                                💼 Trabajo
-                            </div>
-                        </div>
-
-                        <button class="btn-system" onclick="guardarNuevaIdea()" id="btn-publicar-idea" style="min-width: 140px;">
-                            ⚡ Publicar
+                    <div style="display: flex; align-items: center; justify-content: flex-end; margin-top: 6px;">
+                        <button class="btn-system" onclick="guardarNuevaIdea()" id="btn-publicar-idea" style="min-width: 170px; padding: 11px 24px; font-size: 13.5px; border-radius: 12px; font-weight: 700;">
+                            ⚡ Publicar Idea
                         </button>
                     </div>
                 </div>
@@ -2286,10 +2274,10 @@
                 </button>
             </div>
 
-            <!-- CONTENEDOR 1: GRID DE LAS 5 CATEGORÍAS -->
+            <!-- CONTENEDOR 1: GRID DE LAS CATEGORÍAS -->
             <div id="vista-ideas-categorias-grid">
                 <div class="categories-grid" id="contenedor-grid-categorias">
-                    <!-- Se renderizan las 5 tarjetas de categorías -->
+                    <!-- Se renderizan las tarjetas de categorías -->
                 </div>
             </div>
 
@@ -2299,15 +2287,6 @@
                     <button class="btn-back-system" onclick="volverACategoriasIdeas()" style="margin-bottom: 0;">
                         <span>◀</span> VOLVER A CATEGORÍAS
                     </button>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 12px; color: #94a3b8;">Filtrar Contexto:</span>
-                        <select id="select-filtro-contexto-detalle" class="ideas-select" style="width: auto; padding: 4px 10px;" onchange="alFiltrarContextoDetalle()">
-                            <option value="TODOS">Todos</option>
-                            <option value="🏠 Casa">🏠 Casa</option>
-                            <option value="🛣️ Calle">🛣️ Calle</option>
-                            <option value="💼 Trabajo">💼 Trabajo</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div id="detalle-categoria-header" style="margin-bottom: 16px;">
@@ -4550,25 +4529,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.11"></script>
-    <script src="js/perfil.js?v=10.11"></script>
-    <script src="js/progresion.js?v=10.11"></script>
-    <script src="js/estado-personal.js?v=10.11"></script>
-    <script src="js/finanzas.js?v=10.11"></script>
-    <script src="js/ideas.js?v=10.11"></script>
-    <script src="js/dinamicas.js?v=10.11"></script>
-    <script src="js/calendario.js?v=10.11"></script>
-    <script src="js/inventario.js?v=10.11"></script>
-    <script src="js/jarvis-voz.js?v=10.11"></script>
+    <script src="js/core.js?v=10.12"></script>
+    <script src="js/perfil.js?v=10.12"></script>
+    <script src="js/progresion.js?v=10.12"></script>
+    <script src="js/estado-personal.js?v=10.12"></script>
+    <script src="js/finanzas.js?v=10.12"></script>
+    <script src="js/ideas.js?v=10.12"></script>
+    <script src="js/dinamicas.js?v=10.12"></script>
+    <script src="js/calendario.js?v=10.12"></script>
+    <script src="js/inventario.js?v=10.12"></script>
+    <script src="js/jarvis-voz.js?v=10.12"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.11"></script>
+    <script type="module" src="js/firebase-config.js?v=10.12"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.11')
+                navigator.serviceWorker.register('sw.js?v=10.12')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

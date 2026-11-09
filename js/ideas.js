@@ -4,8 +4,23 @@
  */
 
 var ESTRUCTURA_BANCO_IDEAS = {
+    "✨ Emily": {
+        icono: "✨",
+        color: "#38bdf8",
+        descripcion: "Ideas de programación, nuevas funciones y mejoras de la app",
+        subcategorias: [
+            "💻 Programación & Nuevas Funciones",
+            "🎨 Diseño, Interfaz & Experiencia (UI/UX)",
+            "🧠 Módulos IA & Automatizaciones",
+            "⚡ Optimización & Rendimiento",
+            "🐛 Correcciones de Errores & Bugs",
+            "🚀 Roadmap & Próximas Versiones"
+        ]
+    },
     "💡 Ideas & Proyectos": {
         icono: "💡",
+        color: "#fbbf24",
+        descripcion: "Filosofía, emprendimiento, mentalidad y dinámicas",
         subcategorias: [
             "🧠 Filosofía, Mentalidad y Enfoque",
             "💬 Interacción Social y Dinámicas Personales",
@@ -15,6 +30,8 @@ var ESTRUCTURA_BANCO_IDEAS = {
     },
     "🛒 Compras & Deseos": {
         icono: "🛒",
+        color: "#f43f5e",
+        descripcion: "Adquisiciones, tecnología, ropa, libros y hogar",
         subcategorias: [
             "👕 Ropa, Calzado y Accesorios",
             "🖥️ Tecnología, Hardware y Electrónica",
@@ -26,6 +43,8 @@ var ESTRUCTURA_BANCO_IDEAS = {
     },
     "📊 Planes & Metas": {
         icono: "📊",
+        color: "#10b981",
+        descripcion: "Metas de carrera, finanzas personales y hábitos",
         subcategorias: [
             "👤 Crecimiento Personal, Hábitos y Rutina",
             "💼 Trabajo, Programación y Carrera Profesional",
@@ -34,6 +53,8 @@ var ESTRUCTURA_BANCO_IDEAS = {
     },
     "📚 Base de Conocimientos": {
         icono: "📚",
+        color: "#818cf8",
+        descripcion: "Documentación, técnicas, psicología y aprendizajes",
         subcategorias: [
             "💈 Oficio, Barbería & Técnicas Manuales",
             "💻 Programación, Algoritmos y Arquitectura Web",
@@ -43,6 +64,8 @@ var ESTRUCTURA_BANCO_IDEAS = {
     },
     "✅ Tareas Operativas": {
         icono: "✅",
+        color: "#34d399",
+        descripcion: "Pendientes diarios en casa, calle y labores de flujo",
         subcategorias: [
             "🏠 En Casa (Organización y Espacio)",
             "🛣️ En la Calle (Trámites, Mandados y Compras)",
@@ -52,10 +75,8 @@ var ESTRUCTURA_BANCO_IDEAS = {
 };
 
 var ESTADO_IDEAS = {
-    contextoSeleccionado: "🏠 Casa",
     subvistaActual: "categorias", // 'categorias', 'detalle', 'operatividad'
     categoriaSeleccionada: null,
-    filtroContextoDetalle: "TODOS",
     mesOperatividadOffset: 0,
     graficoChartInstance: null,
     inicializado: false
@@ -66,7 +87,7 @@ function inicializarBancoDeIdeas() {
 
     var catSelect = document.getElementById('select-categoria-idea');
     if (catSelect) {
-        catSelect.value = "💡 Ideas & Proyectos";
+        catSelect.value = "✨ Emily";
         alCambiarCategoriaIdea();
     }
 
@@ -91,6 +112,10 @@ function alCambiarCategoriaIdea() {
 
     var cat = catSelect.value;
     var info = ESTRUCTURA_BANCO_IDEAS[cat];
+    if (!info && cat.includes('Emily')) {
+        info = ESTRUCTURA_BANCO_IDEAS["✨ Emily"];
+    }
+
     subcatSelect.innerHTML = '';
     if (info && info.subcategorias) {
         info.subcategorias.forEach(function(sub) {
@@ -103,19 +128,7 @@ function alCambiarCategoriaIdea() {
 }
 
 function seleccionarContextoIdea(contexto) {
-    ESTADO_IDEAS.contextoSeleccionado = contexto;
-    var pills = ['pill-context-casa', 'pill-context-calle', 'pill-context-trabajo'];
-    pills.forEach(function(pid) {
-        var el = document.getElementById(pid);
-        if (el) el.classList.remove('active');
-    });
-    if (contexto.includes('Casa')) {
-        var el = document.getElementById('pill-context-casa'); if (el) el.classList.add('active');
-    } else if (contexto.includes('Calle')) {
-        var el = document.getElementById('pill-context-calle'); if (el) el.classList.add('active');
-    } else if (contexto.includes('Trabajo')) {
-        var el = document.getElementById('pill-context-trabajo'); if (el) el.classList.add('active');
-    }
+    // Deprecado: contexto eliminado a petición del usuario
 }
 
 function cargarIdeas() {
@@ -222,18 +235,29 @@ function mostrarVistaCategoriasGrid() {
     Object.keys(ESTRUCTURA_BANCO_IDEAS).forEach(function(catNombre) {
         var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
         var pendientesCat = ideas.filter(function(i) {
-            return !i.hecha && i.categoria === catNombre;
+            return !i.hecha && (i.categoria === catNombre || (catNombre.includes('Emily') && i.categoria && i.categoria.includes('Emily')));
         }).length;
 
+        var esEmily = catNombre.toLowerCase().includes('emily');
+        var cardClass = esEmily ? 'category-card category-card-emily' : 'category-card';
+        var tituloLimpio = catNombre.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
+        if (!tituloLimpio) tituloLimpio = catNombre;
+
         html += `
-        <div class="category-card" onclick="abrirDetalleCategoriaIdeas('${catNombre}')">
+        <div class="${cardClass}" onclick="abrirDetalleCategoriaIdeas('${catNombre}')">
             <div class="category-card-header">
-                <span class="category-card-icon">${info.icono}</span>
-                <div class="category-card-title">${catNombre}</div>
+                <span class="category-card-icon ${esEmily ? 'icon-emily' : ''}">${info.icono || '💡'}</span>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span class="category-card-title">${tituloLimpio}</span>
+                        ${esEmily ? '<span class="badge-emily-core">APP & CORE</span>' : ''}
+                    </div>
+                    ${info.descripcion ? `<div class="category-card-desc">${info.descripcion}</div>` : ''}
+                </div>
             </div>
             <div class="category-card-footer">
-                <span><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}</span>
-                <span style="color: #f8fafc; font-weight: 700;">Explorar ›</span>
+                <span class="category-card-count"><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}</span>
+                <span class="category-card-explore">Explorar ›</span>
             </div>
         </div>`;
     });
@@ -262,72 +286,81 @@ function abrirDetalleCategoriaIdeas(catNombre) {
 
     var headerElem = document.getElementById('detalle-categoria-header');
     var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
+    if (!info && catNombre.includes('Emily')) {
+        info = ESTRUCTURA_BANCO_IDEAS["✨ Emily"];
+    }
+
+    var tituloLimpio = catNombre.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
+    if (!tituloLimpio) tituloLimpio = catNombre;
+    var esEmily = catNombre.toLowerCase().includes('emily');
+
     if (headerElem) {
         headerElem.innerHTML = `
-            <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                    <h3 style="margin: 0; color: #f8fafc; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-                        <span>${info ? info.icono : '💡'}</span>
-                        <span>${catNombre}</span>
-                    </h3>
-                    <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #6b7280;">
-                        Marca la casilla para completar la idea y enviarla a Operatividad.
-                    </p>
+            <div style="background: #0f1423; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <span class="category-card-icon ${esEmily ? 'icon-emily' : ''}" style="width: 48px; height: 48px; font-size: 24px;">${info ? info.icono : '💡'}</span>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <h3 style="margin: 0; color: #f8fafc; font-size: 18px; font-weight: 800;">
+                                ${tituloLimpio}
+                            </h3>
+                            ${esEmily ? '<span class="badge-emily-core">APP & CORE</span>' : ''}
+                        </div>
+                        <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #94a3b8;">
+                            ${info && info.descripcion ? info.descripcion : 'Marca la casilla para completar la idea y enviarla a Operatividad.'}
+                        </p>
+                    </div>
                 </div>
             </div>`;
     }
-
-    var filtroSelect = document.getElementById('select-filtro-contexto-detalle');
-    if (filtroSelect) filtroSelect.value = ESTADO_IDEAS.filtroContextoDetalle;
 
     var listCont = document.getElementById('contenedor-subcategorias-lista');
     if (!listCont) return;
 
     var ideas = APP_STATE.ideas || [];
     var subcategorias = (info && info.subcategorias) ? info.subcategorias : ["General"];
-    var filtroContexto = ESTADO_IDEAS.filtroContextoDetalle;
 
     var html = '';
 
     subcategorias.forEach(function(subNombre) {
         // Filtrar SOLO ideas NO hechas (pendientes)
         var subIdeas = ideas.filter(function(i) {
-            var coincideCat = (i.categoria === catNombre);
+            var coincideCat = (i.categoria === catNombre || (catNombre.includes('Emily') && i.categoria && i.categoria.includes('Emily')));
             var coincideSub = (i.subcategoria === subNombre || (!i.subcategoria && subNombre.includes("General")));
             var noHecha = !i.hecha;
-            var coincideContexto = (filtroContexto === 'TODOS' || (i.contexto && i.contexto.includes(filtroContexto.replace(/^[^\w\s]+\s*/, ''))));
-            return coincideCat && coincideSub && noHecha && coincideContexto;
+            return coincideCat && coincideSub && noHecha;
         });
 
         html += `
         <div class="subcategory-section">
             <div class="subcategory-title">
-                <span>${subNombre}</span>
-                <span style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 9999px;">
+                <span style="font-weight: 700; color: #f8fafc;">${subNombre}</span>
+                <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 10px; border-radius: 9999px;">
                     ${subIdeas.length} ${subIdeas.length === 1 ? 'pendiente' : 'pendientes'}
                 </span>
             </div>
             <div class="idea-clean-list">`;
 
         if (subIdeas.length === 0) {
-            html += `<p style="font-size: 12.5px; color: #9ca3af; padding: 6px 12px; font-style: italic; margin: 0;">- No hay ideas pendientes en esta subcategoría.</p>`;
+            html += `<p style="font-size: 12.5px; color: #64748b; padding: 10px 12px; font-style: italic; margin: 0;">- No hay ideas pendientes en esta subcategoría.</p>`;
         } else {
             subIdeas.forEach(function(idea) {
                 html += `
                 <div class="idea-clean-item" id="idea-card-${idea.id}">
                     <div class="idea-item-left">
-                        <span class="idea-dash">-</span>
+                        <span class="idea-dash">•</span>
                         <div class="idea-item-content">
                             <span class="idea-text-line">${idea.texto}</span>
-                            <div class="idea-meta-badges">
-                                <span class="idea-context-badge">${idea.contexto || '🏠 Casa'}</span>
-                                ${idea.fecha ? `<span style="font-size: 11px; color: #9ca3af; font-weight: 600;">${idea.fecha}</span>` : ''}
-                            </div>
+                            ${idea.fecha ? `
+                                <div class="idea-meta-badges">
+                                    <span style="font-size: 11px; color: #64748b; font-weight: 600;">🗓️ ${idea.fecha}</span>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <button class="idea-btn-check" onclick="marcarIdeaHechaUI(${idea.id})" title="Marcar como realizada y mover a Operatividad">
-                            <span>✓</span> Marcar Hecha
+                            <span>✓</span> Hecha
                         </button>
                         <button class="btn-delete-row" onclick="eliminarIdea(${idea.id})" title="Eliminar idea">✕</button>
                     </div>
@@ -347,13 +380,7 @@ function volverACategoriasIdeas() {
 }
 
 function alFiltrarContextoDetalle() {
-    var filtroSelect = document.getElementById('select-filtro-contexto-detalle');
-    if (filtroSelect) {
-        ESTADO_IDEAS.filtroContextoDetalle = filtroSelect.value;
-        if (ESTADO_IDEAS.categoriaSeleccionada) {
-            abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
-        }
-    }
+    // Deprecado
 }
 
 function guardarNuevaIdea() {
@@ -368,9 +395,8 @@ function guardarNuevaIdea() {
     }
 
     var texto = input.value.trim();
-    var cat = catSelect ? catSelect.value : "💭 Ideas y Pensamientos";
-    var subcat = subcatSelect ? subcatSelect.value : "Mis Pensamientos";
-    var contexto = ESTADO_IDEAS.contextoSeleccionado || "🏠 Casa";
+    var cat = catSelect ? catSelect.value : "✨ Emily";
+    var subcat = subcatSelect ? subcatSelect.value : "General";
 
     // Formatear fecha actual (ejemplo: 28/09)
     var ahora = new Date();
@@ -389,7 +415,6 @@ function guardarNuevaIdea() {
         texto: texto,
         categoria: cat,
         subcategoria: subcat,
-        contexto: contexto,
         fecha: fechaCorta,
         timestamp: Date.now(),
         hecha: false
@@ -400,8 +425,8 @@ function guardarNuevaIdea() {
     sumarExp(10);
 
     // Si estábamos en detalle de esa misma categoría, actualizarlo directamente; si no, mostrar cuadrícula
-    if (ESTADO_IDEAS.subvistaActual === 'detalle' && ESTADO_IDEAS.categoriaSeleccionada === cat) {
-        abrirDetalleCategoriaIdeas(cat);
+    if (ESTADO_IDEAS.subvistaActual === 'detalle' && (ESTADO_IDEAS.categoriaSeleccionada === cat || (cat.includes('Emily') && ESTADO_IDEAS.categoriaSeleccionada && ESTADO_IDEAS.categoriaSeleccionada.includes('Emily')))) {
+        abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
     } else {
         mostrarVistaCategoriasGrid();
     }
@@ -594,16 +619,17 @@ function renderizarListaOperatividad(ejecutadas) {
 
     var html = '';
     ejecutadas.forEach(function(i) {
+        var catLimpia = (i.categoria || 'Idea').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
         html += `
         <div class="idea-clean-item is-done">
             <div class="idea-item-left">
-                <span class="idea-dash">✓</span>
+                <span class="idea-dash" style="color: #10b981 !important;">✓</span>
                 <div class="idea-item-content">
-                    <span class="idea-text-line" style="text-decoration: line-through; color: #6b7280;">${i.texto}</span>
+                    <span class="idea-text-line" style="text-decoration: line-through; color: #64748b;">${i.texto}</span>
                     <div class="idea-meta-badges">
-                        <span class="idea-context-badge">${i.categoria.replace(/^[^\w\s]+\s*/, '')}</span>
-                        <span class="idea-context-badge">${i.contexto || '🏠 Casa'}</span>
-                        <span style="font-size: 10.5px; color: #10b981; font-weight: 700;">✓ Ejecutada</span>
+                        <span class="idea-category-badge">${catLimpia}</span>
+                        ${i.subcategoria ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">• ${i.subcategoria}</span>` : ''}
+                        <span style="font-size: 10.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 8px; border-radius: 9999px;">✓ Ejecutada</span>
                     </div>
                 </div>
             </div>
