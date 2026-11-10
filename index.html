@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.20">
+    <link rel="stylesheet" href="style.css?v=10.21">
 </head>
 <body>
 
@@ -619,14 +619,18 @@
                     </div>
                 </div>
 
-                <!-- BARRA DE CATEGORÍAS MUSCULARES -->
-                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+                <!-- BARRA DE CATEGORÍAS MUSCULARES CON SCROLL HORIZONTAL FLUIDO -->
+                <div class="banco-subfiltros-scroll-wrapper" style="display: flex; gap: 7px; overflow-x: auto; white-space: nowrap; padding-bottom: 8px; margin-bottom: 14px; -webkit-overflow-scrolling: touch;">
                     <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Pecho" onclick="filtrarSubcategoriaEjercicios('Pecho')">⚔️ Pecho</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Espalda" onclick="filtrarSubcategoriaEjercicios('Espalda')">🦅 Espalda</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Hombros" onclick="filtrarSubcategoriaEjercicios('Hombros')">🛡️ Hombros</button>
-                    <button class="btn-subfiltro-ej" data-subfiltro="Brazos" onclick="filtrarSubcategoriaEjercicios('Brazos')">💪 Brazos</button>
-                    <button class="btn-subfiltro-ej" data-subfiltro="Piernas" onclick="filtrarSubcategoriaEjercicios('Piernas')">🦵 Piernas</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Biceps" onclick="filtrarSubcategoriaEjercicios('Biceps')">💪 Bíceps</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Triceps" onclick="filtrarSubcategoriaEjercicios('Triceps')">🦾 Tríceps</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Cuadriceps" onclick="filtrarSubcategoriaEjercicios('Cuadriceps')">🦵 Cuádriceps</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Isquios" onclick="filtrarSubcategoriaEjercicios('Isquios')">🍗 Isquios</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Gluteos" onclick="filtrarSubcategoriaEjercicios('Gluteos')">🍑 Glúteos</button>
+                    <button class="btn-subfiltro-ej" data-subfiltro="Pantorrillas" onclick="filtrarSubcategoriaEjercicios('Pantorrillas')">🧦 Pantorrillas</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Core" onclick="filtrarSubcategoriaEjercicios('Core')">⚡ Core</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="calistenia" onclick="filtrarSubcategoriaEjercicios('calistenia')">🤸 Calistenia</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="movilidad" onclick="filtrarSubcategoriaEjercicios('movilidad')">🥋 Movilidad</button>
@@ -1924,8 +1928,8 @@
         <div class="modal-system-window" style="max-width: 530px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">🏋️‍♂️</span>
-                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVO EJERCICIO FÍSICO</span>
+                    <span id="modal-nuevo-ejercicio-icono" style="font-size: 18px;">🏋️‍♂️</span>
+                    <span id="modal-nuevo-ejercicio-titulo" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CREAR NUEVO EJERCICIO FÍSICO</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <button type="button" class="btn-subfiltro-ej" onclick="abrirModalImportarEjercicioIA()" style="font-size: 11.5px; padding: 4px 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-weight: 700;" title="Pegar texto o JSON generado por IA">
@@ -2030,7 +2034,7 @@
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEjercicio()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarEjercicio()">
+                    <button id="btn-guardar-ejercicio-modal" class="btn-system" style="flex: 1;" onclick="confirmarAgregarEjercicio()">
                         ✓ Guardar Ejercicio Físico
                     </button>
                 </div>
@@ -4602,25 +4606,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.20"></script>
-    <script src="js/perfil.js?v=10.20"></script>
-    <script src="js/progresion.js?v=10.20"></script>
-    <script src="js/estado-personal.js?v=10.20"></script>
-    <script src="js/finanzas.js?v=10.20"></script>
-    <script src="js/ideas.js?v=10.20"></script>
-    <script src="js/dinamicas.js?v=10.20"></script>
-    <script src="js/calendario.js?v=10.20"></script>
-    <script src="js/inventario.js?v=10.20"></script>
-    <script src="js/jarvis-voz.js?v=10.20"></script>
+    <script src="js/core.js?v=10.21"></script>
+    <script src="js/perfil.js?v=10.21"></script>
+    <script src="js/progresion.js?v=10.21"></script>
+    <script src="js/estado-personal.js?v=10.21"></script>
+    <script src="js/finanzas.js?v=10.21"></script>
+    <script src="js/ideas.js?v=10.21"></script>
+    <script src="js/dinamicas.js?v=10.21"></script>
+    <script src="js/calendario.js?v=10.21"></script>
+    <script src="js/inventario.js?v=10.21"></script>
+    <script src="js/jarvis-voz.js?v=10.21"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.20"></script>
+    <script type="module" src="js/firebase-config.js?v=10.21"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.20')
+                navigator.serviceWorker.register('sw.js?v=10.21')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

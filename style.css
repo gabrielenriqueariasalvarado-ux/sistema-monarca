@@ -8532,6 +8532,36 @@ body.modal-open {
     margin: 0 auto 12px auto;
 }
 
+/* --- BARRA DE SUBFILTROS HORIZONTAL DESLIZABLE (v10.21) --- */
+.banco-subfiltros-scroll-wrapper {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+.banco-subfiltros-scroll-wrapper::-webkit-scrollbar {
+    display: none !important;
+}
+
+.btn-edit-exercise-row {
+    background: rgba(56, 189, 248, 0.08) !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
+    color: #38bdf8 !important;
+    font-size: 13px !important;
+    cursor: pointer !important;
+    padding: 3px 8px !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    user-select: none !important;
+}
+.btn-edit-exercise-row:hover {
+    background: rgba(56, 189, 248, 0.22) !important;
+    border-color: rgba(56, 189, 248, 0.5) !important;
+    transform: translateY(-1px) !important;
+}
+
+
 
 
 

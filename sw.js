@@ -2,24 +2,24 @@
 // SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST & CACHE-BUSTING)
 // ==========================================================================
 
-const CACHE_NAME = 'emily-os-v10.20';
+const CACHE_NAME = 'emily-os-v10.21';
 
 const STATIC_ASSETS = [
   './',
   'index.html',
-  'style.css?v=10.20',
+  'style.css?v=10.21',
   'app.js',
-  'js/core.js?v=10.20',
-  'js/perfil.js?v=10.20',
-  'js/progresion.js?v=10.20',
-  'js/estado-personal.js?v=10.20',
-  'js/finanzas.js?v=10.20',
-  'js/ideas.js?v=10.20',
-  'js/dinamicas.js?v=10.20',
-  'js/calendario.js?v=10.20',
-  'js/inventario.js?v=10.20',
-  'js/jarvis-voz.js?v=10.20',
-  'js/firebase-config.js?v=10.20',
+  'js/core.js?v=10.21',
+  'js/perfil.js?v=10.21',
+  'js/progresion.js?v=10.21',
+  'js/estado-personal.js?v=10.21',
+  'js/finanzas.js?v=10.21',
+  'js/ideas.js?v=10.21',
+  'js/dinamicas.js?v=10.21',
+  'js/calendario.js?v=10.21',
+  'js/inventario.js?v=10.21',
+  'js/jarvis-voz.js?v=10.21',
+  'js/firebase-config.js?v=10.21',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',

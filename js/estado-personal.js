@@ -2613,13 +2613,84 @@ function procesarTextoEjercicioIA(guardarDirecto) {
     }
 }
 
-function abrirModalNuevoEjercicio(grupoPreseleccionado) {
+var ID_EJERCICIO_EN_EDICION = null;
+
+function abrirModalEditarEjercicio(id) {
+    if (!id || !APP_STATE.ejercicios) return;
+    var ej = APP_STATE.ejercicios.find(function(e) { return String(e.id) === String(id); });
+    if (!ej) return;
+
+    ID_EJERCICIO_EN_EDICION = id;
+
+    // Actualizar títulos del modal a modo Edición
+    var tituloModal = document.getElementById('modal-nuevo-ejercicio-titulo');
+    var iconoModal = document.getElementById('modal-nuevo-ejercicio-icono');
+    var btnGuardar = document.getElementById('btn-guardar-ejercicio-modal');
+
+    if (tituloModal) tituloModal.innerText = "EDITAR EJERCICIO FÍSICO";
+    if (iconoModal) iconoModal.innerText = "✏️";
+    if (btnGuardar) btnGuardar.innerText = "💾 Guardar Cambios";
+
+    // Cargar campos existentes
     var inNom = document.getElementById('modal-ejercicio-nombre');
     var inDesc = document.getElementById('modal-ejercicio-desc');
     var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
     var inProm = document.getElementById('modal-ejercicio-reps-promedio');
     var inImp = document.getElementById('modal-ejercicio-implemento');
+    var inTipo = document.getElementById('modal-ejercicio-tipo');
+    var inUni = document.getElementById('modal-ejercicio-unidad-peso');
+
+    if (inNom) inNom.value = ej.nombre || "";
+    if (inDesc) inDesc.value = ej.especificaciones || ej.descripcion || "";
+    if (inPeso) inPeso.value = (ej.peso != null && !isNaN(ej.peso)) ? ej.peso : (ej.pesoReferencia || 80);
+    if (inReps) inReps.value = ej.repeticiones || "8-12 reps";
+    if (inProm) inProm.value = ej.repeticionesPromedio || 10;
+    if (inImp) inImp.value = ej.implemento || ej.equipamiento || "barra";
+    if (inTipo) inTipo.value = ej.tipo || "gym";
+    if (inUni) inUni.value = ej.unidadPeso || "kg";
+
+    // Cargar desglose de zonas
+    ZONAS_EJERCICIO_FISICO_TEMP = [];
+    if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
+        ZONAS_EJERCICIO_FISICO_TEMP = JSON.parse(JSON.stringify(ej.zonas));
+    } else {
+        var preClave = ej.musculoPrincipal || (ej.categorias && ej.categorias[0]) || "Pectoral_Medio";
+        var zInfo = normalizarClaveZonaMuscular(preClave) || CATALOGO_ZONAS_FISICAS[0];
+        ZONAS_EJERCICIO_FISICO_TEMP.push({
+            clave: zInfo.clave,
+            nombre: zInfo.nombre,
+            icono: zInfo.icono,
+            porcentaje: ej.fatigaPorcentaje || 25
+        });
+    }
+
+    poblarSelectZonasFisicas();
+    renderizarFilasZonasFisicas();
+    actualizarPromedioRepsModal(true);
+
+    var m = document.getElementById('modal-nuevo-ejercicio');
+    if (m) m.style.display = 'flex';
+}
+
+function abrirModalNuevoEjercicio(grupoPreseleccionado) {
+    ID_EJERCICIO_EN_EDICION = null;
+
+    var tituloModal = document.getElementById('modal-nuevo-ejercicio-titulo');
+    var iconoModal = document.getElementById('modal-nuevo-ejercicio-icono');
+    var btnGuardar = document.getElementById('btn-guardar-ejercicio-modal');
+
+    if (tituloModal) tituloModal.innerText = "CREAR NUEVO EJERCICIO FÍSICO";
+    if (iconoModal) iconoModal.innerText = "🏋️‍♂️";
+    if (btnGuardar) btnGuardar.innerText = "✓ Guardar Ejercicio Físico";
+
+    var inNom = document.getElementById('modal-ejercicio-nombre');
+    var inDesc = document.getElementById('modal-ejercicio-desc');
+    var inPeso = document.getElementById('modal-ejercicio-peso');
+    var inReps = document.getElementById('modal-ejercicio-reps');
+    var inProm = document.getElementById('modal-ejercicio-reps-promedio');
+    var inImp = document.getElementById('modal-ejercicio-implemento');
+    var inTipo = document.getElementById('modal-ejercicio-tipo');
     var inUni = document.getElementById('modal-ejercicio-unidad-peso');
 
     if (inNom) inNom.value = "";
@@ -2627,6 +2698,7 @@ function abrirModalNuevoEjercicio(grupoPreseleccionado) {
     if (inPeso) inPeso.value = "80";
     if (inReps) inReps.value = "8-12 reps";
     if (inProm) inProm.value = "10";
+    if (inTipo) inTipo.value = (grupoPreseleccionado === 'calistenia' ? 'calistenia' : (grupoPreseleccionado === 'movilidad' ? 'movilidad' : 'gym'));
     if (inImp) inImp.value = (grupoPreseleccionado === 'calistenia' ? 'peso_corporal' : 'barra');
     if (inUni) inUni.value = "kg";
 
@@ -2639,7 +2711,7 @@ function abrirModalNuevoEjercicio(grupoPreseleccionado) {
         clave: infoPre.clave,
         nombre: infoPre.nombre,
         icono: infoPre.icono,
-        porcentaje: 40
+        porcentaje: 25
     });
 
     poblarSelectZonasFisicas();
@@ -2650,6 +2722,7 @@ function abrirModalNuevoEjercicio(grupoPreseleccionado) {
 }
 
 function cerrarModalNuevoEjercicio() {
+    ID_EJERCICIO_EN_EDICION = null;
     var m = document.getElementById('modal-nuevo-ejercicio');
     if (m) m.style.display = 'none';
 }
@@ -2688,6 +2761,48 @@ function confirmarAgregarEjercicio() {
 
     if (!APP_STATE.ejercicios) APP_STATE.ejercicios = [];
 
+    // Ordenar zonas por mayor porcentaje para determinar la principal
+    var zonasCopia = JSON.parse(JSON.stringify(ZONAS_EJERCICIO_FISICO_TEMP));
+    zonasCopia.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
+
+    var muscPrincipal = zonasCopia[0].clave;
+    var fatigaEstimada = zonasCopia[0].porcentaje || 25;
+    var categorias = zonasCopia.map(function(z) { return z.clave; });
+
+    // MODO EDICIÓN
+    if (ID_EJERCICIO_EN_EDICION) {
+        var idxExistente = APP_STATE.ejercicios.findIndex(function(e) { return String(e.id) === String(ID_EJERCICIO_EN_EDICION); });
+        if (idxExistente !== -1) {
+            APP_STATE.ejercicios[idxExistente].nombre = nom;
+            APP_STATE.ejercicios[idxExistente].tipo = tipoEj;
+            APP_STATE.ejercicios[idxExistente].implemento = implemento;
+            APP_STATE.ejercicios[idxExistente].equipamiento = implemento;
+            APP_STATE.ejercicios[idxExistente].unidadPeso = unidadPeso;
+            APP_STATE.ejercicios[idxExistente].especificaciones = desc || "Técnica biomecánica controlada.";
+            APP_STATE.ejercicios[idxExistente].descripcion = desc || "Técnica biomecánica controlada.";
+            APP_STATE.ejercicios[idxExistente].musculoPrincipal = muscPrincipal;
+            APP_STATE.ejercicios[idxExistente].peso = pesoBase;
+            APP_STATE.ejercicios[idxExistente].pesoReferencia = pesoBase;
+            APP_STATE.ejercicios[idxExistente].repeticiones = reps;
+            APP_STATE.ejercicios[idxExistente].repeticionesPromedio = repsProm;
+            APP_STATE.ejercicios[idxExistente].zonas = zonasCopia;
+            APP_STATE.ejercicios[idxExistente].categorias = categorias;
+            APP_STATE.ejercicios[idxExistente].fatigaPorcentaje = fatigaEstimada;
+            APP_STATE.ejercicios[idxExistente].fechaActualizacion = Date.now();
+
+            if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+                MonarcaDB.save(APP_STATE);
+            }
+
+            ID_EJERCICIO_EN_EDICION = null;
+            cerrarModalNuevoEjercicio();
+            renderizarEjercicios(APP_STATE.ejercicios);
+            alert("💾 Ejercicio '" + nom + "' actualizado con éxito.");
+            return;
+        }
+    }
+
+    // MODO CREACIÓN
     // Prevenir duplicados de ejercicios
     var yaExisteEj = APP_STATE.ejercicios.some(function(e) {
         return e && e.nombre && e.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
@@ -2697,14 +2812,6 @@ function confirmarAgregarEjercicio() {
             return;
         }
     }
-
-    // Ordenar zonas por mayor porcentaje para determinar la principal
-    var zonasCopia = JSON.parse(JSON.stringify(ZONAS_EJERCICIO_FISICO_TEMP));
-    zonasCopia.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
-
-    var muscPrincipal = zonasCopia[0].clave;
-    var fatigaEstimada = zonasCopia[0].porcentaje || 25;
-    var categorias = zonasCopia.map(function(z) { return z.clave; });
 
     var nuevoEjercicio = {
         id: "EJ-" + Date.now(),
@@ -2742,40 +2849,64 @@ function confirmarAgregarEjercicio() {
     alert("⚡ Ejercicio '" + nom + "' guardado con éxito.\nReferencia Base: " + (pesoBase ? pesoBase + " " + unidadPeso + " × " : "") + repsProm + " reps promedio (" + fatigaEstimada + "% a " + muscPrincipal + ").");
 }
 
+function perteneceAGrupoAnatomico(clave, subfiltro) {
+    if (!clave) return false;
+    var c = String(clave).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    var sub = String(subfiltro).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (sub === 'pecho') return /pecho|pect/.test(c);
+    if (sub === 'espalda') return /espalda|dorsal|trapec|lumbar|romboide/.test(c);
+    if (sub === 'hombros') return /hombro|deltoid|manguito/.test(c);
+    if (sub === 'biceps') return /bicep|braquial|antebrazo|martillo|curl/.test(c);
+    if (sub === 'triceps') return /tricep/.test(c);
+    if (sub === 'cuadriceps') return /cuadricep|squat|sentadilla|prensa/.test(c);
+    if (sub === 'isquios') return /isquio|femoral|rumano/.test(c);
+    if (sub === 'gluteos') return /gluteo|cadera|aductor|hip.*thrust|abduc/.test(c);
+    if (sub === 'pantorrillas') return /pantorrilla|gemelo|soleo|tibial/.test(c);
+    if (sub === 'core') return /core|abdom|oblicuo|transverso/.test(c);
+    if (sub === 'calistenia') return c === 'calistenia';
+    if (sub === 'movilidad') return /movil|articul|cuello/.test(c);
+    return c.includes(sub);
+}
+
 function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
     if (!subfiltro || subfiltro === 'todos') return true;
-    var mp = (ej.musculoPrincipal || '').toLowerCase();
-    var cats = (ej.categorias || []).map(function(c) { return (c || '').toLowerCase(); });
-    var tipo = (ej.tipo || '').toLowerCase();
-    var sub = subfiltro.toLowerCase();
+    var sub = String(subfiltro).toLowerCase();
 
+    // Filtros de modalidad global
     if (sub === 'calistenia') {
-        return tipo === 'calistenia' || cats.includes('calistenia');
+        return (ej.tipo === 'calistenia') || (ej.implemento === 'peso_corporal');
     }
     if (sub === 'movilidad') {
-        return tipo === 'movilidad' || cats.includes('movilidad') || mp.includes('movil') || mp.includes('articul') || cats.some(function(c) { return c.includes('movil') || c.includes('articul'); });
+        if (ej.tipo === 'movilidad') return true;
     }
-    if (sub === 'brazos') {
-        return mp.includes('brazo') || mp.includes('bicep') || mp.includes('bíceps') || mp.includes('biceps') || mp.includes('tricep') || mp.includes('tríceps') || mp.includes('triceps') || mp.includes('antebrazo') || mp.includes('braquial') ||
-               cats.some(function(c) { return c.includes('brazo') || c.includes('bicep') || c.includes('bíceps') || c.includes('biceps') || c.includes('tricep') || c.includes('tríceps') || c.includes('triceps') || c.includes('antebrazo') || c.includes('braquial'); });
+
+    var mp = ej.musculoPrincipal || (ej.categorias && ej.categorias.length ? ej.categorias[0] : '');
+
+    // 1. Si el ejercicio tiene desglose de zonas con porcentajes:
+    if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
+        var totalPctGrupo = 0;
+        var esPrincipal = false;
+
+        ej.zonas.forEach(function(z, idx) {
+            var zClave = z.clave || z.nombre || z.zona || '';
+            if (perteneceAGrupoAnatomico(zClave, sub)) {
+                totalPctGrupo += (parseFloat(z.porcentaje) || 0);
+                // Si la zona es la principal (posición 0 o coincide con musculoPrincipal)
+                if (idx === 0 || (mp && zClave.toLowerCase() === mp.toLowerCase())) {
+                    esPrincipal = true;
+                }
+            }
+        });
+
+        // REGLA SOLICITADA: Coincide si este grupo es el músculo principal O si el estímulo supera el 5% (> 5%)
+        return esPrincipal || totalPctGrupo > 5;
     }
-    if (sub === 'piernas') {
-        return mp.includes('pierna') || mp.includes('cuádricep') || mp.includes('cuadricep') || mp.includes('isquio') || mp.includes('femoral') || mp.includes('glúteo') || mp.includes('gluteo') || mp.includes('pantorrilla') || mp.includes('soleo') || mp.includes('tibial') || mp.includes('cadera') || mp.includes('aductor') ||
-               cats.some(function(c) { return c.includes('pierna') || c.includes('cuádricep') || c.includes('cuadricep') || c.includes('isquio') || c.includes('femoral') || c.includes('glúteo') || c.includes('gluteo') || c.includes('pantorrilla') || c.includes('soleo') || c.includes('tibial') || c.includes('cadera') || c.includes('aductor'); });
-    }
-    if (sub === 'pecho') {
-        return mp.includes('pecho') || mp.includes('pect') || cats.some(function(c) { return c.includes('pecho') || c.includes('pect'); });
-    }
-    if (sub === 'espalda') {
-        return mp.includes('espalda') || mp.includes('dorsal') || mp.includes('trapec') || mp.includes('lumbar') || cats.some(function(c) { return c.includes('espalda') || c.includes('dorsal') || c.includes('trapec') || c.includes('lumbar'); });
-    }
-    if (sub === 'hombros') {
-        return mp.includes('hombro') || mp.includes('deltoid') || mp.includes('manguito') || cats.some(function(c) { return c.includes('hombro') || c.includes('deltoid') || c.includes('manguito'); });
-    }
-    if (sub === 'core') {
-        return mp.includes('core') || mp.includes('abdo') || mp.includes('oblicuo') || mp.includes('transverso') || cats.some(function(c) { return c.includes('core') || c.includes('abdo') || c.includes('oblicuo') || c.includes('transverso'); });
-    }
-    return mp === sub || cats.includes(sub) || tipo === sub;
+
+    // 2. Fallback para ejercicios legados sin array zonas:
+    if (perteneceAGrupoAnatomico(mp, sub)) return true;
+    var tieneCat = (ej.categorias || []).some(function(cat) { return perteneceAGrupoAnatomico(cat, sub); });
+    return tieneCat;
 }
 
 function toggleDesplegarEjercicio(id, evt) {
@@ -2873,6 +3004,7 @@ function generarCardEjercicioFisicoHtml(ej) {
                 <div class="btn-toggle-acordeon" title="Desplegar detalles" style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); display: flex; align-items: center; justify-content: center; color: #38bdf8; transition: all 0.2s ease;">
                     <span id="flecha-ejercicio-${safeId}" style="display: inline-block; font-size: 11px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: rotate(0deg);">▼</span>
                 </div>
+                <button type="button" class="btn-edit-exercise-row" title="Editar ejercicio" onclick="abrirModalEditarEjercicio('${ej.id}'); event.stopPropagation();">✏️</button>
                 <button type="button" class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}'); event.stopPropagation();" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">✕</button>
             </div>
         </div>
@@ -2946,8 +3078,12 @@ function renderizarEjercicios(ejercicios) {
         { key: 'Pecho', label: '⚔️ Pecho & Pectorales' },
         { key: 'Espalda', label: '🦅 Espalda & Dorsales' },
         { key: 'Hombros', label: '🛡️ Hombros & Deltoides' },
-        { key: 'Brazos', label: '💪 Brazos (Bíceps & Tríceps)' },
-        { key: 'Piernas', label: '🦵 Piernas (Cuádriceps, Isquios & Glúteos)' },
+        { key: 'Biceps', label: '💪 Bíceps & Antebrazos' },
+        { key: 'Triceps', label: '🦾 Tríceps' },
+        { key: 'Cuadriceps', label: '🦵 Cuádriceps (Pierna Frontal)' },
+        { key: 'Isquios', label: '🍗 Isquiosurales / Femorales' },
+        { key: 'Gluteos', label: '🍑 Glúteos & Cadera' },
+        { key: 'Pantorrillas', label: '🧦 Pantorrillas & Gemelos' },
         { key: 'Core', label: '⚡ Core & Abdomen' },
         { key: 'calistenia', label: '🤸 Calistenia & Peso Corporal' },
         { key: 'movilidad', label: '🥋 Movilidad & Flexibilidad' }
