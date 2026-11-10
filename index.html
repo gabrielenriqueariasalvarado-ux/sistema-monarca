@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.13">
+    <link rel="stylesheet" href="style.css?v=10.14">
 </head>
 <body>
 
@@ -1957,7 +1957,7 @@
                         <label>Implemento / Equipamiento:</label>
                         <select id="modal-ejercicio-implemento" class="modal-input" style="background: #0f131d; font-weight: 600;">
                             <option value="barra">🏋️ Con Barra</option>
-                            <option value="mancuerna">🪙 Con Mancuerna</option>
+                            <option value="mancuerna">💪 Con Mancuerna</option>
                             <option value="maquina">⚙️ Con Máquina</option>
                             <option value="polea">⛓️ Con Polea</option>
                             <option value="discos">💿 Con Discos</option>
@@ -4545,25 +4545,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.13"></script>
-    <script src="js/perfil.js?v=10.13"></script>
-    <script src="js/progresion.js?v=10.13"></script>
-    <script src="js/estado-personal.js?v=10.13"></script>
-    <script src="js/finanzas.js?v=10.13"></script>
-    <script src="js/ideas.js?v=10.13"></script>
-    <script src="js/dinamicas.js?v=10.13"></script>
-    <script src="js/calendario.js?v=10.13"></script>
-    <script src="js/inventario.js?v=10.13"></script>
-    <script src="js/jarvis-voz.js?v=10.13"></script>
+    <script src="js/core.js?v=10.14"></script>
+    <script src="js/perfil.js?v=10.14"></script>
+    <script src="js/progresion.js?v=10.14"></script>
+    <script src="js/estado-personal.js?v=10.14"></script>
+    <script src="js/finanzas.js?v=10.14"></script>
+    <script src="js/ideas.js?v=10.14"></script>
+    <script src="js/dinamicas.js?v=10.14"></script>
+    <script src="js/calendario.js?v=10.14"></script>
+    <script src="js/inventario.js?v=10.14"></script>
+    <script src="js/jarvis-voz.js?v=10.14"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.13"></script>
+    <script type="module" src="js/firebase-config.js?v=10.14"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.13')
+                navigator.serviceWorker.register('sw.js?v=10.14')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

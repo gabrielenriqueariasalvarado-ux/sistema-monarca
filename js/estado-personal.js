@@ -2099,7 +2099,7 @@ function generarCardEjercicioFisicoHtml(ej) {
 
     var mapaImplementos = {
         'barra': { icon: '🏋️', label: 'Barra' },
-        'mancuerna': { icon: '🪙', label: 'Mancuerna' },
+        'mancuerna': { icon: '💪', label: 'Mancuerna' },
         'maquina': { icon: '⚙️', label: 'Máquina' },
         'polea': { icon: '⛓️', label: 'Polea' },
         'discos': { icon: '💿', label: 'Discos' },
@@ -2235,14 +2235,35 @@ function renderizarEjercicios(ejercicios) {
 function eliminarEjercicio(id) {
     if (!confirm("¿Deseas eliminar este ejercicio?")) return;
     if (!APP_STATE.ejercicios) return;
+
+    var ejBorrado = APP_STATE.ejercicios.find(function(e) { return String(e.id) === String(id); });
+    var nomBorrado = ejBorrado ? (ejBorrado.nombre || '').trim().toLowerCase() : '';
+
     if (typeof registrarTombstone === 'function') {
         registrarTombstone('ejercicios', id);
     }
     APP_STATE.ejercicios = APP_STATE.ejercicios.filter(function(e) {
         return String(e.id) !== String(id);
     });
+
+    // Desvincular automáticamente el ejercicio eliminado de todas las rutinas guardadas
+    if (APP_STATE.rutinas && Array.isArray(APP_STATE.rutinas)) {
+        APP_STATE.rutinas.forEach(function(r) {
+            if (r && r.ejercicios && Array.isArray(r.ejercicios)) {
+                r.ejercicios = r.ejercicios.filter(function(ej) {
+                    var coincideId = ej && ej.id && String(ej.id) === String(id);
+                    var coincideNom = ej && ej.nombre && nomBorrado && ej.nombre.trim().toLowerCase() === nomBorrado;
+                    return !(coincideId || coincideNom);
+                });
+            }
+        });
+    }
+
     MonarcaDB.save(APP_STATE);
     renderizarEjercicios(APP_STATE.ejercicios);
+    if (typeof renderizarPortalesRutinas === 'function') {
+        renderizarPortalesRutinas(APP_STATE.rutinas);
+    }
 }
 
 // --- GESTIÓN DE RUTINAS DINÁMICAS ---
@@ -2427,7 +2448,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 var pesoDefault = ej.peso || 80;
                 var seriesDefault = (ej.series && ej.series > 1) ? ej.series : 3;
                 var uPeso = ej.unidadPeso || 'kg';
-                var mapaImp = { 'barra': '🏋️ Barra', 'mancuerna': '🪙 Mancuerna', 'maquina': '⚙️ Máquina', 'polea': '⛓️ Polea', 'discos': '💿 Discos', 'peso_corporal': '🤸 Corporal' };
+                var mapaImp = { 'barra': '🏋️ Barra', 'mancuerna': '💪 Mancuerna', 'maquina': '⚙️ Máquina', 'polea': '⛓️ Polea', 'discos': '💿 Discos', 'peso_corporal': '🤸 Corporal' };
                 var impTxt = mapaImp[ej.implemento || ej.equipamiento] || '';
 
                 html += `
@@ -3436,6 +3457,18 @@ function actualizarGraficaFatigaSesion() {
 
     ejercicios.forEach(function(ej, ejIdx) {
         var esM = !!ej.esMental;
+        var existe = false;
+        if (esM) {
+            existe = (APP_STATE.ejerciciosCerebrales || []).some(function(ec) {
+                return ec && ((ej.id && ec.id === ej.id) || (ec.nombre && ej.nombre && ec.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        } else {
+            existe = (APP_STATE.ejercicios || []).some(function(ef) {
+                return ef && ((ej.id && ef.id === ej.id) || (ef.nombre && ej.nombre && ef.nombre.trim().toLowerCase() === ef.nombre.trim().toLowerCase()));
+            });
+        }
+        if (!existe) return; // Omitir ejercicios eliminados
+
         var numSeries = esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
         totalSeriesRutina += numSeries;
         var fatigaNominal = Number(ej.fatigaPorcentaje || ej.fatigaEstimada) || 20;
@@ -3604,10 +3637,60 @@ function calcularTotalSeriesRutina(ejercicios) {
     var total = 0;
     if (ejercicios && ejercicios.length > 0) {
         ejercicios.forEach(function(ej) {
-            total += ej.esMental ? 1 : Math.max(1, parseInt(ej.series) || 3);
+            var esM = !!ej.esMental;
+            var existe = false;
+            if (esM) {
+                existe = (APP_STATE.ejerciciosCerebrales || []).some(function(ec) {
+                    return ec && ((ej.id && ec.id === ej.id) || (ec.nombre && ej.nombre && ec.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                });
+            } else {
+                existe = (APP_STATE.ejercicios || []).some(function(ef) {
+                    return ef && ((ej.id && ef.id === ej.id) || (ef.nombre && ej.nombre && ef.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                });
+            }
+            if (!existe) return; // No contar series de ejercicios que ya fueron eliminados del Arsenal
+            total += esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
         });
     }
     return total;
+}
+
+function quitarEjercicioDeRutinaActiva(ejIdx) {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios) return;
+    var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    var nombreEj = ej ? ej.nombre : 'este ejercicio';
+    if (!confirm('¿Deseas quitar "' + nombreEj + '" de esta rutina?')) return;
+
+    RUTINA_ACTIVA.rutina.ejercicios.splice(ejIdx, 1);
+
+    if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
+        APP_STATE.rutinas[RUTINA_ACTIVA.idx].ejercicios = RUTINA_ACTIVA.rutina.ejercicios;
+    }
+    MonarcaDB.save(APP_STATE);
+    abrirDetalleRutina(RUTINA_ACTIVA.idx, true);
+}
+
+function purgarEjerciciosEliminadosDeRutinaActiva() {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios) return;
+    if (!confirm('¿Deseas quitar todos los ejercicios eliminados de esta rutina?')) return;
+
+    RUTINA_ACTIVA.rutina.ejercicios = RUTINA_ACTIVA.rutina.ejercicios.filter(function(ej) {
+        if (ej.esMental) {
+            return (APP_STATE.ejerciciosCerebrales || []).some(function(ec) {
+                return ec && ((ej.id && ec.id === ej.id) || (ec.nombre && ej.nombre && ec.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        } else {
+            return (APP_STATE.ejercicios || []).some(function(ef) {
+                return ef && ((ej.id && ef.id === ef.id) || (ef.nombre && ej.nombre && ef.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        }
+    });
+
+    if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
+        APP_STATE.rutinas[RUTINA_ACTIVA.idx].ejercicios = RUTINA_ACTIVA.rutina.ejercicios;
+    }
+    MonarcaDB.save(APP_STATE);
+    abrirDetalleRutina(RUTINA_ACTIVA.idx, true);
 }
 
 function renderizarTarjetasEjerciciosSesion(ejercicios) {
@@ -3615,9 +3698,121 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         return '<p style="color: #64748b; text-align: center; padding: 25px;">Esta rutina no tiene ejercicios asignados aún.</p>';
     }
 
+    var eliminados = [];
+    var validos = [];
+
+    ejercicios.forEach(function(ej, idx) {
+        var esM = !!ej.esMental;
+        var existe = false;
+        if (esM) {
+            existe = (APP_STATE.ejerciciosCerebrales || []).some(function(ec) {
+                return ec && ((ej.id && ec.id === ej.id) || (ec.nombre && ej.nombre && ec.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        } else {
+            existe = (APP_STATE.ejercicios || []).some(function(ef) {
+                return ef && ((ej.id && ef.id === ej.id) || (ef.nombre && ej.nombre && ef.nombre.trim().toLowerCase() === ef.nombre.trim().toLowerCase()));
+            });
+        }
+        if (existe) {
+            validos.push({ ej: ej, idx: idx });
+        } else {
+            eliminados.push({ ej: ej, idx: idx });
+        }
+    });
+
+    // Caso 1: Todos los ejercicios de esta rutina fueron eliminados del Arsenal
+    if (validos.length === 0 && eliminados.length > 0) {
+        return `
+        <div class="routine-empty-arsenal-box">
+            <div class="routine-empty-icon-box">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </div>
+            <span class="badge-status-deleted" style="margin-bottom: 8px;">🚫 EJERCICIOS ELIMINADOS DEL ARSENAL</span>
+            <h3 style="color: #f8fafc; margin: 8px 0 6px 0; font-size: 16.5px; font-weight: 800;">Esta rutina contenía ${eliminados.length} ejercicio(s) que ya no existen</h3>
+            <p style="color: #94a3b8; font-size: 12.5px; max-width: 440px; margin: 0 auto 16px auto; line-height: 1.5;">
+                Los ejercicios originales de esta sesión fueron borrados de tu Arsenal Físico. Puedes recargar el arsenal recomendado o crear nuevos ejercicios.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button type="button" class="btn-subfiltro-ej active" onclick="importarBancoRecomendadoAlBancoFisico(); abrirDetalleRutina(RUTINA_ACTIVA.idx, true);" style="padding: 9px 16px; font-size: 13px;">
+                    📥 Cargar Arsenal Recomendado
+                </button>
+                <button type="button" class="btn-add-finanza" onclick="abrirModalNuevoEjercicio()" style="padding: 9px 16px; font-size: 13px;">
+                    ➕ Crear Nuevo Ejercicio
+                </button>
+                <button type="button" class="btn-delete-from-routine" onclick="purgarEjerciciosEliminadosDeRutinaActiva()" style="padding: 9px 16px; font-size: 13px;">
+                    🗑️ Vaciar Ejercicios Eliminados
+                </button>
+            </div>
+        </div>`;
+    }
+
     var html = '';
+
+    // Si hay algunos ejercicios eliminados junto a otros válidos, banner de advertencia con limpieza de 1 clic
+    if (eliminados.length > 0) {
+        html += `
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px dashed rgba(239, 68, 68, 0.35); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #fca5a5;">
+                <span style="font-size: 16px;">⚠️</span>
+                <span>Se detectaron <strong>${eliminados.length} ejercicio(s) eliminados</strong> del Arsenal en esta rutina.</span>
+            </div>
+            <button type="button" class="btn-delete-from-routine" onclick="purgarEjerciciosEliminadosDeRutinaActiva()" style="font-size: 11px; padding: 5px 10px;">
+                🗑️ Limpiar Ejercicios Eliminados (${eliminados.length})
+            </button>
+        </div>`;
+    }
+
+    var visualIndex = 1;
     ejercicios.forEach(function(ej, ejIdx) {
         var esM = !!ej.esMental;
+        var existe = false;
+        if (esM) {
+            existe = (APP_STATE.ejerciciosCerebrales || []).some(function(ec) {
+                return ec && ((ej.id && ec.id === ej.id) || (ec.nombre && ej.nombre && ec.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        } else {
+            existe = (APP_STATE.ejercicios || []).some(function(ef) {
+                return ef && ((ej.id && ef.id === ej.id) || (ef.nombre && ej.nombre && ef.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+            });
+        }
+
+        // Si el ejercicio NO existe en el catálogo, mostrar la tarjeta visual "EJERCICIO ELIMINADO"
+        if (!existe) {
+            html += `
+            <div class="routine-exercise-session-card routine-exercise-deleted-card" id="card-ej-${ejIdx}">
+                <div class="exercise-deleted-content">
+                    <div class="exercise-deleted-visual">
+                        <div class="exercise-deleted-icon-badge">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span class="badge-status-deleted">🚫 EJERCICIO ELIMINADO</span>
+                                <span style="font-size: 14.5px; font-weight: 800; color: #f87171; text-decoration: line-through;">${ej.nombre}</span>
+                            </div>
+                            <div style="font-size: 11.5px; color: #94a3b8; margin-top: 3px;">
+                                Este ejercicio fue eliminado de tu Arsenal y ya no existe en la base de datos.
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-delete-from-routine" onclick="quitarEjercicioDeRutinaActiva(${ejIdx})" title="Quitar de la rutina">
+                        ✕ Quitar de Rutina
+                    </button>
+                </div>
+            </div>`;
+            return;
+        }
+
         var numSeries = esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
         var muscleList = (ej.categorias || []).join(' · ');
         var ejJson = encodeURIComponent(JSON.stringify(ej));
@@ -3626,7 +3821,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         var pesoVal = (!esM && ej.peso) ? parseFloat(ej.peso) : null;
         var mapaImp = {
             'barra': { icon: '🏋️', label: 'Barra' },
-            'mancuerna': { icon: '🪙', label: 'Mancuerna' },
+            'mancuerna': { icon: '💪', label: 'Mancuerna' },
             'maquina': { icon: '⚙️', label: 'Máquina' },
             'polea': { icon: '⛓️', label: 'Polea' },
             'discos': { icon: '💿', label: 'Discos' },
@@ -3642,7 +3837,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         <div class="routine-exercise-session-card" id="card-ej-${ejIdx}" style="${esM ? 'border-left: 3px solid #6366f1;' : ''}">
             <div class="exercise-session-header">
                 <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-                    <span class="exercise-session-number">${ejIdx + 1}</span>
+                    <span class="exercise-session-number">${visualIndex++}</span>
                     <div style="min-width: 0;">
                         <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${icono} ${ej.nombre}
@@ -5241,12 +5436,33 @@ function guardarNuevoEjercicioCerebral() {
 function eliminarEjercicioCerebral(id) {
     if (!confirm("¿Deseas eliminar este ejercicio cerebral del banco?")) return;
     if (!APP_STATE.ejerciciosCerebrales) return;
+
+    var ecBorrado = APP_STATE.ejerciciosCerebrales.find(function(e) { return String(e.id) === String(id); });
+    var nomBorrado = ecBorrado ? (ecBorrado.nombre || '').trim().toLowerCase() : '';
+
     if (typeof registrarTombstone === 'function') {
         registrarTombstone('ejerciciosCerebrales', id);
     }
     APP_STATE.ejerciciosCerebrales = APP_STATE.ejerciciosCerebrales.filter(function(e) { return e.id !== id; });
+
+    // Desvincular automáticamente de las rutinas
+    if (APP_STATE.rutinas && Array.isArray(APP_STATE.rutinas)) {
+        APP_STATE.rutinas.forEach(function(r) {
+            if (r && r.ejercicios && Array.isArray(r.ejercicios)) {
+                r.ejercicios = r.ejercicios.filter(function(ej) {
+                    var matchId = ej && ej.id && String(ej.id) === String(id);
+                    var matchNom = ej && ej.nombre && nomBorrado && ej.nombre.trim().toLowerCase() === nomBorrado;
+                    return !(matchId || matchNom);
+                });
+            }
+        });
+    }
+
     MonarcaDB.save(APP_STATE);
     renderizarBancoEjerciciosCerebrales();
+    if (typeof renderizarPortalesRutinas === 'function') {
+        renderizarPortalesRutinas(APP_STATE.rutinas);
+    }
 }
 
 // ==========================================================================
