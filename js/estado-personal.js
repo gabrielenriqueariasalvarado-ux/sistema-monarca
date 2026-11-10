@@ -2428,14 +2428,31 @@ function parsearEjercicioTextoOJson(raw) {
     }
 
     // 3. Parser Ultra-Permisivo de Pseudo-JSON / Objeto JS Relajado / Texto Estructurado
-    // Detectar si hay múltiples bloques tipo { ... }
+    // Extraer bloques de objetos { ... } de nivel raíz usando balance de llaves
     var bloques = [];
-    var regexBloqueObj = /\{[\s\S]*?\}(?=\s*[\],\}]|\s*\{|\s*$)/g;
-    var matchB;
-    while ((matchB = regexBloqueObj.exec(candidateJson)) !== null) {
-        // Solo considerarlo si tiene campos técnicos como nombre:, implemento:, o zonas:
-        if (/(?:nombre|tipo|implemento|peso|repeticion|zona)/i.test(matchB[0])) {
-            bloques.push(matchB[0]);
+    var strLimpio = candidateJson.trim();
+    if (strLimpio.startsWith('[') && strLimpio.endsWith(']')) {
+        strLimpio = strLimpio.substring(1, strLimpio.length - 1).trim();
+    }
+
+    var depth = 0;
+    var inicioBloque = -1;
+    for (var bi = 0; bi < strLimpio.length; bi++) {
+        var charB = strLimpio[bi];
+        if (charB === '{') {
+            if (depth === 0) {
+                inicioBloque = bi;
+            }
+            depth++;
+        } else if (charB === '}') {
+            depth--;
+            if (depth === 0 && inicioBloque !== -1) {
+                var blk = strLimpio.substring(inicioBloque, bi + 1).trim();
+                if (/(?:nombre|tipo|implemento|peso|repeticion|zona)/i.test(blk)) {
+                    bloques.push(blk);
+                }
+                inicioBloque = -1;
+            }
         }
     }
 
