@@ -2102,7 +2102,63 @@ function abrirModalImportarEjercicioIA() {
     var txt = document.getElementById('textarea-importar-ejercicio-ia');
     if (txt) {
         setTimeout(function() { txt.focus(); }, 100);
+        if (!txt.dataset.previewBound) {
+            txt.dataset.previewBound = "true";
+            txt.addEventListener('input', function() {
+                actualizarPreviewImportarEjercicioIA();
+            });
+            txt.addEventListener('paste', function() {
+                setTimeout(actualizarPreviewImportarEjercicioIA, 50);
+            });
+        }
     }
+}
+
+function actualizarPreviewImportarEjercicioIA() {
+    var txt = document.getElementById('textarea-importar-ejercicio-ia');
+    var prev = document.getElementById('preview-importar-ejercicio-ia');
+    if (!txt || !prev) return;
+    var val = txt.value.trim();
+    if (!val || val.length < 8) {
+        prev.style.display = 'none';
+        prev.innerHTML = '';
+        return;
+    }
+    var lista = parsearEjercicioTextoOJson(val);
+    if (!lista || lista.length === 0) {
+        prev.style.display = 'none';
+        prev.innerHTML = '';
+        return;
+    }
+
+    var html = '<div style="font-size:11px; font-weight:700; color:#38bdf8; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;"><span>👁️</span> Previsualización del Ejercicio Interpretado (' + lista.length + ')</div>';
+
+    lista.forEach(function(ej, idx) {
+        var impIcon = '🏋️';
+        if (ej.implemento === 'mancuerna') impIcon = '🦾';
+        else if (ej.implemento === 'maquina') impIcon = '⚙️';
+        else if (ej.implemento === 'polea') impIcon = '🪢';
+        else if (ej.implemento === 'discos') impIcon = '💿';
+        else if (ej.implemento === 'peso_corporal') impIcon = '🤸';
+
+        html += '<div style="background:rgba(15,23,42,0.7); border:1px solid rgba(56,189,248,0.3); border-radius:8px; padding:10px; margin-bottom:' + (idx < lista.length - 1 ? '8px' : '0') + ';">';
+        html += '<div style="font-weight:700; color:#f8fafc; font-size:13px; margin-bottom:4px;">' + ej.nombre + '</div>';
+        html += '<div style="font-size:11.5px; color:#94a3b8; display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;">';
+        html += '<span>' + impIcon + ' ' + ej.implemento.toUpperCase() + '</span>';
+        html += '<span>⚖️ ' + ej.pesoReferencia + ' ' + ej.unidadPeso + '</span>';
+        html += '<span>🔢 ' + ej.repeticiones + '</span>';
+        html += '</div>';
+
+        html += '<div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:4px;">';
+        ej.zonas.forEach(function(z) {
+            html += '<span style="background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:4px; padding:2px 6px; font-size:11px; font-weight:600;">' + (z.icono || '🎯') + ' ' + z.porcentaje + '% ' + (z.nombre || z.clave) + '</span>';
+        });
+        html += '</div>';
+        html += '</div>';
+    });
+
+    prev.innerHTML = html;
+    prev.style.display = 'block';
 }
 
 function cerrarModalImportarEjercicioIA() {
@@ -2144,6 +2200,7 @@ function insertarEjemploTextoIA() {
             ]
         }
     ], null, 2);
+    actualizarPreviewImportarEjercicioIA();
 }
 
 function normalizarClaveZonaMuscular(raw) {
@@ -2206,6 +2263,74 @@ function normalizarClaveZonaMuscular(raw) {
     return CATALOGO_ZONAS_FISICAS[0];
 }
 
+function extraerZonasDeTextoResiliente(textoBloque) {
+    var zonas = [];
+    if (!textoBloque || typeof textoBloque !== 'string') return zonas;
+
+    // 1. Aislar bloque de zonas si existe delimitador 'zonas: [' o 'zonas:'
+    var mBloque = textoBloque.match(/zonas?\s*:\s*\[([\s\S]*?)\]/i) || 
+                  textoBloque.match(/zonas?\s*:\s*([\s\S]*?)(?=(?:\n\s*["']?[a-zA-Z_]+["']?\s*:|\n\s*\}|$))/i);
+    var fuenteZonas = mBloque ? mBloque[1] : textoBloque;
+
+    // Patrón A: { clave: Pectoral_Medio porcentaje: 8 } o { clave: "X", porcentaje: 8 } o clave: X, porcentaje: 8
+    var regPares = /(?:\{|\b)(?:clave|zona|musculo|target|nombre)?\s*[:=]?\s*["']?([A-Za-z0-9_ÁÉÍÓÚáéíóúñÑ-]+?)["']?[\s,;]+(?:porcentaje|pct|puntos|ratio|valor|estimulo)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*%?\s*(?:\}|\b)/gi;
+    var m;
+    while ((m = regPares.exec(fuenteZonas)) !== null) {
+        var cr = m[1].trim();
+        if (/^(nombre|tipo|implemento|unidadpeso|pesoreferencia|repeticiones|repeticionespromedio|descripcion|zonas)$/i.test(cr)) continue;
+        var pNum = parseFloat(m[2]);
+        var zInfo = normalizarClaveZonaMuscular(cr);
+        if (zInfo && !isNaN(pNum) && pNum > 0 && !zonas.some(function(z) { return z.clave === zInfo.clave; })) {
+            zonas.push({
+                clave: zInfo.clave,
+                nombre: zInfo.nombre,
+                icono: zInfo.icono,
+                rawPct: pNum
+            });
+        }
+    }
+
+    // Patrón B: Lista con viñetas o líneas sueltas tipo "- Pectoral_Medio: 50%" o "Pectoral_Medio: 8"
+    if (zonas.length === 0) {
+        var lineasZ = fuenteZonas.split('\n');
+        lineasZ.forEach(function(lz) {
+            var lzTrim = lz.trim();
+            if (!lzTrim) return;
+            var numMatch = lzTrim.match(/(\d+(?:\.\d+)?)\s*%?/);
+            if (numMatch) {
+                var cr2 = lzTrim.replace(numMatch[0], '').replace(/[-*•{}:,"'\[\]]/g, '').trim();
+                if (/^(nombre|tipo|implemento|unidadpeso|pesoreferencia|repeticiones|repeticionespromedio|descripcion|zonas)$/i.test(cr2)) return;
+                var zInfo2 = normalizarClaveZonaMuscular(cr2);
+                if (zInfo2 && !zonas.some(function(z) { return z.clave === zInfo2.clave; })) {
+                    zonas.push({
+                        clave: zInfo2.clave,
+                        nombre: zInfo2.nombre,
+                        icono: zInfo2.icono,
+                        rawPct: parseFloat(numMatch[1])
+                    });
+                }
+            }
+        });
+    }
+
+    // Normalizar escala de porcentajes si se usaron puntos relativos (ej: 8, 4, 4 suman 16 <= 25)
+    if (zonas.length > 0) {
+        var sumaRaw = zonas.reduce(function(acc, z) { return acc + (z.rawPct || 0); }, 0);
+        if (sumaRaw > 0 && sumaRaw <= 25) {
+            zonas.forEach(function(z) {
+                z.porcentaje = Math.max(5, Math.round((z.rawPct / sumaRaw) * 100));
+            });
+        } else {
+            zonas.forEach(function(z) {
+                z.porcentaje = Math.round(z.rawPct);
+            });
+        }
+        zonas.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
+    }
+
+    return zonas;
+}
+
 function parsearEjercicioTextoOJson(raw) {
     if (!raw || typeof raw !== 'string') return [];
     var str = raw.trim();
@@ -2214,7 +2339,7 @@ function parsearEjercicioTextoOJson(raw) {
     var jsonMatch = str.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
     var candidateJson = jsonMatch ? jsonMatch[1].trim() : str;
 
-    // 2. Intentar parsear como JSON
+    // 2. Intentar parsear como JSON estricto
     try {
         var parsed = JSON.parse(candidateJson);
         var arrayJson = Array.isArray(parsed) ? parsed : [parsed];
@@ -2246,19 +2371,31 @@ function parsearEjercicioTextoOJson(raw) {
             var rawZonas = item.zonas || item.musculos || item.muscles || [];
             var zonasFinales = [];
             if (Array.isArray(rawZonas)) {
+                var sumaPcts = 0;
                 rawZonas.forEach(function(z) {
                     var claveRaw = (typeof z === 'string') ? z : (z.clave || z.nombre || z.zona || z.musculo);
-                    var pct = (typeof z === 'object' && z.porcentaje) ? parseInt(z.porcentaje, 10) : 25;
+                    var pct = (typeof z === 'object' && (z.porcentaje || z.pct || z.puntos)) ? parseFloat(z.porcentaje || z.pct || z.puntos) : 25;
                     var zInfo = normalizarClaveZonaMuscular(claveRaw);
                     if (zInfo && !zonasFinales.some(function(zf) { return zf.clave === zInfo.clave; })) {
                         zonasFinales.push({
                             clave: zInfo.clave,
                             nombre: zInfo.nombre,
                             icono: zInfo.icono,
-                            porcentaje: isNaN(pct) || pct <= 0 ? (zInfo.defaultPct || 25) : pct
+                            rawPct: isNaN(pct) || pct <= 0 ? (zInfo.defaultPct || 25) : pct
                         });
+                        sumaPcts += (isNaN(pct) || pct <= 0 ? 25 : pct);
                     }
                 });
+
+                if (sumaPcts > 0 && sumaPcts <= 25) {
+                    zonasFinales.forEach(function(zf) {
+                        zf.porcentaje = Math.max(5, Math.round((zf.rawPct / sumaPcts) * 100));
+                    });
+                } else {
+                    zonasFinales.forEach(function(zf) {
+                        zf.porcentaje = Math.round(zf.rawPct);
+                    });
+                }
             }
 
             if (zonasFinales.length === 0) {
@@ -2287,100 +2424,104 @@ function parsearEjercicioTextoOJson(raw) {
         });
         if (res.length > 0) return res;
     } catch (e) {
-        // Continuar a parser de texto
+        // Fallback a parser ultra-permisivo de pseudo-JSON / texto
     }
 
-    // 3. Parser Heurístico de Texto Estructurado (Línea por línea / Clave: Valor)
-    var lineas = str.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
-    var nomTxt = "";
-    var descTxt = "";
-    var tipoTxt = "gym";
-    var impTxt = "mancuerna";
-    var unidadTxt = "kg";
-    var pesoTxt = 0;
-    var repsTxt = "8-12 reps";
-    var repsPromTxt = 10;
-    var zonasTxt = [];
-
-    lineas.forEach(function(linea) {
-        var match = linea.match(/^([^:]+):\s*(.*)$/);
-        if (!match) {
-            if (!descTxt && linea.length > 15) descTxt = linea;
-            return;
+    // 3. Parser Ultra-Permisivo de Pseudo-JSON / Objeto JS Relajado / Texto Estructurado
+    // Detectar si hay múltiples bloques tipo { ... }
+    var bloques = [];
+    var regexBloqueObj = /\{[\s\S]*?\}(?=\s*[\],\}]|\s*\{|\s*$)/g;
+    var matchB;
+    while ((matchB = regexBloqueObj.exec(candidateJson)) !== null) {
+        // Solo considerarlo si tiene campos técnicos como nombre:, implemento:, o zonas:
+        if (/(?:nombre|tipo|implemento|peso|repeticion|zona)/i.test(matchB[0])) {
+            bloques.push(matchB[0]);
         }
-        var etiqueta = match[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        var valor = match[2].trim();
+    }
 
-        if (/nombre|ejercicio|title/.test(etiqueta)) {
-            nomTxt = valor;
-        } else if (/tecnica|descripci|especificaci|indicacion/.test(etiqueta)) {
-            descTxt = valor;
-        } else if (/implemento|equipo|equipamiento|material/.test(etiqueta)) {
-            var v = valor.toLowerCase();
-            if (/mancuerna/.test(v)) impTxt = 'mancuerna';
-            else if (/barra/.test(v)) impTxt = 'barra';
-            else if (/maquina/.test(v)) impTxt = 'maquina';
-            else if (/polea/.test(v)) impTxt = 'polea';
-            else if (/disco/.test(v)) impTxt = 'discos';
-            else if (/corporal|calistenia/.test(v)) impTxt = 'peso_corporal';
-        } else if (/tipo|modalidad/.test(etiqueta)) {
-            var vt = valor.toLowerCase();
-            if (/calistenia/.test(vt)) tipoTxt = 'calistenia';
-            else if (/movilidad/.test(vt)) tipoTxt = 'movilidad';
-            else tipoTxt = 'gym';
-        } else if (/unidad/.test(etiqueta)) {
-            unidadTxt = (/lb|libra/.test(valor.toLowerCase())) ? 'lb' : 'kg';
-        } else if (/peso/.test(etiqueta)) {
-            var pNum = parseFloat(valor.match(/\d+(\.\d+)?/));
-            if (!isNaN(pNum)) pesoTxt = pNum;
-            if (/lb|libra/.test(valor.toLowerCase())) unidadTxt = 'lb';
-        } else if (/repeticion|reps/.test(etiqueta)) {
-            repsTxt = valor;
-            var rNum = valor.match(/\d+/g);
-            if (rNum && rNum.length > 0) {
-                repsPromTxt = parseFloat(rNum[0]);
-                if (rNum.length > 1) repsPromTxt = (parseFloat(rNum[0]) + parseFloat(rNum[1])) / 2;
+    if (bloques.length === 0) {
+        bloques = [candidateJson];
+    }
+
+    var resultados = [];
+
+    bloques.forEach(function(bloque) {
+        // Extraer campos principales con Regex tolerante
+        var mNom = bloque.match(/(?:^|\n)\s*["']?nombre["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var nomTxt = mNom ? mNom[1].replace(/["']/g, '').trim() : "";
+
+        var mTipo = bloque.match(/(?:^|\n)\s*["']?tipo["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var tipoTxt = (mTipo ? mTipo[1].replace(/["']/g, '').trim() : "gym").toLowerCase();
+        if (/calistenia/.test(tipoTxt)) tipoTxt = 'calistenia';
+        else if (/movilidad/.test(tipoTxt)) tipoTxt = 'movilidad';
+        else tipoTxt = 'gym';
+
+        var mImp = bloque.match(/(?:^|\n)\s*["']?(?:implemento|equipamiento|equipo|material)["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var impTxt = (mImp ? mImp[1].replace(/["']/g, '').trim() : "barra").toLowerCase();
+        if (/mancuerna|dumbbell/.test(impTxt)) impTxt = 'mancuerna';
+        else if (/barra|barbell/.test(impTxt)) impTxt = 'barra';
+        else if (/maquina|machine/.test(impTxt)) impTxt = 'maquina';
+        else if (/polea|cable/.test(impTxt)) impTxt = 'polea';
+        else if (/disco|plate/.test(impTxt)) impTxt = 'discos';
+        else if (/corporal|calistenia|bodyweight/.test(impTxt)) impTxt = 'peso_corporal';
+        else impTxt = 'barra';
+
+        var mUni = bloque.match(/(?:^|\n)\s*["']?unidad(?:peso)?["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var unidadTxt = (mUni && /lb|libra/.test(mUni[1].toLowerCase())) ? 'lb' : 'kg';
+
+        var mPeso = bloque.match(/(?:^|\n)\s*["']?peso(?:referencia)?["']?\s*:\s*["']?(\d+(?:\.\d+)?)/i);
+        var pesoTxt = mPeso ? parseFloat(mPeso[1]) : 0;
+        if (/lb|libra/.test(bloque.toLowerCase()) && !mUni) {
+            if (/pesoReferencia:\s*\d+\s*lb/i.test(bloque) || /peso:\s*\d+\s*lb/i.test(bloque)) unidadTxt = 'lb';
+        }
+
+        var mReps = bloque.match(/(?:^|\n)\s*["']?repeticiones["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var repsTxt = mReps ? mReps[1].replace(/["']/g, '').trim() : "8-12 reps";
+
+        var mProm = bloque.match(/(?:^|\n)\s*["']?repeticionespromedio["']?\s*:\s*["']?(\d+(?:\.\d+)?)/i);
+        var repsPromTxt = mProm ? parseFloat(mProm[1]) : 10;
+        if (!mProm && repsTxt) {
+            var rDigits = repsTxt.match(/\d+/g);
+            if (rDigits && rDigits.length > 0) {
+                repsPromTxt = parseFloat(rDigits[0]);
+                if (rDigits.length > 1) repsPromTxt = (parseFloat(rDigits[0]) + parseFloat(rDigits[1])) / 2;
             }
-        } else if (/zona|musculo|impacto|target/.test(etiqueta)) {
-            var partes = valor.split(/[,;\n]/);
-            partes.forEach(function(p) {
-                var pTrim = p.trim();
-                if (!pTrim) return;
-                var pctMatch = pTrim.match(/(\d+)\s*%/);
-                var pct = pctMatch ? parseInt(pctMatch[1], 10) : 25;
-                var zNombre = pTrim.replace(/\(?\d+\s*%\)?/g, '').replace(/[:=-]/g, '').trim();
-                var zInfo = normalizarClaveZonaMuscular(zNombre);
-                if (zInfo && !zonasTxt.some(function(z) { return z.clave === zInfo.clave; })) {
-                    zonasTxt.push({
-                        clave: zInfo.clave,
-                        nombre: zInfo.nombre,
-                        icono: zInfo.icono,
-                        porcentaje: pct
-                    });
-                }
-            });
         }
+
+        // Descripción: capturar hasta la siguiente propiedad o bloque de zonas, ignorando preguntas o comentarios de usuario
+        var mDesc = bloque.match(/(?:^|\n)\s*["']?descripci[oó]n["']?\s*:\s*["']?([\s\S]*?)(?=(?:\n\s*["']?[a-zA-Z_]+["']?\s*:|\n\s*zonas:|\n\s*[a-z?¿]+\s*\?|\n\s*\}|$))/i);
+        var descTxt = mDesc ? mDesc[1].replace(/["']/g, '').trim() : "";
+
+        // Extraer zonas con el motor tolerante
+        var zonasTxt = extraerZonasDeTextoResiliente(bloque);
+
+        // Fallback para campos faltantes
+        if (!nomTxt) {
+            var lineasLimpias = bloque.split('\n').map(function(l) { return l.replace(/^[-*•#{}\[\]]/g, '').trim(); }).filter(Boolean);
+            if (lineasLimpias.length > 0) nomTxt = lineasLimpias[0];
+        }
+        if (!descTxt) {
+            descTxt = "Técnica biomecánica controlada según especificaciones del ejercicio.";
+        }
+        if (zonasTxt.length === 0) {
+            var defZ = CATALOGO_ZONAS_FISICAS[0];
+            zonasTxt.push({ clave: defZ.clave, nombre: defZ.nombre, icono: defZ.icono, porcentaje: 40 });
+        }
+
+        resultados.push({
+            nombre: nomTxt || "Ejercicio Personalizado IA",
+            descripcion: descTxt,
+            tipo: tipoTxt,
+            implemento: impTxt,
+            unidadPeso: unidadTxt,
+            pesoReferencia: pesoTxt,
+            repeticiones: repsTxt,
+            repeticionesPromedio: repsPromTxt,
+            zonas: zonasTxt
+        });
     });
 
-    if (!nomTxt && lineas.length > 0) nomTxt = lineas[0].replace(/^#+\s*/, '');
-    if (!descTxt) descTxt = "Técnica biomecánica controlada según especificaciones.";
-    if (zonasTxt.length === 0) {
-        var defZ = CATALOGO_ZONAS_FISICAS[0];
-        zonasTxt.push({ clave: defZ.clave, nombre: defZ.nombre, icono: defZ.icono, porcentaje: 40 });
-    }
-    zonasTxt.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
-
-    return [{
-        nombre: nomTxt || "Ejercicio Personalizado IA",
-        descripcion: descTxt,
-        tipo: tipoTxt,
-        implemento: impTxt,
-        unidadPeso: unidadTxt,
-        pesoReferencia: pesoTxt,
-        repeticiones: repsTxt,
-        repeticionesPromedio: repsPromTxt,
-        zonas: zonasTxt
-    }];
+    return resultados;
 }
 
 function procesarTextoEjercicioIA(guardarDirecto) {
