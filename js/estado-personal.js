@@ -2639,7 +2639,34 @@ function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
     return mp === sub || cats.includes(sub) || tipo === sub;
 }
 
+function toggleDesplegarEjercicio(id, evt) {
+    if (evt) evt.stopPropagation();
+    var details = document.getElementById('detalles-ejercicio-' + id);
+    var flecha = document.getElementById('flecha-ejercicio-' + id);
+    var card = document.getElementById('card-ejercicio-' + id);
+    if (!details) return;
+
+    var estaOculto = (details.style.display === 'none' || !details.style.display);
+    if (estaOculto) {
+        details.style.display = 'block';
+        if (flecha) flecha.style.transform = 'rotate(180deg)';
+        if (card) {
+            card.classList.add('exercise-card-expanded');
+            card.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        }
+    } else {
+        details.style.display = 'none';
+        if (flecha) flecha.style.transform = 'rotate(0deg)';
+        if (card) {
+            card.classList.remove('exercise-card-expanded');
+            card.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+        }
+    }
+}
+
 function generarCardEjercicioFisicoHtml(ej) {
+    var ejId = ej.id || ('EJ-' + Math.random().toString(36).substr(2, 9));
+    var safeId = String(ejId).replace(/[^\w-]/g, '_');
     var muscTarget = ej.musculoPrincipal || (ej.categorias && ej.categorias.length ? ej.categorias[0] : 'Cuerpo');
     
     // Si el ejercicio tiene desglose multi-zona con porcentajes específicos:
@@ -2697,23 +2724,29 @@ function generarCardEjercicioFisicoHtml(ej) {
         : '';
 
     return `
-    <div class="exercise-card">
-        <div class="exercise-card-header">
-            <div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
-                    ${tipoBadge}
-                    <h3 class="exercise-card-name" style="margin: 0;">${ej.nombre}</h3>
-                </div>
-                <p class="exercise-card-desc">${specsTexto}</p>
+    <div class="exercise-card exercise-card-collapsible" id="card-ejercicio-${safeId}" style="transition: all 0.25s ease; border-radius: 14px; margin-bottom: 8px;">
+        <div class="exercise-card-header" onclick="toggleDesplegarEjercicio('${safeId}')" style="cursor: pointer; user-select: none; margin-bottom: 0; padding: 2px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                ${tipoBadge}
+                <h3 class="exercise-card-name" style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ej.nombre}</h3>
             </div>
-            <button class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}')" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">✕</button>
+            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                <div class="btn-toggle-acordeon" title="Desplegar detalles" style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); display: flex; align-items: center; justify-content: center; color: #38bdf8; transition: all 0.2s ease;">
+                    <span id="flecha-ejercicio-${safeId}" style="display: inline-block; font-size: 11px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: rotate(0deg);">▼</span>
+                </div>
+                <button type="button" class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}'); event.stopPropagation();" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">✕</button>
+            </div>
         </div>
 
-        <div class="exercise-badges-row">
-            ${badgesZonasHtml}
-            ${implementoBadgeHtml}
-            ${pesoBadgeHtml}
-            <span class="badge-exercise-reps">${repsDisplay}</span>
+        <!-- PANEL DESPLEGABLE: DESCRIPCIÓN Y DATOS COMPLETOS -->
+        <div id="detalles-ejercicio-${safeId}" class="exercise-card-details" style="display: none; margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.07); animation: fadeInDetails 0.2s ease;">
+            <p class="exercise-card-desc" style="margin: 0 0 12px 0; color: #94a3b8; font-size: 12.5px; line-height: 1.45;">${specsTexto}</p>
+            <div class="exercise-badges-row" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                ${badgesZonasHtml}
+                ${implementoBadgeHtml}
+                ${pesoBadgeHtml}
+                <span class="badge-exercise-reps">${repsDisplay}</span>
+            </div>
         </div>
     </div>`;
 }
