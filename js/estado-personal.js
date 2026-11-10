@@ -2313,18 +2313,11 @@ function extraerZonasDeTextoResiliente(textoBloque) {
         });
     }
 
-    // Normalizar escala de porcentajes si se usaron puntos relativos (ej: 8, 4, 4 suman 16 <= 25)
+    // Respetar el valor literal exacto colocado por el usuario (sin multiplicaciones forzadas)
     if (zonas.length > 0) {
-        var sumaRaw = zonas.reduce(function(acc, z) { return acc + (z.rawPct || 0); }, 0);
-        if (sumaRaw > 0 && sumaRaw <= 25) {
-            zonas.forEach(function(z) {
-                z.porcentaje = Math.max(5, Math.round((z.rawPct / sumaRaw) * 100));
-            });
-        } else {
-            zonas.forEach(function(z) {
-                z.porcentaje = Math.round(z.rawPct);
-            });
-        }
+        zonas.forEach(function(z) {
+            z.porcentaje = Math.round(z.rawPct);
+        });
         zonas.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
     }
 
@@ -2371,7 +2364,6 @@ function parsearEjercicioTextoOJson(raw) {
             var rawZonas = item.zonas || item.musculos || item.muscles || [];
             var zonasFinales = [];
             if (Array.isArray(rawZonas)) {
-                var sumaPcts = 0;
                 rawZonas.forEach(function(z) {
                     var claveRaw = (typeof z === 'string') ? z : (z.clave || z.nombre || z.zona || z.musculo);
                     var pct = (typeof z === 'object' && (z.porcentaje || z.pct || z.puntos)) ? parseFloat(z.porcentaje || z.pct || z.puntos) : 25;
@@ -2381,21 +2373,10 @@ function parsearEjercicioTextoOJson(raw) {
                             clave: zInfo.clave,
                             nombre: zInfo.nombre,
                             icono: zInfo.icono,
-                            rawPct: isNaN(pct) || pct <= 0 ? (zInfo.defaultPct || 25) : pct
+                            porcentaje: Math.round(isNaN(pct) || pct <= 0 ? (zInfo.defaultPct || 25) : pct)
                         });
-                        sumaPcts += (isNaN(pct) || pct <= 0 ? 25 : pct);
                     }
                 });
-
-                if (sumaPcts > 0 && sumaPcts <= 25) {
-                    zonasFinales.forEach(function(zf) {
-                        zf.porcentaje = Math.max(5, Math.round((zf.rawPct / sumaPcts) * 100));
-                    });
-                } else {
-                    zonasFinales.forEach(function(zf) {
-                        zf.porcentaje = Math.round(zf.rawPct);
-                    });
-                }
             }
 
             if (zonasFinales.length === 0) {
