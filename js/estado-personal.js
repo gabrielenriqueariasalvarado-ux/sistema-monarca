@@ -35,95 +35,126 @@ var MUSCULO_ACTIVO_HEATMAP = "pect_mayor";
 
 var DESGLOSE_ANATOMICO_CUERPO = [
     {
-        categoria: "Tren Superior",
+        categoria: "Tren Superior · Pecho",
         icono: "⚔️",
         subpartes: [
             {
-                clave: "pectoral",
-                nombre: "Pectoral Mayor / Menor",
-                clavesFatiga: ["pect_mayor", "pect_menor"]
+                clave: "pect_superior",
+                nombre: "Pectoral Superior (Haz Clavicular · Inclinado)",
+                clavesFatiga: ["pect_mayor"]
+            },
+            {
+                clave: "pect_medio",
+                nombre: "Pectoral Medio (Haz Esternal · Plano)",
+                clavesFatiga: ["pect_mayor"]
+            },
+            {
+                clave: "pect_inferior",
+                nombre: "Pectoral Inferior (Haz Abdominal · Declinado / Fondos)",
+                clavesFatiga: ["pect_menor"]
             },
             {
                 clave: "dorsales",
-                nombre: "Dorsales (Latissimus Dorsi)",
+                nombre: "Dorsales (Latissimus Dorsi · Amplitud)",
                 clavesFatiga: ["dorsales"]
             }
         ]
     },
     {
-        categoria: "Brazos y Hombros",
+        categoria: "Hombros & Deltoides",
         icono: "🛡️",
         subpartes: [
             {
-                clave: "hombros",
-                nombre: "Hombros (Deltoides)",
-                clavesFatiga: ["delt_ant", "delt_lat", "delt_post"]
+                clave: "delt_ant",
+                nombre: "Deltoides Anterior (Cabeza Frontal · Empujes)",
+                clavesFatiga: ["delt_ant"]
             },
             {
+                clave: "delt_lat",
+                nombre: "Deltoides Lateral (Cabeza Media · Vuelos / Laterales)",
+                clavesFatiga: ["delt_lat"]
+            },
+            {
+                clave: "delt_post",
+                nombre: "Deltoides Posterior (Cabeza Dorsal · Pájaros / Face Pull)",
+                clavesFatiga: ["delt_post"]
+            },
+            {
+                clave: "manguito",
+                nombre: "Manguito Rotador (Estabilizadores Articulares)",
+                clavesFatiga: ["manguito"]
+            }
+        ]
+    },
+    {
+        categoria: "Brazos (Flexores y Extensores)",
+        icono: "💪",
+        subpartes: [
+            {
                 clave: "biceps",
-                nombre: "Bíceps",
+                nombre: "Bíceps Braquial (Cabeza Corta & Larga)",
                 clavesFatiga: ["biceps"]
             },
             {
                 clave: "triceps",
-                nombre: "Tríceps",
+                nombre: "Tríceps Braquial (3 Cabezas)",
                 clavesFatiga: ["triceps"]
             },
             {
                 clave: "antebrazos",
-                nombre: "Antebrazos",
+                nombre: "Antebrazos y Fuerza de Agarre",
                 clavesFatiga: ["antebrazos"]
             }
         ]
     },
     {
-        categoria: "Zona Media y Estabilidad",
+        categoria: "Zona Media y Espalda",
         icono: "⚡",
         subpartes: [
             {
                 clave: "core",
-                nombre: "Core / Abdominales",
+                nombre: "Recto Abdominal & Oblicuos",
                 clavesFatiga: ["core"]
             },
             {
                 clave: "cadera",
-                nombre: "Cadera y Movilidad",
+                nombre: "Cadera, Aductores y Flexores",
                 clavesFatiga: ["cadera"]
             },
             {
                 clave: "trapecios",
-                nombre: "Trapecios",
+                nombre: "Trapecios y Romboides (Densidad Espalda Alta)",
                 clavesFatiga: ["trapecios"]
             },
             {
                 clave: "lumbares",
-                nombre: "Lumbares",
+                nombre: "Erectores Espinales (Lumbares)",
                 clavesFatiga: ["lumbares"]
             }
         ]
     },
     {
-        categoria: "Tren Inferior",
+        categoria: "Tren Inferior (Piernas)",
         icono: "🦵",
         subpartes: [
             {
                 clave: "cuadriceps",
-                nombre: "Cuádriceps",
+                nombre: "Cuádriceps (Recto Femoral & Vastos)",
                 clavesFatiga: ["cuadriceps"]
             },
             {
                 clave: "isquios",
-                nombre: "Isquiotibiales (Femorales)",
+                nombre: "Isquiotibiales / Femorales",
                 clavesFatiga: ["isquios"]
             },
             {
                 clave: "gluteos",
-                nombre: "Glúteos",
+                nombre: "Glúteos (Mayor & Medio)",
                 clavesFatiga: ["gluteos"]
             },
             {
                 clave: "pantorrillas",
-                nombre: "Pantorrillas (Gemelos y Sóleo)",
+                nombre: "Pantorrillas (Gemelos & Sóleo)",
                 clavesFatiga: ["pantorrillas"]
             }
         ]
@@ -139,7 +170,7 @@ var DESGLOSE_ANATOMICO_CUERPO = [
             },
             {
                 clave: "articulaciones",
-                nombre: "Movilidad de Muñecas y Tobillos",
+                nombre: "Movilidad de Muñecas, Codos y Tobillos",
                 clavesFatiga: ["articulaciones"]
             }
         ]
@@ -1370,36 +1401,66 @@ var CHIPS_SELECCIONADOS_MUSCULOS = [];
 
 var MAPA_CATEGORIAS_A_MUSCULOS = {
     "Mente": ["mente"],
-    "Hombros": ["delt_ant", "delt_lat", "delt_post"],
-    "Deltoides": ["delt_ant", "delt_lat", "delt_post"],
+    // Pecho
+    "Pectoral_Superior": ["pect_mayor", "delt_ant"],
+    "Pectoral_Medio": ["pect_mayor"],
+    "Pectoral_Inferior": ["pect_menor", "pect_mayor"],
+    "Pectoral_Aperturas": ["pect_mayor", "pect_menor"],
     "Pecho": ["pect_mayor", "pect_menor"],
     "Pectorales": ["pect_mayor", "pect_menor"],
     "Pectoral": ["pect_mayor", "pect_menor"],
-    "Bíceps": ["biceps"],
+    // Hombros
+    "Deltoides_Anterior": ["delt_ant"],
+    "Deltoides_Lateral": ["delt_lat"],
+    "Deltoides_Posterior": ["delt_post"],
+    "Manguito_Rotador": ["manguito"],
+    "Hombros": ["delt_ant", "delt_lat", "delt_post"],
+    "Deltoides": ["delt_ant", "delt_lat", "delt_post"],
+    // Brazos
     "Biceps": ["biceps"],
+    "Bíceps": ["biceps"],
+    "Braquial": ["biceps", "antebrazos"],
+    "Triceps_Larga": ["triceps"],
+    "Triceps_Lateral": ["triceps"],
     "Tríceps": ["triceps"],
     "Triceps": ["triceps"],
     "Antebrazos": ["antebrazos"],
-    "Trapecios": ["trapecios"],
+    // Espalda
+    "Dorsal_Ancho": ["dorsales"],
     "Dorsales": ["dorsales"],
-    "Espalda": ["dorsales", "trapecios"],
-    "Espalda Alta": ["dorsales", "trapecios"],
-    "Espalda Baja": ["lumbares"],
+    "Espalda_Alta": ["trapecios", "dorsales"],
+    "Trapecios": ["trapecios"],
     "Lumbares": ["lumbares"],
-    "Core": ["core"],
-    "Abdomen": ["core"],
-    "Glúteos": ["gluteos"],
-    "Gluteos": ["gluteos"],
-    "Cadera": ["cadera"],
-    "Cuádriceps": ["cuadriceps"],
+    "Espalda": ["dorsales", "trapecios"],
+    "Espalda Baja": ["lumbares"],
+    // Piernas
     "Cuadriceps": ["cuadriceps"],
-    "Piernas": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
-    "Pierna": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
+    "Cuádriceps": ["cuadriceps"],
     "Isquios": ["isquios"],
     "Isquiotibiales": ["isquios"],
     "Femorales": ["isquios"],
+    "Gluteo_Mayor": ["gluteos"],
+    "Gluteo_Medio": ["gluteos", "cadera"],
+    "Glúteos": ["gluteos"],
+    "Gluteos": ["gluteos"],
+    "Cadera": ["cadera"],
     "Pantorrillas": ["pantorrillas"],
-    "Gemelos": ["pantorrillas"]
+    "Gemelos": ["pantorrillas"],
+    "Soleo": ["pantorrillas"],
+    "Tibial": ["pantorrillas"],
+    "Piernas": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
+    "Pierna": ["cuadriceps", "isquios", "gluteos", "pantorrillas"],
+    // Core
+    "Abdomen_Superior": ["core"],
+    "Abdomen_Inferior": ["core"],
+    "Oblicuos": ["core"],
+    "Transverso": ["core"],
+    "Core": ["core"],
+    "Abdomen": ["core"],
+    // Movilidad
+    "Cuello": ["cuello"],
+    "Articulaciones": ["articulaciones"],
+    "Movilidad": ["articulaciones"]
 };
 
 /**
@@ -1418,28 +1479,65 @@ function mapearTextoAMusculos(entrada) {
         return unicos;
     }
 
-    var str = String(entrada).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    var rawKey = String(entrada).trim();
+    if (MAPA_CATEGORIAS_A_MUSCULOS[rawKey]) {
+        return MAPA_CATEGORIAS_A_MUSCULOS[rawKey].slice();
+    }
+
+    var str = rawKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     var claves = [];
 
-    if (/pect|pecho/.test(str)) claves.push('pect_mayor', 'pect_menor');
-    if (/dorsal|espalda|pull|lats/.test(str)) claves.push('dorsales');
-    if (/hombro|deltoid|militar|elevacion/.test(str)) claves.push('delt_ant', 'delt_lat', 'delt_post');
-    if (/bicep|curl/.test(str)) claves.push('biceps');
-    if (/tricep|fondo/.test(str)) claves.push('triceps');
-    if (/antebrazo|agarre|muneca/.test(str)) claves.push('antebrazos');
-    if (/trapecio|romboide/.test(str)) claves.push('trapecios');
-    if (/lumbar|espinal/.test(str)) claves.push('lumbares');
-    if (/core|abdom|plancha|crunch/.test(str)) claves.push('core');
-    if (/gluteo|puente/.test(str)) claves.push('gluteos');
-    if (/cadera|aductor|abductor/.test(str)) claves.push('cadera');
-    if (/cuadricep|muslo|sentadilla|squat|prensa|zancada|pierna/.test(str)) claves.push('cuadriceps');
-    if (/isquio|femoral/.test(str)) claves.push('isquios');
-    if (/pantorrilla|gemelo|soleo/.test(str)) claves.push('pantorrillas');
-    if (/mente|cognit|cerebr|snc|neural/.test(str)) claves.push('mente');
+    // Priorizar coincidencias anatómicas específicas
+    if (/pect.*sup|clavicul|inclinad/.test(str)) {
+        claves.push('pect_mayor', 'delt_ant');
+    } else if (/pect.*inf|declinad|fondo.*paralela/.test(str)) {
+        claves.push('pect_menor', 'pect_mayor');
+    } else if (/pect|pecho/.test(str)) {
+        claves.push('pect_mayor', 'pect_menor');
+    }
 
-    // Mapeo directo por clave exacta en MAPA_CATEGORIAS_A_MUSCULOS si no hubo coincidencia por regex
+    if (/delt.*ant|hombro.*front|militar|elevacion.*front/.test(str)) claves.push('delt_ant');
+    if (/delt.*lat|vuelo|elevacion.*lat/.test(str)) claves.push('delt_lat');
+    if (/delt.*post|pajaro|face.*pull|reverse.*peck/.test(str)) claves.push('delt_post');
+    if (/manguito|rotador/.test(str)) claves.push('manguito');
+    if (/hombro|deltoid/.test(str) && !claves.some(function(k) { return k.startsWith('delt_'); })) {
+        claves.push('delt_ant', 'delt_lat', 'delt_post');
+    }
+
+    if (/braquial|martillo/.test(str)) claves.push('biceps', 'antebrazos');
+    else if (/bicep|curl/.test(str)) claves.push('biceps');
+
+    if (/tricep.*larg|frances|copa/.test(str)) claves.push('triceps');
+    else if (/tricep|fondo/.test(str)) claves.push('triceps');
+
+    if (/antebrazo|agarre|muneca/.test(str)) claves.push('antebrazos');
+    if (/dorsal|amplitud|jalon|pull|lats|dominada/.test(str)) claves.push('dorsales');
+    if (/espalda.*alt|trapecio|romboide|remo|shrug/.test(str)) claves.push('trapecios');
+    if (/lumbar|espinal|erector|hiperextension/.test(str)) claves.push('lumbares');
+    if (/espalda/.test(str) && !claves.includes('dorsales') && !claves.includes('trapecios') && !claves.includes('lumbares')) {
+        claves.push('dorsales', 'trapecios');
+    }
+
+    if (/abdom.*sup|crunch/.test(str)) claves.push('core');
+    if (/abdom.*inf|elevacion.*pierna/.test(str)) claves.push('core');
+    if (/oblicuo|rotacion|russian/.test(str)) claves.push('core');
+    if (/transverso|plancha|vacio|core|abdom/.test(str)) claves.push('core');
+
+    if (/gluteo.*may|hip.*thrust/.test(str)) claves.push('gluteos');
+    if (/gluteo.*med|abduc/.test(str)) claves.push('gluteos', 'cadera');
+    if (/gluteo|puente/.test(str) && !claves.includes('gluteos')) claves.push('gluteos');
+
+    if (/cadera|aductor/.test(str)) claves.push('cadera');
+    if (/cuadricep|muslo|sentadilla|squat|prensa|zancada/.test(str)) claves.push('cuadriceps');
+    if (/isquio|femoral|rumano/.test(str)) claves.push('isquios');
+    if (/pantorrilla|gemelo|soleo|tibial/.test(str)) claves.push('pantorrillas');
+    if (/mente|cognit|cerebr|snc|neural/.test(str)) claves.push('mente');
+    if (/cuello|cervical/.test(str)) claves.push('cuello');
+    if (/articulacion|movilidad/.test(str)) claves.push('articulaciones');
+
+    // Mapeo directo en MAPA_CATEGORIAS_A_MUSCULOS si no hubo coincidencia por regex
     if (claves.length === 0 && MAPA_CATEGORIAS_A_MUSCULOS[entrada]) {
-        claves = MAPA_CATEGORIAS_A_MUSCULOS[entrada];
+        claves = MAPA_CATEGORIAS_A_MUSCULOS[entrada].slice();
     }
 
     return claves.filter(function(item, pos, self) {
@@ -1473,24 +1571,37 @@ function aplicarDesgasteEjercicioIndividual(ej, sumar, fraccion) {
         var fatigaVal = (Number(ej.fatigaPorcentaje) || 20) * factor;
         var mKeys = [];
 
-        if (ej.categorias && ej.categorias.length > 0) {
-            mKeys = mapearTextoAMusculos(ej.categorias);
-        }
-        if (ej.musculoPrincipal) {
-            var extra = mapearTextoAMusculos(ej.musculoPrincipal);
-            extra.forEach(function(k) { if (!mKeys.includes(k)) mKeys.push(k); });
-        }
-        if (mKeys.length === 0 && ej.nombre) {
-            mKeys = mapearTextoAMusculos(ej.nombre);
-        }
-        if (mKeys.length === 0) {
-            mKeys = ['core', 'pect_mayor'];
-        }
+        // Si el ejercicio tiene desglose multi-zona con porcentajes ponderados
+        if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
+            ej.zonas.forEach(function(z) {
+                var zKeys = mapearTextoAMusculos(z.clave || z.nombre || z.zona);
+                var zPct = (Number(z.porcentaje) || 25) * factor;
+                zKeys.forEach(function(k) {
+                    var actF = Number(APP_STATE.fatiga[k]) || 0;
+                    APP_STATE.fatiga[k] = Math.min(100, Math.max(0, actF + zPct));
+                    if (!mKeys.includes(k)) mKeys.push(k);
+                });
+            });
+        } else {
+            if (ej.categorias && ej.categorias.length > 0) {
+                mKeys = mapearTextoAMusculos(ej.categorias);
+            }
+            if (ej.musculoPrincipal) {
+                var extra = mapearTextoAMusculos(ej.musculoPrincipal);
+                extra.forEach(function(k) { if (!mKeys.includes(k)) mKeys.push(k); });
+            }
+            if (mKeys.length === 0 && ej.nombre) {
+                mKeys = mapearTextoAMusculos(ej.nombre);
+            }
+            if (mKeys.length === 0) {
+                mKeys = ['core', 'pect_mayor'];
+            }
 
-        mKeys.forEach(function(k) {
-            var actF = Number(APP_STATE.fatiga[k]) || 0;
-            APP_STATE.fatiga[k] = Math.min(100, Math.max(0, actF + fatigaVal));
-        });
+            mKeys.forEach(function(k) {
+                var actF = Number(APP_STATE.fatiga[k]) || 0;
+                APP_STATE.fatiga[k] = Math.min(100, Math.max(0, actF + fatigaVal));
+            });
+        }
 
         // Recalcular promedio de fatiga del cuerpo hoy
         var keysFatiga = Object.keys(METADATOS_MUSCULOS);
@@ -1751,18 +1862,57 @@ function filtrarSubcategoriaEjercicios(subfiltro) {
 }
 
 var CATALOGO_ZONAS_FISICAS = [
-    { clave: "Pecho", nombre: "Pecho (Pectorales)", icono: "⚔️", tipo: "cuerpo", defaultPct: 35 },
-    { clave: "Espalda", nombre: "Espalda (Dorsales / Trapecios)", icono: "🦅", tipo: "cuerpo", defaultPct: 35 },
-    { clave: "Hombros", nombre: "Hombros (Deltoides)", icono: "🛡️", tipo: "cuerpo", defaultPct: 25 },
-    { clave: "Tríceps", nombre: "Tríceps Braquial", icono: "🦾", tipo: "cuerpo", defaultPct: 20 },
-    { clave: "Bíceps", nombre: "Bíceps Braquial", icono: "💪", tipo: "cuerpo", defaultPct: 20 },
-    { clave: "Cuádriceps", nombre: "Cuádriceps Femoral", icono: "🦵", tipo: "cuerpo", defaultPct: 35 },
-    { clave: "Isquios", nombre: "Isquiosurales / Femorales", icono: "🦵", tipo: "cuerpo", defaultPct: 30 },
-    { clave: "Glúteos", nombre: "Glúteos (Mayor / Medio)", icono: "🍑", tipo: "cuerpo", defaultPct: 25 },
-    { clave: "Pantorrillas", nombre: "Pantorrillas (Gemelos)", icono: "🧦", tipo: "cuerpo", defaultPct: 20 },
-    { clave: "Core", nombre: "Core / Abdominales", icono: "⚡", tipo: "cuerpo", defaultPct: 20 },
-    { clave: "Antebrazos", nombre: "Antebrazos y Agarre", icono: "✊", tipo: "cuerpo", defaultPct: 15 },
-    { clave: "Movilidad", nombre: "Movilidad Articular", icono: "🥋", tipo: "cuerpo", defaultPct: 15 }
+    // ⚔️ Pecho / Pectorales
+    { clave: "Pectoral_Superior", nombre: "Pectoral Superior (Haz Clavicular · Inclinado)", icono: "⚔️", grupo: "⚔️ Pecho / Pectorales", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Pectoral_Medio", nombre: "Pectoral Medio (Haz Esternal · Press Plano)", icono: "⚔️", grupo: "⚔️ Pecho / Pectorales", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Pectoral_Inferior", nombre: "Pectoral Inferior (Haz Abdominal · Declinado / Fondos)", icono: "⚔️", grupo: "⚔️ Pecho / Pectorales", tipo: "cuerpo", defaultPct: 30 },
+    { clave: "Pectoral_Aperturas", nombre: "Pectoral Interior / Estiramiento (Cruces en Polea / Peck Deck)", icono: "⚔️", grupo: "⚔️ Pecho / Pectorales", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Pecho", nombre: "Pecho Completo / Global", icono: "⚔️", grupo: "⚔️ Pecho / Pectorales", tipo: "cuerpo", defaultPct: 35 },
+
+    // 🛡️ Hombros / Deltoides (3 Cabezas + Manguito)
+    { clave: "Deltoides_Anterior", nombre: "Deltoides Anterior (Cabeza Frontal · Press Militar / Frontales)", icono: "🛡️", grupo: "🛡️ Hombros / Deltoides", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Deltoides_Lateral", nombre: "Deltoides Lateral (Cabeza Media · Vuelos / Laterales)", icono: "🛡️", grupo: "🛡️ Hombros / Deltoides", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Deltoides_Posterior", nombre: "Deltoides Posterior (Cabeza Dorsal · Pájaro / Face Pull)", icono: "🛡️", grupo: "🛡️ Hombros / Deltoides", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Manguito_Rotador", nombre: "Manguito Rotador (Estabilizadores y Manguito)", icono: "🔄", grupo: "🛡️ Hombros / Deltoides", tipo: "cuerpo", defaultPct: 15 },
+    { clave: "Hombros", nombre: "Hombros Globales / Deltoides Completo", icono: "🛡️", grupo: "🛡️ Hombros / Deltoides", tipo: "cuerpo", defaultPct: 25 },
+
+    // 🦅 Espalda & Dorso
+    { clave: "Dorsal_Ancho", nombre: "Dorsal Ancho (Lats / Amplitud en V · Dominadas / Jalones)", icono: "🦅", grupo: "🦅 Espalda & Dorsales", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Espalda_Alta", nombre: "Espalda Alta y Romboides (Densidad · Remos con Barra / T / Polea)", icono: "🦅", grupo: "🦅 Espalda & Dorsales", tipo: "cuerpo", defaultPct: 30 },
+    { clave: "Trapecios", nombre: "Trapecios (Superior & Cuello · Shrugs / Encogimientos)", icono: "🦅", grupo: "🦅 Espalda & Dorsales", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Lumbares", nombre: "Lumbares / Erectores Espinales (Hiperextensiones / Peso Muerto)", icono: "🏛️", grupo: "🦅 Espalda & Dorsales", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Espalda", nombre: "Espalda Completa / Dorsales Globales", icono: "🦅", grupo: "🦅 Espalda & Dorsales", tipo: "cuerpo", defaultPct: 35 },
+
+    // 💪 Brazos (Bíceps, Tríceps & Antebrazos)
+    { clave: "Biceps", nombre: "Bíceps Braquial (Cabeza Corta & Larga · Curls)", icono: "💪", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Braquial", nombre: "Braquial Anterior & Braquiorradial (Curl Martillo / Grosor)", icono: "💪", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Triceps_Larga", nombre: "Tríceps - Cabeza Larga (Extensiones sobre Cabeza / Francés)", icono: "🦾", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Triceps_Lateral", nombre: "Tríceps - Cabeza Lateral/Medial (Poleas / Fondos)", icono: "🦾", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Tríceps", nombre: "Tríceps Completo", icono: "🦾", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Antebrazos", nombre: "Antebrazos (Flexores, Extensores & Fuerza de Agarre)", icono: "✊", grupo: "💪 Brazos (Bíceps, Tríceps & Antebrazos)", tipo: "cuerpo", defaultPct: 15 },
+
+    // 🦵 Piernas & Tren Inferior
+    { clave: "Cuadriceps", nombre: "Cuádriceps (Recto Femoral & Vastos · Sentadillas / Prensa / Extensiones)", icono: "🦵", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 35 },
+    { clave: "Isquios", nombre: "Isquiosurales / Femorales (Curl Femoral / Peso Muerto Rumano)", icono: "🦵", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 30 },
+    { clave: "Gluteo_Mayor", nombre: "Glúteo Mayor (Hip Thrust / Patadas de Polea)", icono: "🍑", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Gluteo_Medio", nombre: "Glúteo Medio & Menor (Abducción en Máquina / Estabilidad)", icono: "🍑", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Glúteos", nombre: "Glúteos Completos", icono: "🍑", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 25 },
+    { clave: "Cadera", nombre: "Aductores & Flexores de Cadera (Máquina de Aductores)", icono: "🥋", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Pantorrillas", nombre: "Pantorrillas / Gemelos (Gastrocnemio · Elevaciones de Pie)", icono: "🧦", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Soleo", nombre: "Sóleo (Elevaciones de Talón Sentado)", icono: "🧦", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Tibial", nombre: "Tibial Anterior (Flexión Dorsal)", icono: "🧦", grupo: "🦵 Piernas & Tren Inferior", tipo: "cuerpo", defaultPct: 15 },
+
+    // ⚡ Core & Abdomen
+    { clave: "Abdomen_Superior", nombre: "Recto Abdominal Superior (Crunches / Polea)", icono: "⚡", grupo: "⚡ Core & Abdomen", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Abdomen_Inferior", nombre: "Abdomen Inferior (Elevación de Piernas)", icono: "⚡", grupo: "⚡ Core & Abdomen", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Oblicuos", nombre: "Oblicuos (Laterales / Giros Rusos / Giros en Polea)", icono: "⚡", grupo: "⚡ Core & Abdomen", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Transverso", nombre: "Transverso Abdominal (Core Profundo / Planchas / Vacío)", icono: "⚡", grupo: "⚡ Core & Abdomen", tipo: "cuerpo", defaultPct: 20 },
+    { clave: "Core", nombre: "Core Completo & Estabilidad Lumbo-Pélvica", icono: "⚡", grupo: "⚡ Core & Abdomen", tipo: "cuerpo", defaultPct: 20 },
+
+    // 🧘 Salud Articular & Movilidad
+    { clave: "Cuello", nombre: "Cuello & Zona Cervical", icono: "🧘", grupo: "🧘 Salud Articular & Movilidad", tipo: "cuerpo", defaultPct: 15 },
+    { clave: "Articulaciones", nombre: "Muñecas, Codos y Tobillos", icono: "🔄", grupo: "🧘 Salud Articular & Movilidad", tipo: "cuerpo", defaultPct: 15 },
+    { clave: "Movilidad", nombre: "Movilidad Articular Global & Estiramientos", icono: "🥋", grupo: "🧘 Salud Articular & Movilidad", tipo: "cuerpo", defaultPct: 15 }
 ];
 
 var ZONAS_EJERCICIO_FISICO_TEMP = [];
@@ -1770,10 +1920,24 @@ var ZONAS_EJERCICIO_FISICO_TEMP = [];
 function poblarSelectZonasFisicas() {
     var sel = document.getElementById('select-zona-ejercicio-fisico');
     if (!sel) return;
-    var html = '<option value="">-- Seleccionar zona muscular para añadir --</option>';
+
+    // Agrupar items por grupo para evitar saturación visual
+    var grupos = {};
     CATALOGO_ZONAS_FISICAS.forEach(function(item) {
-        html += `<option value="${item.clave}">${item.icono} ${item.nombre}</option>`;
+        var g = item.grupo || "Otras Zonas";
+        if (!grupos[g]) grupos[g] = [];
+        grupos[g].push(item);
     });
+
+    var html = '<option value="">-- Seleccionar zona muscular para añadir --</option>';
+    Object.keys(grupos).forEach(function(nombreGrupo) {
+        html += `<optgroup label="${nombreGrupo}">`;
+        grupos[nombreGrupo].forEach(function(item) {
+            html += `<option value="${item.clave}">${item.icono} ${item.nombre}</option>`;
+        });
+        html += `</optgroup>`;
+    });
+
     sel.innerHTML = html;
     sel.value = "";
 }
@@ -2029,27 +2193,27 @@ function ejercicioCoincideSubfiltroFisico(ej, subfiltro) {
         return tipo === 'calistenia' || cats.includes('calistenia');
     }
     if (sub === 'movilidad') {
-        return tipo === 'movilidad' || cats.includes('movilidad');
+        return tipo === 'movilidad' || cats.includes('movilidad') || mp.includes('movil') || mp.includes('articul') || cats.some(function(c) { return c.includes('movil') || c.includes('articul'); });
     }
     if (sub === 'brazos') {
-        return mp.includes('brazo') || mp.includes('bíceps') || mp.includes('biceps') || mp.includes('tríceps') || mp.includes('triceps') ||
-               cats.some(function(c) { return c.includes('brazo') || c.includes('bíceps') || c.includes('biceps') || c.includes('tríceps') || c.includes('triceps'); });
+        return mp.includes('brazo') || mp.includes('bicep') || mp.includes('bíceps') || mp.includes('biceps') || mp.includes('tricep') || mp.includes('tríceps') || mp.includes('triceps') || mp.includes('antebrazo') || mp.includes('braquial') ||
+               cats.some(function(c) { return c.includes('brazo') || c.includes('bicep') || c.includes('bíceps') || c.includes('biceps') || c.includes('tricep') || c.includes('tríceps') || c.includes('triceps') || c.includes('antebrazo') || c.includes('braquial'); });
     }
     if (sub === 'piernas') {
-        return mp.includes('pierna') || mp.includes('cuádricep') || mp.includes('cuadricep') || mp.includes('isquio') || mp.includes('femoral') || mp.includes('glúteo') || mp.includes('gluteo') || mp.includes('pantorrilla') ||
-               cats.some(function(c) { return c.includes('pierna') || c.includes('cuádricep') || c.includes('cuadricep') || c.includes('isquio') || c.includes('femoral') || c.includes('glúteo') || c.includes('gluteo') || c.includes('pantorrilla'); });
+        return mp.includes('pierna') || mp.includes('cuádricep') || mp.includes('cuadricep') || mp.includes('isquio') || mp.includes('femoral') || mp.includes('glúteo') || mp.includes('gluteo') || mp.includes('pantorrilla') || mp.includes('soleo') || mp.includes('tibial') || mp.includes('cadera') || mp.includes('aductor') ||
+               cats.some(function(c) { return c.includes('pierna') || c.includes('cuádricep') || c.includes('cuadricep') || c.includes('isquio') || c.includes('femoral') || c.includes('glúteo') || c.includes('gluteo') || c.includes('pantorrilla') || c.includes('soleo') || c.includes('tibial') || c.includes('cadera') || c.includes('aductor'); });
     }
     if (sub === 'pecho') {
-        return mp.includes('pecho') || cats.some(function(c) { return c.includes('pecho'); });
+        return mp.includes('pecho') || mp.includes('pect') || cats.some(function(c) { return c.includes('pecho') || c.includes('pect'); });
     }
     if (sub === 'espalda') {
-        return mp.includes('espalda') || cats.some(function(c) { return c.includes('espalda'); });
+        return mp.includes('espalda') || mp.includes('dorsal') || mp.includes('trapec') || mp.includes('lumbar') || cats.some(function(c) { return c.includes('espalda') || c.includes('dorsal') || c.includes('trapec') || c.includes('lumbar'); });
     }
     if (sub === 'hombros') {
-        return mp.includes('hombro') || cats.some(function(c) { return c.includes('hombro'); });
+        return mp.includes('hombro') || mp.includes('deltoid') || mp.includes('manguito') || cats.some(function(c) { return c.includes('hombro') || c.includes('deltoid') || c.includes('manguito'); });
     }
     if (sub === 'core') {
-        return mp.includes('core') || mp.includes('abdo') || cats.some(function(c) { return c.includes('core') || c.includes('abdo'); });
+        return mp.includes('core') || mp.includes('abdo') || mp.includes('oblicuo') || mp.includes('transverso') || cats.some(function(c) { return c.includes('core') || c.includes('abdo') || c.includes('oblicuo') || c.includes('transverso'); });
     }
     return mp === sub || cats.includes(sub) || tipo === sub;
 }
