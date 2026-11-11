@@ -3260,6 +3260,8 @@ function calcularEtapasDropset(pesoTotal) {
     return arr;
 }
 
+var SUBFILTRO_RUTINA_MODAL_ACTIVO = 'todos';
+
 function alCambiarCheckEjercicioRutina(ejId) {
     var card = document.getElementById('card_ej_rutina_' + ejId);
     var chk = document.getElementById('chk_rutina_' + ejId);
@@ -3268,6 +3270,120 @@ function alCambiarCheckEjercicioRutina(ejId) {
         card.classList.add('selected');
     } else {
         card.classList.remove('selected');
+    }
+    actualizarContadorEjerciciosSeleccionadosRutina();
+}
+
+function actualizarContadorEjerciciosSeleccionadosRutina() {
+    var checkFisicos = document.querySelectorAll('input[name="ejercicios_rutina_check"]:checked').length;
+    var checkMentales = document.querySelectorAll('input[name="ejercicios_mentales_rutina_check"]:checked').length;
+    var total = checkFisicos + checkMentales;
+    var badge = document.getElementById('contador-ejercicios-rutina-sel');
+    if (badge) {
+        badge.innerText = total + (total === 1 ? ' seleccionado' : ' seleccionados');
+        if (total > 0) {
+            badge.style.background = 'rgba(56, 189, 248, 0.22)';
+            badge.style.borderColor = '#38bdf8';
+        } else {
+            badge.style.background = 'rgba(56, 189, 248, 0.12)';
+            badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+        }
+    }
+}
+
+function seleccionarCategoriaModalRutina(cat, btnElem) {
+    SUBFILTRO_RUTINA_MODAL_ACTIVO = cat || 'todos';
+    var pills = document.querySelectorAll('.rutina-cat-pill');
+    pills.forEach(function(p) { p.classList.remove('active'); });
+    if (btnElem) {
+        btnElem.classList.add('active');
+    } else {
+        var defaultPill = document.querySelector('.rutina-cat-pill[data-cat="' + SUBFILTRO_RUTINA_MODAL_ACTIVO + '"]');
+        if (defaultPill) defaultPill.classList.add('active');
+    }
+    filtrarEjerciciosModalRutina();
+}
+
+function limpiarBuscadorEjerciciosRutina() {
+    var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
+    if (inBusq) inBusq.value = '';
+    filtrarEjerciciosModalRutina();
+}
+
+function filtrarEjerciciosModalRutina() {
+    var queryInput = document.getElementById('buscador-ejercicios-modal-rutina');
+    var rawQuery = queryInput ? queryInput.value.trim() : '';
+    var btnClear = document.getElementById('btn-clear-search-rutina');
+    if (btnClear) btnClear.style.display = rawQuery ? 'flex' : 'none';
+
+    var sub = SUBFILTRO_RUTINA_MODAL_ACTIVO || 'todos';
+    var normQuery = rawQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    var eFisicos = APP_STATE.ejercicios || [];
+    var visibles = 0;
+
+    eFisicos.forEach(function(ej) {
+        var card = document.getElementById('card_ej_rutina_' + ej.id);
+        if (!card) return;
+
+        // Categoría anatómica con umbral biomecánico (> 5% o músculo principal)
+        var coincideCat = ejercicioCoincideSubfiltroFisico(ej, sub);
+
+        // Búsqueda por texto (nombre, implemento, zonas, categorías)
+        var coincideQuery = true;
+        if (normQuery) {
+            var nom = String(ej.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var desc = String(ej.descripcion || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var imp = String(ej.implemento || ej.equipamiento || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var cats = (ej.categorias || []).join(' ').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var zonas = (ej.zonas || []).map(function(z) { return z.clave || z.nombre || ''; }).join(' ').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            coincideQuery = nom.includes(normQuery) || desc.includes(normQuery) || imp.includes(normQuery) || cats.includes(normQuery) || zonas.includes(normQuery);
+        }
+
+        if (coincideCat && coincideQuery) {
+            card.style.display = '';
+            visibles++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    var eMentales = APP_STATE.ejerciciosCerebrales || [];
+    eMentales.forEach(function(ec) {
+        var cardM = document.getElementById('card_ej_mental_' + ec.id);
+        if (!cardM) return;
+        if (sub !== 'todos') {
+            cardM.style.display = 'none';
+            return;
+        }
+        var coincideQuery = true;
+        if (normQuery) {
+            var nom = String(ec.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var desc = String(ec.descripcion || ec.protocolo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var musc = String(ec.musculoPrincipal || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            coincideQuery = nom.includes(normQuery) || desc.includes(normQuery) || musc.includes(normQuery);
+        }
+        if (coincideQuery) {
+            cardM.style.display = '';
+            visibles++;
+        } else {
+            cardM.style.display = 'none';
+        }
+    });
+
+    var noRes = document.getElementById('modal-rutina-sin-resultados');
+    if (!noRes) {
+        var contCheck = document.getElementById('modal-rutina-checklist-ejercicios');
+        if (contCheck) {
+            noRes = document.createElement('div');
+            noRes.id = 'modal-rutina-sin-resultados';
+            noRes.style.cssText = 'color: #94a3b8; font-size: 12.5px; text-align: center; padding: 25px 10px; display: none;';
+            noRes.innerHTML = '🔍 No se encontraron ejercicios que coincidan con este filtro.';
+            contCheck.appendChild(noRes);
+        }
+    }
+    if (noRes) {
+        noRes.style.display = visibles === 0 ? 'block' : 'none';
     }
 }
 
@@ -3326,6 +3442,11 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
     var eFisicos = APP_STATE.ejercicios || [];
     var eMentales = APP_STATE.ejerciciosCerebrales || [];
 
+    var wrapperCats = document.getElementById('rutina-categorias-scroll-wrapper');
+    if (wrapperCats) {
+        wrapperCats.style.display = (tipoSel === 'mental') ? 'none' : 'flex';
+    }
+
     var html = '';
 
     if (tipoSel === 'fisica' || tipoSel === 'hibrida') {
@@ -3336,38 +3457,63 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
             html += '<div style="color: #9ca3af; font-size: 12px; padding: 12px; text-align: center;">No tienes ejercicios físicos creados en tu Arsenal.</div>';
         } else {
             eFisicos.forEach(function(ej) {
-                var cats = (ej.categorias || []).join(', ');
                 var repsBase = ej.repeticiones || '8-10 reps';
-                var pesoDefault = ej.peso || 80;
+                var repsDefault = obtenerRepsPromedioEjercicio(ej);
+                var pesoDefault = (ej.peso != null && !isNaN(ej.peso)) ? ej.peso : (ej.pesoReferencia || 80);
                 var seriesDefault = (ej.series && ej.series > 1) ? ej.series : 3;
                 var uPeso = ej.unidadPeso || 'kg';
                 var mapaImp = { 'barra': '🏋️ Barra', 'mancuerna': '💪 Mancuerna', 'maquina': '⚙️ Máquina', 'polea': '⛓️ Polea', 'discos': '💿 Discos', 'peso_corporal': '🤸 Corporal' };
                 var impTxt = mapaImp[ej.implemento || ej.equipamiento] || '';
 
+                // Badges estéticos para el desglose muscular
+                var badgesHtml = '';
+                badgesHtml += `<span class="badge-reps-target">🎯 ${repsBase}</span>`;
+
+                if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
+                    ej.zonas.slice(0, 3).forEach(function(z) {
+                        var nomZ = String(z.clave || z.nombre || '').replace(/_/g, ' ');
+                        var pctZ = (z.porcentaje != null && z.porcentaje !== '') ? ` (${z.porcentaje}%)` : '';
+                        badgesHtml += `<span class="badge-musculo-mini">${nomZ}${pctZ}</span>`;
+                    });
+                } else if (ej.categorias && ej.categorias.length > 0) {
+                    ej.categorias.slice(0, 3).forEach(function(cat) {
+                        badgesHtml += `<span class="badge-musculo-mini">${String(cat).replace(/_/g, ' ')}</span>`;
+                    });
+                }
+
+                if (impTxt) {
+                    badgesHtml += `<span class="badge-implement-target">${impTxt}</span>`;
+                }
+
                 html += `
                 <div class="routine-checklist-card" id="card_ej_rutina_${ej.id}">
                     <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                         <label style="display: flex; align-items: flex-start; gap: 10px; flex: 1; cursor: pointer; margin: 0;">
-                            <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}" id="chk_rutina_${ej.id}" onchange="alCambiarCheckEjercicioRutina('${ej.id}')" style="margin-top: 3px; width: 18px; height: 18px; accent-color: #38bdf8;">
-                            <div>
-                                <strong style="color: #f8fafc; font-size: 13.5px; display: block; margin-bottom: 2px;">${ej.nombre}</strong>
-                                <div style="font-size: 11.5px; color: #94a3b8;">
-                                    ${repsBase} · [${cats}]${impTxt ? (' · ' + impTxt) : ''}
+                            <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}" id="chk_rutina_${ej.id}" onchange="alCambiarCheckEjercicioRutina('${ej.id}')" style="margin-top: 3px; width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
+                            <div style="flex: 1;">
+                                <strong class="routine-checklist-title">${ej.nombre}</strong>
+                                <div class="routine-checklist-badges-row">
+                                    ${badgesHtml}
                                 </div>
                             </div>
                         </label>
                     </div>
 
-                    <!-- CONTROLES: SERIES, PESO BASE, BOTÓN AL FALLO -->
+                    <!-- CONTROLES: SERIES, REPS POR SERIE, PESO BASE, BOTÓN AL FALLO -->
                     <div class="routine-exercise-controls-row">
-                        <div class="control-pill-group">
-                            <span class="control-pill-label">Series:</span>
-                            <input type="number" id="series_rutina_custom_${ej.id}" min="1" max="20" value="${seriesDefault}" class="input-routine-stat">
+                        <div class="control-pill-group control-pill-series">
+                            <span class="control-pill-label control-pill-label-series">Series:</span>
+                            <input type="number" id="series_rutina_custom_${ej.id}" min="1" max="50" value="${seriesDefault}" class="input-routine-stat input-routine-stat-series">
                         </div>
 
-                        <div class="control-pill-group">
-                            <span class="control-pill-label">Peso (${uPeso}):</span>
-                            <input type="number" id="peso_rutina_custom_${ej.id}" min="0" max="500" step="2.5" value="${pesoDefault}" class="input-routine-stat" oninput="recalcularDropsetEjercicio('${ej.id}')">
+                        <div class="control-pill-group control-pill-reps">
+                            <span class="control-pill-label control-pill-label-reps">Reps:</span>
+                            <input type="number" id="reps_rutina_custom_${ej.id}" min="1" max="999" value="${repsDefault}" class="input-routine-stat input-routine-stat-reps">
+                        </div>
+
+                        <div class="control-pill-group control-pill-peso">
+                            <span class="control-pill-label control-pill-label-peso">Peso (${uPeso}):</span>
+                            <input type="number" id="peso_rutina_custom_${ej.id}" min="0" max="999" step="2.5" value="${pesoDefault}" class="input-routine-stat input-routine-stat-peso" oninput="recalcularDropsetEjercicio('${ej.id}')">
                         </div>
 
                         <button type="button" id="btn_fallo_rutina_${ej.id}" class="btn-toggle-fallo" onclick="toggleAlFalloEjercicio('${ej.id}')">
@@ -3395,7 +3541,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 html += `
                 <div class="routine-checklist-card" id="card_ej_mental_${ec.id}">
                     <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
-                        <input type="checkbox" name="ejercicios_mentales_rutina_check" value="${ec.id}" style="margin-top: 3px; width: 18px; height: 18px; accent-color: #c084fc;">
+                        <input type="checkbox" name="ejercicios_mentales_rutina_check" value="${ec.id}" onchange="actualizarContadorEjerciciosSeleccionadosRutina()" style="margin-top: 3px; width: 18px; height: 18px; accent-color: #c084fc; cursor: pointer;">
                         <div style="flex: 1;">
                             <strong style="color: #c084fc; font-size: 13.5px; display: block; margin-bottom: 2px;">🧠 ${ec.nombre}</strong>
                             <div style="font-size: 11.5px; color: #94a3b8;">⏱️ ${ec.duracionMinutos || 15} min · ${muscP} (+${ec.fatigaEstimada || 15}% fatiga SNC · +${ec.expRecompensa || 25} EXP)</div>
@@ -3407,17 +3553,28 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
     }
 
     contCheck.innerHTML = html;
+    filtrarEjerciciosModalRutina();
+    actualizarContadorEjerciciosSeleccionadosRutina();
 }
 
 function abrirModalNuevaRutina() {
     var inNom = document.getElementById('modal-rutina-nombre');
     var inDesc = document.getElementById('modal-rutina-desc');
     var inTipo = document.getElementById('modal-rutina-tipo');
+    var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
+    if (inBusq) inBusq.value = "";
     if (inTipo) inTipo.value = (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || SUBFILTRO_BANCO_ACTIVO === 'mental' || FILTRO_RUTINAS_ACTIVO === 'mentales') ? 'mental' : 'fisica';
 
+    SUBFILTRO_RUTINA_MODAL_ACTIVO = 'todos';
+    var pills = document.querySelectorAll('.rutina-cat-pill');
+    pills.forEach(function(p) { p.classList.remove('active'); });
+    var pTodos = document.querySelector('.rutina-cat-pill[data-cat="todos"]');
+    if (pTodos) pTodos.classList.add('active');
+
     actualizarChecklistRutinaSegunTipo(inTipo ? inTipo.value : 'fisica');
+    actualizarContadorEjerciciosSeleccionadosRutina();
 
     var m = document.getElementById('modal-nueva-rutina');
     if (m) m.style.display = 'flex';
@@ -3460,14 +3617,19 @@ function confirmarAgregarRutina() {
             item.esMental = false;
 
             var inCustomSeries = document.getElementById('series_rutina_custom_' + e.id);
+            var inCustomReps = document.getElementById('reps_rutina_custom_' + e.id);
             var inCustomPeso = document.getElementById('peso_rutina_custom_' + e.id);
             var btnFallo = document.getElementById('btn_fallo_rutina_' + e.id);
 
+            var repsDefault = obtenerRepsPromedioEjercicio(e);
             var customSeries = inCustomSeries ? (parseInt(inCustomSeries.value) || 1) : (e.series || 1);
+            var customReps = inCustomReps ? (parseFloat(inCustomReps.value) || repsDefault) : repsDefault;
             var customPeso = inCustomPeso ? (parseFloat(inCustomPeso.value) || 0) : (e.peso || 0);
             var esAlFallo = btnFallo ? btnFallo.classList.contains('active') : false;
 
             item.series = customSeries;
+            item.repeticionesPromedio = customReps;
+            item.repeticiones = customReps + ' reps';
             item.peso = customPeso;
             item.alFallo = esAlFallo;
             if (esAlFallo) {
@@ -4833,7 +4995,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                             <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">🎯 Reps:</span>
                             <div class="stepper-pill-box">
                                 <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
-                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsProm}" min="1" max="100" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsProm}" min="1" max="999" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
                                 <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
                             </div>
                             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">reps</span>
