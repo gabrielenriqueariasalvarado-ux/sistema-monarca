@@ -138,6 +138,10 @@ function actualizarMetricasKpisInventario() {
     if (elValorStock) elValorStock.textContent = "$" + valorStock.toFixed(2);
     if (elUnidsVend) elUnidsVend.textContent = unidadesVendidas + " unids";
     if (elTotalIng) elTotalIng.textContent = "$" + totalIngresos.toFixed(2);
+
+    if (typeof actualizarGraficaCobrosCreditoInventario === 'function') {
+        actualizarGraficaCobrosCreditoInventario();
+    }
 }
 
 // ==========================================================================
@@ -290,9 +294,9 @@ function renderizarProductosInventario(listaManual) {
                     <span>💵</span> ${enStock ? 'Registrar Venta (Vendido)' : 'Agotado (Sin Stock)'}
                 </button>
 
-                <!-- Acciones secundarias: Editar y Eliminar -->
+                <!-- Acciones secundarias: Editar y Eliminar con Confirmación -->
                 <div style="display: flex; gap: 6px;">
-                    <button type="button" onclick="abrirModalNuevoProducto('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
+                    <button type="button" onclick="confirmarEditarProductoInventario('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
                         ✏️ Editar
                     </button>
                     <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar producto">
@@ -740,14 +744,33 @@ function guardarProductoInventario() {
 }
 
 /**
- * Elimina un producto tras confirmación
+ * Solicita confirmación explícita antes de abrir el modal de edición de un producto
+ */
+function confirmarEditarProductoInventario(productoId) {
+    asegurarEstructuraInventario();
+    var p = APP_STATE.inventario.productos.find(function(item) { return item.id === productoId; });
+    if (!p) return;
+
+    var stockTxt = p.stock || 0;
+    var precioTxt = (parseFloat(p.precioVenta) || 0).toFixed(2);
+    var advertencia = `⚠️ CONFIRMACIÓN DE EDICIÓN\n\n¿Deseas modificar los datos del producto "${p.nombre}"?\n• Stock actual: ${stockTxt} unidades\n• Precio de venta: $${precioTxt}\n\nAsegúrate de guardar los cambios al terminar para mantener tu inventario exacto.`;
+
+    if (confirm(advertencia)) {
+        abrirModalNuevoProducto(productoId);
+    }
+}
+
+/**
+ * Elimina un producto tras advertencia explícita de seguridad
  */
 function eliminarProductoInventario(productoId) {
     asegurarEstructuraInventario();
     var p = APP_STATE.inventario.productos.find(function(item) { return item.id === productoId; });
     if (!p) return;
 
-    if (confirm(`¿Estás seguro de eliminar el producto "${p.nombre}" del inventario?`)) {
+    var advertencia = `🚨 ADVERTENCIA DE SEGURIDAD - ELIMINACIÓN PERMANENTE\n\n¿Estás completamente seguro de que deseas ELIMINAR el producto "${p.nombre}" del inventario?\n\n⚠️ Esta acción borrará de forma irreversible su ficha, precios, variantes y existencias (${p.stock || 0} unidades en stock).\n\n¿Deseas continuar y eliminarlo?`;
+
+    if (confirm(advertencia)) {
         if (typeof registrarTombstone === 'function') {
             registrarTombstone('productos', productoId);
         } else {
@@ -762,6 +785,9 @@ function eliminarProductoInventario(productoId) {
         MonarcaDB.save(APP_STATE, true);
         filtrarProductosInventario();
         actualizarMetricasKpisInventario();
+        if (typeof actualizarGraficaCobrosCreditoInventario === 'function') {
+            actualizarGraficaCobrosCreditoInventario();
+        }
     }
 }
 
@@ -1699,7 +1725,198 @@ function anularVentaInventario(ventaId) {
         MonarcaDB.save(APP_STATE, true);
         renderizarVendidosInventario();
         actualizarMetricasKpisInventario();
+        if (typeof actualizarGraficaCobrosCreditoInventario === 'function') {
+            actualizarGraficaCobrosCreditoInventario();
+        }
         if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
         alert(`✓ Venta anulada con éxito. Se reincorporaron ${cant} unidad(es) al inventario y se limpiaron sus registros financieros.`);
     }
 }
+
+// ==========================================================================
+// 5. MOTOR DE PROYECCIÓN DE COBROS A CRÉDITO & REINVERSIÓN (v10.29)
+// ==========================================================================
+
+var CHART_COBROS_CREDITO = null;
+
+function toggleGraficaCobrosCredito() {
+    var cont = document.getElementById('contenedor-canvas-cobros-credito');
+    var btn = document.getElementById('btn-toggle-grafico-cobros');
+    if (!cont) return;
+    if (cont.style.display === 'none') {
+        cont.style.display = 'block';
+        if (btn) btn.innerText = '▲ Ocultar';
+        actualizarGraficaCobrosCreditoInventario();
+    } else {
+        cont.style.display = 'none';
+        if (btn) btn.innerText = '▼ Ver Proyección';
+    }
+}
+
+/**
+ * Agrupa todas las cuotas de crédito pendientes por fecha de cobro y renderiza
+ * la gráfica de volumen de dinero y personas para reinvertir capital
+ */
+function actualizarGraficaCobrosCreditoInventario() {
+    asegurarEstructuraInventario();
+    var canvas = document.getElementById('graficoCobrosCredito');
+    if (!canvas) return;
+
+    var ventas = APP_STATE.inventario.ventas || [];
+    var cuotasPorFecha = {};
+    var totalPendiente = 0;
+    var cuotasPendientesCount = 0;
+
+    ventas.forEach(function(v) {
+        if (v.modalidad === 'credito' && Array.isArray(v.cuotas)) {
+            var clienteNombre = v.cliente ? v.cliente.trim() : 'Cliente sin nombre';
+            v.cuotas.forEach(function(c) {
+                if (!c.cobrado) {
+                    var m = parseFloat(c.monto) || 0;
+                    totalPendiente += m;
+                    cuotasPendientesCount++;
+
+                    // Normalizar fecha de cobro (YYYY-MM-DD o 'Día X')
+                    var fKey = c.fecha || (c.dia ? ('Día ' + c.dia) : (v.fecha || 'Sin fecha'));
+                    if (!cuotasPorFecha[fKey]) {
+                        cuotasPorFecha[fKey] = {
+                            fecha: fKey,
+                            montoTotal: 0,
+                            personasCount: 0,
+                            clientes: []
+                        };
+                    }
+                    cuotasPorFecha[fKey].montoTotal += m;
+                    cuotasPorFecha[fKey].personasCount++;
+                    if (!cuotasPorFecha[fKey].clientes.includes(clienteNombre)) {
+                        cuotasPorFecha[fKey].clientes.push(clienteNombre);
+                    }
+                }
+            });
+        }
+    });
+
+    // Actualizar tarjetas de Mini KPIs
+    var elTotal = document.getElementById('inv-kpi-total-credito-pendiente');
+    var elCount = document.getElementById('inv-kpi-cuotas-pendientes-count');
+    var elMayor = document.getElementById('inv-kpi-mayor-monto-dia');
+    var elBadgePico = document.getElementById('badge-pico-reinversion');
+
+    if (elTotal) elTotal.innerText = '$' + totalPendiente.toFixed(2);
+    if (elCount) elCount.innerText = cuotasPendientesCount + ' ' + (cuotasPendientesCount === 1 ? 'cuota' : 'cuotas');
+
+    var fechasOrdenadas = Object.keys(cuotasPorFecha).sort(function(a, b) {
+        return a.localeCompare(b);
+    });
+
+    var maxMonto = 0;
+    var fechaPico = 'Sin cobros';
+    var maxPersonas = 0;
+
+    fechasOrdenadas.forEach(function(f) {
+        var obj = cuotasPorFecha[f];
+        if (obj.montoTotal > maxMonto) {
+            maxMonto = obj.montoTotal;
+            fechaPico = f;
+            maxPersonas = obj.personasCount;
+        }
+    });
+
+    if (elMayor) elMayor.innerText = '$' + maxMonto.toFixed(2);
+    if (elBadgePico) {
+        if (maxMonto > 0) {
+            elBadgePico.innerText = '🔥 Día Pico: ' + fechaPico + ' ($' + maxMonto.toFixed(2) + ' · ' + maxPersonas + ' pers.)';
+            elBadgePico.title = 'Mayor volumen de cobro para reinversión';
+        } else {
+            elBadgePico.innerText = '✅ Sin cobros pendientes';
+        }
+    }
+
+    if (typeof Chart === 'undefined') return;
+
+    if (CHART_COBROS_CREDITO) {
+        CHART_COBROS_CREDITO.destroy();
+        CHART_COBROS_CREDITO = null;
+    }
+
+    if (fechasOrdenadas.length === 0) {
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+
+    var labels = [];
+    var montosData = [];
+    var backgroundColors = [];
+    var borderColors = [];
+
+    fechasOrdenadas.forEach(function(f) {
+        var obj = cuotasPorFecha[f];
+        var lbl = f;
+        if (f.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            var parts = f.split('-');
+            var meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            var mIndex = parseInt(parts[1], 10) - 1;
+            lbl = parseInt(parts[2], 10) + ' ' + (meses[mIndex] || parts[1]);
+        }
+        labels.push(lbl + ' (' + obj.personasCount + ' ' + (obj.personasCount === 1 ? 'pers' : 'pers') + ')');
+        montosData.push(Math.round(obj.montoTotal * 100) / 100);
+
+        if (f === fechaPico && maxMonto > 0) {
+            backgroundColors.push('rgba(16, 185, 129, 0.45)');
+            borderColors.push('#10b981');
+        } else {
+            backgroundColors.push('rgba(56, 189, 248, 0.35)');
+            borderColors.push('#38bdf8');
+        }
+    });
+
+    var ctx = canvas.getContext('2d');
+    CHART_COBROS_CREDITO = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Monto a Cobrar ($)',
+                data: montosData,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1.5,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var idx = context.dataIndex;
+                            var f = fechasOrdenadas[idx];
+                            var obj = cuotasPorFecha[f];
+                            var clientesStr = obj.clientes.length > 0 ? (' · ' + obj.clientes.join(', ')) : '';
+                            return 'Monto: $' + context.raw.toFixed(2) + ' (' + obj.personasCount + ' pers.' + clientesStr + ')';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#94a3b8', font: { size: 10 } },
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                },
+                y: {
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 10 },
+                        callback: function(v) { return '$' + v; }
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                }
+            }
+        }
+    });
+}
+

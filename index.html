@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.27">
+    <link rel="stylesheet" href="style.css?v=10.29">
 </head>
 <body>
 
@@ -2888,6 +2888,46 @@
             </div>
         </div>
 
+        <!-- PROYECCIÓN DE COBROS A CRÉDITO Y REINVERSIÓN (v10.29) -->
+        <div id="panel-kpi-cobros-credito" class="card" style="margin-top: -6px; margin-bottom: 20px; padding: 16px 18px; border: 1px solid rgba(56, 189, 248, 0.25); background: linear-gradient(145deg, #0b1120 0%, #0d1527 100%); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 16px;">📈</span>
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #f8fafc; letter-spacing: 0.3px;">PROYECCIÓN DE COBROS A CRÉDITO</h4>
+                        <span id="badge-pico-reinversion" style="font-size: 11px; font-weight: 700; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 3px 8px; border-radius: 6px;">Cargando...</span>
+                    </div>
+                    <p style="margin: 4px 0 0 0; font-size: 11.5px; color: #94a3b8;">Volumen de clientes y dinero por cobrar por día para planificar tu reinversión de capital.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="btn-toggle-grafico-cobros" class="btn-system" onclick="toggleGraficaCobrosCredito()" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;">
+                        ▲ Ocultar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mini métricas de crédito -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 12px;">
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 10px 12px;">
+                    <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Por Cobrar Total</span>
+                    <div id="inv-kpi-total-credito-pendiente" style="font-size: 17px; font-weight: 800; color: #38bdf8; margin-top: 2px;">$0.00</div>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 10px 12px;">
+                    <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Cuotas Pendientes</span>
+                    <div id="inv-kpi-cuotas-pendientes-count" style="font-size: 17px; font-weight: 800; color: #f8fafc; margin-top: 2px;">0 cuotas</div>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 10px 12px;">
+                    <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Mayor Cobro en 1 Día</span>
+                    <div id="inv-kpi-mayor-monto-dia" style="font-size: 17px; font-weight: 800; color: #10b981; margin-top: 2px;">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Canvas de la gráfica -->
+            <div id="contenedor-canvas-cobros-credito" style="margin-top: 14px; height: 180px; position: relative;">
+                <canvas id="graficoCobrosCredito"></canvas>
+            </div>
+        </div>
+
         <!-- SELECTOR DE PESTAÑAS (PRODUCTOS EN STOCK, CATEGORÍAS, VENDIDOS) -->
         <div class="tab-category-pill-container" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px;">
             <button id="tab-btn-inv-productos" class="tab-category-pill active" onclick="cambiarTabInventario('productos')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
@@ -4693,25 +4733,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.28"></script>
-    <script src="js/perfil.js?v=10.28"></script>
-    <script src="js/progresion.js?v=10.28"></script>
-    <script src="js/estado-personal.js?v=10.28"></script>
-    <script src="js/finanzas.js?v=10.28"></script>
-    <script src="js/ideas.js?v=10.28"></script>
-    <script src="js/dinamicas.js?v=10.28"></script>
-    <script src="js/calendario.js?v=10.28"></script>
-    <script src="js/inventario.js?v=10.28"></script>
-    <script src="js/jarvis-voz.js?v=10.28"></script>
+    <script src="js/core.js?v=10.29"></script>
+    <script src="js/perfil.js?v=10.29"></script>
+    <script src="js/progresion.js?v=10.29"></script>
+    <script src="js/estado-personal.js?v=10.29"></script>
+    <script src="js/finanzas.js?v=10.29"></script>
+    <script src="js/ideas.js?v=10.29"></script>
+    <script src="js/dinamicas.js?v=10.29"></script>
+    <script src="js/calendario.js?v=10.29"></script>
+    <script src="js/inventario.js?v=10.29"></script>
+    <script src="js/jarvis-voz.js?v=10.29"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.28"></script>
+    <script type="module" src="js/firebase-config.js?v=10.29"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.28')
+                navigator.serviceWorker.register('sw.js?v=10.29')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

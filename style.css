@@ -802,8 +802,9 @@ body.modal-open {
     font-weight: 700;
     color: #f8fafc;
     white-space: normal;
-    word-break: break-word;
-    line-height: 1.3;
+    word-break: normal;
+    overflow-wrap: break-word;
+    line-height: 1.35;
 }
 
 .finanzas-tx-meta {
@@ -829,6 +830,41 @@ body.modal-open {
     font-weight: 800;
     letter-spacing: -0.3px;
     white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+    .finanzas-tx-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 9px;
+        padding: 11px 12px;
+    }
+    .finanzas-tx-main {
+        width: 100%;
+        min-width: 0;
+    }
+    .finanzas-tx-title {
+        font-size: 13px;
+    }
+    .finanzas-tx-right {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border-top: 1px dashed rgba(255, 255, 255, 0.08);
+        padding-top: 8px;
+        margin-top: 2px;
+        flex-wrap: wrap;
+        text-align: left;
+    }
+    .finanzas-tx-monto {
+        font-size: 15px;
+    }
+    .btn-cobrar-ingreso {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
 }
 
 /* Grupos de Categorías de Gastos */
@@ -882,14 +918,23 @@ body.modal-open {
     gap: 8px;
     margin-bottom: 14px;
     background: #0b0e15;
-    padding: 4px;
+    padding: 5px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.finanzas-tabs-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .finanzas-tab-btn {
-    flex: 1;
-    padding: 9px 12px;
+    flex: 1 0 auto;
+    min-width: max-content;
+    padding: 9px 14px;
     border-radius: 9px;
     font-size: 12px;
     font-weight: 700;
@@ -902,6 +947,7 @@ body.modal-open {
     justify-content: center;
     gap: 6px;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .finanzas-tab-btn.active {
@@ -920,11 +966,20 @@ body.modal-open {
     padding: 5px;
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.quincena-selector-bar::-webkit-scrollbar {
+    display: none;
 }
 
 .btn-quincena-tab {
-    flex: 1;
-    padding: 10px 8px;
+    flex: 1 0 auto;
+    min-width: max-content;
+    padding: 10px 12px;
     border-radius: 10px;
     font-size: 12px;
     font-weight: 700;
@@ -942,8 +997,8 @@ body.modal-open {
 
 @media (max-width: 600px) {
     .btn-quincena-tab {
-        font-size: 11px;
-        padding: 8px 4px;
+        font-size: 11.5px;
+        padding: 8px 10px;
     }
 }
 
@@ -1272,22 +1327,32 @@ body.modal-open {
     margin-bottom: 16px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
+    #vista-finanzas > .card {
+        padding: 12px 10px !important;
+    }
+    .finanzas-header-card,
+    .finanzas-section-card {
+        padding: 14px 12px !important;
+        margin-bottom: 14px;
+        border-radius: 14px;
+    }
     .regla-504010-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
     .regla-card {
-        padding: 10px 6px !important;
+        padding: 14px 16px !important;
+        text-align: left;
     }
     .regla-porcentaje {
-        font-size: 18px !important;
+        font-size: 22px !important;
     }
     .regla-monto {
-        font-size: 13px !important;
+        font-size: 16px !important;
     }
     .regla-concepto {
-        font-size: 9px !important;
+        font-size: 12px !important;
     }
 }
 
@@ -6517,6 +6582,9 @@ body.modal-open {
 @media (max-width: 600px) {
     #vista-finanzas {
         padding-bottom: 130px !important;
+        overflow-x: hidden;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 }
 
