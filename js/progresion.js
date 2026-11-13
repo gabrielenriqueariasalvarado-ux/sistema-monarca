@@ -1243,20 +1243,24 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
             : `<strong style="color: #991b1b;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El tiempo ya comenzó a rodar. Si se agota el cronómetro, se te aplicará la penitencia y perderás 30 EXP.`;
     }
 
+    var rutinaAsocId = q.rutinaId || q.rutinaVinculada || null;
+    var btnTexto = rutinaAsocId ? '🏋️ ¡Comenzar Rutina de Entrenamiento!' : '⚔️ ¡Aceptar y Empezar!';
+    var btnColor = esOmitible ? '#111827' : '#991b1b';
+
     if (contAcciones) {
         if (esOmitible) {
             contAcciones.innerHTML = `
                 <button type="button" class="btn-qd-omit" style="flex: 1; padding: 10px 14px; font-size: 12.5px; justify-content: center;" onclick="posponerQuestUnaHora('${q.id}')">
                     ⏸️ Omitir (Sonar en 1 hora)
                 </button>
-                <button type="button" class="btn-system" style="flex: 1; padding: 10px 14px; font-size: 12.5px; justify-content: center; background: #111827; color: #ffffff;" onclick="cerrarAlertaQuestActivada()">
-                    ⚔️ ¡Aceptar y Empezar!
+                <button type="button" class="btn-system" style="flex: 1.3; padding: 10px 14px; font-size: 12.5px; justify-content: center; background: ${btnColor}; color: #ffffff;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
+                    ${btnTexto}
                 </button>
             `;
         } else {
             contAcciones.innerHTML = `
-                <button type="button" class="btn-system" style="width: 100%; padding: 12px 18px; font-size: 13.5px; font-weight: 800; justify-content: center; background: #991b1b; color: #ffffff;" onclick="cerrarAlertaQuestActivada()">
-                    ⚔️ ¡Comenzar Ahora Mismo! (Tiempo Rodando)
+                <button type="button" class="btn-system" style="width: 100%; padding: 12px 18px; font-size: 13.5px; font-weight: 800; justify-content: center; background: #991b1b; color: #ffffff;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
+                    ${btnTexto} (Tiempo Rodando)
                 </button>
             `;
         }
@@ -1268,6 +1272,31 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
 function cerrarAlertaQuestActivada() {
     var modal = document.getElementById('modal-alerta-quest-activada');
     if (modal) modal.style.display = 'none';
+}
+
+function aceptarYEmpezarQuestAlerta(questId) {
+    cerrarAlertaQuestActivada();
+    if (!questId) return;
+
+    var q = null;
+    if (APP_STATE && APP_STATE.questsDiarios) {
+        q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(questId); });
+    }
+
+    if (!q) {
+        cambiarVista('vista-quests-diarios');
+        return;
+    }
+
+    var rutinaId = q.rutinaId || q.rutinaVinculada;
+    if (rutinaId) {
+        iniciarRutinaDesdeHabito(rutinaId, q.id);
+    } else {
+        if (!q.temporizadorActivo && q.estado !== 'completada' && q.estado !== 'penalizada') {
+            iniciarTemporizadorQuest(q.id);
+        }
+        cambiarVista('vista-quests-diarios');
+    }
 }
 
 /**

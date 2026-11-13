@@ -721,35 +721,109 @@ function cambiarVista(vistaId, noPushState) {
     }
 }
 
-// Manejador del botón retroceder de Android / gesto atrás en PWA
-window.addEventListener('popstate', function(event) {
-    // 1. Si hay algún modal abierto, cerrarlo prioritariamente antes de salir
-    var modales = document.querySelectorAll('.modal-overlay, #modal-jarvis-voz, #modal-asistente-rapido');
-    var modalAbierto = null;
+// ==========================================================================
+// GESTOR DE RETROCESO INTELIGENTE (GESTOS ANDROID, PWA Y CAPACITOR v10.28)
+// ==========================================================================
+
+var MONARCA_ULTIMO_BACK_TIMESTAMP = 0;
+
+function mostrarToastRetrocesoSalir() {
+    var toast = document.getElementById('monarca-toast-back-exit');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'monarca-toast-back-exit';
+        toast.style.cssText = 'position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);color:#f8fafc;padding:10px 18px;border-radius:24px;border:1px solid rgba(255,255,255,0.18);font-size:12.5px;font-weight:700;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.6);pointer-events:none;transition:opacity 0.25s ease;display:flex;align-items:center;gap:8px;';
+        toast.innerHTML = '<span>🔙</span> <span>Toca atrás otra vez para salir</span>';
+        document.body.appendChild(toast);
+    }
+    toast.style.opacity = '1';
+    toast.style.display = 'flex';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(function() {
+        toast.style.opacity = '0';
+        setTimeout(function() { toast.style.display = 'none'; }, 260);
+    }, 2200);
+}
+
+function retrocederNavegacionMonarca() {
+    // 1. Cerrar modales abiertos prioritariamente
+    var modales = document.querySelectorAll('.modal-overlay, #modal-jarvis-voz, #modal-asistente-rapido, #modal-alerta-quest-activada, #modal-calentamiento-sesion');
     for (var i = 0; i < modales.length; i++) {
         var m = modales[i];
         if (m && m.style && m.style.display && m.style.display !== 'none') {
-            modalAbierto = m;
-            break;
+            m.style.display = 'none';
+            if (typeof detenerEscuchaJarvis === 'function') {
+                try { detenerEscuchaJarvis(); } catch(e) {}
+            }
+            try {
+                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+            } catch(e) {}
+            return true;
         }
     }
 
-    if (modalAbierto) {
-        modalAbierto.style.display = 'none';
-        if (typeof detenerEscuchaJarvis === 'function') {
-            try { detenerEscuchaJarvis(); } catch(e) {}
+    var vistaActual = window.VISTA_ACTUAL || 'vista-menu';
+
+    // 2. Si está en el detalle de la rutina dinámica, regresar al hub de ejercicios sin destruir la sesión
+    if (vistaActual === 'vista-detalle-rutina-dinamica') {
+        if (typeof guardarEstadoSesionActivaEnStorage === 'function') {
+            try { guardarEstadoSesionActivaEnStorage(); } catch(e) {}
         }
-        // Restaurar estado en historial para mantener alineada la vista actual
+        cambiarVista('vista-ejercicios');
+        return true;
+    }
+
+    // 3. Si está en cualquier subvista secundaria, volver al menú principal
+    if (vistaActual !== 'vista-menu') {
+        cambiarVista('vista-menu');
+        return true;
+    }
+
+    // 4. Si ya está en vista-menu: prevenir cierre accidental mediante doble confirmación (2.2s)
+    var ahora = Date.now();
+    if (ahora - MONARCA_ULTIMO_BACK_TIMESTAMP < 2200) {
+        // Segundo toque consecutivo: permitir salir de la app
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+            try { window.Capacitor.Plugins.App.exitApp(); } catch(e) {}
+        }
+        return false;
+    } else {
+        MONARCA_ULTIMO_BACK_TIMESTAMP = ahora;
+        mostrarToastRetrocesoSalir();
         try {
-            history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+            history.pushState({ vista: 'vista-menu' }, '', '#vista-menu');
         } catch(e) {}
-        return;
+        return true;
     }
+}
 
-    // 2. Si no hay modal abierto, navegar hacia la vista destino del historial
-    var destino = (event.state && event.state.vista) ? event.state.vista : 'vista-menu';
-    cambiarVista(destino, true);
+// Escuchador popstate de gestos del sistema y flecha atrás en navegador / PWA
+window.addEventListener('popstate', function(event) {
+    retrocederNavegacionMonarca();
 });
+
+// Soporte nativo para botón atrás de Android vía Capacitor
+if (typeof window !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            if (!history.state) {
+                history.replaceState({ vista: 'vista-menu' }, '', '#vista-menu');
+                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+            }
+        } catch(e) {}
+
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+            try {
+                window.Capacitor.Plugins.App.addListener('backButton', function(canGoBack) {
+                    retrocederNavegacionMonarca();
+                });
+            } catch(e) {
+                console.warn("[Capacitor BackButton]", e);
+            }
+        }
+    });
+}
+
 
 function verificarRecuperacionMentalDiaria() {
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') {

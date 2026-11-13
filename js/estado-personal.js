@@ -4859,6 +4859,7 @@ function iniciarDescansoGym(segundos) {
     if (boxEl) boxEl.style.display = 'flex';
 
     actualizarDisplayRestTimer();
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 
     ASISTENTE_GYM.intervaloId = setInterval(function() {
         ASISTENTE_GYM.descansoRestante--;
@@ -4875,6 +4876,7 @@ function iniciarDescansoGym(segundos) {
             if (navigator.vibrate) navigator.vibrate([150, 80, 200]);
             var numEl = document.getElementById('rest-timer-num');
             if (numEl) numEl.innerText = "¡A entrenar!";
+            if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
         }
     }, 1000);
 }
@@ -4886,6 +4888,7 @@ function detenerDescansoGym() {
     }
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'none';
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 }
 
 function actualizarDisplayRestTimer() {
@@ -5238,6 +5241,7 @@ function alCambiarCargaSerie(ejIdx, serieNum) {
 
     actualizarBadgeFatigaSerie(ejIdx, serieNum, data);
     actualizarGraficaFatigaSesion();
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 }
 
 function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
@@ -5404,6 +5408,7 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         actualizarBadgeFatigaSerie(ejIdx, serieNum, data);
         actualizarGraficaFatigaSesion();
     }
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 }
 
 function actualizarGraficaFatigaSesion() {
@@ -5817,11 +5822,11 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             <div class="exercise-session-header">
                 <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
                     <span class="exercise-session-number" style="${esSerieCero ? 'background: rgba(168, 85, 247, 0.25); color: #e879f9; border: 1px solid rgba(192, 132, 252, 0.4);' : ''}">${esSerieCero ? '0' : (visualIndex++)}</span>
-                    <div style="min-width: 0;">
-                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; line-height: 1.3; word-break: break-word;">
                             ${esSerieCero ? '🏆 ' : ''}${icono} ${ej.nombre}
                         </div>
-                        <div style="font-size: 11.5px; color: ${esSerieCero ? '#d8b4fe' : '#94a3b8'}; margin-top: 1px;">
+                        <div style="font-size: 11.5px; color: ${esSerieCero ? '#d8b4fe' : '#94a3b8'}; margin-top: 2px; line-height: 1.35; word-break: break-word;">
                             ${subtituloEj}
                         </div>
                     </div>
@@ -5897,12 +5902,12 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                 <div class="series-check-row${esFallo ? ' series-al-fallo' : ''}${esSerieCero ? ' series-serie-cero' : ''}" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
                     <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
                     <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                        <div>
+                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; min-width: 0;">
+                        <div style="min-width: 0; flex: 1;">
                             <span class="series-label${esSerieCero ? ' series-label-cero' : ''}">${esM ? 'SESIÓN COMPLETA' : (esSerieCero ? '🏆 SERIE 0 · SUPERAR RÉCORD' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s)))}</span>
-                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${esSerieCero ? ('🎯 Marca previa: ' + repsInicialesSerie + ' reps · 🏆 Récord histórico: ' + (ej.recordSerieCero || repsInicialesSerie) + ' reps') : (esTiempoEj ? ('⏱️ Objetivo: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''))}</span>
+                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${esSerieCero ? ('🎯 Marca previa: ' + repsInicialesSerie + ' reps · 🏆 Récord: ' + (ej.recordSerieCero || repsInicialesSerie) + ' reps') : (esTiempoEj ? ('⏱️ Objetivo: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''))}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                             ${esSerieCero ? `<span class="series-badge-cero">🏆 RÉCORD: ${ej.recordSerieCero || repsInicialesSerie} REPS</span>` : (esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>')}
                             <button type="button" class="btn-check-serie-hecha" id="btn-check-action-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
                                 <span>✓</span> Marcar Hecha
@@ -5957,7 +5962,8 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
                 </div>` : `
                 <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
-                    <div class="series-dual-controls-wrap">
+                    <div class="series-dual-controls-wrap" style="${esSerieCero || pesoInicialSerie === 0 ? 'justify-content: flex-start; gap: 12px;' : ''}">
+                        ${(!esSerieCero && pesoInicialSerie > 0) || (esSerieCero && pesoInicialSerie > 0) ? `
                         <!-- AJUSTE DE PESO REAL (KG O LB) -->
                         <div style="display: flex; align-items: center; gap: 5px;">
                             <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Carga:</span>
@@ -5967,11 +5973,11 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                                 <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
                             </div>
                             <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
-                        </div>
+                        </div>` : `<input type="hidden" id="input-peso-ej-${ejIdx}-s-${s}" value="0">`}
 
                         <!-- AJUSTE DE REPETICIONES -->
                         <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">🎯 Reps:</span>
+                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">${esSerieCero ? '🏆 Reps Hechas:' : '🎯 Reps:'}</span>
                             <div class="stepper-pill-box">
                                 <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
                                 <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsInicialesSerie}" min="1" max="999" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
@@ -5996,6 +6002,175 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
     });
 
     return html;
+}
+
+// ==========================================================================
+// MOTOR DE PERSISTENCIA INDESTRUCTIBLE DE SESIÓN DE ENTRENAMIENTO (v10.28)
+// ==========================================================================
+
+const MONARCA_SESION_ENTRENAMIENTO_KEY = 'monarca_sesion_entrenamiento_activa';
+
+function guardarEstadoSesionActivaEnStorage() {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return;
+    try {
+        var rutina = RUTINA_ACTIVA.rutina;
+        var rId = rutina.id || rutina.codigo || String(RUTINA_ACTIVA.idx);
+        var seriesData = [];
+
+        if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
+            rutina.ejercicios.forEach(function(ej, ejIdx) {
+                var esM = !!ej.esMental;
+                var esSerieCero = (ej.series === 0 || ej.esSerieCero);
+                var numSeries = esM ? 1 : (esSerieCero ? 1 : Math.max(1, parseInt(ej.series) || 3));
+                for (var s = 1; s <= numSeries; s++) {
+                    var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+                    var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + s);
+                    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + s);
+                    var keyTimer = ejIdx + '_' + s;
+                    var timer = TIMERS_SERIES_ACTIVAS[keyTimer];
+                    seriesData.push({
+                        ejIdx: ejIdx,
+                        s: s,
+                        checked: chk ? !!chk.checked : false,
+                        peso: inPeso ? (parseFloat(inPeso.value) || 0) : null,
+                        reps: inReps ? (parseFloat(inReps.value) || 0) : null,
+                        timerSegs: timer ? timer.segundosAcumulados : null
+                    });
+                }
+            });
+        }
+
+        var descansoData = null;
+        if (ASISTENTE_GYM && (ASISTENTE_GYM.intervaloId || ASISTENTE_GYM.descansoRestante > 0)) {
+            descansoData = {
+                total: ASISTENTE_GYM.descansoTotal || 60,
+                restante: ASISTENTE_GYM.descansoRestante,
+                activo: !!ASISTENTE_GYM.intervaloId,
+                timestampFin: ASISTENTE_GYM.intervaloId ? (Date.now() + (ASISTENTE_GYM.descansoRestante * 1000)) : null
+            };
+        }
+
+        var sesionObj = {
+            rutinaId: rId,
+            rutinaNombre: rutina.nombre,
+            rutinaIdx: RUTINA_ACTIVA.idx,
+            timestampGuardado: Date.now(),
+            seriesData: seriesData,
+            historialFactores: HISTORIAL_FACTOR_SERIES || {},
+            descanso: descansoData
+        };
+
+        localStorage.setItem(MONARCA_SESION_ENTRENAMIENTO_KEY, JSON.stringify(sesionObj));
+    } catch(e) {
+        console.warn("[Sesion Storage Error]", e);
+    }
+}
+
+function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
+    try {
+        var raw = localStorage.getItem(MONARCA_SESION_ENTRENAMIENTO_KEY);
+        if (!raw) return false;
+        var sesion = JSON.parse(raw);
+        if (!sesion || !sesion.rutinaId) return false;
+
+        var coincide = (String(sesion.rutinaId) === String(rutinaIdOIdx) || String(sesion.rutinaIdx) === String(rutinaIdOIdx));
+        if (!coincide && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) {
+            var curId = RUTINA_ACTIVA.rutina.id || RUTINA_ACTIVA.rutina.codigo || String(RUTINA_ACTIVA.idx);
+            if (String(curId) === String(sesion.rutinaId)) coincide = true;
+        }
+        if (!coincide) return false;
+
+        if (sesion.historialFactores) {
+            HISTORIAL_FACTOR_SERIES = sesion.historialFactores;
+        }
+
+        if (Array.isArray(sesion.seriesData)) {
+            sesion.seriesData.forEach(function(item) {
+                var ejIdx = item.ejIdx;
+                var s = item.s;
+                var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+                var row = document.getElementById('row-ej-' + ejIdx + '-s-' + s);
+                var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + s);
+                var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + s);
+                var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + s);
+                var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + s);
+                var targetEl = document.getElementById('target-ej-' + ejIdx + '-s-' + s);
+                var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + s);
+                var panelTimer = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + s);
+
+                if (inPeso && item.peso != null) inPeso.value = item.peso;
+                if (inReps && item.reps != null) inReps.value = item.reps;
+
+                if (chk && item.checked) {
+                    chk.checked = true;
+                    if (row) row.classList.add('checked-active');
+                    if (ind) ind.classList.add('checked');
+                    if (panelReps) panelReps.style.display = 'none';
+                    if (panelTimer) panelTimer.style.display = 'none';
+                    if (btnAction) {
+                        btnAction.classList.add('active');
+                        btnAction.innerHTML = '<span>✓</span> Completada <span style="font-size: 10px; margin-left: 5px; opacity: 0.8; text-decoration: underline;" onclick="editarSerieYaHecha(event, ' + ejIdx + ', ' + s + ')">Editar</span>';
+                    }
+                    var data = calcularFactorSerie(ejIdx, s);
+                    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+                    var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
+                    if (targetEl) {
+                        if (data.esTiempo) {
+                            var lastreTxt = data.pesoReal > 0 ? (' · Lastre: ' + data.pesoReal + ' ' + uPeso) : '';
+                            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+                        } else {
+                            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+                        }
+                    }
+                }
+            });
+        }
+
+        // Restaurar descanso si aún tiene tiempo corriendo
+        if (sesion.descanso && sesion.descanso.timestampFin) {
+            var segsRestantes = Math.round((sesion.descanso.timestampFin - Date.now()) / 1000);
+            if (segsRestantes > 0) {
+                iniciarDescansoGym(segsRestantes);
+            }
+        }
+
+        actualizarProgresoRutinaDinamica();
+        actualizarGraficaFatigaSesion();
+        return true;
+    } catch(e) {
+        console.warn("[Restaurar Sesion Error]", e);
+        return false;
+    }
+}
+
+function limpiarSesionActivaStorage() {
+    try {
+        localStorage.removeItem(MONARCA_SESION_ENTRENAMIENTO_KEY);
+    } catch(e) {}
+}
+
+function toggleTelemetriaRutinaSesion() {
+    var cont = document.getElementById('contenedor-canvas-fatiga-rutina');
+    var btn = document.getElementById('btn-toggle-telemetria-rutina');
+    if (!cont) return;
+    if (cont.style.display === 'none') {
+        cont.style.display = 'block';
+        if (btn) btn.innerHTML = '▲ Ocultar';
+        actualizarGraficaFatigaSesion();
+    } else {
+        cont.style.display = 'none';
+        if (btn) btn.innerHTML = '▼ Ver Gráfica';
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', guardarEstadoSesionActivaEnStorage);
+    window.addEventListener('pagehide', guardarEstadoSesionActivaEnStorage);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') {
+            guardarEstadoSesionActivaEnStorage();
+        }
+    });
 }
 
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
@@ -6056,18 +6231,21 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
         cont.innerHTML = '<p style="color: #ef4444; padding: 20px; text-align: center;">Error al cargar ejercicios: ' + err.message + '</p>';
     }
 
+    var sesionRestaurada = restaurarEstadoSesionActivaDeStorage(idxOrId);
+
     if (CHART_FATIGA_RUTINA_SESION) {
         CHART_FATIGA_RUTINA_SESION.destroy();
         CHART_FATIGA_RUTINA_SESION = null;
     }
     actualizarGraficaFatigaSesion();
 
-    if (!omitirAutoCalentamiento) {
+    if (!omitirAutoCalentamiento && !sesionRestaurada) {
         setTimeout(function() {
             iniciarCalentamientoAutomatico();
         }, 120);
     }
 }
+
 
 function actualizarProgresoRutinaDinamica() {
     var checks = document.querySelectorAll('.check-rutina-din');
@@ -6507,6 +6685,7 @@ function ejecutarRutinaDinamica() {
 
     sumarExp(60);
     limpiarTodosLosTimersSeries();
+    limpiarSesionActivaStorage();
     MonarcaDB.save(APP_STATE);
 
     var msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
