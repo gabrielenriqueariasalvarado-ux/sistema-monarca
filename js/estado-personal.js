@@ -3599,14 +3599,23 @@ function actualizarContadorEjerciciosSeleccionadosRutina() {
     var total = checkFisicos + checkMentales;
     var badge = document.getElementById('contador-ejercicios-rutina-sel');
     if (badge) {
-        badge.innerText = total + (total === 1 ? ' seleccionado' : ' seleccionados');
+        badge.innerHTML = total + (total === 1 ? ' agregado 👁️' : ' agregados 👁️');
         if (total > 0) {
             badge.style.background = 'rgba(56, 189, 248, 0.22)';
             badge.style.borderColor = '#38bdf8';
+            badge.style.color = '#38bdf8';
         } else {
             badge.style.background = 'rgba(56, 189, 248, 0.12)';
             badge.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+            badge.style.color = '#94a3b8';
         }
+    }
+    var countPill = document.getElementById('count-pill-sel');
+    if (countPill) countPill.innerText = total;
+
+    // Si estamos en la pestaña 'seleccionados', actualizar la lista inmediatamente
+    if (SUBFILTRO_RUTINA_MODAL_ACTIVO === 'seleccionados') {
+        filtrarEjerciciosModalRutina();
     }
 }
 
@@ -3617,8 +3626,8 @@ function seleccionarCategoriaModalRutina(cat, btnElem) {
     if (btnElem) {
         btnElem.classList.add('active');
     } else {
-        var defaultPill = document.querySelector('.rutina-cat-pill[data-cat="' + SUBFILTRO_RUTINA_MODAL_ACTIVO + '"]');
-        if (defaultPill) defaultPill.classList.add('active');
+        var targetPill = document.querySelector('.rutina-cat-pill[data-cat="' + SUBFILTRO_RUTINA_MODAL_ACTIVO + '"]');
+        if (targetPill) targetPill.classList.add('active');
     }
     filtrarEjerciciosModalRutina();
 }
@@ -3645,8 +3654,14 @@ function filtrarEjerciciosModalRutina() {
         var card = document.getElementById('card_ej_rutina_' + ej.id);
         if (!card) return;
 
-        // Categoría anatómica con umbral biomecánico (> 5% o músculo principal)
-        var coincideCat = ejercicioCoincideSubfiltroFisico(ej, sub);
+        var coincideCat = false;
+        if (sub === 'seleccionados') {
+            var chk = document.getElementById('chk_rutina_' + ej.id);
+            coincideCat = !!(chk && chk.checked);
+        } else {
+            // Categoría anatómica con umbral biomecánico (> 5% o músculo principal)
+            coincideCat = ejercicioCoincideSubfiltroFisico(ej, sub);
+        }
 
         // Búsqueda por texto (nombre, implemento, zonas, categorías)
         var coincideQuery = true;
@@ -3671,10 +3686,22 @@ function filtrarEjerciciosModalRutina() {
     eMentales.forEach(function(ec) {
         var cardM = document.getElementById('card_ej_mental_' + ec.id);
         if (!cardM) return;
-        if (sub !== 'todos') {
+        
+        var coincideCatM = false;
+        if (sub === 'seleccionados') {
+            var chkM = document.querySelector('input[name="ejercicios_mentales_rutina_check"][value="' + ec.id + '"]');
+            coincideCatM = !!(chkM && chkM.checked);
+        } else if (sub === 'todos') {
+            coincideCatM = true;
+        } else {
+            coincideCatM = false;
+        }
+
+        if (!coincideCatM) {
             cardM.style.display = 'none';
             return;
         }
+
         var coincideQuery = true;
         if (normQuery) {
             var nom = String(ec.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -3697,29 +3724,60 @@ function filtrarEjerciciosModalRutina() {
             noRes = document.createElement('div');
             noRes.id = 'modal-rutina-sin-resultados';
             noRes.style.cssText = 'color: #94a3b8; font-size: 12.5px; text-align: center; padding: 25px 10px; display: none;';
-            noRes.innerHTML = '🔍 No se encontraron ejercicios que coincidan con este filtro.';
             contCheck.appendChild(noRes);
         }
     }
     if (noRes) {
-        noRes.style.display = visibles === 0 ? 'block' : 'none';
+        if (visibles === 0) {
+            noRes.style.display = 'block';
+            if (sub === 'seleccionados') {
+                noRes.innerHTML = '📋 <strong>No tienes ejercicios agregados aún.</strong><br><span style="font-size:11.5px; color:#64748b; margin-top:4px; display:inline-block;">Selecciona la pestaña <em>"Todos"</em> o una categoría muscular y marca las casillas para incluir ejercicios en esta rutina.</span>';
+            } else {
+                noRes.innerHTML = '🔍 No se encontraron ejercicios que coincidan con este filtro.';
+            }
+        } else {
+            noRes.style.display = 'none';
+        }
     }
 }
 
 function toggleAlFalloEjercicio(ejId) {
-    var btn = document.getElementById('btn_fallo_rutina_' + ejId);
-    var box = document.getElementById('dropset_preview_' + ejId);
-    if (!btn || !box) return;
+    var btnFallo = document.getElementById('btn_fallo_rutina_' + ejId);
+    var boxFallo = document.getElementById('dropset_preview_' + ejId);
+    var btnCero = document.getElementById('btn_serie_cero_' + ejId);
+    var bannerCero = document.getElementById('banner_serie_cero_' + ejId);
+    var inS = document.getElementById('series_rutina_custom_' + ejId);
+    var inP = document.getElementById('peso_rutina_custom_' + ejId);
+    var card = document.getElementById('card_ej_rutina_' + ejId);
+    if (!btnFallo || !boxFallo) return;
 
-    var estabaActivo = btn.classList.contains('active');
+    var estabaActivo = btnFallo.classList.contains('active');
     if (estabaActivo) {
-        btn.classList.remove('active');
-        btn.innerHTML = '🔥 Al Fallo (Dropset)';
-        box.style.display = 'none';
+        btnFallo.classList.remove('active');
+        boxFallo.style.display = 'none';
+        if (card) card.classList.remove('mode-fallo-active');
     } else {
-        btn.classList.add('active');
-        btn.innerHTML = '🔥 Al Fallo ACTIVO';
-        box.style.display = 'block';
+        // 1. Activar Al Fallo
+        btnFallo.classList.add('active');
+        boxFallo.style.display = 'block';
+        if (card) {
+            card.classList.add('mode-fallo-active');
+            card.classList.remove('mode-serie-cero-active');
+        }
+
+        // 2. DESACTIVAR FORZOSAMENTE SERIE 0 (Son mutuamente excluyentes)
+        if (btnCero) btnCero.classList.remove('active');
+        if (bannerCero) bannerCero.style.display = 'none';
+
+        // Restaurar series a mínimo 1 o 3 si estaban en 0
+        var ejCat = (APP_STATE.ejercicios || []).find(function(e) { return e && String(e.id) === String(ejId); });
+        if (inS && parseInt(inS.value) === 0) {
+            inS.value = (ejCat && ejCat.series && ejCat.series > 0) ? ejCat.series : 3;
+        }
+        if (inP && (parseFloat(inP.value) === 0 || isNaN(parseFloat(inP.value)))) {
+            inP.value = (ejCat && ejCat.peso != null && ejCat.peso > 0) ? ejCat.peso : 80;
+        }
+
         recalcularDropsetEjercicio(ejId);
     }
 }
@@ -3735,7 +3793,7 @@ function recalcularDropsetEjercicio(ejId) {
     var html = `
         <div class="dropset-preview-header">
             <span>🔥 ÚLTIMA SERIE: DROIPSET DE 4 ETAPAS AL FALLO</span>
-            <span style="color:#38bdf8; font-weight:800;">${peso} kg Base</span>
+            <span style="color:#fbbf24; font-weight:800;">${peso} kg Base</span>
         </div>
         <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 6px;">
             Al agotar las reps con ${peso} kg, desciende peso de inmediato en 4 etapas sin descanso:
@@ -3817,7 +3875,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                     <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                         <label style="display: flex; align-items: flex-start; gap: 10px; flex: 1; cursor: pointer; margin: 0;">
                             <input type="checkbox" name="ejercicios_rutina_check" value="${ej.id}" id="chk_rutina_${ej.id}" onchange="alCambiarCheckEjercicioRutina('${ej.id}')" style="margin-top: 3px; width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
-                            <div style="flex: 1;">
+                            <div style="flex: 1; min-width: 0;">
                                 <strong class="routine-checklist-title">${ej.nombre}</strong>
                                 <div class="routine-checklist-badges-row">
                                     ${badgesHtml}
@@ -3826,34 +3884,53 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                         </label>
                     </div>
 
-                    <!-- CONTROLES: SERIES, REPS O TIEMPO POR SERIE, PESO BASE, SERIE 0 Y AL FALLO -->
-                    <div class="routine-exercise-controls-row">
-                        <div class="control-pill-group control-pill-series">
-                            <span class="control-pill-label control-pill-label-series">Series:</span>
-                            <input type="number" id="series_rutina_custom_${ej.id}" min="0" max="50" value="${seriesDefault}" class="input-routine-stat input-routine-stat-series" oninput="alCambiarInputSeriesRutina('${ej.id}')">
+                    <!-- PANEL DE PARÁMETROS Y MODALIDADES -->
+                    <div class="routine-controls-container">
+                        <!-- 1. PARÁMETROS NUMÉRICOS (SERIES, REPS O SEGS, PESO) -->
+                        <div class="routine-stats-grid">
+                            <div class="stat-pill-box stat-pill-series">
+                                <span class="stat-pill-label stat-pill-label-series">SERIES</span>
+                                <input type="number" id="series_rutina_custom_${ej.id}" min="0" max="50" value="${seriesDefault}" class="input-routine-stat input-routine-stat-series" oninput="alCambiarInputSeriesRutina('${ej.id}')">
+                            </div>
+
+                            <div class="stat-pill-box stat-pill-reps">
+                                <span class="stat-pill-label stat-pill-label-reps">${labelReps.replace(':', '')}</span>
+                                <input type="number" id="reps_rutina_custom_${ej.id}" min="1" max="${esTiempoEj ? 3600 : 999}" value="${repsDefault}" class="input-routine-stat input-routine-stat-reps">
+                            </div>
+
+                            <div class="stat-pill-box stat-pill-peso">
+                                <span class="stat-pill-label stat-pill-label-peso">PESO (${uPeso.toUpperCase()})</span>
+                                <input type="number" id="peso_rutina_custom_${ej.id}" min="0" max="999" step="2.5" value="${pesoDefault}" class="input-routine-stat input-routine-stat-peso" oninput="recalcularDropsetEjercicio('${ej.id}')">
+                            </div>
                         </div>
 
-                        <div class="control-pill-group control-pill-reps">
-                            <span class="control-pill-label control-pill-label-reps">${labelReps}</span>
-                            <input type="number" id="reps_rutina_custom_${ej.id}" min="1" max="${esTiempoEj ? 3600 : 999}" value="${repsDefault}" class="input-routine-stat input-routine-stat-reps">
+                        <!-- 2. SELECTOR DE MODALIDAD EXCLUYENTE (SERIE 0 vs AL FALLO) -->
+                        <div class="routine-modes-row">
+                            <span class="routine-mode-title">MODALIDAD:</span>
+                            <div class="routine-mode-btn-wrap">
+                                <button type="button" id="btn_serie_cero_${ej.id}" class="btn-mode-toggle btn-mode-serie-cero" onclick="toggleSerieCeroRutina('${ej.id}')" title="Modo Récord: 1 serie abierta sin peso fijado para romper tu récord personal de repeticiones">
+                                    🏆 Serie 0 (Récord)
+                                </button>
+                                <button type="button" id="btn_fallo_rutina_${ej.id}" class="btn-mode-toggle btn-mode-fallo" onclick="toggleAlFalloEjercicio('${ej.id}')" title="Dropset al Fallo: Agotar las series y rematar con dropset de 4 etapas al vaciamiento muscular">
+                                    🔥 Al Fallo (Dropset)
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="control-pill-group control-pill-peso">
-                            <span class="control-pill-label control-pill-label-peso">Peso (${uPeso}):</span>
-                            <input type="number" id="peso_rutina_custom_${ej.id}" min="0" max="999" step="2.5" value="${pesoDefault}" class="input-routine-stat input-routine-stat-peso" oninput="recalcularDropsetEjercicio('${ej.id}')">
+                        <!-- BANNER DE SERIE 0 CUANDO ESTÁ ACTIVO -->
+                        <div id="banner_serie_cero_${ej.id}" class="serie-cero-info-banner" style="display: none;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                <span style="font-weight: 800; font-size: 11px; color: #c084fc;">🏆 MODO RÉCORD: 1 SERIE AL MÁXIMO</span>
+                                <span style="font-size: 10.5px; color: #e9d5ff; font-weight: 700;">Base: Autocarga / 0 kg</span>
+                            </div>
+                            <div style="font-size: 11px; color: #d8b4fe; margin-top: 3px;">
+                                Serie única abierta para superar tu marca histórica. Al finalizar la sesión se guardará tu nuevo récord.
+                            </div>
                         </div>
 
-                        <button type="button" id="btn_serie_cero_${ej.id}" class="btn-toggle-serie-cero" onclick="toggleSerieCeroRutina('${ej.id}')" title="Modo Récord: 1 serie abierta para superar tu marca máxima de repeticiones">
-                            🏆 Serie 0
-                        </button>
-
-                        <button type="button" id="btn_fallo_rutina_${ej.id}" class="btn-toggle-fallo" onclick="toggleAlFalloEjercicio('${ej.id}')">
-                            🔥 Al Fallo
-                        </button>
+                        <!-- DESGLOSE DROIPSET AL FALLO EN 4 ETAPAS -->
+                        <div id="dropset_preview_${ej.id}" class="dropset-preview-box" style="display: none;"></div>
                     </div>
-
-                    <!-- DESGLOSE DROIPSET AL FALLO EN 4 ETAPAS -->
-                    <div id="dropset_preview_${ej.id}" class="dropset-preview-box" style="display: none;"></div>
                 </div>`;
             });
         }
@@ -3893,6 +3970,9 @@ function toggleSerieCeroRutina(ejId, forzarEstado) {
     var inR = document.getElementById('reps_rutina_custom_' + ejId);
     var inP = document.getElementById('peso_rutina_custom_' + ejId);
     var btnCero = document.getElementById('btn_serie_cero_' + ejId);
+    var btnFallo = document.getElementById('btn_fallo_rutina_' + ejId);
+    var boxFallo = document.getElementById('dropset_preview_' + ejId);
+    var bannerCero = document.getElementById('banner_serie_cero_' + ejId);
     var card = document.getElementById('card_ej_rutina_' + ejId);
     if (!btnCero) return;
 
@@ -3900,30 +3980,41 @@ function toggleSerieCeroRutina(ejId, forzarEstado) {
     var ejCat = (APP_STATE.ejercicios || []).find(function(e) { return e && String(e.id) === String(ejId); });
 
     if (nuevoEstado) {
+        // 1. Activar Serie 0
         btnCero.classList.add('active');
-        if (inS) inS.value = 0;
-        if (inP) {
-            // Peso en 0 o último peso trabajado en serie 0
-            inP.value = (ejCat && ejCat.ultimoPesoSerieCero != null) ? ejCat.ultimoPesoSerieCero : 0;
+        if (bannerCero) bannerCero.style.display = 'block';
+        if (card) {
+            card.classList.add('serie-cero-card-active');
+            card.classList.remove('mode-fallo-active');
         }
+
+        // 2. DESACTIVAR FORZOSAMENTE AL FALLO (Mutuamente excluyentes)
+        if (btnFallo) btnFallo.classList.remove('active');
+        if (boxFallo) boxFallo.style.display = 'none';
+
+        // 3. Fijar series en 0 y peso en 0 (autocarga)
+        if (inS) inS.value = 0;
+        if (inP) inP.value = (ejCat && ejCat.ultimoPesoSerieCero != null) ? ejCat.ultimoPesoSerieCero : 0;
         if (inR) {
-            // Cargar repeticiones de la última vez o récord
             var repsGuardadas = (ejCat && (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero)) ? (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero) : (ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10);
             inR.value = repsGuardadas;
         }
-        if (card) card.classList.add('serie-cero-card-active');
     } else {
+        // Desactivar Serie 0
         btnCero.classList.remove('active');
-        if (inS) inS.value = (ejCat && ejCat.series && ejCat.series > 0) ? ejCat.series : 3;
-        if (inP) {
+        if (bannerCero) bannerCero.style.display = 'none';
+        if (card) card.classList.remove('serie-cero-card-active');
+
+        if (inS && parseInt(inS.value) === 0) {
+            inS.value = (ejCat && ejCat.series && ejCat.series > 0) ? ejCat.series : 3;
+        }
+        if (inP && parseFloat(inP.value) === 0) {
             inP.value = (ejCat && ejCat.peso != null) ? ejCat.peso : ((ejCat && ejCat.tipo === 'calistenia') ? 0 : 80);
         }
         if (inR) {
             inR.value = ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10;
         }
-        if (card) card.classList.remove('serie-cero-card-active');
     }
-    recalcularDropsetEjercicio(ejId);
 }
 
 function alCambiarInputSeriesRutina(ejId) {
@@ -4056,14 +4147,25 @@ function abrirModalEditarRutina(rutinaIdOIdx, event) {
                         inR.value = repsV;
                     }
                     if (inP) inP.value = (ejRut.peso != null) ? ejRut.peso : 0;
-                    if (btnF && ejRut.alFallo) {
+                    if (esCero) {
+                        if (btnCero) {
+                            btnCero.classList.add('active');
+                            var card = document.getElementById('card_ej_rutina_' + ejRut.id);
+                            if (card) {
+                                card.classList.add('serie-cero-card-active');
+                                card.classList.remove('mode-fallo-active');
+                            }
+                            var bannerCero = document.getElementById('banner_serie_cero_' + ejRut.id);
+                            if (bannerCero) bannerCero.style.display = 'block';
+                        }
+                        if (btnF) btnF.classList.remove('active');
+                    } else if (btnF && ejRut.alFallo) {
                         btnF.classList.add('active');
+                        var cardF = document.getElementById('card_ej_rutina_' + ejRut.id);
+                        if (cardF) cardF.classList.add('mode-fallo-active');
                         recalcularDropsetEjercicio(ejRut.id);
-                    }
-                    if (btnCero && esCero) {
-                        btnCero.classList.add('active');
-                        var card = document.getElementById('card_ej_rutina_' + ejRut.id);
-                        if (card) card.classList.add('serie-cero-card-active');
+                        var boxF = document.getElementById('dropset_preview_' + ejRut.id);
+                        if (boxF) boxF.style.display = 'block';
                     }
                 }
             }
@@ -4131,7 +4233,7 @@ function confirmarAgregarRutina() {
             var customReps = inCustomReps ? (parseFloat(inCustomReps.value) || repsDefault) : repsDefault;
             var customPeso = inCustomPeso ? (parseFloat(inCustomPeso.value) || 0) : (e.peso || 0);
             if (esSerieCero && customPeso === 80) customPeso = 0;
-            var esAlFallo = btnFallo ? btnFallo.classList.contains('active') : false;
+            var esAlFallo = (!esSerieCero && btnFallo) ? btnFallo.classList.contains('active') : false;
 
             item.modalidadEsfuerzo = esTiempoEj ? 'tiempo' : 'repeticiones';
             item.tiempoSegundos = esTiempoEj ? customReps : 0;
@@ -4143,9 +4245,9 @@ function confirmarAgregarRutina() {
             item.ultimoPesoSerieCero = e.ultimoPesoSerieCero || item.ultimoPesoSerieCero || customPeso;
             item.repeticionesPromedio = customReps;
             item.repeticiones = esTiempoEj ? (customReps + 's isométrico (' + formatearTiempoMMSS(customReps) + ')') : (customReps + ' reps');
-            item.peso = customPeso;
+            item.peso = esSerieCero ? 0 : customPeso;
             item.alFallo = esAlFallo;
-            if (esAlFallo) {
+            if (esAlFallo && !esSerieCero) {
                 item.dropset = {
                     activo: true,
                     pesoInicial: customPeso,

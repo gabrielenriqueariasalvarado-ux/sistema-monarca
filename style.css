@@ -8049,15 +8049,45 @@ body.modal-open {
     color: #38bdf8;
     box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
 }
+.rutina-cat-pill-sel {
+    background: rgba(56, 189, 248, 0.1) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: #38bdf8 !important;
+    font-weight: 800 !important;
+}
+
+.rutina-cat-pill-sel:hover {
+    background: rgba(56, 189, 248, 0.2) !important;
+    border-color: #38bdf8 !important;
+    color: #f0f9ff !important;
+}
+
+.rutina-cat-pill-sel.active {
+    background: rgba(56, 189, 248, 0.28) !important;
+    border-color: #38bdf8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.45) !important;
+}
+
 .badge-sel-rutina-count {
     font-size: 10.5px;
     font-weight: 800;
-    padding: 2px 8px;
+    padding: 2.5px 9px;
     border-radius: 12px;
     background: rgba(56, 189, 248, 0.12);
     border: 1px solid rgba(56, 189, 248, 0.3);
     color: #38bdf8;
     letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.badge-sel-rutina-count:hover {
+    background: rgba(56, 189, 248, 0.28) !important;
+    border-color: #38bdf8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
 }
 
 /* Contenedor de checklist de ejercicios */
@@ -8137,120 +8167,205 @@ body.modal-open {
 }
 
 /* Fila de controles de series, peso, reps y al fallo */
-.routine-exercise-controls-row {
+/* Controles de ejercicio en modal de rutina */
+.routine-controls-container {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.routine-stats-grid {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.stat-pill-box {
+    display: flex;
+    flex-direction: column;
+    background: #060911;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 4px 8px;
+    min-width: 75px;
+    flex: 1;
+    max-width: 140px;
+    transition: all 0.2s ease;
+}
+
+.stat-pill-box:focus-within {
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    background: #090e1a;
+}
+
+.stat-pill-series:focus-within {
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.stat-pill-reps:focus-within {
+    border-color: #34d399;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+}
+
+.stat-pill-peso:focus-within {
+    border-color: #fbbf24;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.stat-pill-label {
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.stat-pill-label-series {
+    color: #38bdf8;
+}
+
+.stat-pill-label-reps {
+    color: #34d399;
+}
+
+.stat-pill-label-peso {
+    color: #fbbf24;
+}
+
+.input-routine-stat {
+    width: 100%;
+    background: transparent;
+    border: none;
+    font-weight: 800;
+    font-size: 14px;
+    color: #f8fafc;
+    outline: none;
+    font-family: inherit;
+    padding: 1px 0;
+}
+
+.input-routine-stat-series {
+    color: #38bdf8;
+}
+
+.input-routine-stat-reps {
+    color: #34d399;
+}
+
+.input-routine-stat-peso {
+    color: #fbbf24;
+}
+
+/* Fila de modalidades exclusivas (Serie 0 vs Al Fallo) */
+.routine-modes-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+.routine-mode-title {
+    font-size: 10px;
+    font-weight: 800;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.routine-mode-btn-wrap {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
-    margin-top: 9px;
-    padding-top: 8px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.07);
+    flex: 1;
 }
 
-.control-pill-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: #080b13;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 7px;
-    padding: 3px 7px;
-    transition: all 0.2s ease;
-}
-.control-pill-series:focus-within {
-    border-color: #38bdf8;
-    box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
-}
-.control-pill-reps:focus-within {
-    border-color: #34d399;
-    box-shadow: 0 0 8px rgba(52, 211, 153, 0.25);
-}
-.control-pill-peso:focus-within {
-    border-color: #fbbf24;
-    box-shadow: 0 0 8px rgba(251, 191, 36, 0.25);
-}
-
-.control-pill-label {
-    font-size: 10px;
-    font-weight: 800;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-.control-pill-label-reps {
-    color: #34d399;
-}
-.control-pill-label-peso {
-    color: #fbbf24;
-}
-.control-pill-label-series {
-    color: #38bdf8;
-}
-
-.input-routine-stat {
-    width: 44px;
-    padding: 2px 4px;
-    background: transparent;
-    border: none;
-    border-bottom: 1.5px solid transparent;
-    font-weight: 800;
-    font-size: 12.5px;
-    text-align: center;
-    outline: none;
-    font-family: inherit;
-}
-.input-routine-stat-series {
-    color: #38bdf8;
-    border-bottom-color: rgba(56, 189, 248, 0.5);
-}
-.input-routine-stat-reps {
-    color: #34d399;
-    border-bottom-color: rgba(52, 211, 153, 0.5);
-}
-.input-routine-stat-peso {
-    color: #fbbf24;
-    border-bottom-color: rgba(251, 191, 36, 0.5);
-    width: 52px;
-}
-
-.btn-toggle-fallo {
+.btn-mode-toggle {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 10px;
+    padding: 5px 10px;
     border-radius: 7px;
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
-    background: #080b13;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: #090d18;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     color: #94a3b8;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
 }
 
-.btn-toggle-fallo:hover {
-    border-color: #f59e0b;
-    color: #fbbf24;
+.btn-mode-toggle:hover {
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
 }
 
-.btn-toggle-fallo.active {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(239, 68, 68, 0.35));
+.btn-mode-serie-cero:hover {
+    border-color: #c084fc;
+    color: #e9d5ff;
+}
+
+.btn-mode-serie-cero.active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(217, 70, 239, 0.2)) !important;
+    border-color: #c084fc !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(192, 132, 252, 0.45) !important;
+}
+
+.btn-mode-fallo:hover {
     border-color: #f59e0b;
-    color: #fbbf24;
-    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+}
+
+.btn-mode-fallo.active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(239, 68, 68, 0.25)) !important;
+    border-color: #f59e0b !important;
+    color: #fbbf24 !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.45) !important;
+}
+
+/* Banner de Serie 0 */
+.serie-cero-info-banner {
+    padding: 8px 10px;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(192, 132, 252, 0.3);
+    border-radius: 8px;
+    animation: fadeInMode 0.2s ease-out;
+}
+
+.routine-checklist-card.serie-cero-card-active {
+    border-color: rgba(192, 132, 252, 0.5) !important;
+    border-left: 4px solid #c084fc !important;
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.12) !important;
+}
+
+.routine-checklist-card.mode-fallo-active {
+    border-color: rgba(245, 158, 11, 0.5) !important;
+    border-left: 4px solid #f59e0b !important;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12) !important;
 }
 
 .dropset-preview-box {
-    margin-top: 10px;
     padding: 10px 12px;
-    background: #090c13;
+    background: #070a13;
     border: 1px solid rgba(245, 158, 11, 0.35);
-    border-radius: 10px;
-    animation: fadeInDropset 0.2s ease-out;
+    border-radius: 8px;
+    animation: fadeInMode 0.2s ease-out;
 }
 
-@keyframes fadeInDropset {
+@keyframes fadeInMode {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
 }
@@ -8988,7 +9103,8 @@ body.modal-open {
 }
 
 /* Botón Toggle Serie 0 (Récord) en modal de rutina */
-.btn-toggle-serie-cero {
+.btn-toggle-serie-cero,
+.btn-mode-serie-cero {
     background: rgba(192, 132, 252, 0.1) !important;
     border: 1px solid rgba(192, 132, 252, 0.3) !important;
     color: #d8b4fe !important;
@@ -8996,7 +9112,7 @@ body.modal-open {
     font-weight: 800 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
-    padding: 5px 9px !important;
+    padding: 5px 10px !important;
     border-radius: 7px !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
@@ -9005,13 +9121,16 @@ body.modal-open {
     gap: 4px !important;
 }
 
-.btn-toggle-serie-cero:hover {
+.btn-toggle-serie-cero:hover,
+.btn-mode-serie-cero:hover {
     background: rgba(192, 132, 252, 0.2) !important;
     border-color: #c084fc !important;
     color: #f3e8ff !important;
+    transform: translateY(-1px) !important;
 }
 
-.btn-toggle-serie-cero.active {
+.btn-toggle-serie-cero.active,
+.btn-mode-serie-cero.active {
     background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(217, 70, 239, 0.25)) !important;
     border-color: #c084fc !important;
     color: #ffffff !important;

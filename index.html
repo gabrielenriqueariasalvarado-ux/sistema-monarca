@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.26">
+    <link rel="stylesheet" href="style.css?v=10.27">
 </head>
 <body>
 
@@ -2177,8 +2177,8 @@
                     <label style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                         <span style="font-weight: 700; color: #f8fafc; font-size: 13px;">Seleccionar Ejercicios para esta Rutina:</span>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 11px; color: #94a3b8;">Configura series, reps, peso y fallo</span>
-                            <span id="contador-ejercicios-rutina-sel" class="badge-sel-rutina-count">0 seleccionados</span>
+                            <span style="font-size: 11px; color: #94a3b8;">Configura series, reps, peso y modalidad</span>
+                            <span id="contador-ejercicios-rutina-sel" class="badge-sel-rutina-count" onclick="seleccionarCategoriaModalRutina('seleccionados')" style="cursor: pointer;" title="Clic para ver sólo los ejercicios agregados a esta rutina">0 seleccionados 👁️</span>
                         </div>
                     </label>
 
@@ -2192,6 +2192,7 @@
                     <!-- SUBFILTROS DE CATEGORÍAS ANATÓMICAS DESLIZABLES -->
                     <div class="rutina-categorias-scroll-wrapper" id="rutina-categorias-scroll-wrapper">
                         <button type="button" class="rutina-cat-pill active" data-cat="todos" onclick="seleccionarCategoriaModalRutina('todos', this)">Todos</button>
+                        <button type="button" class="rutina-cat-pill rutina-cat-pill-sel" data-cat="seleccionados" id="pill-rutina-seleccionados" onclick="seleccionarCategoriaModalRutina('seleccionados', this)" title="Ver únicamente los ejercicios seleccionados para esta rutina">✅ Agregados (<span id="count-pill-sel">0</span>)</button>
                         <button type="button" class="rutina-cat-pill" data-cat="pecho" onclick="seleccionarCategoriaModalRutina('pecho', this)">⚔️ Pecho</button>
                         <button type="button" class="rutina-cat-pill" data-cat="espalda" onclick="seleccionarCategoriaModalRutina('espalda', this)">🦅 Espalda</button>
                         <button type="button" class="rutina-cat-pill" data-cat="hombros" onclick="seleccionarCategoriaModalRutina('hombros', this)">🛡️ Hombros</button>
@@ -4689,25 +4690,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.26"></script>
-    <script src="js/perfil.js?v=10.26"></script>
-    <script src="js/progresion.js?v=10.26"></script>
-    <script src="js/estado-personal.js?v=10.26"></script>
-    <script src="js/finanzas.js?v=10.26"></script>
-    <script src="js/ideas.js?v=10.26"></script>
-    <script src="js/dinamicas.js?v=10.26"></script>
-    <script src="js/calendario.js?v=10.26"></script>
-    <script src="js/inventario.js?v=10.26"></script>
-    <script src="js/jarvis-voz.js?v=10.26"></script>
+    <script src="js/core.js?v=10.27"></script>
+    <script src="js/perfil.js?v=10.27"></script>
+    <script src="js/progresion.js?v=10.27"></script>
+    <script src="js/estado-personal.js?v=10.27"></script>
+    <script src="js/finanzas.js?v=10.27"></script>
+    <script src="js/ideas.js?v=10.27"></script>
+    <script src="js/dinamicas.js?v=10.27"></script>
+    <script src="js/calendario.js?v=10.27"></script>
+    <script src="js/inventario.js?v=10.27"></script>
+    <script src="js/jarvis-voz.js?v=10.27"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.26"></script>
+    <script type="module" src="js/firebase-config.js?v=10.27"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.26')
+                navigator.serviceWorker.register('sw.js?v=10.27')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
