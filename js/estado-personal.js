@@ -2495,7 +2495,20 @@ function parsearEjercicioTextoOJson(raw) {
 
             zonasFinales.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
 
-            var esTiempo = (item.modalidadEsfuerzo === 'tiempo') || (item.tiempo != null) || (item.tiempoSegundos != null) || /seg|s\b|isom|plank|plancha|wall.*sit|colgado|hang|l-sit|puente/i.test(nom + ' ' + reps + ' ' + desc);
+            var modExplicit = (item.modalidadEsfuerzo || item.modalidad || '').toLowerCase().trim();
+            var esTiempo = false;
+            if (modExplicit === 'tiempo' || modExplicit === 'isometrico' || modExplicit === 'isométrico') {
+                esTiempo = true;
+            } else if (modExplicit === 'repeticiones' || modExplicit === 'reps') {
+                esTiempo = false;
+            } else if ((item.tiempo != null && item.tiempo > 0) || (item.tiempoSegundos != null && item.tiempoSegundos > 0)) {
+                esTiempo = true;
+            } else {
+                var esRepsTiempo = /\b\d+\s*(?:s|seg|segundos|min|minutos)\b/i.test(reps) && !/\breps?\b/i.test(reps);
+                var esNombreTiempo = /\b(?:plank|plancha|wall\s*sit|dead\s*hang|colgado\s+en\s+barra|l-sit)\b/i.test(nom);
+                esTiempo = esRepsTiempo || esNombreTiempo;
+            }
+
             var tiempoSeg = parseFloat(item.tiempoSegundos || item.tiempo) || 0;
             if (!tiempoSeg && esTiempo) {
                 var mSeg = reps.match(/(\d+)\s*(?:s|seg|segundos)/i);
@@ -2612,7 +2625,18 @@ function parsearEjercicioTextoOJson(raw) {
         var mTiempo = bloque.match(/(?:^|\n)\s*["']?tiempo(?:segundos)?["']?\s*:\s*["']?(\d+(?:\.\d+)?)/i);
         var tiempoTxt = mTiempo ? parseFloat(mTiempo[1]) : 0;
 
-        var esTiempoTxt = (modTxt === 'tiempo') || (tiempoTxt > 0) || /seg|s\b|isom|plank|plancha|wall.*sit|colgado|hang|l-sit|puente/i.test(nomTxt + ' ' + repsTxt + ' ' + descTxt);
+        var esTiempoTxt = false;
+        if (modTxt === 'tiempo' || modTxt === 'isometrico' || modTxt === 'isométrico') {
+            esTiempoTxt = true;
+        } else if (modTxt === 'repeticiones' || modTxt === 'reps') {
+            esTiempoTxt = false;
+        } else if (tiempoTxt > 0) {
+            esTiempoTxt = true;
+        } else {
+            var esRepsT = /\b\d+\s*(?:s|seg|segundos|min|minutos)\b/i.test(repsTxt) && !/\breps?\b/i.test(repsTxt);
+            var esNomT = /\b(?:plank|plancha|wall\s*sit|dead\s*hang|colgado\s+en\s+barra|l-sit)\b/i.test(nomTxt);
+            esTiempoTxt = esRepsT || esNomT;
+        }
         if (!tiempoTxt && esTiempoTxt) {
             var mS = repsTxt.match(/(\d+)\s*(?:s|seg|segundos)/i);
             var mM = repsTxt.match(/(\d+(?:\.\d+)?)\s*(?:m|min|minutos)/i);
