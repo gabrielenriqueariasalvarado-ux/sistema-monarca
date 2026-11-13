@@ -8776,6 +8776,124 @@ body.modal-open {
     transform: translateY(-1px) !important;
 }
 
+/* --- MODALIDAD DE EJERCICIO: REPETICIONES VS TIEMPO ISOMÉTRICO (v10.23) --- */
+.btn-modalidad-pill {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #090d16;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    user-select: none;
+}
+.btn-modalidad-pill:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #f8fafc;
+}
+.btn-modalidad-pill.active {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+/* Panel de cronómetro interactivo por serie para ejercicios isométricos */
+.series-timer-card-panel {
+    background: #080c14;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    transition: all 0.25s ease;
+}
+.series-timer-card-panel.running {
+    border-color: #34d399;
+    box-shadow: 0 0 15px rgba(52, 211, 153, 0.18);
+    background: linear-gradient(180deg, #09141d 0%, #070e16 100%);
+}
+.series-timer-card-panel.overtime {
+    border-color: #f59e0b;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+    background: linear-gradient(180deg, #181307 0%, #0d0a04 100%);
+}
+.series-timer-digital {
+    font-family: 'Courier New', Courier, monospace, monospace;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: #38bdf8;
+    line-height: 1;
+}
+.series-timer-card-panel.running .series-timer-digital {
+    color: #34d399;
+    text-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+}
+.series-timer-card-panel.overtime .series-timer-digital {
+    color: #fbbf24;
+    text-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+    animation: pulseRecord 1s infinite alternate;
+}
+@keyframes pulseRecord {
+    from { transform: scale(1); }
+    to { transform: scale(1.04); }
+}
+.series-timer-meta {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.btn-timer-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.btn-timer-play {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+.btn-timer-play:hover {
+    background: #38bdf8;
+    color: #0b0e15;
+}
+.btn-timer-pause {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.btn-timer-pause:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+.btn-timer-reset {
+    background: #0f1422;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    padding: 6px 9px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.btn-timer-reset:hover {
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
 
 
 

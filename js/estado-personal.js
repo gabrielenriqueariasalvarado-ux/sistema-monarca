@@ -2021,7 +2021,91 @@ function quitarZonaFisicaModal(clave) {
     renderizarFilasZonasFisicas();
 }
 
+function formatearTiempoMMSS(totalSegundos) {
+    var seg = Math.max(0, Math.round(totalSegundos || 0));
+    var m = Math.floor(seg / 60);
+    var s = seg % 60;
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+}
+
+function cambiarModalidadEsfuerzoModal(modalidad) {
+    var inMod = document.getElementById('modal-ejercicio-modalidad');
+    var btnReps = document.getElementById('btn-modalidad-reps');
+    var btnTiempo = document.getElementById('btn-modalidad-tiempo');
+    var grpReps = document.getElementById('grupo-modal-reps-promedio');
+    var grpTiempo = document.getElementById('grupo-modal-tiempo-segundos');
+    var grpRangoReps = document.getElementById('grupo-modal-rango-reps');
+    var grpHelpersTiempo = document.getElementById('grupo-modal-helpers-tiempo');
+
+    if (inMod) inMod.value = modalidad;
+
+    if (modalidad === 'tiempo') {
+        if (btnReps) btnReps.classList.remove('active');
+        if (btnTiempo) btnTiempo.classList.add('active');
+        if (grpReps) grpReps.style.display = 'none';
+        if (grpRangoReps) grpRangoReps.style.display = 'none';
+        if (grpTiempo) grpTiempo.style.display = 'block';
+        if (grpHelpersTiempo) grpHelpersTiempo.style.display = 'block';
+
+        var inReps = document.getElementById('modal-ejercicio-reps');
+        var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
+        var tSeg = inTSeg ? (parseInt(inTSeg.value) || 60) : 60;
+        if (inReps && (!inReps.value || inReps.value.includes('reps'))) {
+            inReps.value = tSeg + 's isométrico (' + formatearTiempoMMSS(tSeg) + ')';
+        }
+        actualizarTiempoModal();
+    } else {
+        if (btnReps) btnReps.classList.add('active');
+        if (btnTiempo) btnTiempo.classList.remove('active');
+        if (grpReps) grpReps.style.display = 'block';
+        if (grpRangoReps) grpRangoReps.style.display = 'block';
+        if (grpTiempo) grpTiempo.style.display = 'none';
+        if (grpHelpersTiempo) grpHelpersTiempo.style.display = 'none';
+
+        var inReps2 = document.getElementById('modal-ejercicio-reps');
+        if (inReps2 && (!inReps2.value || inReps2.value.includes('isométrico') || inReps2.value.includes('seg') || inReps2.value.includes('01:'))) {
+            inReps2.value = '8-12 reps';
+        }
+        actualizarPromedioRepsModal();
+    }
+}
+
+function asignarTiempoRapidoModal(segundos) {
+    var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
+    if (inTSeg) {
+        inTSeg.value = segundos;
+        actualizarTiempoModal();
+    }
+}
+
+function actualizarTiempoModal() {
+    var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
+    var fmtEl = document.getElementById('modal-ejercicio-tiempo-formateado');
+    var inReps = document.getElementById('modal-ejercicio-reps');
+    var inPeso = document.getElementById('modal-ejercicio-peso');
+    var inUnidad = document.getElementById('modal-ejercicio-unidad-peso');
+    var txtRes = document.getElementById('modal-ejercicio-resumen-promedio-txt');
+
+    var seg = inTSeg ? (parseInt(inTSeg.value) || 60) : 60;
+    if (fmtEl) fmtEl.innerText = formatearTiempoMMSS(seg);
+    if (inReps) inReps.value = seg + 's isométrico (' + formatearTiempoMMSS(seg) + ')';
+
+    var unidad = inUnidad ? inUnidad.value : 'kg';
+    var peso = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
+    var pesoTxt = peso > 0 ? (peso + ' ' + unidad + ' de lastre · ') : '';
+
+    if (txtRes) {
+        txtRes.innerHTML = '<strong style="color: #34d399;">Base 100% Fatiga (Tiempo Isométrico):</strong> ' + pesoTxt + seg + 's (' + formatearTiempoMMSS(seg) + '). En la rutina un temporizador medirá tu aguante en vivo; si superas este tiempo (ej: 1:30 min) se registrará tu nuevo récord personal y se actualizará tu tiempo promedio.';
+    }
+}
+
 function actualizarPromedioRepsModal(manual) {
+    var inMod = document.getElementById('modal-ejercicio-modalidad');
+    if (inMod && inMod.value === 'tiempo') {
+        actualizarTiempoModal();
+        return;
+    }
+
     var inReps = document.getElementById('modal-ejercicio-reps');
     var inProm = document.getElementById('modal-ejercicio-reps-promedio');
     var inPeso = document.getElementById('modal-ejercicio-peso');
@@ -2068,6 +2152,7 @@ Genera uno o varios ejercicios físicos estructurados con precisión milimétric
     "implemento": "mancuerna",
     "unidadPeso": "kg",
     "pesoReferencia": 24,
+    "modalidadEsfuerzo": "repeticiones",
     "repeticiones": "8-12 reps",
     "repeticionesPromedio": 10,
     "descripcion": "Espalda apoyada a 75-80°, codos a 45° en plano escapular. Empujar verticalmente sin chocar mancuernas, descenso excéntrico de 3s sintiendo estiramiento del deltoides.",
@@ -2075,6 +2160,23 @@ Genera uno o varios ejercicios físicos estructurados con precisión milimétric
       { "clave": "Deltoides_Anterior", "porcentaje": 50 },
       { "clave": "Triceps_Lateral", "porcentaje": 30 },
       { "clave": "Pectoral_Superior", "porcentaje": 20 }
+    ]
+  },
+  {
+    "nombre": "Plancha Abdominal Isométrica",
+    "tipo": "calistenia",
+    "implemento": "peso_corporal",
+    "unidadPeso": "kg",
+    "pesoReferencia": 0,
+    "modalidadEsfuerzo": "tiempo",
+    "tiempoSegundos": 60,
+    "repeticiones": "60s isométrico (01:00)",
+    "repeticionesPromedio": 60,
+    "descripcion": "Antebrazos paralelos, retroversión pélvica activa, glúteos y cuádriceps contraídos al 100% sin permitir que caiga la cadera.",
+    "zonas": [
+      { "clave": "Core", "porcentaje": 50 },
+      { "clave": "Transverso", "porcentaje": 30 },
+      { "clave": "Abdomen_Superior", "porcentaje": 20 }
     ]
   }
 ]
@@ -2090,9 +2192,11 @@ REGLAS DE ZONAS MUSCULARES:
    - Movilidad: "Cuello", "Articulaciones", "Movilidad"
 2. Opciones de "implemento": "barra", "mancuerna", "maquina", "polea", "discos", "peso_corporal".
 3. Opciones de "tipo": "gym", "calistenia", "movilidad".
-4. Opciones de "unidadPeso": "kg" o "lb".
-5. La suma de los porcentajes de las zonas debe totalizar entre 90% y 100%. La zona con mayor porcentaje será el estímulo principal.
-6. Devuelve ÚNICAMENTE el bloque JSON sin explicaciones adicionales.`;
+4. Opciones de "modalidadEsfuerzo": "repeticiones" o "tiempo" (para planchas, wall-sit, L-sit, colgado en barra o estiramientos).
+5. Si es por tiempo, especifica "tiempoSegundos": (ej: 60) y en repeticiones "60s isométrico".
+6. Opciones de "unidadPeso": "kg" o "lb".
+7. La suma de los porcentajes de las zonas debe totalizar entre 90% y 100%. La zona con mayor porcentaje será el estímulo principal.
+8. Devuelve ÚNICAMENTE el bloque JSON sin explicaciones adicionales.`;
 
 function abrirModalImportarEjercicioIA() {
     var m = document.getElementById('modal-importar-ejercicio-ia');
@@ -2391,6 +2495,16 @@ function parsearEjercicioTextoOJson(raw) {
 
             zonasFinales.sort(function(a, b) { return (b.porcentaje || 0) - (a.porcentaje || 0); });
 
+            var esTiempo = (item.modalidadEsfuerzo === 'tiempo') || (item.tiempo != null) || (item.tiempoSegundos != null) || /seg|s\b|isom|plank|plancha|wall.*sit|colgado|hang|l-sit|puente/i.test(nom + ' ' + reps + ' ' + desc);
+            var tiempoSeg = parseFloat(item.tiempoSegundos || item.tiempo) || 0;
+            if (!tiempoSeg && esTiempo) {
+                var mSeg = reps.match(/(\d+)\s*(?:s|seg|segundos)/i);
+                var mMin = reps.match(/(\d+(?:\.\d+)?)\s*(?:m|min|minutos)/i);
+                if (mSeg) tiempoSeg = parseFloat(mSeg[1]);
+                else if (mMin) tiempoSeg = Math.round(parseFloat(mMin[1]) * 60);
+                else tiempoSeg = repsProm > 0 ? repsProm : 60;
+            }
+
             res.push({
                 nombre: nom,
                 descripcion: desc,
@@ -2398,8 +2512,10 @@ function parsearEjercicioTextoOJson(raw) {
                 implemento: imp,
                 unidadPeso: unidad,
                 pesoReferencia: peso,
-                repeticiones: reps,
-                repeticionesPromedio: repsProm,
+                modalidadEsfuerzo: esTiempo ? 'tiempo' : 'repeticiones',
+                tiempoSegundos: esTiempo ? (tiempoSeg || 60) : 0,
+                repeticiones: esTiempo ? ((tiempoSeg || 60) + 's isométrico (' + formatearTiempoMMSS(tiempoSeg || 60) + ')') : reps,
+                repeticionesPromedio: esTiempo ? (tiempoSeg || 60) : repsProm,
                 zonas: zonasFinales
             });
         });
@@ -2486,9 +2602,24 @@ function parsearEjercicioTextoOJson(raw) {
             }
         }
 
-        // Descripción: capturar hasta la siguiente propiedad o bloque de zonas, ignorando preguntas o comentarios de usuario
+        // Descripción: capturar hasta la siguiente propiedad o bloque de zonas
         var mDesc = bloque.match(/(?:^|\n)\s*["']?descripci[oó]n["']?\s*:\s*["']?([\s\S]*?)(?=(?:\n\s*["']?[a-zA-Z_]+["']?\s*:|\n\s*zonas:|\n\s*[a-z?¿]+\s*\?|\n\s*\}|$))/i);
         var descTxt = mDesc ? mDesc[1].replace(/["']/g, '').trim() : "";
+
+        // Modalidad y tiempo
+        var mMod = bloque.match(/(?:^|\n)\s*["']?modalidad(?:esfuerzo)?["']?\s*:\s*["']?([^,\n\}]+)/i);
+        var modTxt = mMod ? mMod[1].replace(/["']/g, '').trim().toLowerCase() : "";
+        var mTiempo = bloque.match(/(?:^|\n)\s*["']?tiempo(?:segundos)?["']?\s*:\s*["']?(\d+(?:\.\d+)?)/i);
+        var tiempoTxt = mTiempo ? parseFloat(mTiempo[1]) : 0;
+
+        var esTiempoTxt = (modTxt === 'tiempo') || (tiempoTxt > 0) || /seg|s\b|isom|plank|plancha|wall.*sit|colgado|hang|l-sit|puente/i.test(nomTxt + ' ' + repsTxt + ' ' + descTxt);
+        if (!tiempoTxt && esTiempoTxt) {
+            var mS = repsTxt.match(/(\d+)\s*(?:s|seg|segundos)/i);
+            var mM = repsTxt.match(/(\d+(?:\.\d+)?)\s*(?:m|min|minutos)/i);
+            if (mS) tiempoTxt = parseFloat(mS[1]);
+            else if (mM) tiempoTxt = Math.round(parseFloat(mM[1]) * 60);
+            else tiempoTxt = repsPromTxt > 0 ? repsPromTxt : 60;
+        }
 
         // Extraer zonas con el motor tolerante
         var zonasTxt = extraerZonasDeTextoResiliente(bloque);
@@ -2513,8 +2644,10 @@ function parsearEjercicioTextoOJson(raw) {
             implemento: impTxt,
             unidadPeso: unidadTxt,
             pesoReferencia: pesoTxt,
-            repeticiones: repsTxt,
-            repeticionesPromedio: repsPromTxt,
+            modalidadEsfuerzo: esTiempoTxt ? 'tiempo' : 'repeticiones',
+            tiempoSegundos: esTiempoTxt ? (tiempoTxt || 60) : 0,
+            repeticiones: esTiempoTxt ? ((tiempoTxt || 60) + 's isométrico (' + formatearTiempoMMSS(tiempoTxt || 60) + ')') : repsTxt,
+            repeticionesPromedio: esTiempoTxt ? (tiempoTxt || 60) : repsPromTxt,
             zonas: zonasTxt
         });
     });
@@ -2559,6 +2692,9 @@ function procesarTextoEjercicioIA(guardarDirecto) {
                 series: 1,
                 peso: item.pesoReferencia,
                 pesoReferencia: item.pesoReferencia,
+                modalidadEsfuerzo: item.modalidadEsfuerzo || 'repeticiones',
+                tiempoSegundos: item.tiempoSegundos || (item.modalidadEsfuerzo === 'tiempo' ? 60 : 0),
+                tiempoReferencia: item.tiempoSegundos || (item.modalidadEsfuerzo === 'tiempo' ? 60 : 0),
                 repeticiones: item.repeticiones,
                 repeticionesPromedio: item.repeticionesPromedio,
                 zonas: item.zonas,
@@ -2595,6 +2731,7 @@ function procesarTextoEjercicioIA(guardarDirecto) {
         var inUni = document.getElementById('modal-ejercicio-unidad-peso');
         var inReps = document.getElementById('modal-ejercicio-reps');
         var inProm = document.getElementById('modal-ejercicio-reps-promedio');
+        var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
 
         if (inNom) inNom.value = primero.nombre;
         if (inDesc) inDesc.value = primero.descripcion;
@@ -2605,9 +2742,16 @@ function procesarTextoEjercicioIA(guardarDirecto) {
         if (inReps) inReps.value = primero.repeticiones;
         if (inProm) inProm.value = primero.repeticionesPromedio;
 
+        if (primero.modalidadEsfuerzo === 'tiempo') {
+            cambiarModalidadEsfuerzoModal('tiempo');
+            if (inTSeg) inTSeg.value = primero.tiempoSegundos || 60;
+            actualizarTiempoModal();
+        } else {
+            cambiarModalidadEsfuerzoModal('repeticiones');
+        }
+
         ZONAS_EJERCICIO_FISICO_TEMP = JSON.parse(JSON.stringify(primero.zonas));
         renderizarFilasZonasFisicas();
-        actualizarPromedioRepsModal();
 
         alert("📝 Ejercicio precargado en el formulario.\nRevisa los campos y pulsa 'Guardar Ejercicio Físico' cuando estés listo.");
     }
@@ -2650,6 +2794,17 @@ function abrirModalEditarEjercicio(id) {
     if (inTipo) inTipo.value = ej.tipo || "gym";
     if (inUni) inUni.value = ej.unidadPeso || "kg";
 
+    // Cargar modalidad de esfuerzo (repeticiones vs tiempo isométrico)
+    var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
+    if (ej.modalidadEsfuerzo === 'tiempo' || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0)) {
+        cambiarModalidadEsfuerzoModal('tiempo');
+        if (inTSeg) inTSeg.value = ej.tiempoSegundos || ej.repeticionesPromedio || 60;
+        actualizarTiempoModal();
+    } else {
+        cambiarModalidadEsfuerzoModal('repeticiones');
+        actualizarPromedioRepsModal(true);
+    }
+
     // Cargar desglose de zonas
     ZONAS_EJERCICIO_FISICO_TEMP = [];
     if (ej.zonas && Array.isArray(ej.zonas) && ej.zonas.length > 0) {
@@ -2667,7 +2822,6 @@ function abrirModalEditarEjercicio(id) {
 
     poblarSelectZonasFisicas();
     renderizarFilasZonasFisicas();
-    actualizarPromedioRepsModal(true);
 
     var m = document.getElementById('modal-nuevo-ejercicio');
     if (m) m.style.display = 'flex';
@@ -2692,16 +2846,19 @@ function abrirModalNuevoEjercicio(grupoPreseleccionado) {
     var inImp = document.getElementById('modal-ejercicio-implemento');
     var inTipo = document.getElementById('modal-ejercicio-tipo');
     var inUni = document.getElementById('modal-ejercicio-unidad-peso');
+    var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
 
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
     if (inPeso) inPeso.value = "80";
     if (inReps) inReps.value = "8-12 reps";
     if (inProm) inProm.value = "10";
+    if (inTSeg) inTSeg.value = "60";
     if (inTipo) inTipo.value = (grupoPreseleccionado === 'calistenia' ? 'calistenia' : (grupoPreseleccionado === 'movilidad' ? 'movilidad' : 'gym'));
     if (inImp) inImp.value = (grupoPreseleccionado === 'calistenia' ? 'peso_corporal' : 'barra');
     if (inUni) inUni.value = "kg";
 
+    cambiarModalidadEsfuerzoModal('repeticiones');
     actualizarPromedioRepsModal();
 
     ZONAS_EJERCICIO_FISICO_TEMP = [];
@@ -2736,6 +2893,8 @@ function confirmarAgregarEjercicio() {
     var inPeso = document.getElementById('modal-ejercicio-peso');
     var inReps = document.getElementById('modal-ejercicio-reps');
     var inProm = document.getElementById('modal-ejercicio-reps-promedio');
+    var inMod = document.getElementById('modal-ejercicio-modalidad');
+    var inTSeg = document.getElementById('modal-ejercicio-tiempo-segundos');
 
     var nom = inNom ? inNom.value.trim() : "";
     var tipoEj = inTipo ? inTipo.value : "gym";
@@ -2744,8 +2903,16 @@ function confirmarAgregarEjercicio() {
     var esCompuesto = true;
     var desc = inDesc ? inDesc.value.trim() : "";
     var pesoBase = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
-    var reps = inReps ? inReps.value.trim() : "8-12 reps";
-    var repsProm = inProm ? (parseFloat(inProm.value) || 10) : 10;
+    var modalidad = inMod ? inMod.value : "repeticiones";
+    var tiempoSeg = inTSeg ? (parseFloat(inTSeg.value) || 60) : 60;
+    var esTiempo = (modalidad === 'tiempo');
+
+    var reps = esTiempo 
+        ? (tiempoSeg + 's isométrico (' + formatearTiempoMMSS(tiempoSeg) + ')') 
+        : (inReps ? inReps.value.trim() : "8-12 reps");
+    var repsProm = esTiempo 
+        ? tiempoSeg 
+        : (inProm ? (parseFloat(inProm.value) || 10) : 10);
     var series = 1;
 
     if (!nom) {
@@ -2783,6 +2950,9 @@ function confirmarAgregarEjercicio() {
             APP_STATE.ejercicios[idxExistente].musculoPrincipal = muscPrincipal;
             APP_STATE.ejercicios[idxExistente].peso = pesoBase;
             APP_STATE.ejercicios[idxExistente].pesoReferencia = pesoBase;
+            APP_STATE.ejercicios[idxExistente].modalidadEsfuerzo = modalidad;
+            APP_STATE.ejercicios[idxExistente].tiempoSegundos = esTiempo ? tiempoSeg : 0;
+            APP_STATE.ejercicios[idxExistente].tiempoReferencia = esTiempo ? tiempoSeg : 0;
             APP_STATE.ejercicios[idxExistente].repeticiones = reps;
             APP_STATE.ejercicios[idxExistente].repeticionesPromedio = repsProm;
             APP_STATE.ejercicios[idxExistente].zonas = zonasCopia;
@@ -2827,6 +2997,9 @@ function confirmarAgregarEjercicio() {
         series: series,
         peso: pesoBase,
         pesoReferencia: pesoBase,
+        modalidadEsfuerzo: modalidad,
+        tiempoSegundos: esTiempo ? tiempoSeg : 0,
+        tiempoReferencia: esTiempo ? tiempoSeg : 0,
         repeticiones: reps,
         repeticionesPromedio: repsProm,
         zonas: zonasCopia,
@@ -2966,7 +3139,18 @@ function generarCardEjercicioFisicoHtml(ej) {
             : '<span class="muscle-tag" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">🏋️ Gym</span>');
 
     var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
-    var repsDisplay = (ej.series && ej.series > 1) ? `${ej.series} Series × ${ej.repeticiones || '8-10 reps'}` : `1 Serie · ${ej.repeticiones || '8-10 reps'}`;
+    var esTiempo = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+    var repsDisplay = '';
+    if (esTiempo) {
+        var tSeg = ej.tiempoSegundos || 60;
+        repsDisplay = (ej.series && ej.series > 1) 
+            ? `${ej.series} Series × ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico` 
+            : `1 Serie · ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico`;
+    } else {
+        repsDisplay = (ej.series && ej.series > 1) 
+            ? `${ej.series} Series × ${ej.repeticiones || '8-10 reps'}` 
+            : `1 Serie · ${ej.repeticiones || '8-10 reps'}`;
+    }
     
     // Obtener peso base del ejercicio (o pesoReferencia)
     var pesoNum = (ej.peso != null && ej.peso !== '' && !isNaN(parseFloat(ej.peso))) 
@@ -3457,9 +3641,13 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
             html += '<div style="color: #9ca3af; font-size: 12px; padding: 12px; text-align: center;">No tienes ejercicios físicos creados en tu Arsenal.</div>';
         } else {
             eFisicos.forEach(function(ej) {
-                var repsBase = ej.repeticiones || '8-10 reps';
-                var repsDefault = obtenerRepsPromedioEjercicio(ej);
-                var pesoDefault = (ej.peso != null && !isNaN(ej.peso)) ? ej.peso : (ej.pesoReferencia || 80);
+                var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+                var repsBase = esTiempoEj 
+                    ? (`⏱️ ${ej.tiempoSegundos || 60}s (${formatearTiempoMMSS(ej.tiempoSegundos || 60)}) isométrico`) 
+                    : (ej.repeticiones || '8-10 reps');
+                var repsDefault = esTiempoEj ? (ej.tiempoSegundos || 60) : obtenerRepsPromedioEjercicio(ej);
+                var labelReps = esTiempoEj ? "⏱️ Segs:" : "Reps:";
+                var pesoDefault = (ej.peso != null && !isNaN(ej.peso)) ? ej.peso : (ej.pesoReferencia || ((ej.tipo === 'calistenia' || ej.tipo === 'movilidad') ? 0 : 80));
                 var seriesDefault = (ej.series && ej.series > 1) ? ej.series : 3;
                 var uPeso = ej.unidadPeso || 'kg';
                 var mapaImp = { 'barra': '🏋️ Barra', 'mancuerna': '💪 Mancuerna', 'maquina': '⚙️ Máquina', 'polea': '⛓️ Polea', 'discos': '💿 Discos', 'peso_corporal': '🤸 Corporal' };
@@ -3499,7 +3687,7 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                         </label>
                     </div>
 
-                    <!-- CONTROLES: SERIES, REPS POR SERIE, PESO BASE, BOTÓN AL FALLO -->
+                    <!-- CONTROLES: SERIES, REPS O TIEMPO POR SERIE, PESO BASE, BOTÓN AL FALLO -->
                     <div class="routine-exercise-controls-row">
                         <div class="control-pill-group control-pill-series">
                             <span class="control-pill-label control-pill-label-series">Series:</span>
@@ -3507,8 +3695,8 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                         </div>
 
                         <div class="control-pill-group control-pill-reps">
-                            <span class="control-pill-label control-pill-label-reps">Reps:</span>
-                            <input type="number" id="reps_rutina_custom_${ej.id}" min="1" max="999" value="${repsDefault}" class="input-routine-stat input-routine-stat-reps">
+                            <span class="control-pill-label control-pill-label-reps">${labelReps}</span>
+                            <input type="number" id="reps_rutina_custom_${ej.id}" min="1" max="${esTiempoEj ? 3600 : 999}" value="${repsDefault}" class="input-routine-stat input-routine-stat-reps">
                         </div>
 
                         <div class="control-pill-group control-pill-peso">
@@ -3621,15 +3809,19 @@ function confirmarAgregarRutina() {
             var inCustomPeso = document.getElementById('peso_rutina_custom_' + e.id);
             var btnFallo = document.getElementById('btn_fallo_rutina_' + e.id);
 
-            var repsDefault = obtenerRepsPromedioEjercicio(e);
+            var esTiempoEj = (e.modalidadEsfuerzo === 'tiempo') || (e.tiempoSegundos != null && e.tiempoSegundos > 0);
+            var repsDefault = esTiempoEj ? (e.tiempoSegundos || 60) : obtenerRepsPromedioEjercicio(e);
             var customSeries = inCustomSeries ? (parseInt(inCustomSeries.value) || 1) : (e.series || 1);
             var customReps = inCustomReps ? (parseFloat(inCustomReps.value) || repsDefault) : repsDefault;
             var customPeso = inCustomPeso ? (parseFloat(inCustomPeso.value) || 0) : (e.peso || 0);
             var esAlFallo = btnFallo ? btnFallo.classList.contains('active') : false;
 
+            item.modalidadEsfuerzo = esTiempoEj ? 'tiempo' : 'repeticiones';
+            item.tiempoSegundos = esTiempoEj ? customReps : 0;
+            item.tiempoReferencia = esTiempoEj ? customReps : 0;
             item.series = customSeries;
             item.repeticionesPromedio = customReps;
-            item.repeticiones = customReps + ' reps';
+            item.repeticiones = esTiempoEj ? (customReps + 's isométrico (' + formatearTiempoMMSS(customReps) + ')') : (customReps + ' reps');
             item.peso = customPeso;
             item.alFallo = esAlFallo;
             if (esAlFallo) {
@@ -4299,16 +4491,17 @@ function obtenerRepsPromedioEjercicio(ej) {
 
 function calcularFactorSerie(ejIdx, serieNum) {
     if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios || !RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
-        return { factorTotal: 1, factorPeso: 1, factorReps: 1, pesoReal: 80, pesoBase: 80, repsHechas: 10, repsProm: 10 };
+        return { factorTotal: 1, factorPeso: 1, factorReps: 1, pesoReal: 80, pesoBase: 80, repsHechas: 10, repsProm: 10, esTiempo: false };
     }
     var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    var esTiempo = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
     var pesoBase = obtenerPesoBaseEjercicio(ej);
-    var repsProm = obtenerRepsPromedioEjercicio(ej);
+    var repsProm = esTiempo ? (ej.tiempoSegundos || obtenerRepsPromedioEjercicio(ej) || 60) : obtenerRepsPromedioEjercicio(ej);
 
     var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + serieNum);
     var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
 
-    var pesoReal = inPeso ? (parseFloat(inPeso.value) || pesoBase) : pesoBase;
+    var pesoReal = inPeso ? (parseFloat(inPeso.value) || (pesoBase > 0 ? pesoBase : 0)) : pesoBase;
     var repsHechas = inReps ? (parseFloat(inReps.value) || repsProm) : repsProm;
 
     var factorPeso = pesoBase > 0 ? (pesoReal / pesoBase) : 1;
@@ -4322,7 +4515,8 @@ function calcularFactorSerie(ejIdx, serieNum) {
         pesoReal: pesoReal,
         pesoBase: pesoBase,
         repsHechas: repsHechas,
-        repsProm: repsProm
+        repsProm: repsProm,
+        esTiempo: esTiempo
     };
 }
 
@@ -4349,6 +4543,210 @@ function cambiarRepsSerie(ejIdx, serieNum, delta, event) {
     var val = (parseFloat(inReps.value) || 10) + delta;
     if (val < 1) val = 1;
     inReps.value = val;
+
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var esTiempo = (ejActual && (ejActual.modalidadEsfuerzo === 'tiempo' || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0)));
+    if (esTiempo) {
+        cambiarTiempoSerieManual(ejIdx, serieNum);
+    } else {
+        alCambiarCargaSerie(ejIdx, serieNum);
+    }
+}
+
+// ==========================================================================
+// MOTOR DE CRONÓMETRO INTERACTIVO POR SERIE (ISOMÉTRICOS / TIEMPO) (v10.23)
+// ==========================================================================
+
+var TIMERS_SERIES_ACTIVAS = {};
+
+function limpiarTodosLosTimersSeries() {
+    Object.keys(TIMERS_SERIES_ACTIVAS).forEach(function(k) {
+        var t = TIMERS_SERIES_ACTIVAS[k];
+        if (t && t.intervalId) {
+            clearInterval(t.intervalId);
+        }
+    });
+    TIMERS_SERIES_ACTIVAS = {};
+}
+
+function toggleTimerSerie(ejIdx, serieNum, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var key = ejIdx + '_' + serieNum;
+    var timer = TIMERS_SERIES_ACTIVAS[key];
+    if (timer && timer.corriendo) {
+        detenerTimerSerie(ejIdx, serieNum, event);
+    } else {
+        iniciarTimerSerie(ejIdx, serieNum, event);
+    }
+}
+
+function iniciarTimerSerie(ejIdx, serieNum, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var key = ejIdx + '_' + serieNum;
+    var timer = TIMERS_SERIES_ACTIVAS[key] || {
+        ejIdx: ejIdx,
+        serieNum: serieNum,
+        intervalId: null,
+        inicioTimestamp: null,
+        segundosAcumulados: 0,
+        corriendo: false
+    };
+    TIMERS_SERIES_ACTIVAS[key] = timer;
+
+    if (timer.corriendo) return;
+
+    timer.corriendo = true;
+    timer.inicioTimestamp = Date.now();
+
+    var panel = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
+    var btnPlay = document.getElementById('btn-timer-play-ej-' + ejIdx + '-s-' + serieNum);
+    if (panel) panel.classList.add('running');
+    if (btnPlay) {
+        btnPlay.classList.add('btn-timer-pause');
+        btnPlay.classList.remove('btn-timer-play');
+        btnPlay.innerHTML = '<span>⏸️</span> Pausar';
+    }
+
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+
+    timer.intervalId = setInterval(function() {
+        var segPasados = Math.floor((Date.now() - timer.inicioTimestamp) / 1000);
+        var totalSeg = timer.segundosAcumulados + segPasados;
+
+        var display = document.getElementById('timer-display-ej-' + ejIdx + '-s-' + serieNum);
+        var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+        var meta = document.getElementById('timer-meta-ej-' + ejIdx + '-s-' + serieNum);
+
+        if (display) display.innerText = formatearTiempoMMSS(totalSeg);
+        if (inReps) inReps.value = totalSeg;
+
+        if (totalSeg > tBase) {
+            if (panel) panel.classList.add('overtime');
+            if (meta) {
+                var extra = totalSeg - tBase;
+                meta.innerHTML = '<span style="color: #ef4444; font-weight: 800;">🔥 ¡SUPERASTE LA MARCA! +' + extra + 's EXTRA</span>';
+            }
+        }
+
+        alCambiarCargaSerie(ejIdx, serieNum);
+    }, 500);
+}
+
+function detenerTimerSerie(ejIdx, serieNum, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var key = ejIdx + '_' + serieNum;
+    var timer = TIMERS_SERIES_ACTIVAS[key];
+    if (!timer || !timer.corriendo) return;
+
+    if (timer.intervalId) {
+        clearInterval(timer.intervalId);
+        timer.intervalId = null;
+    }
+    var segPasados = Math.floor((Date.now() - timer.inicioTimestamp) / 1000);
+    timer.segundosAcumulados += segPasados;
+    timer.corriendo = false;
+
+    var panel = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
+    var btnPlay = document.getElementById('btn-timer-play-ej-' + ejIdx + '-s-' + serieNum);
+    if (panel) panel.classList.remove('running');
+    if (btnPlay) {
+        btnPlay.classList.remove('btn-timer-pause');
+        btnPlay.classList.add('btn-timer-play');
+        btnPlay.innerHTML = '<span>▶️</span> Reanudar';
+    }
+
+    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+    if (inReps) inReps.value = timer.segundosAcumulados;
+
+    alCambiarCargaSerie(ejIdx, serieNum);
+}
+
+function reiniciarTimerSerie(ejIdx, serieNum, event) {
+    if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+    }
+    var key = ejIdx + '_' + serieNum;
+    var timer = TIMERS_SERIES_ACTIVAS[key];
+    if (timer && timer.intervalId) {
+        clearInterval(timer.intervalId);
+    }
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+
+    TIMERS_SERIES_ACTIVAS[key] = {
+        ejIdx: ejIdx,
+        serieNum: serieNum,
+        intervalId: null,
+        inicioTimestamp: null,
+        segundosAcumulados: 0,
+        corriendo: false
+    };
+
+    var panel = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
+    var btnPlay = document.getElementById('btn-timer-play-ej-' + ejIdx + '-s-' + serieNum);
+    var display = document.getElementById('timer-display-ej-' + ejIdx + '-s-' + serieNum);
+    var meta = document.getElementById('timer-meta-ej-' + ejIdx + '-s-' + serieNum);
+    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+
+    if (panel) {
+        panel.classList.remove('running');
+        panel.classList.remove('overtime');
+    }
+    if (btnPlay) {
+        btnPlay.classList.remove('btn-timer-pause');
+        btnPlay.classList.add('btn-timer-play');
+        btnPlay.innerHTML = '<span>▶️</span> Iniciar';
+    }
+    if (display) display.innerText = '00:00';
+    if (meta) meta.innerHTML = '🎯 Meta: ' + tBase + 's (' + formatearTiempoMMSS(tBase) + ')';
+    if (inReps) inReps.value = tBase;
+
+    alCambiarCargaSerie(ejIdx, serieNum);
+}
+
+function cambiarTiempoSerieManual(ejIdx, serieNum) {
+    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
+    if (!inReps) return;
+    var val = parseFloat(inReps.value) || 0;
+    if (val < 1) val = 1;
+
+    var display = document.getElementById('timer-display-ej-' + ejIdx + '-s-' + serieNum);
+    var meta = document.getElementById('timer-meta-ej-' + ejIdx + '-s-' + serieNum);
+    var panel = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
+
+    if (display) display.innerText = formatearTiempoMMSS(val);
+
+    var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
+    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+
+    var key = ejIdx + '_' + serieNum;
+    var timer = TIMERS_SERIES_ACTIVAS[key];
+    if (timer) {
+        timer.segundosAcumulados = val;
+    }
+
+    if (val > tBase) {
+        if (panel) panel.classList.add('overtime');
+        if (meta) {
+            var extra = Math.round(val - tBase);
+            meta.innerHTML = '<span style="color: #ef4444; font-weight: 800;">🔥 ¡SUPERASTE LA MARCA! +' + extra + 's EXTRA</span>';
+        }
+    } else {
+        if (panel) panel.classList.remove('overtime');
+        if (meta) meta.innerHTML = '🎯 Meta: ' + tBase + 's (' + formatearTiempoMMSS(tBase) + ')';
+    }
+
     alCambiarCargaSerie(ejIdx, serieNum);
 }
 
@@ -4379,21 +4777,36 @@ function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
 
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
     var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
+    var esTiempo = data.esTiempo || (ejActual && (ejActual.modalidadEsfuerzo === 'tiempo' || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0)));
 
     var pct = Math.round(data.factorTotal * 100);
-    var diffReps = Math.round((data.repsHechas - data.repsProm) * 10) / 10;
-    var diffPeso = Math.round((data.pesoReal - data.pesoBase) * 10) / 10;
 
-    var partes = [];
-    if (diffPeso > 0) partes.push('+' + diffPeso + ' ' + uPeso + ' sobrecarga');
-    else if (diffPeso < 0) partes.push(diffPeso + ' ' + uPeso + ' descarga');
+    if (esTiempo) {
+        var diffT = Math.round((data.repsHechas - data.repsProm) * 10) / 10;
+        var diffLastre = Math.round((data.pesoReal - data.pesoBase) * 10) / 10;
+        var partesT = [];
+        if (diffT > 0) partesT.push('+' + diffT + 's aguante extra · ¡Nuevo Récord!');
+        else if (diffT < 0) partesT.push(diffT + 's');
+        else partesT.push('Meta cumplida');
 
-    if (diffReps > 0) partes.push('+' + diffReps + ' reps límite');
-    else if (diffReps < 0) partes.push(diffReps + ' reps');
+        if (diffLastre > 0) partesT.push('+' + diffLastre + ' ' + uPeso + ' lastre');
 
-    var textoDetalle = partes.length > 0 ? (' (' + partes.join(' · ') + ')') : (' (' + data.pesoBase + ' ' + uPeso + ' × ' + data.repsProm + ' reps base)');
+        badge.innerText = pct + '% fatiga (' + data.repsHechas + 's / base ' + data.repsProm + 's · ' + partesT.join(' · ') + ')';
+    } else {
+        var diffReps = Math.round((data.repsHechas - data.repsProm) * 10) / 10;
+        var diffPeso = Math.round((data.pesoReal - data.pesoBase) * 10) / 10;
 
-    badge.innerText = pct + '% fatiga' + textoDetalle;
+        var partes = [];
+        if (diffPeso > 0) partes.push('+' + diffPeso + ' ' + uPeso + ' sobrecarga');
+        else if (diffPeso < 0) partes.push(diffPeso + ' ' + uPeso + ' descarga');
+
+        if (diffReps > 0) partes.push('+' + diffReps + ' reps límite');
+        else if (diffReps < 0) partes.push(diffReps + ' reps');
+
+        var textoDetalle = partes.length > 0 ? (' (' + partes.join(' · ') + ')') : (' (' + data.pesoBase + ' ' + uPeso + ' × ' + data.repsProm + ' reps base)');
+
+        badge.innerText = pct + '% fatiga' + textoDetalle;
+    }
 
     if (pct >= 120) {
         badge.style.color = '#ef4444';
@@ -4420,11 +4833,13 @@ function editarSerieYaHecha(event, ejIdx, serieNum) {
         if (event.preventDefault) event.preventDefault();
     }
     var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
-    if (!panelReps) return;
-    if (panelReps.style.display === 'none' || !panelReps.style.display) {
-        panelReps.style.display = 'flex';
+    var panelTimer = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
+    var panel = panelTimer || panelReps;
+    if (!panel) return;
+    if (panel.style.display === 'none' || !panel.style.display) {
+        panel.style.display = panelTimer ? 'block' : 'flex';
     } else {
-        panelReps.style.display = 'none';
+        panel.style.display = 'none';
     }
 }
 
@@ -4438,11 +4853,16 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
     var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + serieNum);
     var panelReps = document.getElementById('panel-reps-ej-' + ejIdx + '-s-' + serieNum);
+    var panelTimer = document.getElementById('timer-panel-ej-' + ejIdx + '-s-' + serieNum);
     var targetEl = document.getElementById('target-ej-' + ejIdx + '-s-' + serieNum);
     if (!chk) return;
 
-    chk.checked = !chk.checked;
     var key = ejIdx + '_' + serieNum;
+    if (TIMERS_SERIES_ACTIVAS[key] && TIMERS_SERIES_ACTIVAS[key].corriendo) {
+        detenerTimerSerie(ejIdx, serieNum, e);
+    }
+
+    chk.checked = !chk.checked;
     var data = calcularFactorSerie(ejIdx, serieNum);
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
     var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
@@ -4451,12 +4871,18 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         if (row) row.classList.add('checked-active');
         if (ind) ind.classList.add('checked');
         if (panelReps) panelReps.style.display = 'none';
+        if (panelTimer) panelTimer.style.display = 'none';
         if (btnAction) {
             btnAction.classList.add('active');
             btnAction.innerHTML = '<span>✓</span> Completada <span style="font-size: 10px; margin-left: 5px; opacity: 0.8; text-decoration: underline;" onclick="editarSerieYaHecha(event, ' + ejIdx + ', ' + serieNum + ')">Editar</span>';
         }
         if (targetEl) {
-            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+            if (data.esTiempo) {
+                var lastreTxt = data.pesoReal > 0 ? (' · Lastre: ' + data.pesoReal + ' ' + uPeso) : '';
+                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+            } else {
+                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+            }
         }
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
@@ -4466,12 +4892,16 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
         if (panelReps) panelReps.style.display = 'flex';
+        if (panelTimer) panelTimer.style.display = 'block';
         if (btnAction) {
             btnAction.classList.remove('active');
             btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
         }
         if (targetEl && ejActual) {
-            var repsStr = ejActual.repeticiones || '8-10 reps';
+            var esTiempoEj = (ejActual.modalidadEsfuerzo === 'tiempo') || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0);
+            var repsStr = esTiempoEj 
+                ? ('⏱️ Objetivo: ' + (ejActual.tiempoSegundos || 60) + 's (' + formatearTiempoMMSS(ejActual.tiempoSegundos || 60) + ')') 
+                : (ejActual.repeticiones || '8-10 reps');
             var pesoVal = (!ejActual.esMental && ejActual.peso) ? parseFloat(ejActual.peso) : null;
             targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '');
         }
@@ -4885,8 +5315,12 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         var impKey = ej.implemento || ej.equipamiento || (ej.tipo === 'calistenia' ? 'peso_corporal' : null);
         var impObj = mapaImp[impKey];
         var impLabel = impObj ? (' · ' + impObj.icon + ' ' + impObj.label) : '';
-        var repsStr = ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps');
+        var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
         var repsProm = obtenerRepsPromedioEjercicio(ej);
+        var tiempoBase = esTiempoEj ? (ej.tiempoSegundos || repsProm || 60) : 0;
+        var repsStr = esTiempoEj 
+            ? ('⏱️ ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ') isométrico') 
+            : (ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps'));
 
         html += `
         <div class="routine-exercise-session-card" id="card-ej-${ejIdx}" style="${esM ? 'border-left: 3px solid #6366f1;' : ''}">
@@ -4898,7 +5332,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                             ${icono} ${ej.nombre}
                         </div>
                         <div style="font-size: 11.5px; color: #94a3b8; margin-top: 1px;">
-                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : ''}${impLabel} · Base: ${repsProm} reps${muscleList ? (' · ' + muscleList) : ''}
+                            ${numSeries} ${numSeries === 1 ? 'serie' : 'series'} × ${repsStr}${pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : ''}${impLabel} · Base: ${esTiempoEj ? (tiempoBase + 's') : (repsProm + ' reps')}${muscleList ? (' · ' + muscleList) : ''}
                         </div>
                     </div>
                 </div>
@@ -4965,7 +5399,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                         <div>
                             <span class="series-label">${esM ? 'SESIÓN COMPLETA' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s))}</span>
-                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''}</span>
+                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${esTiempoEj ? ('⏱️ Objetivo: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : repsStr}${pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             ${esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>'}
@@ -4976,7 +5410,51 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
                 </div>
 
-                ${!esM ? `
+                ${!esM ? (esTiempoEj ? `
+                <div class="series-timer-card-panel" id="timer-panel-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; width: 100%;">
+                        <div style="display: flex; align-items: baseline; gap: 10px;">
+                            <span class="series-timer-digital" id="timer-display-ej-${ejIdx}-s-${s}">00:00</span>
+                            <span class="series-timer-meta" id="timer-meta-ej-${ejIdx}-s-${s}">🎯 Meta: ${tiempoBase}s (${formatearTiempoMMSS(tiempoBase)})</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button type="button" class="btn-timer-action btn-timer-play" id="btn-timer-play-ej-${ejIdx}-s-${s}" onclick="toggleTimerSerie(${ejIdx}, ${s}, event)">
+                                ▶️ Iniciar
+                            </button>
+                            <button type="button" class="btn-timer-action btn-timer-reset" onclick="reiniciarTimerSerie(${ejIdx}, ${s}, event)">
+                                ↺ Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AJUSTE DE SEGUNDOS REALIZADOS O LASTRE -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 8px; width: 100%; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.08);">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">⏱️ Segs:</span>
+                            <div class="stepper-pill-box">
+                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -5, event)">−5s</button>
+                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${tiempoBase}" min="1" max="3600" oninput="cambiarTiempoSerieManual(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 5, event)">+5s</button>
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">seg</span>
+                        </div>
+
+                        ${pesoVal ? `
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Lastre:</span>
+                            <div class="stepper-pill-box">
+                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
+                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
+                        </div>` : `<input type="hidden" id="input-peso-ej-${ejIdx}-s-${s}" value="0">`}
+                    </div>
+
+                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="margin-top: 6px; font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px; width: 100%; box-sizing: border-box;">
+                        100% fatiga (Meta base: ${tiempoBase}s)
+                    </div>
+                </div>` : `
                 <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
                     <div class="series-dual-controls-wrap">
                         <!-- AJUSTE DE PESO REAL (KG O LB) -->
@@ -5005,7 +5483,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px;">
                         100% fatiga (${pesoVal != null ? pesoVal : (uPeso === 'lb' ? 175 : 80)} ${uPeso} × ${repsProm} reps base)
                     </div>
-                </div>` : ''}
+                </div>`) : ''}
 
                 ${dropsetHtml}
             </div>`;
@@ -5020,6 +5498,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
 }
 
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
+    limpiarTodosLosTimersSeries();
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
     var rutina = null;
     var idx = -1;
@@ -5275,14 +5754,17 @@ function ejecutarRutinaDinamica() {
         });
     }
 
-    // Detección y actualización de Sobrecarga Progresiva (Nuevo récord de peso base en ejercicio)
+    // Detección y actualización de Sobrecarga Progresiva (Nuevo récord de peso base o de tiempo isométrico)
     var sobrecargas = [];
     if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
         rutina.ejercicios.forEach(function(ej, ejIdx) {
             if (ej.esMental) return;
             var numSeries = Math.max(1, parseInt(ej.series) || 3);
+            var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
             var pesoBaseAnterior = obtenerPesoBaseEjercicio(ej);
+            var tiempoBaseAnterior = ej.tiempoSegundos || ej.tiempoReferencia || obtenerRepsPromedioEjercicio(ej) || 60;
             var maxPesoLevantado = 0;
+            var maxTiempoLogrado = 0;
             var seriesCompletadas = 0;
 
             for (var s = 1; s <= numSeries; s++) {
@@ -5290,43 +5772,90 @@ function ejecutarRutinaDinamica() {
                 if (chk && chk.checked) {
                     seriesCompletadas++;
                     var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + s);
+                    var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + s);
                     var p = inPeso ? (parseFloat(inPeso.value) || 0) : 0;
+                    var r = inReps ? (parseFloat(inReps.value) || 0) : 0;
                     if (p > maxPesoLevantado) maxPesoLevantado = p;
+                    if (r > maxTiempoLogrado) maxTiempoLogrado = r;
                 }
             }
 
-            if (seriesCompletadas > 0 && maxPesoLevantado > pesoBaseAnterior) {
-                var diff = Math.round((maxPesoLevantado - pesoBaseAnterior) * 10) / 10;
-                ej.peso = maxPesoLevantado;
-                ej.pesoReferencia = maxPesoLevantado;
+            if (esTiempoEj) {
+                if (seriesCompletadas > 0 && maxTiempoLogrado > tiempoBaseAnterior) {
+                    var diffT = Math.round(maxTiempoLogrado - tiempoBaseAnterior);
+                    ej.tiempoSegundos = maxTiempoLogrado;
+                    ej.tiempoReferencia = maxTiempoLogrado;
+                    ej.repeticionesPromedio = maxTiempoLogrado;
+                    ej.repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
 
-                // Actualizar en el catálogo general de ejercicios
-                if (APP_STATE.ejercicios && Array.isArray(APP_STATE.ejercicios)) {
-                    var ejCat = APP_STATE.ejercicios.find(function(item) {
-                        return item && ((ej.id && item.id === ej.id) || (item.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                    // Actualizar en el catálogo general de ejercicios
+                    if (APP_STATE.ejercicios && Array.isArray(APP_STATE.ejercicios)) {
+                        var ejCat = APP_STATE.ejercicios.find(function(item) {
+                            return item && ((ej.id && item.id === ej.id) || (item.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                        });
+                        if (ejCat) {
+                            ejCat.tiempoSegundos = maxTiempoLogrado;
+                            ejCat.tiempoReferencia = maxTiempoLogrado;
+                            ejCat.repeticionesPromedio = maxTiempoLogrado;
+                            ejCat.repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
+                        }
+                    }
+
+                    // Actualizar en la rutina guardada
+                    if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
+                        var rutGuardada = APP_STATE.rutinas[RUTINA_ACTIVA.idx];
+                        if (rutGuardada.ejercicios && rutGuardada.ejercicios[ejIdx]) {
+                            rutGuardada.ejercicios[ejIdx].tiempoSegundos = maxTiempoLogrado;
+                            rutGuardada.ejercicios[ejIdx].tiempoReferencia = maxTiempoLogrado;
+                            rutGuardada.ejercicios[ejIdx].repeticionesPromedio = maxTiempoLogrado;
+                            rutGuardada.ejercicios[ejIdx].repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
+                        }
+                    }
+
+                    sobrecargas.push({
+                        nombre: ej.nombre,
+                        anterior: tiempoBaseAnterior,
+                        nuevo: maxTiempoLogrado,
+                        diff: diffT,
+                        esTiempo: true,
+                        unidad: 'seg'
                     });
-                    if (ejCat) {
-                        ejCat.peso = maxPesoLevantado;
-                        ejCat.pesoReferencia = maxPesoLevantado;
-                    }
                 }
+            } else {
+                if (seriesCompletadas > 0 && maxPesoLevantado > pesoBaseAnterior) {
+                    var diff = Math.round((maxPesoLevantado - pesoBaseAnterior) * 10) / 10;
+                    ej.peso = maxPesoLevantado;
+                    ej.pesoReferencia = maxPesoLevantado;
 
-                // Actualizar en la rutina guardada
-                if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
-                    var rutGuardada = APP_STATE.rutinas[RUTINA_ACTIVA.idx];
-                    if (rutGuardada.ejercicios && rutGuardada.ejercicios[ejIdx]) {
-                        rutGuardada.ejercicios[ejIdx].peso = maxPesoLevantado;
-                        rutGuardada.ejercicios[ejIdx].pesoReferencia = maxPesoLevantado;
+                    // Actualizar en el catálogo general de ejercicios
+                    if (APP_STATE.ejercicios && Array.isArray(APP_STATE.ejercicios)) {
+                        var ejCat = APP_STATE.ejercicios.find(function(item) {
+                            return item && ((ej.id && item.id === ej.id) || (item.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                        });
+                        if (ejCat) {
+                            ejCat.peso = maxPesoLevantado;
+                            ejCat.pesoReferencia = maxPesoLevantado;
+                        }
                     }
-                }
 
-                sobrecargas.push({
-                    nombre: ej.nombre,
-                    anterior: pesoBaseAnterior,
-                    nuevo: maxPesoLevantado,
-                    diff: diff,
-                    unidad: ej.unidadPeso || 'kg'
-                });
+                    // Actualizar en la rutina guardada
+                    if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
+                        var rutGuardada = APP_STATE.rutinas[RUTINA_ACTIVA.idx];
+                        if (rutGuardada.ejercicios && rutGuardada.ejercicios[ejIdx]) {
+                            rutGuardada.ejercicios[ejIdx].peso = maxPesoLevantado;
+                            rutGuardada.ejercicios[ejIdx].pesoReferencia = maxPesoLevantado;
+                        }
+                    }
+
+                    sobrecargas.push({
+                        nombre: ej.nombre,
+                        anterior: pesoBaseAnterior,
+                        nuevo: maxPesoLevantado,
+                        diff: diff,
+                        esTiempo: false,
+                        unidad: ej.unidadPeso || 'kg'
+                    });
+                }
             }
         });
     }
@@ -5351,13 +5880,20 @@ function ejecutarRutinaDinamica() {
         detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
     });
 
-    // Registrar logs de sobrecarga progresiva en gym log
+    // Registrar logs de sobrecarga progresiva o récord isométrico en gym log
     sobrecargas.forEach(function(sc) {
-        var u = sc.unidad || 'kg';
-        APP_STATE.gym.unshift({
-            fecha: fechaHoy,
-            detalle: "🔥 SOBRECARGA PROGRESIVA: " + sc.nombre + " subió de " + sc.anterior + " " + u + " a " + sc.nuevo + " " + u + " (+" + sc.diff + " " + u + "). Nuevo peso base calibrado."
-        });
+        if (sc.esTiempo) {
+            APP_STATE.gym.unshift({
+                fecha: fechaHoy,
+                detalle: "⏱️ RÉCORD ISOMÉTRICO: " + sc.nombre + " subió de " + sc.anterior + "s a " + sc.nuevo + "s (+" + sc.diff + "s extra). Nuevo tiempo promedio calibrado."
+            });
+        } else {
+            var u = sc.unidad || 'kg';
+            APP_STATE.gym.unshift({
+                fecha: fechaHoy,
+                detalle: "🔥 SOBRECARGA PROGRESIVA: " + sc.nombre + " subió de " + sc.anterior + " " + u + " a " + sc.nuevo + " " + u + " (+" + sc.diff + " " + u + "). Nuevo peso base calibrado."
+            });
+        }
     });
 
     // Auto-completar Hábitos y Misiones Diarias vinculadas a esta rutina
@@ -5391,6 +5927,7 @@ function ejecutarRutinaDinamica() {
     }
 
     sumarExp(60);
+    limpiarTodosLosTimersSeries();
     MonarcaDB.save(APP_STATE);
 
     var msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
@@ -5403,9 +5940,13 @@ function ejecutarRutinaDinamica() {
     }
 
     if (sobrecargas.length > 0) {
-        msgAviso += "\n\n🚀 ¡SOBRECARGA PROGRESIVA REGISTRADA!";
+        msgAviso += "\n\n🚀 ¡SOBRECARGA / RÉCORD REGISTRADO!";
         sobrecargas.forEach(function(sc) {
-            msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " kg (+" + sc.diff + " kg sobre el anterior de " + sc.anterior + " kg). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " kg.";
+            if (sc.esTiempo) {
+                msgAviso += "\n• " + sc.nombre + ": Récord isométrico superado de " + sc.anterior + "s a " + sc.nuevo + "s (+" + sc.diff + "s extra). Tu nuevo tiempo promedio ha sido actualizado.";
+            } else {
+                msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " " + sc.unidad + " (+" + sc.diff + " " + sc.unidad + " sobre el anterior de " + sc.anterior + " " + sc.unidad + "). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " " + sc.unidad + ".";
+            }
         });
     }
 

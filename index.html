@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.22">
+    <link rel="stylesheet" href="style.css?v=10.23">
 </head>
 <body>
 
@@ -685,7 +685,7 @@
 
     <!-- VISTA: DETALLE DE RUTINA DINÁMICA (DISEÑO MINIMALISTA & SERIO) -->
     <div id="vista-detalle-rutina-dinamica" class="tab-content">
-        <button class="btn-back-system" onclick="cambiarVista('vista-ejercicios')">
+        <button class="btn-back-system" onclick="if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries(); cambiarVista('vista-ejercicios');">
             <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
         </button>
         <div class="card">
@@ -1978,10 +1978,27 @@
                     </div>
                 </div>
 
-                <!-- 4. PESO DE REFERENCIA CON SELECTOR DE UNIDAD (KG O LB) Y REPETICIONES PROMEDIO -->
+                <!-- 4. MODALIDAD DE MEDICIÓN: REPETICIONES VS TIEMPO (ISOMÉTRICO) -->
+                <div class="modal-form-group" style="margin-bottom: 12px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #f8fafc;">Modalidad de Medición:</span>
+                        <span style="font-size: 11px; color: #94a3b8;">¿Se mide por repeticiones o aguante en tiempo?</span>
+                    </label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button type="button" id="btn-modalidad-reps" class="btn-modalidad-pill active" onclick="cambiarModalidadEsfuerzoModal('repeticiones')">
+                            🔢 Por Repeticiones
+                        </button>
+                        <button type="button" id="btn-modalidad-tiempo" class="btn-modalidad-pill" onclick="cambiarModalidadEsfuerzoModal('tiempo')">
+                            ⏱️ Por Tiempo (Isométrico)
+                        </button>
+                    </div>
+                    <input type="hidden" id="modal-ejercicio-modalidad" value="repeticiones">
+                </div>
+
+                <!-- 5. PESO DE REFERENCIA CON SELECTOR DE UNIDAD (KG O LB) Y REPS / TIEMPO BASE -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label>Peso Máximo / Referencia:</label>
+                        <label>Peso / Sobrecarga:</label>
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <input type="number" id="modal-ejercicio-peso" class="modal-input" placeholder="Ej: 80" value="80" min="0" step="0.5" style="font-weight: 700; color: #38bdf8; flex: 1;" oninput="actualizarPromedioRepsModal()">
                             <select id="modal-ejercicio-unidad-peso" class="modal-input" style="width: 72px; padding: 8px 6px; font-weight: 800; color: #fbbf24; text-align: center; background: #0f131d; cursor: pointer;" onchange="actualizarPromedioRepsModal()">
@@ -1990,19 +2007,41 @@
                             </select>
                         </div>
                     </div>
-                    <div class="modal-form-group" style="margin-bottom: 0;">
+
+                    <!-- BLOQUE REPETICIONES: REPS PROMEDIO -->
+                    <div class="modal-form-group" id="grupo-modal-reps-promedio" style="margin-bottom: 0;">
                         <label>Reps Promedio (Base):</label>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="number" id="modal-ejercicio-reps-promedio" class="modal-input" placeholder="10" value="10" min="1" max="100" style="font-weight: 800; color: #10b981; text-align: center; flex: 1;" oninput="actualizarPromedioRepsModal(true)">
+                            <input type="number" id="modal-ejercicio-reps-promedio" class="modal-input" placeholder="10" value="10" min="1" max="999" style="font-weight: 800; color: #10b981; text-align: center; flex: 1;" oninput="actualizarPromedioRepsModal(true)">
                             <span style="font-size: 11px; font-weight: 700; color: #10b981;">prom</span>
+                        </div>
+                    </div>
+
+                    <!-- BLOQUE TIEMPO: TIEMPO OBJETIVO EN SEGUNDOS -->
+                    <div class="modal-form-group" id="grupo-modal-tiempo-segundos" style="margin-bottom: 0; display: none;">
+                        <label>Tiempo Base (Segundos):</label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="number" id="modal-ejercicio-tiempo-segundos" class="modal-input" placeholder="60" value="60" min="1" max="3600" style="font-weight: 800; color: #34d399; text-align: center; flex: 1;" oninput="actualizarTiempoModal(true)">
+                            <span id="modal-ejercicio-tiempo-formateado" style="font-size: 11px; font-weight: 800; color: #34d399; white-space: nowrap;">01:00</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 5. RANGO DE REPETICIONES -->
-                <div class="modal-form-group" style="margin-bottom: 12px;">
+                <!-- 6. RANGO DE REPETICIONES O ATAJOS DE TIEMPO -->
+                <div class="modal-form-group" id="grupo-modal-rango-reps" style="margin-bottom: 12px;">
                     <label>Rango de Repeticiones Sugerido:</label>
                     <input type="text" id="modal-ejercicio-reps" class="modal-input" placeholder="Ej: 8-12 reps" value="8-12 reps" oninput="actualizarPromedioRepsModal()">
+                </div>
+
+                <div class="modal-form-group" id="grupo-modal-helpers-tiempo" style="margin-bottom: 12px; display: none;">
+                    <label style="margin-bottom: 4px; display: block; font-size: 11.5px; color: #94a3b8;">Atajos de Tiempo Predefinidos:</label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button type="button" class="btn-subfiltro-ej" onclick="asignarTiempoRapidoModal(30)">30 seg</button>
+                        <button type="button" class="btn-subfiltro-ej" onclick="asignarTiempoRapidoModal(45)">45 seg</button>
+                        <button type="button" class="btn-subfiltro-ej active" onclick="asignarTiempoRapidoModal(60)">60 seg (1 min)</button>
+                        <button type="button" class="btn-subfiltro-ej" onclick="asignarTiempoRapidoModal(90)">90 seg (1.5 min)</button>
+                        <button type="button" class="btn-subfiltro-ej" onclick="asignarTiempoRapidoModal(120)">120 seg (2 min)</button>
+                    </div>
                 </div>
 
                 <!-- INFO BOX: REFERENCIA DE FATIGA Y ESCALADO BIOMECÁNICO -->
@@ -4638,22 +4677,22 @@
     <script src="js/core.js?v=10.22"></script>
     <script src="js/perfil.js?v=10.22"></script>
     <script src="js/progresion.js?v=10.22"></script>
-    <script src="js/estado-personal.js?v=10.22"></script>
-    <script src="js/finanzas.js?v=10.22"></script>
-    <script src="js/ideas.js?v=10.22"></script>
-    <script src="js/dinamicas.js?v=10.22"></script>
-    <script src="js/calendario.js?v=10.22"></script>
-    <script src="js/inventario.js?v=10.22"></script>
-    <script src="js/jarvis-voz.js?v=10.22"></script>
+    <script src="js/estado-personal.js?v=10.23"></script>
+    <script src="js/finanzas.js?v=10.23"></script>
+    <script src="js/ideas.js?v=10.23"></script>
+    <script src="js/dinamicas.js?v=10.23"></script>
+    <script src="js/calendario.js?v=10.23"></script>
+    <script src="js/inventario.js?v=10.23"></script>
+    <script src="js/jarvis-voz.js?v=10.23"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.22"></script>
+    <script type="module" src="js/firebase-config.js?v=10.23"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.22')
+                navigator.serviceWorker.register('sw.js?v=10.23')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
