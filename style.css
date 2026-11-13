@@ -8894,6 +8894,72 @@ body.modal-open {
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* ==========================================================================
+   BARRA DE BÚSQUEDA Y CATEGORÍAS MUSCULARES ENVOLVENTES (v10.24)
+   ========================================================================== */
+.banco-subfiltros-scroll-wrapper {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 7px !important;
+    margin-bottom: 14px !important;
+    width: 100% !important;
+}
+
+.banco-subfiltros-scroll-wrapper .btn-subfiltro-ej {
+    white-space: nowrap;
+    padding: 6px 13px !important;
+    font-size: 12px !important;
+    border-radius: 9999px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    user-select: none;
+}
+
+.banco-subfiltros-scroll-wrapper .btn-subfiltro-ej:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.banco-subfiltros-scroll-wrapper .btn-subfiltro-ej.active {
+    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.exercise-search-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+    width: 100%;
+}
+
+.exercise-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #111625 !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 11px 40px 11px 38px !important;
+    color: #f8fafc !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    outline: none !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.exercise-search-input:focus {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35) !important;
+    background: #151b2e !important;
+}
+
+.exercise-search-input::placeholder {
+    color: #64748b !important;
+    font-weight: 400 !important;
+}
+
+
 
 
 

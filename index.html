@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.23">
+    <link rel="stylesheet" href="style.css?v=10.24">
 </head>
 <body>
 
@@ -619,8 +619,17 @@
                     </div>
                 </div>
 
-                <!-- BARRA DE CATEGORÍAS MUSCULARES CON SCROLL HORIZONTAL FLUIDO -->
-                <div class="banco-subfiltros-scroll-wrapper" style="display: flex; gap: 7px; overflow-x: auto; white-space: nowrap; padding-bottom: 8px; margin-bottom: 14px; -webkit-overflow-scrolling: touch;">
+                <!-- BARRA DE BÚSQUEDA RÁPIDA DE EJERCICIOS -->
+                <div class="exercise-search-wrapper">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <span style="position: absolute; left: 14px; color: #38bdf8; font-size: 14px; pointer-events: none; user-select: none;">🔍</span>
+                        <input type="text" id="buscador-ejercicios-banco" class="exercise-search-input" placeholder="Buscar ejercicio por nombre, músculo o implemento (ej: press, bíceps, barra)..." oninput="alBuscarEjercicioBancoFisico(this.value)" autocomplete="off">
+                        <button type="button" id="btn-limpiar-busqueda-ejercicios" onclick="limpiarBuscadorBancoFisico()" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 6px; display: none;" title="Limpiar búsqueda" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">✕</button>
+                    </div>
+                </div>
+
+                <!-- BARRA DE CATEGORÍAS MUSCULARES (ENVOLVENTE Y 100% VISIBLE) -->
+                <div class="banco-subfiltros-scroll-wrapper">
                     <button class="btn-subfiltro-ej active" data-subfiltro="todos" onclick="filtrarSubcategoriaEjercicios('todos')">Todos</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Pecho" onclick="filtrarSubcategoriaEjercicios('Pecho')">⚔️ Pecho</button>
                     <button class="btn-subfiltro-ej" data-subfiltro="Espalda" onclick="filtrarSubcategoriaEjercicios('Espalda')">🦅 Espalda</button>
@@ -4674,25 +4683,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.22"></script>
-    <script src="js/perfil.js?v=10.22"></script>
-    <script src="js/progresion.js?v=10.22"></script>
-    <script src="js/estado-personal.js?v=10.23"></script>
-    <script src="js/finanzas.js?v=10.23"></script>
-    <script src="js/ideas.js?v=10.23"></script>
-    <script src="js/dinamicas.js?v=10.23"></script>
-    <script src="js/calendario.js?v=10.23"></script>
-    <script src="js/inventario.js?v=10.23"></script>
-    <script src="js/jarvis-voz.js?v=10.23"></script>
+    <script src="js/core.js?v=10.24"></script>
+    <script src="js/perfil.js?v=10.24"></script>
+    <script src="js/progresion.js?v=10.24"></script>
+    <script src="js/estado-personal.js?v=10.24"></script>
+    <script src="js/finanzas.js?v=10.24"></script>
+    <script src="js/ideas.js?v=10.24"></script>
+    <script src="js/dinamicas.js?v=10.24"></script>
+    <script src="js/calendario.js?v=10.24"></script>
+    <script src="js/inventario.js?v=10.24"></script>
+    <script src="js/jarvis-voz.js?v=10.24"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.23"></script>
+    <script type="module" src="js/firebase-config.js?v=10.24"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.23')
+                navigator.serviceWorker.register('sw.js?v=10.24')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

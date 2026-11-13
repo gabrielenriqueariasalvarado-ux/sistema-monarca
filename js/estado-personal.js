@@ -1848,6 +1848,71 @@ function renderizarPortalesRutinasEjercicios() {
     cont.innerHTML = html;
 }
 
+var BUSQUEDA_BANCO_FISICO_TEXTO = "";
+
+function normalizarTextoBusqueda(str) {
+    if (!str) return "";
+    return String(str)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
+function ejercicioCoincideBusquedaTexto(ej, term) {
+    if (!term) return true;
+    var q = normalizarTextoBusqueda(term);
+    if (!q) return true;
+
+    var nom = normalizarTextoBusqueda(ej.nombre);
+    if (nom.includes(q)) return true;
+
+    var desc = normalizarTextoBusqueda(ej.descripcion || ej.especificaciones);
+    if (desc.includes(q)) return true;
+
+    var musc = normalizarTextoBusqueda(ej.musculoPrincipal);
+    if (musc.includes(q)) return true;
+
+    var imp = normalizarTextoBusqueda(ej.implemento || ej.equipamiento);
+    if (imp.includes(q)) return true;
+
+    var tipo = normalizarTextoBusqueda(ej.tipo);
+    if (tipo.includes(q)) return true;
+
+    if (ej.categorias && Array.isArray(ej.categorias)) {
+        if (ej.categorias.some(function(c) { return normalizarTextoBusqueda(c).includes(q); })) return true;
+    }
+
+    if (ej.zonas && Array.isArray(ej.zonas)) {
+        if (ej.zonas.some(function(z) {
+            return normalizarTextoBusqueda(z.clave).includes(q) || normalizarTextoBusqueda(z.nombre).includes(q);
+        })) return true;
+    }
+
+    return false;
+}
+
+function alBuscarEjercicioBancoFisico(texto) {
+    BUSQUEDA_BANCO_FISICO_TEXTO = (texto || "").trim();
+    var btnLimpiar = document.getElementById('btn-limpiar-busqueda-ejercicios');
+    if (btnLimpiar) {
+        btnLimpiar.style.display = BUSQUEDA_BANCO_FISICO_TEXTO ? 'block' : 'none';
+    }
+    renderizarEjercicios(APP_STATE.ejercicios);
+}
+
+function limpiarBuscadorBancoFisico() {
+    BUSQUEDA_BANCO_FISICO_TEXTO = "";
+    var inBusq = document.getElementById('buscador-ejercicios-banco');
+    var btnLimpiar = document.getElementById('btn-limpiar-busqueda-ejercicios');
+    if (inBusq) {
+        inBusq.value = "";
+        inBusq.focus();
+    }
+    if (btnLimpiar) btnLimpiar.style.display = 'none';
+    renderizarEjercicios(APP_STATE.ejercicios);
+}
+
 function filtrarSubcategoriaEjercicios(subfiltro) {
     SUBFILTRO_BANCO_ACTIVO = subfiltro || 'todos';
     var btns = document.querySelectorAll('#seccion-categoria-banco-fisico .btn-subfiltro-ej');
@@ -3256,23 +3321,52 @@ function renderizarEjercicios(ejercicios) {
     }
 
     var subfiltro = SUBFILTRO_BANCO_ACTIVO || 'todos';
+    var tieneBusqueda = !!(BUSQUEDA_BANCO_FISICO_TEXTO && BUSQUEDA_BANCO_FISICO_TEXTO.trim());
 
-    // Si es una subcategoría específica, filtrar directamente
+    // 1. Filtrar primero por texto de búsqueda si el usuario ingresó algo
+    var listaFiltradaPorTexto = eList;
+    if (tieneBusqueda) {
+        listaFiltradaPorTexto = eList.filter(function(e) {
+            return ejercicioCoincideBusquedaTexto(e, BUSQUEDA_BANCO_FISICO_TEXTO);
+        });
+    }
+
+    // 2. Si no hubo resultados en la búsqueda por texto en todo el catálogo
+    if (tieneBusqueda && listaFiltradaPorTexto.length === 0) {
+        cont.innerHTML = `
+        <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
+            <span style="font-size: 28px; display: block; margin-bottom: 8px;">🔍</span>
+            No se encontraron ejercicios con "<strong>${BUSQUEDA_BANCO_FISICO_TEXTO}</strong>"${subfiltro !== 'todos' ? (' en ' + subfiltro) : ''}.<br>
+            <button class="btn-subfiltro-ej" onclick="limpiarBuscadorBancoFisico()" style="margin-top: 12px; padding: 7px 14px; font-size: 12px;">✕ Limpiar Búsqueda</button>
+        </div>`;
+        return;
+    }
+
+    // 3. Si hay un subfiltro de categoría específico
     if (subfiltro !== 'todos') {
-        var filtrados = eList.filter(function(e) {
+        var filtrados = listaFiltradaPorTexto.filter(function(e) {
             return ejercicioCoincideSubfiltroFisico(e, subfiltro);
         });
 
         if (filtrados.length === 0) {
             cont.innerHTML = `
             <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
-                No hay ejercicios en la categoría <strong>${subfiltro}</strong>.<br>
-                <button class="btn-subfiltro-ej" onclick="abrirModalNuevoEjercicio('${subfiltro}')" style="margin-top: 12px;">➕ Crear Ejercicio en ${subfiltro}</button>
+                ${tieneBusqueda 
+                    ? `No hay coincidencias para "<strong>${BUSQUEDA_BANCO_FISICO_TEXTO}</strong>" en <strong>${subfiltro}</strong>.<br><button class="btn-subfiltro-ej" onclick="limpiarBuscadorBancoFisico()" style="margin-top: 12px; padding: 7px 14px;">✕ Ver todos en ${subfiltro}</button>` 
+                    : `No hay ejercicios en la categoría <strong>${subfiltro}</strong>.<br><button class="btn-subfiltro-ej" onclick="abrirModalNuevoEjercicio('${subfiltro}')" style="margin-top: 12px;">➕ Crear Ejercicio en ${subfiltro}</button>`
+                }
             </div>`;
             return;
         }
 
-        var html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        var headerBusqueda = tieneBusqueda 
+            ? `<div style="margin-bottom: 10px; font-size: 12.5px; color: #38bdf8; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+                <span>🔍 Resultados para "${BUSQUEDA_BANCO_FISICO_TEXTO}" en ${subfiltro} (${filtrados.length}):</span>
+                <button type="button" class="btn-subfiltro-ej" onclick="limpiarBuscadorBancoFisico()" style="font-size: 11px; padding: 3px 8px;">✕ Limpiar</button>
+               </div>`
+            : '';
+
+        var html = headerBusqueda + '<div style="display: flex; flex-direction: column; gap: 8px;">';
         filtrados.forEach(function(ej) {
             html += generarCardEjercicioFisicoHtml(ej);
         });
@@ -3281,7 +3375,23 @@ function renderizarEjercicios(ejercicios) {
         return;
     }
 
-    // Si 'todos' está activo, agrupar de manera ordenada por categorías
+    // 4. Si 'todos' está activo:
+    // Si hay búsqueda por texto, mostramos directamente los resultados coincidentes
+    if (tieneBusqueda) {
+        var html = `<div style="margin-bottom: 10px; font-size: 12.5px; color: #38bdf8; font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
+            <span>🔍 Coincidencias encontradas (${listaFiltradaPorTexto.length}):</span>
+            <button type="button" class="btn-subfiltro-ej" onclick="limpiarBuscadorBancoFisico()" style="font-size: 11px; padding: 3px 8px;">✕ Limpiar</button>
+        </div>`;
+        html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        listaFiltradaPorTexto.forEach(function(ej) {
+            html += generarCardEjercicioFisicoHtml(ej);
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+        return;
+    }
+
+    // Si 'todos' está activo y NO hay texto de búsqueda, agrupar de manera ordenada por categorías
     var grupos = [
         { key: 'Pecho', label: '⚔️ Pecho & Pectorales' },
         { key: 'Espalda', label: '🦅 Espalda & Dorsales' },
