@@ -585,7 +585,7 @@ function inicializarSistema() {
     }
     if (typeof renderizarDesgloseCuerpoAnatomico === 'function') renderizarDesgloseCuerpoAnatomico();
     if (typeof renderizarDesgloseMenteCognitiva === 'function') renderizarDesgloseMenteCognitiva();
-    inicializarBancoDeIdeas();
+    if (typeof inicializarBancoDeIdeas === 'function') inicializarBancoDeIdeas();
 
     // Historial inicial para soporte del botón atrás en móvil / PWA
     try {

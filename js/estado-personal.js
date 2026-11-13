@@ -6433,7 +6433,7 @@ function ejecutarRutinaDinamica() {
             if (sc.esTiempo) {
                 msgAviso += "\n• " + sc.nombre + ": Récord isométrico superado de " + sc.anterior + "s a " + sc.nuevo + "s (+" + sc.diff + "s extra). Tu nuevo tiempo promedio ha sido actualizado.";
             } else {
-                msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " " + sc.unidad + " (+" + sc.diff + " " + sc.unidad + sobre el anterior de " + sc.anterior + " " + sc.unidad + "). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " " + sc.unidad + ".";
+                msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " " + sc.unidad + " (+" + sc.diff + " " + sc.unidad + " sobre el anterior de " + sc.anterior + " " + sc.unidad + "). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " " + sc.unidad + ".";
             }
         });
     }
