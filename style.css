@@ -5918,89 +5918,166 @@ body.modal-open {
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.6) !important;
 }
 
-/* FLOATING BOTTOM HUD BAR (PACEFUEL / HULY EXECUTIVE STYLE) */
+/* FLOATING BOTTOM HUD BAR (EXECUTIVE PILL REDESIGN) */
 .monarca-bottom-hud {
     position: fixed;
-    bottom: 16px;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 19, 29, 0.92);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: rgba(15, 18, 28, 0.94);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 9999px;
-    padding: 6px 14px;
+    padding: 6px 18px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 16px 36px -4px rgba(0, 0, 0, 0.85);
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 18px 42px -4px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     z-index: 9500;
+    width: auto;
+    min-width: 320px;
+    max-width: 430px;
     transition: all 0.25s var(--ease-out);
 }
 
 .bottom-hud-item {
     background: transparent;
     border: none;
-    color: #94a3b8;
-    padding: 8px 14px;
-    border-radius: 9999px;
+    color: #64748b;
+    padding: 6px 10px;
+    border-radius: 12px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    font-weight: 600;
+    justify-content: center;
+    gap: 4px;
     cursor: pointer;
-    transition: all 0.2s var(--ease-out);
-    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .bottom-hud-item svg {
     display: block;
     stroke: currentColor;
-    transition: transform 0.2s var(--ease-out), stroke 0.2s;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s, filter 0.2s;
 }
 
 .bottom-hud-item:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
 }
 
 .bottom-hud-item:hover svg {
     transform: translateY(-2px);
-    stroke: #818cf8;
+    stroke: #94a3b8;
 }
 
 .bottom-hud-item.active {
-    background: rgba(99, 102, 241, 0.18);
     color: #ffffff;
-    border: 1px solid rgba(99, 102, 241, 0.35);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
 }
 
 .bottom-hud-item.active svg {
-    stroke: #818cf8;
+    stroke: #ffffff;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.45));
+}
+
+.hud-active-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: 0;
+    transform: scale(0.4);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-top: 1px;
+}
+
+.bottom-hud-item.active .hud-active-dot {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.95);
+}
+
+/* BOTÓN CENTRAL ELEVADO '+' */
+.bottom-hud-center-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e2436 0%, #141724 100%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+    margin: -4px 2px;
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-hud-center-btn svg {
+    stroke: #ffffff;
+    transition: transform 0.2s ease;
+}
+
+.bottom-hud-center-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    background: linear-gradient(135deg, #262e44 0%, #1a1e2d 100%);
+    border-color: rgba(129, 140, 248, 0.5);
+    box-shadow: 0 10px 26px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.bottom-hud-center-btn:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.hud-notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+    border: 2px solid #0f121c;
 }
 
 @media (max-width: 540px) {
     .monarca-bottom-hud {
         width: calc(100% - 24px);
-        max-width: 420px;
-        justify-content: space-around;
-        padding: 5px 6px;
-        gap: 2px;
-        bottom: 12px;
+        max-width: 380px;
+        padding: 5px 12px;
+        gap: 10px;
+        bottom: 14px;
     }
-    .bottom-hud-item span {
-        display: none;
+    .bottom-hud-center-btn {
+        width: 44px;
+        height: 44px;
+        margin: -3px 0;
     }
     .bottom-hud-item {
-        padding: 9px 12px;
+        padding: 6px 8px;
     }
 }
 
 /* REPOSICIONAMIENTO DE ACCIONES FLOTANTES (ENCIMA DEL HUD BAR) */
 #btn-jarvis-voz-flotante {
-    bottom: 82px !important;
+    bottom: 86px !important;
     right: 18px !important;
     background: #0f131d !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;

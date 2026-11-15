@@ -655,15 +655,21 @@ function cambiarVista(vistaId, noPushState) {
 
     // Sincronizar estado visual de la barra HUD inferior flotante
     try {
-        var hudItems = document.querySelectorAll('.bottom-hud-item');
+        var hudItems = document.querySelectorAll('.monarca-bottom-hud .bottom-hud-item');
         hudItems.forEach(function(item) {
+            var dataHud = item.getAttribute('data-hud');
             var oc = item.getAttribute('onclick') || '';
-            if (oc.indexOf("'" + vistaId + "'") !== -1) {
+            if (vistaId === 'vista-menu' && (dataHud === 'apps' || oc.indexOf("'vista-menu'") !== -1)) {
+                item.classList.add('active');
+            } else if (vistaId === 'vista-perfil' && (dataHud === 'perfil' || oc.indexOf("'vista-perfil'") !== -1)) {
                 item.classList.add('active');
             } else {
                 item.classList.remove('active');
             }
         });
+        if (typeof actualizarBadgeNotificaciones === 'function') {
+            actualizarBadgeNotificaciones();
+        }
     } catch(e) {}
 
     switch(vistaId) {
@@ -1137,5 +1143,217 @@ function guardarCapturaRapida() {
         alert(esGasto ? "🔴 Gasto registrado exitosamente (+10 EXP)." : "🟢 Ingreso registrado exitosamente (+10 EXP).");
     }
 }
+
+/* ==========================================================================
+   SISTEMA DE HUD EXECUTIVE Y CENTRO DE NOTIFICACIONES & ALERTAS
+   ========================================================================== */
+
+function mostrarToastMonarca(mensaje, icono) {
+    try {
+        var toast = document.getElementById('monarca-toast-global');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'monarca-toast-global';
+            toast.style.cssText = 'position:fixed;bottom:88px;left:50%;transform:translateX(-50%);background:rgba(15,20,30,0.96);color:#f8fafc;padding:10px 18px;border-radius:24px;border:1px solid rgba(255,255,255,0.18);font-size:12.5px;font-weight:600;z-index:99999;box-shadow:0 12px 32px rgba(0,0,0,0.75);pointer-events:none;transition:all 0.25s cubic-bezier(0.16,1,0.3,1);display:flex;align-items:center;gap:8px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);white-space:nowrap;';
+            document.body.appendChild(toast);
+        }
+        toast.innerHTML = '<span>' + (icono || '✨') + '</span> <span>' + mensaje + '</span>';
+        toast.style.opacity = '1';
+        toast.style.display = 'flex';
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() { if (toast) toast.style.display = 'none'; }, 260);
+        }, 2800);
+    } catch(e) {}
+}
+
+function abrirSeccionHome() {
+    try {
+        var hudItems = document.querySelectorAll('.monarca-bottom-hud .bottom-hud-item');
+        hudItems.forEach(function(i) { i.classList.remove('active'); });
+        var btnHome = document.querySelector('.monarca-bottom-hud .bottom-hud-item[data-hud="home"]');
+        if (btnHome) btnHome.classList.add('active');
+        mostrarToastMonarca('Apartado Home · Próximamente disponible. En preparación.', '🏠');
+    } catch(e) {}
+}
+
+function abrirSeccionPerfil() {
+    mostrarToastMonarca('Perfil Monarca · Próximamente disponible. En preparación.', '👤');
+}
+
+function abrirCentroNotificaciones() {
+    var modal = document.getElementById('modal-centro-notificaciones');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    renderizarCentroNotificaciones();
+}
+
+function cerrarCentroNotificaciones() {
+    var modal = document.getElementById('modal-centro-notificaciones');
+    if (modal) modal.style.display = 'none';
+}
+
+function obtenerAlertasSistemaMonarca() {
+    var alertas = [];
+
+    // 1. Alerta de Boom Solutions (Sueldo)
+    try {
+        var boomData = null;
+        if (window.BOOM_SOLUTIONS_DATA) {
+            boomData = window.BOOM_SOLUTIONS_DATA;
+        } else {
+            var rawBoom = localStorage.getItem('MONARCA_BOOM_SOLUTIONS');
+            if (rawBoom) boomData = JSON.parse(rawBoom);
+        }
+        if (boomData && boomData.sueldo) {
+            var sueldo = boomData.sueldo;
+            if (!sueldo.cobrado) {
+                alertas.push({
+                    id: 'alerta-boom-sueldo',
+                    tipo: 'urgente',
+                    icono: '🚀',
+                    badge: 'Labor Boom Solutions',
+                    color: '#f59e0b',
+                    titulo: 'Cobro de Sueldo Pendiente',
+                    descripcion: 'Tienes pendiente cobrar el sueldo fijado de Boom Solutions ($' + (sueldo.montoQuincenal || sueldo.montoMensual || 190) + ' USD).',
+                    accionTexto: 'Ir a Boom Solutions',
+                    accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-subapp-boom');"
+                });
+            }
+        }
+    } catch(e) {}
+
+    // 2. Alerta de Quests Diarias
+    try {
+        if (window.APP_STATE && APP_STATE.quests) {
+            var pendientesQuests = 0;
+            var qList = APP_STATE.quests.diarias || [];
+            qList.forEach(function(q) {
+                if (!q.completada) pendientesQuests++;
+            });
+            if (pendientesQuests > 0) {
+                alertas.push({
+                    id: 'alerta-quests-pendientes',
+                    tipo: 'info',
+                    icono: '🎯',
+                    badge: 'Quests del Día',
+                    color: '#6366f1',
+                    titulo: pendientesQuests + ' Quests pendientes hoy',
+                    descripcion: 'Completa tus misiones de disciplina para ganar EXP y subir de nivel.',
+                    accionTexto: 'Ver Quests',
+                    accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-acciones-progresion');"
+                });
+            }
+        }
+    } catch(e) {}
+
+    // 3. Alerta de Finanzas (Resumen de gastos del mes)
+    try {
+        if (window.APP_STATE && APP_STATE.finanzas) {
+            var fin = APP_STATE.finanzas;
+            var numGastos = (fin.gastos && fin.gastos.length) || 0;
+            var numIngresos = (fin.ingresos && fin.ingresos.length) || 0;
+            alertas.push({
+                id: 'alerta-finanzas-status',
+                tipo: 'sistema',
+                icono: '📊',
+                badge: 'Capital & Finanzas',
+                color: '#10b981',
+                titulo: 'Control Financiero Activo',
+                descripcion: 'Tienes ' + numIngresos + ' registros de ingresos y ' + numGastos + ' gastos clasificados en tus pilares.',
+                accionTexto: 'Gestionar Finanzas',
+                accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-finanzas');"
+            });
+        }
+    } catch(e) {}
+
+    // 4. Estado de Nube / Sincronización
+    try {
+        var cloudOnline = window.MonarcaCloud && window.MonarcaCloud.isOnline;
+        alertas.push({
+            id: 'alerta-cloud-sync',
+            tipo: 'sync',
+            icono: '☁️',
+            badge: 'Firebase Cloud',
+            color: '#38bdf8',
+            titulo: 'Sincronización Monarca Cloud',
+            descripcion: 'Tus datos están resguardados en tiempo real en la nube y disponibles en todos tus dispositivos.',
+            accionTexto: 'Sincronizar Ahora',
+            accionFn: "if(window.MonarcaCloud && window.MonarcaCloud.forzarSincronizacion) window.MonarcaCloud.forzarSincronizacion(); cerrarCentroNotificaciones();"
+        });
+    } catch(e) {}
+
+    return alertas;
+}
+
+function renderizarCentroNotificaciones() {
+    var cont = document.getElementById('contenedor-alertas-notificaciones');
+    var txtResumen = document.getElementById('texto-resumen-alertas');
+    if (!cont) return;
+
+    var alertas = obtenerAlertasSistemaMonarca();
+    if (txtResumen) {
+        txtResumen.textContent = alertas.length + (alertas.length === 1 ? ' alerta activa' : ' alertas activas');
+    }
+
+    if (alertas.length === 0) {
+        cont.innerHTML = '<div style="text-align: center; padding: 36px 16px; color: #94a3b8;">' +
+            '<div style="font-size: 32px; margin-bottom: 8px;">✨</div>' +
+            '<div style="font-weight: 700; font-size: 14px; color: #f8fafc; margin-bottom: 4px;">Todo al día</div>' +
+            '<div style="font-size: 12px;">No tienes alertas pendientes por resolver en el Sistema Monarca.</div>' +
+            '</div>';
+        return;
+    }
+
+    var html = '';
+    alertas.forEach(function(a) {
+        html += '<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ' + a.color + '; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s;">' +
+            '<div style="display: flex; align-items: center; justify-content: space-between;">' +
+                '<div style="display: flex; align-items: center; gap: 8px;">' +
+                    '<span style="font-size: 16px;">' + a.icono + '</span>' +
+                    '<span style="font-size: 13px; font-weight: 700; color: #f8fafc;">' + a.titulo + '</span>' +
+                '</div>' +
+                '<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,0.06); color: ' + a.color + ';">' + a.badge + '</span>' +
+            '</div>' +
+            '<p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.45;">' + a.descripcion + '</p>' +
+            '<div style="display: flex; justify-content: flex-end; margin-top: 2px;">' +
+                '<button onclick="' + a.accionFn + '" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">' +
+                    a.accionTexto + ' →' +
+                '</button>' +
+            '</div>' +
+        '</div>';
+    });
+
+    cont.innerHTML = html;
+}
+
+function actualizarBadgeNotificaciones() {
+    try {
+        var badge = document.getElementById('hud-badge-notificaciones');
+        if (!badge) return;
+        var alertas = obtenerAlertasSistemaMonarca();
+        var urgentes = alertas.filter(function(a) { return a.tipo === 'urgente'; }).length;
+        if (urgentes > 0) {
+            badge.textContent = urgentes;
+            badge.style.display = 'flex';
+        } else if (alertas.length > 0) {
+            badge.textContent = alertas.length;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch(e) {}
+}
+
+// Actualizar badge al cargar la ventana
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            actualizarBadgeNotificaciones();
+        }, 1200);
+    });
+}
+
 
 
