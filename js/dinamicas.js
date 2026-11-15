@@ -440,6 +440,11 @@ function renderizarHistorialLabores() {
     filtrados.forEach(function(r) {
         var catInfo = LABORES_OFICIALES.find(function(c) { return c.id === r.laborId; }) || { nombre: "Labor", icono: "💼", color: "#6366f1" };
 
+        var numHoras = Number(r.horas !== undefined ? r.horas : (r.horasTrabajadas || 0));
+        var txtHoras = isNaN(numHoras) ? '0.0' : numHoras.toFixed(1);
+        var txtDesc = r.descripcion || r.notas || 'Sesión de labor registrada';
+        var montoHonorarios = Number(r.honorarios !== undefined ? r.honorarios : (r.ingresoCalculado || 0));
+
         htmlReg += `
         <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid ${catInfo.color}; border-radius: 12px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
             <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 220px;">
@@ -450,11 +455,11 @@ function renderizarHistorialLabores() {
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap;">
                         <strong style="color: #f8fafc; font-size: 13.5px;">${catInfo.nombre}</strong>
                         <span class="item-badge-pill" style="font-size: 11px; background: rgba(255, 255, 255, 0.05); color: #38bdf8; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.2);">
-                            ⏱️ ${Number(r.horas).toFixed(1)} hrs
+                            ⏱️ ${txtHoras} hrs
                         </span>
-                        ${Number(r.honorarios) > 0 ? `<span class="item-badge-pill" style="font-size: 11px; background: rgba(16, 185, 129, 0.1); color: #34d399; font-weight: 800; border: 1px solid rgba(16, 185, 129, 0.25);">+$${Number(r.honorarios).toFixed(2)}</span>` : ''}
+                        ${montoHonorarios > 0 ? `<span class="item-badge-pill" style="font-size: 11px; background: rgba(16, 185, 129, 0.1); color: #34d399; font-weight: 800; border: 1px solid rgba(16, 185, 129, 0.25);">+$${montoHonorarios.toFixed(2)}</span>` : ''}
                     </div>
-                    <p style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">${r.descripcion}</p>
+                    <p style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">${txtDesc}</p>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
@@ -740,13 +745,57 @@ function cambiarMesBoom(delta) {
     renderizarSubAppBoom();
 }
 
+function sincronizarBoomConFinanzas() {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes) return;
+    if (!planMes.pagosCobrados) planMes.pagosCobrados = {};
+    if (!planMes.montosRealesCobrados) planMes.montosRealesCobrados = {};
+
+    if (!APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) return;
+
+    APP_STATE.finanzas.ingresos.forEach(function(ig) {
+        var desc = ((ig.fuente || ig.concepto || ig.descripcion || ig.nombre || '') + ' ' + (ig.categoria || '')).toLowerCase();
+        var idStr = String(ig.id || '').toLowerCase();
+        var esBoom = idStr.indexOf('boom') !== -1 || desc.indexOf('boom') !== -1 || ig.origenLabor === 'LAB-BOOM';
+        if (!esBoom) return;
+
+        var tipoPago = null;
+        var dia = Number(ig.dia);
+        if (isNaN(dia) && ig.fecha) {
+            var parts = ig.fecha.split('-');
+            if (parts.length === 3) dia = Number(parts[2]);
+        }
+
+        if (idStr.indexOf('bono') !== -1 || idStr.indexOf('cesta') !== -1 || desc.indexOf('bono') !== -1 || desc.indexOf('cesta') !== -1 || dia <= 5) {
+            tipoPago = 'bono3';
+        } else if (idStr.indexOf('quincena1') !== -1 || idStr.indexOf('q1') !== -1 || desc.indexOf('quincena 1') !== -1 || desc.indexOf('primer corte') !== -1 || (dia > 5 && dia <= 15)) {
+            tipoPago = 'quincena1';
+        } else if (idStr.indexOf('quincena2') !== -1 || idStr.indexOf('q2') !== -1 || desc.indexOf('quincena 2') !== -1 || desc.indexOf('segundo corte') !== -1 || dia > 15) {
+            tipoPago = 'quincena2';
+        }
+
+        if (!tipoPago) return;
+
+        if (ig.cobrado) {
+            planMes.pagosCobrados[tipoPago] = true;
+            var realVal = (ig.montoCobrado !== undefined && ig.montoCobrado !== null && ig.montoCobrado !== '')
+                ? Number(ig.montoCobrado)
+                : Number(ig.monto);
+            planMes.montosRealesCobrados[tipoPago] = realVal;
+        }
+    });
+}
+
 function cargarSubAppBoom() {
     asegurarEstructuraBoom();
+    sincronizarBoomConFinanzas();
     renderizarSubAppBoom();
 }
 
 function renderizarSubAppBoom() {
     asegurarEstructuraBoom();
+    sincronizarBoomConFinanzas();
     var cont = document.getElementById('subapp-boom-content');
     if (!cont) return;
 
@@ -1096,6 +1145,29 @@ function abrirModalCobroBoom(tipoPago) {
     }
 
     var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
+
+    // Si ya existe un ingreso de Boom Solutions en Finanzas para este día/pago, reusar su ID para sincronizarlo
+    if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+        var ingresoExistente = APP_STATE.finanzas.ingresos.find(function(ig) {
+            if (ig.id === idFinanza) return true;
+            var d = ((ig.fuente || ig.concepto || ig.descripcion || '') + ' ' + (ig.categoria || '')).toLowerCase();
+            var esB = String(ig.id || '').toLowerCase().indexOf('boom') !== -1 || d.indexOf('boom') !== -1;
+            if (!esB) return false;
+            var dia = Number(ig.dia);
+            if (isNaN(dia) && ig.fecha) {
+                var p = ig.fecha.split('-');
+                if (p.length === 3) dia = Number(p[2]);
+            }
+            if (tipoPago === 'bono3' && (d.indexOf('bono') !== -1 || d.indexOf('cesta') !== -1 || dia <= 5)) return true;
+            if (tipoPago === 'quincena1' && (d.indexOf('quincena 1') !== -1 || (dia > 5 && dia <= 15))) return true;
+            if (tipoPago === 'quincena2' && (d.indexOf('quincena 2') !== -1 || dia > 15)) return true;
+            return false;
+        });
+        if (ingresoExistente) {
+            idFinanza = ingresoExistente.id;
+        }
+    }
+
     var compoundId = "BOOM:" + tipoPago + ":" + idFinanza;
 
     var modal = document.getElementById('modal-confirmar-cobro-ingreso');
@@ -1143,8 +1215,23 @@ function revertirCobroBoom(tipoPago) {
 
         var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
         if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
-            APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
-                return ig.id !== idFinanza;
+            APP_STATE.finanzas.ingresos.forEach(function(ig) {
+                var d = ((ig.fuente || ig.concepto || ig.descripcion || '') + ' ' + (ig.categoria || '')).toLowerCase();
+                var esB = ig.id === idFinanza || String(ig.id || '').toLowerCase().indexOf('boom') !== -1 || d.indexOf('boom') !== -1;
+                if (!esB) return;
+                var dia = Number(ig.dia);
+                if (isNaN(dia) && ig.fecha) {
+                    var p = ig.fecha.split('-');
+                    if (p.length === 3) dia = Number(p[2]);
+                }
+                var coincide = (tipoPago === 'bono3' && (d.indexOf('bono') !== -1 || d.indexOf('cesta') !== -1 || dia <= 5)) ||
+                               (tipoPago === 'quincena1' && (d.indexOf('quincena 1') !== -1 || (dia > 5 && dia <= 15))) ||
+                               (tipoPago === 'quincena2' && (d.indexOf('quincena 2') !== -1 || dia > 15));
+                if (coincide) {
+                    ig.cobrado = false;
+                    delete ig.montoCobrado;
+                    delete ig.fechaCobro;
+                }
             });
         }
 
@@ -2749,18 +2836,23 @@ function guardarCorteFinalizado() {
         sumarExpJugador(expGained, "Corte de Barbería a " + clienteNom);
     }
 
-    // 4. Si el checkbox está activo, registrar ingreso en Finanzas
+    // 4. Si el checkbox está activo, registrar ingreso en Finanzas (Entrada Aleatoria como solicitó el usuario)
     if (checkFinanzas && checkFinanzas.checked && cobro > 0) {
         if (!APP_STATE.finanzas) APP_STATE.finanzas = {};
         if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
         APP_STATE.finanzas.ingresos.unshift({
-            id: 'ING-' + Date.now(),
+            id: 'ING-BARBER-' + Date.now(),
             fecha: hoyFechaStr,
-            categoria: '💼 Labores & Servicios',
+            fuente: 'Barbería: Corte a ' + clienteNom + ' (' + tipoCorte + ')',
             descripcion: 'Barbería: Corte a ' + clienteNom + ' (' + tipoCorte + ')',
             monto: cobro,
-            tipo: 'Laboral',
-            recurrencia: 'Puntual'
+            tipo: 'aleatoria', // Entrada Aleatoria
+            origen: 'labor',
+            origenLabor: 'LAB-BARBER',
+            categoria: '💼 Labores & Servicios',
+            cobrado: true,
+            montoCobrado: cobro,
+            fechaCobro: new Date().toISOString()
         });
     }
 
@@ -4996,17 +5088,25 @@ function guardarEntrenamientoFinalizado() {
 
     APP_STATE.subappTrainer.sesiones.unshift(nuevoEntrenamiento);
 
-    // 1. Integración automática con Finanzas
+    // 1. Integración automática con Finanzas (Entrada Fija Mensual como solicitó el usuario)
     if (checkFin && checkFin.checked && cobro > 0) {
         if (!APP_STATE.finanzas) APP_STATE.finanzas = { ingresos: [], gastos: [] };
         if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
 
         var nuevoIngreso = {
-            id: 'ING-' + Date.now(),
+            id: 'ING-TRAINER-' + Date.now(),
+            fuente: 'Personal Trainer - ' + alumnoNombre + ' (' + enfoque + ')',
             descripcion: 'Personal Trainer - ' + alumnoNombre + ' (' + enfoque + ')',
             monto: cobro,
             fecha: fechaHoyStr,
-            categoria: 'Labores & Servicios'
+            dia: new Date().getDate(),
+            tipo: 'fija', // Entrada Fija Mensual
+            origen: 'labor',
+            origenLabor: 'LAB-TRAINER',
+            categoria: '💼 Labores & Servicios',
+            cobrado: true,
+            montoCobrado: cobro,
+            fechaCobro: new Date().toISOString()
         };
         APP_STATE.finanzas.ingresos.unshift(nuevoIngreso);
     }
@@ -5020,18 +5120,24 @@ function guardarEntrenamientoFinalizado() {
     });
 
     if (regHoy) {
-        regHoy.horasTrabajadas = parseFloat(((parseFloat(regHoy.horasTrabajadas) || 0) + horasSesion).toFixed(2));
-        regHoy.ingresoCalculado = parseFloat(((parseFloat(regHoy.ingresoCalculado) || 0) + cobro).toFixed(2));
+        regHoy.horas = parseFloat(((parseFloat(regHoy.horas || regHoy.horasTrabajadas) || 0) + horasSesion).toFixed(2));
+        regHoy.horasTrabajadas = regHoy.horas;
+        regHoy.ingresoCalculado = parseFloat(((parseFloat(regHoy.ingresoCalculado || regHoy.honorarios) || 0) + cobro).toFixed(2));
+        regHoy.honorarios = regHoy.ingresoCalculado;
         var notaEnt = alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)';
         regHoy.notas = regHoy.notas ? (regHoy.notas + ' | ' + notaEnt) : notaEnt;
+        regHoy.descripcion = regHoy.notas;
     } else {
         var nuevoRegLabor = {
             id: 'REG-LAB-' + Date.now(),
             laborId: 'LAB-TRAINER',
             fecha: fechaHoyStr,
+            horas: horasSesion,
             horasTrabajadas: horasSesion,
+            honorarios: cobro,
             ingresoCalculado: cobro,
-            notas: 'Entrenamiento con ' + alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)'
+            notas: 'Entrenamiento con ' + alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)',
+            descripcion: 'Entrenamiento con ' + alumnoNombre + ' (' + enfoque + ', ' + duracionMinutos + ' min)'
         };
         APP_STATE.registrosLabores.unshift(nuevoRegLabor);
     }

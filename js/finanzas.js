@@ -222,6 +222,85 @@ function obtenerPilarGasto(gasto) {
     return 'gastos';
 }
 
+function clasificarOrigenIngreso(item) {
+    if (!item) return { tipoDestino: 'fija', origen: 'general', origenId: 'FIJA', nombreOrigen: 'Finanza Personal', icono: '📅', badgeHtml: '' };
+
+    var desc = ((item.fuente || item.concepto || item.descripcion || item.nombre || '') + ' ' + (item.categoria || '')).toLowerCase();
+    var idStr = String(item.id || '').toLowerCase();
+    var tipoRaw = String(item.tipo || '').toLowerCase();
+
+    // 1. Boom Solutions -> Entrada Fija Mensual (Sueldo)
+    if (item.origenLabor === 'LAB-BOOM' || item.laborId === 'LAB-BOOM' || idStr.indexOf('boom') !== -1 || desc.indexOf('boom') !== -1) {
+        return {
+            tipoDestino: 'fija',
+            origen: 'labor',
+            origenId: 'LAB-BOOM',
+            nombreOrigen: 'Boom Solutions',
+            icono: '🚀',
+            badgeHtml: '<span class="badge-cat" style="background: rgba(99, 102, 241, 0.18); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.35); font-weight: 700;">🚀 Labor: Boom Solutions</span>'
+        };
+    }
+
+    // 2. Personal Trainer -> Entrada Fija Mensual
+    if (item.origenLabor === 'LAB-TRAINER' || item.laborId === 'LAB-TRAINER' || idStr.indexOf('trainer') !== -1 || desc.indexOf('trainer') !== -1 || desc.indexOf('entrenamiento') !== -1 || desc.indexOf('coaching') !== -1) {
+        return {
+            tipoDestino: 'fija',
+            origen: 'labor',
+            origenId: 'LAB-TRAINER',
+            nombreOrigen: 'Personal Trainer',
+            icono: '🏋️',
+            badgeHtml: '<span class="badge-cat" style="background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700;">🏋️ Labor: Personal Trainer</span>'
+        };
+    }
+
+    // 3. Barbería -> Entrada Aleatoria (Variable por cortes)
+    if (item.origenLabor === 'LAB-BARBER' || item.laborId === 'LAB-BARBER' || idStr.indexOf('barber') !== -1 || desc.indexOf('barber') !== -1 || desc.indexOf('corte') !== -1 || desc.indexOf('degradado') !== -1) {
+        return {
+            tipoDestino: 'aleatoria',
+            origen: 'labor',
+            origenId: 'LAB-BARBER',
+            nombreOrigen: 'Barbería',
+            icono: '💈',
+            badgeHtml: '<span class="badge-cat" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); font-weight: 700;">💈 Labor: Barbería</span>'
+        };
+    }
+
+    // 4. Almacén -> Exclusivamente ventas y créditos de inventario / mercancía
+    if (item.ventaId || item.cuotaId || idStr.indexOf('almacen') !== -1 || idStr.indexOf('inv-') !== -1 || tipoRaw === 'almacen' || tipoRaw === 'credito' || desc.indexOf('almacén') !== -1 || desc.indexOf('almacen') !== -1 || desc.indexOf('producto') !== -1 || desc.indexOf('mercanc') !== -1) {
+        var subTxt = item.ventaId ? (item.cuotaId ? 'Crédito Cuota' : 'Venta Contado') : 'Venta';
+        return {
+            tipoDestino: 'almacen',
+            origen: 'almacen',
+            origenId: 'ALMACEN',
+            nombreOrigen: 'Almacén',
+            icono: '📦',
+            badgeHtml: '<span class="badge-cat" style="background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;">📦 Almacén: ' + subTxt + '</span>'
+        };
+    }
+
+    // 5. Entrada Fija General
+    if (tipoRaw === 'fija' || item.dia !== undefined) {
+        return {
+            tipoDestino: 'fija',
+            origen: 'general',
+            origenId: 'FIJA',
+            nombreOrigen: 'Finanza Personal',
+            icono: '📅',
+            badgeHtml: '<span class="badge-cat" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25);">📅 Finanza Personal</span>'
+        };
+    }
+
+    // 6. Entrada Aleatoria General
+    return {
+        tipoDestino: 'aleatoria',
+        origen: 'general',
+        origenId: 'ALEATORIA',
+        nombreOrigen: 'Entrada Aleatoria',
+        icono: '⚡',
+        badgeHtml: '<span class="badge-cat" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25);">⚡ Ingreso Variable</span>'
+    };
+}
+
 function cambiarTabIngresos(tab) {
     ESTADO_FINANZAS.tabIngresosActivo = tab;
     var btnF = document.getElementById('tab-ingresos-fijos');
@@ -244,7 +323,7 @@ function cambiarTabIngresos(tab) {
     } else if (tab === 'aleatorios') {
         if (btnA) btnA.classList.add('active');
         if (visA) visA.style.display = 'block';
-    } else if (tab === 'almacen_labores' || tab === 'almacen') {
+    } else if (tab === 'almacen' || tab === 'almacen_labores') {
         if (btnAlm) btnAlm.classList.add('active');
         if (visAlm) visAlm.style.display = 'block';
     }
@@ -441,7 +520,10 @@ function renderizarFinanzas(fin) {
             : `<span class="badge-ingreso-pendiente">⏳ Pendiente</span>
                <button class="btn-cobrar-ingreso" onclick="cobrarIngresoUI('${item.id}')" title="Sumar este dinero a mi cuenta real">💰 Sumar a Cuenta</button>`;
 
-        var tituloIngreso = item.fuente || item.concepto || item.nombre || item.titulo || (item.tipo === 'almacen' ? 'Venta Almacén' : (item.tipo === 'labor' ? 'Labor' : 'Entrada Fija'));
+        var infoOrigen = clasificarOrigenIngreso(item);
+        item.tipo = infoOrigen.tipoDestino;
+
+        var tituloIngreso = item.fuente || item.concepto || item.nombre || item.titulo || item.descripcion || (infoOrigen.tipoDestino === 'almacen' ? 'Venta Almacén' : 'Entrada de Ingreso');
         
         var displayMontoHtml = estaCobrado && Math.abs(montoRealCobrado - m) > 0.001
             ? `<div style="text-align: right;">
@@ -450,31 +532,23 @@ function renderizarFinanzas(fin) {
                </div>`
             : `<div class="finanzas-tx-monto monto-positivo">+$${(estaCobrado ? montoRealCobrado : m).toFixed(2)}</div>`;
 
-        var esAlmacenOLabor = (item.tipo === 'almacen' || item.tipo === 'credito' || item.tipo === 'labor');
-        var esAleatoria = item.tipo === 'aleatoria';
+        var fechaStr = item.fecha || ('Día ' + (item.dia || 15));
 
-        if (esAlmacenOLabor) {
+        if (infoOrigen.tipoDestino === 'almacen') {
             totAlmacen += m;
             countAlmacen++;
-            var fechaStr = item.fecha || ('Día ' + (item.dia || 15));
-            var iconoItem = item.tipo === 'labor' ? '💼' : (item.tipo === 'credito' ? '💳' : '📦');
-            var badgeCatHtml = '';
-            if (item.tipo === 'labor') {
-                badgeCatHtml = `<span class="badge-cat" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">💼 Labor · ${fechaStr}</span>`;
-            } else if (item.tipo === 'credito') {
-                badgeCatHtml = `<span class="badge-cat" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">💳 Crédito Pactado · ${fechaStr}</span>`;
-            } else {
-                badgeCatHtml = `<span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">📦 Venta Almacén · ${fechaStr}</span>`;
-            }
 
             htmlAlmacen += `
             <div class="finanzas-tx-item">
                 <div class="finanzas-tx-main">
-                    <div class="finanzas-tx-icon" style="color: ${item.tipo === 'labor' ? '#c084fc' : (item.tipo === 'credito' ? '#fbbf24' : '#38bdf8')};">${iconoItem}</div>
+                    <div class="finanzas-tx-icon" style="color: #f59e0b;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
-                        <div class="finanzas-tx-meta">
-                            ${badgeCatHtml}
+                        <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                            ${infoOrigen.badgeHtml}
+                            <span class="badge-cat" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1);">
+                                📅 ${fechaStr}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -484,19 +558,20 @@ function renderizarFinanzas(fin) {
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
-        } else if (esAleatoria) {
+        } else if (infoOrigen.tipoDestino === 'aleatoria') {
             totAleatorios += m;
             countAleatorios++;
-            var fechaStr = item.fecha || 'Fecha no esp.';
+
             htmlAleatorios += `
             <div class="finanzas-tx-item">
                 <div class="finanzas-tx-main">
-                    <div class="finanzas-tx-icon" style="color: #38bdf8;">⚡</div>
+                    <div class="finanzas-tx-icon" style="color: #38bdf8;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
-                        <div class="finanzas-tx-meta">
+                        <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                            ${infoOrigen.badgeHtml}
                             <span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
-                                ⚡ Variable · ${fechaStr}
+                                ⚡ ${fechaStr}
                             </span>
                         </div>
                     </div>
@@ -511,13 +586,15 @@ function renderizarFinanzas(fin) {
             totFijos += m;
             countFijos++;
             var diaNum = item.dia || 15;
+
             htmlFijos += `
             <div class="finanzas-tx-item">
                 <div class="finanzas-tx-main">
-                    <div class="finanzas-tx-icon" style="color: #34d399;">📅</div>
+                    <div class="finanzas-tx-icon" style="color: #34d399;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
-                        <div class="finanzas-tx-meta">
+                        <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                            ${infoOrigen.badgeHtml}
                             <span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
                                 📅 Cobro Día ${diaNum} de cada mes
                             </span>
@@ -538,9 +615,8 @@ function renderizarFinanzas(fin) {
     }
     if (countAleatorios === 0) {
         htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${obtenerNombrePeriodo(vq)}.</div>`;
-    }
     if (countAlmacen === 0) {
-        htmlAlmacen = `<div class="finanzas-empty-hint">Sin entradas de almacén o labores para ${obtenerNombrePeriodo(vq)}.</div>`;
+        htmlAlmacen = `<div class="finanzas-empty-hint">Sin ventas o entradas de almacén para ${obtenerNombrePeriodo(vq)}.</div>`;
     }
 
     var elContFijos = document.getElementById('lista-ingresos-fijos');
@@ -1362,6 +1438,12 @@ function confirmarAgregarIngreso() {
         cobrado: false
     };
 
+    var infoOrig = clasificarOrigenIngreso(nuevoIngreso);
+    nuevoIngreso.tipo = infoOrig.tipoDestino;
+    if (infoOrig.origen === 'labor') {
+        nuevoIngreso.origenLabor = infoOrig.origenId;
+    }
+
     APP_STATE.finanzas.ingresos.push(nuevoIngreso);
 
     if (inF) inF.value = "";
@@ -1372,9 +1454,9 @@ function confirmarAgregarIngreso() {
     renderizarFinanzas(APP_STATE.finanzas);
 
     // Cambiar al tab correspondiente para ver el nuevo ingreso de inmediato
-    if (tipo === 'almacen') {
-        cambiarTabIngresos('almacen_labores');
-    } else if (tipo === 'aleatoria') {
+    if (nuevoIngreso.tipo === 'almacen') {
+        cambiarTabIngresos('almacen');
+    } else if (nuevoIngreso.tipo === 'aleatoria') {
         cambiarTabIngresos('aleatorios');
     } else {
         cambiarTabIngresos('fijos');
@@ -1793,6 +1875,38 @@ function ejecutarCobroIngresoReal() {
     item.montoCobrado = montoVal;
     item.fechaCobro = new Date().toISOString();
 
+    // Sincronizar con Boom Solutions si este ingreso corresponde a Boom
+    var descBoom = ((item.fuente || item.concepto || item.descripcion || '') + ' ' + (item.categoria || '')).toLowerCase();
+    var idStrB = String(item.id || '').toLowerCase();
+    if ((idStrB.indexOf('boom') !== -1 || descBoom.indexOf('boom') !== -1 || item.origenLabor === 'LAB-BOOM') && typeof asegurarEstructuraBoom === 'function') {
+        asegurarEstructuraBoom();
+        if (APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
+            var mesKey = (typeof MES_BOOM_ACTUAL !== 'undefined') ? MES_BOOM_ACTUAL : new Date().toISOString().slice(0, 7);
+            var planMes = APP_STATE.subappBoom.planificaciones[mesKey];
+            if (planMes) {
+                if (!planMes.pagosCobrados) planMes.pagosCobrados = {};
+                if (!planMes.montosRealesCobrados) planMes.montosRealesCobrados = {};
+
+                var tipoPago = 'quincena1';
+                var dNum = Number(item.dia);
+                if (isNaN(dNum) && item.fecha) {
+                    var sp = item.fecha.split('-');
+                    if (sp.length === 3) dNum = Number(sp[2]);
+                }
+                if (descBoom.indexOf('bono') !== -1 || descBoom.indexOf('cesta') !== -1 || dNum <= 5) {
+                    tipoPago = 'bono3';
+                } else if (dNum > 15 || descBoom.indexOf('quincena 2') !== -1 || descBoom.indexOf('quincena2') !== -1) {
+                    tipoPago = 'quincena2';
+                } else {
+                    tipoPago = 'quincena1';
+                }
+
+                planMes.pagosCobrados[tipoPago] = true;
+                planMes.montosRealesCobrados[tipoPago] = montoVal;
+            }
+        }
+    }
+
     // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
     if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
         var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
@@ -1834,17 +1948,28 @@ function deshacerCobroIngresoUI(id) {
                     }
                 }
 
-                // Sincronizar con Boom Solutions si es un pago originado allí
-                if (item.id && item.id.indexOf('ING-BOOM-') === 0 && APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
-                    var partes = item.id.split('-');
-                    if (partes.length >= 5) {
-                        var mesKey = partes[2] + '-' + partes[3];
-                        var tipoPago = partes[4];
-                        if (APP_STATE.subappBoom.planificaciones[mesKey]) {
-                            var planMes = APP_STATE.subappBoom.planificaciones[mesKey];
-                            if (planMes.pagosCobrados) planMes.pagosCobrados[tipoPago] = false;
-                            if (planMes.montosRealesCobrados) delete planMes.montosRealesCobrados[tipoPago];
+                // Sincronizar con Boom Solutions si es un pago originado allí o vinculado a Boom
+                var descB = ((item.fuente || item.concepto || item.descripcion || '') + ' ' + (item.categoria || '')).toLowerCase();
+                var idStrB = String(item.id || '').toLowerCase();
+                if ((idStrB.indexOf('boom') !== -1 || descB.indexOf('boom') !== -1 || item.origenLabor === 'LAB-BOOM') && APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
+                    var mesKey = (typeof MES_BOOM_ACTUAL !== 'undefined') ? MES_BOOM_ACTUAL : new Date().toISOString().slice(0, 7);
+                    var planMes = APP_STATE.subappBoom.planificaciones[mesKey];
+                    if (planMes) {
+                        var tipoPago = 'quincena1';
+                        var dNum = Number(item.dia);
+                        if (isNaN(dNum) && item.fecha) {
+                            var sp = item.fecha.split('-');
+                            if (sp.length === 3) dNum = Number(sp[2]);
                         }
+                        if (descB.indexOf('bono') !== -1 || descB.indexOf('cesta') !== -1 || dNum <= 5) {
+                            tipoPago = 'bono3';
+                        } else if (dNum > 15 || descB.indexOf('quincena 2') !== -1 || descB.indexOf('quincena2') !== -1) {
+                            tipoPago = 'quincena2';
+                        } else {
+                            tipoPago = 'quincena1';
+                        }
+                        if (planMes.pagosCobrados) planMes.pagosCobrados[tipoPago] = false;
+                        if (planMes.montosRealesCobrados) delete planMes.montosRealesCobrados[tipoPago];
                     }
                 }
                 break;

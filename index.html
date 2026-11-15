@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.36">
+    <link rel="stylesheet" href="style.css?v=10.37">
 </head>
 <body>
 
@@ -1284,12 +1284,12 @@
                             <span>⚡</span> + Entrada Aleatoria
                         </button>
                         <button class="btn-add-finanza" onclick="abrirModalIngreso('almacen')" style="background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #c084fc;">
-                            <span>📦</span> + Almacén / Labor
+                            <span>📦</span> + Almacén
                         </button>
                     </div>
                 </div>
 
-                <!-- Tabs de Navegación Fijas vs Aleatorias vs Almacén & Labores -->
+                <!-- Tabs de Navegación Fijas vs Aleatorias vs Almacén -->
                 <div class="finanzas-tabs-nav">
                     <button class="finanzas-tab-btn active" id="tab-ingresos-fijos" onclick="cambiarTabIngresos('fijos')">
                         <span>📅</span> Entradas Fijas (<span id="badge-count-fijos">0</span>)
@@ -1297,8 +1297,8 @@
                     <button class="finanzas-tab-btn" id="tab-ingresos-aleatorios" onclick="cambiarTabIngresos('aleatorios')">
                         <span>⚡</span> Entradas Aleatorias (<span id="badge-count-aleatorios">0</span>)
                     </button>
-                    <button class="finanzas-tab-btn" id="tab-ingresos-almacen" onclick="cambiarTabIngresos('almacen_labores')">
-                        <span>📦</span> Almacén & Labores (<span id="badge-count-almacen">0</span>)
+                    <button class="finanzas-tab-btn" id="tab-ingresos-almacen" onclick="cambiarTabIngresos('almacen')">
+                        <span>📦</span> Almacén (<span id="badge-count-almacen">0</span>)
                     </button>
                 </div>
 
@@ -1320,11 +1320,11 @@
                     </div>
                 </div>
 
-                <!-- Lista de Entradas de Almacén & Labores (Ventas Contado/Crédito y Jornadas) -->
+                <!-- Lista de Entradas de Almacén (Ventas Contado/Crédito y Cuotas de Inventario) -->
                 <div id="vista-ingresos-almacen" style="display: none;">
                     <div id="lista-ingresos-almacen" class="finanzas-tx-list"></div>
                     <div class="total-box-finanzas" style="margin-top: 10px;">
-                        <span class="total-box-label">Subtotal Almacén & Labores:</span>
+                        <span class="total-box-label">Subtotal Almacén:</span>
                         <span class="total-box-val monto-positivo" id="subtotal-ingresos-almacen">$0.00</span>
                     </div>
                 </div>
@@ -1444,7 +1444,7 @@
                         ⚡ Aleatoria
                     </button>
                     <button type="button" id="btn-modal-tipo-almacen" class="btn-back-system" style="flex: 1; min-width: 100px; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoIngresoModal('almacen')">
-                        📦 Almacén / Labor
+                        📦 Almacén
                     </button>
                 </div>
 
@@ -4807,25 +4807,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.36"></script>
-    <script src="js/perfil.js?v=10.36"></script>
-    <script src="js/progresion.js?v=10.36"></script>
-    <script src="js/estado-personal.js?v=10.36"></script>
-    <script src="js/finanzas.js?v=10.36"></script>
-    <script src="js/ideas.js?v=10.36"></script>
-    <script src="js/dinamicas.js?v=10.36"></script>
-    <script src="js/calendario.js?v=10.36"></script>
-    <script src="js/inventario.js?v=10.36"></script>
-    <script src="js/jarvis-voz.js?v=10.36"></script>
+    <script src="js/core.js?v=10.37"></script>
+    <script src="js/perfil.js?v=10.37"></script>
+    <script src="js/progresion.js?v=10.37"></script>
+    <script src="js/estado-personal.js?v=10.37"></script>
+    <script src="js/finanzas.js?v=10.37"></script>
+    <script src="js/ideas.js?v=10.37"></script>
+    <script src="js/dinamicas.js?v=10.37"></script>
+    <script src="js/calendario.js?v=10.37"></script>
+    <script src="js/inventario.js?v=10.37"></script>
+    <script src="js/jarvis-voz.js?v=10.37"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.36"></script>
+    <script type="module" src="js/firebase-config.js?v=10.37"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.36')
+                navigator.serviceWorker.register('sw.js?v=10.37')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
