@@ -4490,47 +4490,7 @@ body.modal-open {
    BOTÓN FLOTANTE Y MODAL DE ASISTENCIA RÁPIDA
    ========================================================================== */
 
-#btn-asistente-flotante {
-    position: fixed;
-    bottom: 138px !important;
-    right: 18px !important;
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #1e293b 0%, #0c1322 75%, #050b14 100%) !important;
-    color: #38bdf8 !important;
-    border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
-    z-index: 9999;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#btn-asistente-flotante span {
-    font-size: 22px;
-    display: inline-block;
-    filter: drop-shadow(0 0 8px #38bdf8);
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-#btn-asistente-flotante:hover {
-    transform: scale(1.1) translateY(-2px);
-    background: radial-gradient(circle at 35% 35%, #334155 0%, #172554 75%, #0a0f1d 100%) !important;
-    border-color: #38bdf8 !important;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.4) !important;
-}
-
-#btn-asistente-flotante:hover span {
-    transform: rotate(45deg) scale(1.18);
-}
-
-#btn-asistente-flotante:active {
-    transform: scale(0.92);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85), 0 0 12px rgba(56, 189, 248, 0.4) !important;
-}
+/* (Estilos de #btn-asistente-flotante y asistente rápido integrados en .monarca-bottom-hud) */
 
 /* Pestañas del Asistente Rápido (Finanza & Idea) */
 .asistente-tabs-container {
@@ -4607,12 +4567,6 @@ body.modal-open {
    ========================================================================== */
 
 @media (max-width: 480px) {
-    #btn-asistente-flotante {
-        bottom: 138px !important;
-        right: 18px;
-        width: 48px;
-        height: 48px;
-    }
 
     .routine-exercise-clean-row {
         padding: 10px 12px;
@@ -5925,39 +5879,42 @@ body.modal-open {
     left: 50%;
     transform: translateX(-50%);
     background: rgba(15, 18, 28, 0.94);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 9999px;
-    padding: 6px 18px;
+    padding: 6px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    box-shadow: 0 18px 42px -4px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    gap: 8px;
+    box-shadow: 0 18px 42px -4px rgba(0, 0, 0, 0.88), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     z-index: 9500;
     width: auto;
     min-width: 320px;
-    max-width: 430px;
+    max-width: 420px;
+    box-sizing: border-box;
     transition: all 0.25s var(--ease-out);
 }
 
 .bottom-hud-item {
-    background: transparent;
-    border: none;
-    color: #64748b;
-    padding: 6px 10px;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative;
+    background: transparent !important;
+    border: none !important;
+    color: #64748b !important;
+    padding: 6px 10px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative !important;
+    box-shadow: none !important;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    flex: 1;
 }
 
 .bottom-hud-item svg {
@@ -5967,21 +5924,21 @@ body.modal-open {
 }
 
 .bottom-hud-item:hover {
-    color: #cbd5e1;
+    color: #cbd5e1 !important;
 }
 
 .bottom-hud-item:hover svg {
     transform: translateY(-2px);
-    stroke: #94a3b8;
+    stroke: #cbd5e1;
 }
 
 .bottom-hud-item.active {
-    color: #ffffff;
+    color: #ffffff !important;
 }
 
 .bottom-hud-item.active svg {
     stroke: #ffffff;
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.45));
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
 }
 
 .hud-active-dot {
@@ -6002,39 +5959,50 @@ body.modal-open {
 }
 
 /* BOTÓN CENTRAL ELEVADO '+' */
-.bottom-hud-center-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #1e2436 0%, #141724 100%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    flex-shrink: 0;
-    margin: -4px 2px;
-    position: relative;
+.bottom-hud-center-btn,
+#btn-asistente-flotante {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #1e2436 0%, #141724 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    flex-shrink: 0 !important;
+    margin: 0 2px !important;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    z-index: 10;
 }
 
-.bottom-hud-center-btn svg {
+.bottom-hud-center-btn svg,
+#btn-asistente-flotante svg {
     stroke: #ffffff;
     transition: transform 0.2s ease;
 }
 
-.bottom-hud-center-btn:hover {
+.bottom-hud-center-btn:hover,
+#btn-asistente-flotante:hover {
     transform: translateY(-2px) scale(1.05);
-    background: linear-gradient(135deg, #262e44 0%, #1a1e2d 100%);
-    border-color: rgba(129, 140, 248, 0.5);
-    box-shadow: 0 10px 26px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    background: linear-gradient(135deg, #262e44 0%, #1a1e2d 100%) !important;
+    border-color: rgba(129, 140, 248, 0.5) !important;
+    box-shadow: 0 10px 26px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
 }
 
-.bottom-hud-center-btn:active {
+.bottom-hud-center-btn:active,
+#btn-asistente-flotante:active {
     transform: translateY(0) scale(0.96);
 }
 
@@ -6061,33 +6029,21 @@ body.modal-open {
     .monarca-bottom-hud {
         width: calc(100% - 24px);
         max-width: 380px;
-        padding: 5px 12px;
-        gap: 10px;
+        padding: 5px 10px;
+        gap: 6px;
         bottom: 14px;
     }
-    .bottom-hud-center-btn {
-        width: 44px;
-        height: 44px;
-        margin: -3px 0;
+    .bottom-hud-center-btn,
+    #btn-asistente-flotante {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        margin: 0 !important;
     }
     .bottom-hud-item {
-        padding: 6px 8px;
+        padding: 6px 6px !important;
     }
-}
-
-/* REPOSICIONAMIENTO DE ACCIONES FLOTANTES (ENCIMA DEL HUD BAR) */
-#btn-jarvis-voz-flotante {
-    bottom: 86px !important;
-    right: 18px !important;
-    background: #0f131d !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-#btn-jarvis-voz-flotante:hover {
-    background: #141926 !important;
-    border-color: rgba(99, 102, 241, 0.5) !important;
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
 }
 
 

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.39">
+    <link rel="stylesheet" href="style.css?v=10.40">
 </head>
 <body>
 
@@ -4793,11 +4793,6 @@
         </div>
     </div>
 
-    <!-- BOTÓN FLOTANTE JARVIS VOZ (ACCESO GLOBAL POR COMANDOS DE VOZ) -->
-    <button id="btn-jarvis-voz-flotante" onclick="abrirModalJarvisVoz(true)" title="Emily · Asistente de Voz" aria-label="Comandos de Voz">
-        <span style="font-size: 21px;">🎙️</span>
-    </button>
-
     <!-- BARRA HUD INFERIOR FLOTANTE (ESTILO EXECUTIVE PILL) -->
     <nav class="monarca-bottom-hud" aria-label="Navegación Rápida">
         <!-- 1. HOME (Próximamente) -->
@@ -4821,7 +4816,7 @@
 
         <!-- 3. ASISTENTE RÁPIDO (CENTRO +) -->
         <button id="btn-asistente-flotante" class="bottom-hud-center-btn" onclick="abrirAsistenteRapido()" title="Emily · Asistente Rápido" aria-label="Asistente Rápido">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -4839,11 +4834,13 @@
             <span class="hud-active-dot"></span>
         </button>
 
-        <!-- 5. PERFIL (Próximamente) -->
-        <button class="bottom-hud-item" data-hud="perfil" onclick="abrirSeccionPerfil(); cambiarVista('vista-perfil');" title="Perfil de Usuario" aria-label="Perfil">
+        <!-- 5. COMANDOS DE VOZ (EMILY) -->
+        <button id="btn-jarvis-voz-flotante" class="bottom-hud-item" data-hud="voz" onclick="abrirModalJarvisVoz(true)" title="Emily · Comandos de Voz" aria-label="Comandos de Voz">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
             <span class="hud-active-dot"></span>
         </button>
@@ -4857,25 +4854,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.39"></script>
-    <script src="js/perfil.js?v=10.39"></script>
-    <script src="js/progresion.js?v=10.39"></script>
-    <script src="js/estado-personal.js?v=10.39"></script>
-    <script src="js/finanzas.js?v=10.39"></script>
-    <script src="js/ideas.js?v=10.39"></script>
-    <script src="js/dinamicas.js?v=10.39"></script>
-    <script src="js/calendario.js?v=10.39"></script>
-    <script src="js/inventario.js?v=10.39"></script>
-    <script src="js/jarvis-voz.js?v=10.39"></script>
+    <script src="js/core.js?v=10.40"></script>
+    <script src="js/perfil.js?v=10.40"></script>
+    <script src="js/progresion.js?v=10.40"></script>
+    <script src="js/estado-personal.js?v=10.40"></script>
+    <script src="js/finanzas.js?v=10.40"></script>
+    <script src="js/ideas.js?v=10.40"></script>
+    <script src="js/dinamicas.js?v=10.40"></script>
+    <script src="js/calendario.js?v=10.40"></script>
+    <script src="js/inventario.js?v=10.40"></script>
+    <script src="js/jarvis-voz.js?v=10.40"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.39"></script>
+    <script type="module" src="js/firebase-config.js?v=10.40"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.39')
+                navigator.serviceWorker.register('sw.js?v=10.40')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
