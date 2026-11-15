@@ -615,6 +615,7 @@ function renderizarFinanzas(fin) {
     }
     if (countAleatorios === 0) {
         htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${obtenerNombrePeriodo(vq)}.</div>`;
+    }
     if (countAlmacen === 0) {
         htmlAlmacen = `<div class="finanzas-empty-hint">Sin ventas o entradas de almacén para ${obtenerNombrePeriodo(vq)}.</div>`;
     }
