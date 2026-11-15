@@ -4492,55 +4492,114 @@ body.modal-open {
 
 #btn-asistente-flotante {
     position: fixed;
-    bottom: 22px;
-    right: 22px;
-    width: 50px;
-    height: 50px;
+    bottom: 138px !important;
+    right: 18px !important;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    background: #111827;
-    color: #ffffff;
-    border: 1px solid #374151;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    background: radial-gradient(circle at 35% 35%, #1e293b 0%, #0c1322 75%, #050b14 100%) !important;
+    color: #38bdf8 !important;
+    border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
     z-index: 9999;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#btn-asistente-flotante span {
+    font-size: 22px;
+    display: inline-block;
+    filter: drop-shadow(0 0 8px #38bdf8);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 #btn-asistente-flotante:hover {
-    transform: scale(1.08);
-    background: #000000;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+    transform: scale(1.1) translateY(-2px);
+    background: radial-gradient(circle at 35% 35%, #334155 0%, #172554 75%, #0a0f1d 100%) !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.4) !important;
+}
+
+#btn-asistente-flotante:hover span {
+    transform: rotate(45deg) scale(1.18);
 }
 
 #btn-asistente-flotante:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85), 0 0 12px rgba(56, 189, 248, 0.4) !important;
+}
+
+/* Pestañas del Asistente Rápido (Finanza & Idea) */
+.asistente-tabs-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    background: rgba(11, 14, 21, 0.85);
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .btn-tab-asistente {
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 9999px;
-    padding: 6px 14px;
-    font-size: 12px;
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
     font-weight: 700;
-    color: #4b5563;
+    color: #94a3b8;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-tab-asistente:hover {
-    background: #e5e7eb;
-    color: #111827;
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
 }
 
 .btn-tab-asistente.active {
-    background: #111827;
-    color: #ffffff;
-    border-color: #111827;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(99, 102, 241, 0.25) 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(56, 189, 248, 0.5) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Botón de Acción Principal dentro del Asistente */
+.btn-guardar-asistente {
+    background: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(56, 189, 248, 0.5) !important;
+    border-radius: 12px !important;
+    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    padding: 12px 18px !important;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35) !important;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.btn-guardar-asistente:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #0369a1 0%, #4338ca 100%) !important;
+    box-shadow: 0 6px 24px rgba(2, 132, 199, 0.5), 0 0 16px rgba(56, 189, 248, 0.4) !important;
+    border-color: #38bdf8 !important;
+}
+
+.btn-guardar-asistente:active {
+    transform: scale(0.97);
 }
 
 /* ==========================================================================
@@ -4549,10 +4608,10 @@ body.modal-open {
 
 @media (max-width: 480px) {
     #btn-asistente-flotante {
-        bottom: 18px;
+        bottom: 138px !important;
         right: 18px;
-        width: 46px;
-        height: 46px;
+        width: 48px;
+        height: 48px;
     }
 
     .routine-exercise-clean-row {
@@ -5954,19 +6013,7 @@ body.modal-open {
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
 }
 
-#btn-asistente-flotante {
-    bottom: 138px !important;
-    right: 18px !important;
-    background: #0f131d !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
 
-#btn-asistente-flotante:hover {
-    background: #141926 !important;
-    border-color: rgba(56, 189, 248, 0.5) !important;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.3) !important;
-}
 
 /* QUESTS & DISCIPLINA DARK HUD */
 .quest-hud-metric {

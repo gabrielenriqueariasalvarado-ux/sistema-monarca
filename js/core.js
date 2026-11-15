@@ -902,13 +902,22 @@ function restarExp(cantidad) {
 // 4. ASISTENTE FLOTANTE DE CAPTURA RÁPIDA (ACCESO GLOBAL)
 // ==========================================================================
 
-var TAB_ASISTENTE_ACTIVO = 'idea';
+var TAB_ASISTENTE_ACTIVO = 'finanza';
 
 function abrirAsistenteRapido() {
     var m = document.getElementById('modal-asistente-rapido');
     if (m) {
         m.style.display = 'flex';
         cambiarTabAsistenteRapido(TAB_ASISTENTE_ACTIVO);
+        setTimeout(function() {
+            if (TAB_ASISTENTE_ACTIVO === 'finanza') {
+                var mon = document.getElementById('asistente-fin-monto');
+                if (mon) mon.focus();
+            } else if (TAB_ASISTENTE_ACTIVO === 'idea') {
+                var nom = document.getElementById('asistente-idea-nombre');
+                if (nom) nom.focus();
+            }
+        }, 100);
     }
 }
 
@@ -928,7 +937,7 @@ function cambiarTabAsistenteRapido(tab) {
         }
     });
 
-    ['idea', 'quest', 'mente', 'finanza'].forEach(function(t) {
+    ['finanza', 'idea', 'quest', 'mente'].forEach(function(t) {
         var sec = document.getElementById('asistente-sec-' + t);
         if (sec) sec.style.display = (t === tab) ? 'block' : 'none';
     });

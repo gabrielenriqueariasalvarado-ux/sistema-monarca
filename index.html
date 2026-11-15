@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.29">
+    <link rel="stylesheet" href="style.css?v=10.30">
 </head>
 <body>
 
@@ -3452,29 +3452,37 @@
             </div>
 
             <div style="padding: 18px;">
-                <!-- Pestañas de categoría rápida -->
-                <div style="display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px;">
-                    <button type="button" class="btn-tab-asistente active" data-tab="idea" onclick="cambiarTabAsistenteRapido('idea')">
-                        💡 Idea
-                    </button>
-                    <button type="button" class="btn-tab-asistente" data-tab="quest" onclick="cambiarTabAsistenteRapido('quest')">
-                        ⏳ Quest
-                    </button>
-                    <button type="button" class="btn-tab-asistente" data-tab="mente" onclick="cambiarTabAsistenteRapido('mente')">
-                        🧠 Mente
-                    </button>
-                    <button type="button" class="btn-tab-asistente" data-tab="finanza" onclick="cambiarTabAsistenteRapido('finanza')">
+                <!-- Pestañas de categoría rápida (1.º Finanza, 2.º Idea) -->
+                <div class="asistente-tabs-container">
+                    <button type="button" class="btn-tab-asistente active" data-tab="finanza" onclick="cambiarTabAsistenteRapido('finanza')">
                         💰 Finanza
+                    </button>
+                    <button type="button" class="btn-tab-asistente" data-tab="idea" onclick="cambiarTabAsistenteRapido('idea')">
+                        💡 Idea
                     </button>
                 </div>
 
-                <!-- 1. CAPTURA DE IDEA -->
-                <div id="asistente-sec-idea">
-                    <div style="margin-bottom: 10px;">
-                        <input type="text" id="asistente-idea-nombre" class="finanzas-input-clean" placeholder="Título de la nueva idea..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                <!-- 1. CAPTURA DE FINANZA (DE PRIMERO) -->
+                <div id="asistente-sec-finanza">
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <select id="asistente-fin-tipo" class="finanzas-input-clean" style="flex: 1; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 700;">
+                            <option value="gasto">🔴 Gasto</option>
+                            <option value="ingreso">🟢 Ingreso</option>
+                        </select>
+                        <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" style="flex: 1.2; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 800;">
                     </div>
-                    <div style="margin-bottom: 10px;">
-                        <select id="asistente-idea-cat" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 8px 12px; width: 100%; box-sizing: border-box; font-size: 12.5px;">
+                    <div style="margin-bottom: 16px;">
+                        <input type="text" id="asistente-fin-concepto" class="finanzas-input-clean" placeholder="Concepto del gasto o ingreso..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                </div>
+
+                <!-- 2. CAPTURA DE IDEA (DE SEGUNDO) -->
+                <div id="asistente-sec-idea" style="display: none;">
+                    <div style="margin-bottom: 12px;">
+                        <input type="text" id="asistente-idea-nombre" class="finanzas-input-clean" placeholder="Título de la nueva idea..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <select id="asistente-idea-cat" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
                             <option value="💡 Ideas & Proyectos">💡 Ideas & Proyectos</option>
                             <option value="🛒 Compras & Deseos">🛒 Compras & Deseos</option>
                             <option value="📊 Planes & Metas">📊 Planes & Metas</option>
@@ -3482,40 +3490,8 @@
                             <option value="✅ Tareas Operativas">✅ Tareas Operativas</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 14px;">
-                        <textarea id="asistente-idea-desc" class="finanzas-input-clean" rows="2" placeholder="Detalles de la idea (opcional)..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 12.5px;"></textarea>
-                    </div>
-                </div>
-
-                <!-- 2. CAPTURA DE QUEST -->
-                <div id="asistente-sec-quest" style="display: none;">
-                    <div style="margin-bottom: 10px;">
-                        <input type="text" id="asistente-quest-titulo" class="finanzas-input-clean" placeholder="Nombre de la tarea o quest urgente..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
-                    </div>
-                    <div style="margin-bottom: 14px;">
-                        <label style="font-size: 11.5px; color: #6b7280; font-weight: 700; display: block; margin-bottom: 4px;">Tiempo Asignado (Minutos):</label>
-                        <input type="number" id="asistente-quest-minutos" class="finanzas-input-clean" value="25" min="1" max="180" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 8px 12px; width: 100%; box-sizing: border-box; font-size: 13.5px; font-weight: 700;">
-                    </div>
-                </div>
-
-                <!-- 3. CAPTURA DE MENTE -->
-                <div id="asistente-sec-mente" style="display: none;">
-                    <div style="margin-bottom: 14px;">
-                        <textarea id="asistente-mente-desc" class="finanzas-input-clean" rows="3" placeholder="Ej: 8 horas de sueño profundo, lectura de filosofía o estado mental..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
-                    </div>
-                </div>
-
-                <!-- 4. CAPTURA DE FINANZA -->
-                <div id="asistente-sec-finanza" style="display: none;">
-                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <select id="asistente-fin-tipo" class="finanzas-input-clean" style="flex: 1; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 8px; font-size: 12.5px;">
-                            <option value="gasto">🔴 Gasto</option>
-                            <option value="ingreso">🟢 Ingreso</option>
-                        </select>
-                        <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" style="flex: 1; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 8px 12px; font-size: 13.5px; font-weight: 700;">
-                    </div>
-                    <div style="margin-bottom: 14px;">
-                        <input type="text" id="asistente-fin-concepto" class="finanzas-input-clean" placeholder="Concepto del gasto o ingreso..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    <div style="margin-bottom: 16px;">
+                        <textarea id="asistente-idea-desc" class="finanzas-input-clean" rows="2" placeholder="Detalles de la idea (opcional)..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
                     </div>
                 </div>
 
@@ -3523,7 +3499,7 @@
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarAsistenteRapido()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCapturaRapida()">
+                    <button class="btn-system btn-guardar-asistente" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCapturaRapida()">
                         ⚡ Guardar al Instante
                     </button>
                 </div>
@@ -4733,25 +4709,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.29"></script>
-    <script src="js/perfil.js?v=10.29"></script>
-    <script src="js/progresion.js?v=10.29"></script>
-    <script src="js/estado-personal.js?v=10.29"></script>
-    <script src="js/finanzas.js?v=10.29"></script>
-    <script src="js/ideas.js?v=10.29"></script>
-    <script src="js/dinamicas.js?v=10.29"></script>
-    <script src="js/calendario.js?v=10.29"></script>
-    <script src="js/inventario.js?v=10.29"></script>
-    <script src="js/jarvis-voz.js?v=10.29"></script>
+    <script src="js/core.js?v=10.30"></script>
+    <script src="js/perfil.js?v=10.30"></script>
+    <script src="js/progresion.js?v=10.30"></script>
+    <script src="js/estado-personal.js?v=10.30"></script>
+    <script src="js/finanzas.js?v=10.30"></script>
+    <script src="js/ideas.js?v=10.30"></script>
+    <script src="js/dinamicas.js?v=10.30"></script>
+    <script src="js/calendario.js?v=10.30"></script>
+    <script src="js/inventario.js?v=10.30"></script>
+    <script src="js/jarvis-voz.js?v=10.30"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.29"></script>
+    <script type="module" src="js/firebase-config.js?v=10.30"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.29')
+                navigator.serviceWorker.register('sw.js?v=10.30')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
