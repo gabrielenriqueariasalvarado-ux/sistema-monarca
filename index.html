@@ -2002,7 +2002,8 @@
                     <div>
                         <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Frecuencia de Pago:</label>
                         <select id="modal-deuda-frecuencia" class="ideas-select" onchange="alCambiarFrecuenciaModalDeuda()">
-                            <option value="15">Cada 15 días (Quincenal)</option>
+                            <option value="quince_ultimo">🗓️ 15 y Último (15 y 30/31)</option>
+                            <option value="15">Cada 15 días (Fijo)</option>
                             <option value="30">Cada 30 días (Mensual)</option>
                             <option value="7">Cada 7 días (Semanal)</option>
                             <option value="custom">Personalizado (días)...</option>
@@ -5311,25 +5312,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.47"></script>
-    <script src="js/perfil.js?v=10.47"></script>
-    <script src="js/progresion.js?v=10.47"></script>
-    <script src="js/estado-personal.js?v=10.47"></script>
-    <script src="js/finanzas.js?v=10.47"></script>
-    <script src="js/ideas.js?v=10.47"></script>
-    <script src="js/dinamicas.js?v=10.47"></script>
-    <script src="js/calendario.js?v=10.47"></script>
-    <script src="js/inventario.js?v=10.47"></script>
-    <script src="js/jarvis-voz.js?v=10.47"></script>
+    <script src="js/core.js?v=10.48"></script>
+    <script src="js/perfil.js?v=10.48"></script>
+    <script src="js/progresion.js?v=10.48"></script>
+    <script src="js/estado-personal.js?v=10.48"></script>
+    <script src="js/finanzas.js?v=10.48"></script>
+    <script src="js/ideas.js?v=10.48"></script>
+    <script src="js/dinamicas.js?v=10.48"></script>
+    <script src="js/calendario.js?v=10.48"></script>
+    <script src="js/inventario.js?v=10.48"></script>
+    <script src="js/jarvis-voz.js?v=10.48"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.47"></script>
+    <script type="module" src="js/firebase-config.js?v=10.48"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.47')
+                navigator.serviceWorker.register('sw.js?v=10.48')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

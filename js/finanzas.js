@@ -1505,17 +1505,65 @@ function deshacerPagoGastoUI(id) {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
+function calcularSiguienteFechaQuinceUltimo(fechaActual) {
+    var y = fechaActual.getFullYear();
+    var m = fechaActual.getMonth();
+    var d = fechaActual.getDate();
+    var ultimoDiaMes = new Date(y, m + 1, 0).getDate();
+
+    if (d < 15) {
+        return new Date(y, m, 15, 12, 0, 0);
+    } else if (d < ultimoDiaMes) {
+        return new Date(y, m, ultimoDiaMes, 12, 0, 0);
+    } else {
+        return new Date(y, m + 1, 15, 12, 0, 0);
+    }
+}
+
+function generarArrayFechasCuotas(fechaInicioStr, numCuotas, tipoFrecuencia, diasFrec) {
+    var fechas = [];
+    var currDate = fechaInicioStr ? new Date(fechaInicioStr + 'T12:00:00') : new Date();
+    if (isNaN(currDate.getTime())) currDate = new Date();
+
+    for (var i = 0; i < numCuotas; i++) {
+        if (i === 0) {
+            fechas.push(currDate.toISOString().slice(0, 10));
+        } else {
+            if (tipoFrecuencia === 'quince_ultimo') {
+                currDate = calcularSiguienteFechaQuinceUltimo(currDate);
+            } else {
+                var df = parseInt(diasFrec, 10) || 15;
+                currDate = new Date(currDate.getTime() + df * 24 * 60 * 60 * 1000);
+            }
+            fechas.push(currDate.toISOString().slice(0, 10));
+        }
+    }
+    return fechas;
+}
+
 function alCambiarFrecuenciaModalDeuda() {
     var sel = document.getElementById('modal-deuda-frecuencia');
     var grupoCustom = document.getElementById('grupo-deuda-dias-custom');
-    if (!sel || !grupoCustom) return;
+    var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+    if (!sel) return;
     if (sel.value === 'custom') {
-        grupoCustom.style.display = 'block';
+        if (grupoCustom) grupoCustom.style.display = 'block';
         var inCustom = document.getElementById('modal-deuda-dias-custom');
         if (inCustom && !inCustom.value) inCustom.value = '15';
     } else {
-        grupoCustom.style.display = 'none';
+        if (grupoCustom) grupoCustom.style.display = 'none';
     }
+
+    if (sel.value === 'quince_ultimo' && inFecha) {
+        var hoy = new Date();
+        var y = hoy.getFullYear();
+        var m = hoy.getMonth();
+        var d = hoy.getDate();
+        var ultDia = new Date(y, m + 1, 0).getDate();
+        var sugerida = (d <= 15) ? new Date(y, m, 15, 12, 0, 0) : new Date(y, m, ultDia, 12, 0, 0);
+        inFecha.value = sugerida.toISOString().slice(0, 10);
+    }
+
     alCambiarValoresModalDeuda();
 }
 
@@ -1543,20 +1591,36 @@ function alCambiarValoresModalDeuda() {
     var montoPorCuota = numCuotas > 0 ? (restante / numCuotas) : 0;
     if (labelValor) labelValor.textContent = '$' + montoPorCuota.toFixed(2) + ' / cuota';
 
+    var tipoFrec = inFrec ? inFrec.value : 'quince_ultimo';
     var diasFrec = 15;
-    if (inFrec) {
-        if (inFrec.value === 'custom') {
-            diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
-        } else {
-            diasFrec = parseInt(inFrec.value, 10) || 15;
-        }
+    var textoFrecuencia = '15 y Último de cada mes';
+
+    if (tipoFrec === 'quince_ultimo') {
+        diasFrec = 15;
+        textoFrecuencia = '🗓️ 15 y Último de cada mes (15 y 30/31)';
+    } else if (tipoFrec === 'custom') {
+        diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
+        textoFrecuencia = 'cada ' + diasFrec + ' días';
+    } else {
+        diasFrec = parseInt(tipoFrec, 10) || 15;
+        textoFrecuencia = 'cada ' + diasFrec + ' días';
     }
 
     var fechaIniStr = inFecha ? inFecha.value : '';
     if (!fechaIniStr) {
-        var dNext = new Date();
-        dNext.setDate(dNext.getDate() + diasFrec);
-        fechaIniStr = dNext.toISOString().slice(0, 10);
+        if (tipoFrec === 'quince_ultimo') {
+            var hoy = new Date();
+            var y = hoy.getFullYear();
+            var m = hoy.getMonth();
+            var d = hoy.getDate();
+            var ultDia = new Date(y, m + 1, 0).getDate();
+            var sugerida = (d <= 15) ? new Date(y, m, 15, 12, 0, 0) : new Date(y, m, ultDia, 12, 0, 0);
+            fechaIniStr = sugerida.toISOString().slice(0, 10);
+        } else {
+            var dNext = new Date();
+            dNext.setDate(dNext.getDate() + diasFrec);
+            fechaIniStr = dNext.toISOString().slice(0, 10);
+        }
         if (inFecha) inFecha.value = fechaIniStr;
     }
 
@@ -1565,7 +1629,7 @@ function alCambiarValoresModalDeuda() {
             textDetalle.textContent = 'Ingresa el precio total y las cuotas para calcular el cronograma.';
         } else {
             textDetalle.innerHTML = 'Plan: <strong>' + numCuotas + ' cuotas de $' + montoPorCuota.toFixed(2) + '</strong> ' +
-                'cada <strong>' + diasFrec + ' días</strong>. Primera cuota: <strong>' + formatearFechaCorta(fechaIniStr) + '</strong>. ' +
+                '(' + textoFrecuencia + '). Primera cuota: <strong>' + formatearFechaCorta(fechaIniStr) + '</strong>. ' +
                 (inicial > 0 ? '<span style="color:#10b981;">(Inicial pagada: $' + inicial.toFixed(2) + ')</span>' : '');
         }
     }
@@ -1588,13 +1652,17 @@ function abrirModalDeuda() {
         if (inTotal) inTotal.value = '';
         if (inIni) inIni.value = '0.00';
         if (inCuotas) inCuotas.value = '6';
-        if (inFrec) inFrec.value = '15';
+        if (inFrec) inFrec.value = 'quince_ultimo';
         if (grupoCustom) grupoCustom.style.display = 'none';
         if (inCustom) inCustom.value = '';
 
-        var dNext = new Date();
-        dNext.setDate(dNext.getDate() + 15);
-        if (inFecha) inFecha.value = dNext.toISOString().slice(0, 10);
+        var hoy = new Date();
+        var y = hoy.getFullYear();
+        var mMes = hoy.getMonth();
+        var d = hoy.getDate();
+        var ultDia = new Date(y, mMes + 1, 0).getDate();
+        var sugerida = (d <= 15) ? new Date(y, mMes, 15, 12, 0, 0) : new Date(y, mMes, ultDia, 12, 0, 0);
+        if (inFecha) inFecha.value = sugerida.toISOString().slice(0, 10);
 
         alCambiarValoresModalDeuda();
         setTimeout(function() { if (inN) inN.focus(); }, 120);
@@ -1621,11 +1689,15 @@ function confirmarAgregarDeuda() {
     var total = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
     var inicial = inIni ? (parseFloat(inIni.value) || 0) : 0;
     var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
+
+    var tipoFrec = inFrec ? inFrec.value : 'quince_ultimo';
     var diasFrec = 15;
-    if (inFrec && inFrec.value === 'custom') {
+    if (tipoFrec === 'custom') {
         diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
-    } else if (inFrec) {
-        diasFrec = parseInt(inFrec.value, 10) || 15;
+    } else if (tipoFrec === 'quince_ultimo') {
+        diasFrec = 15;
+    } else {
+        diasFrec = parseInt(tipoFrec, 10) || 15;
     }
     var fechaInicio = inFecha ? inFecha.value : new Date().toISOString().slice(0, 10);
 
@@ -1648,13 +1720,12 @@ function confirmarAgregarDeuda() {
     var restante = Math.max(0, total - inicial);
     var montoPorCuota = Math.round((restante / numCuotas) * 100) / 100;
 
+    var fechasCuotas = generarArrayFechasCuotas(fechaInicio, numCuotas, tipoFrec, diasFrec);
     var cuotas = [];
-    var baseDate = new Date(fechaInicio + 'T12:00:00');
     for (var i = 1; i <= numCuotas; i++) {
-        var dCuota = new Date(baseDate.getTime() + (i - 1) * diasFrec * 24 * 60 * 60 * 1000);
         cuotas.push({
             num: i,
-            fecha: dCuota.toISOString().slice(0, 10),
+            fecha: fechasCuotas[i - 1] || fechaInicio,
             monto: montoPorCuota,
             pagada: false,
             fechaPago: null
@@ -1664,6 +1735,7 @@ function confirmarAgregarDeuda() {
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
 
+    var baseDate = new Date(fechaInicio + 'T12:00:00');
     var nuevaDeuda = {
         id: 'DEU-' + Date.now(),
         nombre: nombre,
@@ -1675,11 +1747,12 @@ function confirmarAgregarDeuda() {
         cuotasTotal: numCuotas,
         cuotasPagadas: 0,
         montoCuota: montoPorCuota,
+        tipoFrecuencia: tipoFrec,
         diasFrecuencia: diasFrec,
         fechaInicio: fechaInicio,
         cuotas: cuotas,
         montoTotal: restante,
-        dia: baseDate.getDate(),
+        dia: isNaN(baseDate.getDate()) ? 15 : baseDate.getDate(),
         pagada: restante <= 0
     };
 
@@ -2093,19 +2166,27 @@ function normalizarDeuda(d) {
         var baseRest = Math.max(0, Number(d.precioTotal) - Number(d.pagoInicial));
         d.montoCuota = d.cuotasTotal > 0 ? Math.round((baseRest / d.cuotasTotal) * 100) / 100 : baseRest;
     }
+    if (d.tipoFrecuencia == null) {
+        if (d.diasFrecuencia === 'quince_ultimo') {
+            d.tipoFrecuencia = 'quince_ultimo';
+            d.diasFrecuencia = 15;
+        } else {
+            d.tipoFrecuencia = (d.diasFrecuencia == 15 ? '15' : (d.diasFrecuencia == 30 ? '30' : (d.diasFrecuencia == 7 ? '7' : 'custom')));
+        }
+    }
     if (d.diasFrecuencia == null) d.diasFrecuencia = 15;
     if (!d.categoria) d.categoria = '📦 Otros Compromisos';
     if (!d.iconoCategoria) d.iconoCategoria = d.categoria.slice(0, 2);
 
     if (!Array.isArray(d.cuotas) || d.cuotas.length === 0) {
         var cuotas = [];
-        var fechaBase = d.fechaInicio ? new Date(d.fechaInicio + 'T12:00:00') : new Date();
+        var fechasCuotas = generarArrayFechasCuotas(d.fechaInicio || new Date().toISOString().slice(0, 10), d.cuotasTotal, d.tipoFrecuencia, d.diasFrecuencia);
         for (var i = 1; i <= d.cuotasTotal; i++) {
-            var fCuota = new Date(fechaBase.getTime() + (i - 1) * d.diasFrecuencia * 24 * 60 * 60 * 1000);
+            var fCuotaStr = fechasCuotas[i - 1];
             var isPaid = i <= d.cuotasPagadas || !!d.pagada;
             cuotas.push({
                 num: i,
-                fecha: fCuota.toISOString().slice(0, 10),
+                fecha: fCuotaStr,
                 monto: Number(d.montoCuota),
                 pagada: isPaid,
                 fechaPago: isPaid ? (d.fechaPago || new Date().toISOString()) : null
@@ -2387,6 +2468,15 @@ function renderizarDeudasYCronograma(f, vq) {
                     '</div>';
                 });
 
+                var textoFrecuenciaItem = 'Cada ' + (item.diasFrecuencia || 15) + ' días';
+                if (item.tipoFrecuencia === 'quince_ultimo' || item.diasFrecuencia === 'quince_ultimo') {
+                    textoFrecuenciaItem = '🗓️ 15 y Último';
+                } else if (item.diasFrecuencia == 30) {
+                    textoFrecuenciaItem = 'Mensual (30 días)';
+                } else if (item.diasFrecuencia == 7) {
+                    textoFrecuenciaItem = 'Semanal (7 días)';
+                }
+
                 html += '<div class="deuda-card-moderna ' + (estaPagada ? 'deuda-liquidada' : '') + '">' +
                     '<div class="deuda-card-top">' +
                         '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
@@ -2396,7 +2486,7 @@ function renderizarDeudasYCronograma(f, vq) {
                                 '<div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; margin-top: 2px;">' +
                                     '<span>' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
                                     '<span>•</span>' +
-                                    '<span>Cada ' + (item.diasFrecuencia || 15) + ' días</span>' +
+                                    '<span>' + textoFrecuenciaItem + '</span>' +
                                 '</div>' +
                             '</div>' +
                         '</div>' +
