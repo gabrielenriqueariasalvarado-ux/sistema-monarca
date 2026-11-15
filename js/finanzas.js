@@ -1661,6 +1661,36 @@ function cobrarIngresoUI(id) {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
+var _reversionCobroCallback = null;
+
+function solicitarReversionCobro(mensaje, onConfirmar) {
+    _reversionCobroCallback = onConfirmar;
+    var m = document.getElementById('modal-confirmar-reversion-cobro');
+    if (m) {
+        var elTxt = document.getElementById('modal-reversion-cobro-texto');
+        if (elTxt && mensaje) elTxt.innerText = mensaje;
+        m.style.display = 'flex';
+        return;
+    }
+    if (confirm(mensaje || "¿Estás seguro de que deseas revertir este cobro y devolverlo a estado pendiente?")) {
+        if (typeof onConfirmar === 'function') onConfirmar();
+    }
+}
+
+function cerrarModalReversionCobro() {
+    var m = document.getElementById('modal-confirmar-reversion-cobro');
+    if (m) m.style.display = 'none';
+    _reversionCobroCallback = null;
+}
+
+function ejecutarReversionCobroConfirmada() {
+    var cb = _reversionCobroCallback;
+    cerrarModalReversionCobro();
+    if (typeof cb === 'function') {
+        cb();
+    }
+}
+
 function cerrarModalConfirmarCobro() {
     var modal = document.getElementById('modal-confirmar-cobro-ingreso');
     if (modal) modal.style.display = 'none';
@@ -1677,13 +1707,90 @@ function ejecutarCobroIngresoReal() {
         alert("Por favor ingresa un monto válido mayor o igual a 0.");
         return;
     }
+    montoVal = Math.round(montoVal * 100) / 100;
 
+    // Caso especial: Pago de Sueldo / Bono de Boom Solutions
+    if (id.indexOf('BOOM:') === 0) {
+        var partes = id.split(':');
+        var tipoPago = partes[1];
+        var idFinanza = partes[2];
+
+        if (typeof asegurarEstructuraBoom === 'function') asegurarEstructuraBoom();
+        if (APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
+            var mesKey = (typeof MES_BOOM_ACTUAL !== 'undefined') ? MES_BOOM_ACTUAL : new Date().toISOString().slice(0, 7);
+            var planMes = APP_STATE.subappBoom.planificaciones[mesKey];
+            if (planMes) {
+                if (!planMes.pagosCobrados) planMes.pagosCobrados = {};
+                planMes.pagosCobrados[tipoPago] = true;
+                if (!planMes.montosRealesCobrados) planMes.montosRealesCobrados = {};
+                planMes.montosRealesCobrados[tipoPago] = montoVal;
+            }
+        }
+
+        var config = (APP_STATE.subappBoom && APP_STATE.subappBoom.config) || {};
+        var montoProy = 0;
+        var concepto = '';
+        var diaCobro = 1;
+        if (tipoPago === 'bono3') {
+            montoProy = Number(config.bonoDia3) || 40;
+            concepto = "Bono Boom Solutions (Día 3)";
+            diaCobro = 3;
+        } else if (tipoPago === 'quincena1') {
+            montoProy = Number(config.sueldoQuincena1) || 205;
+            concepto = "Sueldo Quincena 1 Boom Solutions (Día 15)";
+            diaCobro = 15;
+        } else if (tipoPago === 'quincena2') {
+            montoProy = Number(config.sueldoQuincena2) || 205;
+            concepto = "Sueldo Quincena 2 Boom Solutions (Día 30)";
+            diaCobro = 30;
+        }
+
+        if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
+        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
+
+        var existe = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === idFinanza; });
+        var mesActualStr = (typeof MES_BOOM_ACTUAL !== 'undefined') ? MES_BOOM_ACTUAL : new Date().toISOString().slice(0, 7);
+        var fechaCobro = mesActualStr + '-' + String(diaCobro).padStart(2, '0');
+
+        if (existe) {
+            existe.cobrado = true;
+            existe.tipo = 'fija'; // Pagos programados
+            existe.categoria = "Sueldos & Pagos Programados";
+            existe.fuente = concepto;
+            existe.monto = montoProy;
+            existe.montoCobrado = montoVal;
+            existe.dia = diaCobro;
+            existe.fecha = fechaCobro;
+            existe.fechaCobro = new Date().toISOString();
+        } else {
+            APP_STATE.finanzas.ingresos.push({
+                id: idFinanza,
+                fuente: concepto,
+                tipo: 'fija', // Pagos programados en Finanzas
+                categoria: "Sueldos & Pagos Programados",
+                monto: montoProy,
+                montoCobrado: montoVal,
+                dia: diaCobro,
+                fecha: fechaCobro,
+                cobrado: true,
+                fechaCobro: new Date().toISOString()
+            });
+        }
+
+        MonarcaDB.save(APP_STATE);
+        cerrarModalConfirmarCobro();
+        renderizarFinanzas(APP_STATE.finanzas);
+        if (typeof renderizarSubAppBoom === 'function') renderizarSubAppBoom();
+        return;
+    }
+
+    // Caso estándar: Ingreso existente en Finanzas
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
     var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
     if (!item) return;
 
     item.cobrado = true;
-    item.montoCobrado = Math.round(montoVal * 100) / 100;
+    item.montoCobrado = montoVal;
     item.fechaCobro = new Date().toISOString();
 
     // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
@@ -1702,34 +1809,52 @@ function ejecutarCobroIngresoReal() {
     cerrarModalConfirmarCobro();
     renderizarFinanzas(APP_STATE.finanzas);
     if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+    if (typeof renderizarSubAppBoom === 'function') renderizarSubAppBoom();
 }
 
 function deshacerCobroIngresoUI(id) {
-    if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
-    for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
-        if (APP_STATE.finanzas.ingresos[i].id === id) {
-            var item = APP_STATE.finanzas.ingresos[i];
-            item.cobrado = false;
-            delete item.montoCobrado;
-            delete item.fechaCobro;
+    solicitarReversionCobro("¿Estás seguro de que deseas revertir este cobro y devolverlo a estado pendiente?", function() {
+        if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
+        for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
+            if (APP_STATE.finanzas.ingresos[i].id === id) {
+                var item = APP_STATE.finanzas.ingresos[i];
+                item.cobrado = false;
+                delete item.montoCobrado;
+                delete item.fechaCobro;
 
-            // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
-            if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
-                var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
-                if (vObj && Array.isArray(vObj.cuotas)) {
-                    var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
-                    if (cObj) {
-                        cObj.cobrado = false;
-                        delete cObj.fechaCobrado;
+                // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
+                if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+                    var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
+                    if (vObj && Array.isArray(vObj.cuotas)) {
+                        var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
+                        if (cObj) {
+                            cObj.cobrado = false;
+                            delete cObj.fechaCobrado;
+                        }
                     }
                 }
+
+                // Sincronizar con Boom Solutions si es un pago originado allí
+                if (item.id && item.id.indexOf('ING-BOOM-') === 0 && APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
+                    var partes = item.id.split('-');
+                    if (partes.length >= 5) {
+                        var mesKey = partes[2] + '-' + partes[3];
+                        var tipoPago = partes[4];
+                        if (APP_STATE.subappBoom.planificaciones[mesKey]) {
+                            var planMes = APP_STATE.subappBoom.planificaciones[mesKey];
+                            if (planMes.pagosCobrados) planMes.pagosCobrados[tipoPago] = false;
+                            if (planMes.montosRealesCobrados) delete planMes.montosRealesCobrados[tipoPago];
+                        }
+                    }
+                }
+                break;
             }
-            break;
         }
-    }
-    MonarcaDB.save(APP_STATE);
-    renderizarFinanzas(APP_STATE.finanzas);
-    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+        MonarcaDB.save(APP_STATE);
+        renderizarFinanzas(APP_STATE.finanzas);
+        if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+        if (typeof renderizarSubAppBoom === 'function') renderizarSubAppBoom();
+    });
 }
 
 function pagarDeudaUI(id) {
@@ -1746,16 +1871,18 @@ function pagarDeudaUI(id) {
 }
 
 function deshacerPagoDeudaUI(id) {
-    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
-    for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
-        if (APP_STATE.finanzas.deudas[i].id === id) {
-            APP_STATE.finanzas.deudas[i].pagada = false;
-            delete APP_STATE.finanzas.deudas[i].fechaPago;
-            break;
+    solicitarReversionCobro("¿Estás seguro de que deseas revertir este pago de deuda y devolverlo a estado pendiente?", function() {
+        if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+        for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
+            if (APP_STATE.finanzas.deudas[i].id === id) {
+                APP_STATE.finanzas.deudas[i].pagada = false;
+                delete APP_STATE.finanzas.deudas[i].fechaPago;
+                break;
+            }
         }
-    }
-    MonarcaDB.save(APP_STATE);
-    renderizarFinanzas(APP_STATE.finanzas);
+        MonarcaDB.save(APP_STATE);
+        renderizarFinanzas(APP_STATE.finanzas);
+    });
 }
 
 function cambiarPeriodoFinanzas(periodo, omitirRender) {

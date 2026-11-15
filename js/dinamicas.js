@@ -798,8 +798,12 @@ function renderizarSubAppBoom() {
     var cobradoQ2 = !!(planMes.pagosCobrados && planMes.pagosCobrados.quincena2);
     var cobradoB3 = !!(planMes.pagosCobrados && planMes.pagosCobrados.bono3);
 
-    var totalDineroCobrado = (cobradoQ1 ? sueldoQ1 : 0) + (cobradoQ2 ? sueldoQ2 : 0) + (cobradoB3 ? bono3 : 0);
-    var totalDineroPendiente = totalRecaudadoMes - totalDineroCobrado;
+    var realB3 = (cobradoB3 && planMes.montosRealesCobrados && planMes.montosRealesCobrados.bono3 !== undefined) ? Number(planMes.montosRealesCobrados.bono3) : bono3;
+    var realQ1 = (cobradoQ1 && planMes.montosRealesCobrados && planMes.montosRealesCobrados.quincena1 !== undefined) ? Number(planMes.montosRealesCobrados.quincena1) : sueldoQ1;
+    var realQ2 = (cobradoQ2 && planMes.montosRealesCobrados && planMes.montosRealesCobrados.quincena2 !== undefined) ? Number(planMes.montosRealesCobrados.quincena2) : sueldoQ2;
+
+    var totalDineroCobrado = (cobradoQ1 ? realQ1 : 0) + (cobradoQ2 ? realQ2 : 0) + (cobradoB3 ? realB3 : 0);
+    var totalDineroPendiente = Math.max(0, totalRecaudadoMes - totalDineroCobrado);
 
     var pctHoras = totalHorasPlanificadas > 0 ? Math.round((totalHorasCumplidas / totalHorasPlanificadas) * 100) : 0;
     var sabadosOk = (totalSabadosLibres === 2);
@@ -890,11 +894,11 @@ function renderizarSubAppBoom() {
                     <span class="boom-pay-badge ${cobradoB3 ? 'cobrado' : 'pendiente'}">${cobradoB3 ? 'COBRADO' : 'PENDIENTE'}</span>
                 </div>
                 <div style="margin: 8px 0 12px 0;">
-                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${bono3.toFixed(2)}</div>
-                    <span style="font-size: 11px; color: #64748b;">Incentivo mensual fijo</span>
+                    <div style="font-size: 22px; font-weight: 800; color: ${cobradoB3 ? '#34d399' : '#f8fafc'};">$${(cobradoB3 ? realB3 : bono3).toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">${cobradoB3 && realB3 !== bono3 ? 'Cobrado real (Plan: $' + bono3.toFixed(2) + ')' : 'Incentivo mensual fijo'}</span>
                 </div>
-                <button type="button" class="btn-system" onclick="toggleCobroBoom('bono3')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoB3 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoB3 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoB3 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
-                    ${cobradoB3 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('bono3')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoB3 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoB3 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoB3 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};" title="${cobradoB3 ? 'Toca para revertir cobro a pendiente' : 'Marcar y registrar monto cobrado'}">
+                    ${cobradoB3 ? '✓ Cobrado (Revertir ↩)' : 'Marcar como Cobrado'}
                 </button>
             </div>
 
@@ -908,11 +912,11 @@ function renderizarSubAppBoom() {
                     <span class="boom-pay-badge ${cobradoQ1 ? 'cobrado' : 'pendiente'}">${cobradoQ1 ? 'COBRADO' : 'PENDIENTE'}</span>
                 </div>
                 <div style="margin: 8px 0 12px 0;">
-                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${sueldoQ1.toFixed(2)}</div>
-                    <span style="font-size: 11px; color: #64748b;">Primer corte quincenal</span>
+                    <div style="font-size: 22px; font-weight: 800; color: ${cobradoQ1 ? '#34d399' : '#f8fafc'};">$${(cobradoQ1 ? realQ1 : sueldoQ1).toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">${cobradoQ1 && realQ1 !== sueldoQ1 ? 'Cobrado real (Plan: $' + sueldoQ1.toFixed(2) + ')' : 'Primer corte quincenal'}</span>
                 </div>
-                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena1')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ1 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ1 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ1 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
-                    ${cobradoQ1 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena1')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ1 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ1 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ1 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};" title="${cobradoQ1 ? 'Toca para revertir cobro a pendiente' : 'Marcar y registrar monto cobrado'}">
+                    ${cobradoQ1 ? '✓ Cobrado (Revertir ↩)' : 'Marcar como Cobrado'}
                 </button>
             </div>
 
@@ -926,11 +930,11 @@ function renderizarSubAppBoom() {
                     <span class="boom-pay-badge ${cobradoQ2 ? 'cobrado' : 'pendiente'}">${cobradoQ2 ? 'COBRADO' : 'PENDIENTE'}</span>
                 </div>
                 <div style="margin: 8px 0 12px 0;">
-                    <div style="font-size: 22px; font-weight: 800; color: #f8fafc;">$${sueldoQ2.toFixed(2)}</div>
-                    <span style="font-size: 11px; color: #64748b;">Segundo corte quincenal</span>
+                    <div style="font-size: 22px; font-weight: 800; color: ${cobradoQ2 ? '#34d399' : '#f8fafc'};">$${(cobradoQ2 ? realQ2 : sueldoQ2).toFixed(2)}</div>
+                    <span style="font-size: 11px; color: #64748b;">${cobradoQ2 && realQ2 !== sueldoQ2 ? 'Cobrado real (Plan: $' + sueldoQ2.toFixed(2) + ')' : 'Segundo corte quincenal'}</span>
                 </div>
-                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena2')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ2 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ2 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ2 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};">
-                    ${cobradoQ2 ? '✓ Cobrado (Sincronizado)' : 'Marcar como Cobrado'}
+                <button type="button" class="btn-system" onclick="toggleCobroBoom('quincena2')" style="width: 100%; justify-content: center; padding: 7px; font-size: 11.5px; font-weight: 700; background: ${cobradoQ2 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.06)'}; color: ${cobradoQ2 ? '#34d399' : '#f8fafc'}; border: 1px solid ${cobradoQ2 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.1)'};" title="${cobradoQ2 ? 'Toca para revertir cobro a pendiente' : 'Marcar y registrar monto cobrado'}">
+                    ${cobradoQ2 ? '✓ Cobrado (Revertir ↩)' : 'Marcar como Cobrado'}
                 </button>
             </div>
         </div>
@@ -1072,66 +1076,106 @@ function toggleCumplidoDiaBoom(fechaStr) {
     if (typeof renderizarLabores === 'function') renderizarLabores();
 }
 
+function abrirModalCobroBoom(tipoPago) {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes) return;
+    var config = APP_STATE.subappBoom.config;
+    var monto = 0;
+    var concepto = '';
+
+    if (tipoPago === 'bono3') {
+        monto = Number(config.bonoDia3) || 40;
+        concepto = "Bono Boom Solutions (Día 3)";
+    } else if (tipoPago === 'quincena1') {
+        monto = Number(config.sueldoQuincena1) || 205;
+        concepto = "Sueldo Quincena 1 Boom Solutions (Día 15)";
+    } else if (tipoPago === 'quincena2') {
+        monto = Number(config.sueldoQuincena2) || 205;
+        concepto = "Sueldo Quincena 2 Boom Solutions (Día 30)";
+    }
+
+    var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
+    var compoundId = "BOOM:" + tipoPago + ":" + idFinanza;
+
+    var modal = document.getElementById('modal-confirmar-cobro-ingreso');
+    var inId = document.getElementById('modal-cobro-ingreso-id');
+    var elTitulo = document.getElementById('modal-cobro-ingreso-titulo');
+    var elProy = document.getElementById('modal-cobro-ingreso-proyectado');
+    var inReal = document.getElementById('modal-cobro-ingreso-real');
+
+    if (!modal || !inId || !elTitulo || !elProy || !inReal) {
+        if (!planMes.pagosCobrados) planMes.pagosCobrados = {};
+        planMes.pagosCobrados[tipoPago] = true;
+        MonarcaDB.save(APP_STATE);
+        renderizarSubAppBoom();
+        return;
+    }
+
+    var mCobradoExistente = (planMes.montosRealesCobrados && planMes.montosRealesCobrados[tipoPago] !== undefined)
+        ? planMes.montosRealesCobrados[tipoPago]
+        : monto;
+
+    inId.value = compoundId;
+    elTitulo.innerText = concepto;
+    elProy.innerText = '$' + monto.toFixed(2);
+    inReal.value = mCobradoExistente > 0 ? Number(mCobradoExistente).toFixed(2) : '';
+
+    modal.style.display = 'flex';
+    setTimeout(function() {
+        inReal.focus();
+        inReal.select();
+    }, 80);
+}
+
+function revertirCobroBoom(tipoPago) {
+    asegurarEstructuraBoom();
+    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    if (!planMes || !planMes.pagosCobrados) return;
+
+    var label = tipoPago === 'bono3' ? 'Bono Mensual (Día 3)' : (tipoPago === 'quincena1' ? 'Sueldo Quincena 1 (Día 15)' : 'Sueldo Quincena 2 (Día 30)');
+
+    var accion = function() {
+        planMes.pagosCobrados[tipoPago] = false;
+        if (planMes.montosRealesCobrados) {
+            delete planMes.montosRealesCobrados[tipoPago];
+        }
+
+        var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
+        if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+            APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+                return ig.id !== idFinanza;
+            });
+        }
+
+        MonarcaDB.save(APP_STATE);
+        renderizarSubAppBoom();
+        if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
+        if (typeof renderizarFinanzas === 'function' && document.getElementById('view-finanzas') && document.getElementById('view-finanzas').classList.contains('active')) {
+            renderizarFinanzas(APP_STATE.finanzas);
+        }
+        if (typeof mostrarNotificacion === 'function') {
+            mostrarNotificacion("↩ Cobro revertido a pendiente exitosamente.", "info");
+        }
+    };
+
+    if (typeof solicitarReversionCobro === 'function') {
+        solicitarReversionCobro("¿Estás seguro de que deseas revertir el cobro de " + label + "? Se devolverá a estado pendiente y se actualizará el saldo de tu cuenta.", accion);
+    } else if (confirm("¿Estás seguro de que deseas revertir este cobro y devolverlo a estado pendiente?")) {
+        accion();
+    }
+}
+
 function toggleCobroBoom(tipoPago) {
     asegurarEstructuraBoom();
     var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
     if (!planMes || !planMes.pagosCobrados) return;
 
-    var config = APP_STATE.subappBoom.config;
-    var nuevoEstado = !planMes.pagosCobrados[tipoPago];
-    planMes.pagosCobrados[tipoPago] = nuevoEstado;
-
-    var monto = 0;
-    var concepto = '';
-    var diaCobro = 1;
-
-    if (tipoPago === 'bono3') {
-        monto = Number(config.bonoDia3) || 0;
-        concepto = "Bono Boom Solutions (Día 3)";
-        diaCobro = 3;
-    } else if (tipoPago === 'quincena1') {
-        monto = Number(config.sueldoQuincena1) || 0;
-        concepto = "Sueldo Quincena 1 Boom Solutions (Día 15)";
-        diaCobro = 15;
-    } else if (tipoPago === 'quincena2') {
-        monto = Number(config.sueldoQuincena2) || 0;
-        concepto = "Sueldo Quincena 2 Boom Solutions (Día 30)";
-        diaCobro = 30;
+    if (planMes.pagosCobrados[tipoPago]) {
+        revertirCobroBoom(tipoPago);
+    } else {
+        abrirModalCobroBoom(tipoPago);
     }
-
-    var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
-
-    if (APP_STATE.finanzas) {
-        if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
-
-        if (nuevoEstado && monto > 0) {
-            var existe = APP_STATE.finanzas.ingresos.find(function(ig) { return ig.id === idFinanza; });
-            var fechaCobro = MES_BOOM_ACTUAL + '-' + String(diaCobro).padStart(2, '0');
-            if (existe) {
-                existe.cobrado = true;
-                existe.monto = monto;
-            } else {
-                APP_STATE.finanzas.ingresos.push({
-                    id: idFinanza,
-                    fuente: concepto,
-                    tipo: 'labor',
-                    categoria: "Labores & Servicios",
-                    monto: monto,
-                    fecha: fechaCobro,
-                    dia: diaCobro,
-                    cobrado: true
-                });
-            }
-        } else {
-            APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
-                return ig.id !== idFinanza;
-            });
-        }
-        if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
-    }
-
-    MonarcaDB.save(APP_STATE);
-    renderizarSubAppBoom();
 }
 
 var MODAL_SABADOS_CONFIG = {};
