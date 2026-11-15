@@ -4,46 +4,92 @@
  * Deudas, Metas de Ahorro Quincenales, Regla 50/40/10 y Gráfica Ejecutiva.
  */
 
-function obtenerSemanaActualDelMes() {
-    var dia = new Date().getDate();
-    if (dia <= 7) return 'sem1';
-    if (dia <= 14) return 'sem2';
-    if (dia <= 21) return 'sem3';
-    return 'sem4';
+function obtenerFechaMesFinanzas() {
+    var offset = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.mesOffset) || 0;
+    var d = new Date();
+    d.setDate(1); // Fijar día 1 para evitar desbordes al cambiar meses
+    d.setMonth(d.getMonth() + offset);
+    return d;
+}
+
+function calcularSemanasDelMes(anio, mes) {
+    var semanas = [];
+    var totalDias = new Date(anio, mes + 1, 0).getDate();
+    var diaInicio = 1;
+
+    for (var d = 1; d <= totalDias; d++) {
+        var fecha = new Date(anio, mes, d);
+        var diaSemana = fecha.getDay(); // 0 = Domingo, 6 = Sábado
+        // Si es sábado (fin de semana en calendario de domingo a sábado) o es el último día del mes
+        if (diaSemana === 6 || d === totalDias) {
+            var num = semanas.length + 1;
+            semanas.push({
+                num: num,
+                clave: 'sem' + num,
+                inicio: diaInicio,
+                fin: d,
+                etiqueta: 'Sem ' + num + ' (' + diaInicio + '-' + d + ')'
+            });
+            diaInicio = d + 1;
+        }
+    }
+    return semanas;
+}
+
+function obtenerSemanaActualParaMes(anio, mes) {
+    var hoy = new Date();
+    var semanas = calcularSemanasDelMes(anio, mes);
+    if (hoy.getFullYear() === anio && hoy.getMonth() === mes) {
+        var diaHoy = hoy.getDate();
+        for (var i = 0; i < semanas.length; i++) {
+            if (diaHoy >= semanas[i].inicio && diaHoy <= semanas[i].fin) {
+                return semanas[i].clave;
+            }
+        }
+    }
+    return 'sem1';
+}
+
+function obtenerSemanasMesActivo() {
+    var f = obtenerFechaMesFinanzas();
+    return calcularSemanasDelMes(f.getFullYear(), f.getMonth());
 }
 
 function obtenerTituloPeriodo(vq) {
-    if (vq === 'sem1') return 'Semana 1 (1-7)';
-    if (vq === 'sem2') return 'Semana 2 (8-14)';
-    if (vq === 'sem3') return 'Semana 3 (15-21)';
-    if (vq === 'sem4') return 'Semana 4 (22-Fin)';
+    if (vq === 'mes') return 'Mes Completo';
+    var semanas = obtenerSemanasMesActivo();
+    var s = semanas.find(function(x) { return x.clave === vq; });
+    if (s) return s.etiqueta;
     if (vq === 'q1') return '1.ª Quincena (1-15)';
     if (vq === 'q2') return '2.ª Quincena (16-31)';
-    return 'Mes Completo';
+    return 'Período Activo';
 }
 
 function obtenerNombrePeriodo(vq) {
-    if (vq === 'sem1') return 'la Semana 1 (1-7)';
-    if (vq === 'sem2') return 'la Semana 2 (8-14)';
-    if (vq === 'sem3') return 'la Semana 3 (15-21)';
-    if (vq === 'sem4') return 'la Semana 4 (22-Fin)';
-    if (vq === 'q1') return 'la 1.ª Quincena (1-15)';
-    if (vq === 'q2') return 'la 2.ª Quincena (16-31)';
-    return 'este mes';
+    if (vq === 'mes') return 'este mes';
+    var semanas = obtenerSemanasMesActivo();
+    var s = semanas.find(function(x) { return x.clave === vq; });
+    if (s) return 'la ' + s.etiqueta;
+    if (vq === 'q1') return 'la 1.ª Quincena';
+    if (vq === 'q2') return 'la 2.ª Quincena';
+    return 'este período';
 }
 
 var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
     mesOffset: 0,
     chartInstance: null,
     tabIngresosActivo: 'fijos',
-    vistaQuincena: obtenerSemanaActualDelMes(),
+    vistaQuincena: 'sem1',
     modoGrafico: 'comparativa',
     filtroGastos: 'todos'
 };
 window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
 function cargarFinanzas() {
-    var semActual = obtenerSemanaActualDelMes();
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.mesOffset = 0; // Al entrar, siempre al mes actual
+    var fechaMes = obtenerFechaMesFinanzas();
+    var semActual = obtenerSemanaActualParaMes(fechaMes.getFullYear(), fechaMes.getMonth());
     cambiarPeriodoFinanzas(semActual, true);
     renderizarFinanzas(APP_STATE.finanzas);
 }
@@ -253,7 +299,39 @@ function renderizarFinanzas(fin) {
         f.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
     }
 
+    var fechaMes = obtenerFechaMesFinanzas();
+    var anioActivo = fechaMes.getFullYear();
+    var mesActivo = fechaMes.getMonth();
+    var semanasActivas = calcularSemanasDelMes(anioActivo, mesActivo);
+
     var vq = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.vistaQuincena) || 'mes';
+    if (vq !== 'mes') {
+        var existeSem = semanasActivas.some(function(s) { return s.clave === vq; });
+        if (!existeSem) {
+            vq = semanasActivas.length > 0 ? semanasActivas[0].clave : 'mes';
+            if (window.ESTADO_FINANZAS) window.ESTADO_FINANZAS.vistaQuincena = vq;
+        }
+    }
+    var semanaActivaObj = semanasActivas.find(function(s) { return s.clave === vq; });
+
+    // Renderizar dinámicamente la barra de selector de período con las semanas exactas de este mes
+    var barraSemanas = document.getElementById('quincena-selector-bar');
+    if (barraSemanas) {
+        var htmlBarra = '';
+        semanasActivas.forEach(function(sem) {
+            var esActivo = (vq === sem.clave);
+            htmlBarra += `
+                <button class="btn-quincena-tab ${esActivo ? 'active' : ''}" id="btn-vista-${sem.clave}" onclick="cambiarPeriodoFinanzas('${sem.clave}')">
+                    <span>🗓️</span> ${sem.etiqueta}
+                </button>`;
+        });
+        var esMesActivo = (vq === 'mes');
+        htmlBarra += `
+            <button class="btn-quincena-tab ${esMesActivo ? 'active' : ''}" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
+                <span>📅</span> Mes Completo
+            </button>`;
+        barraSemanas.innerHTML = htmlBarra;
+    }
 
     function coincideQuincena(dia, fechaStr) {
         if (vq === 'mes') return true;
@@ -266,6 +344,9 @@ function renderizarFinanzas(fin) {
                 d = parseInt(partes[2], 10) || 15;
             }
         }
+        if (semanaActivaObj) {
+            return d >= semanaActivaObj.inicio && d <= semanaActivaObj.fin;
+        }
         if (vq === 'sem1') return d >= 1 && d <= 7;
         if (vq === 'sem2') return d >= 8 && d <= 14;
         if (vq === 'sem3') return d >= 15 && d <= 21;
@@ -276,13 +357,17 @@ function renderizarFinanzas(fin) {
     }
 
     // 1. Cabecera
-    if (f.cabecera) {
-        var inNom = document.getElementById('finanzas-input-nombre');
-        var inMes = document.getElementById('finanzas-input-mes');
-        var inObj = document.getElementById('finanzas-input-objetivo');
-        if (inNom) inNom.value = f.cabecera.nombre || "Gabriel Arias";
-        if (inMes) inMes.value = f.cabecera.mes || "Septiembre 2026";
-        if (inObj) inObj.value = f.cabecera.objetivo || "";
+    var inNom = document.getElementById('finanzas-input-nombre');
+    var inMes = document.getElementById('finanzas-input-mes');
+    var inObj = document.getElementById('finanzas-input-objetivo');
+    if (inNom) inNom.value = "Gabriel Arias";
+    if (inMes) {
+        var nombreMesDisplay = fechaMes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        nombreMesDisplay = nombreMesDisplay.charAt(0).toUpperCase() + nombreMesDisplay.slice(1);
+        inMes.value = nombreMesDisplay;
+    }
+    if (inObj && f && f.cabecera) {
+        inObj.value = f.cabecera.objetivo || "";
     }
 
     // 2. Ingresos (Separados en Fijos vs Aleatorios vs Almacén & Labores y Filtrados por Quincena)
@@ -1575,33 +1660,22 @@ function deshacerPagoDeudaUI(id) {
 }
 
 function cambiarPeriodoFinanzas(periodo, omitirRender) {
-    var periodosValidos = ['sem1', 'sem2', 'sem3', 'sem4', 'mes', 'q1', 'q2'];
-    if (periodosValidos.indexOf(periodo) === -1) periodo = 'mes';
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    window.ESTADO_FINANZAS.vistaQuincena = periodo;
+    window.ESTADO_FINANZAS.vistaQuincena = periodo || 'mes';
 
-    var btnSem1 = document.getElementById('btn-vista-sem1');
-    var btnSem2 = document.getElementById('btn-vista-sem2');
-    var btnSem3 = document.getElementById('btn-vista-sem3');
-    var btnSem4 = document.getElementById('btn-vista-sem4');
-    var btnMes = document.getElementById('btn-vista-mes');
-    var btnQ1 = document.getElementById('btn-vista-q1');
-    var btnQ2 = document.getElementById('btn-vista-q2');
-
-    if (btnSem1) btnSem1.classList.toggle('active', periodo === 'sem1');
-    if (btnSem2) btnSem2.classList.toggle('active', periodo === 'sem2');
-    if (btnSem3) btnSem3.classList.toggle('active', periodo === 'sem3');
-    if (btnSem4) btnSem4.classList.toggle('active', periodo === 'sem4');
-    if (btnMes) btnMes.classList.toggle('active', periodo === 'mes');
-    if (btnQ1) btnQ1.classList.toggle('active', periodo === 'q1');
-    if (btnQ2) btnQ2.classList.toggle('active', periodo === 'q2');
-
-    // Desplazamiento horizontal suave al botón activo si está en un contenedor con scroll
-    var botonActivo = document.getElementById('btn-vista-' + periodo);
-    if (botonActivo && botonActivo.scrollIntoView) {
-        try {
-            botonActivo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        } catch (e) {}
+    var barra = document.getElementById('quincena-selector-bar');
+    if (barra) {
+        var tabs = barra.querySelectorAll('.btn-quincena-tab');
+        tabs.forEach(function(b) {
+            b.classList.remove('active');
+        });
+        var btnActivo = document.getElementById('btn-vista-' + periodo);
+        if (btnActivo) {
+            btnActivo.classList.add('active');
+            try {
+                btnActivo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            } catch (e) {}
+        }
     }
 
     if (!omitirRender) {
@@ -1649,11 +1723,21 @@ function alCambiarDatoGeneralFinanzas() {
 function cambiarMesFinanzas(delta) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) + delta;
-    var fecha = new Date();
-    fecha.setMonth(fecha.getMonth() + window.ESTADO_FINANZAS.mesOffset);
-    var nombreMes = fecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-    nombreMes = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
-    var inMes = document.getElementById('finanzas-input-mes');
-    if (inMes) inMes.value = nombreMes;
-    alCambiarDatoGeneralFinanzas();
+
+    var fechaMes = obtenerFechaMesFinanzas();
+    var anio = fechaMes.getFullYear();
+    var mes = fechaMes.getMonth();
+    var hoy = new Date();
+
+    if (hoy.getFullYear() === anio && hoy.getMonth() === mes) {
+        window.ESTADO_FINANZAS.vistaQuincena = obtenerSemanaActualParaMes(anio, mes);
+    } else {
+        var semanas = calcularSemanasDelMes(anio, mes);
+        var existeSemana = semanas.some(function(s) { return s.clave === window.ESTADO_FINANZAS.vistaQuincena; });
+        if (window.ESTADO_FINANZAS.vistaQuincena !== 'mes' && !existeSemana) {
+            window.ESTADO_FINANZAS.vistaQuincena = 'sem1';
+        }
+    }
+
+    renderizarFinanzas(APP_STATE.finanzas);
 }

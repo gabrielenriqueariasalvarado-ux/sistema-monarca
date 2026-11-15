@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.32">
+    <link rel="stylesheet" href="style.css?v=10.33">
 </head>
 <body>
 
@@ -1081,23 +1081,19 @@
 
             <!-- 1. CABECERA Y DATOS GENERALES -->
             <div class="finanzas-header-card">
-                <div class="finanzas-meta-row">
+                <div class="finanzas-meta-row" style="margin-bottom: 0;">
                     <div>
                         <span class="finanzas-field-label">👤 Titular:</span>
-                        <input type="text" id="finanzas-input-nombre" class="finanzas-input-clean" value="Gabriel Arias" onchange="alCambiarDatoGeneralFinanzas()">
+                        <input type="text" id="finanzas-input-nombre" class="finanzas-input-clean" value="Gabriel Arias" readonly style="pointer-events: none; opacity: 0.95; font-weight: 700; color: #f8fafc; background: #0f131d; border: 1px solid rgba(255, 255, 255, 0.08); cursor: default;">
                     </div>
                     <div>
                         <span class="finanzas-field-label">📅 Mes de Control:</span>
                         <div style="display: flex; gap: 6px;">
                             <button class="btn-month-nav" onclick="cambiarMesFinanzas(-1)">◀</button>
-                            <input type="text" id="finanzas-input-mes" class="finanzas-input-clean" value="Septiembre 2026" style="text-align: center; font-weight: 700; color: #f8fafc; background: #0f131d;" readonly>
+                            <input type="text" id="finanzas-input-mes" class="finanzas-input-clean" value="Noviembre de 2026" style="text-align: center; font-weight: 700; color: #f8fafc; background: #0f131d;" readonly>
                             <button class="btn-month-nav" onclick="cambiarMesFinanzas(1)">▶</button>
                         </div>
                     </div>
-                </div>
-                <div>
-                    <span class="finanzas-field-label">🎯 Objetivo Financiero del Mes:</span>
-                    <textarea id="finanzas-input-objetivo" class="finanzas-input-clean" rows="2" style="resize: vertical; min-height: 48px; line-height: 1.4;" placeholder="Ej: Ahorrar para la moto, liquidar deudas y optimizar gastos..." onchange="alCambiarDatoGeneralFinanzas()"></textarea>
                 </div>
             </div>
 
@@ -4733,25 +4729,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.32"></script>
-    <script src="js/perfil.js?v=10.32"></script>
-    <script src="js/progresion.js?v=10.32"></script>
-    <script src="js/estado-personal.js?v=10.32"></script>
-    <script src="js/finanzas.js?v=10.32"></script>
-    <script src="js/ideas.js?v=10.32"></script>
-    <script src="js/dinamicas.js?v=10.32"></script>
-    <script src="js/calendario.js?v=10.32"></script>
-    <script src="js/inventario.js?v=10.32"></script>
-    <script src="js/jarvis-voz.js?v=10.32"></script>
+    <script src="js/core.js?v=10.33"></script>
+    <script src="js/perfil.js?v=10.33"></script>
+    <script src="js/progresion.js?v=10.33"></script>
+    <script src="js/estado-personal.js?v=10.33"></script>
+    <script src="js/finanzas.js?v=10.33"></script>
+    <script src="js/ideas.js?v=10.33"></script>
+    <script src="js/dinamicas.js?v=10.33"></script>
+    <script src="js/calendario.js?v=10.33"></script>
+    <script src="js/inventario.js?v=10.33"></script>
+    <script src="js/jarvis-voz.js?v=10.33"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.32"></script>
+    <script type="module" src="js/firebase-config.js?v=10.33"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.32')
+                navigator.serviceWorker.register('sw.js?v=10.33')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
