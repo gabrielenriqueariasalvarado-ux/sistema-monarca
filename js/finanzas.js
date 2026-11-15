@@ -425,18 +425,30 @@ function renderizarFinanzas(fin) {
 
         totIngresosVista += m;
         var estaCobrado = !!item.cobrado;
+        var montoRealCobrado = (estaCobrado && item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== "")
+            ? Number(item.montoCobrado)
+            : m;
 
         if (estaCobrado) {
-            ingresosCobradosVista += m;
+            ingresosCobradosVista += montoRealCobrado;
         } else {
             ingresosPendientesVista += m;
         }
 
         var badgeCobroHtml = estaCobrado
-            ? `<span class="badge-ingreso-cobrado">✅ EN CUENTA</span>
+            ? `<span class="badge-ingreso-cobrado" title="Cobro registrado">✅ EN CUENTA ($${montoRealCobrado.toFixed(2)})</span>
                <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroIngresoUI('${item.id}')" title="Desmarcar dinero en cuenta">↩</button>`
             : `<span class="badge-ingreso-pendiente">⏳ Pendiente</span>
                <button class="btn-cobrar-ingreso" onclick="cobrarIngresoUI('${item.id}')" title="Sumar este dinero a mi cuenta real">💰 Sumar a Cuenta</button>`;
+
+        var tituloIngreso = item.fuente || item.concepto || item.nombre || item.titulo || (item.tipo === 'almacen' ? 'Venta Almacén' : (item.tipo === 'labor' ? 'Labor' : 'Entrada Fija'));
+        
+        var displayMontoHtml = estaCobrado && Math.abs(montoRealCobrado - m) > 0.001
+            ? `<div style="text-align: right;">
+                   <div class="finanzas-tx-monto monto-positivo">+$${montoRealCobrado.toFixed(2)}</div>
+                   <div style="font-size: 11px; color: #64748b;">(Plan: $${m.toFixed(2)})</div>
+               </div>`
+            : `<div class="finanzas-tx-monto monto-positivo">+$${(estaCobrado ? montoRealCobrado : m).toFixed(2)}</div>`;
 
         var esAlmacenOLabor = (item.tipo === 'almacen' || item.tipo === 'credito' || item.tipo === 'labor');
         var esAleatoria = item.tipo === 'aleatoria';
@@ -460,14 +472,14 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: ${item.tipo === 'labor' ? '#c084fc' : (item.tipo === 'credito' ? '#fbbf24' : '#38bdf8')};">${iconoItem}</div>
                     <div class="finanzas-tx-details">
-                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta">
                             ${badgeCatHtml}
                         </div>
                     </div>
                 </div>
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${displayMontoHtml}
                     ${badgeCobroHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
@@ -481,7 +493,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: #38bdf8;">⚡</div>
                     <div class="finanzas-tx-details">
-                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta">
                             <span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
                                 ⚡ Variable · ${fechaStr}
@@ -490,7 +502,7 @@ function renderizarFinanzas(fin) {
                     </div>
                 </div>
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${displayMontoHtml}
                     ${badgeCobroHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
@@ -504,7 +516,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: #34d399;">📅</div>
                     <div class="finanzas-tx-details">
-                        <div class="finanzas-tx-title">${item.fuente}</div>
+                        <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta">
                             <span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
                                 📅 Cobro Día ${diaNum} de cada mes
@@ -513,7 +525,7 @@ function renderizarFinanzas(fin) {
                     </div>
                 </div>
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                    <div class="finanzas-tx-monto monto-positivo">+$${m.toFixed(2)}</div>
+                    ${displayMontoHtml}
                     ${badgeCobroHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
@@ -1610,27 +1622,84 @@ function abonarCuotaMetaUI(id) {
 
 function cobrarIngresoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
-    for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
-        if (APP_STATE.finanzas.ingresos[i].id === id) {
-            var item = APP_STATE.finanzas.ingresos[i];
-            item.cobrado = true;
-            item.fechaCobro = new Date().toISOString();
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
+    if (!item) return;
 
-            // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
-            if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
-                var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
-                if (vObj && Array.isArray(vObj.cuotas)) {
-                    var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
-                    if (cObj) {
-                        cObj.cobrado = true;
-                        cObj.fechaCobrado = new Date().toISOString();
-                    }
-                }
+    // Abrir panel/modal para colocar lo que realmente se cobró hoy
+    var modal = document.getElementById('modal-confirmar-cobro-ingreso');
+    if (modal) {
+        var inId = document.getElementById('modal-cobro-ingreso-id');
+        var elTitulo = document.getElementById('modal-cobro-ingreso-titulo');
+        var elProy = document.getElementById('modal-cobro-ingreso-proyectado');
+        var inReal = document.getElementById('modal-cobro-ingreso-real');
+
+        var tit = item.fuente || item.concepto || item.nombre || 'Entrada Fija';
+        var mProy = Number(item.monto) || 0;
+        var mDefecto = (item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== "")
+            ? Number(item.montoCobrado)
+            : mProy;
+
+        if (inId) inId.value = id;
+        if (elTitulo) elTitulo.innerText = tit;
+        if (elProy) elProy.innerText = '$' + mProy.toFixed(2);
+        if (inReal) inReal.value = mDefecto.toFixed(2);
+
+        modal.style.display = 'flex';
+        setTimeout(function() {
+            if (inReal) {
+                inReal.focus();
+                inReal.select();
             }
-            break;
+        }, 80);
+        return;
+    }
+
+    // Fallback directo
+    item.cobrado = true;
+    item.fechaCobro = new Date().toISOString();
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function cerrarModalConfirmarCobro() {
+    var modal = document.getElementById('modal-confirmar-cobro-ingreso');
+    if (modal) modal.style.display = 'none';
+}
+
+function ejecutarCobroIngresoReal() {
+    var inId = document.getElementById('modal-cobro-ingreso-id');
+    var inReal = document.getElementById('modal-cobro-ingreso-real');
+    if (!inId || !inReal) return;
+
+    var id = inId.value;
+    var montoVal = parseFloat(inReal.value);
+    if (isNaN(montoVal) || montoVal < 0) {
+        alert("Por favor ingresa un monto válido mayor o igual a 0.");
+        return;
+    }
+
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
+    if (!item) return;
+
+    item.cobrado = true;
+    item.montoCobrado = Math.round(montoVal * 100) / 100;
+    item.fechaCobro = new Date().toISOString();
+
+    // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
+    if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+        var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
+        if (vObj && Array.isArray(vObj.cuotas)) {
+            var cObj = vObj.cuotas.find(function(c) { return c.id === item.cuotaId; });
+            if (cObj) {
+                cObj.cobrado = true;
+                cObj.fechaCobrado = new Date().toISOString();
+            }
         }
     }
+
     MonarcaDB.save(APP_STATE);
+    cerrarModalConfirmarCobro();
     renderizarFinanzas(APP_STATE.finanzas);
     if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
 }
@@ -1641,6 +1710,7 @@ function deshacerCobroIngresoUI(id) {
         if (APP_STATE.finanzas.ingresos[i].id === id) {
             var item = APP_STATE.finanzas.ingresos[i];
             item.cobrado = false;
+            delete item.montoCobrado;
             delete item.fechaCobro;
 
             // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.34">
+    <link rel="stylesheet" href="style.css?v=10.35">
 </head>
 <body>
 
@@ -1474,6 +1474,51 @@
                     </button>
                     <button class="btn-system" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-color: #34d399;" onclick="confirmarAgregarIngreso()">
                         ✓ Guardar Entrada
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR COBRO REAL DE INGRESO (SUMAR A CUENTA) -->
+    <div id="modal-confirmar-cobro-ingreso" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 420px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💰</span>
+                    <span style="color: #34d399; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">SUMAR A CUENTA · MONTO COBRADO</span>
+                </div>
+                <button onclick="cerrarModalConfirmarCobro()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 18px;">
+                <input type="hidden" id="modal-cobro-ingreso-id" value="">
+                
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Concepto / Fuente:</div>
+                    <div id="modal-cobro-ingreso-titulo" style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 10px;">Boom Solutions</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                        <span style="font-size: 12px; color: #94a3b8;">Monto Proyectado:</span>
+                        <strong id="modal-cobro-ingreso-proyectado" style="font-size: 14px; color: #38bdf8;">$205.00</strong>
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                        <span>💵</span> ¿Cuánto cobraste realmente hoy? ($)
+                    </label>
+                    <input type="number" id="modal-cobro-ingreso-real" class="modal-input" step="0.01" min="0" placeholder="0.00" style="font-size: 20px; font-weight: 800; text-align: center; color: #34d399; background: #0b0e15; border: 1px solid rgba(52, 211, 153, 0.4); padding: 12px; border-radius: 10px;">
+                    <div style="font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.4;">
+                        Este es el monto exacto que se sumará al dinero real disponible en tu cuenta.
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; margin: 0; padding: 12px; font-size: 13px;" onclick="cerrarModalConfirmarCobro()">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn-system" style="flex: 1.6; margin: 0; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #059669, #10b981); border-color: #34d399; color: #ffffff; font-weight: 800;" onclick="ejecutarCobroIngresoReal()">
+                        💰 Confirmar y Sumar
                     </button>
                 </div>
             </div>
@@ -4729,25 +4774,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.34"></script>
-    <script src="js/perfil.js?v=10.34"></script>
-    <script src="js/progresion.js?v=10.34"></script>
-    <script src="js/estado-personal.js?v=10.34"></script>
-    <script src="js/finanzas.js?v=10.34"></script>
-    <script src="js/ideas.js?v=10.34"></script>
-    <script src="js/dinamicas.js?v=10.34"></script>
-    <script src="js/calendario.js?v=10.34"></script>
-    <script src="js/inventario.js?v=10.34"></script>
-    <script src="js/jarvis-voz.js?v=10.34"></script>
+    <script src="js/core.js?v=10.35"></script>
+    <script src="js/perfil.js?v=10.35"></script>
+    <script src="js/progresion.js?v=10.35"></script>
+    <script src="js/estado-personal.js?v=10.35"></script>
+    <script src="js/finanzas.js?v=10.35"></script>
+    <script src="js/ideas.js?v=10.35"></script>
+    <script src="js/dinamicas.js?v=10.35"></script>
+    <script src="js/calendario.js?v=10.35"></script>
+    <script src="js/inventario.js?v=10.35"></script>
+    <script src="js/jarvis-voz.js?v=10.35"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.34"></script>
+    <script type="module" src="js/firebase-config.js?v=10.35"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.34')
+                navigator.serviceWorker.register('sw.js?v=10.35')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
