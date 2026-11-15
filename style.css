@@ -9716,6 +9716,401 @@ body.modal-open {
     border-color: #ef4444;
 }
 
+/* ==========================================================================
+   ESTILOS: DEUDAS, CRONOGRAMA DE CUOTAS & PRÓXIMA DEUDA A PAGAR
+   ========================================================================== */
+
+/* Banner Próxima Deuda a Pagar */
+.banner-proxima-deuda-card {
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    animation: fadeInFreno 0.3s ease-out;
+}
+
+.banner-proxima-deuda-empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 1px dashed rgba(16, 185, 129, 0.35);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+
+.bpd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+}
+
+.bpd-title {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.bpd-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.bpd-info {
+    flex: 1;
+    min-width: 180px;
+}
+
+.bpd-nombre {
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-bottom: 3px;
+}
+
+.bpd-sub {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.bpd-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.bpd-monto {
+    font-size: 20px;
+    font-weight: 800;
+    color: #38bdf8;
+    letter-spacing: -0.5px;
+}
+
+.btn-pagar-cuota-urgente {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #0b0f19;
+    border: 1px solid #fbbf24;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+}
+
+.btn-pagar-cuota-urgente:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+    filter: brightness(1.08);
+}
+
+/* Badges de tiempo para vencimiento */
+.cuota-badge-vencida {
+    font-size: 11px;
+    font-weight: 800;
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.cuota-badge-hoy {
+    font-size: 11px;
+    font-weight: 800;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    padding: 3px 8px;
+    border-radius: 6px;
+    animation: pulseBadge 1.5s infinite;
+}
+
+.cuota-badge-pronto {
+    font-size: 11px;
+    font-weight: 800;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.cuota-badge-normal {
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+@keyframes pulseBadge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Tarjeta moderna de Deuda / Crédito */
+.deuda-card-moderna {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.deuda-card-moderna:hover {
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.deuda-card-moderna.deuda-liquidada {
+    opacity: 0.78;
+    border-color: rgba(16, 185, 129, 0.25);
+    background: #0d1424;
+}
+
+.deuda-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.badge-deuda-liquidada {
+    font-size: 11px;
+    font-weight: 800;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.badge-deuda-activa {
+    font-size: 11px;
+    font-weight: 800;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.deuda-amort-bar {
+    width: 100%;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.deuda-amort-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.deuda-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    background: #0b0f19;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+@media (max-width: 600px) {
+    .deuda-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.deuda-metric-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dmb-lbl {
+    font-size: 10px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.dmb-val {
+    font-size: 13px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+/* Acordeón y Timeline de Cronograma */
+.btn-toggle-cronograma {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-toggle-cronograma:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cronograma-cuotas-container {
+    margin-top: 8px;
+    background: #090d15;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.cronograma-cuota-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cronograma-cuota-row.cuota-pagada {
+    opacity: 0.65;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.cronograma-cuota-row.cuota-siguiente {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.badge-cuota-pagada {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #34d399;
+}
+
+.badge-cuota-pendiente {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.btn-pagar-cuota-mini {
+    background: #f59e0b;
+    border: none;
+    color: #0b0f19;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.btn-pagar-cuota-mini:hover {
+    transform: scale(1.05);
+    background: #fbbf24;
+}
+
+/* Acciones de la tarjeta */
+.deuda-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-pagar-cuota-action {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: 1px solid #fbbf24;
+    color: #0b0f19;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-pagar-cuota-action:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.btn-deshacer-cuota-action {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #cbd5e1;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-deshacer-cuota-action:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+}
+
+.btn-liquidar-action {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all 0.2s ease;
+}
+
+.btn-liquidar-action:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+
 
 
 

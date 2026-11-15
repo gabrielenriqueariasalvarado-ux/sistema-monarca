@@ -925,62 +925,10 @@ function renderizarFinanzas(fin) {
     var resInversionEl = document.getElementById('resumen-total-inversion') || document.getElementById('resumen-total-ahorro-inversion');
     if (resInversionEl) resInversionEl.innerText = '$' + meta50.toFixed(2);
 
-    // 5. Deudas (Separar Deudas Pendientes vs Deudas Pagadas)
-    var totDeudasPendientes = 0;
-    var totDeudasPagadas = 0;
-    var contDeudas = document.getElementById('lista-deudas-tx');
-
-    if (contDeudas) {
-        var htmlDeu = '';
-        var deudasEnVista = 0;
-
-        (f.deudas || []).forEach(function(item) {
-            if (!coincideQuincena(item.dia, item.fecha)) return;
-            deudasEnVista++;
-
-            var m = Number(item.montoTotal) || 0;
-            var estaPagada = !!item.pagada;
-
-            if (estaPagada) {
-                totDeudasPagadas += m;
-            } else {
-                totDeudasPendientes += m;
-            }
-
-            var badgeDeudaHtml = estaPagada
-                ? `<span class="badge-deuda-pagada">✅ PAGADA</span>
-                   <button class="btn-pagar-deuda btn-deshacer-pago" onclick="deshacerPagoDeudaUI('${item.id}')" title="Desmarcar pago">↩</button>`
-                : `<button class="btn-pagar-deuda" onclick="pagarDeudaUI('${item.id}')" title="Marcar como pagada">💳 Pagar Deuda</button>`;
-
-            htmlDeu += `
-            <div class="finanzas-tx-item" style="${estaPagada ? 'opacity: 0.75;' : ''}">
-                <div class="finanzas-tx-main">
-                    <div class="finanzas-tx-icon" style="color: ${estaPagada ? '#34d399' : '#fbbf24'};">🛡️</div>
-                    <div class="finanzas-tx-details">
-                        <div class="finanzas-tx-title" style="${estaPagada ? 'text-decoration: line-through; color: #94a3b8;' : ''}">${item.nombre}</div>
-                        <div class="finanzas-tx-meta">
-                            <span>📅 Día de pago: ${item.dia || 20}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                    <div class="finanzas-tx-monto ${estaPagada ? '' : 'monto-deuda'}" style="${estaPagada ? 'color: #94a3b8; text-decoration: line-through;' : ''}">$${m.toFixed(2)}</div>
-                    ${badgeDeudaHtml}
-                    <button class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI('${item.id}', 'deuda')">✕</button>
-                </div>
-            </div>`;
-        });
-
-        if (deudasEnVista === 0) {
-            htmlDeu = `<div class="finanzas-empty-hint">No hay deudas activas para ${obtenerNombrePeriodo(vq)}. ¡Excelente!</div>`;
-        }
-        contDeudas.innerHTML = htmlDeu;
-    }
-
-    var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
-    if (totalDeuEl) totalDeuEl.innerText = '$' + totDeudasPendientes.toFixed(2);
-    var resDeuEl = document.getElementById('resumen-total-deudas');
-    if (resDeuEl) resDeuEl.innerText = '$' + totDeudasPendientes.toFixed(2);
+    // 5. Deudas y Cronograma de Pagos (Créditos en Cuotas)
+    var resDeudas = renderizarDeudasYCronograma(f, vq);
+    var totDeudasPendientes = resDeudas.totPendientes;
+    var totDeudasPagadas = resDeudas.totPagadas;
 
     // 6. Metas Quincenales
     var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
@@ -1557,9 +1505,100 @@ function deshacerPagoGastoUI(id) {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
+function alCambiarFrecuenciaModalDeuda() {
+    var sel = document.getElementById('modal-deuda-frecuencia');
+    var grupoCustom = document.getElementById('grupo-deuda-dias-custom');
+    if (!sel || !grupoCustom) return;
+    if (sel.value === 'custom') {
+        grupoCustom.style.display = 'block';
+        var inCustom = document.getElementById('modal-deuda-dias-custom');
+        if (inCustom && !inCustom.value) inCustom.value = '15';
+    } else {
+        grupoCustom.style.display = 'none';
+    }
+    alCambiarValoresModalDeuda();
+}
+
+function alCambiarValoresModalDeuda() {
+    var inTotal = document.getElementById('modal-deuda-precio-total');
+    var inIni = document.getElementById('modal-deuda-inicial');
+    var inRest = document.getElementById('modal-deuda-restante');
+    var inCuotas = document.getElementById('modal-deuda-cuotas');
+    var inFrec = document.getElementById('modal-deuda-frecuencia');
+    var inCustom = document.getElementById('modal-deuda-dias-custom');
+    var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+    var labelValor = document.getElementById('label-valor-cada-cuota');
+    var textDetalle = document.getElementById('texto-detalle-cronograma-deuda');
+
+    var total = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
+    var inicial = inIni ? (parseFloat(inIni.value) || 0) : 0;
+    if (inicial > total && total > 0) inicial = total;
+    var restante = Math.max(0, total - inicial);
+
+    if (inRest) inRest.value = '$' + restante.toFixed(2);
+
+    var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
+    if (numCuotas < 1) numCuotas = 1;
+
+    var montoPorCuota = numCuotas > 0 ? (restante / numCuotas) : 0;
+    if (labelValor) labelValor.textContent = '$' + montoPorCuota.toFixed(2) + ' / cuota';
+
+    var diasFrec = 15;
+    if (inFrec) {
+        if (inFrec.value === 'custom') {
+            diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
+        } else {
+            diasFrec = parseInt(inFrec.value, 10) || 15;
+        }
+    }
+
+    var fechaIniStr = inFecha ? inFecha.value : '';
+    if (!fechaIniStr) {
+        var dNext = new Date();
+        dNext.setDate(dNext.getDate() + diasFrec);
+        fechaIniStr = dNext.toISOString().slice(0, 10);
+        if (inFecha) inFecha.value = fechaIniStr;
+    }
+
+    if (textDetalle) {
+        if (total <= 0) {
+            textDetalle.textContent = 'Ingresa el precio total y las cuotas para calcular el cronograma.';
+        } else {
+            textDetalle.innerHTML = 'Plan: <strong>' + numCuotas + ' cuotas de $' + montoPorCuota.toFixed(2) + '</strong> ' +
+                'cada <strong>' + diasFrec + ' días</strong>. Primera cuota: <strong>' + formatearFechaCorta(fechaIniStr) + '</strong>. ' +
+                (inicial > 0 ? '<span style="color:#10b981;">(Inicial pagada: $' + inicial.toFixed(2) + ')</span>' : '');
+        }
+    }
+}
+
 function abrirModalDeuda() {
     var m = document.getElementById('modal-finanzas-deuda') || document.getElementById('modal-finanza-deuda');
-    if (m) m.style.display = 'flex';
+    if (m) {
+        m.style.display = 'flex';
+        var inN = document.getElementById('modal-deuda-nombre');
+        var inTotal = document.getElementById('modal-deuda-precio-total');
+        var inIni = document.getElementById('modal-deuda-inicial');
+        var inCuotas = document.getElementById('modal-deuda-cuotas');
+        var inFrec = document.getElementById('modal-deuda-frecuencia');
+        var inCustom = document.getElementById('modal-deuda-dias-custom');
+        var grupoCustom = document.getElementById('grupo-deuda-dias-custom');
+        var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+
+        if (inN) inN.value = '';
+        if (inTotal) inTotal.value = '';
+        if (inIni) inIni.value = '0.00';
+        if (inCuotas) inCuotas.value = '6';
+        if (inFrec) inFrec.value = '15';
+        if (grupoCustom) grupoCustom.style.display = 'none';
+        if (inCustom) inCustom.value = '';
+
+        var dNext = new Date();
+        dNext.setDate(dNext.getDate() + 15);
+        if (inFecha) inFecha.value = dNext.toISOString().slice(0, 10);
+
+        alCambiarValoresModalDeuda();
+        setTimeout(function() { if (inN) inN.focus(); }, 120);
+    }
 }
 
 function cerrarModalDeuda() {
@@ -1569,32 +1608,82 @@ function cerrarModalDeuda() {
 
 function confirmarAgregarDeuda() {
     var inN = document.getElementById('modal-deuda-nombre');
-    var inD = document.getElementById('modal-deuda-dia');
-    var inM = document.getElementById('modal-deuda-monto');
+    var inCat = document.getElementById('modal-deuda-categoria');
+    var inTotal = document.getElementById('modal-deuda-precio-total');
+    var inIni = document.getElementById('modal-deuda-inicial');
+    var inCuotas = document.getElementById('modal-deuda-cuotas');
+    var inFrec = document.getElementById('modal-deuda-frecuencia');
+    var inCustom = document.getElementById('modal-deuda-dias-custom');
+    var inFecha = document.getElementById('modal-deuda-fecha-inicio');
 
-    var n = inN ? inN.value.trim() : "";
-    var d = inD ? (Number(inD.value) || 20) : 20;
-    var m = inM ? (Number(inM.value) || 0) : 0;
+    var nombre = inN ? inN.value.trim() : '';
+    var categoria = inCat ? inCat.value : '📦 Otros Compromisos';
+    var total = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
+    var inicial = inIni ? (parseFloat(inIni.value) || 0) : 0;
+    var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
+    var diasFrec = 15;
+    if (inFrec && inFrec.value === 'custom') {
+        diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
+    } else if (inFrec) {
+        diasFrec = parseInt(inFrec.value, 10) || 15;
+    }
+    var fechaInicio = inFecha ? inFecha.value : new Date().toISOString().slice(0, 10);
 
-    if (!n || m <= 0) {
-        alert("Completa el nombre del acreedor y un monto válido.");
+    if (!nombre) {
+        alert('Por favor escribe el nombre de la deuda o crédito (ej: Teléfono Xiaomi, Moto, Préstamo).');
+        if (inN) inN.focus();
         return;
+    }
+    if (total <= 0) {
+        alert('Ingresa un precio total válido mayor a 0.');
+        if (inTotal) inTotal.focus();
+        return;
+    }
+    if (numCuotas < 1) {
+        alert('El número de cuotas debe ser al menos 1.');
+        if (inCuotas) inCuotas.focus();
+        return;
+    }
+
+    var restante = Math.max(0, total - inicial);
+    var montoPorCuota = Math.round((restante / numCuotas) * 100) / 100;
+
+    var cuotas = [];
+    var baseDate = new Date(fechaInicio + 'T12:00:00');
+    for (var i = 1; i <= numCuotas; i++) {
+        var dCuota = new Date(baseDate.getTime() + (i - 1) * diasFrec * 24 * 60 * 60 * 1000);
+        cuotas.push({
+            num: i,
+            fecha: dCuota.toISOString().slice(0, 10),
+            monto: montoPorCuota,
+            pagada: false,
+            fechaPago: null
+        });
     }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
 
-    APP_STATE.finanzas.deudas.push({
-        id: "DEU-" + Date.now(),
-        nombre: n,
-        dia: d,
-        montoTotal: m,
-        pagada: false
-    });
+    var nuevaDeuda = {
+        id: 'DEU-' + Date.now(),
+        nombre: nombre,
+        categoria: categoria,
+        iconoCategoria: categoria.slice(0, 2),
+        precioTotal: total,
+        pagoInicial: inicial,
+        montoRestante: restante,
+        cuotasTotal: numCuotas,
+        cuotasPagadas: 0,
+        montoCuota: montoPorCuota,
+        diasFrecuencia: diasFrec,
+        fechaInicio: fechaInicio,
+        cuotas: cuotas,
+        montoTotal: restante,
+        dia: baseDate.getDate(),
+        pagada: restante <= 0
+    };
 
-    if (inN) inN.value = "";
-    if (inM) inM.value = "";
-
+    APP_STATE.finanzas.deudas.unshift(nuevaDeuda);
     MonarcaDB.save(APP_STATE);
     cerrarModalDeuda();
     renderizarFinanzas(APP_STATE.finanzas);
@@ -1988,32 +2077,404 @@ function deshacerCobroIngresoUI(id) {
     });
 }
 
-function pagarDeudaUI(id) {
-    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
-    for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
-        if (APP_STATE.finanzas.deudas[i].id === id) {
-            APP_STATE.finanzas.deudas[i].pagada = true;
-            APP_STATE.finanzas.deudas[i].fechaPago = new Date().toISOString();
-            break;
+function normalizarDeuda(d) {
+    if (!d) return;
+    if (d.precioTotal == null) d.precioTotal = Number(d.montoTotal) || 0;
+    if (d.pagoInicial == null) d.pagoInicial = 0;
+    if (d.cuotasTotal == null) d.cuotasTotal = (d.cuotas && d.cuotas.length) ? d.cuotas.length : 1;
+    if (d.cuotasPagadas == null) {
+        if (d.cuotas && Array.isArray(d.cuotas)) {
+            d.cuotasPagadas = d.cuotas.filter(function(c) { return c.pagada; }).length;
+        } else {
+            d.cuotasPagadas = d.pagada ? d.cuotasTotal : 0;
         }
     }
-    MonarcaDB.save(APP_STATE);
-    renderizarFinanzas(APP_STATE.finanzas);
+    if (d.montoCuota == null) {
+        var baseRest = Math.max(0, Number(d.precioTotal) - Number(d.pagoInicial));
+        d.montoCuota = d.cuotasTotal > 0 ? Math.round((baseRest / d.cuotasTotal) * 100) / 100 : baseRest;
+    }
+    if (d.diasFrecuencia == null) d.diasFrecuencia = 15;
+    if (!d.categoria) d.categoria = '📦 Otros Compromisos';
+    if (!d.iconoCategoria) d.iconoCategoria = d.categoria.slice(0, 2);
+
+    if (!Array.isArray(d.cuotas) || d.cuotas.length === 0) {
+        var cuotas = [];
+        var fechaBase = d.fechaInicio ? new Date(d.fechaInicio + 'T12:00:00') : new Date();
+        for (var i = 1; i <= d.cuotasTotal; i++) {
+            var fCuota = new Date(fechaBase.getTime() + (i - 1) * d.diasFrecuencia * 24 * 60 * 60 * 1000);
+            var isPaid = i <= d.cuotasPagadas || !!d.pagada;
+            cuotas.push({
+                num: i,
+                fecha: fCuota.toISOString().slice(0, 10),
+                monto: Number(d.montoCuota),
+                pagada: isPaid,
+                fechaPago: isPaid ? (d.fechaPago || new Date().toISOString()) : null
+            });
+        }
+        d.cuotas = cuotas;
+    }
+
+    var numPagadas = (d.cuotas || []).filter(function(c) { return c.pagada; }).length;
+    d.cuotasPagadas = numPagadas;
+    var pagadoCuotas = numPagadas * Number(d.montoCuota);
+    d.montoRestante = Math.max(0, Number(d.precioTotal) - Number(d.pagoInicial) - pagadoCuotas);
+    d.montoTotal = d.montoRestante;
+    if (d.cuotasPagadas >= d.cuotasTotal || d.montoRestante <= 0) {
+        d.pagada = true;
+    } else {
+        d.pagada = false;
+    }
 }
 
-function deshacerPagoDeudaUI(id) {
-    solicitarReversionCobro("¿Estás seguro de que deseas revertir este pago de deuda y devolverlo a estado pendiente?", function() {
-        if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
-        for (var i = 0; i < APP_STATE.finanzas.deudas.length; i++) {
-            if (APP_STATE.finanzas.deudas[i].id === id) {
-                APP_STATE.finanzas.deudas[i].pagada = false;
-                delete APP_STATE.finanzas.deudas[i].fechaPago;
-                break;
-            }
+function formatearFechaCorta(fechaStr) {
+    if (!fechaStr) return '';
+    try {
+        var partes = fechaStr.split('-');
+        if (partes.length === 3) {
+            return partes[2] + '/' + partes[1] + '/' + partes[0];
         }
+    } catch(e) {}
+    return fechaStr;
+}
+
+function pagarCuotaDeudaUI(deudaId, cuotaNum) {
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+    var deuda = APP_STATE.finanzas.deudas.find(function(d) { return d.id === deudaId; });
+    if (!deuda) return;
+    normalizarDeuda(deuda);
+
+    var targetCuota = null;
+    if (cuotaNum != null) {
+        targetCuota = (deuda.cuotas || []).find(function(c) { return c.num === cuotaNum; });
+    } else {
+        targetCuota = (deuda.cuotas || []).find(function(c) { return !c.pagada; });
+    }
+
+    if (!targetCuota || targetCuota.pagada) return;
+
+    targetCuota.pagada = true;
+    targetCuota.fechaPago = new Date().toISOString();
+
+    normalizarDeuda(deuda);
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+
+    if (deuda.pagada) {
+        alert('🎉 ¡Felicidades! Has liquidado por completo la deuda de "' + deuda.nombre + '".');
+    } else {
+        alert('💳 Cuota ' + targetCuota.num + ' de ' + deuda.cuotasTotal + ' de "' + deuda.nombre + '" registrada como pagada ($' + Number(targetCuota.monto).toFixed(2) + ').');
+    }
+}
+
+function pagarDeudaUI(id) {
+    pagarCuotaDeudaUI(id, null);
+}
+
+function deshacerCuotaDeudaUI(deudaId) {
+    solicitarReversionCobro("¿Estás seguro de que deseas revertir la última cuota pagada de esta deuda y devolverla a estado pendiente?", function() {
+        if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+        var deuda = APP_STATE.finanzas.deudas.find(function(d) { return d.id === deudaId; });
+        if (!deuda) return;
+        normalizarDeuda(deuda);
+
+        var pagadas = (deuda.cuotas || []).filter(function(c) { return c.pagada; });
+        if (pagadas.length === 0) return;
+
+        var ultimaPagada = pagadas[pagadas.length - 1];
+        ultimaPagada.pagada = false;
+        ultimaPagada.fechaPago = null;
+
+        normalizarDeuda(deuda);
         MonarcaDB.save(APP_STATE);
         renderizarFinanzas(APP_STATE.finanzas);
     });
+}
+
+function deshacerPagoDeudaUI(id) {
+    deshacerCuotaDeudaUI(id);
+}
+
+function liquidarDeudaCompletaUI(deudaId) {
+    if (!confirm('¿Deseas marcar todas las cuotas pendientes de esta deuda como pagadas?')) return;
+    if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
+    var deuda = APP_STATE.finanzas.deudas.find(function(d) { return d.id === deudaId; });
+    if (!deuda) return;
+    normalizarDeuda(deuda);
+
+    (deuda.cuotas || []).forEach(function(c) {
+        c.pagada = true;
+        if (!c.fechaPago) c.fechaPago = new Date().toISOString();
+    });
+
+    normalizarDeuda(deuda);
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+    alert('🎉 Deuda "' + deuda.nombre + '" marcada como 100% liquidada.');
+}
+
+function toggleCronogramaDeudaUI(deudaId) {
+    var el = document.getElementById('cronograma-deuda-' + deudaId);
+    var btn = document.getElementById('btn-toggle-crono-' + deudaId);
+    if (!el) return;
+    if (el.style.display === 'none' || !el.style.display) {
+        el.style.display = 'block';
+        if (btn) btn.innerHTML = '📅 Ocultar Cronograma ▴';
+    } else {
+        el.style.display = 'none';
+        if (btn) btn.innerHTML = '📅 Ver Cronograma de Cuotas ▾';
+    }
+}
+
+function renderizarDeudasYCronograma(f, vq) {
+    var totPendientes = 0;
+    var totPagadas = 0;
+    var deudas = f.deudas || [];
+
+    // Normalizar todas las deudas
+    deudas.forEach(function(d) { normalizarDeuda(d); });
+
+    // 1. Encontrar la próxima cuota a pagar más urgente
+    var todasCuotasPendientes = [];
+    var hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    deudas.forEach(function(d) {
+        if (d.pagada) return;
+        (d.cuotas || []).forEach(function(c) {
+            if (!c.pagada) {
+                todasCuotasPendientes.push({
+                    deudaId: d.id,
+                    deudaNombre: d.nombre,
+                    categoria: d.categoria || 'Compromiso',
+                    icono: d.iconoCategoria || '🛡️',
+                    cuotaNum: c.num,
+                    totalCuotas: d.cuotasTotal,
+                    monto: Number(c.monto) || Number(d.montoCuota) || 0,
+                    fecha: c.fecha
+                });
+            }
+        });
+    });
+
+    todasCuotasPendientes.sort(function(a, b) {
+        return new Date(a.fecha + 'T00:00:00').getTime() - new Date(b.fecha + 'T00:00:00').getTime();
+    });
+
+    var proximaCuota = todasCuotasPendientes.length > 0 ? todasCuotasPendientes[0] : null;
+
+    // Renderizar Banner Próxima Deuda
+    var bannerEl = document.getElementById('banner-proxima-deuda');
+    if (bannerEl) {
+        if (!proximaCuota) {
+            bannerEl.innerHTML = '<div class="banner-proxima-deuda-empty">' +
+                '<span style="font-size: 20px;">🛡️</span>' +
+                '<div>' +
+                    '<div style="font-weight: 700; color: #34d399; font-size: 13.5px;">¡Sin cuotas pendientes por pagar!</div>' +
+                    '<div style="font-size: 11.5px; color: #94a3b8;">No tienes deudas activas ni pagos urgentes programados. Excelente control financiero.</div>' +
+                '</div>' +
+            '</div>';
+        } else {
+            var fCuota = new Date(proximaCuota.fecha + 'T00:00:00');
+            var diffDias = Math.round((fCuota.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+            var badgeTiempo = '';
+            var estiloBorde = '';
+
+            if (diffDias < 0) {
+                badgeTiempo = '<span class="cuota-badge-vencida">⚠️ Vencida hace ' + Math.abs(diffDias) + (Math.abs(diffDias) === 1 ? ' día' : ' días') + '</span>';
+                estiloBorde = 'border-color: rgba(239, 68, 68, 0.5); background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(15, 23, 42, 0.95) 100%);';
+            } else if (diffDias === 0) {
+                badgeTiempo = '<span class="cuota-badge-hoy">🔔 ¡Vence Hoy!</span>';
+                estiloBorde = 'border-color: rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(15, 23, 42, 0.95) 100%);';
+            } else if (diffDias === 1) {
+                badgeTiempo = '<span class="cuota-badge-pronto">⏳ Vence mañana</span>';
+                estiloBorde = 'border-color: rgba(245, 158, 11, 0.4); background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(15, 23, 42, 0.95) 100%);';
+            } else {
+                badgeTiempo = '<span class="cuota-badge-normal">📅 Vence en ' + diffDias + ' días (' + formatearFechaCorta(proximaCuota.fecha) + ')</span>';
+                estiloBorde = 'border-color: rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);';
+            }
+
+            bannerEl.innerHTML = '<div class="banner-proxima-deuda-card" style="' + estiloBorde + '">' +
+                '<div class="bpd-header">' +
+                    '<div style="display: flex; align-items: center; gap: 8px;">' +
+                        '<span style="font-size: 18px;">🚨</span>' +
+                        '<span class="bpd-title">PRÓXIMA CUOTA A PAGAR</span>' +
+                    '</div>' +
+                    badgeTiempo +
+                '</div>' +
+                '<div class="bpd-body">' +
+                    '<div class="bpd-info">' +
+                        '<div class="bpd-nombre">' + escaparHTML(proximaCuota.deudaNombre) + '</div>' +
+                        '<div class="bpd-sub">' +
+                            '<span>' + escaparHTML(proximaCuota.categoria) + '</span> · ' +
+                            '<strong style="color: #fbbf24;">Cuota ' + proximaCuota.cuotaNum + ' de ' + proximaCuota.totalCuotas + '</strong>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="bpd-action">' +
+                        '<div class="bpd-monto">$' + proximaCuota.monto.toFixed(2) + '</div>' +
+                        '<button type="button" class="btn-pagar-cuota-urgente" onclick="pagarCuotaDeudaUI(\'' + proximaCuota.deudaId + '\', ' + proximaCuota.cuotaNum + ')">' +
+                            '💳 Pagar Cuota' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
+    }
+
+    // 2. Renderizar Tarjetas de Deudas y Cronogramas
+    var contDeudas = document.getElementById('lista-deudas-tx');
+    if (contDeudas) {
+        if (deudas.length === 0) {
+            contDeudas.innerHTML = '<div class="finanzas-empty-hint">' +
+                'No hay deudas ni créditos registrados. Usa el botón "➕ Nueva Deuda" para registrar compras a crédito, teléfonos o préstamos.' +
+            '</div>';
+        } else {
+            var html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+
+            deudas.forEach(function(item) {
+                var estaPagada = !!item.pagada;
+                var precioTot = Number(item.precioTotal) || 0;
+                var ini = Number(item.pagoInicial) || 0;
+                var rest = Number(item.montoRestante) || 0;
+                var montoCuota = Number(item.montoCuota) || 0;
+                var numCuotas = Number(item.cuotasTotal) || 1;
+                var cuotasPagadas = Number(item.cuotasPagadas) || 0;
+
+                if (estaPagada) {
+                    totPagadas += precioTot;
+                } else {
+                    totPendientes += rest;
+                    totPagadas += (precioTot - rest);
+                }
+
+                var pagadoTotal = Math.max(0, precioTot - rest);
+                var pct = precioTot > 0 ? Math.min(100, Math.round((pagadoTotal / precioTot) * 100)) : (estaPagada ? 100 : 0);
+
+                var badgeEstado = estaPagada
+                    ? '<span class="badge-deuda-liquidada">✅ 100% LIQUIDADA</span>'
+                    : '<span class="badge-deuda-activa">⏳ ' + cuotasPagadas + ' de ' + numCuotas + ' cuotas</span>';
+
+                // Generar filas del cronograma
+                var htmlCuotas = '';
+                (item.cuotas || []).forEach(function(c) {
+                    var fC = new Date(c.fecha + 'T00:00:00');
+                    var dDiff = Math.round((fC.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                    var estadoCuota = '';
+
+                    if (c.pagada) {
+                        estadoCuota = '<span class="badge-cuota-pagada">✅ Pagada</span>';
+                    } else if (c.num === cuotasPagadas + 1) {
+                        estadoCuota = '<button type="button" class="btn-pagar-cuota-mini" onclick="pagarCuotaDeudaUI(\'' + item.id + '\', ' + c.num + ')">💳 Pagar Ahora</button>';
+                    } else {
+                        estadoCuota = '<span class="badge-cuota-pendiente">⏳ Pendiente</span>';
+                    }
+
+                    var infoFecha = formatearFechaCorta(c.fecha);
+                    if (!c.pagada) {
+                        if (dDiff < 0) infoFecha += ' <span style="color:#ef4444; font-size:10.5px;">(hace ' + Math.abs(dDiff) + 'd)</span>';
+                        else if (dDiff === 0) infoFecha += ' <span style="color:#f59e0b; font-size:10.5px;">(¡Hoy!)</span>';
+                        else infoFecha += ' <span style="color:#94a3b8; font-size:10.5px;">(en ' + dDiff + 'd)</span>';
+                    }
+
+                    htmlCuotas += '<div class="cronograma-cuota-row ' + (c.pagada ? 'cuota-pagada' : (c.num === cuotasPagadas + 1 ? 'cuota-siguiente' : '')) + '">' +
+                        '<div style="display: flex; align-items: center; gap: 8px;">' +
+                            '<span style="font-weight: 800; font-size: 12px; color: #f8fafc;">#' + c.num + '</span>' +
+                            '<span style="font-size: 12px; color: #cbd5e1;">' + infoFecha + '</span>' +
+                        '</div>' +
+                        '<div style="display: flex; align-items: center; gap: 8px;">' +
+                            '<span style="font-weight: 800; font-size: 12px; color: #38bdf8;">$' + Number(c.monto).toFixed(2) + '</span>' +
+                            estadoCuota +
+                        '</div>' +
+                    '</div>';
+                });
+
+                html += '<div class="deuda-card-moderna ' + (estaPagada ? 'deuda-liquidada' : '') + '">' +
+                    '<div class="deuda-card-top">' +
+                        '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
+                            '<span style="font-size: 22px; flex-shrink: 0;">' + (item.iconoCategoria || '🛡️') + '</span>' +
+                            '<div style="min-width: 0; flex: 1;">' +
+                                '<div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; word-break: break-word;">' + escaparHTML(item.nombre) + '</div>' +
+                                '<div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; margin-top: 2px;">' +
+                                    '<span>' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
+                                    '<span>•</span>' +
+                                    '<span>Cada ' + (item.diasFrecuencia || 15) + ' días</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">' +
+                            badgeEstado +
+                            '<button type="button" class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI(\'' + item.id + '\', \'deuda\')">✕</button>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // Barra de amortización
+                    '<div style="margin: 10px 0 12px 0;">' +
+                        '<div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">' +
+                            '<span style="color: #94a3b8;">Amortizado: <strong style="color: #34d399;">$' + pagadoTotal.toFixed(2) + '</strong> (' + pct + '%)</span>' +
+                            '<span style="color: #f87171; font-weight: 700;">Resta: $' + rest.toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="deuda-amort-bar">' +
+                            '<div class="deuda-amort-fill" style="width: ' + pct + '%;"></div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // Grid de métricas
+                    '<div class="deuda-metrics-grid">' +
+                        '<div class="deuda-metric-box">' +
+                            '<span class="dmb-lbl">Precio Total</span>' +
+                            '<span class="dmb-val">$' + precioTot.toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="deuda-metric-box">' +
+                            '<span class="dmb-lbl">Inicial Dada</span>' +
+                            '<span class="dmb-val" style="color: #34d399;">$' + ini.toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="deuda-metric-box">' +
+                            '<span class="dmb-lbl">Valor Cuota</span>' +
+                            '<span class="dmb-val" style="color: #38bdf8;">$' + montoCuota.toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="deuda-metric-box">' +
+                            '<span class="dmb-lbl">Pendiente</span>' +
+                            '<span class="dmb-val" style="color: #f87171;">$' + rest.toFixed(2) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // Botón y panel del cronograma
+                    '<div style="margin-top: 10px;">' +
+                        '<button type="button" id="btn-toggle-crono-' + item.id + '" class="btn-toggle-cronograma" onclick="toggleCronogramaDeudaUI(\'' + item.id + '\')">' +
+                            '📅 Ver Cronograma de Cuotas (' + (item.cuotas ? item.cuotas.length : numCuotas) + ') ▾' +
+                        '</button>' +
+                        '<div id="cronograma-deuda-' + item.id + '" class="cronograma-cuotas-container" style="display: none;">' +
+                            htmlCuotas +
+                        '</div>' +
+                    '</div>' +
+
+                    // Acciones inferiores
+                    '<div class="deuda-card-actions">' +
+                        (!estaPagada
+                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="pagarCuotaDeudaUI(\'' + item.id + '\')">' +
+                                '💳 Pagar Cuota ' + (cuotasPagadas + 1) + ' ($' + montoCuota.toFixed(2) + ')' +
+                              '</button>'
+                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Crédito completamente amortizado ✓</span>') +
+                        (cuotasPagadas > 0
+                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota pagada">↩ Deshacer Pago</button>'
+                            : '') +
+                        (!estaPagada && rest > 0
+                            ? '<button type="button" class="btn-liquidar-action" onclick="liquidarDeudaCompletaUI(\'' + item.id + '\')" title="Liquidar todo el saldo restante">⚡ Liquidar Todo</button>'
+                            : '') +
+                    '</div>' +
+                '</div>';
+            });
+
+            html += '</div>';
+            contDeudas.innerHTML = html;
+        }
+    }
+
+    var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
+    if (totalDeuEl) totalDeuEl.innerText = '$' + totPendientes.toFixed(2);
+    var resDeuEl = document.getElementById('resumen-total-deudas');
+    if (resDeuEl) resDeuEl.innerText = '$' + totPendientes.toFixed(2);
+
+    return { totPendientes: totPendientes, totPagadas: totPagadas };
 }
 
 function cambiarPeriodoFinanzas(periodo, omitirRender) {
