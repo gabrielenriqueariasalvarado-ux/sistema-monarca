@@ -5642,37 +5642,12 @@ body.modal-open {
    MÓDULO JARVIS VOZ (ASISTENTE POR COMANDOS DE VOZ)
    ========================================================================== */
 
-#btn-jarvis-voz-flotante {
-    position: fixed;
-    bottom: 82px;
-    right: 22px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: #111827;
-    color: #ffffff;
-    border: 1.5px solid #374151;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-    z-index: 9999;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+/* (Estilos de #btn-jarvis-voz-flotante integrados en .monarca-bottom-hud) */
+#btn-jarvis-voz-flotante.is-listening svg {
+    stroke: #ef4444 !important;
+    filter: drop-shadow(0 0 8px #ef4444) !important;
+    animation: pulse-mic-ring 1.4s infinite;
 }
-
-#btn-jarvis-voz-flotante:hover {
-    transform: scale(1.08);
-    background: #030712;
-    border-color: #6b7280;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
-}
-
-#btn-jarvis-voz-flotante:active {
-    transform: scale(0.95);
-}
-
-#btn-jarvis-voz-flotante.is-listening {
     border-color: #ef4444;
     background: #991b1b;
     box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
@@ -5755,14 +5730,7 @@ body.modal-open {
     border-color: #111827;
 }
 
-@media (max-width: 480px) {
-    #btn-jarvis-voz-flotante {
-        bottom: 74px;
-        right: 18px;
-        width: 46px;
-        height: 46px;
-    }
-}
+
 
 
 /* ==========================================================================
@@ -5897,7 +5865,15 @@ body.modal-open {
     transition: all 0.25s var(--ease-out);
 }
 
-.bottom-hud-item {
+.bottom-hud-item,
+#btn-jarvis-voz-flotante {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: auto !important;
+    height: auto !important;
     background: transparent !important;
     border: none !important;
     color: #64748b !important;
@@ -5910,7 +5886,6 @@ body.modal-open {
     gap: 4px !important;
     cursor: pointer !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    position: relative !important;
     box-shadow: none !important;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
