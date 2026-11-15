@@ -13,41 +13,68 @@ function obtenerFechaMesFinanzas() {
 }
 
 function calcularSemanasDelMes(anio, mes) {
-    var semanas = [];
-    var totalDias = new Date(anio, mes + 1, 0).getDate();
-    var diaInicio = 1;
+    var primerDia = new Date(anio, mes, 1);
+    var ultimoDia = new Date(anio, mes + 1, 0);
 
-    for (var d = 1; d <= totalDias; d++) {
-        var fecha = new Date(anio, mes, d);
-        var diaSemana = fecha.getDay(); // 0 = Domingo, 6 = Sábado
-        // Si es sábado (fin de semana en calendario de domingo a sábado) o es el último día del mes
-        if (diaSemana === 6 || d === totalDias) {
-            var num = semanas.length + 1;
-            semanas.push({
-                num: num,
-                clave: 'sem' + num,
-                inicio: diaInicio,
-                fin: d,
-                etiqueta: 'Sem ' + num + ' (' + diaInicio + '-' + d + ')'
-            });
-            diaInicio = d + 1;
+    // En JS getDay(): Domingo = 0, Lunes = 1, ..., Sábado = 6
+    // Desplazamiento para que la semana siempre inicie en LUNES:
+    var diaSemanaPrimer = (primerDia.getDay() + 6) % 7; 
+    var actualLunes = new Date(anio, mes, 1 - diaSemanaPrimer);
+
+    var semanas = [];
+    while (actualLunes <= ultimoDia) {
+        var domingoFin = new Date(actualLunes.getFullYear(), actualLunes.getMonth(), actualLunes.getDate() + 6);
+        var num = semanas.length + 1;
+
+        var diaIni = actualLunes.getDate();
+        var diaFin = domingoFin.getDate();
+
+        var yIni = actualLunes.getFullYear();
+        var mIni = String(actualLunes.getMonth() + 1).padStart(2, '0');
+        var dIni = String(diaIni).padStart(2, '0');
+        var claveIni = yIni + '-' + mIni + '-' + dIni;
+
+        var yFin = domingoFin.getFullYear();
+        var mFin = String(domingoFin.getMonth() + 1).padStart(2, '0');
+        var dFin = String(diaFin).padStart(2, '0');
+        var claveFin = yFin + '-' + mFin + '-' + dFin;
+
+        var diasSemana = [];
+        for (var step = 0; step < 7; step++) {
+            var diaPaso = new Date(actualLunes.getFullYear(), actualLunes.getMonth(), actualLunes.getDate() + step);
+            diasSemana.push(diaPaso.getDate());
         }
+
+        semanas.push({
+            num: num,
+            clave: 'sem' + num,
+            inicioDia: diaIni,
+            finDia: diaFin,
+            claveIni: claveIni,
+            claveFin: claveFin,
+            dias: diasSemana,
+            etiqueta: 'Sem ' + num + ' (' + diaIni + '-' + diaFin + ')'
+        });
+
+        actualLunes = new Date(actualLunes.getFullYear(), actualLunes.getMonth(), actualLunes.getDate() + 7);
     }
     return semanas;
 }
 
 function obtenerSemanaActualParaMes(anio, mes) {
     var hoy = new Date();
+    var y = hoy.getFullYear();
+    var m = String(hoy.getMonth() + 1).padStart(2, '0');
+    var d = String(hoy.getDate()).padStart(2, '0');
+    var hoyStr = y + '-' + m + '-' + d;
+
     var semanas = calcularSemanasDelMes(anio, mes);
-    if (hoy.getFullYear() === anio && hoy.getMonth() === mes) {
-        var diaHoy = hoy.getDate();
-        for (var i = 0; i < semanas.length; i++) {
-            if (diaHoy >= semanas[i].inicio && diaHoy <= semanas[i].fin) {
-                return semanas[i].clave;
-            }
+    for (var i = 0; i < semanas.length; i++) {
+        if (hoyStr >= semanas[i].claveIni && hoyStr <= semanas[i].claveFin) {
+            return semanas[i].clave;
         }
     }
-    return 'sem1';
+    return semanas.length > 0 ? semanas[0].clave : 'sem1';
 }
 
 function obtenerSemanasMesActivo() {
@@ -335,24 +362,26 @@ function renderizarFinanzas(fin) {
 
     function coincideQuincena(dia, fechaStr) {
         if (vq === 'mes') return true;
-        var d = 15;
-        if (dia !== undefined && dia !== null && dia !== "") {
-            d = parseInt(dia, 10) || 15;
-        } else if (fechaStr && typeof fechaStr === 'string' && fechaStr.indexOf('-') !== -1) {
-            var partes = fechaStr.split('-');
-            if (partes.length >= 3) {
-                d = parseInt(partes[2], 10) || 15;
+        if (semanaActivaObj) {
+            // 1. Si viene con fecha ISO (YYYY-MM-DD), comparar con el rango exacto de la semana
+            if (fechaStr && typeof fechaStr === 'string' && fechaStr.length >= 10) {
+                return fechaStr >= semanaActivaObj.claveIni && fechaStr <= semanaActivaObj.claveFin;
+            }
+            // 2. Si solo tiene día numérico (ej: 5, 15, 30), evaluar si ese día está en los 7 días de la semana
+            var d = parseInt(dia, 10);
+            if (!isNaN(d) && semanaActivaObj.dias) {
+                return semanaActivaObj.dias.indexOf(d) !== -1;
+            }
+            if (fechaStr && typeof fechaStr === 'string' && fechaStr.indexOf('-') !== -1) {
+                var partes = fechaStr.split('-');
+                if (partes.length >= 3) {
+                    var dPart = parseInt(partes[2], 10);
+                    if (!isNaN(dPart) && semanaActivaObj.dias) {
+                        return semanaActivaObj.dias.indexOf(dPart) !== -1;
+                    }
+                }
             }
         }
-        if (semanaActivaObj) {
-            return d >= semanaActivaObj.inicio && d <= semanaActivaObj.fin;
-        }
-        if (vq === 'sem1') return d >= 1 && d <= 7;
-        if (vq === 'sem2') return d >= 8 && d <= 14;
-        if (vq === 'sem3') return d >= 15 && d <= 21;
-        if (vq === 'sem4') return d >= 22;
-        if (vq === 'q1') return d <= 15;
-        if (vq === 'q2') return d > 15;
         return true;
     }
 
