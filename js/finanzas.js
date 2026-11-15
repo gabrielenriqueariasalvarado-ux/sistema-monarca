@@ -118,6 +118,7 @@ function cargarFinanzas() {
     var fechaMes = obtenerFechaMesFinanzas();
     var semActual = obtenerSemanaActualParaMes(fechaMes.getFullYear(), fechaMes.getMonth());
     cambiarPeriodoFinanzas(semActual, true);
+    inicializarComparacionesAhorroPorDefecto();
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
@@ -1471,12 +1472,16 @@ function abrirModalGasto(tipoPorDefecto) {
         poblarSelectCategoriasGastos();
         seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
         alCambiarCategoriaEnModalGasto();
+        var inM = document.getElementById('modal-gasto-monto');
+        if (inM) alCambiarMontoGastoModal(inM.value);
     }
 }
 
 function cerrarModalGasto() {
     var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
     if (m) m.style.display = 'none';
+    var box = document.getElementById('contenedor-freno-impulso-modal-gasto');
+    if (box) box.style.display = 'none';
 }
 
 function confirmarAgregarGasto() {
@@ -2093,3 +2098,300 @@ function cambiarMesFinanzas(delta) {
 
     renderizarFinanzas(APP_STATE.finanzas);
 }
+
+/* ==========================================================================
+   MÓDULO: COMPARADOR DE AHORRO Y FRENO DE COMPRAS IMPULSIVAS
+   ========================================================================== */
+
+function escaparHTML(texto) {
+    if (!texto) return '';
+    return String(texto)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function obtenerComparacionesAhorro() {
+    if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
+    if (!APP_STATE.finanzas.comparacionesAhorro || !Array.isArray(APP_STATE.finanzas.comparacionesAhorro)) {
+        APP_STATE.finanzas.comparacionesAhorro = [];
+    }
+    return APP_STATE.finanzas.comparacionesAhorro;
+}
+
+function inicializarComparacionesAhorroPorDefecto() {
+    if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
+    if (!APP_STATE.finanzas.comparacionesAhorro || !Array.isArray(APP_STATE.finanzas.comparacionesAhorro)) {
+        APP_STATE.finanzas.comparacionesAhorro = [];
+    }
+    // Si la lista está vacía y nunca se ha inicializado, sugerir artículos de alto valor iniciales
+    if (APP_STATE.finanzas.comparacionesAhorro.length === 0 && !localStorage.getItem('monarca_comparaciones_init')) {
+        APP_STATE.finanzas.comparacionesAhorro = [
+            { id: 'COMP-1', nombre: '1 Libro de Crecimiento Personal', precio: 15, fecha: new Date().toISOString() },
+            { id: 'COMP-2', nombre: '1 Mes de Gimnasio / Salud', precio: 25, fecha: new Date().toISOString() },
+            { id: 'COMP-3', nombre: 'Curso o Certificación Profesional', precio: 45, fecha: new Date().toISOString() },
+            { id: 'COMP-4', nombre: 'Zapatos o Ropa de Alta Calidad', precio: 70, fecha: new Date().toISOString() }
+        ];
+        localStorage.setItem('monarca_comparaciones_init', 'true');
+        MonarcaDB.save(APP_STATE);
+    }
+}
+
+function abrirModalComparadorAhorro() {
+    inicializarComparacionesAhorroPorDefecto();
+    var modal = document.getElementById('modal-comparador-ahorro');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    renderizarListaComparadorAhorro();
+    var inNom = document.getElementById('input-comparador-nombre');
+    if (inNom) {
+        inNom.value = '';
+        setTimeout(function() { inNom.focus(); }, 120);
+    }
+    var inPre = document.getElementById('input-comparador-precio');
+    if (inPre) inPre.value = '';
+}
+
+function cerrarModalComparadorAhorro() {
+    var modal = document.getElementById('modal-comparador-ahorro');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderizarListaComparadorAhorro() {
+    var lista = obtenerComparacionesAhorro();
+    var contenedor = document.getElementById('lista-items-comparador-ahorro');
+    var badgeTotal = document.getElementById('badge-total-comparador-ahorro');
+    if (badgeTotal) badgeTotal.textContent = lista.length + (lista.length === 1 ? ' artículo' : ' artículos');
+    if (!contenedor) return;
+
+    if (lista.length === 0) {
+        contenedor.innerHTML = '<div style="text-align: center; padding: 26px 14px; color: #94a3b8; background: #0c101a; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 12px;">' +
+            '<div style="font-size: 26px; margin-bottom: 6px;">⚖️</div>' +
+            '<div style="font-weight: 700; color: #f8fafc; font-size: 13.5px; margin-bottom: 4px;">Tu lista de comparaciones está vacía</div>' +
+            '<div style="font-size: 12px; line-height: 1.4; max-width: 340px; margin: 0 auto; color: #94a3b8;">' +
+            'Agrega cosas deseadas con sus precios. Cada vez que vayas a registrar un gasto, el sistema te recordará qué podrías comprar con ese mismo dinero para frenar el impulso.' +
+            '</div>' +
+        '</div>';
+        return;
+    }
+
+    var html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    var ordenados = lista.slice().sort(function(a, b) { return Number(b.precio) - Number(a.precio); });
+
+    ordenados.forEach(function(item) {
+        var precioNum = Number(item.precio) || 0;
+        html += '<div class="comparacion-item-card">' +
+            '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
+                '<span style="font-size: 18px; flex-shrink: 0;">🎯</span>' +
+                '<div style="min-width: 0; flex: 1;">' +
+                    '<div style="font-weight: 700; font-size: 13px; color: #f8fafc; word-break: break-word;">' + escaparHTML(item.nombre) + '</div>' +
+                    '<div style="font-size: 11px; color: #94a3b8;">Meta / Alternativa de valor</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">' +
+                '<span class="freno-impulso-precio-tag">$' + precioNum.toFixed(2) + '</span>' +
+                '<button type="button" class="btn-eliminar-item-comp" onclick="eliminarItemComparacionAhorro(\'' + item.id + '\')" title="Eliminar de la lista">✕</button>' +
+            '</div>' +
+        '</div>';
+    });
+
+    html += '</div>';
+    contenedor.innerHTML = html;
+}
+
+function agregarItemComparacionAhorro() {
+    var inNom = document.getElementById('input-comparador-nombre');
+    var inPre = document.getElementById('input-comparador-precio');
+    var nom = inNom ? inNom.value.trim() : '';
+    var pre = inPre ? parseFloat(inPre.value) : 0;
+
+    if (!nom) {
+        alert('Ingresa el nombre del artículo o deseo de valor (ej: "Libro de hábitos", "Curso online", "Zapatillas").');
+        if (inNom) inNom.focus();
+        return;
+    }
+    if (isNaN(pre) || pre <= 0) {
+        alert('Ingresa un precio válido mayor a 0 (ej: 25.00).');
+        if (inPre) inPre.focus();
+        return;
+    }
+
+    var nuevo = {
+        id: 'COMP-' + Date.now(),
+        nombre: nom,
+        precio: Math.round(pre * 100) / 100,
+        fecha: new Date().toISOString()
+    };
+
+    var lista = obtenerComparacionesAhorro();
+    lista.push(nuevo);
+    MonarcaDB.save(APP_STATE);
+
+    if (inNom) inNom.value = '';
+    if (inPre) inPre.value = '';
+    renderizarListaComparadorAhorro();
+
+    // Actualizar previsualización en caso de que algún modal esté abierto con monto
+    var inMontoGasto = document.getElementById('modal-gasto-monto');
+    if (inMontoGasto && inMontoGasto.value) alCambiarMontoGastoModal(inMontoGasto.value);
+    var inMontoAsist = document.getElementById('asistente-fin-monto');
+    if (inMontoAsist && inMontoAsist.value && typeof alCambiarMontoAsistenteFinanza === 'function') {
+        alCambiarMontoAsistenteFinanza(inMontoAsist.value);
+    }
+}
+
+function eliminarItemComparacionAhorro(id) {
+    if (!confirm('¿Deseas eliminar este artículo de la lista de comparaciones?')) return;
+    var lista = obtenerComparacionesAhorro();
+    var idx = lista.findIndex(function(it) { return it.id === id; });
+    if (idx !== -1) {
+        lista.splice(idx, 1);
+        if (typeof registrarTombstone === 'function') registrarTombstone('finanzas_comparacionesAhorro', id);
+        MonarcaDB.save(APP_STATE);
+        renderizarListaComparadorAhorro();
+
+        var inMontoGasto = document.getElementById('modal-gasto-monto');
+        if (inMontoGasto && inMontoGasto.value) alCambiarMontoGastoModal(inMontoGasto.value);
+        var inMontoAsist = document.getElementById('asistente-fin-monto');
+        if (inMontoAsist && inMontoAsist.value && typeof alCambiarMontoAsistenteFinanza === 'function') {
+            alCambiarMontoAsistenteFinanza(inMontoAsist.value);
+        }
+    }
+}
+
+/**
+ * Analiza el monto del gasto contra las comparaciones de ahorro del usuario
+ * y genera una respuesta reflexiva anti-impulso.
+ */
+function calcularComparacionFrenoImpulso(monto) {
+    var lista = obtenerComparacionesAhorro();
+    if (lista.length === 0) {
+        return {
+            tipo: 'vacio',
+            html: '<div class="freno-impulso-box">' +
+                '<div class="freno-impulso-hdr">' +
+                    '<span class="freno-impulso-tag">💡 FRENO DE IMPULSO</span>' +
+                    '<button type="button" class="btn-link-freno-config" onclick="abrirModalComparadorAhorro()">+ Configurar Comparador</button>' +
+                '</div>' +
+                '<div class="freno-impulso-body">' +
+                    '¿Vale la pena gastar <strong>$' + monto.toFixed(2) + '</strong>? ' +
+                    '<span style="color: #94a3b8;">Agrega deseos o metas en el <strong>Comparador de Ahorro</strong> para que veas qué podrías comprar en su lugar por este mismo valor.</span>' +
+                '</div>' +
+            '</div>'
+        };
+    }
+
+    // 1. Buscar coincidencia exacta
+    var exacto = lista.find(function(it) { return Math.abs(Number(it.precio) - monto) < 0.01; });
+    if (exacto) {
+        return {
+            tipo: 'exacto',
+            html: '<div class="freno-impulso-box freno-alerta">' +
+                '<div class="freno-impulso-hdr">' +
+                    '<span class="freno-impulso-tag">🛑 FRENO DE IMPULSO · ¿VALE LA PENA?</span>' +
+                    '<button type="button" class="btn-link-freno-config" onclick="abrirModalComparadorAhorro()">Ver Lista</button>' +
+                '</div>' +
+                '<div class="freno-impulso-body">' +
+                    'Por este mismo valor de <strong class="freno-resaltado-monto">$' + monto.toFixed(2) + '</strong> podrías comprar en su lugar:' +
+                    '<div class="freno-impulso-destacado">' +
+                        '<span class="freno-destacado-icono">🎯</span>' +
+                        '<span class="freno-destacado-nombre">' + escaparHTML(exacto.nombre) + '</span>' +
+                        '<span class="freno-destacado-precio">$' + Number(exacto.precio).toFixed(2) + '</span>' +
+                    '</div>' +
+                    '<div class="freno-impulso-consejo">¿Prefieres este gasto pasajero o avanzar en tu adquisición real?</div>' +
+                '</div>' +
+            '</div>'
+        };
+    }
+
+    // 2. Si el monto es mayor o igual al precio de algún artículo
+    var alcanzables = lista.filter(function(it) { return Number(it.precio) <= monto; })
+                           .sort(function(a, b) { return Number(b.precio) - Number(a.precio); });
+
+    if (alcanzables.length > 0) {
+        var mejor = alcanzables[0]; // El de mayor valor que puede comprar
+        var precioMejor = Number(mejor.precio);
+        var cantidad = Math.floor(monto / precioMejor);
+        var sobrante = monto - (cantidad * precioMejor);
+
+        var textoCantidad = cantidad === 1 ? '1x ' + escaparHTML(mejor.nombre) : cantidad + 'x ' + escaparHTML(mejor.nombre);
+        var detalle = cantidad === 1 
+            ? ('$' + precioMejor.toFixed(2) + (sobrante >= 0.5 ? ' <span style="color:#10b981;">(¡y aún te sobrarían $' + sobrante.toFixed(2) + '!)</span>' : ''))
+            : ('$' + precioMejor.toFixed(2) + ' c/u' + (sobrante >= 0.5 ? ' <span style="color:#10b981;">(¡y te sobran $' + sobrante.toFixed(2) + '!)</span>' : ''));
+
+        var otroTexto = '';
+        if (alcanzables.length > 1 && alcanzables[1].id !== mejor.id) {
+            var otro = alcanzables[1];
+            var cantOtro = Math.floor(monto / Number(otro.precio));
+            otroTexto = '<div class="freno-impulso-alt">O también equivale a: <strong>' + cantOtro + 'x ' + escaparHTML(otro.nombre) + '</strong> ($' + Number(otro.precio).toFixed(2) + ' c/u)</div>';
+        }
+
+        return {
+            tipo: 'alcanzable',
+            html: '<div class="freno-impulso-box freno-alerta">' +
+                '<div class="freno-impulso-hdr">' +
+                    '<span class="freno-impulso-tag">🛑 FRENO DE IMPULSO · ¿VALE LA PENA?</span>' +
+                    '<button type="button" class="btn-link-freno-config" onclick="abrirModalComparadorAhorro()">Ver Lista</button>' +
+                '</div>' +
+                '<div class="freno-impulso-body">' +
+                    'Con estos <strong class="freno-resaltado-monto">$' + monto.toFixed(2) + '</strong> podrías comprar en su lugar:' +
+                    '<div class="freno-impulso-destacado">' +
+                        '<span class="freno-destacado-icono">🎯</span>' +
+                        '<span class="freno-destacado-nombre">' + textoCantidad + '</span>' +
+                        '<span class="freno-destacado-precio">' + detalle + '</span>' +
+                    '</div>' +
+                    otroTexto +
+                    '<div class="freno-impulso-consejo">¿Es indispensable este gasto o prefieres guardar el dinero para tus metas?</div>' +
+                '</div>' +
+            '</div>'
+        };
+    }
+
+    // 3. Si el monto es menor que todos los artículos de la lista
+    var menor = lista.slice().sort(function(a, b) { return Number(a.precio) - Number(b.precio); })[0];
+    var precioMenor = Number(menor.precio);
+    var pct = Math.min(99, Math.round((monto / precioMenor) * 100));
+
+    return {
+        tipo: 'meta-parcial',
+        html: '<div class="freno-impulso-box freno-alerta">' +
+            '<div class="freno-impulso-hdr">' +
+                '<span class="freno-impulso-tag">🛑 FRENO DE IMPULSO · ¿VALE LA PENA?</span>' +
+                '<button type="button" class="btn-link-freno-config" onclick="abrirModalComparadorAhorro()">Ver Lista</button>' +
+            '</div>' +
+            '<div class="freno-impulso-body">' +
+                'Con estos <strong class="freno-resaltado-monto">$' + monto.toFixed(2) + '</strong> ya cubrirías el <strong style="color: #38bdf8;">' + pct + '%</strong> de:' +
+                '<div class="freno-impulso-destacado">' +
+                    '<span class="freno-destacado-icono">🎯</span>' +
+                    '<span class="freno-destacado-nombre">' + escaparHTML(menor.nombre) + '</span>' +
+                    '<span class="freno-destacado-precio">$' + precioMenor.toFixed(2) + '</span>' +
+                '</div>' +
+                '<div class="freno-impulso-progreso-bar"><div class="freno-impulso-progreso-fill" style="width: ' + pct + '%;"></div></div>' +
+                '<div class="freno-impulso-consejo">Si evitas este gasto menor, ¡estarás mucho más cerca de comprarlo!</div>' +
+            '</div>' +
+        '</div>'
+    };
+}
+
+function actualizarComparadorFrenoGasto(val, contenedorId) {
+    var contenedor = document.getElementById(contenedorId);
+    if (!contenedor) return;
+
+    var monto = parseFloat(val);
+    if (isNaN(monto) || monto <= 0) {
+        contenedor.style.display = 'none';
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    var res = calcularComparacionFrenoImpulso(monto);
+    contenedor.innerHTML = res.html;
+    contenedor.style.display = 'block';
+}
+
+function alCambiarMontoGastoModal(val) {
+    actualizarComparadorFrenoGasto(val, 'contenedor-freno-impulso-modal-gasto');
+}
+

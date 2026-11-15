@@ -188,7 +188,8 @@ const DEFAULT_STATE = {
         gastos: [],
         deudas: [],
         metas: [],
-        aportesMetas: []
+        aportesMetas: [],
+        comparacionesAhorro: []
     },
     ideas: [],
     calendario: [],
@@ -217,7 +218,8 @@ const DEFAULT_STATE = {
         finanzas_gastos: [],
         finanzas_categoriasGastos: [],
         finanzas_deudas: [],
-        finanzas_metas: []
+        finanzas_metas: [],
+        finanzas_comparacionesAhorro: []
     }
 };
 
@@ -328,6 +330,7 @@ const MonarcaDB = {
                 }
                 if (!data.finanzas.deudas || !Array.isArray(data.finanzas.deudas)) data.finanzas.deudas = [];
                 if (!data.finanzas.metas || !Array.isArray(data.finanzas.metas)) data.finanzas.metas = [];
+                if (!data.finanzas.comparacionesAhorro || !Array.isArray(data.finanzas.comparacionesAhorro)) data.finanzas.comparacionesAhorro = [];
             }
             if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
             if (!data.registroDiarioCalendario) data.registroDiarioCalendario = {};
@@ -942,8 +945,24 @@ function alCambiarTipoAsistenteFinanza() {
 
     if (inTipo.value === 'gasto') {
         extraGasto.style.display = 'block';
+        var mon = document.getElementById('asistente-fin-monto');
+        alCambiarMontoAsistenteFinanza(mon ? mon.value : '');
     } else {
         extraGasto.style.display = 'none';
+        var box = document.getElementById('contenedor-freno-impulso-asistente');
+        if (box) box.style.display = 'none';
+    }
+}
+
+function alCambiarMontoAsistenteFinanza(val) {
+    var inTipo = document.getElementById('asistente-fin-tipo');
+    if (!inTipo || inTipo.value !== 'gasto') {
+        var box = document.getElementById('contenedor-freno-impulso-asistente');
+        if (box) box.style.display = 'none';
+        return;
+    }
+    if (typeof actualizarComparadorFrenoGasto === 'function') {
+        actualizarComparadorFrenoGasto(val, 'contenedor-freno-impulso-asistente');
     }
 }
 
@@ -984,6 +1003,8 @@ function abrirAsistenteRapido() {
 function cerrarAsistenteRapido() {
     var m = document.getElementById('modal-asistente-rapido');
     if (m) m.style.display = 'none';
+    var box = document.getElementById('contenedor-freno-impulso-asistente');
+    if (box) box.style.display = 'none';
 }
 
 function cambiarTabAsistenteRapido(tab) {

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.45">
+    <link rel="stylesheet" href="style.css?v=10.46">
 </head>
 <body>
 
@@ -1269,6 +1269,9 @@
                 <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
                     <span>💰</span> CONTROL FINANCIERO PERSONAL
                 </h2>
+                <button type="button" class="btn-comparador-ahorro-header" onclick="abrirModalComparadorAhorro()" title="Gestionar cosas deseadas para comparar con tus gastos">
+                    <span>⚖️</span> Freno de Impulso · Comparador de Ahorro
+                </button>
             </div>
 
             <!-- 1. CABECERA Y DATOS GENERALES -->
@@ -1812,7 +1815,8 @@
 
                 <div class="modal-form-group">
                     <label>Monto ($):</label>
-                    <input type="number" id="modal-gasto-monto" class="modal-input" step="0.01" min="0" placeholder="0.00">
+                    <input type="number" id="modal-gasto-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarMontoGastoModal(this.value)">
+                    <div id="contenedor-freno-impulso-modal-gasto" style="display: none; margin-top: 10px;"></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1868,6 +1872,61 @@
 
                 <div style="margin-top: 16px;">
                     <button class="btn-back-system" style="width: 100%; justify-content: center; margin-bottom: 0;" onclick="cerrarModalCategoriasGastos()">
+                        Listo / Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2.2: COMPARADOR DE AHORRO Y FRENO DE IMPULSO -->
+    <div id="modal-comparador-ahorro" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 500px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">⚖️</span>
+                    <span style="color: #c084fc; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">COMPARADOR DE AHORRO · FRENO DE IMPULSO</span>
+                </div>
+                <button onclick="cerrarModalComparadorAhorro()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 18px;">
+                <p style="font-size: 12.5px; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.45;">
+                    Agrega cosas de valor real o metas que deseas comprar. Al registrar cualquier gasto, el sistema te mostrará qué podrías comprar con ese mismo dinero para ayudarte a resistir compras impulsivas.
+                </p>
+
+                <!-- Formulario Agregar Item -->
+                <div style="background: #121725; border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #c084fc; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ➕ Agregar Nuevo Deseo / Meta de Compra
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-size: 10.5px; color: #94a3b8; display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase;">Nombre de la Cosa / Meta:</label>
+                            <input type="text" id="input-comparador-nombre" class="modal-input" placeholder="Ej: Libro de hábitos, Curso de backend, Zapatos de trabajo...">
+                        </div>
+                        <div>
+                            <label style="font-size: 10.5px; color: #94a3b8; display: block; margin-bottom: 4px; font-weight: 700; text-transform: uppercase;">Precio en Dólares ($):</label>
+                            <input type="number" id="input-comparador-precio" class="modal-input" step="0.01" min="0.01" placeholder="Ej: 25.00">
+                        </div>
+                    </div>
+                    <button class="btn-system" style="width: 100%; justify-content: center; padding: 10px; font-size: 12.5px; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border-color: #c084fc;" onclick="agregarItemComparacionAhorro()">
+                        ✓ Agregar a la Lista de Comparación
+                    </button>
+                </div>
+
+                <!-- Lista de Cosas Guardadas -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin: 0;">
+                        Tus Comparaciones Registradas:
+                    </label>
+                    <span id="badge-total-comparador-ahorro" style="font-size: 11px; color: #c084fc; font-weight: 700;">0 artículos</span>
+                </div>
+                <div id="lista-items-comparador-ahorro" style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                    <!-- Renderizado dinámico -->
+                </div>
+
+                <div style="margin-top: 16px;">
+                    <button class="btn-back-system" style="width: 100%; justify-content: center; margin-bottom: 0;" onclick="cerrarModalComparadorAhorro()">
                         Listo / Cerrar
                     </button>
                 </div>
@@ -3741,11 +3800,14 @@
                             <option value="gasto">🔴 Gasto</option>
                             <option value="ingreso">🟢 Ingreso</option>
                         </select>
-                        <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" style="flex: 1.2; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 800;">
+                        <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" oninput="alCambiarMontoAsistenteFinanza(this.value)" style="flex: 1.2; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 800;">
                     </div>
                     <div style="margin-bottom: 12px;">
                         <input type="text" id="asistente-fin-concepto" class="finanzas-input-clean" placeholder="Concepto del gasto o ingreso..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
                     </div>
+
+                    <!-- Freno de Impulso en Asistente Rápido -->
+                    <div id="contenedor-freno-impulso-asistente" style="display: none; margin-bottom: 12px;"></div>
 
                     <!-- Campos específicos para Gasto (Categoría y Pilar Regla 50/40/10) -->
                     <div id="asistente-fin-extra-gasto">
@@ -5178,25 +5240,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.45"></script>
-    <script src="js/perfil.js?v=10.45"></script>
-    <script src="js/progresion.js?v=10.45"></script>
-    <script src="js/estado-personal.js?v=10.45"></script>
-    <script src="js/finanzas.js?v=10.45"></script>
-    <script src="js/ideas.js?v=10.45"></script>
-    <script src="js/dinamicas.js?v=10.45"></script>
-    <script src="js/calendario.js?v=10.45"></script>
-    <script src="js/inventario.js?v=10.45"></script>
-    <script src="js/jarvis-voz.js?v=10.45"></script>
+    <script src="js/core.js?v=10.46"></script>
+    <script src="js/perfil.js?v=10.46"></script>
+    <script src="js/progresion.js?v=10.46"></script>
+    <script src="js/estado-personal.js?v=10.46"></script>
+    <script src="js/finanzas.js?v=10.46"></script>
+    <script src="js/ideas.js?v=10.46"></script>
+    <script src="js/dinamicas.js?v=10.46"></script>
+    <script src="js/calendario.js?v=10.46"></script>
+    <script src="js/inventario.js?v=10.46"></script>
+    <script src="js/jarvis-voz.js?v=10.46"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.45"></script>
+    <script type="module" src="js/firebase-config.js?v=10.46"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.45')
+                navigator.serviceWorker.register('sw.js?v=10.46')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

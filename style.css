@@ -9501,6 +9501,222 @@ body.modal-open {
     transform: scale(0.96);
 }
 
+/* ==========================================================================
+   ESTILOS: COMPARADOR DE AHORRO Y FRENO DE COMPRAS IMPULSIVAS
+   ========================================================================== */
+
+.btn-comparador-ahorro-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #c084fc;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(168, 85, 247, 0.22) 100%);
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.15);
+}
+
+.btn-comparador-ahorro-header:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(168, 85, 247, 0.38) 100%);
+    border-color: #c084fc;
+    color: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3);
+}
+
+.btn-comparador-ahorro-header:active {
+    transform: translateY(0);
+}
+
+/* Caja de advertencia reflexiva de freno de impulso */
+.freno-impulso-box {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    animation: fadeInFreno 0.25s ease-out;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.freno-impulso-box.freno-alerta {
+    border-color: rgba(239, 68, 68, 0.45);
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(135deg, rgba(30, 15, 20, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%);
+}
+
+@keyframes fadeInFreno {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.freno-impulso-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.freno-impulso-tag {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #f87171;
+    text-transform: uppercase;
+}
+
+.btn-link-freno-config {
+    background: none;
+    border: none;
+    color: #38bdf8;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.btn-link-freno-config:hover {
+    opacity: 1;
+    color: #7dd3fc;
+}
+
+.freno-impulso-body {
+    font-size: 12.5px;
+    color: #e2e8f0;
+    line-height: 1.45;
+}
+
+.freno-resaltado-monto {
+    color: #f87171;
+    font-weight: 800;
+}
+
+.freno-impulso-destacado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 8px 0;
+}
+
+.freno-destacado-icono {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.freno-destacado-nombre {
+    font-weight: 700;
+    color: #f8fafc;
+    flex: 1;
+    font-size: 13px;
+}
+
+.freno-destacado-precio {
+    font-weight: 800;
+    color: #38bdf8;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.freno-impulso-alt {
+    font-size: 11.5px;
+    color: #94a3b8;
+    margin: 4px 0 6px 0;
+}
+
+.freno-impulso-consejo {
+    font-size: 11px;
+    color: #cbd5e1;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+.freno-impulso-progreso-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0 4px 0;
+}
+
+.freno-impulso-progreso-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Tarjetas de artículos dentro del modal del comparador */
+.comparacion-item-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.comparacion-item-card:hover {
+    border-color: rgba(168, 85, 247, 0.35);
+    transform: translateX(2px);
+}
+
+.freno-impulso-precio-tag {
+    font-weight: 800;
+    font-size: 13px;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.btn-eliminar-item-comp {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-eliminar-item-comp:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+
+
 
 
 
