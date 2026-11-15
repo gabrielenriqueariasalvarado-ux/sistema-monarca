@@ -904,10 +904,64 @@ function restarExp(cantidad) {
 
 var TAB_ASISTENTE_ACTIVO = 'finanza';
 
+function poblarCategoriasAsistenteFinanza() {
+    var select = document.getElementById('asistente-fin-categoria');
+    if (!select) return;
+
+    var fin = APP_STATE.finanzas || DEFAULT_STATE.finanzas;
+    var cats = (fin && fin.categoriasGastos && fin.categoriasGastos.length > 0)
+        ? fin.categoriasGastos
+        : DEFAULT_STATE.finanzas.categoriasGastos;
+
+    var actual = select.value;
+    var html = '';
+
+    cats.forEach(function(cat) {
+        var icon = cat.icono || "🏷️";
+        html += '<option value="' + cat.nombre + '">' + icon + ' ' + cat.nombre + '</option>';
+    });
+
+    select.innerHTML = html;
+    if (actual) {
+        select.value = actual;
+    } else {
+        alCambiarCategoriaAsistenteFinanza();
+    }
+}
+
+function alCambiarTipoAsistenteFinanza() {
+    var inTipo = document.getElementById('asistente-fin-tipo');
+    var extraGasto = document.getElementById('asistente-fin-extra-gasto');
+    if (!inTipo || !extraGasto) return;
+
+    if (inTipo.value === 'gasto') {
+        extraGasto.style.display = 'block';
+    } else {
+        extraGasto.style.display = 'none';
+    }
+}
+
+function alCambiarCategoriaAsistenteFinanza() {
+    var inCat = document.getElementById('asistente-fin-categoria');
+    var inPilar = document.getElementById('asistente-fin-pilar');
+    if (!inCat || !inPilar) return;
+
+    var cat = inCat.value.toLowerCase();
+    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
+        inPilar.value = 'inversion';
+    } else if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1 || cat.indexOf('salida') !== -1) {
+        inPilar.value = 'caprichos';
+    } else {
+        inPilar.value = 'gastos';
+    }
+}
+
 function abrirAsistenteRapido() {
     var m = document.getElementById('modal-asistente-rapido');
     if (m) {
         m.style.display = 'flex';
+        poblarCategoriasAsistenteFinanza();
+        alCambiarTipoAsistenteFinanza();
         cambiarTabAsistenteRapido(TAB_ASISTENTE_ACTIVO);
         setTimeout(function() {
             if (TAB_ASISTENTE_ACTIVO === 'finanza') {
@@ -1028,23 +1082,35 @@ function guardarCapturaRapida() {
         var inCon = document.getElementById('asistente-fin-concepto');
         var inMon = document.getElementById('asistente-fin-monto');
         var inTipo = document.getElementById('asistente-fin-tipo');
+        var inCat = document.getElementById('asistente-fin-categoria');
+        var inPilar = document.getElementById('asistente-fin-pilar');
+
         var con = inCon ? inCon.value.trim() : "";
         var mon = inMon ? (Number(inMon.value) || 0) : 0;
         var esGasto = inTipo ? inTipo.value === 'gasto' : true;
+        var cat = (inCat && inCat.value) ? inCat.value : "Otros";
+        var pilar = (inPilar && inPilar.value) ? inPilar.value : "gastos";
 
         if (!con || mon <= 0) { alert("Ingresa un concepto y un monto válido."); return; }
 
         if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
-        var diaHoy = new Date().getDate();
+        var ahora = new Date();
+        var diaHoy = ahora.getDate();
+        var mesStr = String(ahora.getMonth() + 1).padStart(2, '0');
+        var diaStr = String(diaHoy).padStart(2, '0');
+        var fechaISO = ahora.getFullYear() + '-' + mesStr + '-' + diaStr;
 
         if (esGasto) {
             if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
             APP_STATE.finanzas.gastos.unshift({
                 id: "GAS-" + Date.now(),
+                tipo: 'ocasional',
+                categoria: cat,
                 concepto: con,
-                categoria: "Otros",
                 dia: diaHoy,
+                fecha: fechaISO,
                 monto: mon,
+                pilar: pilar,
                 pagado: true,
                 presupuestoEstimado: mon
             });
@@ -1053,8 +1119,11 @@ function guardarCapturaRapida() {
             APP_STATE.finanzas.ingresos.unshift({
                 id: "ING-" + Date.now(),
                 fuente: con,
+                tipo: 'aleatoria',
                 dia: diaHoy,
-                monto: mon
+                fecha: fechaISO,
+                monto: mon,
+                cobrado: true
             });
         }
 
@@ -1063,8 +1132,9 @@ function guardarCapturaRapida() {
         if (inCon) inCon.value = "";
         if (inMon) inMon.value = "";
         cerrarAsistenteRapido();
+        if (typeof renderizarFinanzas === 'function') renderizarFinanzas(APP_STATE.finanzas);
         if (typeof cargarFinanzas === 'function') cargarFinanzas();
-        alert("💰 Registro financiero guardado exitosamente (+10 EXP).");
+        alert(esGasto ? "🔴 Gasto registrado exitosamente (+10 EXP)." : "🟢 Ingreso registrado exitosamente (+10 EXP).");
     }
 }
 

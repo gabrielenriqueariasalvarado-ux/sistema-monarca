@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.30">
+    <link rel="stylesheet" href="style.css?v=10.31">
 </head>
 <body>
 
@@ -3465,14 +3465,32 @@
                 <!-- 1. CAPTURA DE FINANZA (DE PRIMERO) -->
                 <div id="asistente-sec-finanza">
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                        <select id="asistente-fin-tipo" class="finanzas-input-clean" style="flex: 1; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 700;">
+                        <select id="asistente-fin-tipo" class="finanzas-input-clean" onchange="alCambiarTipoAsistenteFinanza()" style="flex: 1; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 700;">
                             <option value="gasto">🔴 Gasto</option>
                             <option value="ingreso">🟢 Ingreso</option>
                         </select>
                         <input type="number" id="asistente-fin-monto" class="finanzas-input-clean" placeholder="Monto ($)..." min="0.01" step="0.01" style="flex: 1.2; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 800;">
                     </div>
-                    <div style="margin-bottom: 16px;">
+                    <div style="margin-bottom: 12px;">
                         <input type="text" id="asistente-fin-concepto" class="finanzas-input-clean" placeholder="Concepto del gasto o ingreso..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+
+                    <!-- Campos específicos para Gasto (Categoría y Pilar Regla 50/40/10) -->
+                    <div id="asistente-fin-extra-gasto">
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Categoría del Gasto:</label>
+                            <select id="asistente-fin-categoria" class="finanzas-input-clean" onchange="alCambiarCategoriaAsistenteFinanza()" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                                <!-- Poblado dinámicamente con categorías del usuario -->
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Pilar de la Regla 50 / 40 / 10:</label>
+                            <select id="asistente-fin-pilar" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                                <option value="gastos">🏠 40% Gastos Fijos y Necesidades</option>
+                                <option value="inversion">🚀 50% Inversión y Multiplicación</option>
+                                <option value="caprichos">🎉 10% Caprichos y Ocio</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -4709,25 +4727,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.30"></script>
-    <script src="js/perfil.js?v=10.30"></script>
-    <script src="js/progresion.js?v=10.30"></script>
-    <script src="js/estado-personal.js?v=10.30"></script>
-    <script src="js/finanzas.js?v=10.30"></script>
-    <script src="js/ideas.js?v=10.30"></script>
-    <script src="js/dinamicas.js?v=10.30"></script>
-    <script src="js/calendario.js?v=10.30"></script>
-    <script src="js/inventario.js?v=10.30"></script>
-    <script src="js/jarvis-voz.js?v=10.30"></script>
+    <script src="js/core.js?v=10.31"></script>
+    <script src="js/perfil.js?v=10.31"></script>
+    <script src="js/progresion.js?v=10.31"></script>
+    <script src="js/estado-personal.js?v=10.31"></script>
+    <script src="js/finanzas.js?v=10.31"></script>
+    <script src="js/ideas.js?v=10.31"></script>
+    <script src="js/dinamicas.js?v=10.31"></script>
+    <script src="js/calendario.js?v=10.31"></script>
+    <script src="js/inventario.js?v=10.31"></script>
+    <script src="js/jarvis-voz.js?v=10.31"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.30"></script>
+    <script type="module" src="js/firebase-config.js?v=10.31"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.30')
+                navigator.serviceWorker.register('sw.js?v=10.31')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

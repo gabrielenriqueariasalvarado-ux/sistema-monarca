@@ -1038,21 +1038,25 @@ function cerrarModalCategoriasGastos() {
 
 function poblarSelectCategoriasGastos() {
     var select = document.getElementById('modal-gasto-categoria');
-    if (!select) return;
-
     var fin = APP_STATE.finanzas || DEFAULT_STATE.finanzas;
     var cats = fin.categoriasGastos || DEFAULT_STATE.finanzas.categoriasGastos;
 
-    var actual = select.value;
-    var html = '';
+    if (select) {
+        var actual = select.value;
+        var html = '';
 
-    cats.forEach(function(cat) {
-        var icon = cat.icono || "🏷️";
-        html += `<option value="${cat.nombre}">${icon} ${cat.nombre}</option>`;
-    });
+        cats.forEach(function(cat) {
+            var icon = cat.icono || "🏷️";
+            html += `<option value="${cat.nombre}">${icon} ${cat.nombre}</option>`;
+        });
 
-    select.innerHTML = html;
-    if (actual) select.value = actual;
+        select.innerHTML = html;
+        if (actual) select.value = actual;
+    }
+
+    if (typeof poblarCategoriasAsistenteFinanza === 'function') {
+        poblarCategoriasAsistenteFinanza();
+    }
 }
 
 function renderizarListaCategorias() {
