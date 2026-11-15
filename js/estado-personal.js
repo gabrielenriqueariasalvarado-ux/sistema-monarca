@@ -861,8 +861,156 @@ function renderizarGraficoGeneralAvatar() {
         </div>
     </div>
 
-    <!-- 2. TARJETA PRINCIPAL DEL AVATAR: SILUETA ANATÓMICA FRONTAL CON LLENADO VERTICAL -->
-    <div class="card heatmap-dashboard-card" style="margin-bottom: 22px; padding: 20px;">
+    <!-- ==========================================================================
+         VISTA A: SILUETA DUAL COMPLETA PARA DESGASTE (ANTERIOR FRENTE & POSTERIOR ESPALDA)
+         ========================================================================== -->
+    <div id="avatar-vista-desgaste" class="card heatmap-dashboard-card" style="margin-bottom: 22px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">📊 Carga & Fatiga Física Diaria</h3>
+                <p style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Esquema de desgaste actual por grupos musculares y estado metabólico del avatar.</p>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 130px;">
+                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">CARGA PROMEDIO DE HOY</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #f8fafc; margin-top: 2px;">${metricas.cuerpo}%</div>
+                </div>
+                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 140px;">
+                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">ÚLTIMO CIERRE DIARIO</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro local activo'}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="heatmap-layout" style="display: grid; grid-template-columns: minmax(280px, 440px) 1fr; gap: 20px; align-items: start;">
+            <!-- COLUMNA 1: SILUETA ANATÓMICA DUAL (FRENTE Y ESPALDA) -->
+            <div class="body-diagram-box">
+                <div style="display: flex; justify-content: space-around; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
+                </div>
+
+                <div class="body-diagram-svg-container">
+                    <svg viewBox="0 0 440 330" class="body-silhouette-svg">
+                        <defs>
+                            <filter id="hud-glow-dual" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#111827" flood-opacity="0.35"/>
+                            </filter>
+                        </defs>
+
+                        <!-- SILUETA FRONTAL (X: 110 centro) -->
+                        <g id="silueta-frontal">
+                            <!-- Cabeza / Mente -->
+                            <ellipse cx="110" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
+                            
+                            <!-- Hombros Deltoides Anterior -->
+                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" ${estilo('delt_ant')} class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" ${estilo('delt_ant')} class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            
+                            <!-- Pectoral Mayor -->
+                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" ${estilo('pect_mayor')} class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" ${estilo('pect_mayor')} class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+
+                            <!-- Pectoral Menor / Inferior -->
+                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" ${estilo('pect_menor')} class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" ${estilo('pect_menor')} class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+
+                            <!-- Bíceps -->
+                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" ${estilo('biceps')} class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" ${estilo('biceps')} class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+
+                            <!-- Antebrazos Frontales -->
+                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+
+                            <!-- Core / Abdomen -->
+                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" ${estilo('core')} class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
+
+                            <!-- Cadera / Aductores -->
+                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" ${estilo('cadera')} class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
+
+                            <!-- Cuádriceps -->
+                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" ${estilo('cuadriceps')} class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" ${estilo('cuadriceps')} class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+
+                            <!-- Pantorrillas Frontales -->
+                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                        </g>
+
+                        <!-- SILUETA DORSAL (X: 330 centro) -->
+                        <g id="silueta-dorsal">
+                            <!-- Cabeza / Mente (Dorsal) -->
+                            <ellipse cx="330" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
+
+                            <!-- Trapecios -->
+                            <path d="M322 58 L338 58 L354 75 C344 86 336 94 330 96 C324 94 316 86 306 75 Z" ${estilo('trapecios')} class="muscle-zone-path" data-muscle="trapecios" onclick="seleccionarMusculoHeatmap('trapecios')"></path>
+
+                            <!-- Deltoides Posterior -->
+                            <path d="M304 68 C296 74 290 84 292 94 C298 96 306 92 310 82 Z" ${estilo('delt_post')} class="muscle-zone-path" data-muscle="delt_post" onclick="seleccionarMusculoHeatmap('delt_post')"></path>
+                            <path d="M356 68 C364 74 370 84 368 94 C362 96 354 92 350 82 Z" ${estilo('delt_post')} class="muscle-zone-path" data-muscle="delt_post" onclick="seleccionarMusculoHeatmap('delt_post')"></path>
+
+                            <!-- Tríceps -->
+                            <path d="M292 96 C288 108 288 122 292 134 C298 134 304 126 304 116 C304 106 300 98 292 96 Z" ${estilo('triceps')} class="muscle-zone-path" data-muscle="triceps" onclick="seleccionarMusculoHeatmap('triceps')"></path>
+                            <path d="M368 96 C372 108 372 122 368 134 C362 134 356 126 356 116 C356 106 360 98 368 96 Z" ${estilo('triceps')} class="muscle-zone-path" data-muscle="triceps" onclick="seleccionarMusculoHeatmap('triceps')"></path>
+
+                            <!-- Dorsales (Lats) -->
+                            <path d="M312 96 C320 94 340 94 348 96 C352 110 348 128 342 138 C334 140 326 140 318 138 C312 128 308 110 312 96 Z" ${estilo('dorsales')} class="muscle-zone-path" data-muscle="dorsales" onclick="seleccionarMusculoHeatmap('dorsales')"></path>
+
+                            <!-- Lumbares -->
+                            <path d="M320 138 C326 138 334 138 340 138 C342 148 340 158 338 164 C334 166 326 166 322 164 C320 158 318 148 320 138 Z" ${estilo('lumbares')} class="muscle-zone-path" data-muscle="lumbares" onclick="seleccionarMusculoHeatmap('lumbares')"></path>
+
+                            <!-- Glúteos -->
+                            <path d="M312 164 C322 164 329 166 329 178 C328 190 322 198 314 196 C306 192 304 180 312 164 Z" ${estilo('gluteos')} class="muscle-zone-path" data-muscle="gluteos" onclick="seleccionarMusculoHeatmap('gluteos')"></path>
+                            <path d="M348 164 C338 164 331 166 331 178 C332 190 338 198 346 196 C354 192 356 180 348 164 Z" ${estilo('gluteos')} class="muscle-zone-path" data-muscle="gluteos" onclick="seleccionarMusculoHeatmap('gluteos')"></path>
+
+                            <!-- Isquiotibiales -->
+                            <path d="M312 198 C318 198 326 198 327 206 L325 246 C318 246 310 238 308 222 C306 210 308 202 312 198 Z" ${estilo('isquios')} class="muscle-zone-path" data-muscle="isquios" onclick="seleccionarMusculoHeatmap('isquios')"></path>
+                            <path d="M348 198 C342 198 334 198 333 206 L335 246 C342 246 350 238 352 222 C354 210 352 202 348 198 Z" ${estilo('isquios')} class="muscle-zone-path" data-muscle="isquios" onclick="seleccionarMusculoHeatmap('isquios')"></path>
+
+                            <!-- Pantorrillas Dorsales -->
+                            <path d="M310 252 C318 252 322 254 323 264 L321 306 C316 308 312 306 310 298 C306 286 304 270 310 252 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <path d="M350 252 C342 252 338 254 337 264 L339 306 C344 308 348 306 350 298 C354 286 356 270 350 252 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+
+                            <!-- Antebrazos Dorsales -->
+                            <path d="M292 136 C284 148 278 164 278 180 C284 184 292 178 294 166 C296 154 296 144 292 136 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M368 136 C376 148 382 164 382 180 C376 184 368 178 366 166 C364 154 364 144 368 136 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- LEYENDA DEL MAPA DE CALOR MINIMALISTA -->
+                <div class="heatmap-legend-box" style="margin-top: 12px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #151b2a; border: 1.5px solid #2d3748;"></span>
+                        <span>0-15% Óptimo</span>
+                    </div>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #0369a1; border: 1.5px solid #38bdf8;"></span>
+                        <span>16-40% Leve</span>
+                    </div>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b45309; border: 1.5px solid #f59e0b;"></span>
+                        <span>41-70% Media</span>
+                    </div>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b91c1c; border: 1.5px solid #ef4444;"></span>
+                        <span>71-100% Alta</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA 2: PANEL DE DETALLE HUD Y SELECTOR RÁPIDO DE MÚSCULOS -->
+            <div class="heatmap-hud-panel" id="hud-panel-container">
+                <!-- Se llena dinámicamente mediante actualizarHudMusculo -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         VISTA B: SILUETA FRONTAL CON LLENADO VERTICAL DE PIES A CABEZA (AGUA & SUEÑO)
+         ========================================================================== -->
+    <div id="avatar-vista-fluid" class="card heatmap-dashboard-card" style="display: none; margin-bottom: 22px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <div>
                 <h3 id="avatar-tank-title" style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">🦾 Bio-Monitor del Avatar · Cuerpo Completo</h3>
@@ -890,21 +1038,13 @@ function renderizarGraficoGeneralAvatar() {
                 <div class="body-diagram-svg-container" style="width: 100%; max-width: 240px; position: relative;">
                     <svg viewBox="0 0 220 330" class="body-silhouette-svg" style="width: 100%; height: auto; display: block;">
                         <defs>
-                            <!-- Filtro de resplandor sutil -->
-                            <filter id="hud-glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <filter id="hud-glow-fluid" x="-20%" y="-20%" width="140%" height="140%">
                                 <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#111827" flood-opacity="0.35"/>
                             </filter>
                             <filter id="fluid-glow" x="-20%" y="-20%" width="140%" height="140%">
                                 <feGaussianBlur stdDeviation="2.5" result="blur" />
                                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
                             </filter>
-
-                            <!-- Gradiente Desgaste (Biomecánico: Verde -> Naranja -> Rojo) -->
-                            <linearGradient id="grad-avatar-desgaste" x1="0%" y1="100%" x2="0%" y2="0%">
-                                <stop offset="0%" stop-color="#10b981" stop-opacity="0.9" />
-                                <stop offset="50%" stop-color="#f59e0b" stop-opacity="0.95" />
-                                <stop offset="100%" stop-color="#ef4444" stop-opacity="0.95" />
-                            </linearGradient>
 
                             <!-- Gradiente Agua (Cian -> Azul Neón) -->
                             <linearGradient id="grad-avatar-agua" x1="0%" y1="100%" x2="0%" y2="0%">
@@ -948,63 +1088,44 @@ function renderizarGraficoGeneralAvatar() {
 
                         <!-- 1. CAPA BASE: SILUETA ANATÓMICA FRONTAL -->
                         <g id="silueta-frontal-base">
-                            <!-- Cabeza / Mente -->
-                            <ellipse cx="110" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
-                            
-                            <!-- Hombros Deltoides Anterior -->
-                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" ${estilo('delt_ant')} class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
-                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" ${estilo('delt_ant')} class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
-                            
-                            <!-- Pectoral Mayor -->
-                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" ${estilo('pect_mayor')} class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
-                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" ${estilo('pect_mayor')} class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
-
-                            <!-- Pectoral Menor / Inferior -->
-                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" ${estilo('pect_menor')} class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
-                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" ${estilo('pect_menor')} class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
-
-                            <!-- Bíceps -->
-                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" ${estilo('biceps')} class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
-                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" ${estilo('biceps')} class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
-
-                            <!-- Antebrazos Frontales -->
-                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
-                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
-
-                            <!-- Core / Abdomen -->
-                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" ${estilo('core')} class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
-
-                            <!-- Cadera / Aductores -->
-                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" ${estilo('cadera')} class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
-
-                            <!-- Cuádriceps -->
-                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" ${estilo('cuadriceps')} class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
-                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" ${estilo('cuadriceps')} class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
-
-                            <!-- Pantorrillas Frontales -->
-                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
-                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <ellipse cx="110" cy="38" rx="18" ry="22" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
+                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
+                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
+                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" fill="#111827" stroke="#374151" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
                         </g>
 
                         <!-- 2. CAPA FLUIDA: LLENADO VERTICAL DESDE LOS PIES HACIA ARRIBA CON clip-path -->
                         <g id="avatar-fluid-layer" clip-path="url(#avatar-clip-fill)">
-                            <ellipse cx="110" cy="38" rx="18" ry="22" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
-                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
-                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
-                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
-                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
-                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
-                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
-                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
-                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
-                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
-                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
-                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
-                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
-                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
-                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
-                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
-                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <ellipse cx="110" cy="38" rx="18" ry="22" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
+                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
+                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
+                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" fill="url(#grad-avatar-agua)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
                         </g>
 
                         <!-- 3. LÍNEA DE NIVEL BIOLUMINISCENTE EN LA SUPERFICIE -->
@@ -1027,9 +1148,9 @@ function renderizarGraficoGeneralAvatar() {
                 </div>
             </div>
 
-            <!-- COLUMNA 2: PANEL DE DETALLE HUD Y ACCIONES CONTEXTUALES -->
-            <div class="heatmap-hud-panel" id="hud-panel-container">
-                <!-- Se llena dinámicamente según la sección activa -->
+            <!-- COLUMNA 2: PANEL DE DETALLE HUD Y ACCIONES CONTEXTUALES FLUIDAS -->
+            <div class="heatmap-hud-panel" id="hud-panel-container-fluid">
+                <!-- Se llena dinámicamente con Ingesta Rápida o Descanso Rápido -->
             </div>
         </div>
     </div>`;
@@ -1039,33 +1160,42 @@ function renderizarGraficoGeneralAvatar() {
 }
 
 // ==========================================================================
-// LLENADO VERTICAL DINÁMICO DE PIES A CABEZA POR APARTADO (v10.43)
+// CONTROL DE VISTAS Y LLENADO DINÁMICO POR APARTADO (v10.43)
 // ==========================================================================
 
 function actualizarLlenadoSiluetaAvatar(seccion) {
     seccion = seccion || window.SECCION_EP_ACTIVA || 'desgaste';
+
+    var vistaDesgaste = document.getElementById('avatar-vista-desgaste');
+    var vistaFluid = document.getElementById('avatar-vista-fluid');
+
+    // MODO 1: EN DESGASTE -> SILUETA DUAL COMPLETA (FRENTE Y ESPALDA)
+    if (seccion === 'desgaste') {
+        if (vistaDesgaste) vistaDesgaste.style.display = 'block';
+        if (vistaFluid) vistaFluid.style.display = 'none';
+
+        // Actualizar el inspector muscular de desgaste
+        if (typeof actualizarHudMusculo === 'function') {
+            actualizarHudMusculo(window.MUSCULO_ACTIVO_HEATMAP || 'pect_mayor');
+        }
+        return;
+    }
+
+    // MODO 2: EN NUTRICIÓN O DESCANSO -> SILUETA FRONTAL BIO-TANQUE CON LLENADO VERTICAL
+    if (vistaDesgaste) vistaDesgaste.style.display = 'none';
+    if (vistaFluid) vistaFluid.style.display = 'block';
+
     var pct = 0;
-    var gradienteId = 'grad-avatar-desgaste';
-    var strokeColor = '#f59e0b';
+    var gradienteId = 'grad-avatar-agua';
+    var strokeColor = '#06b6d4';
     var textoBadge = '';
     var subtextoBadge = '';
-    var iconoModo = '⚡';
-    var tituloBox = '🦾 Bio-Monitor del Avatar · Cuerpo Completo';
-    var descBox = 'Silueta frontal interactiva: indicador vertical de nivel biológico de pies a cabeza.';
-    var badgeLabel = 'DESGASTE FÍSICO';
+    var iconoModo = '💧';
+    var tituloBox = '🥗 Hidratación & Nutrición · Combustible';
+    var descBox = 'Nivel biológico de agua y aporte nutricional que nutre el cuerpo del avatar de abajo hacia arriba.';
+    var badgeLabel = 'HIDRATACIÓN DIARIA';
 
-    if (seccion === 'desgaste') {
-        var metricas = (typeof calcularMetricasGeneralesDesgaste === 'function') ? calcularMetricasGeneralesDesgaste() : { general: 0, cuerpo: 0, mente: 0 };
-        pct = Number(metricas.general) || 0;
-        gradienteId = 'grad-avatar-desgaste';
-        strokeColor = (pct > 70) ? '#ef4444' : (pct > 40 ? '#f59e0b' : '#10b981');
-        iconoModo = '⚡';
-        textoBadge = pct + '% Desgaste';
-        subtextoBadge = 'Carga física ' + metricas.cuerpo + '% · Mente ' + metricas.mente + '%';
-        tituloBox = '⚡ Carga & Fatiga Física Diaria · Avatar';
-        descBox = 'Telemetría muscular y neural: nivel de fatiga acumulada reflejado verticalmente.';
-        badgeLabel = 'FATIGA ACUMULADA';
-    } else if (seccion === 'nutricion') {
+    if (seccion === 'nutricion') {
         if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
         var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
         var nut = APP_STATE.nutricion || {};
@@ -1108,7 +1238,7 @@ function actualizarLlenadoSiluetaAvatar(seccion) {
     var rect = document.getElementById('avatar-fill-rect');
     if (rect) {
         rect.setAttribute('y', yLleno);
-        rect.setAttribute('height', alturaLleno + 14); // +14 para sellar los pies
+        rect.setAttribute('height', alturaLleno + 14);
     }
 
     var surf = document.getElementById('avatar-fluid-surface');
@@ -1157,19 +1287,15 @@ function actualizarLlenadoSiluetaAvatar(seccion) {
         tankBadgePill.style.boxShadow = '0 0 16px ' + strokeColor + '33';
     }
 
-    // Actualizar el panel derecho contextual
+    // Actualizar el panel derecho contextual de Agua y Sueño
     actualizarPanelLateralAvatar(seccion);
 }
 
 function actualizarPanelLateralAvatar(seccion) {
-    var contHud = document.getElementById('hud-panel-container');
+    var contHud = document.getElementById('hud-panel-container-fluid');
     if (!contHud) return;
 
-    if (seccion === 'desgaste') {
-        if (typeof actualizarHudMusculo === 'function') {
-            actualizarHudMusculo(window.MUSCULO_ACTIVO_HEATMAP || 'mente');
-        }
-    } else if (seccion === 'nutricion') {
+    if (seccion === 'nutricion') {
         if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
         var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
         var nut = APP_STATE.nutricion || {};
