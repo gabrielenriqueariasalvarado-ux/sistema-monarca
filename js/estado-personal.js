@@ -833,58 +833,21 @@ function renderizarGraficoGeneralAvatar() {
     function estilo(k) {
         var val = (k === 'mente') ? metricas.mente : (Number(fatiga[k]) || 0);
         var s = obtenerEstiloFatigaGris(val);
-        return `fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.4"`;
+        return `fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.3"`;
     }
 
     var html = `
-    <!-- BANNER DE TIMER DE CIERRE DE JORNADA & RESETEO DIARIO -->
-    <div class="daily-reset-timer-banner" style="margin-bottom: 16px; padding: 14px 18px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; border-radius: 10px; background: #111827; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                    ⏳
-                </div>
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: 0.6px;">REINICIO DIARIO AUTOMÁTICO</span>
-                        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(16, 185, 129, 0.3);">
-                            <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> EN VIVO
-                        </span>
-                    </div>
-                    <div style="font-size: 12.5px; color: #94a3b8; margin-top: 3px;">
-                        Cierre de jornada y archivado en calendario en: <strong class="reloj-cierre-jornada-tiempo" style="color: #38bdf8; font-family: monospace; font-size: 13.5px; font-weight: 800; background: #0b0e15; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">--h --m --s</strong>
-                    </div>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" class="btn-cerrar-jornada-accion" onclick="ejecutarMecanicaCierreDiarioManual()" title="Archivar los porcentajes actuales en el calendario y restablecer todo estrictamente a 0%">
-                    <span>🌙</span> Cerrar Jornada Ahora (Nuevo Día 0%)
-                </button>
-            </div>
-        </div>
-        <div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px;">
-                <span>00:00 AM (Inicio 0%)</span>
-                <span>Progreso de Jornada</span>
-                <span>00:00 AM (Medianoche)</span>
-            </div>
-            <div style="height: 6px; width: 100%; background: #0b0e15; border-radius: 9999px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);">
-                <div class="barra-jornada-progreso" style="height: 100%; width: 50%; background: linear-gradient(90deg, #6366f1, #38bdf8); border-radius: 9999px; transition: width 1s linear;"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- 1. BARRA DE DESGASTE GENERAL DIARIO DEL AVATAR -->
-    <div class="avatar-metrics-bar" style="margin-bottom: 18px; border-radius: 16px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
+    <div class="avatar-metrics-bar" style="margin-bottom: 16px; border-radius: 16px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
         <div class="general-wear-metric">
-            <div class="general-wear-circle" style="border: 3px solid #6366f1; color: #f8fafc; background: #0b0e15; box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);">
+            <div class="general-wear-circle" id="circle-general-wear" style="border: 3px solid #6366f1; color: #f8fafc; background: #0b0e15; box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);">
                 ${metricas.general}%
             </div>
             <div class="general-wear-meta">
                 <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #f8fafc;">Desgaste General Diario del Avatar</h4>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: #94a3b8;">Porcentaje ponderado de carga física y fatiga neural acumulada.</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #94a3b8;">Diagnóstico biológico unificado: fatiga física, combustible e índice neural.</p>
                 <div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 3px;">
-                    📅 ${hoyFechaStr} · <span style="color: #10b981; font-weight: 800;">● Actualización automática diaria</span>
+                    📅 ${hoyFechaStr} · <span style="color: #10b981; font-weight: 800;">● Sincronizado en tiempo real</span>
                 </div>
             </div>
         </div>
@@ -898,43 +861,93 @@ function renderizarGraficoGeneralAvatar() {
         </div>
     </div>
 
-    <!-- 2. ESQUEMA ANATÓMICO CORPORAL EN TONALIDADES MINIMALISTAS DE BLANCO A GRIS OSCURO -->
+    <!-- 2. TARJETA PRINCIPAL DEL AVATAR: SILUETA ANATÓMICA FRONTAL CON LLENADO VERTICAL -->
     <div class="card heatmap-dashboard-card" style="margin-bottom: 22px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
             <div>
-                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">📊 Carga & Fatiga Física Diaria</h3>
-                <p style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Esquema de desgaste actual por grupos musculares y estado metabólico del avatar.</p>
+                <h3 id="avatar-tank-title" style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">🦾 Bio-Monitor del Avatar · Cuerpo Completo</h3>
+                <p id="avatar-tank-desc" style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Silueta frontal interactiva: indicador vertical de nivel biológico de pies a cabeza.</p>
             </div>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 130px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">CARGA PROMEDIO DE HOY</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #f8fafc; margin-top: 2px;">${metricas.cuerpo}%</div>
-                </div>
-                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 140px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">ÚLTIMO CIERRE DIARIO</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro local activo'}</div>
+            <div>
+                <div id="avatar-tank-pill" style="display: inline-flex; align-items: center; gap: 8px; background: #0b0e15; border: 1.5px solid #38bdf8; border-radius: 12px; padding: 6px 14px; box-shadow: 0 0 14px rgba(56, 189, 248, 0.2); transition: all 0.4s ease;">
+                    <span id="avatar-tank-mode-icon" style="font-size: 16px;">⚡</span>
+                    <div>
+                        <div id="avatar-tank-label" style="font-size: 13px; font-weight: 800; color: #f8fafc; line-height: 1.1;">--% Nivel</div>
+                        <div id="avatar-tank-sub" style="font-size: 10px; font-weight: 600; color: #94a3b8;">Métrica activa</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="heatmap-layout">
-            <!-- COLUMNA 1: SILUETA ANATÓMICA CORPORAL (FRONTAL & DORSAL) -->
-            <div class="body-diagram-box">
-                <div style="display: flex; justify-content: space-around; margin-bottom: 8px;">
+        <div class="heatmap-layout" style="display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 20px; align-items: start;">
+            <!-- COLUMNA 1: SILUETA FRONTAL CON ESCALA MÉTRICA Y LLENADO VERTICAL -->
+            <div class="body-diagram-box" style="display: flex; flex-direction: column; align-items: center; padding: 14px 10px;">
+                <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px; padding: 0 6px;">
                     <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
+                    <span id="avatar-tank-mode-badge" style="font-size: 10px; font-weight: 800; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); padding: 1px 7px; border-radius: 6px;">TELEMETRÍA EN VIVO</span>
                 </div>
 
-                <div class="body-diagram-svg-container">
-                    <svg viewBox="0 0 440 330" class="body-silhouette-svg">
+                <div class="body-diagram-svg-container" style="width: 100%; max-width: 240px; position: relative;">
+                    <svg viewBox="0 0 220 330" class="body-silhouette-svg" style="width: 100%; height: auto; display: block;">
                         <defs>
+                            <!-- Filtro de resplandor sutil -->
                             <filter id="hud-glow" x="-20%" y="-20%" width="140%" height="140%">
                                 <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#111827" flood-opacity="0.35"/>
                             </filter>
+                            <filter id="fluid-glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+
+                            <!-- Gradiente Desgaste (Biomecánico: Verde -> Naranja -> Rojo) -->
+                            <linearGradient id="grad-avatar-desgaste" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" stop-color="#10b981" stop-opacity="0.9" />
+                                <stop offset="50%" stop-color="#f59e0b" stop-opacity="0.95" />
+                                <stop offset="100%" stop-color="#ef4444" stop-opacity="0.95" />
+                            </linearGradient>
+
+                            <!-- Gradiente Agua (Cian -> Azul Neón) -->
+                            <linearGradient id="grad-avatar-agua" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" stop-color="#0284c7" stop-opacity="0.9" />
+                                <stop offset="55%" stop-color="#06b6d4" stop-opacity="0.95" />
+                                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.95" />
+                            </linearGradient>
+
+                            <!-- Gradiente Sueño (Índigo -> Púrpura Astral) -->
+                            <linearGradient id="grad-avatar-sueno" x1="0%" y1="100%" x2="0%" y2="0%">
+                                <stop offset="0%" stop-color="#4338ca" stop-opacity="0.9" />
+                                <stop offset="55%" stop-color="#6366f1" stop-opacity="0.95" />
+                                <stop offset="100%" stop-color="#a855f7" stop-opacity="0.95" />
+                            </linearGradient>
+
+                            <!-- ClipPath dinámico para el llenado vertical de pies a cabeza (Y=308 a Y=16) -->
+                            <clipPath id="avatar-clip-fill">
+                                <rect id="avatar-fill-rect" x="35" y="310" width="165" height="0" rx="3" style="transition: y 0.75s cubic-bezier(0.4, 0, 0.2, 1), height 0.75s cubic-bezier(0.4, 0, 0.2, 1);" />
+                            </clipPath>
                         </defs>
 
-                        <!-- SILUETA FRONTAL (X: 110 centro) -->
-                        <g id="silueta-frontal">
+                        <!-- ESCALA MÉTRICA LATERAL GRADUADA (0% a 100%) -->
+                        <g id="avatar-escala-metrica" opacity="0.65">
+                            <text x="26" y="20" font-size="7.5" fill="#64748b" text-anchor="end" font-family="monospace">100%</text>
+                            <line x1="29" y1="18" x2="35" y2="18" stroke="#334155" stroke-width="1" />
+
+                            <text x="26" y="93" font-size="7.5" fill="#64748b" text-anchor="end" font-family="monospace">75%</text>
+                            <line x1="29" y1="91" x2="35" y2="91" stroke="#334155" stroke-width="1" />
+
+                            <text x="26" y="166" font-size="7.5" fill="#64748b" text-anchor="end" font-family="monospace">50%</text>
+                            <line x1="29" y1="164" x2="35" y2="164" stroke="#334155" stroke-width="1" />
+
+                            <text x="26" y="239" font-size="7.5" fill="#64748b" text-anchor="end" font-family="monospace">25%</text>
+                            <line x1="29" y1="237" x2="35" y2="237" stroke="#334155" stroke-width="1" />
+
+                            <text x="26" y="310" font-size="7.5" fill="#64748b" text-anchor="end" font-family="monospace">0%</text>
+                            <line x1="29" y1="308" x2="35" y2="308" stroke="#334155" stroke-width="1" />
+
+                            <line x1="35" y1="18" x2="35" y2="308" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,3" />
+                        </g>
+
+                        <!-- 1. CAPA BASE: SILUETA ANATÓMICA FRONTAL -->
+                        <g id="silueta-frontal-base">
                             <!-- Cabeza / Mente -->
                             <ellipse cx="110" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
                             
@@ -973,77 +986,290 @@ function renderizarGraficoGeneralAvatar() {
                             <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
                         </g>
 
-                        <!-- SILUETA DORSAL (X: 330 centro) -->
-                        <g id="silueta-dorsal">
-                            <!-- Cabeza / Mente (Dorsal) -->
-                            <ellipse cx="330" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
-
-                            <!-- Trapecios -->
-                            <path d="M322 58 L338 58 L354 75 C344 86 336 94 330 96 C324 94 316 86 306 75 Z" ${estilo('trapecios')} class="muscle-zone-path" data-muscle="trapecios" onclick="seleccionarMusculoHeatmap('trapecios')"></path>
-
-                            <!-- Deltoides Posterior -->
-                            <path d="M304 68 C296 74 290 84 292 94 C298 96 306 92 310 82 Z" ${estilo('delt_post')} class="muscle-zone-path" data-muscle="delt_post" onclick="seleccionarMusculoHeatmap('delt_post')"></path>
-                            <path d="M356 68 C364 74 370 84 368 94 C362 96 354 92 350 82 Z" ${estilo('delt_post')} class="muscle-zone-path" data-muscle="delt_post" onclick="seleccionarMusculoHeatmap('delt_post')"></path>
-
-                            <!-- Tríceps -->
-                            <path d="M292 96 C288 108 288 122 292 134 C298 134 304 126 304 116 C304 106 300 98 292 96 Z" ${estilo('triceps')} class="muscle-zone-path" data-muscle="triceps" onclick="seleccionarMusculoHeatmap('triceps')"></path>
-                            <path d="M368 96 C372 108 372 122 368 134 C362 134 356 126 356 116 C356 106 360 98 368 96 Z" ${estilo('triceps')} class="muscle-zone-path" data-muscle="triceps" onclick="seleccionarMusculoHeatmap('triceps')"></path>
-
-                            <!-- Dorsales (Lats) -->
-                            <path d="M312 96 C320 94 340 94 348 96 C352 110 348 128 342 138 C334 140 326 140 318 138 C312 128 308 110 312 96 Z" ${estilo('dorsales')} class="muscle-zone-path" data-muscle="dorsales" onclick="seleccionarMusculoHeatmap('dorsales')"></path>
-
-                            <!-- Lumbares -->
-                            <path d="M320 138 C326 138 334 138 340 138 C342 148 340 158 338 164 C334 166 326 166 322 164 C320 158 318 148 320 138 Z" ${estilo('lumbares')} class="muscle-zone-path" data-muscle="lumbares" onclick="seleccionarMusculoHeatmap('lumbares')"></path>
-
-                            <!-- Glúteos -->
-                            <path d="M312 164 C322 164 329 166 329 178 C328 190 322 198 314 196 C306 192 304 180 312 164 Z" ${estilo('gluteos')} class="muscle-zone-path" data-muscle="gluteos" onclick="seleccionarMusculoHeatmap('gluteos')"></path>
-                            <path d="M348 164 C338 164 331 166 331 178 C332 190 338 198 346 196 C354 192 356 180 348 164 Z" ${estilo('gluteos')} class="muscle-zone-path" data-muscle="gluteos" onclick="seleccionarMusculoHeatmap('gluteos')"></path>
-
-                            <!-- Isquiotibiales -->
-                            <path d="M312 198 C318 198 326 198 327 206 L325 246 C318 246 310 238 308 222 C306 210 308 202 312 198 Z" ${estilo('isquios')} class="muscle-zone-path" data-muscle="isquios" onclick="seleccionarMusculoHeatmap('isquios')"></path>
-                            <path d="M348 198 C342 198 334 198 333 206 L335 246 C342 246 350 238 352 222 C354 210 352 202 348 198 Z" ${estilo('isquios')} class="muscle-zone-path" data-muscle="isquios" onclick="seleccionarMusculoHeatmap('isquios')"></path>
-
-                            <!-- Pantorrillas Dorsales -->
-                            <path d="M310 252 C318 252 322 254 323 264 L321 306 C316 308 312 306 310 298 C306 286 304 270 310 252 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
-                            <path d="M350 252 C342 252 338 254 337 264 L339 306 C344 308 348 306 350 298 C354 286 356 270 350 252 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
-
-                            <!-- Antebrazos Dorsales -->
-                            <path d="M292 136 C284 148 278 164 278 180 C284 184 292 178 294 166 C296 154 296 144 292 136 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
-                            <path d="M368 136 C376 148 382 164 382 180 C376 184 368 178 366 166 C364 154 364 144 368 136 Z" ${estilo('antebrazos')} class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                        <!-- 2. CAPA FLUIDA: LLENADO VERTICAL DESDE LOS PIES HACIA ARRIBA CON clip-path -->
+                        <g id="avatar-fluid-layer" clip-path="url(#avatar-clip-fill)">
+                            <ellipse cx="110" cy="38" rx="18" ry="22" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
+                            <path d="M84 66 C76 72 70 82 72 94 C76 96 86 94 90 82 C90 74 88 68 84 66 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M136 66 C144 72 150 82 148 94 C144 96 134 94 130 82 C130 74 132 68 136 66 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="delt_ant" onclick="seleccionarMusculoHeatmap('delt_ant')"></path>
+                            <path d="M90 75 C96 73 108 73 109 76 L109 102 C100 104 88 98 86 90 C86 82 88 77 90 75 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M130 75 C124 73 112 73 111 76 L111 102 C120 104 132 98 134 90 C134 82 132 77 130 75 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_mayor" onclick="seleccionarMusculoHeatmap('pect_mayor')"></path>
+                            <path d="M91 103 L108 103 L106 111 C98 113 93 109 91 103 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M129 103 L112 103 L114 111 C122 113 127 109 129 103 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pect_menor" onclick="seleccionarMusculoHeatmap('pect_menor')"></path>
+                            <path d="M72 96 C68 108 68 120 72 132 C78 132 84 124 84 114 C84 104 80 97 72 96 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M148 96 C152 108 152 120 148 132 C142 132 136 124 136 114 C136 104 140 97 148 96 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="biceps" onclick="seleccionarMusculoHeatmap('biceps')"></path>
+                            <path d="M72 134 C64 146 58 162 58 178 C64 182 72 176 74 164 C76 152 76 142 72 134 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M148 134 C156 146 162 162 162 178 C156 182 148 176 146 164 C144 152 144 142 148 134 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="antebrazos" onclick="seleccionarMusculoHeatmap('antebrazos')"></path>
+                            <path d="M96 114 C104 112 116 112 124 114 C126 128 124 146 120 158 C114 162 106 162 100 158 C96 146 94 128 96 114 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="core" onclick="seleccionarMusculoHeatmap('core')"></path>
+                            <path d="M96 160 C104 164 116 164 124 160 C128 168 126 178 122 184 C116 186 104 186 98 184 C94 178 92 168 96 160 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cadera" onclick="seleccionarMusculoHeatmap('cadera')"></path>
+                            <path d="M93 186 C98 186 106 186 107 194 L105 244 C98 244 90 236 88 220 C86 206 88 194 93 186 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M127 186 C122 186 114 186 113 194 L115 244 C122 244 130 236 132 220 C134 206 132 194 127 186 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="cuadriceps" onclick="seleccionarMusculoHeatmap('cuadriceps')"></path>
+                            <path d="M90 250 C96 250 102 250 103 260 L101 306 C96 308 92 306 90 298 C88 286 86 270 90 250 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
+                            <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" fill="url(#grad-avatar-desgaste)" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
                         </g>
+
+                        <!-- 3. LÍNEA DE NIVEL BIOLUMINISCENTE EN LA SUPERFICIE -->
+                        <line id="avatar-fluid-surface" x1="45" x2="175" y1="310" y2="310" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" opacity="0" filter="url(#fluid-glow)" style="transition: y1 0.75s cubic-bezier(0.4, 0, 0.2, 1), y2 0.75s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease;" />
                     </svg>
                 </div>
 
-                <!-- LEYENDA DEL MAPA DE CALOR MINIMALISTA EN ESCALA DE GRISES -->
-                <div class="heatmap-legend-box" style="margin-top: 12px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #151b2a; border: 1.5px solid #2d3748;"></span>
-                        <span>0-15% Óptimo</span>
-                    </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #0369a1; border: 1.5px solid #38bdf8;"></span>
-                        <span>16-40% Leve</span>
-                    </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b45309; border: 1.5px solid #f59e0b;"></span>
-                        <span>41-70% Media</span>
-                    </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b91c1c; border: 1.5px solid #ef4444;"></span>
-                        <span>71-100% Alta</span>
+                <!-- CHIPS DE ACCESO RÁPIDO A ZONAS MUSCULARES CLAVE -->
+                <div style="margin-top: 14px; width: 100%;">
+                    <div style="font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; text-align: center;">Zonas Anatómicas Clave:</div>
+                    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px;">
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('mente')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">🧠 Mente</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('pect_mayor')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Pectoral</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('biceps')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Bíceps</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('core')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Core</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('cuadriceps')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Cuádriceps</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('dorsales')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Espalda</button>
+                        <button type="button" class="btn-zone-chip" onclick="seleccionarMusculoHeatmap('gluteos')" style="font-size: 10.5px; background: #0c1018; border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; cursor: pointer;">Glúteos</button>
                     </div>
                 </div>
             </div>
 
-            <!-- COLUMNA 2: PANEL DE DETALLE HUD Y SELECTOR RÁPIDO -->
+            <!-- COLUMNA 2: PANEL DE DETALLE HUD Y ACCIONES CONTEXTUALES -->
             <div class="heatmap-hud-panel" id="hud-panel-container">
-                <!-- Se llena dinámicamente mediante actualizarHudMusculo -->
+                <!-- Se llena dinámicamente según la sección activa -->
             </div>
         </div>
     </div>`;
 
     cont.innerHTML = html;
-    actualizarHudMusculo(MUSCULO_ACTIVO_HEATMAP);
+    actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA || 'desgaste');
+}
+
+// ==========================================================================
+// LLENADO VERTICAL DINÁMICO DE PIES A CABEZA POR APARTADO (v10.43)
+// ==========================================================================
+
+function actualizarLlenadoSiluetaAvatar(seccion) {
+    seccion = seccion || window.SECCION_EP_ACTIVA || 'desgaste';
+    var pct = 0;
+    var gradienteId = 'grad-avatar-desgaste';
+    var strokeColor = '#f59e0b';
+    var textoBadge = '';
+    var subtextoBadge = '';
+    var iconoModo = '⚡';
+    var tituloBox = '🦾 Bio-Monitor del Avatar · Cuerpo Completo';
+    var descBox = 'Silueta frontal interactiva: indicador vertical de nivel biológico de pies a cabeza.';
+    var badgeLabel = 'DESGASTE FÍSICO';
+
+    if (seccion === 'desgaste') {
+        var metricas = (typeof calcularMetricasGeneralesDesgaste === 'function') ? calcularMetricasGeneralesDesgaste() : { general: 0, cuerpo: 0, mente: 0 };
+        pct = Number(metricas.general) || 0;
+        gradienteId = 'grad-avatar-desgaste';
+        strokeColor = (pct > 70) ? '#ef4444' : (pct > 40 ? '#f59e0b' : '#10b981');
+        iconoModo = '⚡';
+        textoBadge = pct + '% Desgaste';
+        subtextoBadge = 'Carga física ' + metricas.cuerpo + '% · Mente ' + metricas.mente + '%';
+        tituloBox = '⚡ Carga & Fatiga Física Diaria · Avatar';
+        descBox = 'Telemetría muscular y neural: nivel de fatiga acumulada reflejado verticalmente.';
+        badgeLabel = 'FATIGA ACUMULADA';
+    } else if (seccion === 'nutricion') {
+        if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
+        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var nut = APP_STATE.nutricion || {};
+        var consumo = Number((nut.registrosAgua && nut.registrosAgua[hoy]) || 0);
+        var metaAgua = Number(nut.metaAguaMl) || 2500;
+        pct = Math.min(100, Math.max(0, Math.round((consumo / metaAgua) * 100)));
+        gradienteId = 'grad-avatar-agua';
+        strokeColor = '#06b6d4';
+        iconoModo = '💧';
+        textoBadge = pct + '% Hidratado';
+        subtextoBadge = consumo.toLocaleString('es-ES') + ' ml / ' + metaAgua.toLocaleString('es-ES') + ' ml';
+        tituloBox = '🥗 Hidratación & Nutrición · Combustible';
+        descBox = 'Nivel biológico de agua y aporte nutricional que nutre el cuerpo del avatar de abajo hacia arriba.';
+        badgeLabel = 'HIDRATACIÓN DIARIA';
+    } else if (seccion === 'descanso') {
+        if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
+        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var sueno = APP_STATE.sueno || {};
+        var regHoy = (sueno.registros || []).find(function(r) { return r.fecha === hoy; });
+        var horas = regHoy ? Number(regHoy.horasDormidas) || 0 : 0;
+        var metaSueno = Number(sueno.metaHoras) || 8;
+        pct = Math.min(100, Math.max(0, Math.round((horas / metaSueno) * 100)));
+        gradienteId = 'grad-avatar-sueno';
+        strokeColor = '#818cf8';
+        iconoModo = '🌙';
+        textoBadge = pct + '% Regenerado';
+        subtextoBadge = horas + 'h / ' + metaSueno + 'h meta diaria';
+        tituloBox = '🌙 Descanso & Sueño · Regeneración Neural';
+        descBox = 'Recuperación del sistema nervioso y reconstrucción de tejidos llenando el cuerpo en reposo.';
+        badgeLabel = 'REGENERACIÓN NEURAL';
+    }
+
+    // Calcular posición Y en el SVG (Pies Y=308, Cabeza Y=16, Altura útil = 292)
+    var pctClamped = Math.min(100, Math.max(0, pct));
+    var yPies = 308;
+    var alturaTotal = 292;
+    var alturaLleno = (pctClamped / 100) * alturaTotal;
+    var yLleno = yPies - alturaLleno;
+
+    var rect = document.getElementById('avatar-fill-rect');
+    if (rect) {
+        rect.setAttribute('y', yLleno);
+        rect.setAttribute('height', alturaLleno + 14); // +14 para sellar los pies
+    }
+
+    var surf = document.getElementById('avatar-fluid-surface');
+    if (surf) {
+        if (pctClamped <= 0) {
+            surf.setAttribute('opacity', '0');
+        } else {
+            surf.setAttribute('opacity', '0.9');
+            surf.setAttribute('y1', yLleno);
+            surf.setAttribute('y2', yLleno);
+            surf.setAttribute('stroke', strokeColor);
+        }
+    }
+
+    // Aplicar el gradiente activo a los paths de la capa fluida
+    var capaFluida = document.getElementById('avatar-fluid-layer');
+    if (capaFluida) {
+        var paths = capaFluida.querySelectorAll('path, ellipse');
+        for (var i = 0; i < paths.length; i++) {
+            paths[i].setAttribute('fill', 'url(#' + gradienteId + ')');
+        }
+    }
+
+    // Actualizar badges e indicadores
+    var badgeIcono = document.getElementById('avatar-tank-mode-icon');
+    var badgeTexto = document.getElementById('avatar-tank-label');
+    var badgeSub = document.getElementById('avatar-tank-sub');
+    var tankBadgePill = document.getElementById('avatar-tank-pill');
+    var tankTitle = document.getElementById('avatar-tank-title');
+    var tankDesc = document.getElementById('avatar-tank-desc');
+    var modeBadge = document.getElementById('avatar-tank-mode-badge');
+
+    if (badgeIcono) badgeIcono.textContent = iconoModo;
+    if (badgeTexto) badgeTexto.textContent = textoBadge;
+    if (badgeSub) badgeSub.textContent = subtextoBadge;
+    if (tankTitle) tankTitle.textContent = tituloBox;
+    if (tankDesc) tankDesc.textContent = descBox;
+    if (modeBadge) {
+        modeBadge.textContent = badgeLabel;
+        modeBadge.style.color = strokeColor;
+        modeBadge.style.borderColor = strokeColor + '55';
+        modeBadge.style.background = strokeColor + '18';
+    }
+    if (tankBadgePill) {
+        tankBadgePill.style.borderColor = strokeColor;
+        tankBadgePill.style.boxShadow = '0 0 16px ' + strokeColor + '33';
+    }
+
+    // Actualizar el panel derecho contextual
+    actualizarPanelLateralAvatar(seccion);
+}
+
+function actualizarPanelLateralAvatar(seccion) {
+    var contHud = document.getElementById('hud-panel-container');
+    if (!contHud) return;
+
+    if (seccion === 'desgaste') {
+        if (typeof actualizarHudMusculo === 'function') {
+            actualizarHudMusculo(window.MUSCULO_ACTIVO_HEATMAP || 'mente');
+        }
+    } else if (seccion === 'nutricion') {
+        if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
+        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var nut = APP_STATE.nutricion || {};
+        var consumo = Number((nut.registrosAgua && nut.registrosAgua[hoy]) || 0);
+        var metaAgua = Number(nut.metaAguaMl) || 2500;
+        var pctAgua = Math.min(100, Math.max(0, Math.round((consumo / metaAgua) * 100)));
+        var comidasHoy = (nut.comidas || []).filter(function(c) { return c.fecha === hoy; });
+
+        var htmlNut = `
+        <div class="hud-muscle-card" style="border-left-color: #06b6d4; background: #0f1422;">
+            <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-size: 10px; font-weight: 800; color: #06b6d4; text-transform: uppercase; letter-spacing: 0.6px;">APARTADO ACTIVO · COMBUSTIBLE BIOLÓGICO</span>
+                    <h3 class="hud-muscle-title" style="margin: 3px 0 0 0; color: #f8fafc; font-size: 16px;">💧 Hidratación & Nutrición del Avatar</h3>
+                </div>
+                <div style="font-size: 20px; font-weight: 800; color: #22d3ee; background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.3); padding: 4px 10px; border-radius: 8px;">
+                    ${pctAgua}%
+                </div>
+            </div>
+
+            <div style="margin: 14px 0 16px 0; padding: 12px 14px; border-radius: 10px; background: #07090e; border: 1px solid rgba(255,255,255,0.06);">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                    <span style="color: #94a3b8;">Nivel actual en el cuerpo:</span>
+                    <strong style="color: #38bdf8;">${consumo.toLocaleString('es-ES')} / ${metaAgua.toLocaleString('es-ES')} ml</strong>
+                </div>
+                <div style="height: 8px; width: 100%; background: #151b2a; border-radius: 9999px; overflow: hidden;">
+                    <div style="height: 100%; width: ${pctAgua}%; background: linear-gradient(90deg, #0284c7, #06b6d4, #38bdf8); border-radius: 9999px; transition: width 0.6s ease;"></div>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
+                    🍽️ Comidas hoy: <strong style="color: #f8fafc;">${comidasHoy.length}</strong> registradas
+                </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">Ingesta Rápida de Agua:</label>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                    <button type="button" class="btn-quick-water" onclick="agregarAgua(250)" style="background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.3); color: #38bdf8; font-weight: 700; font-size: 11.5px; padding: 8px 4px; border-radius: 8px; cursor: pointer;">+250 ml</button>
+                    <button type="button" class="btn-quick-water" onclick="agregarAgua(500)" style="background: rgba(6,182,212,0.18); border: 1px solid rgba(6,182,212,0.4); color: #38bdf8; font-weight: 700; font-size: 11.5px; padding: 8px 4px; border-radius: 8px; cursor: pointer;">+500 ml</button>
+                    <button type="button" class="btn-quick-water" onclick="agregarAgua(1000)" style="background: rgba(6,182,212,0.25); border: 1px solid rgba(6,182,212,0.5); color: #22d3ee; font-weight: 700; font-size: 11.5px; padding: 8px 4px; border-radius: 8px; cursor: pointer;">+1,000 ml</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button type="button" onclick="abrirModalRegistroComida()" style="flex: 1; background: #06b6d4; color: #08121f; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>🥗</span> Registrar Comida
+                </button>
+                <button type="button" onclick="agregarAgua(-250)" title="Restar 250ml si te equivocaste" style="background: #0b0e15; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer;">
+                    -250 ml
+                </button>
+            </div>
+        </div>`;
+        contHud.innerHTML = htmlNut;
+    } else if (seccion === 'descanso') {
+        if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
+        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var sueno = APP_STATE.sueno || {};
+        var regHoy = (sueno.registros || []).find(function(r) { return r.fecha === hoy; });
+        var horas = regHoy ? Number(regHoy.horasDormidas) || 0 : 0;
+        var metaSueno = Number(sueno.metaHoras) || 8;
+        var pctSueno = Math.min(100, Math.max(0, Math.round((horas / metaSueno) * 100)));
+        var calidadStr = regHoy ? (regHoy.calidad === 'excelente' ? 'Óptima' : (regHoy.calidad === 'buena' ? 'Buena' : 'Ligera')) : 'Sin registrar';
+        var bonoStr = regHoy ? (regHoy.calidad === 'excelente' ? '-15% Fatiga' : (regHoy.calidad === 'buena' ? '-10% Fatiga' : '-5% Fatiga')) : '0%';
+
+        var htmlSue = `
+        <div class="hud-muscle-card" style="border-left-color: #818cf8; background: #0f1422;">
+            <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-size: 10px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.6px;">APARTADO ACTIVO · REGENERACIÓN NEURAL</span>
+                    <h3 class="hud-muscle-title" style="margin: 3px 0 0 0; color: #f8fafc; font-size: 16px;">🌙 Descanso & Sueño del Avatar</h3>
+                </div>
+                <div style="font-size: 20px; font-weight: 800; color: #a5b4fc; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); padding: 4px 10px; border-radius: 8px;">
+                    ${pctSueno}%
+                </div>
+            </div>
+
+            <div style="margin: 14px 0 16px 0; padding: 12px 14px; border-radius: 10px; background: #07090e; border: 1px solid rgba(255,255,255,0.06);">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                    <span style="color: #94a3b8;">Horas registradas anoche:</span>
+                    <strong style="color: #a5b4fc;">${horas}h / ${metaSueno}h meta</strong>
+                </div>
+                <div style="height: 8px; width: 100%; background: #151b2a; border-radius: 9999px; overflow: hidden;">
+                    <div style="height: 100%; width: ${pctSueno}%; background: linear-gradient(90deg, #4338ca, #6366f1, #a855f7); border-radius: 9999px; transition: width 0.6s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 8px;">
+                    <span>Calidad: <strong style="color: #f8fafc;">${calidadStr}</strong></span>
+                    <span>Bono Avatar: <strong style="color: #10b981;">${bonoStr}</strong></span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button type="button" onclick="abrirModalRegistroSueno()" style="flex: 1; background: #6366f1; color: #ffffff; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>🌙</span> Registrar Descanso
+                </button>
+                <button type="button" onclick="cambiarSeccionEstadoPersonal('descanso')" style="background: #0b0e15; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer;">
+                    Ver Historial
+                </button>
+            </div>
+        </div>`;
+        contHud.innerHTML = htmlSue;
+    }
 }
 
 // ==========================================================================
@@ -8604,6 +8830,11 @@ function cambiarSeccionEstadoPersonal(seccion) {
         if (sub) sub.textContent = "Monitoreo de horas de sueño, siestas diurnas y bono de recuperación del avatar.";
         renderizarModuloDescanso();
     }
+
+    // Animar inmediatamente el llenado vertical de pies a cabeza en el maniquí
+    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA);
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -8631,6 +8862,11 @@ function renderizarModuloNutricion() {
     if (elMetaDisp) elMetaDisp.textContent = meta.toLocaleString('es-ES');
     if (elBadgePct) elBadgePct.textContent = pct + '%';
     if (elBarra) elBarra.style.width = pct + '%';
+
+    // Actualizar el maniquí frontal
+    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA || 'nutricion');
+    }
 
     // 2. Comidas del día
     var comidasHoy = nut.comidas.filter(function(c) {
@@ -8944,6 +9180,10 @@ function renderizarModuloDescanso() {
         '</div>';
     });
     contHistorial.innerHTML = hHtml;
+
+    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA || 'descanso');
+    }
 }
 
 function abrirModalRegistroSueno() {
