@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.31">
+    <link rel="stylesheet" href="style.css?v=10.32">
 </head>
 <body>
 
@@ -1101,16 +1101,22 @@
                 </div>
             </div>
 
-            <!-- SELECTOR DE PERÍODO / QUINCENA -->
+            <!-- SELECTOR DE PERÍODO (SEMANAS DEL MES & MES COMPLETO AL FINAL) -->
             <div class="quincena-selector-bar" id="quincena-selector-bar">
-                <button class="btn-quincena-tab active" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
+                <button class="btn-quincena-tab" id="btn-vista-sem1" onclick="cambiarPeriodoFinanzas('sem1')">
+                    <span>🗓️</span> Sem 1 (1-7)
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-sem2" onclick="cambiarPeriodoFinanzas('sem2')">
+                    <span>🗓️</span> Sem 2 (8-14)
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-sem3" onclick="cambiarPeriodoFinanzas('sem3')">
+                    <span>🗓️</span> Sem 3 (15-21)
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-sem4" onclick="cambiarPeriodoFinanzas('sem4')">
+                    <span>🗓️</span> Sem 4 (22-Fin)
+                </button>
+                <button class="btn-quincena-tab" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
                     <span>📅</span> Mes Completo
-                </button>
-                <button class="btn-quincena-tab" id="btn-vista-q1" onclick="cambiarPeriodoFinanzas('q1')">
-                    <span>🌓</span> 1.ª Quincena (1-15)
-                </button>
-                <button class="btn-quincena-tab" id="btn-vista-q2" onclick="cambiarPeriodoFinanzas('q2')">
-                    <span>🌕</span> 2.ª Quincena (16-31)
                 </button>
             </div>
 
@@ -4727,25 +4733,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.31"></script>
-    <script src="js/perfil.js?v=10.31"></script>
-    <script src="js/progresion.js?v=10.31"></script>
-    <script src="js/estado-personal.js?v=10.31"></script>
-    <script src="js/finanzas.js?v=10.31"></script>
-    <script src="js/ideas.js?v=10.31"></script>
-    <script src="js/dinamicas.js?v=10.31"></script>
-    <script src="js/calendario.js?v=10.31"></script>
-    <script src="js/inventario.js?v=10.31"></script>
-    <script src="js/jarvis-voz.js?v=10.31"></script>
+    <script src="js/core.js?v=10.32"></script>
+    <script src="js/perfil.js?v=10.32"></script>
+    <script src="js/progresion.js?v=10.32"></script>
+    <script src="js/estado-personal.js?v=10.32"></script>
+    <script src="js/finanzas.js?v=10.32"></script>
+    <script src="js/ideas.js?v=10.32"></script>
+    <script src="js/dinamicas.js?v=10.32"></script>
+    <script src="js/calendario.js?v=10.32"></script>
+    <script src="js/inventario.js?v=10.32"></script>
+    <script src="js/jarvis-voz.js?v=10.32"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.31"></script>
+    <script type="module" src="js/firebase-config.js?v=10.32"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.31')
+                navigator.serviceWorker.register('sw.js?v=10.32')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

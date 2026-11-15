@@ -4,17 +4,47 @@
  * Deudas, Metas de Ahorro Quincenales, Regla 50/40/10 y Gráfica Ejecutiva.
  */
 
+function obtenerSemanaActualDelMes() {
+    var dia = new Date().getDate();
+    if (dia <= 7) return 'sem1';
+    if (dia <= 14) return 'sem2';
+    if (dia <= 21) return 'sem3';
+    return 'sem4';
+}
+
+function obtenerTituloPeriodo(vq) {
+    if (vq === 'sem1') return 'Semana 1 (1-7)';
+    if (vq === 'sem2') return 'Semana 2 (8-14)';
+    if (vq === 'sem3') return 'Semana 3 (15-21)';
+    if (vq === 'sem4') return 'Semana 4 (22-Fin)';
+    if (vq === 'q1') return '1.ª Quincena (1-15)';
+    if (vq === 'q2') return '2.ª Quincena (16-31)';
+    return 'Mes Completo';
+}
+
+function obtenerNombrePeriodo(vq) {
+    if (vq === 'sem1') return 'la Semana 1 (1-7)';
+    if (vq === 'sem2') return 'la Semana 2 (8-14)';
+    if (vq === 'sem3') return 'la Semana 3 (15-21)';
+    if (vq === 'sem4') return 'la Semana 4 (22-Fin)';
+    if (vq === 'q1') return 'la 1.ª Quincena (1-15)';
+    if (vq === 'q2') return 'la 2.ª Quincena (16-31)';
+    return 'este mes';
+}
+
 var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
     mesOffset: 0,
     chartInstance: null,
     tabIngresosActivo: 'fijos',
-    vistaQuincena: 'mes',
+    vistaQuincena: obtenerSemanaActualDelMes(),
     modoGrafico: 'comparativa',
     filtroGastos: 'todos'
 };
 window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
 function cargarFinanzas() {
+    var semActual = obtenerSemanaActualDelMes();
+    cambiarPeriodoFinanzas(semActual, true);
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
@@ -236,6 +266,10 @@ function renderizarFinanzas(fin) {
                 d = parseInt(partes[2], 10) || 15;
             }
         }
+        if (vq === 'sem1') return d >= 1 && d <= 7;
+        if (vq === 'sem2') return d >= 8 && d <= 14;
+        if (vq === 'sem3') return d >= 15 && d <= 21;
+        if (vq === 'sem4') return d >= 22;
         if (vq === 'q1') return d <= 15;
         if (vq === 'q2') return d > 15;
         return true;
@@ -374,13 +408,13 @@ function renderizarFinanzas(fin) {
     });
 
     if (countFijos === 0) {
-        htmlFijos = `<div class="finanzas-empty-hint">Sin entradas fijas programadas para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena (1-15)' : 'la 2.ª quincena (16-31)')}.</div>`;
+        htmlFijos = `<div class="finanzas-empty-hint">Sin entradas fijas programadas para ${obtenerNombrePeriodo(vq)}.</div>`;
     }
     if (countAleatorios === 0) {
-        htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>`;
+        htmlAleatorios = `<div class="finanzas-empty-hint">Sin entradas variables para ${obtenerNombrePeriodo(vq)}.</div>`;
     }
     if (countAlmacen === 0) {
-        htmlAlmacen = `<div class="finanzas-empty-hint">Sin entradas de almacén o labores para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}.</div>`;
+        htmlAlmacen = `<div class="finanzas-empty-hint">Sin entradas de almacén o labores para ${obtenerNombrePeriodo(vq)}.</div>`;
     }
 
     var elContFijos = document.getElementById('lista-ingresos-fijos');
@@ -579,7 +613,7 @@ function renderizarFinanzas(fin) {
             htmlGrupos = `
             <div class="finanzas-empty-hint">
                 <div style="font-size: 24px; margin-bottom: 6px;">💳</div>
-                <div>Sin gastos registrados para ${filtroG === 'programados' ? 'la sección de Programados' : (filtroG === 'ocasionales' ? 'la sección de Ocasionales' : (vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')))}.</div>
+                <div>Sin gastos registrados para ${filtroG === 'programados' ? 'la sección de Programados' : (filtroG === 'ocasionales' ? 'la sección de Ocasionales' : obtenerNombrePeriodo(vq))}.</div>
                 <div style="font-size: 11.5px; margin-top: 4px; color: #64748b;">Usa el botón "+ Gasto Programado" o "+ Gasto Ocasional" para clasificar tus salidas.</div>
             </div>`;
         }
@@ -602,7 +636,7 @@ function renderizarFinanzas(fin) {
     // Actualizar subtítulo del período en la regla
     var reglaSub = document.getElementById('regla-subtitulo-periodo');
     if (reglaSub) {
-        reglaSub.innerText = `${vq === 'mes' ? 'Mes Completo' : (vq === 'q1' ? '1.ª Quincena (1-15)' : '2.ª Quincena (16-31)')} · Base: $${baseCalculoRegla.toFixed(2)}`;
+        reglaSub.innerText = `${obtenerTituloPeriodo(vq)} · Base: $${baseCalculoRegla.toFixed(2)}`;
     }
 
     // Tarjeta 50% Inversión
@@ -734,7 +768,7 @@ function renderizarFinanzas(fin) {
         });
 
         if (deudasEnVista === 0) {
-            htmlDeu = `<div class="finanzas-empty-hint">No hay deudas activas para ${vq === 'mes' ? 'este mes' : (vq === 'q1' ? 'la 1.ª quincena' : 'la 2.ª quincena')}. ¡Excelente!</div>`;
+            htmlDeu = `<div class="finanzas-empty-hint">No hay deudas activas para ${obtenerNombrePeriodo(vq)}. ¡Excelente!</div>`;
         }
         contDeudas.innerHTML = htmlDeu;
     }
@@ -815,7 +849,8 @@ function renderizarFinanzas(fin) {
         bResultado.style.color = balanceRealEnMano >= 0 ? '#34d399' : '#f87171';
     }
     if (bProyeccion) {
-        bProyeccion.innerHTML = `🔮 Proyección ${vq === 'mes' ? 'Fin de Mes' : (vq === 'q1' ? '1.ª Quincena' : '2.ª Quincena')}: Total Ingresos ($${totIngresosVista.toFixed(2)}) - Compromisos ($${(totGastos + cuotasAbonadasVista + totDeudasPendientes + totDeudasPagadas).toFixed(2)}) = <strong style="color: ${balanceProyectado >= 0 ? '#34d399' : '#f87171'};">${balanceProyectado >= 0 ? '+$' : '-$'}${Math.abs(balanceProyectado).toFixed(2)}</strong>`;
+        var titProy = vq === 'mes' ? 'Fin de Mes' : obtenerTituloPeriodo(vq);
+        bProyeccion.innerHTML = `🔮 Proyección ${titProy}: Total Ingresos ($${totIngresosVista.toFixed(2)}) - Compromisos ($${(totGastos + cuotasAbonadasVista + totDeudasPendientes + totDeudasPagadas).toFixed(2)}) = <strong style="color: ${balanceProyectado >= 0 ? '#34d399' : '#f87171'};">${balanceProyectado >= 0 ? '+$' : '-$'}${Math.abs(balanceProyectado).toFixed(2)}</strong>`;
     }
 
     var badgeEstado = document.getElementById('badge-balance-estado');
@@ -1539,19 +1574,39 @@ function deshacerPagoDeudaUI(id) {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
-function cambiarPeriodoFinanzas(periodo) {
-    if (periodo !== 'mes' && periodo !== 'q1' && periodo !== 'q2') periodo = 'mes';
+function cambiarPeriodoFinanzas(periodo, omitirRender) {
+    var periodosValidos = ['sem1', 'sem2', 'sem3', 'sem4', 'mes', 'q1', 'q2'];
+    if (periodosValidos.indexOf(periodo) === -1) periodo = 'mes';
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.vistaQuincena = periodo;
 
-    var bMes = document.getElementById('btn-vista-mes');
-    var bQ1 = document.getElementById('btn-vista-q1');
-    var bQ2 = document.getElementById('btn-vista-q2');
-    if (bMes) bMes.classList.toggle('active', periodo === 'mes');
-    if (bQ1) bQ1.classList.toggle('active', periodo === 'q1');
-    if (bQ2) bQ2.classList.toggle('active', periodo === 'q2');
+    var btnSem1 = document.getElementById('btn-vista-sem1');
+    var btnSem2 = document.getElementById('btn-vista-sem2');
+    var btnSem3 = document.getElementById('btn-vista-sem3');
+    var btnSem4 = document.getElementById('btn-vista-sem4');
+    var btnMes = document.getElementById('btn-vista-mes');
+    var btnQ1 = document.getElementById('btn-vista-q1');
+    var btnQ2 = document.getElementById('btn-vista-q2');
 
-    renderizarFinanzas(APP_STATE.finanzas);
+    if (btnSem1) btnSem1.classList.toggle('active', periodo === 'sem1');
+    if (btnSem2) btnSem2.classList.toggle('active', periodo === 'sem2');
+    if (btnSem3) btnSem3.classList.toggle('active', periodo === 'sem3');
+    if (btnSem4) btnSem4.classList.toggle('active', periodo === 'sem4');
+    if (btnMes) btnMes.classList.toggle('active', periodo === 'mes');
+    if (btnQ1) btnQ1.classList.toggle('active', periodo === 'q1');
+    if (btnQ2) btnQ2.classList.toggle('active', periodo === 'q2');
+
+    // Desplazamiento horizontal suave al botón activo si está en un contenedor con scroll
+    var botonActivo = document.getElementById('btn-vista-' + periodo);
+    if (botonActivo && botonActivo.scrollIntoView) {
+        try {
+            botonActivo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        } catch (e) {}
+    }
+
+    if (!omitirRender) {
+        renderizarFinanzas(APP_STATE.finanzas);
+    }
 }
 
 function eliminarRegistroFinanzasUI(id, tipo) {
