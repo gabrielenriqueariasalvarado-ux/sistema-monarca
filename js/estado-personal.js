@@ -674,6 +674,11 @@ function cargarEstadoPersonal() {
     renderizarDesgloseMenteCognitiva();
     actualizarGraficosRadarEstadoPersonal();
     iniciarMonitorMedianocheDiaria();
+
+    // Nutrición & Descanso
+    if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
+    if (typeof renderizarModuloNutricion === 'function') renderizarModuloNutricion();
+    if (typeof renderizarModuloDescanso === 'function') renderizarModuloDescanso();
 }
 
 function renderizarBarrasFatiga(f) {
@@ -8529,6 +8534,560 @@ if (typeof window !== 'undefined') {
     window.toggleSerieCeroRutina = toggleSerieCeroRutina;
     window.alCambiarInputSeriesRutina = alCambiarInputSeriesRutina;
 }
+
+/* ==========================================================================
+   ESTADO PERSONAL · APARTADOS 2 (NUTRICIÓN & AGUA) Y 3 (DESCANSO & SUEÑO)
+   ========================================================================== */
+
+function inicializarNutricionYDescanso() {
+    if (typeof APP_STATE === 'undefined' || !APP_STATE) return;
+    if (!APP_STATE.nutricion) {
+        APP_STATE.nutricion = {
+            metaAguaMl: 2500,
+            registrosAgua: {},
+            comidas: []
+        };
+    }
+    if (!APP_STATE.nutricion.registrosAgua) APP_STATE.nutricion.registrosAgua = {};
+    if (!APP_STATE.nutricion.comidas) APP_STATE.nutricion.comidas = [];
+    if (!APP_STATE.nutricion.metaAguaMl) APP_STATE.nutricion.metaAguaMl = 2500;
+
+    if (!APP_STATE.sueno) {
+        APP_STATE.sueno = {
+            metaHoras: 8,
+            registros: [],
+            siestas: {}
+        };
+    }
+    if (!APP_STATE.sueno.registros) APP_STATE.sueno.registros = [];
+    if (!APP_STATE.sueno.siestas) APP_STATE.sueno.siestas = {};
+    if (!APP_STATE.sueno.metaHoras) APP_STATE.sueno.metaHoras = 8;
+}
+
+function cambiarSeccionEstadoPersonal(seccion) {
+    window.SECCION_EP_ACTIVA = seccion || 'desgaste';
+
+    // Pestañas maestras
+    var tabs = document.querySelectorAll('.ep-master-tab');
+    tabs.forEach(function(t) {
+        t.classList.remove('active');
+    });
+    var btnActivo = document.getElementById('tab-ep-btn-' + window.SECCION_EP_ACTIVA);
+    if (btnActivo) btnActivo.classList.add('active');
+
+    // Paneles
+    var paneles = document.querySelectorAll('.ep-seccion-panel');
+    paneles.forEach(function(p) {
+        p.style.display = 'none';
+        p.classList.remove('active');
+    });
+    var panelActivo = document.getElementById('seccion-ep-' + window.SECCION_EP_ACTIVA);
+    if (panelActivo) {
+        panelActivo.style.display = 'block';
+        panelActivo.classList.add('active');
+    }
+
+    // Actualizar encabezado
+    var tit = document.getElementById('titulo-estado-personal-header');
+    var sub = document.getElementById('subtitulo-estado-personal-header');
+
+    if (window.SECCION_EP_ACTIVA === 'desgaste') {
+        if (tit) tit.textContent = "Estado Personal · Diagnóstico del Avatar";
+        if (sub) sub.textContent = "Monitoreo analítico milimétrico: balance en tiempo real entre el desgaste físico y la carga mental.";
+        actualizarGraficosRadarEstadoPersonal();
+    } else if (window.SECCION_EP_ACTIVA === 'nutricion') {
+        if (tit) tit.textContent = "Nutrición & Hidratación · Combustible Biológico";
+        if (sub) sub.textContent = "Control diario de ingesta de agua, registro de comidas y balance nutricional para el avatar.";
+        renderizarModuloNutricion();
+    } else if (window.SECCION_EP_ACTIVA === 'descanso') {
+        if (tit) tit.textContent = "Descanso & Sueño · Regeneración Neural";
+        if (sub) sub.textContent = "Monitoreo de horas de sueño, siestas diurnas y bono de recuperación del avatar.";
+        renderizarModuloDescanso();
+    }
+}
+
+// --------------------------------------------------------------------------
+// MÓDULO 2: NUTRICIÓN & HIDRATACIÓN
+// --------------------------------------------------------------------------
+
+function renderizarModuloNutricion() {
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var nut = APP_STATE.nutricion;
+
+    // 1. Agua
+    var consumo = Number(nut.registrosAgua[hoy]) || 0;
+    var meta = Number(nut.metaAguaMl) || 2500;
+    var pct = Math.min(100, Math.round((consumo / meta) * 100));
+
+    var elConsumo = document.getElementById('txt-consumo-agua-hoy');
+    var elMeta = document.getElementById('txt-meta-agua');
+    var elMetaDisp = document.getElementById('txt-meta-agua-display');
+    var elBadgePct = document.getElementById('badge-porcentaje-agua');
+    var elBarra = document.getElementById('barra-progreso-agua');
+
+    if (elConsumo) elConsumo.textContent = consumo.toLocaleString('es-ES');
+    if (elMeta) elMeta.textContent = meta.toLocaleString('es-ES');
+    if (elMetaDisp) elMetaDisp.textContent = meta.toLocaleString('es-ES');
+    if (elBadgePct) elBadgePct.textContent = pct + '%';
+    if (elBarra) elBarra.style.width = pct + '%';
+
+    // 2. Comidas del día
+    var comidasHoy = nut.comidas.filter(function(c) {
+        return c.fecha === hoy;
+    });
+
+    var totalComidas = comidasHoy.length;
+    var caloriasTotal = 0;
+    var saludablesCount = 0;
+
+    comidasHoy.forEach(function(c) {
+        if (c.calorias) caloriasTotal += Number(c.calorias) || 0;
+        if (c.calidad === 'saludable' || c.calidad === 'proteina' || c.calidad === 'balanceado') {
+            saludablesCount++;
+        }
+    });
+
+    var balancePct = totalComidas > 0 ? Math.round((saludablesCount / totalComidas) * 100) : 100;
+
+    var elTotCom = document.getElementById('txt-total-comidas-hoy');
+    var elCalidad = document.getElementById('txt-calidad-nutricion-hoy');
+    var elCalorias = document.getElementById('txt-calorias-aprox-hoy');
+
+    if (elTotCom) elTotCom.textContent = totalComidas;
+    if (elCalidad) elCalidad.textContent = balancePct + '%';
+    if (elCalorias) elCalorias.textContent = caloriasTotal + ' kcal';
+
+    var contLista = document.getElementById('contenedor-lista-comidas-hoy');
+    if (!contLista) return;
+
+    if (comidasHoy.length === 0) {
+        contLista.innerHTML = '<div style="text-align: center; padding: 24px 14px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px; color: #94a3b8;">' +
+            '<div style="font-size: 24px; margin-bottom: 6px;">🍽️</div>' +
+            '<div style="font-weight: 700; color: #f8fafc; font-size: 13px;">No has registrado comidas hoy</div>' +
+            '<div style="font-size: 11.5px; margin-top: 2px;">Toca "+ Registrar Comida" para llevar el control nutricional de tu jornada.</div>' +
+            '</div>';
+        return;
+    }
+
+    var momentosIcons = {
+        'desayuno': '🌅 Desayuno',
+        'almuerzo': '☀️ Almuerzo',
+        'merienda': '🥪 Merienda / Snack',
+        'cena': '🌙 Cena',
+        'pre_post': '⚡ Pre/Post Entreno',
+        'extra': '🍎 Extra'
+    };
+
+    var calidadBadges = {
+        'saludable': { label: 'Saludable', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+        'balanceado': { label: 'Balanceado', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+        'proteina': { label: 'Alto en Proteína', color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
+        'cheat': { label: 'Cheat / Libre', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' }
+    };
+
+    var html = '';
+    comidasHoy.forEach(function(c) {
+        var mLabel = momentosIcons[c.tipo] || c.tipo;
+        var qMeta = calidadBadges[c.calidad] || calidadBadges['saludable'];
+
+        html += '<div class="comida-item-row">' +
+            '<div style="display: flex; align-items: center; gap: 10px;">' +
+                '<div style="font-size: 18px;">🥗</div>' +
+                '<div>' +
+                    '<div style="display: flex; align-items: center; gap: 8px;">' +
+                        '<span style="font-size: 13px; font-weight: 700; color: #f8fafc;">' + (c.nombre || 'Comida sin nombre') + '</span>' +
+                        '<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; color: ' + qMeta.color + '; background: ' + qMeta.bg + ';">' + qMeta.label + '</span>' +
+                    '</div>' +
+                    '<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">' +
+                        '<span>' + mLabel + '</span> · <span>' + (c.hora || '--:--') + '</span>' +
+                        (c.calorias ? ' · <span style="color: #f59e0b; font-weight: 600;">' + c.calorias + ' kcal</span>' : '') +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" onclick="eliminarComidaNutricion(\'' + c.id + '\')" title="Eliminar registro" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px;">✕</button>' +
+        '</div>';
+    });
+
+    contLista.innerHTML = html;
+}
+
+function agregarAgua(ml) {
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var actual = Number(APP_STATE.nutricion.registrosAgua[hoy]) || 0;
+    var nuevo = Math.max(0, actual + ml);
+    APP_STATE.nutricion.registrosAgua[hoy] = nuevo;
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+    renderizarModuloNutricion();
+
+    if (typeof mostrarToastMonarca === 'function') {
+        if (ml > 0) {
+            mostrarToastMonarca('+' + ml + ' ml de agua registrados (' + nuevo + ' ml hoy)', '💧');
+        } else {
+            mostrarToastMonarca('Consumo corregido a ' + nuevo + ' ml', '💧');
+        }
+    }
+}
+
+function reiniciarAguaHoy() {
+    if (!confirm('¿Deseas reiniciar a 0 ml el contador de agua de hoy?')) return;
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    APP_STATE.nutricion.registrosAgua[hoy] = 0;
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloNutricion();
+}
+
+function editarMetaAgua() {
+    inicializarNutricionYDescanso();
+    var m = document.getElementById('modal-meta-agua');
+    var inp = document.getElementById('input-nueva-meta-agua');
+    if (inp) inp.value = APP_STATE.nutricion.metaAguaMl || 2500;
+    if (m) m.style.display = 'flex';
+}
+
+function guardarMetaAgua() {
+    var inp = document.getElementById('input-nueva-meta-agua');
+    if (!inp) return;
+    var v = parseInt(inp.value, 10);
+    if (!v || v <= 0) {
+        alert('Ingresa una meta válida en mililitros.');
+        return;
+    }
+    inicializarNutricionYDescanso();
+    APP_STATE.nutricion.metaAguaMl = v;
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    var m = document.getElementById('modal-meta-agua');
+    if (m) m.style.display = 'none';
+    renderizarModuloNutricion();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Meta de agua actualizada a ' + v.toLocaleString('es-ES') + ' ml', '🎯');
+    }
+}
+
+function abrirModalNuevaComida() {
+    var m = document.getElementById('modal-registro-comida');
+    if (!m) return;
+    var inHora = document.getElementById('input-comida-hora');
+    var inNom = document.getElementById('input-comida-nombre');
+    var inCal = document.getElementById('input-comida-calorias');
+
+    if (inNom) inNom.value = '';
+    if (inCal) inCal.value = '';
+    if (inHora) {
+        var d = new Date();
+        var h = String(d.getHours()).padStart(2, '0');
+        var min = String(d.getMinutes()).padStart(2, '0');
+        inHora.value = h + ':' + min;
+    }
+    m.style.display = 'flex';
+    setTimeout(function() { if (inNom) inNom.focus(); }, 100);
+}
+
+function cerrarModalNuevaComida() {
+    var m = document.getElementById('modal-registro-comida');
+    if (m) m.style.display = 'none';
+}
+
+function guardarComidaNutricion() {
+    var inTipo = document.getElementById('input-comida-tipo');
+    var inNom = document.getElementById('input-comida-nombre');
+    var inHora = document.getElementById('input-comida-hora');
+    var inCal = document.getElementById('input-comida-calorias');
+    var inQ = document.getElementById('input-comida-calidad');
+
+    if (!inNom || !inNom.value.trim()) {
+        alert('Por favor ingresa los alimentos o nombre del plato.');
+        return;
+    }
+
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+
+    var nuevaComida = {
+        id: 'COM-' + Date.now(),
+        fecha: hoy,
+        tipo: inTipo ? inTipo.value : 'almuerzo',
+        nombre: inNom.value.trim(),
+        hora: inHora ? inHora.value : '12:00',
+        calorias: inCal && inCal.value ? parseInt(inCal.value, 10) : 0,
+        calidad: inQ ? inQ.value : 'saludable'
+    };
+
+    APP_STATE.nutricion.comidas.unshift(nuevaComida);
+
+    if (typeof sumarExp === 'function') sumarExp(10);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+
+    cerrarModalNuevaComida();
+    renderizarModuloNutricion();
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Comida registrada exitosamente (+10 EXP Disciplina)', '🥗');
+    }
+}
+
+function eliminarComidaNutricion(id) {
+    if (!confirm('¿Deseas eliminar este registro de comida?')) return;
+    inicializarNutricionYDescanso();
+    APP_STATE.nutricion.comidas = APP_STATE.nutricion.comidas.filter(function(c) {
+        return c.id !== id;
+    });
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloNutricion();
+}
+
+// --------------------------------------------------------------------------
+// MÓDULO 3: DESCANSO & SUEÑO
+// --------------------------------------------------------------------------
+
+function renderizarModuloDescanso() {
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var sueno = APP_STATE.sueno;
+
+    var registroHoy = sueno.registros.find(function(r) {
+        return r.fecha === hoy;
+    });
+
+    var elHoras = document.getElementById('txt-horas-sueno-hoy');
+    var elMetaH = document.getElementById('txt-meta-sueno-horas');
+    var elHorario = document.getElementById('txt-horario-sueno-hoy');
+    var elBadgeQ = document.getElementById('badge-calidad-sueno-hoy');
+    var elTxtBono = document.getElementById('txt-efecto-recuperacion-sueno');
+    var elBadgeBono = document.getElementById('badge-bono-aplicado-sueno');
+
+    if (elMetaH) elMetaH.textContent = Number(sueno.metaHoras || 8).toFixed(1);
+
+    if (registroHoy) {
+        var h = Number(registroHoy.horasDormidas) || 0;
+        if (elHoras) elHoras.textContent = h.toFixed(1);
+        if (elHorario) {
+            elHorario.textContent = 'Acostarse: ' + (registroHoy.horaDormir || '--:--') + ' · Despertar: ' + (registroHoy.horaDespertar || '--:--') + (registroHoy.notas ? ' · "' + registroHoy.notas + '"' : '');
+        }
+
+        var calidadConfig = {
+            'reparador': { text: '🌟 Reparador / Óptimo', color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
+            'bueno': { text: '😊 Bueno / Normal', color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' },
+            'regular': { text: '😐 Regular', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+            'insuficiente': { text: '😫 Insuficiente', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
+        };
+        var qc = calidadConfig[registroHoy.calidad] || calidadConfig['bueno'];
+        if (elBadgeQ) {
+            elBadgeQ.textContent = qc.text;
+            elBadgeQ.style.color = qc.color;
+            elBadgeQ.style.background = qc.bg;
+            elBadgeQ.style.borderColor = qc.color;
+        }
+
+        if (h >= 7.5 && (registroHoy.calidad === 'reparador' || registroHoy.calidad === 'bueno')) {
+            if (elTxtBono) elTxtBono.textContent = '¡Sueño óptimo registrado! Se ha acelerado la regeneración muscular y neural del avatar (-15% fatiga).';
+            if (elBadgeBono) {
+                elBadgeBono.textContent = '-15% Fatiga Avatar';
+                elBadgeBono.style.color = '#34d399';
+            }
+        } else if (h >= 6.5) {
+            if (elTxtBono) elTxtBono.textContent = 'Descanso adecuado. El avatar mantiene un nivel de recuperación estable (-10% fatiga).';
+            if (elBadgeBono) {
+                elBadgeBono.textContent = '-10% Fatiga';
+                elBadgeBono.style.color = '#38bdf8';
+            }
+        } else {
+            if (elTxtBono) elTxtBono.textContent = 'Sueño insuficiente (<6.5h). Se recomienda una siesta diurna de 20-30 min para regenerar foco.';
+            if (elBadgeBono) {
+                elBadgeBono.textContent = 'Alerta Fatiga';
+                elBadgeBono.style.color = '#f87171';
+            }
+        }
+    } else {
+        if (elHoras) elHoras.textContent = '0.0';
+        if (elHorario) elHorario.textContent = 'No hay registro de sueño para hoy. Toca "+ Registrar Sueño".';
+        if (elBadgeQ) {
+            elBadgeQ.textContent = 'Pendiente';
+            elBadgeQ.style.color = '#818cf8';
+            elBadgeQ.style.background = 'rgba(99,102,241,0.12)';
+            elBadgeQ.style.borderColor = 'rgba(99,102,241,0.3)';
+        }
+        if (elTxtBono) elTxtBono.textContent = 'Registra tus horas de descanso para aplicar el bono de recuperación a la fatiga del avatar.';
+        if (elBadgeBono) {
+            elBadgeBono.textContent = '+0% Recuperación';
+            elBadgeBono.style.color = '#94a3b8';
+        }
+    }
+
+    // Historial semanal de sueño (últimos 7 registros)
+    var contHistorial = document.getElementById('contenedor-historial-sueno-semanal');
+    if (!contHistorial) return;
+
+    var ultimos = (sueno.registros || []).slice(0, 7);
+    if (ultimos.length === 0) {
+        contHistorial.innerHTML = '<div style="text-align: center; padding: 18px; color: #64748b; font-size: 12px; background: rgba(255,255,255,0.02); border-radius: 10px;">Aún no tienes noches registradas en el historial.</div>';
+        return;
+    }
+
+    var hHtml = '';
+    ultimos.forEach(function(r) {
+        var calText = r.calidad === 'reparador' ? '🌟 Reparador' : (r.calidad === 'bueno' ? '😊 Bueno' : (r.calidad === 'regular' ? '😐 Regular' : '😫 Insuficiente'));
+        hHtml += '<div class="sueno-item-row">' +
+            '<div style="display: flex; align-items: center; gap: 10px;">' +
+                '<span style="font-size: 16px;">🌙</span>' +
+                '<div>' +
+                    '<div style="font-size: 12.5px; font-weight: 700; color: #f8fafc;">' + r.fecha + ' · <span style="color: #a5b4fc;">' + Number(r.horasDormidas).toFixed(1) + ' horas</span></div>' +
+                    '<div style="font-size: 11px; color: #94a3b8;">' + (r.horaDormir || '--:--') + ' a ' + (r.horaDespertar || '--:--') + ' · ' + calText + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" onclick="eliminarRegistroSueno(\'' + r.id + '\')" title="Eliminar registro" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px;">✕</button>' +
+        '</div>';
+    });
+    contHistorial.innerHTML = hHtml;
+}
+
+function abrirModalRegistroSueno() {
+    inicializarNutricionYDescanso();
+    var m = document.getElementById('modal-registro-sueno');
+    if (!m) return;
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var reg = APP_STATE.sueno.registros.find(function(r) { return r.fecha === hoy; });
+
+    var inH = document.getElementById('input-sueno-horas');
+    var inA = document.getElementById('input-sueno-acostarse');
+    var inD = document.getElementById('input-sueno-despertar');
+    var inQ = document.getElementById('input-sueno-calidad');
+    var inN = document.getElementById('input-sueno-notas');
+
+    if (reg) {
+        if (inH) inH.value = reg.horasDormidas;
+        if (inA) inA.value = reg.horaDormir || '23:30';
+        if (inD) inD.value = reg.horaDespertar || '07:00';
+        if (inQ) inQ.value = reg.calidad || 'reparador';
+        if (inN) inN.value = reg.notas || '';
+    } else {
+        if (inH) inH.value = '7.5';
+        if (inA) inA.value = '23:30';
+        if (inD) inD.value = '07:00';
+        if (inQ) inQ.value = 'reparador';
+        if (inN) inN.value = '';
+    }
+    m.style.display = 'flex';
+}
+
+function cerrarModalRegistroSueno() {
+    var m = document.getElementById('modal-registro-sueno');
+    if (m) m.style.display = 'none';
+}
+
+function guardarRegistroSueno() {
+    var inH = document.getElementById('input-sueno-horas');
+    var inA = document.getElementById('input-sueno-acostarse');
+    var inD = document.getElementById('input-sueno-despertar');
+    var inQ = document.getElementById('input-sueno-calidad');
+    var inN = document.getElementById('input-sueno-notas');
+
+    var horas = parseFloat(inH ? inH.value : 0);
+    if (isNaN(horas) || horas <= 0) {
+        alert('Por favor ingresa un número válido de horas dormidas.');
+        return;
+    }
+
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+
+    // Eliminar si ya existía para hoy
+    APP_STATE.sueno.registros = APP_STATE.sueno.registros.filter(function(r) {
+        return r.fecha !== hoy;
+    });
+
+    var nuevoRegistro = {
+        id: 'SUE-' + Date.now(),
+        fecha: hoy,
+        horasDormidas: horas,
+        horaDormir: inA ? inA.value : '23:30',
+        horaDespertar: inD ? inD.value : '07:00',
+        calidad: inQ ? inQ.value : 'reparador',
+        notas: inN ? inN.value.trim() : ''
+    };
+
+    APP_STATE.sueno.registros.unshift(nuevoRegistro);
+
+    // Bono de Recuperación del Avatar en la fatiga acumulada
+    if (horas >= 7 && APP_STATE.fatiga) {
+        var factorReduccion = (nuevoRegistro.calidad === 'reparador' || horas >= 8) ? 0.85 : 0.90;
+        Object.keys(APP_STATE.fatiga).forEach(function(k) {
+            if (typeof APP_STATE.fatiga[k] === 'number') {
+                APP_STATE.fatiga[k] = Math.max(0, Math.round(APP_STATE.fatiga[k] * factorReduccion));
+            }
+        });
+    }
+
+    if (typeof sumarExp === 'function') sumarExp(25);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+
+    cerrarModalRegistroSueno();
+    renderizarModuloDescanso();
+
+    // Actualizar métricas del avatar si está en la vista
+    if (typeof actualizarDesgasteDiarioAutomatico === 'function') actualizarDesgasteDiarioAutomatico();
+    if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Descanso registrado exitosamente (+25 EXP Regeneración Avatar)', '🌙');
+    }
+}
+
+function eliminarRegistroSueno(id) {
+    if (!confirm('¿Deseas eliminar este registro de descanso?')) return;
+    inicializarNutricionYDescanso();
+    APP_STATE.sueno.registros = APP_STATE.sueno.registros.filter(function(r) {
+        return r.id !== id;
+    });
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloDescanso();
+}
+
+function agregarSiestaHoy(minutos) {
+    inicializarNutricionYDescanso();
+    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var actual = Number(APP_STATE.sueno.siestas[hoy]) || 0;
+    APP_STATE.sueno.siestas[hoy] = actual + minutos;
+
+    // Alivio de fatiga mental por siesta
+    if (APP_STATE.fatiga && typeof APP_STATE.fatiga.mente === 'number') {
+        APP_STATE.fatiga.mente = Math.max(0, APP_STATE.fatiga.mente - 5);
+    }
+
+    if (typeof sumarExp === 'function') sumarExp(10);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+
+    renderizarModuloDescanso();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Siesta de ' + minutos + ' min registrada (-5% fatiga mental, +10 EXP)', '💤');
+    }
+}
+
+// Exportar funciones a window
+if (typeof window !== 'undefined') {
+    window.cambiarSeccionEstadoPersonal = cambiarSeccionEstadoPersonal;
+    window.renderizarModuloNutricion = renderizarModuloNutricion;
+    window.agregarAgua = agregarAgua;
+    window.reiniciarAguaHoy = reiniciarAguaHoy;
+    window.editarMetaAgua = editarMetaAgua;
+    window.guardarMetaAgua = guardarMetaAgua;
+    window.abrirModalNuevaComida = abrirModalNuevaComida;
+    window.cerrarModalNuevaComida = cerrarModalNuevaComida;
+    window.guardarComidaNutricion = guardarComidaNutricion;
+    window.eliminarComidaNutricion = eliminarComidaNutricion;
+    window.renderizarModuloDescanso = renderizarModuloDescanso;
+    window.abrirModalRegistroSueno = abrirModalRegistroSueno;
+    window.cerrarModalRegistroSueno = cerrarModalRegistroSueno;
+    window.guardarRegistroSueno = guardarRegistroSueno;
+    window.eliminarRegistroSueno = eliminarRegistroSueno;
+    window.agregarSiestaHoy = agregarSiestaHoy;
+}
+
 
 
 

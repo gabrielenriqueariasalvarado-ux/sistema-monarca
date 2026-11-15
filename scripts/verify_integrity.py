@@ -89,6 +89,12 @@ def check_js_syntax(filename):
                 i += 2
                 col += 1
                 continue
+            else:
+                prev_str = code[:i].rstrip()
+                if prev_str and prev_str[-1] in ('(', '=', ':', ',', '!', '&', '|', '?', ';', '[', '{', '~', '+', '-'):
+                    in_str = '/'
+                    i += 1
+                    continue
         if ch in ('"', "'", '`'):
             in_str = ch
             i += 1
@@ -112,7 +118,7 @@ def check_js_syntax(filename):
     print(f"PASS JS: {filename}")
     return True
 
-for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js']:
+for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js', 'js/estado-personal.js']:
     if not check_js_syntax(f):
         sys.exit(1)
 

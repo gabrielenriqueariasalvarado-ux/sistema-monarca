@@ -9359,6 +9359,101 @@ body.modal-open {
     overflow: hidden;
 }
 
+/* ==========================================================================
+   ESTADO PERSONAL · NAVEGACIÓN MAESTRA DE 3 APARTADOS
+   ========================================================================== */
+.ep-master-tabs-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ep-master-tab {
+    flex: 1;
+    min-width: 140px;
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+}
+
+.ep-master-tab:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ep-master-tab.active {
+    background: rgba(99, 102, 241, 0.18);
+    color: #ffffff;
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+}
+
+.ep-card-panel {
+    background: #0d121e !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.btn-agua-quick {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-agua-quick:hover {
+    transform: translateY(-2px);
+    background: rgba(6, 182, 212, 0.2) !important;
+    border-color: rgba(6, 182, 212, 0.5) !important;
+    box-shadow: 0 4px 14px rgba(6, 182, 212, 0.25);
+}
+
+.btn-agua-quick:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.comida-item-row {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
+.comida-item-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.sueno-item-row {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+}
+
 
 
 

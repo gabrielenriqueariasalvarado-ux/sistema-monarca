@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.41">
+    <link rel="stylesheet" href="style.css?v=10.42">
 </head>
 <body>
 
@@ -425,11 +425,26 @@
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
         
-        <div class="card" style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; letter-spacing: -0.2px;">Estado Personal · Diagnóstico del Avatar</h2>
-            <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitoreo analítico milimétrico: balance en tiempo real entre el desgaste físico y la carga mental.</p>
+        <div class="card" style="text-align: center; margin-bottom: 16px;">
+            <h2 id="titulo-estado-personal-header" style="margin: 0; letter-spacing: -0.2px;">Estado Personal · Diagnóstico del Avatar</h2>
+            <p id="subtitulo-estado-personal-header" style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Monitoreo analítico milimétrico: balance en tiempo real entre el desgaste físico y la carga mental.</p>
         </div>
 
+        <!-- BARRA MAESTRA DE LOS 3 APARTADOS DE ESTADO PERSONAL -->
+        <div class="ep-master-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+            <button type="button" class="ep-master-tab active" id="tab-ep-btn-desgaste" onclick="cambiarSeccionEstadoPersonal('desgaste')">
+                <span style="font-size: 16px;">⚡</span> Desgaste & Telemetría
+            </button>
+            <button type="button" class="ep-master-tab" id="tab-ep-btn-nutricion" onclick="cambiarSeccionEstadoPersonal('nutricion')">
+                <span style="font-size: 16px;">🥗</span> Agua & Alimentación
+            </button>
+            <button type="button" class="ep-master-tab" id="tab-ep-btn-descanso" onclick="cambiarSeccionEstadoPersonal('descanso')">
+                <span style="font-size: 16px;">🌙</span> Descanso & Sueño
+            </button>
+        </div>
+
+        <!-- 1. APARTADO: DESGASTE FÍSICO & TELEMETRÍA (EXISTENTE) -->
+        <div id="seccion-ep-desgaste" class="ep-seccion-panel active">
         <!-- 1. GRÁFICO GENERAL DINÁMICO DEL AVATAR -->
         <div id="hud-avatar-overview">
             <!-- Inyectado dinámicamente con esquema del cuerpo, esquema de la mente y % general de desgaste diario -->
@@ -528,7 +543,183 @@
                 </div>
             </div>
         </div>
-    </div>
+        </div> <!-- FIN: seccion-ep-desgaste -->
+
+        <!-- ==========================================================================
+             2. APARTADO: NUTRICIÓN & HIDRATACIÓN (AGUA Y ALIMENTACIÓN)
+             ========================================================================== -->
+        <div id="seccion-ep-nutricion" class="ep-seccion-panel" style="display: none; margin-bottom: 24px;">
+            <!-- SUB-TARJETA: HIDRATACIÓN (AGUA) -->
+            <div class="card ep-card-panel" style="margin-bottom: 18px; border-left: 4px solid #06b6d4;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 38px; height: 38px; border-radius: 12px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); display: flex; align-items: center; justify-content: center; font-size: 19px; color: #22d3ee;">
+                            💧
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Hidratación Diaria</h3>
+                            <p style="margin: 0; font-size: 11px; color: #94a3b8;">Control de ingesta de agua para rendimiento biológico</p>
+                        </div>
+                    </div>
+                    <button class="btn-system" onclick="editarMetaAgua()" style="font-size: 11px; padding: 5px 12px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; cursor: pointer;">
+                        ⚙️ Meta: <span id="txt-meta-agua">2,500</span> ml
+                    </button>
+                </div>
+
+                <!-- Visor de progreso de agua -->
+                <div style="background: rgba(0,0,0,0.35); border-radius: 16px; padding: 16px; border: 1px solid rgba(6, 182, 212, 0.2); margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px;">
+                        <div>
+                            <span id="txt-consumo-agua-hoy" style="font-size: 28px; font-weight: 800; color: #22d3ee; letter-spacing: -0.5px;">0</span>
+                            <span style="font-size: 14px; color: #94a3b8; font-weight: 600;">/ <span id="txt-meta-agua-display">2500</span> ml</span>
+                        </div>
+                        <div id="badge-porcentaje-agua" style="font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3);">
+                            0%
+                        </div>
+                    </div>
+                    <!-- Barra de progreso -->
+                    <div style="width: 100%; height: 12px; background: rgba(255,255,255,0.06); border-radius: 9999px; overflow: hidden; position: relative;">
+                        <div id="barra-progreso-agua" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7 0%, #06b6d4 50%, #38bdf8 100%); border-radius: 9999px; transition: width 0.4s ease; box-shadow: 0 0 12px rgba(6, 182, 212, 0.5);"></div>
+                    </div>
+                </div>
+
+                <!-- Botones de adición rápida de agua -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                    <button type="button" onclick="agregarAgua(250)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        🥛 +250 ml
+                    </button>
+                    <button type="button" onclick="agregarAgua(500)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        🍶 +500 ml
+                    </button>
+                    <button type="button" onclick="agregarAgua(750)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        💧 +750 ml
+                    </button>
+                    <button type="button" onclick="agregarAgua(1000)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        🚰 +1,000 ml
+                    </button>
+                    <button type="button" onclick="agregarAgua(-250)" class="btn-agua-quick" title="Corregir o restar 250ml" style="padding: 9px 12px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: #fca5a5; font-size: 12px; font-weight: 700; cursor: pointer;">
+                        -250 ml
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUB-TARJETA: ALIMENTACIÓN DIARIA -->
+            <div class="card ep-card-panel" style="border-left: 4px solid #10b981;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 38px; height: 38px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 19px; color: #34d399;">
+                            🥗
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Alimentación del Día</h3>
+                            <p style="margin: 0; font-size: 11px; color: #94a3b8;">Registro de comidas, nutrición y combustible para el avatar</p>
+                        </div>
+                    </div>
+                    <button class="btn-system" onclick="abrirModalNuevaComida()" style="font-size: 12px; padding: 7px 14px; background: #10b981; color: #042f1d; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span>+</span> Registrar Comida
+                    </button>
+                </div>
+
+                <!-- Resumen de Comidas de Hoy -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; text-align: center;">
+                        <div id="txt-total-comidas-hoy" style="font-size: 18px; font-weight: 800; color: #f8fafc;">0</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Comidas Hoy</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; text-align: center;">
+                        <div id="txt-calidad-nutricion-hoy" style="font-size: 18px; font-weight: 800; color: #10b981;">100%</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Balance Saludable</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; text-align: center;">
+                        <div id="txt-calorias-aprox-hoy" style="font-size: 18px; font-weight: 800; color: #f59e0b;">0 kcal</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Calorías Estimadas</div>
+                    </div>
+                </div>
+
+                <!-- Lista de Comidas Registradas -->
+                <div id="contenedor-lista-comidas-hoy" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Renderizado dinámico -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================================================
+             3. APARTADO: DESCANSO & SUEÑO (HORAS DE SUEÑO & RECUPERACIÓN)
+             ========================================================================== -->
+        <div id="seccion-ep-descanso" class="ep-seccion-panel" style="display: none; margin-bottom: 24px;">
+            <!-- SUB-TARJETA: SUEÑO NOCTURNO Y RECUPERACIÓN -->
+            <div class="card ep-card-panel" style="margin-bottom: 18px; border-left: 4px solid #818cf8;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 38px; height: 38px; border-radius: 12px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); display: flex; align-items: center; justify-content: center; font-size: 19px; color: #818cf8;">
+                            🌙
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Sueño & Recuperación Biológica</h3>
+                            <p style="margin: 0; font-size: 11px; color: #94a3b8;">Monitoreo de horas dormidas y regeneración del sistema nervioso</p>
+                        </div>
+                    </div>
+                    <button class="btn-system" onclick="abrirModalRegistroSueno()" style="font-size: 12px; padding: 7px 14px; background: #6366f1; color: #ffffff; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span>+</span> Registrar Sueño
+                    </button>
+                </div>
+
+                <!-- Tarjeta de estado de sueño de hoy -->
+                <div style="background: rgba(0,0,0,0.35); border-radius: 16px; padding: 16px; border: 1px solid rgba(99, 102, 241, 0.2); margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <div style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Descanso Última Noche</div>
+                            <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 2px;">
+                                <span id="txt-horas-sueno-hoy" style="font-size: 32px; font-weight: 800; color: #a5b4fc; letter-spacing: -0.5px;">0.0</span>
+                                <span style="font-size: 14px; color: #94a3b8; font-weight: 600;">horas (Meta: <span id="txt-meta-sueno-horas">8.0</span>h)</span>
+                            </div>
+                            <div id="txt-horario-sueno-hoy" style="font-size: 11.5px; color: #64748b; margin-top: 3px;">No hay registro para la noche anterior</div>
+                        </div>
+                        <div id="badge-calidad-sueno-hoy" style="font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">
+                            Pendiente
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Impacto en la Recuperación del Avatar -->
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">⚡</span>
+                        <div>
+                            <div style="font-size: 12.5px; font-weight: 700; color: #f8fafc;">Bono de Recuperación del Avatar</div>
+                            <div id="txt-efecto-recuperacion-sueno" style="font-size: 11px; color: #94a3b8;">Dormir 7.5h o más reduce un 15% de fatiga acumulada en cuerpo y mente.</div>
+                        </div>
+                    </div>
+                    <div id="badge-bono-aplicado-sueno" style="font-size: 11px; font-weight: 700; color: #34d399; background: rgba(16,185,129,0.1); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.3);">
+                        +0% Recuperación
+                    </div>
+                </div>
+
+                <!-- Siestas Diurnas (Power Naps) -->
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <div style="font-size: 13px; font-weight: 700; color: #f8fafc;">Siestas Diurnas (Power Nap)</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Descansos de 20-30 min para descompresión neural</div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" onclick="agregarSiestaHoy(20)" style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe; padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                            💤 +20 min
+                        </button>
+                        <button type="button" onclick="agregarSiestaHoy(30)" style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); color: #c7d2fe; padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                            💤 +30 min
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Historial Reciente de Sueño -->
+                <div>
+                    <h4 style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #f8fafc;">Historial de las Últimas 7 Noches</h4>
+                    <div id="contenedor-historial-sueno-semanal" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Renderizado dinámico -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <!-- VISTA: PERFIL -->
     <div id="vista-perfil" class="tab-content">
@@ -4766,6 +4957,138 @@
         </div>
     </div>
 
+    <!-- MODAL REGISTRO DE COMIDA (NUTRICIÓN) -->
+    <div id="modal-registro-comida" class="modal-overlay" style="display: none; z-index: 10000;">
+        <div class="modal-card" style="max-width: 440px; width: 92%; border-radius: 18px; border: 1px solid rgba(16, 185, 129, 0.3); background: #0f1522; box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #34d399;">
+                        🥗
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Registrar Comida</h3>
+                        <p style="margin: 0; font-size: 11px; color: #94a3b8;">Alimentación y combustible del avatar</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalNuevaComida()" class="btn-icon" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 30px; height: 30px; color: #cbd5e1; cursor: pointer;">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Momento de la Comida:</label>
+                    <select id="input-comida-tipo" class="modal-input" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                        <option value="desayuno">🌅 Desayuno</option>
+                        <option value="almuerzo" selected>☀️ Almuerzo</option>
+                        <option value="merienda">🥪 Merienda / Snack</option>
+                        <option value="cena">🌙 Cena</option>
+                        <option value="pre_post">⚡ Pre/Post Entreno</option>
+                        <option value="extra">🍎 Extra</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Alimentos / Plato Consumido:</label>
+                    <input type="text" id="input-comida-nombre" class="modal-input" placeholder="Ej: Pechuga a la plancha con arroz y aguacate..." style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Hora:</label>
+                        <input type="time" id="input-comida-hora" class="modal-input" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Calorías (Aprox.):</label>
+                        <input type="number" id="input-comida-calorias" class="modal-input" placeholder="Ej: 550" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Calidad / Enfoque Nutricional:</label>
+                    <select id="input-comida-calidad" class="modal-input" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                        <option value="saludable" selected>🥗 Saludable (Clean & Óptimo)</option>
+                        <option value="balanceado">⚖️ Balanceado (Normal)</option>
+                        <option value="proteina">⚡ Alto en Proteína (Recuperación)</option>
+                        <option value="cheat">🍔 Cheat / Libre (Ocasional)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 18px;">
+                <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaComida()">Cancelar</button>
+                <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: #10b981; color: #042f1d; font-weight: 800; border: none; border-radius: 8px;" onclick="guardarComidaNutricion()">💾 Guardar Comida</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRO DE SUEÑO & DESCANSO -->
+    <div id="modal-registro-sueno" class="modal-overlay" style="display: none; z-index: 10000;">
+        <div class="modal-card" style="max-width: 440px; width: 92%; border-radius: 18px; border: 1px solid rgba(99, 102, 241, 0.3); background: #0f1522; box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(99, 102, 241, 0.15); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #818cf8;">
+                        🌙
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Registrar Descanso & Sueño</h3>
+                        <p style="margin: 0; font-size: 11px; color: #94a3b8;">Monitoreo de recuperación y horas dormidas</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalRegistroSueno()" class="btn-icon" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 30px; height: 30px; color: #cbd5e1; cursor: pointer;">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Total Horas Dormidas:</label>
+                    <input type="number" step="0.5" id="input-sueno-horas" class="modal-input" placeholder="Ej: 7.5" style="width: 100%; padding: 10px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; font-size: 18px; font-weight: 700; border-radius: 8px;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Hora Acostarse:</label>
+                        <input type="time" id="input-sueno-acostarse" class="modal-input" value="23:30" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Hora Despertar:</label>
+                        <input type="time" id="input-sueno-despertar" class="modal-input" value="07:00" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Calidad del Sueño:</label>
+                    <select id="input-sueno-calidad" class="modal-input" style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                        <option value="reparador" selected>🌟 Reparador / Excelente (Energía al 100%)</option>
+                        <option value="bueno">😊 Bueno / Normal (Descanso satisfactorio)</option>
+                        <option value="regular">😐 Regular (Interrupciones leves)</option>
+                        <option value="insuficiente">😫 Insuficiente / Pesado (Fatiga residual)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Notas / Sensaciones (Opcional):</label>
+                    <input type="text" id="input-sueno-notas" class="modal-input" placeholder="Ej: Me desperté sin alarma, buena claridad mental..." style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 18px;">
+                <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalRegistroSueno()">Cancelar</button>
+                <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: #6366f1; color: #ffffff; font-weight: 800; border: none; border-radius: 8px;" onclick="guardarRegistroSueno()">🌙 Guardar Descanso</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJUSTE DE META DE AGUA -->
+    <div id="modal-meta-agua" class="modal-overlay" style="display: none; z-index: 10000;">
+        <div class="modal-card" style="max-width: 360px; width: 92%; border-radius: 18px; border: 1px solid rgba(6, 182, 212, 0.3); background: #0f1522; padding: 20px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Meta Diaria de Hidratación</h3>
+            <p style="margin: 0 0 14px 0; font-size: 11.5px; color: #94a3b8;">Define cuántos mililitros de agua deseas consumir al día.</p>
+            <input type="number" step="100" id="input-nueva-meta-agua" class="modal-input" value="2500" style="width: 100%; padding: 10px 12px; font-size: 18px; font-weight: 800; color: #22d3ee; background: #161c2c; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; margin-bottom: 16px;">
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="document.getElementById('modal-meta-agua').style.display='none'">Cancelar</button>
+                <button type="button" class="btn-system" style="flex: 1; justify-content: center; margin-bottom: 0; background: #06b6d4; color: #083344; font-weight: 800; border: none; border-radius: 8px;" onclick="guardarMetaAgua()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL CENTRO DE NOTIFICACIONES & ALERTAS -->
     <div id="modal-centro-notificaciones" class="modal-overlay" style="display: none; z-index: 10000;">
         <div class="modal-card" style="max-width: 480px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12); background: #0f131f; box-shadow: 0 24px 60px rgba(0,0,0,0.85);">
@@ -4854,25 +5177,25 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.41"></script>
-    <script src="js/perfil.js?v=10.41"></script>
-    <script src="js/progresion.js?v=10.41"></script>
-    <script src="js/estado-personal.js?v=10.41"></script>
-    <script src="js/finanzas.js?v=10.41"></script>
-    <script src="js/ideas.js?v=10.41"></script>
-    <script src="js/dinamicas.js?v=10.41"></script>
-    <script src="js/calendario.js?v=10.41"></script>
-    <script src="js/inventario.js?v=10.41"></script>
-    <script src="js/jarvis-voz.js?v=10.41"></script>
+    <script src="js/core.js?v=10.42"></script>
+    <script src="js/perfil.js?v=10.42"></script>
+    <script src="js/progresion.js?v=10.42"></script>
+    <script src="js/estado-personal.js?v=10.42"></script>
+    <script src="js/finanzas.js?v=10.42"></script>
+    <script src="js/ideas.js?v=10.42"></script>
+    <script src="js/dinamicas.js?v=10.42"></script>
+    <script src="js/calendario.js?v=10.42"></script>
+    <script src="js/inventario.js?v=10.42"></script>
+    <script src="js/jarvis-voz.js?v=10.42"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.41"></script>
+    <script type="module" src="js/firebase-config.js?v=10.42"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.41')
+                navigator.serviceWorker.register('sw.js?v=10.42')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
