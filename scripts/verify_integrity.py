@@ -24,6 +24,7 @@ checks = [
     "cambiarVista('vista-ruleta')",
     "cambiarVista('vista-calendario')",
     "cambiarVista('vista-inventario')",
+    "cambiarVista('vista-reproductor')",
     "btn-jarvis-voz-flotante",
     "btn-asistente-flotante"
 ]
@@ -118,7 +119,7 @@ def check_js_syntax(filename):
     print(f"PASS JS: {filename}")
     return True
 
-for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js', 'js/estado-personal.js']:
+for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js', 'js/estado-personal.js', 'js/reproductor.js']:
     if not check_js_syntax(f):
         sys.exit(1)
 
