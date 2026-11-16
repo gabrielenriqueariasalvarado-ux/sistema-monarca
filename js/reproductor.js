@@ -1,6 +1,6 @@
 // ==========================================================================
-// SISTEMA MONARCA - MOTOR DE REPRODUCTOR DE MÚSICA MP3 OFFLINE (v10.49)
-// Almacenamiento binario en IndexedDB (MonarcaMusicaDB) & Controles Flotantes
+// SISTEMA MONARCA - MOTOR DE REPRODUCTOR DE MÚSICA MP3 OFFLINE (v10.50)
+// Almacenamiento binario en IndexedDB, Carpetas, Playlists y Transferencia PC
 // ==========================================================================
 
 (function(window) {
@@ -12,7 +12,12 @@
 
     var state = {
         db: null,
-        canciones: [],        // Metadatos { id, nombre, tamano, tipo, fecha }
+        canciones: [],        // Metadatos { id, nombre, carpeta, tamano, tipo, fecha }
+        playlists: [],        // { id, nombre, cancionIds: [] }
+        subtabActual: 'todas',// 'todas' | 'carpetas' | 'playlists'
+        carpetaSeleccionada: null,
+        playlistSeleccionada: null,
+        transferenciasPendientes: [],
         indiceActual: -1,
         cancionActual: null,
         audio: new Audio(),
@@ -37,6 +42,7 @@
                 if (!db.objectStoreNames.contains(STORE_NAME)) {
                     var store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
                     store.createIndex('nombre', 'nombre', { unique: false });
+                    store.createIndex('carpeta', 'carpeta', { unique: false });
                     store.createIndex('fecha', 'fecha', { unique: false });
                 }
             };
@@ -52,7 +58,7 @@
     }
 
     // ----------------------------------------------------------------------
-    // 2. OPERACIONES DE BIBLIOTECA EN INDEXEDDB
+    // 2. OPERACIONES DE BIBLIOTECA EN INDEXEDDB (OPTIMIZADO PARA ALTO VOLUMEN)
     // ----------------------------------------------------------------------
     function cargarMetadatosCanciones() {
         return abrirDB().then(function(db) {
@@ -69,15 +75,16 @@
                         lista.push({
                             id: val.id,
                             nombre: val.nombre,
+                            carpeta: val.carpeta || 'Principal',
                             tamano: val.tamano,
                             tipo: val.tipo,
                             fecha: val.fecha
                         });
                         cursor.continue();
                     } else {
-                        // Ordenar por fecha o nombre
                         lista.sort(function(a, b) { return (b.fecha || 0) - (a.fecha || 0); });
                         state.canciones = lista;
+                        cargarPlaylistsStorage();
                         resolve(lista);
                     }
                 };
@@ -104,37 +111,71 @@
         });
     }
 
-    function guardarCancionesFiles(fileList) {
+    function guardarCancionesFiles(fileList, carpetaForzada) {
         if (!fileList || fileList.length === 0) return Promise.resolve();
 
         return abrirDB().then(function(db) {
-            var promesas = [];
-            for (var i = 0; i < fileList.length; i++) {
-                var file = fileList[i];
-                if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/i)) {
-                    continue;
+            return new Promise(function(resolve, reject) {
+                var tx = db.transaction([STORE_NAME], 'readwrite');
+                var store = tx.objectStore(STORE_NAME);
+
+                for (var i = 0; i < fileList.length; i++) {
+                    var file = fileList[i];
+                    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/i)) {
+                        continue;
+                    }
+                    var dotIdx = file.name.lastIndexOf('.');
+                    var cleanName = (dotIdx > 0) ? file.name.substring(0, dotIdx) : file.name;
+                    var folder = carpetaForzada || 'Principal';
+                    if (file.webkitRelativePath) {
+                        var parts = file.webkitRelativePath.split('/');
+                        if (parts.length > 1) {
+                            folder = parts[parts.length - 2] || 'Principal';
+                        }
+                    }
+
+                    var cancionObj = {
+                        id: 'song_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 5),
+                        nombre: cleanName,
+                        carpeta: folder,
+                        tamano: file.size,
+                        tipo: file.type || 'audio/mpeg',
+                        fecha: Date.now() + i,
+                        blob: file
+                    };
+                    store.add(cancionObj);
                 }
-                var dotIdx = file.name.lastIndexOf('.');
-                var cleanName = (dotIdx > 0) ? file.name.substring(0, dotIdx) : file.name;
-                var cancionObj = {
-                    id: 'song_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-                    nombre: cleanName,
-                    tamano: file.size,
-                    tipo: file.type || 'audio/mpeg',
-                    fecha: Date.now(),
-                    blob: file
+
+                tx.oncomplete = function() {
+                    resolve();
                 };
+                tx.onerror = function(err) {
+                    reject(err);
+                };
+            }).then(function() {
+                return cargarMetadatosCanciones();
+            });
+        });
+    }
 
-                promesas.push(new Promise(function(res, rej) {
-                    var tx = db.transaction([STORE_NAME], 'readwrite');
-                    var store = tx.objectStore(STORE_NAME);
-                    var addReq = store.add(cancionObj);
-                    addReq.onsuccess = function() { res(); };
-                    addReq.onerror = function(err) { rej(err); };
-                }));
-            }
-
-            return Promise.all(promesas).then(function() {
+    function guardarBlobDirecto(nombre, blob, carpeta) {
+        return abrirDB().then(function(db) {
+            return new Promise(function(resolve, reject) {
+                var tx = db.transaction([STORE_NAME], 'readwrite');
+                var store = tx.objectStore(STORE_NAME);
+                var cancionObj = {
+                    id: 'song_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    nombre: nombre,
+                    carpeta: carpeta || 'Descargas PC',
+                    tamano: blob.size,
+                    tipo: blob.type || 'audio/mpeg',
+                    fecha: Date.now(),
+                    blob: blob
+                };
+                var req = store.add(cancionObj);
+                req.onsuccess = function() { resolve(); };
+                req.onerror = function(e) { reject(e); };
+            }).then(function() {
                 return cargarMetadatosCanciones();
             });
         });
@@ -157,9 +198,14 @@
                 delReq.onerror = function(e) { reject(e.target.error); };
             });
         }).then(function() {
+            // Eliminar también de cualquier playlist
+            state.playlists.forEach(function(pl) {
+                pl.cancionIds = (pl.cancionIds || []).filter(function(cid) { return cid !== id; });
+            });
+            guardarPlaylistsStorage();
             return cargarMetadatosCanciones();
         }).then(function() {
-            renderizarListaCanciones();
+            renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
         });
@@ -174,9 +220,11 @@
             tx.objectStore(STORE_NAME).clear();
             tx.oncomplete = function() {
                 state.canciones = [];
+                state.playlists = [];
+                guardarPlaylistsStorage();
                 state.indiceActual = -1;
                 state.cancionActual = null;
-                renderizarListaCanciones();
+                renderizarContenidoSegunSubtab();
                 actualizarUIPlayerCompleto();
                 actualizarMiniPlayer();
             };
@@ -184,11 +232,65 @@
     }
 
     // ----------------------------------------------------------------------
-    // 3. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN
+    // 3. PLAYLISTS (LISTAS DE REPRODUCCIÓN)
+    // ----------------------------------------------------------------------
+    function cargarPlaylistsStorage() {
+        try {
+            var raw = localStorage.getItem('monarca_musica_playlists');
+            state.playlists = raw ? JSON.parse(raw) : [];
+        } catch(e) {
+            state.playlists = [];
+        }
+    }
+
+    function guardarPlaylistsStorage() {
+        try {
+            localStorage.setItem('monarca_musica_playlists', JSON.stringify(state.playlists));
+        } catch(e) {}
+    }
+
+    function crearPlaylistPrompt() {
+        var nombre = prompt('Ingresa el nombre de la nueva Lista de Reproducción (ej: Gym Motivación, Enfoque Profundo):');
+        if (!nombre || !nombre.trim()) return;
+        var nueva = {
+            id: 'pl_' + Date.now(),
+            nombre: nombre.trim(),
+            fecha: Date.now(),
+            cancionIds: []
+        };
+        state.playlists.push(nueva);
+        guardarPlaylistsStorage();
+        renderizarContenidoSegunSubtab();
+    }
+
+    function agregarCancionAPlaylist(plId, songId) {
+        var pl = state.playlists.find(function(p) { return p.id === plId; });
+        if (!pl) return;
+        if (!pl.cancionIds) pl.cancionIds = [];
+        if (pl.cancionIds.indexOf(songId) === -1) {
+            pl.cancionIds.push(songId);
+            guardarPlaylistsStorage();
+            alert('✓ Canción agregada a la lista "' + pl.nombre + '"');
+        } else {
+            alert('Esta canción ya está en la lista "' + pl.nombre + '"');
+        }
+    }
+
+    function eliminarPlaylist(plId) {
+        if (!confirm('¿Eliminar esta lista de reproducción? Las canciones se mantendrán en tu biblioteca.')) return;
+        state.playlists = state.playlists.filter(function(p) { return p.id !== plId; });
+        guardarPlaylistsStorage();
+        if (state.playlistSeleccionada === plId) state.playlistSeleccionada = null;
+        renderizarContenidoSegunSubtab();
+    }
+
+    // ----------------------------------------------------------------------
+    // 4. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN
     // ----------------------------------------------------------------------
     function reproducirIndice(idx) {
-        if (idx < 0 || idx >= state.canciones.length) return;
-        var meta = state.canciones[idx];
+        var listaActual = obtenerListaReproducibleActual();
+        if (idx < 0 || idx >= listaActual.length) return;
+        var meta = listaActual[idx];
         state.indiceActual = idx;
 
         obtenerCancionCompleta(meta.id).then(function(itemCompleto) {
@@ -212,7 +314,7 @@
                     state.reproduciendo = true;
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
-                    renderizarListaCanciones();
+                    renderizarContenidoSegunSubtab();
                     actualizarMediaSession();
                 }).catch(function(err) {
                     console.warn('[Reproductor] Autoplay prevenido o error:', err);
@@ -224,9 +326,23 @@
         });
     }
 
+    function obtenerListaReproducibleActual() {
+        if (state.playlistSeleccionada) {
+            var pl = state.playlists.find(function(p) { return p.id === state.playlistSeleccionada; });
+            if (pl && pl.cancionIds) {
+                return state.canciones.filter(function(c) { return pl.cancionIds.indexOf(c.id) !== -1; });
+            }
+        }
+        if (state.carpetaSeleccionada) {
+            return state.canciones.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
+        }
+        return state.canciones;
+    }
+
     function togglePlayPausa() {
+        var lista = obtenerListaReproducibleActual();
         if (!state.cancionActual) {
-            if (state.canciones.length > 0) {
+            if (lista.length > 0) {
                 reproducirIndice(0);
             }
             return;
@@ -237,7 +353,7 @@
                 state.reproduciendo = true;
                 actualizarUIPlayerCompleto();
                 actualizarMiniPlayer();
-                renderizarListaCanciones();
+                renderizarContenidoSegunSubtab();
                 actualizarMediaSession();
             }).catch(function(e) {
                 console.error('[Reproductor] Error al reproducir:', e);
@@ -247,7 +363,7 @@
             state.reproduciendo = false;
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
-            renderizarListaCanciones();
+            renderizarContenidoSegunSubtab();
             actualizarMediaSession();
         }
     }
@@ -264,11 +380,12 @@
         state.indiceActual = -1;
         actualizarUIPlayerCompleto();
         actualizarMiniPlayer();
-        renderizarListaCanciones();
+        renderizarContenidoSegunSubtab();
     }
 
     function siguienteCancion(esManual) {
-        if (state.canciones.length === 0) return;
+        var lista = obtenerListaReproducibleActual();
+        if (lista.length === 0) return;
 
         if (!esManual && state.repeat === 'one') {
             state.audio.currentTime = 0;
@@ -277,13 +394,13 @@
         }
 
         var siguienteIdx;
-        if (state.shuffle && state.canciones.length > 1) {
+        if (state.shuffle && lista.length > 1) {
             do {
-                siguienteIdx = Math.floor(Math.random() * state.canciones.length);
+                siguienteIdx = Math.floor(Math.random() * lista.length);
             } while (siguienteIdx === state.indiceActual);
         } else {
             siguienteIdx = state.indiceActual + 1;
-            if (siguienteIdx >= state.canciones.length) {
+            if (siguienteIdx >= lista.length) {
                 if (state.repeat === 'off' && !esManual) {
                     detenerReproductor();
                     return;
@@ -296,9 +413,9 @@
     }
 
     function anteriorCancion() {
-        if (state.canciones.length === 0) return;
+        var lista = obtenerListaReproducibleActual();
+        if (lista.length === 0) return;
 
-        // Si ya han pasado más de 3 segundos, reiniciar la pista actual
         if (state.audio.currentTime > 3) {
             state.audio.currentTime = 0;
             return;
@@ -306,7 +423,7 @@
 
         var anteriorIdx = state.indiceActual - 1;
         if (anteriorIdx < 0) {
-            anteriorIdx = state.canciones.length - 1;
+            anteriorIdx = lista.length - 1;
         }
         reproducirIndice(anteriorIdx);
     }
@@ -375,16 +492,15 @@
     }
 
     // ----------------------------------------------------------------------
-    // 4. INTEGRACIÓN MEDIA SESSION (PANTALLA DE BLOQUEO / NOTIFICACIONES)
+    // 5. MEDIA SESSION API & AUDIO LISTENERS
     // ----------------------------------------------------------------------
     function actualizarMediaSession() {
         if (!('mediaSession' in navigator)) return;
-
         if (state.cancionActual) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: state.cancionActual.nombre || 'Canción',
                 artist: 'Sistema Monarca',
-                album: 'Bóveda Offline de Audio',
+                album: state.cancionActual.carpeta || 'Bóveda Offline',
                 artwork: [
                     { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
                     { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }
@@ -408,21 +524,15 @@
                     state.audio.currentTime = details.seekTime;
                 }
             });
-        } catch(e) {
-            console.warn('[Reproductor] MediaSession action handlers error:', e);
-        }
+        } catch(e) {}
     }
 
-    // ----------------------------------------------------------------------
-    // 5. EVENTOS DEL OBJETO AUDIO
-    // ----------------------------------------------------------------------
     function initAudioListeners() {
         state.audio.addEventListener('timeupdate', function() {
             var cur = state.audio.currentTime || 0;
             var dur = state.audio.duration || 0;
             var pct = dur > 0 ? (cur / dur) * 100 : 0;
 
-            // Slider y tiempos vista completa
             var slider = document.getElementById('player-seek-slider');
             if (slider && !slider.matches(':active')) {
                 slider.value = pct;
@@ -432,7 +542,6 @@
             var elDur = document.getElementById('player-time-duration');
             if (elDur) elDur.textContent = formatearTiempo(dur);
 
-            // Barra mini player
             var miniBar = document.getElementById('mini-player-fill');
             if (miniBar) miniBar.style.width = pct + '%';
         });
@@ -476,7 +585,367 @@
     }
 
     // ----------------------------------------------------------------------
-    // 6. RENDERIZADO DE INTERFAZ (VISTA COMPLETA)
+    // 6. TRANSFERENCIAS SELECTIVAS A PC (VÍA FIREBASE STORAGE)
+    // ----------------------------------------------------------------------
+    function enviarCancionAPC(id) {
+        var meta = state.canciones.find(function(c) { return c.id === id; });
+        if (!meta) return;
+
+        if (!window.MonarcaCloud || typeof window.MonarcaCloud.subirCancionTransferencia !== 'function') {
+            alert('El servicio de nube aún se está inicializando o no está disponible.');
+            return;
+        }
+
+        var btn = document.getElementById('btn-transfer-' + id);
+        if (btn) btn.innerHTML = '⏳ Subiendo...';
+
+        obtenerCancionCompleta(id).then(function(itemCompleto) {
+            if (!itemCompleto || !itemCompleto.blob) {
+                throw new Error("No se pudo leer el archivo local.");
+            }
+            return window.MonarcaCloud.subirCancionTransferencia(meta, itemCompleto.blob);
+        }).then(function(res) {
+            alert('✓ Canción "' + meta.nombre + '" enviada a la nube.\nÁbrela en tu PC para descargarla localmente.');
+            if (btn) btn.innerHTML = '✓ Enviada';
+        }).catch(function(err) {
+            alert('Error al enviar canción a PC: ' + (err.message || err));
+            if (btn) btn.innerHTML = '☁️ Enviar a PC';
+        });
+    }
+
+    function descargarCancionTransferidaEnPC(transferId, urlDescarga, rutaStorage, nombre) {
+        var btn = document.getElementById('btn-descargar-transfer-' + transferId);
+        if (btn) btn.innerHTML = '⏳ Descargando...';
+
+        fetch(urlDescarga)
+            .then(function(res) {
+                if (!res.ok) throw new Error("Error en la descarga: " + res.statusText);
+                return res.blob();
+            })
+            .then(function(blob) {
+                return guardarBlobDirecto(nombre, blob, 'Recibidas de Móvil');
+            })
+            .then(function() {
+                // Eliminar de Firebase Storage para no gastar espacio
+                if (window.MonarcaCloud && typeof window.MonarcaCloud.eliminarCancionTransferencia === 'function') {
+                    window.MonarcaCloud.eliminarCancionTransferencia(transferId, rutaStorage);
+                }
+                alert('✓ Canción "' + nombre + '" descargada y guardada con éxito en tu PC.');
+                renderizarContenidoSegunSubtab();
+            })
+            .catch(function(err) {
+                alert('Error al descargar canción: ' + err.message);
+                if (btn) btn.innerHTML = '📥 Descargar en esta PC';
+            });
+    }
+
+    function alRecibirTransferenciasNube(transferencias) {
+        state.transferenciasPendientes = transferencias || [];
+        renderizarBannerTransferenciasPC();
+    }
+
+    function renderizarBannerTransferenciasPC() {
+        var banner = document.getElementById('banner-transferencias-pc');
+        if (!banner) return;
+
+        if (!state.transferenciasPendientes || state.transferenciasPendientes.length === 0) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        banner.style.display = 'block';
+        var html = '<div style="font-size: 13px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">' +
+            '<span>📥 Canciones enviadas a tu PC (' + state.transferenciasPendientes.length + ')</span>' +
+        '</div>';
+
+        state.transferenciasPendientes.forEach(function(t) {
+            html += '<div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">' +
+                '<div style="min-width: 0; flex: 1;">' +
+                    '<div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + escaparHTML(t.nombre) + '</div>' +
+                    '<div style="font-size: 11px; color: #94a3b8;">' + formatearTamano(t.tamano) + ' · Desde ' + (t.origenDispositivo || 'Móvil') + '</div>' +
+                '</div>' +
+                '<div style="display: flex; gap: 6px;">' +
+                    '<button type="button" id="btn-descargar-transfer-' + t.id + '" class="btn-cargar-mp3-action" style="padding: 6px 12px; font-size: 11.5px;" onclick="window.MonarcaPlayer.descargarCancionTransferidaEnPC(\'' + t.id + '\', \'' + t.urlDescarga + '\', \'' + t.rutaStorage + '\', \'' + escaparHTML(t.nombre) + '\')">' +
+                        '📥 Descargar en esta PC' +
+                    '</button>' +
+                    '<button type="button" class="btn-song-delete" title="Descartar de la nube" onclick="window.MonarcaCloud.eliminarCancionTransferencia(\'' + t.id + '\', \'' + t.rutaStorage + '\')">✕</button>' +
+                '</div>' +
+            '</div>';
+        });
+
+        banner.innerHTML = html;
+    }
+
+    function descargarCancionArchivoLocal(id) {
+        var meta = state.canciones.find(function(c) { return c.id === id; });
+        if (!meta) return;
+
+        obtenerCancionCompleta(id).then(function(itemCompleto) {
+            if (!itemCompleto || !itemCompleto.blob) return;
+            var url = URL.createObjectURL(itemCompleto.blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = (meta.nombre || 'cancion') + '.mp3';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // 7. RENDERIZADO DE INTERFAZ Y NAVEGACIÓN POR SUBPESTAÑAS
+    // ----------------------------------------------------------------------
+    function cambiarSubtab(tab) {
+        state.subtabActual = tab || 'todas';
+        if (tab === 'todas') {
+            state.carpetaSeleccionada = null;
+            state.playlistSeleccionada = null;
+        }
+
+        var tabs = document.querySelectorAll('.player-subtab-btn');
+        tabs.forEach(function(b) {
+            if (b.getAttribute('data-subtab') === tab) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+
+        renderizarContenidoSegunSubtab();
+    }
+
+    function seleccionarCarpeta(nombreCarpeta) {
+        state.carpetaSeleccionada = nombreCarpeta;
+        state.subtabActual = 'todas';
+        var tabs = document.querySelectorAll('.player-subtab-btn');
+        tabs.forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-subtab') === 'todas');
+        });
+        renderizarContenidoSegunSubtab();
+    }
+
+    function seleccionarPlaylist(plId) {
+        state.playlistSeleccionada = plId;
+        state.subtabActual = 'todas';
+        var tabs = document.querySelectorAll('.player-subtab-btn');
+        tabs.forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-subtab') === 'todas');
+        });
+        renderizarContenidoSegunSubtab();
+    }
+
+    function renderizarContenidoSegunSubtab() {
+        var cont = document.getElementById('reproductor-lista-canciones');
+        if (!cont) return;
+
+        var countBadge = document.getElementById('player-total-songs-badge');
+        var sizeBadge = document.getElementById('player-total-size-badge');
+        var totalBytes = 0;
+        state.canciones.forEach(function(c) { totalBytes += (c.tamano || 0); });
+        if (countBadge) countBadge.textContent = state.canciones.length + ' ' + (state.canciones.length === 1 ? 'canción' : 'canciones');
+        if (sizeBadge) sizeBadge.textContent = formatearTamano(totalBytes);
+
+        if (state.subtabActual === 'carpetas') {
+            renderizarCarpetasView(cont);
+        } else if (state.subtabActual === 'playlists') {
+            renderizarPlaylistsView(cont);
+        } else {
+            renderizarTodasCancionesView(cont);
+        }
+    }
+
+    function renderizarCarpetasView(cont) {
+        var carpetasMap = {};
+        state.canciones.forEach(function(c) {
+            var f = c.carpeta || 'Principal';
+            if (!carpetasMap[f]) carpetasMap[f] = { count: 0, tamano: 0, canciones: [] };
+            carpetasMap[f].count++;
+            carpetasMap[f].tamano += (c.tamano || 0);
+            carpetasMap[f].canciones.push(c);
+        });
+
+        var nombres = Object.keys(carpetasMap);
+        if (nombres.length === 0) {
+            cont.innerHTML = '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
+                '<h4>No hay carpetas organizadas</h4>' +
+                '<p style="font-size: 12px; color: #64748b;">Usa el botón "+ Cargar Carpeta" para leer tus directorios de música automáticamente.</p>' +
+            '</div>';
+            return;
+        }
+
+        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">';
+        nombres.forEach(function(nom) {
+            var obj = carpetasMap[nom];
+            html += '<div class="player-folder-card" onclick="window.MonarcaPlayer.seleccionarCarpeta(\'' + escaparHTML(nom) + '\')">' +
+                '<div style="display: flex; align-items: center; gap: 10px;">' +
+                    '<span style="font-size: 26px;">📁</span>' +
+                    '<div style="min-width: 0; flex: 1;">' +
+                        '<div style="font-size: 14px; font-weight: 800; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaparHTML(nom) + '</div>' +
+                        '<div style="font-size: 11px; color: #94a3b8;">' + obj.count + ' canciones · ' + formatearTamano(obj.tamano) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="margin-top: 10px; display: flex; justify-content: flex-end;">' +
+                    '<span style="font-size: 11px; color: #38bdf8; font-weight: 700;">Ver canciones →</span>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+    }
+
+    function renderizarPlaylistsView(cont) {
+        var html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
+            '<span style="font-size: 13px; font-weight: 700; color: #f8fafc;">Tus Listas Personalizadas</span>' +
+            '<button type="button" class="btn-system-secondary" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.MonarcaPlayer.crearPlaylistPrompt()">+ Nueva Lista</button>' +
+        '</div>';
+
+        if (state.playlists.length === 0) {
+            html += '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
+                '<h4>No tienes listas de reproducción creadas</h4>' +
+                '<p style="font-size: 12px; color: #64748b;">Pulsa "+ Nueva Lista" para crear colecciones como "Gym", "Enfoque" o "Alarma Matutina".</p>' +
+            '</div>';
+            cont.innerHTML = html;
+            return;
+        }
+
+        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">';
+        state.playlists.forEach(function(pl) {
+            var count = (pl.cancionIds || []).length;
+            html += '<div class="player-folder-card" onclick="window.MonarcaPlayer.seleccionarPlaylist(\'' + pl.id + '\')">' +
+                '<div style="display: flex; align-items: center; justify-content: space-between;">' +
+                    '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
+                        '<span style="font-size: 24px;">📑</span>' +
+                        '<div style="min-width: 0; flex: 1;">' +
+                            '<div style="font-size: 14px; font-weight: 800; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaparHTML(pl.nombre) + '</div>' +
+                            '<div style="font-size: 11px; color: #94a3b8;">' + count + ' canciones</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<button type="button" class="btn-song-delete" onclick="event.stopPropagation(); window.MonarcaPlayer.eliminarPlaylist(\'' + pl.id + '\')" title="Eliminar lista">✕</button>' +
+                '</div>' +
+                '<div style="margin-top: 10px; display: flex; justify-content: flex-end;">' +
+                    '<span style="font-size: 11px; color: #38bdf8; font-weight: 700;">Reproducir Lista ▶</span>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+    }
+
+    function renderizarTodasCancionesView(cont) {
+        var lista = obtenerListaReproducibleActual();
+        var q = (state.busqueda || '').toLowerCase().trim();
+
+        var listaFiltrada = lista.filter(function(c) {
+            if (!q) return true;
+            return (c.nombre || '').toLowerCase().indexOf(q) !== -1;
+        });
+
+        var encabezadoFiltro = '';
+        if (state.carpetaSeleccionada) {
+            encabezadoFiltro = '<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">' +
+                '<span style="font-size: 12px; color: #38bdf8;">📁 Carpeta: <strong>' + escaparHTML(state.carpetaSeleccionada) + '</strong> (' + listaFiltrada.length + ')</span>' +
+                '<button type="button" class="btn-song-delete" style="font-size: 11px; color: #94a3b8;" onclick="window.MonarcaPlayer.seleccionarCarpeta(null)">Mostrar todas</button>' +
+            '</div>';
+        } else if (state.playlistSeleccionada) {
+            var plObj = state.playlists.find(function(p) { return p.id === state.playlistSeleccionada; });
+            encabezadoFiltro = '<div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">' +
+                '<span style="font-size: 12px; color: #818cf8;">📑 Playlist: <strong>' + escaparHTML(plObj ? plObj.nombre : 'Lista') + '</strong> (' + listaFiltrada.length + ')</span>' +
+                '<button type="button" class="btn-song-delete" style="font-size: 11px; color: #94a3b8;" onclick="window.MonarcaPlayer.seleccionarPlaylist(null)">Mostrar todas</button>' +
+            '</div>';
+        }
+
+        if (state.canciones.length === 0) {
+            cont.innerHTML = encabezadoFiltro + '<div style="text-align: center; padding: 32px 16px; color: #94a3b8;">' +
+                '<div style="font-size: 38px; margin-bottom: 8px;">🎵</div>' +
+                '<h4 style="color: #f8fafc; margin: 0 0 6px 0; font-size: 15px;">Tu biblioteca de música está vacía</h4>' +
+                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Puedes cargar canciones individuales o carpetas completas desde tu dispositivo.</p>' +
+                '<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">' +
+                    '<button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById(\'input-file-mp3-monarca\').click()">' +
+                        '📁 Cargar Archivos MP3' +
+                    '</button>' +
+                    '<button type="button" class="btn-cargar-mp3-action" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);" onclick="document.getElementById(\'input-folder-mp3-monarca\').click()">' +
+                        '📂 Cargar Carpeta Completa' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+            return;
+        }
+
+        if (listaFiltrada.length === 0) {
+            cont.innerHTML = encabezadoFiltro + '<div style="text-align: center; padding: 24px 16px; color: #94a3b8; font-size: 13px;">' +
+                'No se encontraron canciones que coincidan con la búsqueda.' +
+            '</div>';
+            return;
+        }
+
+        var html = encabezadoFiltro;
+        listaFiltrada.forEach(function(c, listIndex) {
+            var esActual = (state.cancionActual && state.cancionActual.id === c.id);
+            var sonando = esActual && state.reproduciendo;
+
+            html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + listIndex + ')">' +
+                '<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">' +
+                    '<div class="song-item-icon">' +
+                        (sonando
+                            ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>'
+                            : (esActual ? '▶' : (listIndex + 1))) +
+                    '</div>' +
+                    '<div style="min-width: 0; flex: 1;">' +
+                        '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(c.nombre) + '</div>' +
+                        '<div class="song-item-meta">' +
+                            '<span style="color: #38bdf8;">📁 ' + escaparHTML(c.carpeta || 'Principal') + '</span>' +
+                            '<span>•</span>' +
+                            '<span>' + formatearTamano(c.tamano) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">' +
+                    '<button type="button" class="btn-song-action" title="' + (sonando ? 'Pausar' : 'Reproducir') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + listIndex + ')">' +
+                        (sonando ? '⏸' : '▶') +
+                    '</button>' +
+                    '<button type="button" id="btn-transfer-' + c.id + '" class="btn-song-option-pill" title="Enviar únicamente esta canción a la PC" onclick="window.MonarcaPlayer.enviarCancionAPC(\'' + c.id + '\')">' +
+                        '☁️ PC' +
+                    '</button>' +
+                    '<button type="button" class="btn-song-option-pill" title="Añadir a lista de reproducción" onclick="window.MonarcaPlayer.abrirModalAgregarPlaylist(\'' + c.id + '\')">' +
+                        '➕' +
+                    '</button>' +
+                    '<button type="button" class="btn-song-option-pill" title="Descargar archivo local" onclick="window.MonarcaPlayer.descargarCancionArchivoLocal(\'' + c.id + '\')">' +
+                        '⬇️' +
+                    '</button>' +
+                    '<button type="button" class="btn-song-delete" title="Eliminar de la biblioteca" onclick="window.MonarcaPlayer.eliminarCancion(\'' + c.id + '\')">' +
+                        '✕' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+        });
+
+        cont.innerHTML = html;
+    }
+
+    function abrirModalAgregarPlaylist(songId) {
+        if (state.playlists.length === 0) {
+            var crear = confirm('Aún no tienes listas de reproducción creadas. ¿Deseas crear una ahora?');
+            if (crear) {
+                crearPlaylistPrompt();
+            }
+            return;
+        }
+
+        var opciones = state.playlists.map(function(pl, i) {
+            return (i + 1) + '. ' + pl.nombre;
+        }).join('\n');
+
+        var numStr = prompt('Selecciona el número de la Lista de Reproducción:\n\n' + opciones);
+        var num = parseInt(numStr, 10);
+        if (!isNaN(num) && num >= 1 && num <= state.playlists.length) {
+            var pl = state.playlists[num - 1];
+            agregarCancionAPlaylist(pl.id, songId);
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 8. RENDERIZADO DEL PLAYER HERO & MINI-REPRODUCTOR FLOTANTE
     // ----------------------------------------------------------------------
     function actualizarUIPlayerCompleto() {
         var elTitulo = document.getElementById('player-current-title');
@@ -492,26 +961,17 @@
         }
         if (elSub) {
             if (tieneCancion) {
-                elSub.textContent = 'Pista #' + (state.indiceActual + 1) + ' · ' + formatearTamano(state.cancionActual.tamano);
+                elSub.textContent = (state.cancionActual.carpeta ? ('📁 ' + state.cancionActual.carpeta + ' · ') : '') + formatearTamano(state.cancionActual.tamano);
             } else {
                 elSub.textContent = state.canciones.length > 0 ? (state.canciones.length + ' canciones listas en la biblioteca') : 'Sube tus archivos MP3 para comenzar';
             }
         }
 
         if (elDisc) {
-            if (state.reproduciendo) {
-                elDisc.classList.add('spinning');
-            } else {
-                elDisc.classList.remove('spinning');
-            }
+            elDisc.classList.toggle('spinning', state.reproduciendo);
         }
-
         if (waveContainer) {
-            if (state.reproduciendo) {
-                waveContainer.classList.add('playing');
-            } else {
-                waveContainer.classList.remove('playing');
-            }
+            waveContainer.classList.toggle('playing', state.reproduciendo);
         }
 
         if (btnPlay) {
@@ -525,95 +985,11 @@
         }
     }
 
-    function renderizarListaCanciones() {
-        var cont = document.getElementById('reproductor-lista-canciones');
-        var countBadge = document.getElementById('player-total-songs-badge');
-        var sizeBadge = document.getElementById('player-total-size-badge');
-
-        var totalBytes = 0;
-        state.canciones.forEach(function(c) { totalBytes += (c.tamano || 0); });
-
-        if (countBadge) countBadge.textContent = state.canciones.length + ' ' + (state.canciones.length === 1 ? 'canción' : 'canciones');
-        if (sizeBadge) sizeBadge.textContent = formatearTamano(totalBytes);
-
-        if (!cont) return;
-
-        var q = (state.busqueda || '').toLowerCase().trim();
-        var listaFiltrada = state.canciones.filter(function(c) {
-            if (!q) return true;
-            return (c.nombre || '').toLowerCase().indexOf(q) !== -1;
-        });
-
-        if (state.canciones.length === 0) {
-            cont.innerHTML = '<div style="text-align: center; padding: 32px 16px; color: #94a3b8;">' +
-                '<div style="font-size: 38px; margin-bottom: 8px;">🎵</div>' +
-                '<h4 style="color: #f8fafc; margin: 0 0 6px 0; font-size: 15px;">Tu biblioteca de música está vacía</h4>' +
-                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Pulsa "+ Cargar MP3s" para agregar canciones desde tu teléfono o computadora. Se guardarán en tu almacenamiento sin consumir internet.</p>' +
-                '<button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById(\'input-file-mp3-monarca\').click()">' +
-                    '📁 Cargar Canciones Ahora' +
-                '</button>' +
-            '</div>';
-            return;
-        }
-
-        if (listaFiltrada.length === 0) {
-            cont.innerHTML = '<div style="text-align: center; padding: 24px 16px; color: #94a3b8; font-size: 13px;">' +
-                'No se encontraron canciones que coincidan con "<strong>' + escaparHTML(q) + '</strong>".' +
-            '</div>';
-            return;
-        }
-
-        var html = '';
-        listaFiltrada.forEach(function(c) {
-            var realIdx = state.canciones.indexOf(c);
-            var esActual = (state.cancionActual && state.cancionActual.id === c.id);
-            var sonando = esActual && state.reproduciendo;
-
-            html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + realIdx + ')">' +
-                '<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">' +
-                    '<div class="song-item-icon">' +
-                        (sonando
-                            ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>'
-                            : (esActual ? '▶' : (realIdx + 1))) +
-                    '</div>' +
-                    '<div style="min-width: 0; flex: 1;">' +
-                        '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(c.nombre) + '</div>' +
-                        '<div class="song-item-meta">' +
-                            '<span>' + formatearTamano(c.tamano) + '</span>' +
-                            '<span>•</span>' +
-                            '<span>' + (new Date(c.fecha || Date.now()).toLocaleDateString()) + '</span>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;" onclick="event.stopPropagation();">' +
-                    '<button type="button" class="btn-song-action" title="' + (sonando ? 'Pausar' : 'Reproducir') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + realIdx + ')">' +
-                        (sonando ? '⏸' : '▶') +
-                    '</button>' +
-                    '<button type="button" class="btn-song-delete" title="Eliminar canción" onclick="window.MonarcaPlayer.eliminarCancion(\'' + c.id + '\')">' +
-                        '✕' +
-                    '</button>' +
-                '</div>' +
-            '</div>';
-        });
-
-        cont.innerHTML = html;
-    }
-
-    // ----------------------------------------------------------------------
-    // 7. RENDERIZADO DEL MINI-REPRODUCTOR FLOTANTE
-    // ----------------------------------------------------------------------
     function actualizarMiniPlayer() {
         var elMini = document.getElementById('monarca-mini-player');
         if (!elMini) return;
 
-        // Si no hay canción seleccionada o si el usuario lo cerró explícitamente y no está reproduciendo
-        if (!state.cancionActual) {
-            elMini.style.display = 'none';
-            return;
-        }
-
-        // Si la vista actual es el reproductor completo, ocultar el mini para no duplicar controles
-        if (window.VISTA_ACTUAL === 'vista-reproductor') {
+        if (!state.cancionActual || window.VISTA_ACTUAL === 'vista-reproductor') {
             elMini.style.display = 'none';
             return;
         }
@@ -638,19 +1014,13 @@
 
         var iconDisc = document.getElementById('mini-player-disc-icon');
         if (iconDisc) {
-            if (state.reproduciendo) {
-                iconDisc.classList.add('spinning');
-            } else {
-                iconDisc.classList.remove('spinning');
-            }
+            iconDisc.classList.toggle('spinning', state.reproduciendo);
         }
     }
 
     function cerrarMiniPlayer() {
         var elMini = document.getElementById('monarca-mini-player');
-        if (elMini) {
-            elMini.style.display = 'none';
-        }
+        if (elMini) elMini.style.display = 'none';
     }
 
     function expandirReproductorCompleto() {
@@ -661,7 +1031,7 @@
 
     function filtrarCanciones(val) {
         state.busqueda = val || '';
-        renderizarListaCanciones();
+        renderizarContenidoSegunSubtab();
     }
 
     function escaparHTML(str) {
@@ -674,14 +1044,27 @@
     }
 
     // ----------------------------------------------------------------------
-    // 8. INICIALIZADOR GLOBAL
+    // 9. API PÚBLICA PARA EL MOTOR DE ALARMAS
+    // ----------------------------------------------------------------------
+    function obtenerAudioBlob(songId) {
+        return obtenerCancionCompleta(songId).then(function(item) {
+            return (item && item.blob) ? item.blob : null;
+        });
+    }
+
+    function getCancionesMeta() {
+        return state.canciones || [];
+    }
+
+    // ----------------------------------------------------------------------
+    // 10. INICIALIZADOR GLOBAL
     // ----------------------------------------------------------------------
     function init() {
         initAudioListeners();
         initMediaSession();
 
         cargarMetadatosCanciones().then(function() {
-            renderizarListaCanciones();
+            renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
             actualizarControlesModo();
@@ -689,7 +1072,7 @@
             console.error('[Reproductor] Error cargando canciones iniciales:', e);
         });
 
-        // Enganchar input file nativo oculto
+        // Enganchar input de archivos individuales
         var fileIn = document.getElementById('input-file-mp3-monarca');
         if (fileIn) {
             fileIn.addEventListener('change', function(e) {
@@ -699,23 +1082,50 @@
                     if (loader) loader.style.display = 'block';
 
                     guardarCancionesFiles(files).then(function() {
-                        renderizarListaCanciones();
+                        renderizarContenidoSegunSubtab();
                         actualizarUIPlayerCompleto();
                         fileIn.value = '';
                         if (loader) loader.style.display = 'none';
-                        // Si no había nada sonando, empezar a reproducir la primera subida
                         if (!state.cancionActual && state.canciones.length > 0) {
                             reproducirIndice(0);
                         }
                     }).catch(function(err) {
-                        alert('Error guardando archivos: ' + err.message);
+                        alert('Error guardando archivos: ' + (err.message || err));
                         if (loader) loader.style.display = 'none';
                     });
                 }
             });
         }
 
-        // Enganchar cambio de vista para actualizar mini player
+        // Enganchar input de carpetas completas
+        var folderIn = document.getElementById('input-folder-mp3-monarca');
+        if (folderIn) {
+            folderIn.addEventListener('change', function(e) {
+                var files = e.target.files;
+                if (files && files.length > 0) {
+                    var loader = document.getElementById('reproductor-cargando-aviso');
+                    if (loader) loader.style.display = 'block';
+
+                    guardarCancionesFiles(files).then(function() {
+                        renderizarContenidoSegunSubtab();
+                        actualizarUIPlayerCompleto();
+                        folderIn.value = '';
+                        if (loader) loader.style.display = 'none';
+                        alert('✓ Se cargaron ' + files.length + ' pistas organizadas por carpetas.');
+                    }).catch(function(err) {
+                        alert('Error cargando carpeta: ' + (err.message || err));
+                        if (loader) loader.style.display = 'none';
+                    });
+                }
+            });
+        }
+
+        // Conectar escucha de transferencias de nube si MonarcaCloud está listo
+        if (window.MonarcaCloud && typeof window.MonarcaCloud.escucharTransferencias === 'function') {
+            window.MonarcaCloud.escucharTransferencias(alRecibirTransferenciasNube);
+        }
+
+        // Hook en cambiarVista para sincronizar visibilidad del mini-reproductor
         var origCambiarVista = window.cambiarVista;
         if (typeof origCambiarVista === 'function') {
             window.cambiarVista = function(vistaId, noPushState) {
@@ -742,6 +1152,18 @@
         cerrarMiniPlayer: cerrarMiniPlayer,
         expandirReproductorCompleto: expandirReproductorCompleto,
         actualizarMiniPlayer: actualizarMiniPlayer,
+        cambiarSubtab: cambiarSubtab,
+        seleccionarCarpeta: seleccionarCarpeta,
+        seleccionarPlaylist: seleccionarPlaylist,
+        crearPlaylistPrompt: crearPlaylistPrompt,
+        eliminarPlaylist: eliminarPlaylist,
+        abrirModalAgregarPlaylist: abrirModalAgregarPlaylist,
+        enviarCancionAPC: enviarCancionAPC,
+        descargarCancionTransferidaEnPC: descargarCancionTransferidaEnPC,
+        descargarCancionArchivoLocal: descargarCancionArchivoLocal,
+        alRecibirTransferenciasNube: alRecibirTransferenciasNube,
+        obtenerAudioBlob: obtenerAudioBlob,
+        getCanciones: getCancionesMeta,
         getState: function() { return state; }
     };
 

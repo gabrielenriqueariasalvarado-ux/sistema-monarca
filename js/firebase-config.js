@@ -10,8 +10,17 @@ import {
     doc, 
     getDoc, 
     setDoc, 
-    onSnapshot 
+    onSnapshot,
+    collection,
+    deleteDoc
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+import {
+    getStorage,
+    ref as storageRef,
+    uploadBytes,
+    getDownloadURL,
+    deleteObject
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-storage.js";
 
 // Configuración oficial proporcionada por el usuario
 const firebaseConfig = {
@@ -27,10 +36,12 @@ const firebaseConfig = {
 const FIRESTORE_COLECCION = "sistema_monarca";
 const FIRESTORE_DOCUMENTO = "datos_principales";
 const FIRESTORE_DOC_BACKUP = "backup_seguridad";
+const FIRESTORE_COL_TRANSFERENCIAS = "transferencias_musica";
 
 // Referencias de Firebase
 let app = null;
 let db = null;
+let storage = null;
 let docRef = null;
 let docBackupRef = null;
 let unsubscribeSnapshot = null;
@@ -605,6 +616,74 @@ window.MonarcaCloud = {
     cerrarCentroBackups: function() {
         var modal = document.getElementById('modal-centro-backups');
         if (modal) modal.style.display = 'none';
+    },
+
+    /**
+     * Sube una canción específica a Firebase Storage y avisa a los otros dispositivos vía Firestore
+     */
+    subirCancionTransferencia: async function(cancionMeta, blob) {
+        if (!storage || !db) {
+            throw new Error("El servicio de nube aún no está conectado. Revisa tu conexión a internet.");
+        }
+        var fileId = cancionMeta.id || ('song_' + Date.now());
+        var cleanName = cancionMeta.nombre || 'Cancion';
+        var fileName = cleanName.replace(/[^a-zA-Z0-9_\-\. ]/g, '_') + '.mp3';
+        var rutaStorage = 'transferencias_musica/' + fileId + '_' + fileName;
+        var refArchivo = storageRef(storage, rutaStorage);
+
+        var snap = await uploadBytes(refArchivo, blob);
+        var urlDescarga = await getDownloadURL(snap.ref);
+
+        var transferDocRef = doc(db, FIRESTORE_COL_TRANSFERENCIAS, fileId);
+        await setDoc(transferDocRef, {
+            id: fileId,
+            nombre: cleanName,
+            tamano: cancionMeta.tamano || blob.size || 0,
+            urlDescarga: urlDescarga,
+            rutaStorage: rutaStorage,
+            origenDispositivo: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'móvil' : 'PC',
+            fecha: Date.now()
+        });
+
+        return { id: fileId, url: urlDescarga };
+    },
+
+    /**
+     * Elimina una canción de la nube tras ser descargada
+     */
+    eliminarCancionTransferencia: async function(transferId, rutaStorage) {
+        if (!db) return;
+        try {
+            var transferDocRef = doc(db, FIRESTORE_COL_TRANSFERENCIAS, transferId);
+            await deleteDoc(transferDocRef);
+        } catch(e) {
+            console.warn("[Transferencia] Error borrando doc:", e);
+        }
+        if (storage && rutaStorage) {
+            try {
+                var refArchivo = storageRef(storage, rutaStorage);
+                await deleteObject(refArchivo);
+            } catch(e) {
+                console.warn("[Transferencia] Error borrando archivo de storage:", e);
+            }
+        }
+    },
+
+    /**
+     * Escucha en tiempo real si hay canciones enviadas a este dispositivo
+     */
+    escucharTransferencias: function(callback) {
+        if (!db) return function(){};
+        var colRef = collection(db, FIRESTORE_COL_TRANSFERENCIAS);
+        return onSnapshot(colRef, function(snap) {
+            var lista = [];
+            snap.forEach(function(d) {
+                lista.push(d.data());
+            });
+            if (typeof callback === 'function') callback(lista);
+        }, function(err) {
+            console.warn("[Transferencias Snapshot]", err);
+        });
     }
 };
 
@@ -621,6 +700,13 @@ async function inicializarFirebase() {
         }
         if (!db) {
             db = getFirestore(app);
+        }
+        if (!storage) {
+            try {
+                storage = getStorage(app);
+            } catch(stErr) {
+                console.warn("[Firebase Storage] Init aviso:", stErr);
+            }
         }
 
         docRef = doc(db, FIRESTORE_COLECCION, FIRESTORE_DOCUMENTO);

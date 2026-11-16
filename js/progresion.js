@@ -1099,34 +1099,196 @@ function actualizarBotonNotificacionesUI() {
     }
 }
 
-/**
- * Sintetizador de alarma sonora usando Web Audio API
- */
-function reproducirAlarmaQuest(esUrgente) {
+// ==========================================================================
+// MOTOR DE ALARMA CONTINUA Y TONOS PERSONALIZADOS (v10.50)
+// ==========================================================================
+var ALARMA_AUDIO_INSTANCE = null;
+var ALARMA_WAKELOCK_SENTINEL = null;
+var ALARMA_INTERVAL_SONIDO = null;
+var ALARMA_INTERVAL_VIBRACION = null;
+var ALARMA_AUDIO_BLOB_URL = null;
+var PROBANDO_TONO_INSTANCE = null;
+
+function iniciarAlarmaContinuaQuest(q) {
+    detenerAlarmaContinuaQuest();
+
+    // 1. Activar WakeLock para mantener la pantalla despierta si el navegador lo permite
+    if ('wakeLock' in navigator) {
+        try {
+            navigator.wakeLock.request('screen').then(function(sentinel) {
+                ALARMA_WAKELOCK_SENTINEL = sentinel;
+            }).catch(function(e) {});
+        } catch(e) {}
+    }
+
+    // 2. Loop de vibración insistente
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate([600, 250, 600, 250, 1000]);
+            ALARMA_INTERVAL_VIBRACION = setInterval(function() {
+                try { navigator.vibrate([600, 250, 600, 250, 1000]); } catch(e) {}
+            }, 2800);
+        } catch(e) {}
+    }
+
+    // 3. Audio de la Alarma (Pista MP3 de la biblioteca o Sintetizador continuo)
+    var tonoTipo = q ? q.tonoTipo : 'tono_tactico';
+    var tonoCancionId = q ? q.tonoCancionId : null;
+
+    if (tonoTipo === 'cancion' && tonoCancionId && window.MonarcaPlayer && typeof window.MonarcaPlayer.obtenerAudioBlob === 'function') {
+        window.MonarcaPlayer.obtenerAudioBlob(tonoCancionId).then(function(blob) {
+            if (blob) {
+                if (ALARMA_AUDIO_BLOB_URL) URL.revokeObjectURL(ALARMA_AUDIO_BLOB_URL);
+                ALARMA_AUDIO_BLOB_URL = URL.createObjectURL(blob);
+                ALARMA_AUDIO_INSTANCE = new Audio(ALARMA_AUDIO_BLOB_URL);
+                ALARMA_AUDIO_INSTANCE.loop = true;
+                ALARMA_AUDIO_INSTANCE.volume = 1.0;
+                var playProm = ALARMA_AUDIO_INSTANCE.play();
+                if (playProm !== undefined) {
+                    playProm.catch(function(err) {
+                        console.warn("[Alarma MP3 Fallback a sintetizador]", err);
+                        iniciarSintetizadorAlarmaLoop(tonoTipo);
+                    });
+                }
+            } else {
+                iniciarSintetizadorAlarmaLoop(tonoTipo);
+            }
+        }).catch(function() {
+            iniciarSintetizadorAlarmaLoop(tonoTipo);
+        });
+    } else {
+        iniciarSintetizadorAlarmaLoop(tonoTipo);
+    }
+}
+
+function iniciarSintetizadorAlarmaLoop(tipo) {
+    if (ALARMA_INTERVAL_SONIDO) clearInterval(ALARMA_INTERVAL_SONIDO);
+    reproducirGolpeAlarmaSintetizada(tipo);
+    ALARMA_INTERVAL_SONIDO = setInterval(function() {
+        reproducirGolpeAlarmaSintetizada(tipo);
+    }, 1400);
+}
+
+function reproducirGolpeAlarmaSintetizada(tipo) {
     try {
         var AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) {
-            var ctx = new AudioContext();
-            var tiempos = esUrgente ? [0, 0.14, 0.28, 0.42, 0.56] : [0, 0.16, 0.32];
-            var tonos = esUrgente ? [587.33, 880, 587.33, 880, 1174.66] : [523.25, 659.25, 783.99];
+        if (!AudioContext) return;
+        var ctx = new AudioContext();
 
-            tiempos.forEach(function(t, idx) {
+        if (tipo === 'tono_digital') {
+            // Beep-Beep digital clásico
+            [0, 0.15, 0.4, 0.55].forEach(function(t) {
                 var osc = ctx.createOscillator();
                 var gain = ctx.createGain();
-                osc.type = esUrgente ? 'sawtooth' : 'triangle';
-                osc.frequency.setValueAtTime(tonos[idx] || 440, ctx.currentTime + t);
-
-                gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.13);
-
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, ctx.currentTime + t);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.1);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
                 osc.start(ctx.currentTime + t);
-                osc.stop(ctx.currentTime + t + 0.14);
+                osc.stop(ctx.currentTime + t + 0.11);
+            });
+        } else if (tipo === 'tono_zen') {
+            // Campana armónica Zen
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(528, ctx.currentTime);
+            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 1.25);
+        } else {
+            // Alarma táctica militar continua (defecto)
+            [0, 0.12, 0.24, 0.36, 0.48, 0.60].forEach(function(t, idx) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                var freq = (idx % 2 === 0) ? 659.25 : 880;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + t);
+                gain.gain.setValueAtTime(0.45, ctx.currentTime + t);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.11);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + t);
+                osc.stop(ctx.currentTime + t + 0.12);
             });
         }
-    } catch(e) {
-        console.warn("[Audio Alarma] Error:", e);
+    } catch(e) {}
+}
+
+function detenerAlarmaContinuaQuest() {
+    if (ALARMA_AUDIO_INSTANCE) {
+        try {
+            ALARMA_AUDIO_INSTANCE.pause();
+            ALARMA_AUDIO_INSTANCE.currentTime = 0;
+        } catch(e) {}
+        ALARMA_AUDIO_INSTANCE = null;
+    }
+    if (ALARMA_AUDIO_BLOB_URL) {
+        try { URL.revokeObjectURL(ALARMA_AUDIO_BLOB_URL); } catch(e) {}
+        ALARMA_AUDIO_BLOB_URL = null;
+    }
+    if (ALARMA_INTERVAL_SONIDO) {
+        clearInterval(ALARMA_INTERVAL_SONIDO);
+        ALARMA_INTERVAL_SONIDO = null;
+    }
+    if (ALARMA_INTERVAL_VIBRACION) {
+        clearInterval(ALARMA_INTERVAL_VIBRACION);
+        ALARMA_INTERVAL_VIBRACION = null;
+    }
+    if ('vibrate' in navigator) {
+        try { navigator.vibrate(0); } catch(e) {}
+    }
+    if (ALARMA_WAKELOCK_SENTINEL) {
+        try { ALARMA_WAKELOCK_SENTINEL.release(); } catch(e) {}
+        ALARMA_WAKELOCK_SENTINEL = null;
+    }
+}
+
+function probarTonoAlarmaModal() {
+    var selTipo = document.getElementById('modal-qd-tono-tipo');
+    var selCancion = document.getElementById('modal-qd-tono-cancion');
+    var btn = document.getElementById('btn-probar-tono-qd');
+
+    if (PROBANDO_TONO_INSTANCE) {
+        detenerPruebaTonoAlarma();
+        if (btn) btn.innerHTML = '▶ Probar Tono';
+        return;
+    }
+
+    var tipo = selTipo ? selTipo.value : 'tono_tactico';
+    var cancionId = selCancion ? selCancion.value : null;
+
+    if (tipo === 'cancion' && cancionId && window.MonarcaPlayer && typeof window.MonarcaPlayer.obtenerAudioBlob === 'function') {
+        window.MonarcaPlayer.obtenerAudioBlob(cancionId).then(function(blob) {
+            if (blob) {
+                var url = URL.createObjectURL(blob);
+                PROBANDO_TONO_INSTANCE = new Audio(url);
+                PROBANDO_TONO_INSTANCE.volume = 1.0;
+                PROBANDO_TONO_INSTANCE.play();
+                if (btn) btn.innerHTML = '⏹ Detener Prueba';
+                setTimeout(function() { detenerPruebaTonoAlarma(); if (btn) btn.innerHTML = '▶ Probar Tono'; }, 8000);
+            }
+        });
+    } else {
+        reproducirGolpeAlarmaSintetizada(tipo);
+        if (btn) {
+            btn.innerHTML = '🔊 Sonando...';
+            setTimeout(function() { btn.innerHTML = '▶ Probar Tono'; }, 1500);
+        }
+    }
+}
+
+function detenerPruebaTonoAlarma() {
+    if (PROBANDO_TONO_INSTANCE) {
+        try {
+            PROBANDO_TONO_INSTANCE.pause();
+            PROBANDO_TONO_INSTANCE = null;
+        } catch(e) {}
     }
 }
 
@@ -1173,8 +1335,8 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
     var esOmitible = (q.esOmitible !== false);
     var mins = q.tiempoMinutos || 15;
 
-    // 1. Alarma sonora y vibración
-    reproducirAlarmaQuest(!esOmitible);
+    // 1. Alarma continua insistente (Tono o MP3 de la biblioteca) y vibración
+    iniciarAlarmaContinuaQuest(q);
 
     // 2. Notificación de sistema para teléfono y PC
     var tituloNotif = esOmitible
@@ -1270,6 +1432,7 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
 }
 
 function cerrarAlertaQuestActivada() {
+    detenerAlarmaContinuaQuest();
     var modal = document.getElementById('modal-alerta-quest-activada');
     if (modal) modal.style.display = 'none';
 }
@@ -1630,13 +1793,14 @@ function toggleDetalleQuest(id) {
 }
 
 function aplicarPenalizacionAutomatica(q) {
+    detenerAlarmaContinuaQuest();
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
     var penalizacionExp = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
     if (penalizacionExp > 0) restarExp(penalizacionExp);
     MonarcaDB.save(APP_STATE);
 
-    reproducirAlarmaQuest(true);
+    reproducirGolpeAlarmaSintetizada('tono_tactico');
     var pNom = q.penitenciaNombre || q.penitencia || "30 Flexiones";
     var pDesc = q.penitenciaDesc ? `\nInstrucciones: ${q.penitenciaDesc}` : "";
     emitirNotificacionQuest(
@@ -2337,6 +2501,41 @@ function alSeleccionarRutinaParaHabito(rutinaId) {
     }
 }
 
+function poblarSelectTonosCancionesModalQuest() {
+    var selCancion = document.getElementById('modal-qd-tono-cancion');
+    if (!selCancion) return;
+    selCancion.innerHTML = '<option value="">-- Selecciona una pista de tu biblioteca --</option>';
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.getCanciones === 'function') {
+        var canciones = window.MonarcaPlayer.getCanciones();
+        if (canciones && canciones.length > 0) {
+            canciones.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = (c.nombre || 'Canción sin título') + (c.artista ? ' - ' + c.artista : '');
+                selCancion.appendChild(opt);
+            });
+        } else {
+            var opt = document.createElement('option');
+            opt.value = "";
+            opt.disabled = true;
+            opt.textContent = "(No hay canciones cargadas en el reproductor)";
+            selCancion.appendChild(opt);
+        }
+    }
+}
+
+function alCambiarTipoTonoModalQuest() {
+    var selTipo = document.getElementById('modal-qd-tono-tipo');
+    var wrapCancion = document.getElementById('wrap-qd-tono-cancion');
+    if (!selTipo || !wrapCancion) return;
+    if (selTipo.value === 'cancion') {
+        wrapCancion.style.display = 'block';
+        poblarSelectTonosCancionesModalQuest();
+    } else {
+        wrapCancion.style.display = 'none';
+    }
+}
+
 function abrirModalNuevaQuestDiaria() {
     solicitarPermisoNotificaciones(false);
 
@@ -2364,6 +2563,10 @@ function abrirModalNuevaQuestDiaria() {
 
     poblarSelectRutinasVinculadasModalQuest();
     poblarSelectPenitenciasModalNuevaQuest();
+    poblarSelectTonosCancionesModalQuest();
+    var selTonoTipo = document.getElementById('modal-qd-tono-tipo');
+    if (selTonoTipo) selTonoTipo.value = 'tono_tactico';
+    alCambiarTipoTonoModalQuest();
     toggleTipoTiempoQuestModal();
     alCambiarOmitibleQuestModal();
 
@@ -2372,6 +2575,7 @@ function abrirModalNuevaQuestDiaria() {
 }
 
 function cerrarModalNuevaQuestDiaria() {
+    detenerPruebaTonoAlarma();
     var m = document.getElementById('modal-nueva-quest-diaria');
     if (m) m.style.display = 'none';
 }
@@ -2383,6 +2587,7 @@ function toggleTipoTiempoQuestModal() {
     var grpHora = document.getElementById('grupo-qd-hora');
     var grpOmit = document.getElementById('grupo-qd-omitible');
     var grpPen = document.getElementById('grupo-qd-penitencia');
+    var grpTono = document.getElementById('grupo-qd-tono-alarma');
 
     if (!sel) return;
     var val = sel.value;
@@ -2393,24 +2598,28 @@ function toggleTipoTiempoQuestModal() {
         if (grpHora) grpHora.style.display = 'none';
         if (grpOmit) grpOmit.style.display = 'none';
         if (grpPen) grpPen.style.display = 'none';
+        if (grpTono) grpTono.style.display = 'none';
     } else if (val === 'programada') {
         if (grpHoraAct) grpHoraAct.style.display = 'block';
         if (grpDur) grpDur.style.display = 'block';
         if (grpHora) grpHora.style.display = 'none';
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
+        if (grpTono) grpTono.style.display = 'block';
     } else if (val === 'duracion') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
         if (grpDur) grpDur.style.display = 'block';
         if (grpHora) grpHora.style.display = 'none';
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
+        if (grpTono) grpTono.style.display = 'none';
     } else if (val === 'hora_limite') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
         if (grpDur) grpDur.style.display = 'none';
         if (grpHora) grpHora.style.display = 'block';
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
+        if (grpTono) grpTono.style.display = 'none';
     }
 }
 
@@ -2461,6 +2670,11 @@ function confirmarAgregarQuestDiaria() {
     var minutos = inMin ? (parseInt(inMin.value, 10) || 15) : 15;
     var horaLimite = inHora ? inHora.value : '23:59';
     var esOmitible = chkOmit ? chkOmit.checked : true;
+
+    var selTonoTipo = document.getElementById('modal-qd-tono-tipo');
+    var selTonoCancion = document.getElementById('modal-qd-tono-cancion');
+    var tonoTipo = (tipoTiempo === 'programada' && selTonoTipo) ? selTonoTipo.value : 'tono_tactico';
+    var tonoCancionId = (tonoTipo === 'cancion' && selTonoCancion) ? selTonoCancion.value : null;
 
     // Obtener objeto de penitencia seleccionado
     var penitenciaId = 'sin_penitencia';
@@ -2535,6 +2749,8 @@ function confirmarAgregarQuestDiaria() {
         tiempoMinutos: minutos,
         horaLimite: horaLimite,
         esOmitible: esOmitible,
+        tonoTipo: tonoTipo,
+        tonoCancionId: tonoCancionId,
         penitenciaId: penitenciaId,
         penitenciaNombre: penitenciaNombre,
         penitenciaDesc: penitenciaDesc,

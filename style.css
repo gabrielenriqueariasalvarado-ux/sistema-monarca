@@ -10660,6 +10660,102 @@ body.modal-open {
     color: #f8fafc;
 }
 
+/* ==========================================================================
+   REPRODUCTOR MULTIPLATAFORMA v10.50: SUBPESTAÑAS, CARPETAS Y TRANSFERENCIAS
+   ========================================================================== */
+
+.player-subtabs-bar {
+    display: flex;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+}
+
+.player-subtab-btn {
+    flex: 1;
+    min-width: 110px;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.player-subtab-btn:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.player-subtab-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+.player-folder-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-folder-card:hover {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(56, 189, 248, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.btn-song-option-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-song-option-pill:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    transform: scale(1.05);
+}
+
+#banner-transferencias-pc {
+    margin-bottom: 14px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 
 
 

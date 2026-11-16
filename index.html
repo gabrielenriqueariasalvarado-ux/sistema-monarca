@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.47">
+    <link rel="stylesheet" href="style.css?v=10.50">
 </head>
 <body>
 
@@ -2214,6 +2214,32 @@
                     </div>
                 </div>
 
+                <!-- Configuración de Tono de Alarma / Pista MP3 (v10.50) -->
+                <div class="modal-form-group" id="grupo-qd-tono-alarma" style="display: none; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="color: #34d399; font-weight: 700; font-size: 13px;">🔔 Tono de Alarma al Activarse:</span>
+                        <button type="button" id="btn-probar-tono-qd" onclick="probarTonoAlarmaModal()" style="background: rgba(52, 211, 153, 0.15); border: 1px solid #34d399; color: #34d399; border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-weight: 700;">
+                            ▶ Probar Tono
+                        </button>
+                    </label>
+                    <select id="modal-qd-tono-tipo" class="modal-input" onchange="alCambiarTipoTonoModalQuest()">
+                        <option value="tono_tactico">🚨 Alarma Táctica Continua (Recomendada para despertar)</option>
+                        <option value="tono_digital">⏰ Beep-Beep Digital Clásico</option>
+                        <option value="tono_zen">🧘 Campana Zen Armónica</option>
+                        <option value="cancion">🎵 Pista MP3 de mi Biblioteca</option>
+                    </select>
+
+                    <div id="wrap-qd-tono-cancion" style="display: none; margin-top: 8px;">
+                        <label style="font-size: 11.5px; color: #94a3b8; margin-bottom: 4px; display: block;">Seleccionar Canción de tu Reproductor:</label>
+                        <select id="modal-qd-tono-cancion" class="modal-input">
+                            <!-- Poblado dinámicamente con las pistas de MonarcaPlayer -->
+                        </select>
+                        <small style="display: block; font-size: 11px; color: #64748b; margin-top: 4px;">
+                            La canción sonará en bucle a todo volumen al llegar la hora hasta que presiones Aceptar o Posponer.
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Casilla de Verificación: Omitible vs Obligatoria -->
                 <div id="grupo-qd-omitible" class="toggle-switch-container" style="margin-top: 4px; margin-bottom: 14px; display: none;" onclick="toggleCheckboxOmitibleQuest(event)">
                     <input type="checkbox" id="modal-qd-es-omitible" checked onchange="alCambiarOmitibleQuestModal()" style="accent-color: #f8fafc; width: 18px; height: 18px; cursor: pointer;">
@@ -3423,6 +3449,7 @@
 
         <!-- INPUT NATIVO OCULTO PARA CARGAR ARCHIVOS MP3 -->
         <input type="file" id="input-file-mp3-monarca" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" multiple style="display: none;">
+        <input type="file" id="input-folder-mp3-monarca" webkitdirectory directory multiple style="display: none;">
 
         <!-- TARJETA HERO DEL REPRODUCTOR -->
         <div class="player-hero-card">
@@ -3512,14 +3539,33 @@
                     </h3>
                     <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Archivos guardados en tu dispositivo. Suenan sin internet ni consumo de megas.</p>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById('input-file-mp3-monarca').click()">
                         <span>+ Cargar MP3s</span>
+                    </button>
+                    <button type="button" class="btn-cargar-mp3-action" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);" onclick="document.getElementById('input-folder-mp3-monarca').click()" title="Cargar una carpeta completa con canciones">
+                        <span>📂 + Carpeta</span>
                     </button>
                     <button type="button" class="btn-system-secondary" style="font-size: 11.5px; padding: 7px 12px; color: #f87171;" onclick="window.MonarcaPlayer.vaciarBiblioteca()" title="Vaciar biblioteca">
                         Vaciar
                     </button>
                 </div>
+            </div>
+
+            <!-- BANNER DE TRANSFERENCIAS RECIBIDAS DESDE LA NUBE -->
+            <div id="banner-transferencias-pc" style="display: none;"></div>
+
+            <!-- BARRA DE SUBPESTAÑAS: TODAS / CARPETAS / PLAYLISTS -->
+            <div class="player-subtabs-bar">
+                <button type="button" class="player-subtab-btn active" data-subtab="todas" onclick="window.MonarcaPlayer.cambiarSubtab('todas')">
+                    🎵 Todas las Pistas
+                </button>
+                <button type="button" class="player-subtab-btn" data-subtab="carpetas" onclick="window.MonarcaPlayer.cambiarSubtab('carpetas')">
+                    📁 Por Carpetas
+                </button>
+                <button type="button" class="player-subtab-btn" data-subtab="playlists" onclick="window.MonarcaPlayer.cambiarSubtab('playlists')">
+                    📋 Listas de Reproducción
+                </button>
             </div>
 
             <!-- AVISO DE CARGA -->
@@ -5480,26 +5526,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.49"></script>
-    <script src="js/perfil.js?v=10.49"></script>
-    <script src="js/progresion.js?v=10.49"></script>
-    <script src="js/estado-personal.js?v=10.49"></script>
-    <script src="js/finanzas.js?v=10.49"></script>
-    <script src="js/ideas.js?v=10.49"></script>
-    <script src="js/dinamicas.js?v=10.49"></script>
-    <script src="js/calendario.js?v=10.49"></script>
-    <script src="js/inventario.js?v=10.49"></script>
-    <script src="js/reproductor.js?v=10.49"></script>
-    <script src="js/jarvis-voz.js?v=10.49"></script>
+    <script src="js/core.js?v=10.50"></script>
+    <script src="js/perfil.js?v=10.50"></script>
+    <script src="js/progresion.js?v=10.50"></script>
+    <script src="js/estado-personal.js?v=10.50"></script>
+    <script src="js/finanzas.js?v=10.50"></script>
+    <script src="js/ideas.js?v=10.50"></script>
+    <script src="js/dinamicas.js?v=10.50"></script>
+    <script src="js/calendario.js?v=10.50"></script>
+    <script src="js/inventario.js?v=10.50"></script>
+    <script src="js/reproductor.js?v=10.50"></script>
+    <script src="js/jarvis-voz.js?v=10.50"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.49"></script>
+    <script type="module" src="js/firebase-config.js?v=10.50"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.49')
+                navigator.serviceWorker.register('sw.js?v=10.50')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
