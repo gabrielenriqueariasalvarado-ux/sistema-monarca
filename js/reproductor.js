@@ -492,42 +492,120 @@
     }
 
     // ----------------------------------------------------------------------
-    // 5. MEDIA SESSION API & AUDIO LISTENERS
+    // 5. MEDIA SESSION API & AUDIO LISTENERS (CONTROL CENTER NATIVO ANDROID/IOS)
     // ----------------------------------------------------------------------
+    function parsearTituloYArtista(nombreArchivo) {
+        if (!nombreArchivo) return { titulo: 'Canción Offline', artista: 'Emily OS' };
+        var limpio = String(nombreArchivo);
+        var lastDot = limpio.lastIndexOf('.');
+        if (lastDot > 0) limpio = limpio.substring(0, lastDot);
+
+        // Limpiar coletillas típicas de YouTube o descargadores
+        limpio = limpio.replace(/\s*(\(|\[)(oficial|official|video|versión|version|audio|remix|letra|lyrics|mp3|160k|320k|128k|hd|4k|hq).*?(\)|\])/gi, '').trim();
+
+        // Separar "Artista - Título"
+        var partes = limpio.split(/\s*[-–—]\s*/);
+        if (partes.length >= 2) {
+            var art = partes[0].replace(/_/g, ' ').trim();
+            var tit = partes.slice(1).join(' - ').replace(/_/g, ' ').trim();
+            return {
+                titulo: tit || limpio.replace(/_/g, ' '),
+                artista: art || 'Emily OS'
+            };
+        }
+
+        return {
+            titulo: limpio.replace(/_/g, ' '),
+            artista: 'Emily OS'
+        };
+    }
+
     function actualizarMediaSession() {
         if (!('mediaSession' in navigator)) return;
         if (state.cancionActual) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: state.cancionActual.nombre || 'Canción',
-                artist: 'Sistema Monarca',
-                album: state.cancionActual.carpeta || 'Bóveda Offline',
-                artwork: [
-                    { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-                    { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }
-                ]
-            });
-            navigator.mediaSession.playbackState = state.reproduciendo ? 'playing' : 'paused';
+            var metaInfo = parsearTituloYArtista(state.cancionActual.nombre);
+            var baseHref = window.location.href.split('#')[0].split('?')[0];
+            var art192 = new URL('icons/icon-192.png', baseHref).href;
+            var art512 = new URL('icons/icon-512.png', baseHref).href;
+
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: metaInfo.titulo,
+                    artist: metaInfo.artista,
+                    album: state.cancionActual.carpeta ? ('Carpeta: ' + state.cancionActual.carpeta) : 'Emily OS · Bóveda Offline',
+                    artwork: [
+                        { src: art192, sizes: '192x192', type: 'image/png' },
+                        { src: art512, sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+            } catch(e) {
+                console.warn('[MediaSession Metadata]', e);
+            }
+
+            try {
+                navigator.mediaSession.playbackState = state.reproduciendo ? 'playing' : 'paused';
+            } catch(e) {}
+
+            actualizarPositionStateMediaSession();
         } else {
-            navigator.mediaSession.playbackState = 'none';
+            try {
+                navigator.mediaSession.playbackState = 'none';
+            } catch(e) {}
         }
+    }
+
+    function actualizarPositionStateMediaSession() {
+        if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+        try {
+            var dur = state.audio.duration;
+            var pos = state.audio.currentTime;
+            if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
+                navigator.mediaSession.setPositionState({
+                    duration: Math.max(dur, 0),
+                    playbackRate: state.audio.playbackRate || 1.0,
+                    position: Math.min(Math.max(pos || 0, 0), dur)
+                });
+            }
+        } catch(e) {}
     }
 
     function initMediaSession() {
         if (!('mediaSession' in navigator)) return;
-        try {
-            navigator.mediaSession.setActionHandler('play', function() { togglePlayPausa(); });
-            navigator.mediaSession.setActionHandler('pause', function() { togglePlayPausa(); });
-            navigator.mediaSession.setActionHandler('previoustrack', function() { anteriorCancion(); });
-            navigator.mediaSession.setActionHandler('nexttrack', function() { siguienteCancion(true); });
-            navigator.mediaSession.setActionHandler('seekto', function(details) {
-                if (details.seekTime && state.audio.duration) {
+
+        var handlers = [
+            ['play', function() { togglePlayPausa(); }],
+            ['pause', function() { togglePlayPausa(); }],
+            ['previoustrack', function() { anteriorCancion(); }],
+            ['nexttrack', function() { siguienteCancion(true); }],
+            ['stop', function() { detenerReproductor(); }],
+            ['seekto', function(details) {
+                if (details.seekTime !== undefined && state.audio.duration) {
                     state.audio.currentTime = details.seekTime;
+                    actualizarPositionStateMediaSession();
                 }
-            });
-        } catch(e) {}
+            }],
+            ['seekbackward', function(details) {
+                var skip = details.seekOffset || 10;
+                state.audio.currentTime = Math.max((state.audio.currentTime || 0) - skip, 0);
+                actualizarPositionStateMediaSession();
+            }],
+            ['seekforward', function(details) {
+                var skip = details.seekOffset || 10;
+                state.audio.currentTime = Math.min((state.audio.currentTime || 0) + skip, state.audio.duration || 0);
+                actualizarPositionStateMediaSession();
+            }]
+        ];
+
+        handlers.forEach(function(pair) {
+            try {
+                navigator.mediaSession.setActionHandler(pair[0], pair[1]);
+            } catch(e) {}
+        });
     }
 
     function initAudioListeners() {
+        var lastMediaSessionUpdate = 0;
+
         state.audio.addEventListener('timeupdate', function() {
             var cur = state.audio.currentTime || 0;
             var dur = state.audio.duration || 0;
@@ -544,6 +622,20 @@
 
             var miniBar = document.getElementById('mini-player-fill');
             if (miniBar) miniBar.style.width = pct + '%';
+
+            var now = Date.now();
+            if (now - lastMediaSessionUpdate > 3000) {
+                lastMediaSessionUpdate = now;
+                actualizarPositionStateMediaSession();
+            }
+        });
+
+        state.audio.addEventListener('loadedmetadata', function() {
+            actualizarPositionStateMediaSession();
+        });
+
+        state.audio.addEventListener('seeked', function() {
+            actualizarPositionStateMediaSession();
         });
 
         state.audio.addEventListener('ended', function() {
@@ -885,25 +977,22 @@
             var sonando = esActual && state.reproduciendo;
 
             html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + listIndex + ')">' +
-                '<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">' +
+                '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden;">' +
                     '<div class="song-item-icon">' +
                         (sonando
                             ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>'
                             : (esActual ? '▶' : (listIndex + 1))) +
                     '</div>' +
-                    '<div style="min-width: 0; flex: 1;">' +
+                    '<div style="min-width: 0; flex: 1; overflow: hidden;">' +
                         '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(c.nombre) + '</div>' +
-                        '<div class="song-item-meta">' +
+                        '<div class="song-item-meta" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
                             '<span style="color: #38bdf8;">📁 ' + escaparHTML(c.carpeta || 'Principal') + '</span>' +
                             '<span>•</span>' +
                             '<span>' + formatearTamano(c.tamano) + '</span>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
-                '<div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">' +
-                    '<button type="button" class="btn-song-action" title="' + (sonando ? 'Pausar' : 'Reproducir') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + listIndex + ')">' +
-                        (sonando ? '⏸' : '▶') +
-                    '</button>' +
+                '<div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;" onclick="event.stopPropagation();">' +
                     '<button type="button" id="btn-transfer-' + c.id + '" class="btn-song-option-pill" title="Enviar únicamente esta canción a la PC" onclick="window.MonarcaPlayer.enviarCancionAPC(\'' + c.id + '\')">' +
                         '☁️ PC' +
                     '</button>' +
@@ -1060,6 +1149,11 @@
     // 10. INICIALIZADOR GLOBAL
     // ----------------------------------------------------------------------
     function init() {
+        var elAudio = document.getElementById('monarca-player-audio');
+        if (elAudio) {
+            state.audio = elAudio;
+        }
+
         initAudioListeners();
         initMediaSession();
 
