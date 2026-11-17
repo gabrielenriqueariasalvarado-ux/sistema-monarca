@@ -24,9 +24,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.51">
+    <link rel="stylesheet" href="style.css?v=10.52">
 </head>
 <body>
+
+<!-- ELEMENTO DE AUDIO GLOBAL EN EL DOM PARA MEDIASESSION & CENTRO DE CONTROL ANDROID/IOS -->
+<audio id="monarca-player-audio" preload="auto" playsinline style="position: fixed; width: 0; height: 0; opacity: 0; pointer-events: none; z-index: -1;"></audio>
 
 <div class="container">
     <!-- CABECERA SUPERIOR MODERNA / CYBERNETIC OS HEADER -->
@@ -3451,9 +3454,6 @@
         <input type="file" id="input-file-mp3-monarca" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" multiple style="display: none;">
         <input type="file" id="input-folder-mp3-monarca" webkitdirectory directory multiple style="display: none;">
 
-        <!-- ELEMENTO DE AUDIO NATIVO EN EL DOM PARA MEDIASESSION & CENTRO DE CONTROL ANDROID -->
-        <audio id="monarca-player-audio" preload="auto" playsinline style="display: none;"></audio>
-
         <!-- TARJETA HERO DEL REPRODUCTOR -->
         <div class="player-hero-card">
             <!-- VINILO CIBERNÉTICO ANIMADO -->
@@ -5529,26 +5529,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.51"></script>
-    <script src="js/perfil.js?v=10.51"></script>
-    <script src="js/progresion.js?v=10.51"></script>
-    <script src="js/estado-personal.js?v=10.51"></script>
-    <script src="js/finanzas.js?v=10.51"></script>
-    <script src="js/ideas.js?v=10.51"></script>
-    <script src="js/dinamicas.js?v=10.51"></script>
-    <script src="js/calendario.js?v=10.51"></script>
-    <script src="js/inventario.js?v=10.51"></script>
-    <script src="js/reproductor.js?v=10.51"></script>
-    <script src="js/jarvis-voz.js?v=10.51"></script>
+    <script src="js/core.js?v=10.52"></script>
+    <script src="js/perfil.js?v=10.52"></script>
+    <script src="js/progresion.js?v=10.52"></script>
+    <script src="js/estado-personal.js?v=10.52"></script>
+    <script src="js/finanzas.js?v=10.52"></script>
+    <script src="js/ideas.js?v=10.52"></script>
+    <script src="js/dinamicas.js?v=10.52"></script>
+    <script src="js/calendario.js?v=10.52"></script>
+    <script src="js/inventario.js?v=10.52"></script>
+    <script src="js/reproductor.js?v=10.52"></script>
+    <script src="js/jarvis-voz.js?v=10.52"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.51"></script>
+    <script type="module" src="js/firebase-config.js?v=10.52"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.51')
+                navigator.serviceWorker.register('sw.js?v=10.52')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

@@ -288,6 +288,10 @@
     // 4. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN
     // ----------------------------------------------------------------------
     function reproducirIndice(idx) {
+        if ('Notification' in window && Notification.permission === 'default') {
+            try { Notification.requestPermission().catch(function() {}); } catch(e) {}
+        }
+
         var listaActual = obtenerListaReproducibleActual();
         if (idx < 0 || idx >= listaActual.length) return;
         var meta = listaActual[idx];
@@ -520,13 +524,25 @@
         };
     }
 
+    function obtenerUrlIcono(relPath) {
+        var href = window.location.href.split('#')[0].split('?')[0];
+        if (!href.endsWith('/')) {
+            if (href.split('/').pop().indexOf('.') !== -1) {
+                var lastSlash = href.lastIndexOf('/');
+                href = href.substring(0, lastSlash + 1);
+            } else {
+                href = href + '/';
+            }
+        }
+        return new URL(relPath, href).href;
+    }
+
     function actualizarMediaSession() {
         if (!('mediaSession' in navigator)) return;
         if (state.cancionActual) {
             var metaInfo = parsearTituloYArtista(state.cancionActual.nombre);
-            var baseHref = window.location.href.split('#')[0].split('?')[0];
-            var art192 = new URL('icons/icon-192.png', baseHref).href;
-            var art512 = new URL('icons/icon-512.png', baseHref).href;
+            var art192 = obtenerUrlIcono('icons/icon-192.png');
+            var art512 = obtenerUrlIcono('icons/icon-512.png');
 
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
