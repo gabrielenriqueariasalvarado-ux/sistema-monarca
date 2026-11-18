@@ -768,6 +768,7 @@ async function inicializarFirebase() {
                 // Refrescar vistas en pantalla
                 if (typeof inicializarSistema === 'function') inicializarSistema();
                 if (typeof cargarInventario === 'function') cargarInventario();
+                if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
             }
             window._isSyncingFromRemote = false;
 
@@ -844,6 +845,9 @@ async function inicializarFirebase() {
                             }
                             if (typeof renderizarQuestsDiarios === 'function') {
                                 renderizarQuestsDiarios();
+                            }
+                            if (typeof programarAlarmasNativasQuests === 'function') {
+                                programarAlarmasNativasQuests();
                             }
                             if (typeof renderizarInventarioSiActivo === 'function') {
                                 renderizarInventarioSiActivo();

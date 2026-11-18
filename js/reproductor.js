@@ -287,10 +287,28 @@
     // ----------------------------------------------------------------------
     // 4. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN
     // ----------------------------------------------------------------------
+    function solicitarPermisoNotifReproductorSiFalta() {
+        try {
+            if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+                var ln = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+                if (ln && !state._notifPermAsked) {
+                    state._notifPermAsked = true;
+                    ln.checkPermissions().then(function(res) {
+                        if (res && res.display !== 'granted') {
+                            return ln.requestPermissions();
+                        }
+                    }).catch(function() {});
+                }
+                return;
+            }
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().catch(function() {});
+            }
+        } catch(e) {}
+    }
+
     function reproducirIndice(idx) {
-        if ('Notification' in window && Notification.permission === 'default') {
-            try { Notification.requestPermission().catch(function() {}); } catch(e) {}
-        }
+        solicitarPermisoNotifReproductorSiFalta();
 
         var listaActual = obtenerListaReproducibleActual();
         if (idx < 0 || idx >= listaActual.length) return;
@@ -325,6 +343,7 @@
                     state.reproduciendo = false;
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
+                    actualizarMediaSession();
                 });
             }
         });
@@ -343,7 +362,7 @@
         return state.canciones;
     }
 
-    function togglePlayPausa() {
+    function reproducirActual() {
         var lista = obtenerListaReproducibleActual();
         if (!state.cancionActual) {
             if (lista.length > 0) {
@@ -362,13 +381,26 @@
             }).catch(function(e) {
                 console.error('[Reproductor] Error al reproducir:', e);
             });
-        } else {
+        }
+    }
+
+    function pausarActual() {
+        if (!state.cancionActual) return;
+        if (!state.audio.paused) {
             state.audio.pause();
-            state.reproduciendo = false;
-            actualizarUIPlayerCompleto();
-            actualizarMiniPlayer();
-            renderizarContenidoSegunSubtab();
-            actualizarMediaSession();
+        }
+        state.reproduciendo = false;
+        actualizarUIPlayerCompleto();
+        actualizarMiniPlayer();
+        renderizarContenidoSegunSubtab();
+        actualizarMediaSession();
+    }
+
+    function togglePlayPausa() {
+        if (!state.cancionActual || state.audio.paused) {
+            reproducirActual();
+        } else {
+            pausarActual();
         }
     }
 
@@ -385,6 +417,7 @@
         actualizarUIPlayerCompleto();
         actualizarMiniPlayer();
         renderizarContenidoSegunSubtab();
+        actualizarMediaSession();
     }
 
     function siguienteCancion(esManual) {
@@ -393,7 +426,9 @@
 
         if (!esManual && state.repeat === 'one') {
             state.audio.currentTime = 0;
-            state.audio.play();
+            state.audio.play().then(function() {
+                actualizarPositionStateMediaSession();
+            }).catch(function() {});
             return;
         }
 
@@ -496,8 +531,64 @@
     }
 
     // ----------------------------------------------------------------------
-    // 5. MEDIA SESSION API & AUDIO LISTENERS (CONTROL CENTER NATIVO ANDROID/IOS)
+    // 5. MEDIA SESSION API & AUDIO LISTENERS (APK NATIVO + WEB/PWA FALLBACK)
     // ----------------------------------------------------------------------
+    var cachedArtworkDataUrl = null;
+    var artworkLoadPromise = null;
+    var TINY_PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    function esCapacitorNativo() {
+        try {
+            return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+        } catch(e) {
+            return !!(window.Capacitor && window.Capacitor.isNative);
+        }
+    }
+
+    function obtenerPluginMediaSession() {
+        if (esCapacitorNativo() && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MediaSession) {
+            return window.Capacitor.Plugins.MediaSession;
+        }
+        return null;
+    }
+
+    function obtenerArtworkDataUrl() {
+        if (cachedArtworkDataUrl) return Promise.resolve(cachedArtworkDataUrl);
+        if (artworkLoadPromise) return artworkLoadPromise;
+
+        artworkLoadPromise = fetch('icons/icon-192.png')
+            .then(function(res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.blob();
+            })
+            .catch(function() {
+                return fetch('icons/icon-512.png').then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.blob();
+                });
+            })
+            .then(function(blob) {
+                return new Promise(function(resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onloadend = function() {
+                        if (reader.result && typeof reader.result === 'string' && reader.result.indexOf('data:') === 0) {
+                            cachedArtworkDataUrl = reader.result;
+                            resolve(cachedArtworkDataUrl);
+                        } else {
+                            reject(new Error('Invalid DataURL'));
+                        }
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            })
+            .catch(function() {
+                return TINY_PNG_DATA_URL;
+            });
+
+        return artworkLoadPromise;
+    }
+
     function parsearTituloYArtista(nombreArchivo) {
         if (!nombreArchivo) return { titulo: 'Canción Offline', artista: 'Emily OS' };
         var limpio = String(nombreArchivo);
@@ -537,17 +628,67 @@
         return new URL(relPath, href).href;
     }
 
+    function enviarMetadataNativa(nativeMS, metaInfo, albumName, dataUrl) {
+        try {
+            var p = nativeMS.setMetadata({
+                title: metaInfo.titulo,
+                artist: metaInfo.artista,
+                album: albumName,
+                artwork: [
+                    { src: dataUrl || TINY_PNG_DATA_URL, sizes: '192x192', type: 'image/png' }
+                ]
+            });
+            if (p && typeof p.catch === 'function') p.catch(function() {});
+        } catch(e) {}
+    }
+
     function actualizarMediaSession() {
+        var nativeMS = obtenerPluginMediaSession();
+
+        if (nativeMS) {
+            if (state.cancionActual) {
+                var cancionRef = state.cancionActual;
+                var metaInfo = parsearTituloYArtista(cancionRef.nombre);
+                var albumName = cancionRef.carpeta ? ('Carpeta: ' + cancionRef.carpeta) : 'Emily OS · Bóveda Offline';
+
+                try {
+                    var psProm = nativeMS.setPlaybackState({
+                        playbackState: state.reproduciendo ? 'playing' : 'paused'
+                    });
+                    if (psProm && typeof psProm.catch === 'function') psProm.catch(function() {});
+                } catch(e) {}
+
+                if (cachedArtworkDataUrl) {
+                    enviarMetadataNativa(nativeMS, metaInfo, albumName, cachedArtworkDataUrl);
+                } else {
+                    enviarMetadataNativa(nativeMS, metaInfo, albumName, TINY_PNG_DATA_URL);
+                    obtenerArtworkDataUrl().then(function(dataUrl) {
+                        if (state.cancionActual && state.cancionActual.id === cancionRef.id) {
+                            enviarMetadataNativa(nativeMS, metaInfo, albumName, dataUrl);
+                        }
+                    }).catch(function() {});
+                }
+
+                actualizarPositionStateMediaSession();
+            } else {
+                try {
+                    var stopProm = nativeMS.setPlaybackState({ playbackState: 'none' });
+                    if (stopProm && typeof stopProm.catch === 'function') stopProm.catch(function() {});
+                } catch(e) {}
+            }
+            return;
+        }
+
         if (!('mediaSession' in navigator)) return;
         if (state.cancionActual) {
-            var metaInfo = parsearTituloYArtista(state.cancionActual.nombre);
+            var metaWeb = parsearTituloYArtista(state.cancionActual.nombre);
             var art192 = obtenerUrlIcono('icons/icon-192.png');
             var art512 = obtenerUrlIcono('icons/icon-512.png');
 
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: metaInfo.titulo,
-                    artist: metaInfo.artista,
+                    title: metaWeb.titulo,
+                    artist: metaWeb.artista,
                     album: state.cancionActual.carpeta ? ('Carpeta: ' + state.cancionActual.carpeta) : 'Emily OS · Bóveda Offline',
                     artwork: [
                         { src: art192, sizes: '192x192', type: 'image/png' },
@@ -571,47 +712,68 @@
     }
 
     function actualizarPositionStateMediaSession() {
+        var dur = state.audio.duration;
+        var pos = state.audio.currentTime;
+        if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) return;
+
+        var payload = {
+            duration: Math.max(dur, 0),
+            playbackRate: state.audio.playbackRate || 1.0,
+            position: Math.min(Math.max(pos || 0, 0), dur)
+        };
+
+        var nativeMS = obtenerPluginMediaSession();
+        if (nativeMS) {
+            try {
+                var p = nativeMS.setPositionState(payload);
+                if (p && typeof p.catch === 'function') p.catch(function() {});
+            } catch(e) {}
+            return;
+        }
+
         if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
         try {
-            var dur = state.audio.duration;
-            var pos = state.audio.currentTime;
-            if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
-                navigator.mediaSession.setPositionState({
-                    duration: Math.max(dur, 0),
-                    playbackRate: state.audio.playbackRate || 1.0,
-                    position: Math.min(Math.max(pos || 0, 0), dur)
-                });
-            }
+            navigator.mediaSession.setPositionState(payload);
         } catch(e) {}
     }
 
     function initMediaSession() {
-        if (!('mediaSession' in navigator)) return;
-
         var handlers = [
-            ['play', function() { togglePlayPausa(); }],
-            ['pause', function() { togglePlayPausa(); }],
+            ['play', function() { reproducirActual(); }],
+            ['pause', function() { pausarActual(); }],
             ['previoustrack', function() { anteriorCancion(); }],
             ['nexttrack', function() { siguienteCancion(true); }],
             ['stop', function() { detenerReproductor(); }],
             ['seekto', function(details) {
-                if (details.seekTime !== undefined && state.audio.duration) {
-                    state.audio.currentTime = details.seekTime;
+                if (details && details.seekTime !== undefined && details.seekTime !== null && state.audio.duration) {
+                    state.audio.currentTime = Math.max(0, Math.min(details.seekTime, state.audio.duration));
                     actualizarPositionStateMediaSession();
                 }
             }],
             ['seekbackward', function(details) {
-                var skip = details.seekOffset || 10;
+                var skip = (details && details.seekOffset) || 10;
                 state.audio.currentTime = Math.max((state.audio.currentTime || 0) - skip, 0);
                 actualizarPositionStateMediaSession();
             }],
             ['seekforward', function(details) {
-                var skip = details.seekOffset || 10;
+                var skip = (details && details.seekOffset) || 10;
                 state.audio.currentTime = Math.min((state.audio.currentTime || 0) + skip, state.audio.duration || 0);
                 actualizarPositionStateMediaSession();
             }]
         ];
 
+        var nativeMS = obtenerPluginMediaSession();
+        if (nativeMS) {
+            handlers.forEach(function(pair) {
+                try {
+                    var p = nativeMS.setActionHandler({ action: pair[0] }, pair[1]);
+                    if (p && typeof p.catch === 'function') p.catch(function() {});
+                } catch(e) {}
+            });
+            return;
+        }
+
+        if (!('mediaSession' in navigator)) return;
         handlers.forEach(function(pair) {
             try {
                 navigator.mediaSession.setActionHandler(pair[0], pair[1]);
@@ -640,13 +802,18 @@
             if (miniBar) miniBar.style.width = pct + '%';
 
             var now = Date.now();
-            if (now - lastMediaSessionUpdate > 3000) {
+            var intervalMs = obtenerPluginMediaSession() ? 10000 : 4000;
+            if (now - lastMediaSessionUpdate > intervalMs) {
                 lastMediaSessionUpdate = now;
                 actualizarPositionStateMediaSession();
             }
         });
 
         state.audio.addEventListener('loadedmetadata', function() {
+            actualizarPositionStateMediaSession();
+        });
+
+        state.audio.addEventListener('durationchange', function() {
             actualizarPositionStateMediaSession();
         });
 
@@ -1172,6 +1339,9 @@
 
         initAudioListeners();
         initMediaSession();
+        if (obtenerPluginMediaSession()) {
+            obtenerArtworkDataUrl();
+        }
 
         cargarMetadatosCanciones().then(function() {
             renderizarContenidoSegunSubtab();

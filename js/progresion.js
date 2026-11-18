@@ -886,9 +886,54 @@ function asegurarCanalAlarmaCapacitor() {
     }
 }
 
-/**
- * Programa alarmas nativas exactas de Android a Pantalla Completa vía MonarcaAlarm nativo
- */
+var TONOS_NATIVOS_SINCRONIZADOS = {};
+
+function blobABase64Alarma(blob) {
+    return new Promise(function(resolve, reject) {
+        try {
+            var reader = new FileReader();
+            reader.onloadend = function() { resolve(reader.result || ''); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        } catch(e) {
+            reject(e);
+        }
+    });
+}
+
+function sincronizarTonosConNativo(monarcaAlarm, qList) {
+    if (!monarcaAlarm || typeof monarcaAlarm.guardarTonoAlarma !== 'function') {
+        return Promise.resolve();
+    }
+    if (!window.MonarcaPlayer || typeof window.MonarcaPlayer.obtenerAudioBlob !== 'function') {
+        return Promise.resolve();
+    }
+
+    var promesas = [];
+    (qList || []).forEach(function(q) {
+        if (!q || !q.id || q.tonoTipo !== 'cancion' || !q.tonoCancionId) return;
+        var safeName = 'tone_' + String(q.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp3';
+        if (TONOS_NATIVOS_SINCRONIZADOS[safeName] === q.tonoCancionId) return;
+
+        var p = window.MonarcaPlayer.obtenerAudioBlob(q.tonoCancionId)
+            .then(function(blob) {
+                if (!blob) return;
+                return blobABase64Alarma(blob).then(function(b64) {
+                    if (!b64) return;
+                    return monarcaAlarm.guardarTonoAlarma({ nombre: safeName, base64: b64 }).then(function() {
+                        TONOS_NATIVOS_SINCRONIZADOS[safeName] = q.tonoCancionId;
+                    });
+                });
+            })
+            .catch(function(err) {
+                console.warn("[Sincronizar Tono MP3]", err);
+            });
+        promesas.push(p);
+    });
+
+    return Promise.all(promesas);
+}
+
 function programarAlarmasNativasQuests() {
     var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
     if (!plugins) return;
@@ -897,70 +942,124 @@ function programarAlarmasNativasQuests() {
     var ln = plugins.LocalNotifications || null;
     var qList = APP_STATE.questsDiarios || [];
     var ahora = new Date();
+    var ahoraMs = ahora.getTime();
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : ahora.toISOString().split('T')[0];
 
     try {
+        var alarmasPayload = [];
+
         qList.forEach(function(q, idx) {
-            var target = null;
-            var h = 8, m = 0;
-            if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
+            if (!q || typeof q !== 'object' || !q.id) return;
+
+            var safeName = (q.tonoTipo === 'cancion' && q.tonoCancionId)
+                ? ('tone_' + String(q.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp3')
+                : (q.tonoTipo || 'default');
+            var esOmitible = (q.esOmitible !== false);
+            var penText = q.penitenciaNombre || q.penitencia || '30 Flexiones inmediatas';
+
+            // 1. Quests diarios programados a hora fija (incluye los completados/en curso para el día siguiente)
+            if (q.tipoTiempo === 'programada' && q.horaActivacion) {
                 var partes = q.horaActivacion.split(':');
                 if (partes.length >= 2) {
-                    h = parseInt(partes[0], 10);
-                    m = parseInt(partes[1], 10);
-                    target = new Date();
-                    target.setHours(h, m, 0, 0);
-                    if (target.getTime() <= ahora.getTime()) {
-                        target.setDate(target.getDate() + 1);
+                    var h = parseInt(partes[0], 10);
+                    var m = parseInt(partes[1], 10);
+                    if (!isNaN(h) && !isNaN(m)) {
+                        var target = new Date();
+                        target.setHours(h, m, 0, 0);
+                        if (target.getTime() <= ahoraMs || q.estado !== 'pendiente' || q.ultimaActivacionFecha === hoyStr) {
+                            target.setDate(target.getDate() + 1);
+                        }
+                        alarmasPayload.push({
+                            id: 'daily_' + String(q.id),
+                            legacyNotifId: (idx + 1) * 1000 + (h * 60 + m),
+                            questId: String(q.id),
+                            titulo: q.titulo || 'Quest Diaria',
+                            penitencia: penText,
+                            esOmitible: esOmitible,
+                            hora: h,
+                            minutos: m,
+                            timestamp: target.getTime(),
+                            repetirDiario: true,
+                            tono: safeName
+                        });
                     }
                 }
-            } else if (q.estado === 'pospuesta' && q.pospuestaHasta && q.pospuestaHasta > ahora.getTime()) {
-                target = new Date(q.pospuestaHasta);
-                h = target.getHours();
-                m = target.getMinutes();
             }
 
-            if (target) {
-                var notifId = (idx + 1) * 1000 + (h * 60 + m);
-                var esOmitible = (q.esOmitible !== false);
-
-                // 1. DISPARAR EN ALARMMANAGER NATIVO CON PANTALLA COMPLETA
-                if (monarcaAlarm && typeof monarcaAlarm.programarAlarma === 'function') {
-                    monarcaAlarm.programarAlarma({
-                        id: String(notifId),
-                        titulo: q.titulo,
-                        penitencia: q.penitencia || '30 Flexiones inmediatas',
-                        esOmitible: esOmitible,
-                        questId: q.id,
-                        hora: h,
-                        minutos: m,
-                        timestamp: target.getTime()
-                    }).then(function() {
-                        console.log("[MonarcaAlarm Nativo] Alarma programada a pantalla completa para " + target.toLocaleTimeString());
-                    }).catch(function(e) {
-                        console.warn("[MonarcaAlarm Error]", e);
-                    });
-                }
-
-                // 2. RESPALDO LOCALNOTIFICATIONS SI ESTÁ DISPONIBLE
-                if (ln && typeof ln.schedule === 'function') {
-                    asegurarCanalAlarmaCapacitor();
-                    ln.schedule({
-                        notifications: [{
-                            id: notifId,
-                            title: esOmitible ? '⚔️ ¡Quest Diaria!: ' + q.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + q.titulo,
-                            body: esOmitible
-                                ? 'Tienes ' + (q.tiempoMinutos || 15) + ' min. Toca para ver e iniciar tu misión.'
-                                : '¡NO OMITIBLE! Tienes ' + (q.tiempoMinutos || 15) + ' min. ¡Hay penitencia!',
-                            schedule: { at: target, allowWhileIdle: true },
-                            channelId: 'quest_alarms_channel',
-                            ongoing: false,
-                            autoCancel: true,
-                            extra: { questId: q.id, fullScreen: true }
-                        }]
-                    }).catch(function(e){});
-                }
+            // 2. One-shot para quests actualmente pospuestas
+            if (q.estado === 'pospuesta' && q.pospuestaHasta && q.pospuestaHasta > ahoraMs) {
+                var snoozeDate = new Date(q.pospuestaHasta);
+                alarmasPayload.push({
+                    id: 'snooze_' + String(q.id),
+                    legacyNotifId: (idx + 1) * 1000 + 999,
+                    questId: String(q.id),
+                    titulo: '⏰ Gracia terminada: ' + (q.titulo || 'Quest Diaria'),
+                    penitencia: penText,
+                    esOmitible: false,
+                    hora: snoozeDate.getHours(),
+                    minutos: snoozeDate.getMinutes(),
+                    timestamp: q.pospuestaHasta,
+                    repetirDiario: false,
+                    tono: safeName
+                });
             }
         });
+
+        // Motor Nativo Principal (MonarcaAlarm): sin notificación duplicada de respaldo
+        if (monarcaAlarm && typeof monarcaAlarm.sincronizarAlarmas === 'function') {
+            sincronizarTonosConNativo(monarcaAlarm, qList).then(function() {
+                var payloadLimpio = alarmasPayload.map(function(a) {
+                    return {
+                        id: a.id,
+                        questId: a.questId,
+                        titulo: a.titulo,
+                        penitencia: a.penitencia,
+                        esOmitible: a.esOmitible,
+                        hora: a.hora,
+                        minutos: a.minutos,
+                        timestamp: a.timestamp,
+                        repetirDiario: a.repetirDiario,
+                        tono: a.tono
+                    };
+                });
+                return monarcaAlarm.sincronizarAlarmas({ alarmas: payloadLimpio });
+            }).then(function(res) {
+                console.log("[MonarcaAlarm] Alarmas nativas sincronizadas:", res && res.count);
+            }).catch(function(e) {
+                console.warn("[MonarcaAlarm Error]", e);
+            });
+
+            // Cancelar notificaciones heredadas de LocalNotifications para evitar duplicados mudos
+            if (ln && typeof ln.getPending === 'function' && typeof ln.cancel === 'function') {
+                ln.getPending().then(function(pend) {
+                    if (pend && pend.notifications && pend.notifications.length > 0) {
+                        return ln.cancel({ notifications: pend.notifications });
+                    }
+                }).catch(function() {});
+            }
+            return;
+        }
+
+        // Respaldo únicamente si MonarcaAlarm no existiera
+        if (ln && typeof ln.schedule === 'function') {
+            asegurarCanalAlarmaCapacitor();
+            alarmasPayload.forEach(function(a) {
+                ln.schedule({
+                    notifications: [{
+                        id: a.legacyNotifId,
+                        title: a.esOmitible ? '⚔️ ¡Quest Diaria!: ' + a.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + a.titulo,
+                        body: a.esOmitible
+                            ? 'Tienes tiempo límite. Toca para ver e iniciar tu misión.'
+                            : '¡NO OMITIBLE! Si expira el cronómetro hay penitencia.',
+                        schedule: { at: new Date(a.timestamp), allowWhileIdle: true },
+                        channelId: 'quest_alarms_channel',
+                        ongoing: false,
+                        autoCancel: true,
+                        extra: { questId: a.questId, fullScreen: true }
+                    }]
+                }).catch(function() {});
+            });
+        }
     } catch(err) {
         console.warn("[programarAlarmasNativasQuests]", err);
     }
@@ -996,13 +1095,13 @@ function sincronizarQuestConRelojAndroid(id) {
     }
 }
 
-// Listener para cuando el usuario toca la notificación nativa en Android
+// Listener para cuando el usuario toca una notificación de respaldo en Android
 if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
     try {
         window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', function(notification) {
             if (notification && notification.notification && notification.notification.extra) {
                 var qId = notification.notification.extra.questId;
-                var q = (APP_STATE.questsDiarios || []).find(function(item) { return item.id === qId; });
+                var q = (APP_STATE.questsDiarios || []).find(function(item) { return String(item.id) === String(qId); });
                 if (q) emitirAlertaQuestActivada(q, false);
             }
         });
@@ -1018,7 +1117,11 @@ function solicitarPermisoNotificaciones(desdeBoton) {
                 if (res.display === 'granted') {
                     programarAlarmasNativasQuests();
                     if (desdeBoton) {
-                        alert("🔔 ¡Alarmas Nativas Android Activadas!\nTus quests sonarán con exactitud al segundo incluso con el teléfono bloqueado y pantalla apagada.");
+                        if (window.Capacitor.Plugins.MonarcaAlarm) {
+                            abrirModalDiagnosticoAlarma();
+                        } else {
+                            alert("🔔 ¡Alarmas Nativas Android Activadas!");
+                        }
                     }
                 } else if (desdeBoton) {
                     alert("Por favor permite las notificaciones y alarmas para que Monarca pueda avisarte puntualmente.");
@@ -1071,6 +1174,25 @@ function actualizarBotonNotificacionesUI() {
 
         // Comprobación en Capacitor (Nativo)
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+            var monarcaAlarm = window.Capacitor.Plugins.MonarcaAlarm;
+            if (monarcaAlarm && typeof monarcaAlarm.estadoPermisos === 'function') {
+                monarcaAlarm.estadoPermisos().then(function(st) {
+                    var criticosOk = st.notifications && st.exactAlarms && st.fullScreenIntent && st.batteryOptimization;
+                    if (criticosOk) {
+                        btn.innerHTML = '<span>🔔</span> Alarma Nativa OK';
+                        btn.style.background = '#ecfdf5';
+                        btn.style.color = '#065f46';
+                        btn.style.borderColor = '#a7f3d0';
+                    } else {
+                        btn.innerHTML = '<span>⚠️</span> Permisos Pendientes';
+                        btn.style.background = '#fef3c7';
+                        btn.style.color = '#92400e';
+                        btn.style.borderColor = '#fcd34d';
+                    }
+                }).catch(function() {});
+                return;
+            }
+
             window.Capacitor.Plugins.LocalNotifications.checkPermissions().then(function(res) {
                 if (res.display === 'granted') {
                     btn.innerHTML = '<span>🔔</span> Alarma Nativa OK';
@@ -1431,8 +1553,17 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
     modal.style.display = 'flex';
 }
 
+function detenerSonidoAlarmaNativa() {
+    try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaAlarm && typeof window.Capacitor.Plugins.MonarcaAlarm.pararSonido === 'function') {
+            window.Capacitor.Plugins.MonarcaAlarm.pararSonido().catch(function() {});
+        }
+    } catch(e) {}
+}
+
 function cerrarAlertaQuestActivada() {
     detenerAlarmaContinuaQuest();
+    detenerSonidoAlarmaNativa();
     var modal = document.getElementById('modal-alerta-quest-activada');
     if (modal) modal.style.display = 'none';
 }
@@ -1479,6 +1610,7 @@ function posponerQuestUnaHora(id) {
     q.estado = 'pospuesta';
     q.temporizadorActivo = false;
     q.pospuestaHasta = ahoraMs + (60 * 60 * 1000); // 1 hora exacta
+    q.fechaActualizacion = ahoraMs;
 
     var proximaHora = new Date(q.pospuestaHasta).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
@@ -1662,6 +1794,7 @@ function iniciarLoopQuestsDiarios() {
     if (LOOP_QUESTS_DIARIOS_INTERVAL) return;
 
     LOOP_QUESTS_DIARIOS_INTERVAL = setInterval(function() {
+        if (window._MONARCA_PROCESANDO_ACCIONES_ALARMA) return;
         if (!APP_STATE.questsDiarios) return;
         var huboCambios = false;
 
@@ -1681,6 +1814,7 @@ function iniciarLoopQuestsDiarios() {
                     q.estado = 'en_progreso';
                     q.temporizadorActivo = true;
                     q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                    q.fechaActualizacion = ahoraMs;
                     emitirAlertaQuestActivada(q, false);
                     huboCambios = true;
                 }
@@ -1693,6 +1827,7 @@ function iniciarLoopQuestsDiarios() {
                     q.estado = 'en_progreso';
                     q.temporizadorActivo = true;
                     q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                    q.fechaActualizacion = ahoraMs;
                     emitirAlertaQuestActivada(q, true);
                     huboCambios = true;
                 }
@@ -1752,6 +1887,7 @@ function verificarPenalizacionesPendientes() {
         if (q.tipoTiempo === 'hora_limite' && q.estado === 'pendiente' && q.horaLimite) {
             if (esHoraLimiteSuperada(q.horaLimite)) {
                 q.estado = 'penalizada';
+                q.fechaActualizacion = Date.now();
                 restarExp(30);
                 cambio = true;
             }
@@ -1794,8 +1930,10 @@ function toggleDetalleQuest(id) {
 
 function aplicarPenalizacionAutomatica(q) {
     detenerAlarmaContinuaQuest();
+    detenerSonidoAlarmaNativa();
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
+    q.fechaActualizacion = Date.now();
     var penalizacionExp = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
     if (penalizacionExp > 0) restarExp(penalizacionExp);
     MonarcaDB.save(APP_STATE);
@@ -2175,6 +2313,7 @@ function iniciarTemporizadorQuest(id) {
     q.temporizadorActivo = true;
     q.estado = 'en_progreso';
     q.pospuestaHasta = null;
+    q.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
 }
@@ -2185,6 +2324,7 @@ function pausarTemporizadorQuest(id) {
     if (!q) return;
 
     q.temporizadorActivo = false;
+    q.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
 }
@@ -2202,6 +2342,7 @@ function completarQuestDiaria(id) {
     q.estado = 'completada';
     q.temporizadorActivo = false;
     q.pospuestaHasta = null;
+    q.fechaActualizacion = Date.now();
 
     var pct = Math.max(1, Number(q.exp) || 40);
     var expMaxActual = (APP_STATE.jugador && APP_STATE.jugador.expMax) ? APP_STATE.jugador.expMax : 100;
@@ -2231,6 +2372,7 @@ function completarQuestDiaria(id) {
 
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
     alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + pct + "% de EXP (" + expGanada + " EXP) añadida a tu avatar." + detalleAtrs);
     renderizarQuestsDiarios();
@@ -2249,6 +2391,7 @@ function cumplirPenitenciaQuest(id) {
     q.estado = 'penitencia_cumplida';
     q.temporizadorActivo = false;
     q.pospuestaHasta = null;
+    q.fechaActualizacion = Date.now();
 
     // Aplicar atributos desarrollados por saldar la penitencia
     var detalleAtrs = "";
@@ -3461,26 +3604,441 @@ function ejecutarProtocoloDeepWork(id) {
 }
 
 
-// Solicitud automática de permisos nativos al abrir en Android APK
-if (typeof window !== 'undefined') {
-    window.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-                var ln = window.Capacitor.Plugins.LocalNotifications;
-                ln.checkPermissions().then(function(perm) {
-                    if (perm.display !== 'granted') {
-                        return ln.requestPermissions();
+// ==========================================================================
+// SINCRONIZACIÓN DE ACCIONES NATIVAS Y DIAGNÓSTICO DE ALARMA (v10.53)
+// ==========================================================================
+var _PROCESANDO_ACCIONES_PROMISE = null;
+var _TEST_ALARMA_COUNTDOWN_INT = null;
+
+function procesarAccionesAlarmaNativa() {
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var monarcaAlarm = plugins && plugins.MonarcaAlarm ? plugins.MonarcaAlarm : null;
+    if (!monarcaAlarm || typeof monarcaAlarm.obtenerAccionesPendientes !== 'function') {
+        return Promise.resolve(false);
+    }
+
+    if (_PROCESANDO_ACCIONES_PROMISE) return _PROCESANDO_ACCIONES_PROMISE;
+
+    window._MONARCA_PROCESANDO_ACCIONES_ALARMA = true;
+    _PROCESANDO_ACCIONES_PROMISE = monarcaAlarm.obtenerAccionesPendientes()
+        .then(function(res) {
+            var acciones = (res && Array.isArray(res.acciones)) ? res.acciones : [];
+            if (acciones.length === 0) return false;
+
+            if (!APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return false;
+
+            var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+            var ahoraMs = Date.now();
+            var huboCambios = false;
+            var questParaAbrir = null;
+            var questAlertaSilenciosa = null;
+            var testResultado = null;
+
+            // Consolidar por questId dando prioridad a acciones explícitas (start / snooze) sobre fired
+            var porQuest = {};
+            acciones.forEach(function(act) {
+                if (!act || !act.tipo) return;
+                var qId = String(act.questId || '');
+                if (qId === '__test__') {
+                    testResultado = act.tipo;
+                    return;
+                }
+                if (!qId) return;
+                var prev = porQuest[qId];
+                if (!prev || prev.tipo === 'fired' || act.tipo === 'start' || act.tipo === 'snooze') {
+                    porQuest[qId] = act;
+                }
+            });
+
+            Object.keys(porQuest).forEach(function(qId) {
+                var act = porQuest[qId];
+                var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === qId; });
+                if (!q) return;
+
+                if (act.tipo === 'snooze') {
+                    q.estado = 'pospuesta';
+                    q.temporizadorActivo = false;
+                    q.pospuestaHasta = Number(act.snoozeUntil) || (ahoraMs + 3600000);
+                    q.ultimaActivacionFecha = hoyStr;
+                    q.fechaActualizacion = ahoraMs;
+                    cerrarAlertaQuestActivada();
+                    huboCambios = true;
+                } else if (act.tipo === 'start') {
+                    q.ultimaActivacionFecha = hoyStr;
+                    q.pospuestaHasta = null;
+                    if (q.estado !== 'completada' && q.estado !== 'penalizada' && q.estado !== 'penitencia_cumplida') {
+                        q.estado = 'en_progreso';
+                        q.temporizadorActivo = true;
+                        if (!q.tiempoRestante || q.tiempoRestante <= 0) {
+                            q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                        }
                     }
-                    return perm;
-                }).then(function(res) {
-                    actualizarBotonNotificacionesUI();
-                    if (res && res.display === 'granted') {
-                        programarAlarmasNativasQuests();
+                    q.fechaActualizacion = ahoraMs;
+                    QUESTS_EXPANDIDAS.add(String(q.id));
+                    questParaAbrir = q.id;
+                    huboCambios = true;
+                } else if (act.tipo === 'fired' && q.estado === 'pendiente') {
+                    q.ultimaActivacionFecha = hoyStr;
+                    q.estado = 'en_progreso';
+                    q.temporizadorActivo = true;
+                    q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
+                    q.fechaActualizacion = ahoraMs;
+                    huboCambios = true;
+                    var limiteMs = (q.tiempoMinutos || 15) * 60 * 1000;
+                    if (act.timestamp && (ahoraMs - Number(act.timestamp)) < limiteMs) {
+                        questAlertaSilenciosa = q;
                     }
-                }).catch(function(err) {
-                    console.warn("[AutoPermisos Android]", err);
+                }
+            });
+
+            if (huboCambios) {
+                MonarcaDB.save(APP_STATE);
+                if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
+                if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+            }
+
+            if (testResultado) {
+                var elTest = document.getElementById('diagnostico-alarma-prueba-estado');
+                var msgTest = testResultado === 'test_snooze'
+                    ? '✅ ¡Botón Posponer verificado en la alarma de prueba!'
+                    : '✅ ¡Prueba de alarma exitosa! La pantalla de alarma abrió Emily correctamente.';
+                if (elTest) {
+                    elTest.style.display = 'block';
+                    elTest.style.background = 'rgba(16, 185, 129, 0.14)';
+                    elTest.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                    elTest.style.color = '#34d399';
+                    elTest.textContent = msgTest;
+                }
+                if (!document.getElementById('modal-diagnostico-alarma') || document.getElementById('modal-diagnostico-alarma').style.display === 'none') {
+                    alert(msgTest);
+                }
+            }
+
+            if (questParaAbrir) {
+                if (typeof cerrarAlertaQuestActivada === 'function') cerrarAlertaQuestActivada();
+                if (typeof cambiarVista === 'function') cambiarVista('vista-quests-diarios');
+                setTimeout(function() {
+                    var elDet = document.getElementById('quest-detalle-' + questParaAbrir);
+                    var cardEl = elDet ? elDet.closest('.quest-diario-card') : null;
+                    if (cardEl && typeof cardEl.scrollIntoView === 'function') {
+                        cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 180);
+            } else if (questAlertaSilenciosa) {
+                emitirAlertaQuestActivada(questAlertaSilenciosa, false);
+            }
+
+            return huboCambios;
+        })
+        .catch(function(err) {
+            console.warn("[procesarAccionesAlarmaNativa]", err);
+            return false;
+        })
+        .finally(function() {
+            window._MONARCA_PROCESANDO_ACCIONES_ALARMA = false;
+            _PROCESANDO_ACCIONES_PROMISE = null;
+        });
+
+    return _PROCESANDO_ACCIONES_PROMISE;
+}
+
+function abrirModalDiagnosticoAlarma() {
+    var modal = document.getElementById('modal-diagnostico-alarma');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    refrescarDiagnosticoAlarma();
+}
+
+function cerrarModalDiagnosticoAlarma() {
+    var modal = document.getElementById('modal-diagnostico-alarma');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderFilaDiagnostico(estadoTipo, titulo, detalle, tipoAjuste, botonTxt) {
+    var badge = estadoTipo === 'ok' ? '✅' : (estadoTipo === 'warn' ? '⚙️' : '❌');
+    var borderColor = estadoTipo === 'ok'
+        ? 'rgba(16, 185, 129, 0.25)'
+        : (estadoTipo === 'warn' ? 'rgba(245, 158, 11, 0.35)' : 'rgba(239, 68, 68, 0.4)');
+    var bgColor = estadoTipo === 'ok'
+        ? 'rgba(16, 185, 129, 0.06)'
+        : (estadoTipo === 'warn' ? 'rgba(245, 158, 11, 0.07)' : 'rgba(239, 68, 68, 0.08)');
+    var btnHtml = (estadoTipo !== 'ok' && tipoAjuste)
+        ? `<button type="button" onclick="arreglarPermisoAlarmaDiag('${tipoAjuste}')" style="background: #1e293b; border: 1px solid #38bdf8; color: #38bdf8; border-radius: 8px; padding: 6px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">${botonTxt || 'Arreglar'}</button>`
+        : '';
+
+    return `
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; flex: 1;">
+            <span style="font-size: 16px; line-height: 1.2;">${badge}</span>
+            <div style="min-width: 0;">
+                <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">${titulo}</div>
+                <div style="font-size: 11px; color: #94a3b8; line-height: 1.35; margin-top: 2px;">${detalle}</div>
+            </div>
+        </div>
+        ${btnHtml}
+    </div>`;
+}
+
+function refrescarDiagnosticoAlarma() {
+    var elEntorno = document.getElementById('diagnostico-alarma-entorno');
+    var elLista = document.getElementById('diagnostico-alarma-lista');
+    if (!elEntorno || !elLista) return;
+
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var monarcaAlarm = plugins && plugins.MonarcaAlarm ? plugins.MonarcaAlarm : null;
+
+    if (!monarcaAlarm || typeof monarcaAlarm.estadoPermisos !== 'function') {
+        var notifWeb = ('Notification' in window) ? Notification.permission : 'unsupported';
+        elEntorno.innerHTML = '🌐 <strong>Modo Navegador / PWA Chrome:</strong> Chrome no permite despertar la pantalla apagada como una alarma de sistema. Para que suene y abra sobre el bloqueo en las mañanas, usa la <strong>APK de Emily</strong>.';
+        elLista.innerHTML = renderFilaDiagnostico(
+            notifWeb === 'granted' ? 'ok' : 'fail',
+            'Notificaciones del navegador',
+            notifWeb === 'granted' ? 'Permiso concedido en Chrome.' : 'Activa las notificaciones para recibir alertas mientras Chrome esté abierto.',
+            null,
+            ''
+        ) + (notifWeb !== 'granted' ? '<button type="button" class="btn-system" onclick="solicitarPermisoNotificaciones(true)" style="justify-content:center;">🔔 Activar Notificaciones Web</button>' : '');
+        return;
+    }
+
+    monarcaAlarm.estadoPermisos().then(function(st) {
+        var esXiaomi = !!st.esXiaomi;
+        elEntorno.innerHTML = esXiaomi
+            ? '📱 <strong>APK Nativa Android · Xiaomi / HyperOS detectado (Android SDK ' + st.sdk + '):</strong> Activa todos los permisos en ❌ y los de Xiaomi para que la alarma encienda la pantalla y suene sobre el bloqueo.'
+            : '📱 <strong>APK Nativa Android (SDK ' + st.sdk + '):</strong> Asegúrate de que todos los permisos aparezcan en ✅ y realiza la prueba de 10 segundos con la pantalla bloqueada.';
+
+        var filas = [];
+        filas.push(renderFilaDiagnostico(
+            st.notifications ? 'ok' : 'fail',
+            'Notificaciones del sistema',
+            st.notifications ? 'Activas y canal despertador habilitado.' : 'Sin notificaciones, Android oculta la alarma.',
+            'notifications',
+            'Arreglar'
+        ));
+
+        filas.push(renderFilaDiagnostico(
+            st.exactAlarms ? 'ok' : 'fail',
+            'Alarmas exactas (AlarmManager)',
+            st.exactAlarms ? 'Permitido disparar al segundo exacto.' : 'Sin permiso exacto Android retrasa la alarma.',
+            'exactAlarms',
+            'Arreglar'
+        ));
+
+        filas.push(renderFilaDiagnostico(
+            st.fullScreenIntent ? 'ok' : 'fail',
+            'Pantalla completa sobre bloqueo',
+            st.fullScreenIntent ? 'Autorizado para despertar la pantalla.' : 'Necesario en Android 14+ para abrir la pantalla de alarma al instante.',
+            'fullScreenIntent',
+            'Arreglar'
+        ));
+
+        filas.push(renderFilaDiagnostico(
+            st.batteryOptimization ? 'ok' : 'fail',
+            'Batería: Sin restricciones',
+            st.batteryOptimization ? 'Excluida del ahorro agresivo.' : 'Si la batería restringe la app, el sistema mata la alarma de madrugada.',
+            'battery',
+            'Arreglar'
+        ));
+
+        var vol = Number(st.alarmVolume || 0);
+        var volMax = Number(st.alarmVolumeMax || 7);
+        filas.push(renderFilaDiagnostico(
+            vol > 0 ? 'ok' : 'fail',
+            'Volumen del canal Alarma (' + vol + ' / ' + volMax + ')',
+            vol > 0 ? 'Sonará por el canal de alarma aunque Multimedia esté en cero.' : 'Tu volumen de Alarma está en 0. Súbelo con los botones físicos o en Ajustes de sonido.',
+            vol > 0 ? null : 'appDetails',
+            'Abrir'
+        ));
+
+        filas.push(renderFilaDiagnostico(
+            st.overlay ? 'ok' : 'warn',
+            'Mostrar sobre otras apps',
+            st.overlay ? 'Permitido abrir pantalla de alarma incluso con el teléfono desbloqueado.' : 'Recomendado para que salte la pantalla si estás usando otra app.',
+            'overlay',
+            'Activar'
+        ));
+
+        if (esXiaomi) {
+            var bgStatus = st.miuiBackgroundPopup === true ? 'ok' : (st.miuiBackgroundPopup === false ? 'fail' : 'warn');
+            filas.push(renderFilaDiagnostico(
+                bgStatus,
+                'Xiaomi HyperOS · Ventanas emergentes en 2° plano',
+                st.miuiBackgroundPopup === true
+                    ? 'Permiso MIUI concedido.'
+                    : 'CRÍTICO en Xiaomi: en "Otros permisos" activa "Mostrar ventanas emergentes mientras se ejecuta en segundo plano".',
+                'xiaomiPerms',
+                'Arreglar'
+            ));
+
+            var lockStatus = st.miuiShowOnLockScreen === true ? 'ok' : (st.miuiShowOnLockScreen === false ? 'fail' : 'warn');
+            filas.push(renderFilaDiagnostico(
+                lockStatus,
+                'Xiaomi HyperOS · Mostrar en pantalla de bloqueo',
+                st.miuiShowOnLockScreen === true
+                    ? 'Permiso MIUI concedido.'
+                    : 'CRÍTICO en Xiaomi: en "Otros permisos" activa "Mostrar en pantalla de bloqueo".',
+                'xiaomiPerms',
+                'Arreglar'
+            ));
+
+            filas.push(renderFilaDiagnostico(
+                'warn',
+                'Xiaomi HyperOS · Inicio automático (Autostart)',
+                'Actívalo en Ajustes de Xiaomi para que las alarmas sobrevivan tras limpiar recientes o reiniciar.',
+                'xiaomiAutostart',
+                'Abrir'
+            ));
+        }
+
+        elLista.innerHTML = filas.join('');
+    }).catch(function(err) {
+        elLista.innerHTML = '<div style="color:#f87171;font-size:12px;">Error leyendo estado nativo: ' + (err && err.message ? err.message : err) + '</div>';
+    });
+}
+
+function arreglarPermisoAlarmaDiag(tipo) {
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var monarcaAlarm = plugins && plugins.MonarcaAlarm ? plugins.MonarcaAlarm : null;
+    var ln = plugins && plugins.LocalNotifications ? plugins.LocalNotifications : null;
+
+    if (tipo === 'notifications' && ln && typeof ln.requestPermissions === 'function') {
+        ln.checkPermissions().then(function(cur) {
+            if (cur && cur.display !== 'granted') {
+                return ln.requestPermissions().then(function(after) {
+                    if (after && after.display === 'granted') {
+                        refrescarDiagnosticoAlarma();
+                        actualizarBotonNotificacionesUI();
+                        return;
+                    }
+                    if (monarcaAlarm) return monarcaAlarm.abrirAjuste({ tipo: 'notifications' });
                 });
             }
+            if (monarcaAlarm) return monarcaAlarm.abrirAjuste({ tipo: 'notifications' });
+        }).catch(function() {
+            if (monarcaAlarm) monarcaAlarm.abrirAjuste({ tipo: 'notifications' });
+        });
+        return;
+    }
+
+    if (monarcaAlarm && typeof monarcaAlarm.abrirAjuste === 'function') {
+        monarcaAlarm.abrirAjuste({ tipo: tipo }).catch(function() {});
+    }
+}
+
+function probarAlarmaDiezSegundos() {
+    var elEstado = document.getElementById('diagnostico-alarma-prueba-estado');
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var monarcaAlarm = plugins && plugins.MonarcaAlarm ? plugins.MonarcaAlarm : null;
+
+    if (_TEST_ALARMA_COUNTDOWN_INT) {
+        clearInterval(_TEST_ALARMA_COUNTDOWN_INT);
+        _TEST_ALARMA_COUNTDOWN_INT = null;
+    }
+
+    var iniciarCuentaRegresiva = function(secs, esNativo) {
+        if (!elEstado) return;
+        var restante = secs;
+        elEstado.style.display = 'block';
+        elEstado.style.background = 'rgba(245, 158, 11, 0.12)';
+        elEstado.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+        elEstado.style.color = '#fbbf24';
+        elEstado.textContent = esNativo
+            ? ('⏳ La alarma sonará en ' + restante + ' s. ¡Bloquea la pantalla del teléfono ahora!')
+            : ('⏳ Prueba web sonará en ' + restante + ' s...');
+
+        _TEST_ALARMA_COUNTDOWN_INT = setInterval(function() {
+            restante--;
+            if (restante > 0) {
+                elEstado.textContent = esNativo
+                    ? ('⏳ La alarma sonará en ' + restante + ' s. ¡Bloquea la pantalla ahora!')
+                    : ('⏳ Prueba web sonará en ' + restante + ' s...');
+            } else {
+                clearInterval(_TEST_ALARMA_COUNTDOWN_INT);
+                _TEST_ALARMA_COUNTDOWN_INT = null;
+                elEstado.textContent = '🔔 ¡Alarma disparada! Pulsa "Empezar" o "Posponer" en la pantalla de alarma.';
+            }
         }, 1000);
+    };
+
+    if (monarcaAlarm && typeof monarcaAlarm.probarAlarma === 'function') {
+        monarcaAlarm.probarAlarma({ segundos: 10 }).then(function() {
+            iniciarCuentaRegresiva(10, true);
+        }).catch(function(err) {
+            alert("No se pudo programar la alarma de prueba: " + (err && err.message ? err.message : err));
+        });
+    } else {
+        iniciarCuentaRegresiva(10, false);
+        setTimeout(function() {
+            emitirAlertaQuestActivada({
+                id: '__test__',
+                titulo: 'Prueba de Alarma Emily (Web)',
+                tiempoMinutos: 15,
+                tiempoRestante: 900,
+                penitencia: 'Verificación de alarma web',
+                esOmitible: true,
+                tonoTipo: 'tono_tactico'
+            }, false);
+        }, 10000);
+    }
+}
+
+// Arranque seguro: sincronizar acciones nativas ANTES de iniciar el loop de quests
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', function() {
+        var arrancarMotorQuests = function() {
+            try {
+                sanitizarQuestsDiarios();
+                iniciarLoopQuestsDiarios();
+                actualizarBotonNotificacionesUI();
+                programarAlarmasNativasQuests();
+            } catch(e) {
+                console.warn("[Arranque Motor Quests]", e);
+            }
+        };
+
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaAlarm) {
+            var monarcaAlarm = window.Capacitor.Plugins.MonarcaAlarm;
+            if (typeof monarcaAlarm.addListener === 'function') {
+                try {
+                    monarcaAlarm.addListener('alarmAction', function() {
+                        procesarAccionesAlarmaNativa();
+                    });
+                } catch(e) {}
+            }
+            procesarAccionesAlarmaNativa().finally(arrancarMotorQuests);
+
+            setTimeout(function() {
+                var ln = window.Capacitor.Plugins.LocalNotifications;
+                if (ln && typeof ln.checkPermissions === 'function') {
+                    ln.checkPermissions().then(function(perm) {
+                        if (perm.display !== 'granted') {
+                            return ln.requestPermissions();
+                        }
+                        return perm;
+                    }).then(function() {
+                        actualizarBotonNotificacionesUI();
+                        programarAlarmasNativasQuests();
+                    }).catch(function() {});
+                }
+            }, 900);
+        } else {
+            setTimeout(arrancarMotorQuests, 300);
+        }
     });
+
+    var _alVolverPrimerPlano = function() {
+        procesarAccionesAlarmaNativa();
+        actualizarBotonNotificacionesUI();
+        var modalDiag = document.getElementById('modal-diagnostico-alarma');
+        if (modalDiag && modalDiag.style.display && modalDiag.style.display !== 'none') {
+            refrescarDiagnosticoAlarma();
+        }
+    };
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            _alVolverPrimerPlano();
+        }
+    });
+
+    window.addEventListener('focus', _alVolverPrimerPlano);
 }

@@ -70,18 +70,19 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca (APK Nativa Android)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.53)"
           body: |
-            ### 📱 APK Nativa de Sistema Monarca para Android
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.53
             Esta versión nativa incluye:
-            - ⏰ **AlarmManager nativo**: Alertas y alarmas exactas al segundo con pantalla apagada / reposo profundo (Doze Mode).
+            - ⏰ **Alarma despertadora real (`MonarcaAlarmService`)**: enciende la pantalla sobre el bloqueo, reproduce el sonido en el canal de alarma (incluidos MP3 personalizados), reprograma cada día tras sonar o tras reiniciar y trae **🩺 Diagnóstico de Alarma** para Xiaomi / HyperOS y Android 14+.
+            - 🎵 **Controles multimedia en la barra de notificaciones**: reproducción en segundo plano y tarjeta en el Centro de Control / pantalla de bloqueo con título, artista, carátula y botones Play/Pausa/Siguiente/Anterior.
             - 🛡️ Soporte completo offline y sincronización en tiempo real con Firebase Firestore.
-            - ⚡ Acceso a todos los módulos: Inventario, Finanzas, Quests Diarios, Hábitos, Entrenamiento y Jarvis Voz.
+            - ⚡ Acceso a todos los módulos: Inventario, Finanzas, Quests Diarios, Hábitos, Entrenamiento, Reproductor y Jarvis Voz.
 
             **Instrucciones para instalar en tu teléfono:**
             1. Toca el archivo adjunto `Sistema-Monarca.apk` abajo para descargarlo.
-            2. Ábrelo en tu teléfono para instalarlo (permite la instalación de orígenes desconocidos si tu teléfono te lo solicita).
-            3. ¡Listo! Abre Sistema Monarca directamente desde tu pantalla de inicio.
+            2. Ábrelo en tu teléfono para instalarlo / actualizarlo (permite orígenes desconocidos si tu teléfono te lo solicita).
+            3. Abre Emily → Hábitos & Misiones → **🩺 Diagnóstico** y activa los permisos recomendados para asegurar la alarma con pantalla apagada.
           files: Sistema-Monarca.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
