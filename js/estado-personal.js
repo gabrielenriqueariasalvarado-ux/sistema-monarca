@@ -3424,14 +3424,17 @@ function confirmarAgregarEjercicio() {
     var yaExisteEj = APP_STATE.ejercicios.some(function(e) {
         return e && e.nombre && e.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
     });
+    var permitirDuplicadoEj = false;
     if (yaExisteEj) {
         if (!confirm("Ya existe un ejercicio llamado \"" + nom + "\".\n¿Deseas agregar otro con el mismo nombre?")) {
             return;
         }
+        permitirDuplicadoEj = true;
     }
 
+    var nowEj = Date.now();
     var nuevoEjercicio = {
-        id: "EJ-" + Date.now(),
+        id: "EJ-" + nowEj,
         nombre: nom,
         tipo: tipoEj,
         implemento: implemento,
@@ -3452,8 +3455,9 @@ function confirmarAgregarEjercicio() {
         zonas: zonasCopia,
         categorias: categorias,
         fatigaPorcentaje: fatigaEstimada,
-        timestamp: Date.now(),
-        fechaActualizacion: Date.now()
+        permitirDuplicadoNombre: permitirDuplicadoEj,
+        timestamp: nowEj,
+        fechaActualizacion: nowEj
     };
 
     APP_STATE.ejercicios.push(nuevoEjercicio);
@@ -4687,23 +4691,27 @@ function confirmarAgregarRutina() {
     var yaExisteRut = APP_STATE.rutinas.some(function(r) {
         return r && r.nombre && r.nombre.trim().toLowerCase() === nom.trim().toLowerCase();
     });
+    var permitirDuplicadoRut = false;
     if (yaExisteRut) {
         if (!confirm("Ya existe una rutina llamada \"" + nom + "\".\n¿Deseas agregar otra con el mismo nombre?")) {
             return;
         }
+        permitirDuplicadoRut = true;
     }
 
+    var nowRut = Date.now();
     var prefix = tipo === 'mental' ? 'COG-' : (tipo === 'hibrida' ? 'HIB-' : 'RUT-');
     var nuevaRutina = {
-        id: "RUT-" + Date.now(),
+        id: "RUT-" + nowRut,
         codigo: prefix + (APP_STATE.rutinas.length + 1),
         tipo: tipo,
         nombre: nom,
         descripcion: desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado"),
         rankLabel: tag,
         ejercicios: selectedEjercicios,
-        timestamp: Date.now(),
-        fechaActualizacion: Date.now()
+        permitirDuplicadoNombre: permitirDuplicadoRut,
+        timestamp: nowRut,
+        fechaActualizacion: nowRut
     };
 
     APP_STATE.rutinas.push(nuevaRutina);
@@ -8862,15 +8870,19 @@ function guardarRutinaAleatoriaEnMisRutinas() {
 
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
 
+    var nowRand = Date.now();
     var nueva = {
-        id: "RUT-" + Date.now(),
+        id: "RUT-" + nowRand,
         codigo: "RUT-" + (APP_STATE.rutinas.length + 1),
         nombre: nombre.trim(),
         tipo: "fisica",
         rankLabel: "SESIÓN · " + hoyNombre.toUpperCase(),
         descripcion: "Rutina generada inteligentemente según el Split Semanal.",
         ejercicios: JSON.parse(JSON.stringify(RUTINA_ALEATORIA_GENERADA)),
-        fechaCreacion: Date.now()
+        permitirDuplicadoNombre: true,
+        fechaCreacion: nowRand,
+        timestamp: nowRand,
+        fechaActualizacion: nowRand
     };
 
     APP_STATE.rutinas.push(nueva);

@@ -46,9 +46,13 @@ let docRef = null;
 let docBackupRef = null;
 let unsubscribeSnapshot = null;
 
+const CLIENT_INSTANCE_ID = 'CLI-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 let debounceSaveTimer = null;
 let ultimoTimestampGuardado = 0;
-let ignorarProximoSnapshot = false;
+let _cambiosPendientesNube = false;
+let _guardadoEnCurso = false;
+let _reintentarGuardadoAlTerminar = false;
+let _ultimoBackupRemotoTs = 0;
 
 // Bloqueo de arranque: IMPIDE que un dispositivo sobreescriba la nube
 // antes de descargar y fusionar los datos más recientes existentes en Firestore.
@@ -60,13 +64,30 @@ const MONARCA_BACKUP_EMERGENCIA_KEY = 'sistema_monarca_backup_emergencia';
 const MONARCA_HISTORIAL_BACKUPS_KEY = 'sistema_monarca_historial_backups';
 
 /**
- * Guarda una copia de seguridad local en localStorage antes de cualquier sincronización o reemplazo
+ * Guarda una copia de seguridad local en localStorage antes de cualquier sincronización o reemplazo,
+ * limitando su peso para no agotar la cuota del almacenamiento principal (sistema_monarca_db_v1).
  */
 function guardarCopiaSeguridadLocal(datos, motivo) {
     try {
         if (!datos) return;
         var backupStr = JSON.stringify(datos);
-        localStorage.setItem(MONARCA_BACKUP_EMERGENCIA_KEY, backupStr);
+
+        // Si el estado supera ~1.2 MB en caracteres (~2.4 MB UTF-16), evitar duplicarlo 2+ veces en localStorage
+        if (backupStr.length > 1200000) {
+            try { localStorage.removeItem(MONARCA_HISTORIAL_BACKUPS_KEY); } catch (e) {}
+            try { localStorage.setItem(MONARCA_BACKUP_EMERGENCIA_KEY, backupStr); } catch (e) {
+                try { localStorage.removeItem(MONARCA_BACKUP_EMERGENCIA_KEY); } catch (ig) {}
+            }
+            return;
+        }
+
+        try {
+            localStorage.setItem(MONARCA_BACKUP_EMERGENCIA_KEY, backupStr);
+        } catch (eEmerg) {
+            // Liberar historial para priorizar la emergencia y no saturar cuota principal
+            try { localStorage.removeItem(MONARCA_HISTORIAL_BACKUPS_KEY); } catch (ig) {}
+            return;
+        }
 
         var historial = [];
         try {
@@ -90,10 +111,21 @@ function guardarCopiaSeguridadLocal(datos, motivo) {
             data: datos
         });
 
-        // Mantener hasta 10 copias de seguridad rotativas
-        if (historial.length > 10) historial = historial.slice(0, 10);
-        localStorage.setItem(MONARCA_HISTORIAL_BACKUPS_KEY, JSON.stringify(historial));
-        console.log(`🛡️ Copia de seguridad guardada (${motivo}). Productos: ${prodsCount}, Ventas: ${ventasCount}.`);
+        // Máximo 2 copias rotativas (1 si el estado supera ~500k chars) para proteger la cuota de localStorage (~5 MB)
+        var maxCopias = backupStr.length > 500000 ? 1 : 2;
+        if (historial.length > maxCopias) historial = historial.slice(0, maxCopias);
+
+        try {
+            localStorage.setItem(MONARCA_HISTORIAL_BACKUPS_KEY, JSON.stringify(historial));
+            console.log(`🛡️ Copia de seguridad guardada (${motivo}). Productos: ${prodsCount}, Ventas: ${ventasCount}.`);
+        } catch (eHist) {
+            // Reintentar con 1 sola copia o limpiar historial si excede cuota
+            try {
+                localStorage.setItem(MONARCA_HISTORIAL_BACKUPS_KEY, JSON.stringify(historial.slice(0, 1)));
+            } catch (eHistSingle) {
+                try { localStorage.removeItem(MONARCA_HISTORIAL_BACKUPS_KEY); } catch (ig) {}
+            }
+        }
     } catch(err) {
         console.warn("Aviso al crear copia de seguridad local:", err);
     }
@@ -145,8 +177,43 @@ function deduplicarColeccionQuests(quests, tombstones) {
 }
 
 /**
+ * Extrae el timestamp numérico real de una entidad (soportando números, fechas string o el sello de su ID).
+ */
+function obtenerTimestampNumerico(item) {
+    if (!item || typeof item !== 'object') return 0;
+    var candidates = [item.fechaActualizacion, item.timestamp, item.fechaCreacion];
+    // 1. Priorizar valores numéricos válidos (ej. Date.now())
+    for (var i = 0; i < candidates.length; i++) {
+        var val = candidates[i];
+        if (typeof val === 'number' && !isNaN(val) && val > 0) return val;
+        if (typeof val === 'string' && /^\d{10,15}$/.test(val.trim())) {
+            var asNum = Number(val.trim());
+            if (!isNaN(asNum) && asNum > 0) return asNum;
+        }
+    }
+    // 2. Fallback: extraer timestamp incrustado en el ID (ej: PROD-1763..., RUT-1763..., DEU-1763...)
+    if (typeof item.id === 'string') {
+        var m = item.id.match(/-(\d{10,15})(?:-\d+)?$/);
+        if (m && m[1]) {
+            var idTs = Number(m[1]);
+            if (!isNaN(idTs) && idTs > 0) return idTs;
+        }
+    }
+    // 3. Fallback: parsear fechas string ISO / YYYY-MM-DD
+    for (var j = 0; j < candidates.length; j++) {
+        var s = candidates[j];
+        if (typeof s === 'string' && s.trim()) {
+            var parsed = Date.parse(s.trim());
+            if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+    }
+    return 0;
+}
+
+/**
  * Deduplica cualquier lista de entidades por nombre o título normalizado,
- * garantizando que productos, ejercicios, rutinas o finanzas no se dupliquen al sincronizar.
+ * garantizando que productos, ejercicios, rutinas o finanzas no se dupliquen al sincronizar,
+ * pero respetando explícitamente los ítems creados con confirmación de nombre duplicado.
  */
 function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
     if (!Array.isArray(lista)) return [];
@@ -157,6 +224,11 @@ function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
 
     lista.forEach(function(item) {
         if (!item || !item.id || tombSet.has(item.id)) return;
+        // Respetar ítems duplicados confirmados intencionalmente por el usuario
+        if (item.permitirDuplicadoNombre === true) {
+            resultado.push(item);
+            return;
+        }
         var valor = (item[campo] || item.titulo || item.nombre || '').trim().toLowerCase();
         if (!valor) {
             resultado.push(item);
@@ -169,8 +241,8 @@ function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
         } else {
             // Duplicado encontrado: conservar el más reciente o con más datos
             var existente = vistos.get(valor);
-            var tsActual = item.fechaActualizacion || item.timestamp || 0;
-            var tsExistente = existente.fechaActualizacion || existente.timestamp || 0;
+            var tsActual = obtenerTimestampNumerico(item);
+            var tsExistente = obtenerTimestampNumerico(existente);
 
             if (tsActual > tsExistente) {
                 var idx = resultado.indexOf(existente);
@@ -217,10 +289,10 @@ function fusionarColeccionPorId(listaLocal, listaRemota, tombstones) {
                     // Elemento nuevo local que la nube no tenía aún: CONSERVAR
                     resultadoMap[item.id] = JSON.parse(JSON.stringify(item));
                 } else {
-                    // Elemento existe en ambos: quedarse con la versión más reciente si tiene timestamp
+                    // Elemento existe en ambos: quedarse con la versión más reciente según timestamp real
                     var itemRemoto = resultadoMap[item.id];
-                    var tsLocal = item.fechaActualizacion || item.timestamp || 0;
-                    var tsRemoto = itemRemoto.fechaActualizacion || itemRemoto.timestamp || 0;
+                    var tsLocal = obtenerTimestampNumerico(item);
+                    var tsRemoto = obtenerTimestampNumerico(itemRemoto);
                     if (tsLocal > tsRemoto) {
                         resultadoMap[item.id] = JSON.parse(JSON.stringify(item));
                     }
@@ -386,10 +458,33 @@ function fusionarEstadosInteligente(local, remoto) {
         }
     }
 
-    // Conservar timestamp de la modificación más reciente
+    // Conservar timestamp de la modificación más reciente y banderas de migración
     fusion._ultimaActualizacion = Math.max(local._ultimaActualizacion || 0, remoto._ultimaActualizacion || 0, Date.now());
+    fusion.v2_clean_defaults = true;
+    fusion.v3_clean_rutinas = true;
 
     return fusion;
+}
+
+/**
+ * Helper para refrescar vistas activas tras sincronización o restauración
+ */
+function refrescarVistasTrasSync() {
+    try {
+        if (typeof renderizarInventarioSiActivo === 'function') renderizarInventarioSiActivo();
+        var vistaFin = document.getElementById('vista-finanzas');
+        if (vistaFin && vistaFin.classList.contains('active') && typeof renderizarFinanzas === 'function' && window.APP_STATE) {
+            renderizarFinanzas(window.APP_STATE.finanzas);
+        }
+        var vistaEj = document.getElementById('vista-ejercicios');
+        if (vistaEj && vistaEj.classList.contains('active')) {
+            if (typeof renderizarEjercicios === 'function' && window.APP_STATE) renderizarEjercicios(window.APP_STATE.ejercicios);
+            if (typeof renderizarPortalesRutinasEjercicios === 'function') renderizarPortalesRutinasEjercicios();
+            if (typeof renderizarPortalesRutinas === 'function' && window.APP_STATE) renderizarPortalesRutinas(window.APP_STATE.rutinas);
+        }
+    } catch (uiErr) {
+        console.warn("[Sync UI] Aviso refrescando vistas:", uiErr);
+    }
 }
 
 /**
@@ -443,27 +538,132 @@ window.MonarcaCloud = {
     },
 
     /**
-     * Envía el estado actual a Firestore de forma segura (con debounce y validaciones)
+     * Ejecuta la escritura directa del estado vivo actual (window.APP_STATE) hacia Firestore.
+     * Prioriza siempre el documento principal sin bloquearse esperando backups remotos previos.
      */
-    guardarEnNube: function(state, esForzado) {
-        // SEGURIDAD CRÍTICA: Si el arranque aún no ha terminado de consultar la nube,
-        // NUNCA permitir que un guardado local prematuro sobreescriba la nube.
-        if (bloqueoEscrituraInicial && !esForzado) {
-            console.log("⏳ Guardado en nube bloqueado preventivamente: Esperando consulta inicial de Firestore.");
-            return;
+    _ejecutarGuardadoNube: async function(stateFallback) {
+        if (window._isSyncingFromRemote || bloqueoEscrituraInicial || !this.conectado || !db || !docRef) {
+            return false;
+        }
+        if (!navigator.onLine) {
+            this.actualizarBadgeUI('offline', 'Offline (pendiente nube)');
+            return false;
+        }
+        if (_guardadoEnCurso) {
+            _reintentarGuardadoAlTerminar = true;
+            return true;
         }
 
+        _guardadoEnCurso = true;
+        this.enSincronizacion = true;
+        this.actualizarBadgeUI('syncing');
+
+        var exito = false;
+        try {
+            var estadoVivo = window.APP_STATE || stateFallback;
+            if (!estadoVivo) return false;
+
+            var now = Date.now();
+            ultimoTimestampGuardado = Math.max(ultimoTimestampGuardado, now);
+            estadoVivo._ultimaActualizacion = now;
+            estadoVivo._ultimoEditorClientId = CLIENT_INSTANCE_ID;
+
+            var datosAGuardar = this.sanitizarParaFirestore(estadoVivo);
+            datosAGuardar._ultimaActualizacion = now;
+            datosAGuardar._fechaActualizacion = new Date(now).toISOString();
+            datosAGuardar._ultimoEditorClientId = CLIENT_INSTANCE_ID;
+
+            var jsonBytes = 0;
+            try {
+                jsonBytes = new Blob([JSON.stringify(datosAGuardar)]).size;
+            } catch (bErr) {}
+
+            if (jsonBytes > 1020000) {
+                console.warn("⚠️ Payload cercano/superior al límite de 1 MiB de Firestore:", jsonBytes, "bytes");
+            }
+
+            // Escribir datos principales primero para evitar ventana de pérdida al cerrar app
+            await setDoc(docRef, datosAGuardar, { merge: true });
+            exito = true;
+
+            if (!_reintentarGuardadoAlTerminar && !debounceSaveTimer) {
+                _cambiosPendientesNube = false;
+                try { localStorage.removeItem('sistema_monarca_sync_pendiente'); } catch (ig) {}
+            }
+            this.actualizarBadgeUI('synced');
+
+            // Copia de respaldo remota secundaria (no bloqueante, cada 3 min como máximo)
+            if (docBackupRef && !_reintentarGuardadoAlTerminar && jsonBytes < 950000 && (now - _ultimoBackupRemotoTs > 180000)) {
+                _ultimoBackupRemotoTs = now;
+                var dataBk = Object.assign({}, datosAGuardar, { _backupTimestamp: now });
+                setDoc(docBackupRef, dataBk).catch(function() {});
+            }
+        } catch (err) {
+            console.error("Error al guardar en Firestore:", err);
+            this.ultimoError = err.message || "Error al sincronizar";
+
+            if (err.code === 'permission-denied') {
+                this.actualizarBadgeUI('error', 'Firestore: Permisos');
+                console.warn("⚠️ Las reglas de Firestore están bloqueando el guardado. Verifica en Firebase Console.");
+            } else if (err.code === 'invalid-argument' || (err.message && /size|bytes|exceeds|maximum/i.test(err.message))) {
+                this.actualizarBadgeUI('error', 'Límite nube 1 MiB');
+                console.error("⚠️ El documento supera el límite de 1 MiB permitido por Firestore.");
+            } else {
+                this.actualizarBadgeUI('offline', 'Respaldo Local Activo');
+            }
+        } finally {
+            _guardadoEnCurso = false;
+            this.enSincronizacion = false;
+            if (_reintentarGuardadoAlTerminar) {
+                _reintentarGuardadoAlTerminar = false;
+                setTimeout(function() {
+                    if (window.MonarcaCloud) window.MonarcaCloud._ejecutarGuardadoNube();
+                }, 30);
+            }
+        }
+        return exito;
+    },
+
+    /**
+     * Envía inmediatamente cualquier guardado debounced pendiente (ej. al pasar a segundo plano o cerrar)
+     */
+    flushGuardadoNube: function() {
+        if (debounceSaveTimer) {
+            clearTimeout(debounceSaveTimer);
+            debounceSaveTimer = null;
+            return this._ejecutarGuardadoNube();
+        }
+        if (_cambiosPendientesNube && !bloqueoEscrituraInicial && this.conectado && navigator.onLine) {
+            return this._ejecutarGuardadoNube();
+        }
+        return Promise.resolve(false);
+    },
+
+    /**
+     * Envía el estado actual a Firestore de forma segura (con cola pendiente, debounce breve y validaciones)
+     */
+    guardarEnNube: function(state, esForzado) {
         // Evitar eco si se está aplicando una actualización remota entrante
         if (window._isSyncingFromRemote) {
             return;
         }
 
+        _cambiosPendientesNube = true;
+
+        // Si el arranque aún no terminó de consultar la nube, dejar marcado como pendiente para subir tras Smart Merge
+        if (bloqueoEscrituraInicial && !esForzado) {
+            console.log("⏳ Guardado en nube en cola: esperando consulta inicial de Firestore.");
+            this.actualizarBadgeUI('syncing', 'En cola (conectando...)');
+            return;
+        }
+
         if (!this.conectado || !db || !docRef) {
+            this.actualizarBadgeUI('offline', 'Pendiente de red');
             return;
         }
 
         if (!navigator.onLine) {
-            this.actualizarBadgeUI('offline');
+            this.actualizarBadgeUI('offline', 'Offline (pendiente nube)');
             return;
         }
 
@@ -471,47 +671,18 @@ window.MonarcaCloud = {
 
         if (debounceSaveTimer) {
             clearTimeout(debounceSaveTimer);
+            debounceSaveTimer = null;
         }
 
-        debounceSaveTimer = setTimeout(async function() {
-            try {
-                var now = Date.now();
-                ultimoTimestampGuardado = now;
-                ignorarProximoSnapshot = true;
+        if (esForzado) {
+            this._ejecutarGuardadoNube(state);
+            return;
+        }
 
-                var datosAGuardar = window.MonarcaCloud.sanitizarParaFirestore(state || window.APP_STATE);
-                datosAGuardar._ultimaActualizacion = now;
-                datosAGuardar._fechaActualizacion = new Date().toISOString();
-
-                // 1. Guardar copia previa de respaldo en Firestore antes de escribir
-                try {
-                    if (docBackupRef) {
-                        var snapPrevio = await getDoc(docRef);
-                        if (snapPrevio && snapPrevio.exists()) {
-                            var dataPrev = snapPrevio.data();
-                            dataPrev._backupTimestamp = Date.now();
-                            await setDoc(docBackupRef, dataPrev);
-                        }
-                    }
-                } catch(bErr) {
-                    // No bloquear el guardado principal si el respaldo remoto falla
-                }
-
-                // 2. Escribir datos principales
-                await setDoc(docRef, datosAGuardar, { merge: true });
-                window.MonarcaCloud.actualizarBadgeUI('synced');
-            } catch (err) {
-                console.error("Error al guardar en Firestore:", err);
-                window.MonarcaCloud.ultimoError = err.message || "Error al sincronizar";
-                
-                if (err.code === 'permission-denied') {
-                    window.MonarcaCloud.actualizarBadgeUI('error', 'Firestore: Permisos');
-                    console.warn("⚠️ Las reglas de Firestore están bloqueando el guardado. Verifica en Firebase Console.");
-                } else {
-                    window.MonarcaCloud.actualizarBadgeUI('offline', 'Respaldo Local Activo');
-                }
-            }
-        }, 400);
+        debounceSaveTimer = setTimeout(function() {
+            debounceSaveTimer = null;
+            window.MonarcaCloud._ejecutarGuardadoNube();
+        }, 200);
     },
 
     /**
@@ -526,8 +697,16 @@ window.MonarcaCloud = {
             await inicializarFirebase();
         }
         if (this.conectado && window.APP_STATE) {
-            this.guardarEnNube(window.APP_STATE, true);
-            alert("✓ Sincronización con Firebase Firestore completada con éxito.");
+            if (debounceSaveTimer) {
+                clearTimeout(debounceSaveTimer);
+                debounceSaveTimer = null;
+            }
+            var ok = await this._ejecutarGuardadoNube(window.APP_STATE);
+            if (ok) {
+                alert("✓ Sincronización con Firebase Firestore completada con éxito.");
+            } else {
+                alert("⚠️ No se pudo completar la sincronización con Firebase (" + (this.ultimoError || "verifica tu conexión o tamaño del documento") + "). Tus datos siguen guardados localmente.");
+            }
         }
     },
 
@@ -557,17 +736,29 @@ window.MonarcaCloud = {
         if (confirm(`¿Deseas restaurar la copia de seguridad del ${punto.fecha}?\n\n• Motivo: ${punto.motivo}\n• Productos a recuperar: ${punto.prodsCount}\n• Ventas: ${punto.ventasCount}`)) {
             // Guardar el estado actual antes de restaurar por si acaso
             guardarCopiaSeguridadLocal(window.APP_STATE, "Estado previo a restauración manual");
-            
-            localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(punto.data));
-            window.APP_STATE = JSON.parse(JSON.stringify(punto.data));
-            
+
+            var restaurado = JSON.parse(JSON.stringify(punto.data));
+            restaurado._ultimaActualizacion = Date.now();
+            restaurado.v2_clean_defaults = true;
+            restaurado.v3_clean_rutinas = true;
+
+            if (typeof MonarcaDB !== 'undefined' && typeof MonarcaDB.safeSetRaw === 'function') {
+                MonarcaDB.safeSetRaw('sistema_monarca_db_v1', JSON.stringify(restaurado));
+            } else {
+                localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(restaurado));
+            }
+            window.APP_STATE = restaurado;
+
             // Subir a la nube inmediatamente
+            _cambiosPendientesNube = true;
+            try { localStorage.setItem('sistema_monarca_sync_pendiente', String(restaurado._ultimaActualizacion)); } catch (ig) {}
             if (this.conectado) {
                 this.guardarEnNube(window.APP_STATE, true);
             }
 
-            if (typeof inicializarSistema === 'function') inicializarSistema();
+            if (typeof inicializarSistema === 'function') inicializarSistema(true);
             if (typeof cargarInventario === 'function') cargarInventario();
+            refrescarVistasTrasSync();
             alert("✓ ¡Copia de seguridad restaurada exitosamente!");
         }
     },
@@ -694,6 +885,7 @@ async function inicializarFirebase() {
     try {
         window.MonarcaCloud.actualizarBadgeUI('syncing', 'Conectando nube...');
         bloqueoEscrituraInicial = true;
+        window.MonarcaCloud.bloqueoEscrituraInicial = true;
 
         if (!app) {
             app = initializeApp(firebaseConfig);
@@ -723,9 +915,21 @@ async function inicializarFirebase() {
                 window.MonarcaCloud.ultimoError = "Permiso denegado en Firestore. Revisa las Reglas en Firebase Console.";
                 window.MonarcaCloud.actualizarBadgeUI('error', 'Reglas Firestore');
                 bloqueoEscrituraInicial = false;
+                window.MonarcaCloud.bloqueoEscrituraInicial = false;
                 return;
             }
+            // Fallo temporal de red: no asumir que la nube está vacía; mantener pendiente y reintentar al reconectar
+            window.MonarcaCloud.conectado = false;
+            window.MonarcaCloud.actualizarBadgeUI('offline', 'Offline (pendiente nube)');
+            return;
         }
+
+        var habiaPendienteLocal = _cambiosPendientesNube;
+        try {
+            if (localStorage.getItem('sistema_monarca_sync_pendiente')) habiaPendienteLocal = true;
+        } catch (ig) {}
+        // Reiniciar la bandera ahora; cualquier edición hecha a partir de aquí la volverá a activar
+        _cambiosPendientesNube = false;
 
         var datosLocales = window.APP_STATE || (typeof MonarcaDB !== 'undefined' ? MonarcaDB.get() : null);
 
@@ -738,12 +942,18 @@ async function inicializarFirebase() {
             // Nube vacía: subir estado local
             console.log("☁️ Firestore está vacío. Subiendo datos locales...");
             if (datosLocales) {
+                var nowEmpty = Date.now();
                 var datosMigracion = window.MonarcaCloud.sanitizarParaFirestore(datosLocales);
-                datosMigracion._ultimaActualizacion = Date.now();
-                datosMigracion._fechaActualizacion = new Date().toISOString();
+                datosMigracion._ultimaActualizacion = nowEmpty;
+                datosMigracion._fechaActualizacion = new Date(nowEmpty).toISOString();
+                datosMigracion._ultimoEditorClientId = CLIENT_INSTANCE_ID;
                 datosMigracion._migradoDesde = "localStorage";
 
+                ultimoTimestampGuardado = nowEmpty;
                 await setDoc(docRef, datosMigracion);
+                if (!_cambiosPendientesNube) {
+                    try { localStorage.removeItem('sistema_monarca_sync_pendiente'); } catch (ig) {}
+                }
             }
         } else {
             // Nube tiene datos existentes: FUSIÓN INTELIGENTE (Smart Merge)
@@ -751,36 +961,54 @@ async function inicializarFirebase() {
             console.log("☁️ Datos existentes encontrados en Firestore. Ejecutando Smart Merge no destructivo...");
 
             window._isSyncingFromRemote = true;
-            var estadoFusionado = fusionarEstadosInteligente(datosLocales, datosRemotos);
+            var estadoFusionado = null;
+            try {
+                estadoFusionado = fusionarEstadosInteligente(datosLocales, datosRemotos);
 
-            delete estadoFusionado._migradoDesde;
-            delete estadoFusionado._backupTimestamp;
+                delete estadoFusionado._migradoDesde;
+                delete estadoFusionado._backupTimestamp;
+                estadoFusionado.v2_clean_defaults = true;
+                estadoFusionado.v3_clean_rutinas = true;
 
-            // Guardar estado fusionado en localStorage
-            if (typeof MonarcaDB !== 'undefined') {
-                localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(estadoFusionado));
-                window.APP_STATE = estadoFusionado;
+                // Guardar estado fusionado en localStorage sin abortar por cuota y sin sobreescribir RAM
+                if (typeof MonarcaDB !== 'undefined') {
+                    var fusionStr = JSON.stringify(estadoFusionado);
+                    if (typeof MonarcaDB.safeSetRaw === 'function') {
+                        MonarcaDB.safeSetRaw('sistema_monarca_db_v1', fusionStr);
+                    } else {
+                        localStorage.setItem('sistema_monarca_db_v1', fusionStr);
+                    }
+                    window.APP_STATE = estadoFusionado;
 
-                if (typeof sanitizarQuestsDiarios === 'function') {
-                    sanitizarQuestsDiarios();
+                    if (typeof sanitizarQuestsDiarios === 'function') {
+                        sanitizarQuestsDiarios();
+                    }
+
+                    // Refrescar vistas en pantalla manteniendo en RAM el estado recién fusionado
+                    if (typeof inicializarSistema === 'function') inicializarSistema(true);
+                    if (typeof cargarInventario === 'function') cargarInventario();
+                    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+                    refrescarVistasTrasSync();
                 }
-
-                // Refrescar vistas en pantalla
-                if (typeof inicializarSistema === 'function') inicializarSistema();
-                if (typeof cargarInventario === 'function') cargarInventario();
-                if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+            } finally {
+                window._isSyncingFromRemote = false;
             }
-            window._isSyncingFromRemote = false;
 
             // Sincronizar el estado fusionado en la nube para que ambos dispositivos queden 100% al día
             var tsGuardar = Math.max(estadoFusionado._ultimaActualizacion || 0, Date.now());
             ultimoTimestampGuardado = tsGuardar;
-            ignorarProximoSnapshot = true;
+            estadoFusionado._ultimaActualizacion = tsGuardar;
+            estadoFusionado._ultimoEditorClientId = CLIENT_INSTANCE_ID;
 
             var datosAGuardar = window.MonarcaCloud.sanitizarParaFirestore(estadoFusionado);
             datosAGuardar._ultimaActualizacion = tsGuardar;
-            datosAGuardar._fechaActualizacion = new Date().toISOString();
+            datosAGuardar._fechaActualizacion = new Date(tsGuardar).toISOString();
+            datosAGuardar._ultimoEditorClientId = CLIENT_INSTANCE_ID;
             await setDoc(docRef, datosAGuardar, { merge: true });
+
+            if (!_cambiosPendientesNube) {
+                try { localStorage.removeItem('sistema_monarca_sync_pendiente'); } catch (ig) {}
+            }
         }
 
         // DESBLOQUEAR ESCRITURAS: La sincronización inicial concluyó exitosamente
@@ -790,75 +1018,100 @@ async function inicializarFirebase() {
         window.MonarcaCloud.actualizarBadgeUI('synced');
         console.log("✓ Sincronización inicial completada con éxito. Smart Merge activo.");
 
+        // Si el usuario creó/editó algún ítem mientras estaba terminando el arranque, subirlo de inmediato
+        if (_cambiosPendientesNube) {
+            console.log("🚀 Procesando cambios locales en cola generados durante el arranque...");
+            setTimeout(function() {
+                if (window.MonarcaCloud) window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+            }, 50);
+        } else if (habiaPendienteLocal) {
+            try { localStorage.removeItem('sistema_monarca_sync_pendiente'); } catch (ig) {}
+        }
+
         // 2. Escuchar cambios en tiempo real desde Firestore (Multi-dispositivo en vivo)
         if (unsubscribeSnapshot) {
             unsubscribeSnapshot();
         }
 
         unsubscribeSnapshot = onSnapshot(docRef, function(docSnap) {
-            if (ignorarProximoSnapshot) {
-                ignorarProximoSnapshot = false;
+            if (!docSnap.exists()) return;
+            // Ignorar confirmaciones locales pendientes para evitar ecos falsos
+            if (docSnap.metadata && docSnap.metadata.hasPendingWrites) {
                 return;
             }
 
-            if (docSnap.exists()) {
-                var data = docSnap.data();
-                var remotoTs = data._ultimaActualizacion || 0;
+            var data = docSnap.data();
+            var remotoTs = data._ultimaActualizacion || 0;
 
-                if (remotoTs > ultimoTimestampGuardado) {
-                    console.log("🔄 Actualización en tiempo real recibida desde Firestore.");
-                    ultimoTimestampGuardado = remotoTs;
-                    window._isSyncingFromRemote = true;
+            // Ignorar eco proveniente de este mismo cliente si no hay cambios más nuevos
+            if (data._ultimoEditorClientId === CLIENT_INSTANCE_ID && remotoTs <= ultimoTimestampGuardado) {
+                return;
+            }
 
-                    try {
-                        // Guardar copia preventiva antes de aplicar snapshot remoto
-                        if (window.APP_STATE) {
-                            guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
-                        }
+            if (remotoTs > ultimoTimestampGuardado) {
+                console.log("🔄 Actualización en tiempo real recibida desde Firestore.");
+                var conservarPendiente = _cambiosPendientesNube;
+                ultimoTimestampGuardado = remotoTs;
+                window._isSyncingFromRemote = true;
 
-                        // Smart Merge en caliente para no perder ediciones concurrentes
-                        var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
-
-                        delete fusionEnVivo._migradoDesde;
-                        delete fusionEnVivo._backupTimestamp;
-
-                        if (typeof MonarcaDB !== 'undefined') {
-                            localStorage.setItem('sistema_monarca_db_v1', JSON.stringify(fusionEnVivo));
-                            window.APP_STATE = fusionEnVivo;
-
-                            if (typeof sanitizarQuestsDiarios === 'function') {
-                                sanitizarQuestsDiarios();
-                            }
-
-                            // Refrescar UI suavemente
-                            if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
-                                renderizarJugador(window.APP_STATE.jugador);
-                            }
-                            if (typeof cargarEstadoPersonal === 'function') {
-                                cargarEstadoPersonal();
-                            }
-                            if (typeof renderizarCalendario === 'function') {
-                                renderizarCalendario();
-                            }
-                            if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
-                                renderizarMisiones(window.APP_STATE.misiones);
-                            }
-                            if (typeof renderizarQuestsDiarios === 'function') {
-                                renderizarQuestsDiarios();
-                            }
-                            if (typeof programarAlarmasNativasQuests === 'function') {
-                                programarAlarmasNativasQuests();
-                            }
-                            if (typeof renderizarInventarioSiActivo === 'function') {
-                                renderizarInventarioSiActivo();
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Error aplicando snapshot remoto:", e);
-                    } finally {
-                        window._isSyncingFromRemote = false;
+                try {
+                    // Guardar copia preventiva antes de aplicar snapshot remoto
+                    if (window.APP_STATE) {
+                        guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
                     }
 
+                    // Smart Merge en caliente para no perder ediciones concurrentes locales
+                    var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
+
+                    delete fusionEnVivo._migradoDesde;
+                    delete fusionEnVivo._backupTimestamp;
+                    fusionEnVivo.v2_clean_defaults = true;
+                    fusionEnVivo.v3_clean_rutinas = true;
+
+                    if (typeof MonarcaDB !== 'undefined') {
+                        var vivoStr = JSON.stringify(fusionEnVivo);
+                        if (typeof MonarcaDB.safeSetRaw === 'function') {
+                            MonarcaDB.safeSetRaw('sistema_monarca_db_v1', vivoStr);
+                        } else {
+                            localStorage.setItem('sistema_monarca_db_v1', vivoStr);
+                        }
+                        window.APP_STATE = fusionEnVivo;
+
+                        if (typeof sanitizarQuestsDiarios === 'function') {
+                            sanitizarQuestsDiarios();
+                        }
+
+                        // Refrescar UI suavemente
+                        if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
+                            renderizarJugador(window.APP_STATE.jugador);
+                        }
+                        if (typeof cargarEstadoPersonal === 'function') {
+                            cargarEstadoPersonal();
+                        }
+                        if (typeof renderizarCalendario === 'function') {
+                            renderizarCalendario();
+                        }
+                        if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
+                            renderizarMisiones(window.APP_STATE.misiones);
+                        }
+                        if (typeof renderizarQuestsDiarios === 'function') {
+                            renderizarQuestsDiarios();
+                        }
+                        if (typeof programarAlarmasNativasQuests === 'function') {
+                            programarAlarmasNativasQuests();
+                        }
+                        refrescarVistasTrasSync();
+                    }
+                } catch (e) {
+                    console.error("Error aplicando snapshot remoto:", e);
+                } finally {
+                    window._isSyncingFromRemote = false;
+                }
+
+                if (conservarPendiente) {
+                    _cambiosPendientesNube = true;
+                    window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+                } else {
                     window.MonarcaCloud.actualizarBadgeUI('synced');
                 }
             }
@@ -874,19 +1127,22 @@ async function inicializarFirebase() {
     } catch (errGeneral) {
         console.error("Error al inicializar Firebase Firestore:", errGeneral);
         bloqueoEscrituraInicial = false;
+        window.MonarcaCloud.bloqueoEscrituraInicial = false;
         window.MonarcaCloud.conectado = false;
         window.MonarcaCloud.ultimoError = errGeneral.message;
         window.MonarcaCloud.actualizarBadgeUI('offline', 'Modo Offline (Local)');
     }
 }
 
-// Escuchadores de conectividad de red
+// Escuchadores de conectividad de red y ciclo de vida (flush inmediato al cerrar o cambiar de app)
 window.addEventListener('online', function() {
     console.log("🌐 Conexión de red restablecida. Reconectando Firestore...");
     window.MonarcaCloud.modoOffline = false;
     window.MonarcaCloud.actualizarBadgeUI('syncing', 'Reconectando nube...');
     if (window.MonarcaCloud.conectado && window.APP_STATE) {
-        window.MonarcaCloud.guardarEnNube(window.APP_STATE);
+        if (!bloqueoEscrituraInicial) {
+            window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+        }
     } else {
         inicializarFirebase();
     }
@@ -896,6 +1152,24 @@ window.addEventListener('offline', function() {
     console.log("⚡ Sin red. Cambiando a almacenamiento local offline.");
     window.MonarcaCloud.modoOffline = true;
     window.MonarcaCloud.actualizarBadgeUI('offline');
+});
+
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden' && window.MonarcaCloud) {
+        window.MonarcaCloud.flushGuardadoNube();
+    }
+});
+
+window.addEventListener('pagehide', function() {
+    if (window.MonarcaCloud) {
+        window.MonarcaCloud.flushGuardadoNube();
+    }
+});
+
+window.addEventListener('beforeunload', function() {
+    if (window.MonarcaCloud) {
+        window.MonarcaCloud.flushGuardadoNube();
+    }
 });
 
 // Inicializar cuando el DOM esté listo

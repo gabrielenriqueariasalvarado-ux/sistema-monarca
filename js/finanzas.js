@@ -1378,14 +1378,17 @@ function confirmarAgregarIngreso() {
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
 
+    var nowIng = Date.now();
     var nuevoIngreso = {
-        id: "ING-" + Date.now(),
+        id: "ING-" + nowIng,
         fuente: f,
         tipo: tipo,
         dia: d,
         fecha: fecha,
         monto: m,
-        cobrado: false
+        cobrado: false,
+        timestamp: nowIng,
+        fechaActualizacion: nowIng
     };
 
     var infoOrig = clasificarOrigenIngreso(nuevoIngreso);
@@ -1457,8 +1460,9 @@ function confirmarAgregarGasto() {
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
 
+    var nowGas = Date.now();
     var nuevoGasto = {
-        id: "GAS-" + Date.now(),
+        id: "GAS-" + nowGas,
         tipo: tipo,
         categoria: c,
         concepto: cp,
@@ -1466,7 +1470,9 @@ function confirmarAgregarGasto() {
         fecha: fecha,
         monto: m,
         pilar: pilar,
-        pagado: false
+        pagado: false,
+        timestamp: nowGas,
+        fechaActualizacion: nowGas
     };
 
     APP_STATE.finanzas.gastos.push(nuevoGasto);
@@ -1485,6 +1491,7 @@ function pagarGastoUI(id) {
         if (APP_STATE.finanzas.gastos[i].id === id) {
             APP_STATE.finanzas.gastos[i].pagado = true;
             APP_STATE.finanzas.gastos[i].fechaPago = new Date().toISOString();
+            APP_STATE.finanzas.gastos[i].fechaActualizacion = Date.now();
             break;
         }
     }
@@ -1498,6 +1505,7 @@ function deshacerPagoGastoUI(id) {
         if (APP_STATE.finanzas.gastos[i].id === id) {
             APP_STATE.finanzas.gastos[i].pagado = false;
             delete APP_STATE.finanzas.gastos[i].fechaPago;
+            APP_STATE.finanzas.gastos[i].fechaActualizacion = Date.now();
             break;
         }
     }
@@ -1736,8 +1744,9 @@ function confirmarAgregarDeuda() {
     if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
 
     var baseDate = new Date(fechaInicio + 'T12:00:00');
+    var nowDeu = Date.now();
     var nuevaDeuda = {
-        id: 'DEU-' + Date.now(),
+        id: 'DEU-' + nowDeu,
         nombre: nombre,
         categoria: categoria,
         iconoCategoria: categoria.slice(0, 2),
@@ -1753,7 +1762,9 @@ function confirmarAgregarDeuda() {
         cuotas: cuotas,
         montoTotal: restante,
         dia: isNaN(baseDate.getDate()) ? 15 : baseDate.getDate(),
-        pagada: restante <= 0
+        pagada: restante <= 0,
+        timestamp: nowDeu,
+        fechaActualizacion: nowDeu
     };
 
     APP_STATE.finanzas.deudas.unshift(nuevaDeuda);
@@ -1819,14 +1830,17 @@ function confirmarAgregarMeta() {
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.metas) APP_STATE.finanzas.metas = [];
 
+    var nowMet = Date.now();
     APP_STATE.finanzas.metas.push({
-        id: "MET-" + Date.now(),
+        id: "MET-" + nowMet,
         nombre: n,
         metaTotal: t,
         ahorrado: a,
         faltante: falt,
         meses: m,
-        cuotaQuincenal: Math.round(cuotaVal * 100) / 100
+        cuotaQuincenal: Math.round(cuotaVal * 100) / 100,
+        timestamp: nowMet,
+        fechaActualizacion: nowMet
     });
 
     if (inN) inN.value = "";
@@ -1854,6 +1868,7 @@ function abonarCuotaMetaUI(id) {
 
     meta.ahorrado = Math.min(meta.metaTotal, (Number(meta.ahorrado) || 0) + cuota);
     meta.faltante = Math.max(0, meta.metaTotal - meta.ahorrado);
+    meta.fechaActualizacion = Date.now();
 
     if (!APP_STATE.finanzas.aportesMetas) APP_STATE.finanzas.aportesMetas = [];
     var hoy = new Date();
@@ -2237,6 +2252,7 @@ function pagarCuotaDeudaUI(deudaId, cuotaNum) {
     targetCuota.fechaPago = new Date().toISOString();
 
     normalizarDeuda(deuda);
+    deuda.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarFinanzas(APP_STATE.finanzas);
 
@@ -2266,6 +2282,7 @@ function deshacerCuotaDeudaUI(deudaId) {
         ultimaPagada.fechaPago = null;
 
         normalizarDeuda(deuda);
+        deuda.fechaActualizacion = Date.now();
         MonarcaDB.save(APP_STATE);
         renderizarFinanzas(APP_STATE.finanzas);
     });
@@ -2288,6 +2305,7 @@ function liquidarDeudaCompletaUI(deudaId) {
     });
 
     normalizarDeuda(deuda);
+    deuda.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarFinanzas(APP_STATE.finanzas);
     alert('🎉 Deuda "' + deuda.nombre + '" marcada como 100% liquidada.');

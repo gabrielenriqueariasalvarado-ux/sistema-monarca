@@ -220,7 +220,9 @@ const DEFAULT_STATE = {
         finanzas_deudas: [],
         finanzas_metas: [],
         finanzas_comparacionesAhorro: []
-    }
+    },
+    v2_clean_defaults: true,
+    v3_clean_rutinas: true
 };
 
 /**
@@ -243,7 +245,7 @@ const MonarcaDB = {
         try {
             var raw = localStorage.getItem(MONARCA_STORAGE_KEY);
             if (!raw) {
-                this.save(DEFAULT_STATE);
+                this.save(DEFAULT_STATE, false);
                 return JSON.parse(JSON.stringify(DEFAULT_STATE));
             }
             var data = JSON.parse(raw);
@@ -259,19 +261,19 @@ const MonarcaDB = {
             }
             // Purga automática de misiones y habilidades quemadas (estáticas) para modo dinámico
             if (!data.v2_clean_defaults) {
-                data.misiones = [];
-                data.habilidades = [];
+                if (!Array.isArray(data.misiones) || data.misiones.length === 0) data.misiones = [];
+                if (!Array.isArray(data.habilidades) || data.habilidades.length === 0) data.habilidades = [];
                 data.v2_clean_defaults = true;
-                this.save(data);
+                this.save(data, false);
             }
             if (!data.misiones) data.misiones = [];
             if (!data.habilidades) data.habilidades = [];
             // Limpieza y soporte de ejercicios y rutinas dinámicas
             if (!data.v3_clean_rutinas) {
-                data.rutinas = [];
-                data.ejercicios = [];
+                if (!Array.isArray(data.rutinas) || data.rutinas.length === 0) data.rutinas = [];
+                if (!Array.isArray(data.ejercicios) || data.ejercicios.length === 0) data.ejercicios = [];
                 data.v3_clean_rutinas = true;
-                this.save(data);
+                this.save(data, false);
             }
             if (!data.ejercicios || !Array.isArray(data.ejercicios)) data.ejercicios = [];
             if (!data.rutinas || !Array.isArray(data.rutinas)) data.rutinas = [];
@@ -391,19 +393,64 @@ const MonarcaDB = {
             return JSON.parse(JSON.stringify(DEFAULT_STATE));
         }
     },
+    safeSetRaw: function(key, rawValue) {
+        try {
+            localStorage.setItem(key, rawValue);
+            return true;
+        } catch (err) {
+            console.warn("[MonarcaDB] Cuota localStorage alcanzada al guardar '" + key + "'. Liberando copias antiguas...", err);
+            try {
+                // 1. Intentar reducir el historial de backups manteniendo solo el más reciente (o vaciarlo si hace falta)
+                var rawHist = localStorage.getItem('sistema_monarca_historial_backups');
+                if (rawHist) {
+                    try {
+                        var arr = JSON.parse(rawHist);
+                        if (Array.isArray(arr) && arr.length > 1) {
+                            localStorage.setItem('sistema_monarca_historial_backups', JSON.stringify(arr.slice(0, 1)));
+                        } else {
+                            localStorage.removeItem('sistema_monarca_historial_backups');
+                        }
+                    } catch (parseErr) {
+                        localStorage.removeItem('sistema_monarca_historial_backups');
+                    }
+                    try {
+                        localStorage.setItem(key, rawValue);
+                        return true;
+                    } catch (eRetry1) {}
+                }
+                // 2. Si aún falta espacio, eliminar historial completo y backup de emergencia redundante
+                localStorage.removeItem('sistema_monarca_historial_backups');
+                localStorage.removeItem('sistema_monarca_backup_emergencia');
+                localStorage.setItem(key, rawValue);
+                return true;
+            } catch (errFinal) {
+                console.error("[MonarcaDB] Error crítico guardando en localStorage tras liberar backups:", errFinal);
+                if (!window._MONARCA_QUOTA_ALERT_SHOWN || (Date.now() - window._MONARCA_QUOTA_ALERT_SHOWN > 30000)) {
+                    window._MONARCA_QUOTA_ALERT_SHOWN = Date.now();
+                    try {
+                        var mb = ((rawValue ? rawValue.length : 0) * 2 / (1024 * 1024)).toFixed(2);
+                        alert("⚠️ Aviso de Almacenamiento Local: no se pudo guardar en localStorage (" + mb + " MB). El cambio intentará respaldarse en Firebase Cloud.");
+                    } catch (ignored) {}
+                }
+                return false;
+            }
+        }
+    },
     save: function(state, esAccionUsuario) {
         try {
+            if (!state) return;
             if (window._isSyncingFromRemote) {
-                // Durante la recepción de un snapshot remoto, actualizar solo almacenamiento local
-                if (state) localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
+                // Durante la recepción de un snapshot remoto, actualizar solo almacenamiento local sin disparar eco a nube
+                this.safeSetRaw(MONARCA_STORAGE_KEY, JSON.stringify(state));
                 return;
             }
-            if (state) {
-                if (esAccionUsuario !== false) {
-                    state._ultimaActualizacion = Date.now();
-                }
+            if (esAccionUsuario !== false) {
+                state._ultimaActualizacion = Date.now();
+                try {
+                    localStorage.setItem('sistema_monarca_sync_pendiente', String(state._ultimaActualizacion));
+                } catch (ignored) {}
             }
-            localStorage.setItem(MONARCA_STORAGE_KEY, JSON.stringify(state));
+            this.safeSetRaw(MONARCA_STORAGE_KEY, JSON.stringify(state));
 
             // Sincronización en tiempo real hacia Firebase Firestore (solo para acciones del usuario)
             if (esAccionUsuario !== false && window.MonarcaCloud && typeof window.MonarcaCloud.guardarEnNube === 'function') {
@@ -573,8 +620,10 @@ window.addEventListener('DOMContentLoaded', function() {
     inicializarSistema();
 });
 
-function inicializarSistema() {
-    APP_STATE = MonarcaDB.get();
+function inicializarSistema(omitirLecturaLocal) {
+    if (!omitirLecturaLocal || !window.APP_STATE) {
+        APP_STATE = MonarcaDB.get();
+    }
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
         actualizarDesgasteDiarioAutomatico();
     } else {

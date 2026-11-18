@@ -373,6 +373,7 @@ function ajustarStockRapido(productoId, delta) {
     if (nuevo < 0) nuevo = 0;
 
     prod.stock = nuevo;
+    prod.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     
     filtrarProductosInventario();
@@ -699,22 +700,25 @@ function guardarProductoInventario() {
             p.categoriaNombre = categoriaNombre;
             p.categoriaIcono = categoriaIcono;
             p.descripcion = descripcion;
-            p.fechaActualizacion = fechaHoy;
+            p.fechaActualizacion = Date.now();
         }
     } else {
         // Prevenir duplicados accidentales
         var yaExisteProd = APP_STATE.inventario.productos.some(function(item) {
             return item && item.nombre && item.nombre.trim().toLowerCase() === nombre.trim().toLowerCase();
         });
+        var permitirDuplicadoProd = false;
         if (yaExisteProd) {
             if (!confirm("Ya existe un producto registrado con el nombre \"" + nombre + "\".\n¿Deseas agregar otro producto con el mismo nombre?")) {
                 return;
             }
+            permitirDuplicadoProd = true;
         }
 
         // Crear nuevo
+        var nowProd = Date.now();
         var nuevoProd = {
-            id: "PROD-" + Date.now(),
+            id: "PROD-" + nowProd,
             nombre: nombre,
             precioCosto: precioCosto,
             precioVenta: precioVenta,
@@ -730,9 +734,10 @@ function guardarProductoInventario() {
             categoriaIcono: categoriaIcono,
             descripcion: descripcion,
             totalVendidos: 0,
+            permitirDuplicadoNombre: permitirDuplicadoProd,
             fechaCreacion: fechaHoy,
-            fechaActualizacion: Date.now(),
-            timestamp: Date.now()
+            fechaActualizacion: nowProd,
+            timestamp: nowProd
         };
         APP_STATE.inventario.productos.unshift(nuevoProd);
     }
@@ -1356,6 +1361,7 @@ function confirmarVentaProducto() {
         prod.stock = Math.max(0, (Number(prod.stock) || 0) - cantidad);
     }
     prod.totalVendidos = (Number(prod.totalVendidos) || 0) + cantidad;
+    prod.fechaActualizacion = Date.now();
 
     // 2. Crear registro de venta para el apartado de Vendidos
     var nuevaVenta = {
@@ -1704,6 +1710,7 @@ function anularVentaInventario(ventaId) {
                     vr.stock = (Number(vr.stock) || 0) + cant;
                 }
             }
+            prod.fechaActualizacion = Date.now();
         }
 
         // Eliminar del historial de ventas y registrar tombstone

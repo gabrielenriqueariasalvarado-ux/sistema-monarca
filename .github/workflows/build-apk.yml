@@ -70,13 +70,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.53)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.54)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.53
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.54
             Esta versión nativa incluye:
+            - 🛡️ **Persistencia Blindada y Sincronización Cloud (v10.54)**: recuperación automática ante saturación de `localStorage`, cola segura ante arranque/offline, sincronización priorizada hacia Firestore sin bloqueos, `flush` automático al cerrar/minimizar la app e integridad de timestamps en Almacén, Rutinas y Finanzas/Deudas.
             - ⏰ **Alarma despertadora real (`MonarcaAlarmService`)**: enciende la pantalla sobre el bloqueo, reproduce el sonido en el canal de alarma (incluidos MP3 personalizados), reprograma cada día tras sonar o tras reiniciar y trae **🩺 Diagnóstico de Alarma** para Xiaomi / HyperOS y Android 14+.
             - 🎵 **Controles multimedia en la barra de notificaciones**: reproducción en segundo plano y tarjeta en el Centro de Control / pantalla de bloqueo con título, artista, carátula y botones Play/Pausa/Siguiente/Anterior.
-            - 🛡️ Soporte completo offline y sincronización en tiempo real con Firebase Firestore.
             - ⚡ Acceso a todos los módulos: Inventario, Finanzas, Quests Diarios, Hábitos, Entrenamiento, Reproductor y Jarvis Voz.
 
             **Instrucciones para instalar en tu teléfono:**
