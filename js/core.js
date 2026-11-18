@@ -1030,12 +1030,43 @@ function alCambiarCategoriaAsistenteFinanza() {
     }
 }
 
+function alCambiarCategoriaAsistenteIdea() {
+    var catSelect = document.getElementById('asistente-idea-cat');
+    var subcatSelect = document.getElementById('asistente-idea-subcat');
+    if (!catSelect || !subcatSelect) return;
+
+    var cat = catSelect.value || "✨ Emily";
+    var estructura = (typeof ESTRUCTURA_BANCO_IDEAS !== 'undefined') ? ESTRUCTURA_BANCO_IDEAS : null;
+    var info = estructura ? estructura[cat] : null;
+    if (!info && estructura && cat.indexOf('Emily') !== -1) {
+        info = estructura["✨ Emily"];
+    }
+
+    var actualSub = subcatSelect.value;
+    subcatSelect.innerHTML = '';
+    var subs = (info && Array.isArray(info.subcategorias) && info.subcategorias.length > 0)
+        ? info.subcategorias
+        : ["General"];
+
+    subs.forEach(function(sub) {
+        var opt = document.createElement('option');
+        opt.value = sub;
+        opt.innerText = sub;
+        subcatSelect.appendChild(opt);
+    });
+
+    if (actualSub && subs.indexOf(actualSub) !== -1) {
+        subcatSelect.value = actualSub;
+    }
+}
+
 function abrirAsistenteRapido() {
     var m = document.getElementById('modal-asistente-rapido');
     if (m) {
         m.style.display = 'flex';
         poblarCategoriasAsistenteFinanza();
         alCambiarTipoAsistenteFinanza();
+        alCambiarCategoriaAsistenteIdea();
         cambiarTabAsistenteRapido(TAB_ASISTENTE_ACTIVO);
         setTimeout(function() {
             if (TAB_ASISTENTE_ACTIVO === 'finanza') {
@@ -1071,6 +1102,12 @@ function cambiarTabAsistenteRapido(tab) {
         var sec = document.getElementById('asistente-sec-' + t);
         if (sec) sec.style.display = (t === tab) ? 'block' : 'none';
     });
+
+    if (tab === 'idea') {
+        alCambiarCategoriaAsistenteIdea();
+        var nom = document.getElementById('asistente-idea-nombre');
+        if (nom) setTimeout(function() { nom.focus(); }, 60);
+    }
 }
 
 function guardarCapturaRapida() {
@@ -1080,32 +1117,39 @@ function guardarCapturaRapida() {
     if (tab === 'idea') {
         var inNom = document.getElementById('asistente-idea-nombre');
         var inCat = document.getElementById('asistente-idea-cat');
-        var inDesc = document.getElementById('asistente-idea-desc');
-        var nom = inNom ? inNom.value.trim() : "";
-        var cat = inCat ? inCat.value : "💭 Ideas y Pensamientos";
-        var desc = inDesc ? inDesc.value.trim() : "";
+        var inSub = document.getElementById('asistente-idea-subcat');
+        var texto = inNom ? inNom.value.trim() : "";
+        var cat = inCat ? inCat.value : "✨ Emily";
+        var subcat = inSub ? inSub.value : "General";
 
-        if (!nom) { alert("Ingresa el título de la idea."); if (inNom) inNom.focus(); return; }
+        if (!texto) { alert("Escribe el contenido de tu idea."); if (inNom) inNom.focus(); return; }
+
+        var ahora = new Date();
+        var dd = String(ahora.getDate()).padStart(2, '0');
+        var mm = String(ahora.getMonth() + 1).padStart(2, '0');
+        var fechaCorta = dd + "/" + mm;
+        if (!texto.endsWith(fechaCorta) && texto.indexOf('(' + fechaCorta + ')') === -1) {
+            texto += " (" + fechaCorta + ")";
+        }
 
         if (!APP_STATE.ideas) APP_STATE.ideas = [];
+        var nowIdea = Date.now();
         APP_STATE.ideas.unshift({
-            id: "IDEA-" + Date.now(),
-            nombre: nom,
+            id: nowIdea,
+            texto: texto,
             categoria: cat,
-            subcategoria: "Captura Rápida",
-            descripcion: desc || "Registrado desde Asistente Rápido",
-            estado: "Pendiente",
-            prioridad: "Media",
-            fecha: fechaHoy,
-            timestamp: Date.now()
+            subcategoria: subcat,
+            fecha: fechaCorta,
+            timestamp: nowIdea,
+            fechaActualizacion: nowIdea,
+            hecha: false
         });
-        sumarExp(15);
+        sumarExp(10);
         MonarcaDB.save(APP_STATE);
         if (inNom) inNom.value = "";
-        if (inDesc) inDesc.value = "";
         cerrarAsistenteRapido();
-        if (typeof renderizarIdeas === 'function') renderizarIdeas();
-        alert("💡 Idea capturada con éxito (+15 EXP).");
+        if (typeof renderizarBancoIdeas === 'function') renderizarBancoIdeas(APP_STATE.ideas);
+        alert("💡 Idea publicada en \"" + cat + "\" (+10 EXP).");
 
     } else if (tab === 'quest') {
         var inTit = document.getElementById('asistente-quest-titulo');

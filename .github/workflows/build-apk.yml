@@ -70,11 +70,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.55)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.56)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.55
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.56
             Esta versión nativa incluye:
-            - 📅 **Calendario Cronológico de Cobros y Pagos en Finanzas (v10.55)**: sección independiente dentro de Finanzas para visualizar días pico de cobros y pagos, ver detalle por día y mover/reprogramar cobros, gastos y cuotas de deudas hacia fechas específicas.
+            - 💡 **Captura Rápida de Ideas sincronizada (v10.56)**: incluye la categoría **✨ Emily** y las subcategorías dinámicas del Banco de Ideas sin campo de detalle innecesario.
+            - 📅 **Calendario Cronológico de Cobros y Pagos en Finanzas (v10.55)**: visualización por día con picos de cobros/pagos y reprogramación de fechas.
             - 🛡️ **Persistencia Blindada y Sincronización Cloud (v10.54)**: recuperación automática ante saturación de `localStorage`, cola segura ante arranque/offline y `flush` automático al cerrar/minimizar.
             - ⏰ **Alarma despertadora real (`MonarcaAlarmService`)** y 🎵 **Controles multimedia en barra de notificaciones**.
             - ⚡ Acceso a todos los módulos: Inventario, Finanzas, Quests Diarios, Hábitos, Entrenamiento, Reproductor y Jarvis Voz.

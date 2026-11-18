@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.55">
+    <link rel="stylesheet" href="style.css?v=10.56">
 </head>
 <body>
 
@@ -4207,13 +4207,15 @@
                     </div>
                 </div>
 
-                <!-- 2. CAPTURA DE IDEA (DE SEGUNDO) -->
+                <!-- 2. CAPTURA DE IDEA (ESPEJO DE BANCO DE IDEAS) -->
                 <div id="asistente-sec-idea" style="display: none;">
                     <div style="margin-bottom: 12px;">
-                        <input type="text" id="asistente-idea-nombre" class="finanzas-input-clean" placeholder="Título de la nueva idea..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                        <input type="text" id="asistente-idea-nombre" class="finanzas-input-clean" placeholder="Escribe tu idea aquí..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
                     </div>
                     <div style="margin-bottom: 12px;">
-                        <select id="asistente-idea-cat" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                        <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Categoría:</label>
+                        <select id="asistente-idea-cat" class="finanzas-input-clean" onchange="alCambiarCategoriaAsistenteIdea()" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                            <option value="✨ Emily">✨ Emily (Programación & App)</option>
                             <option value="💡 Ideas & Proyectos">💡 Ideas & Proyectos</option>
                             <option value="🛒 Compras & Deseos">🛒 Compras & Deseos</option>
                             <option value="📊 Planes & Metas">📊 Planes & Metas</option>
@@ -4222,7 +4224,10 @@
                         </select>
                     </div>
                     <div style="margin-bottom: 16px;">
-                        <textarea id="asistente-idea-desc" class="finanzas-input-clean" rows="2" placeholder="Detalles de la idea (opcional)..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
+                        <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Subcategoría:</label>
+                        <select id="asistente-idea-subcat" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                            <!-- Se llena dinámicamente igual que en Banco de Ideas -->
+                        </select>
                     </div>
                 </div>
 
@@ -5648,26 +5653,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.55"></script>
-    <script src="js/perfil.js?v=10.55"></script>
-    <script src="js/progresion.js?v=10.55"></script>
-    <script src="js/estado-personal.js?v=10.55"></script>
-    <script src="js/finanzas.js?v=10.55"></script>
-    <script src="js/ideas.js?v=10.55"></script>
-    <script src="js/dinamicas.js?v=10.55"></script>
-    <script src="js/calendario.js?v=10.55"></script>
-    <script src="js/inventario.js?v=10.55"></script>
-    <script src="js/reproductor.js?v=10.55"></script>
-    <script src="js/jarvis-voz.js?v=10.55"></script>
+    <script src="js/core.js?v=10.56"></script>
+    <script src="js/perfil.js?v=10.56"></script>
+    <script src="js/progresion.js?v=10.56"></script>
+    <script src="js/estado-personal.js?v=10.56"></script>
+    <script src="js/finanzas.js?v=10.56"></script>
+    <script src="js/ideas.js?v=10.56"></script>
+    <script src="js/dinamicas.js?v=10.56"></script>
+    <script src="js/calendario.js?v=10.56"></script>
+    <script src="js/inventario.js?v=10.56"></script>
+    <script src="js/reproductor.js?v=10.56"></script>
+    <script src="js/jarvis-voz.js?v=10.56"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.55"></script>
+    <script type="module" src="js/firebase-config.js?v=10.56"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.55')
+                navigator.serviceWorker.register('sw.js?v=10.56')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
