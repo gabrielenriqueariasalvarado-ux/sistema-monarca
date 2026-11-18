@@ -108,17 +108,26 @@ var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
     tabIngresosActivo: 'fijos',
     vistaQuincena: 'sem1',
     modoGrafico: 'comparativa',
-    filtroGastos: 'todos'
+    filtroGastos: 'todos',
+    seccionActiva: 'panel',
+    calDiaSeleccionado: null,
+    calFiltroTipo: 'todos',
+    calUltimoMovimiento: null
 };
 window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
 function cargarFinanzas() {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.mesOffset = 0; // Al entrar, siempre al mes actual
+    if (!window.ESTADO_FINANZAS.seccionActiva) window.ESTADO_FINANZAS.seccionActiva = 'panel';
+    if (!window.ESTADO_FINANZAS.calFiltroTipo) window.ESTADO_FINANZAS.calFiltroTipo = 'todos';
     var fechaMes = obtenerFechaMesFinanzas();
     var semActual = obtenerSemanaActualParaMes(fechaMes.getFullYear(), fechaMes.getMonth());
     cambiarPeriodoFinanzas(semActual, true);
     inicializarComparacionesAhorroPorDefecto();
+    if (typeof cambiarSeccionFinanzas === 'function') {
+        cambiarSeccionFinanzas(window.ESTADO_FINANZAS.seccionActiva, true);
+    }
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
@@ -440,7 +449,11 @@ function renderizarFinanzas(fin) {
         barraSemanas.innerHTML = htmlBarra;
     }
 
-    function coincideQuincena(dia, fechaStr) {
+    var mesClaveVista = anioActivo + '-' + String(mesActivo + 1).padStart(2, '0');
+    function coincideQuincena(dia, fechaStr, itemRef) {
+        if (itemRef && itemRef.excepcionesMes && itemRef.excepcionesMes[mesClaveVista]) {
+            fechaStr = itemRef.excepcionesMes[mesClaveVista];
+        }
         if (vq === 'mes') return true;
         if (semanaActivaObj) {
             // 1. Si viene con fecha ISO (YYYY-MM-DD), comparar con el rango exacto de la semana
@@ -500,7 +513,7 @@ function renderizarFinanzas(fin) {
         var m = Number(item.monto) || 0;
         totIngresosMes += m;
 
-        var aplicaVista = coincideQuincena(item.dia, item.fecha);
+        var aplicaVista = coincideQuincena(item.dia, item.fecha, item);
         if (!aplicaVista) return;
 
         totIngresosVista += m;
@@ -689,7 +702,7 @@ function renderizarFinanzas(fin) {
     var filtroG = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.filtroGastos) || 'todos';
 
     (f.gastos || []).forEach(function(item) {
-        if (!coincideQuincena(item.dia, item.fecha)) return;
+        if (!coincideQuincena(item.dia, item.fecha, item)) return;
 
         var m = Number(item.monto) || 0;
         totGastos += m;
@@ -1036,6 +1049,14 @@ function renderizarFinanzas(fin) {
 
     // Actualizar selector dinámico de categorías para el modal de gastos
     poblarSelectCategoriasGastos();
+
+    // Sincronizar badge y vista del Calendario Cronológico de Cobros y Pagos
+    if (typeof actualizarBadgeCalendarioFinanzas === 'function') {
+        actualizarBadgeCalendarioFinanzas(f, anioActivo, mesActivo);
+    }
+    if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'calendario' && typeof renderizarCalendarioFinanzas === 'function') {
+        renderizarCalendarioFinanzas();
+    }
 }
 
 function renderizarGraficoFinanzas(opts) {
@@ -1344,9 +1365,16 @@ function eliminarCategoriaGasto(id) {
 // MODALES Y OPERACIONES FINANCIERAS
 // ==========================================================================
 
-function abrirModalIngreso(tipoPorDefecto) {
+function abrirModalIngreso(tipoPorDefecto, fechaOpcional) {
     var m = document.getElementById('modal-finanzas-ingreso') || document.getElementById('modal-finanza-ingreso');
     if (m) {
+        if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
+            var inFecha = document.getElementById('modal-ingreso-fecha');
+            var inDia = document.getElementById('modal-ingreso-dia');
+            if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
+            var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
+            if (inDia && !isNaN(diaP)) inDia.value = diaP;
+        }
         m.style.display = 'flex';
         seleccionarTipoIngresoModal(tipoPorDefecto || 'fija');
     }
@@ -1368,7 +1396,11 @@ function confirmarAgregarIngreso() {
     var f = inF ? inF.value.trim() : "";
     var m = inM ? (Number(inM.value) || 0) : 0;
     var d = inD ? (Number(inD.value) || 15) : 15;
-    var fecha = inFecha ? inFecha.value : "";
+    var fecha = (tipo === 'fija') ? "" : (inFecha ? inFecha.value : "");
+    if (tipo !== 'fija' && fecha && fecha.length >= 10) {
+        var diaParsed = parseInt(fecha.slice(8, 10), 10);
+        if (!isNaN(diaParsed)) d = diaParsed;
+    }
 
     if (!f || m <= 0) {
         alert("Completa la fuente/concepto y un monto válido.");
@@ -1416,9 +1448,16 @@ function confirmarAgregarIngreso() {
     }
 }
 
-function abrirModalGasto(tipoPorDefecto) {
+function abrirModalGasto(tipoPorDefecto, fechaOpcional) {
     var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
     if (m) {
+        if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
+            var inFecha = document.getElementById('modal-gasto-fecha');
+            var inDia = document.getElementById('modal-gasto-dia');
+            if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
+            var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
+            if (inDia && !isNaN(diaP)) inDia.value = diaP;
+        }
         m.style.display = 'flex';
         poblarSelectCategoriasGastos();
         seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
@@ -1448,7 +1487,11 @@ function confirmarAgregarGasto() {
     var c = inC ? inC.value : "Otros";
     var cp = inCp ? inCp.value.trim() : "";
     var d = inD ? (Number(inD.value) || 16) : 16;
-    var fecha = inFecha ? inFecha.value : "";
+    var fecha = (tipo === 'programado') ? "" : (inFecha ? inFecha.value : "");
+    if (tipo !== 'programado' && fecha && fecha.length >= 10) {
+        var diaParsedG = parseInt(fecha.slice(8, 10), 10);
+        if (!isNaN(diaParsedG)) d = diaParsedG;
+    }
     var m = inM ? (Number(inM.value) || 0) : 0;
     var pilar = inPilar ? inPilar.value : "gastos";
 
@@ -2649,6 +2692,8 @@ function alCambiarDatoGeneralFinanzas() {
 function cambiarMesFinanzas(delta) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) + delta;
+    window.ESTADO_FINANZAS.calDiaSeleccionado = null;
+    window.ESTADO_FINANZAS.calUltimoMovimiento = null;
 
     var fechaMes = obtenerFechaMesFinanzas();
     var anio = fechaMes.getFullYear();
@@ -2963,4 +3008,883 @@ function actualizarComparadorFrenoGasto(val, contenedorId) {
 function alCambiarMontoGastoModal(val) {
     actualizarComparadorFrenoGasto(val, 'contenedor-freno-impulso-modal-gasto');
 }
+
+/* ==========================================================================
+   MÓDULO: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS (FINANZAS)
+   ========================================================================== */
+
+function cambiarSeccionFinanzas(seccion, omitirRender) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    var destino = seccion === 'calendario' ? 'calendario' : 'panel';
+    window.ESTADO_FINANZAS.seccionActiva = destino;
+
+    var tabPanel = document.getElementById('tab-finanzas-panel');
+    var tabCal = document.getElementById('tab-finanzas-calendario');
+    var vistaPanel = document.getElementById('vista-finanzas-panel');
+    var vistaCal = document.getElementById('vista-finanzas-calendario');
+
+    if (tabPanel) tabPanel.classList.toggle('active', destino === 'panel');
+    if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
+    if (vistaPanel) vistaPanel.style.display = destino === 'panel' ? 'block' : 'none';
+    if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
+
+    if (!omitirRender && destino === 'calendario') {
+        renderizarCalendarioFinanzas();
+    }
+}
+
+function obtenerClaveFechaISOFinanzas(anio, mes, dia) {
+    return anio + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+}
+
+function obtenerHoyISOFinanzas() {
+    var d = new Date();
+    return obtenerClaveFechaISOFinanzas(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Recolecta todos los cobros (ingresos) y pagos (gastos + cuotas de deudas) aplicables al mes dado.
+ */
+function resolverOcurrenciasFinanzasMes(fin, anio, mes) {
+    var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var mesClave = anio + '-' + String(mes + 1).padStart(2, '0');
+    var totalDiasMes = new Date(anio, mes + 1, 0).getDate();
+    var hoyISO = obtenerHoyISOFinanzas();
+
+    var diasMap = {};
+    for (var d = 1; d <= totalDiasMes; d++) {
+        diasMap[obtenerClaveFechaISOFinanzas(anio, mes, d)] = {
+            fecha: obtenerClaveFechaISOFinanzas(anio, mes, d),
+            dia: d,
+            cobros: [],
+            pagos: [],
+            totCobros: 0,
+            totPagos: 0,
+            pendCobros: 0,
+            pendPagos: 0
+        };
+    }
+
+    function agregarEnDia(fechaISO, entrada) {
+        if (!fechaISO || !diasMap[fechaISO]) return;
+        var bucket = diasMap[fechaISO];
+        if (entrada.clase === 'cobro') {
+            bucket.cobros.push(entrada);
+            bucket.totCobros += entrada.monto;
+            if (!entrada.completado) bucket.pendCobros += entrada.monto;
+        } else {
+            bucket.pagos.push(entrada);
+            bucket.totPagos += entrada.monto;
+            if (!entrada.completado) bucket.pendPagos += entrada.monto;
+        }
+    }
+
+    function expandirItemRecurrenteOFijo(item, esRecurrente, construirEntrada) {
+        if (esRecurrente) {
+            var excMap = (item.excepcionesMes && typeof item.excepcionesMes === 'object') ? item.excepcionesMes : null;
+            if (excMap) {
+                Object.keys(excMap).forEach(function(mesOrigKey) {
+                    var fechaDest = excMap[mesOrigKey];
+                    if (typeof fechaDest === 'string' && fechaDest.slice(0, 7) === mesClave) {
+                        var diaDest = parseInt(fechaDest.slice(8, 10), 10) || 1;
+                        agregarEnDia(fechaDest.slice(0, 10), construirEntrada(fechaDest.slice(0, 10), diaDest, true, mesOrigKey));
+                    }
+                });
+            }
+            if (!excMap || !excMap[mesClave]) {
+                var diaBase = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasMes);
+                var fechaBase = obtenerClaveFechaISOFinanzas(anio, mes, diaBase);
+                agregarEnDia(fechaBase, construirEntrada(fechaBase, diaBase, false, mesClave));
+            }
+        } else if (item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+            if (item.fecha.slice(0, 7) === mesClave) {
+                var fExact = item.fecha.slice(0, 10);
+                var diaExact = parseInt(fExact.slice(8, 10), 10) || 1;
+                agregarEnDia(fExact, construirEntrada(fExact, diaExact, false, mesClave));
+            }
+        } else if (item.dia) {
+            var diaSolo = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasMes);
+            var fechaFallback = obtenerClaveFechaISOFinanzas(anio, mes, diaSolo);
+            agregarEnDia(fechaFallback, construirEntrada(fechaFallback, diaSolo, false, mesClave));
+        }
+    }
+
+    // 1. Cobros (Ingresos)
+    (f.ingresos || []).forEach(function(item) {
+        var info = clasificarOrigenIngreso(item);
+        var monto = Number(item.monto) || 0;
+        var cobrado = !!item.cobrado;
+        var montoMostrar = (cobrado && item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== "")
+            ? Number(item.montoCobrado)
+            : monto;
+        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
+        var esRecurrente = (info.tipoDestino === 'fija' && !tieneFechaExacta);
+
+        expandirItemRecurrenteOFijo(item, esRecurrente, function(fechaDest, diaDest, esExcepcion, mesOrigKey) {
+            return {
+                clase: 'cobro',
+                origen: 'ingreso',
+                id: item.id,
+                cuotaNum: null,
+                titulo: item.fuente || item.concepto || item.nombre || item.descripcion || 'Entrada de Ingreso',
+                icono: info.icono || '💵',
+                categoriaTxt: item.ventaId ? (item.cuotaId ? 'Crédito Almacén' : 'Venta Almacén') : info.nombreOrigen,
+                monto: montoMostrar,
+                completado: cobrado,
+                vencida: !cobrado && fechaDest < hoyISO,
+                fecha: fechaDest,
+                dia: diaDest,
+                diaRegla: Number(item.dia) || diaDest,
+                esRecurrente: esRecurrente,
+                esExcepcion: esExcepcion,
+                mesOrigenRegla: mesOrigKey,
+                esCreditoAlmacen: !!(item.ventaId && item.cuotaId)
+            };
+        });
+    });
+
+    // 2. Pagos (Gastos Programados y Ocasionales)
+    (f.gastos || []).forEach(function(item) {
+        var monto = Number(item.monto) || 0;
+        var pagado = !!item.pagado;
+        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
+        var esRecurrente = (item.tipo !== 'ocasional' && !tieneFechaExacta);
+
+        expandirItemRecurrenteOFijo(item, esRecurrente, function(fechaDest, diaDest, esExcepcion, mesOrigKey) {
+            return {
+                clase: 'pago',
+                origen: 'gasto',
+                id: item.id,
+                cuotaNum: null,
+                titulo: item.concepto || 'Gasto',
+                icono: item.tipo === 'ocasional' ? '⚡' : '💳',
+                categoriaTxt: item.categoria || 'Gasto',
+                monto: monto,
+                completado: pagado,
+                vencida: !pagado && fechaDest < hoyISO,
+                fecha: fechaDest,
+                dia: diaDest,
+                diaRegla: Number(item.dia) || diaDest,
+                esRecurrente: esRecurrente,
+                esExcepcion: esExcepcion,
+                mesOrigenRegla: mesOrigKey
+            };
+        });
+    });
+
+    // 3. Pagos de Cuotas de Deudas
+    (f.deudas || []).forEach(function(deuda) {
+        normalizarDeuda(deuda);
+        (deuda.cuotas || []).forEach(function(c) {
+            if (!c.fecha || typeof c.fecha !== 'string' || c.fecha.slice(0, 7) !== mesClave) return;
+            var fechaC = c.fecha.slice(0, 10);
+            var diaC = parseInt(fechaC.slice(8, 10), 10) || 1;
+            var montoC = Number(c.monto) || Number(deuda.montoCuota) || 0;
+            agregarEnDia(fechaC, {
+                clase: 'pago',
+                origen: 'deuda_cuota',
+                id: deuda.id,
+                cuotaNum: c.num,
+                totalCuotas: deuda.cuotasTotal,
+                titulo: deuda.nombre + ' · Cuota #' + c.num + '/' + deuda.cuotasTotal,
+                icono: deuda.iconoCategoria || '🛡️',
+                categoriaTxt: deuda.categoria || 'Deuda',
+                monto: montoC,
+                completado: !!c.pagada,
+                vencida: !c.pagada && fechaC < hoyISO,
+                fecha: fechaC,
+                dia: diaC,
+                diaRegla: diaC,
+                esRecurrente: false,
+                esExcepcion: !!c.reprogramada,
+                mesOrigenRegla: mesClave
+            });
+        });
+    });
+
+    // Calcular totales y días pico del mes
+    var totalCobrosMes = 0;
+    var totalPagosMes = 0;
+    var countCobrosMes = 0;
+    var countPagosMes = 0;
+    var totalCobrosPendMes = 0;
+    var totalPagosPendMes = 0;
+    var countPendientesMes = 0;
+    var diasConActividad = [];
+
+    var maxCobroMonto = 0;
+    var maxPagoMonto = 0;
+
+    Object.keys(diasMap).sort().forEach(function(key) {
+        var b = diasMap[key];
+        totalCobrosMes += b.totCobros;
+        totalPagosMes += b.totPagos;
+        countCobrosMes += b.cobros.length;
+        countPagosMes += b.pagos.length;
+        totalCobrosPendMes += b.pendCobros;
+        totalPagosPendMes += b.pendPagos;
+
+        b.cobros.forEach(function(c) { if (!c.completado) countPendientesMes++; });
+        b.pagos.forEach(function(p) { if (!p.completado) countPendientesMes++; });
+
+        if (b.totCobros > maxCobroMonto) maxCobroMonto = b.totCobros;
+        if (b.totPagos > maxPagoMonto) maxPagoMonto = b.totPagos;
+
+        if (b.cobros.length > 0 || b.pagos.length > 0) {
+            diasConActividad.push(b);
+        }
+    });
+
+    var peakCobroDia = null;
+    if (maxCobroMonto > 0) {
+        var ordenCobros = diasConActividad.filter(function(b) { return b.cobros.length > 0; }).slice().sort(function(a, b) {
+            return (b.totCobros - a.totCobros) || (b.cobros.length - a.cobros.length) || (a.dia - b.dia);
+        });
+        if (ordenCobros.length > 0) peakCobroDia = ordenCobros[0];
+    }
+
+    var peakPagoDia = null;
+    if (maxPagoMonto > 0) {
+        var ordenPagos = diasConActividad.filter(function(b) { return b.pagos.length > 0; }).slice().sort(function(a, b) {
+            return (b.totPagos - a.totPagos) || (b.pagos.length - a.pagos.length) || (a.dia - b.dia);
+        });
+        if (ordenPagos.length > 0) peakPagoDia = ordenPagos[0];
+    }
+
+    return {
+        mesClave: mesClave,
+        totalDiasMes: totalDiasMes,
+        diasMap: diasMap,
+        diasConActividad: diasConActividad,
+        totalCobrosMes: totalCobrosMes,
+        totalPagosMes: totalPagosMes,
+        countCobrosMes: countCobrosMes,
+        countPagosMes: countPagosMes,
+        totalCobrosPendMes: totalCobrosPendMes,
+        totalPagosPendMes: totalPagosPendMes,
+        countPendientesMes: countPendientesMes,
+        maxCobroMonto: maxCobroMonto,
+        maxPagoMonto: maxPagoMonto,
+        peakCobroDia: peakCobroDia,
+        peakPagoDia: peakPagoDia
+    };
+}
+
+function actualizarBadgeCalendarioFinanzas(fin, anio, mes) {
+    var badge = document.getElementById('badge-cal-fin-pendientes');
+    if (!badge) return;
+    var resumen = resolverOcurrenciasFinanzasMes(fin, anio, mes);
+    if (resumen.countPendientesMes > 0) {
+        badge.innerText = resumen.countPendientesMes;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function filtrarMovimientosBucketFin(bucket, filtro) {
+    if (!bucket) return { cobros: [], pagos: [] };
+    var cList = bucket.cobros.slice();
+    var pList = bucket.pagos.slice();
+    if (filtro === 'cobros') pList = [];
+    else if (filtro === 'pagos') cList = [];
+    else if (filtro === 'pendientes') {
+        cList = cList.filter(function(x) { return !x.completado; });
+        pList = pList.filter(function(x) { return !x.completado; });
+    }
+    // Pendientes primero, completados al final
+    cList.sort(function(a, b) { return (a.completado === b.completado) ? 0 : (a.completado ? 1 : -1); });
+    pList.sort(function(a, b) { return (a.completado === b.completado) ? 0 : (a.completado ? 1 : -1); });
+    return { cobros: cList, pagos: pList };
+}
+
+function seleccionarDiaCalFinanzas(fechaISO) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.calDiaSeleccionado = fechaISO;
+    renderizarCalendarioFinanzas();
+}
+
+function cambiarFiltroCalFinanzas(filtro) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.calFiltroTipo = filtro || 'todos';
+    renderizarCalendarioFinanzas();
+}
+
+function irADiaCalFinanzas(fechaISO) {
+    if (!fechaISO || fechaISO.length < 10) return;
+    var partes = fechaISO.split('-');
+    var anioDest = parseInt(partes[0], 10);
+    var mesDest = parseInt(partes[1], 10) - 1;
+    var hoy = new Date();
+    var diffMeses = (anioDest - hoy.getFullYear()) * 12 + (mesDest - hoy.getMonth());
+
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.mesOffset = diffMeses;
+    window.ESTADO_FINANZAS.calDiaSeleccionado = fechaISO;
+    window.ESTADO_FINANZAS.calUltimoMovimiento = null;
+    window.ESTADO_FINANZAS.seccionActiva = 'calendario';
+    cambiarSeccionFinanzas('calendario', true);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function renderizarCalendarioFinanzas() {
+    var cont = document.getElementById('contenedor-calendario-finanzas');
+    if (!cont) return;
+
+    var fin = (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var fechaMes = obtenerFechaMesFinanzas();
+    var anio = fechaMes.getFullYear();
+    var mes = fechaMes.getMonth();
+    var hoyISO = obtenerHoyISOFinanzas();
+    var filtro = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.calFiltroTipo) || 'todos';
+
+    var data = resolverOcurrenciasFinanzasMes(fin, anio, mes);
+
+    // Determinar día seleccionado válido dentro del mes activo
+    var selISO = window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.calDiaSeleccionado;
+    if (!selISO || !data.diasMap[selISO]) {
+        if (data.diasMap[hoyISO]) {
+            selISO = hoyISO;
+        } else if (data.diasConActividad.length > 0) {
+            selISO = data.diasConActividad[0].fecha;
+        } else {
+            selISO = obtenerClaveFechaISOFinanzas(anio, mes, 1);
+        }
+        if (window.ESTADO_FINANZAS) window.ESTADO_FINANZAS.calDiaSeleccionado = selISO;
+    }
+
+    var nombreMesCap = fechaMes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    nombreMesCap = nombreMesCap.charAt(0).toUpperCase() + nombreMesCap.slice(1);
+
+    // 1. Resumen KPI del Mes + Días Pico clicables
+    var picoCobroHtml = data.peakCobroDia
+        ? '<button type="button" class="fin-cal-kpi-card is-clickable" style="border-top: 2px solid #10b981;" onclick="seleccionarDiaCalFinanzas(\'' + data.peakCobroDia.fecha + '\')">' +
+              '<span class="fin-cal-kpi-label">📈 Día con Más Cobros</span>' +
+              '<span class="fin-cal-kpi-val" style="color: #34d399;">Día ' + data.peakCobroDia.dia + ' · +$' + data.peakCobroDia.totCobros.toFixed(0) + '</span>' +
+              '<span class="fin-cal-kpi-sub">' + data.peakCobroDia.cobros.length + (data.peakCobroDia.cobros.length === 1 ? ' cobro' : ' cobros') + ' · Toca para ver</span>' +
+          '</button>'
+        : '<div class="fin-cal-kpi-card" style="border-top: 2px solid #10b981;">' +
+              '<span class="fin-cal-kpi-label">📈 Día con Más Cobros</span>' +
+              '<span class="fin-cal-kpi-val" style="color: #64748b;">Sin datos</span>' +
+              '<span class="fin-cal-kpi-sub">Sin cobros este mes</span>' +
+          '</div>';
+
+    var picoPagoHtml = data.peakPagoDia
+        ? '<button type="button" class="fin-cal-kpi-card is-clickable" style="border-top: 2px solid #ef4444;" onclick="seleccionarDiaCalFinanzas(\'' + data.peakPagoDia.fecha + '\')">' +
+              '<span class="fin-cal-kpi-label">📉 Día con Más Pagos</span>' +
+              '<span class="fin-cal-kpi-val" style="color: #f87171;">Día ' + data.peakPagoDia.dia + ' · -$' + data.peakPagoDia.totPagos.toFixed(0) + '</span>' +
+              '<span class="fin-cal-kpi-sub">' + data.peakPagoDia.pagos.length + (data.peakPagoDia.pagos.length === 1 ? ' pago' : ' pagos') + ' · Toca para ver</span>' +
+          '</button>'
+        : '<div class="fin-cal-kpi-card" style="border-top: 2px solid #ef4444;">' +
+              '<span class="fin-cal-kpi-label">📉 Día con Más Pagos</span>' +
+              '<span class="fin-cal-kpi-val" style="color: #64748b;">Sin datos</span>' +
+              '<span class="fin-cal-kpi-sub">Sin pagos este mes</span>' +
+          '</div>';
+
+    var html = '<div class="fin-cal-summary-grid">' +
+        '<div class="fin-cal-kpi-card" style="border-top: 2px solid #34d399;">' +
+            '<span class="fin-cal-kpi-label">💰 Cobros de ' + escaparHTML(nombreMesCap.split(' ')[0]) + '</span>' +
+            '<span class="fin-cal-kpi-val" style="color: #34d399;">+$' + data.totalCobrosMes.toFixed(2) + '</span>' +
+            '<span class="fin-cal-kpi-sub">' + data.countCobrosMes + ' pautados · Pend: $' + data.totalCobrosPendMes.toFixed(2) + '</span>' +
+        '</div>' +
+        '<div class="fin-cal-kpi-card" style="border-top: 2px solid #f87171;">' +
+            '<span class="fin-cal-kpi-label">💳 Pagos y Cuotas</span>' +
+            '<span class="fin-cal-kpi-val" style="color: #f87171;">-$' + data.totalPagosMes.toFixed(2) + '</span>' +
+            '<span class="fin-cal-kpi-sub">' + data.countPagosMes + ' pautados · Pend: $' + data.totalPagosPendMes.toFixed(2) + '</span>' +
+        '</div>' +
+        picoCobroHtml +
+        picoPagoHtml +
+    '</div>';
+
+    // 2. Filtros y Leyenda + Cuadrícula del Calendario (Lunes a Domingo)
+    var filtrosArr = [
+        { id: 'todos', lbl: 'Todos' },
+        { id: 'cobros', lbl: '💰 Solo Cobros' },
+        { id: 'pagos', lbl: '💳 Solo Pagos' },
+        { id: 'pendientes', lbl: '⏳ Pendientes (' + data.countPendientesMes + ')' }
+    ];
+
+    html += '<div class="fin-cal-board">' +
+        '<div class="fin-cal-toolbar">' +
+            '<div class="fin-cal-filters">';
+    filtrosArr.forEach(function(flt) {
+        html += '<button type="button" class="fin-cal-filter-btn ' + (filtro === flt.id ? 'active' : '') + '" onclick="cambiarFiltroCalFinanzas(\'' + flt.id + '\')">' + flt.lbl + '</button>';
+    });
+    html += '</div>' +
+            '<div class="fin-cal-legend">' +
+                '<span class="fin-cal-legend-item"><span class="fin-cal-legend-dot" style="background:#34d399;"></span> Cobros</span>' +
+                '<span class="fin-cal-legend-item"><span class="fin-cal-legend-dot" style="background:#f87171;"></span> Pagos / Cuotas</span>' +
+                '<span class="fin-cal-legend-item">⭐ Pico del mes</span>' +
+            '</div>' +
+        '</div>' +
+        '<div class="fin-cal-weekdays">' +
+            '<div class="fin-cal-weekday">LUN</div>' +
+            '<div class="fin-cal-weekday">MAR</div>' +
+            '<div class="fin-cal-weekday">MIÉ</div>' +
+            '<div class="fin-cal-weekday">JUE</div>' +
+            '<div class="fin-cal-weekday">VIE</div>' +
+            '<div class="fin-cal-weekday">SÁB</div>' +
+            '<div class="fin-cal-weekday">DOM</div>' +
+        '</div>' +
+        '<div class="fin-cal-grid">';
+
+    var primerDia = new Date(anio, mes, 1);
+    var offsetInicio = (primerDia.getDay() + 6) % 7;
+    var totalDiasMesAnterior = new Date(anio, mes, 0).getDate();
+
+    for (var p = offsetInicio - 1; p >= 0; p--) {
+        var diaPrev = totalDiasMesAnterior - p;
+        html += '<div class="fin-cal-cell is-outside"><div class="fin-cal-cell-top"><span class="fin-cal-day-num">' + diaPrev + '</span></div></div>';
+    }
+
+    for (var d = 1; d <= data.totalDiasMes; d++) {
+        var fechaCell = obtenerClaveFechaISOFinanzas(anio, mes, d);
+        var bucket = data.diasMap[fechaCell];
+        var filtrado = filtrarMovimientosBucketFin(bucket, filtro);
+
+        var totC = filtrado.cobros.reduce(function(acc, x) { return acc + x.monto; }, 0);
+        var totP = filtrado.pagos.reduce(function(acc, x) { return acc + x.monto; }, 0);
+
+        var esHoy = (fechaCell === hoyISO);
+        var esSel = (fechaCell === selISO);
+        var esPeakCobro = (filtro !== 'pagos' && data.maxCobroMonto > 0 && Math.abs(bucket.totCobros - data.maxCobroMonto) < 0.01 && bucket.cobros.length > 0);
+        var esPeakPago = (filtro !== 'cobros' && data.maxPagoMonto > 0 && Math.abs(bucket.totPagos - data.maxPagoMonto) < 0.01 && bucket.pagos.length > 0);
+
+        var clases = 'fin-cal-cell';
+        if (esHoy) clases += ' is-today';
+        if (esPeakCobro) clases += ' is-peak-cobro';
+        if (esPeakPago) clases += ' is-peak-pago';
+        if (esSel) clases += ' is-selected';
+
+        var estrella = '';
+        if (esPeakCobro && esPeakPago) estrella = '<span class="fin-cal-peak-star" title="Pico de cobros y pagos">⭐</span>';
+        else if (esPeakCobro) estrella = '<span class="fin-cal-peak-star" title="Día con más cobros del mes">💚</span>';
+        else if (esPeakPago) estrella = '<span class="fin-cal-peak-star" title="Día con más pagos del mes">🔥</span>';
+
+        var pillsHtml = '';
+        if (filtrado.cobros.length > 0) {
+            var heavyC = (filtrado.cobros.length >= 2 || esPeakCobro) ? ' is-heavy' : '';
+            pillsHtml += '<div class="fin-cal-pill is-cobro' + heavyC + '" title="' + filtrado.cobros.length + ' cobro(s): +$' + totC.toFixed(2) + '">' +
+                '<span>+$' + (totC >= 100 ? Math.round(totC) : totC.toFixed(0)) + '</span>' +
+                (filtrado.cobros.length > 1 ? '<span class="fin-cal-count-tag">×' + filtrado.cobros.length + '</span>' : '') +
+            '</div>';
+        }
+        if (filtrado.pagos.length > 0) {
+            var heavyP = (filtrado.pagos.length >= 2 || esPeakPago) ? ' is-heavy' : '';
+            pillsHtml += '<div class="fin-cal-pill is-pago' + heavyP + '" title="' + filtrado.pagos.length + ' pago(s): -$' + totP.toFixed(2) + '">' +
+                '<span>-$' + (totP >= 100 ? Math.round(totP) : totP.toFixed(0)) + '</span>' +
+                (filtrado.pagos.length > 1 ? '<span class="fin-cal-count-tag">×' + filtrado.pagos.length + '</span>' : '') +
+            '</div>';
+        }
+
+        html += '<button type="button" class="' + clases + '" onclick="seleccionarDiaCalFinanzas(\'' + fechaCell + '\')">' +
+            '<div class="fin-cal-cell-top"><span class="fin-cal-day-num">' + d + '</span>' + estrella + '</div>' +
+            '<div class="fin-cal-pills-wrap">' + pillsHtml + '</div>' +
+        '</button>';
+    }
+
+    var totalCeldas = offsetInicio + data.totalDiasMes;
+    var restoCeldas = (7 - (totalCeldas % 7)) % 7;
+    for (var s = 1; s <= restoCeldas; s++) {
+        html += '<div class="fin-cal-cell is-outside"><div class="fin-cal-cell-top"><span class="fin-cal-day-num">' + s + '</span></div></div>';
+    }
+
+    html += '</div></div>';
+
+    // 3. Banner de confirmación de último movimiento reprogramado (permite saltar o seguir moviendo en el día actual)
+    var ultMov = window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.calUltimoMovimiento;
+    if (ultMov && ultMov.destinoFecha) {
+        html += '<div class="fin-cal-move-banner">' +
+            '<span>✓ <strong>' + escaparHTML(ultMov.titulo) + '</strong> movido al <strong>' + formatearFechaCorta(ultMov.destinoFecha) + '</strong>.</span>' +
+            '<div style="display: flex; gap: 6px; align-items: center;">' +
+                '<button type="button" class="btn-mover-fecha-fin" onclick="irADiaCalFinanzas(\'' + ultMov.destinoFecha + '\')">Ir al ' + formatearFechaCorta(ultMov.destinoFecha) + ' →</button>' +
+                '<button type="button" class="btn-delete-row" style="width: 24px; height: 24px;" onclick="window.ESTADO_FINANZAS.calUltimoMovimiento=null; renderizarCalendarioFinanzas();" title="Cerrar aviso">✕</button>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // 4. Panel de Detalle del Día Seleccionado
+    var bucketSel = data.diasMap[selISO];
+    var filtradoSel = filtrarMovimientosBucketFin(bucketSel, filtro);
+    var totDiaC = bucketSel ? bucketSel.totCobros : 0;
+    var totDiaP = bucketSel ? bucketSel.totPagos : 0;
+    var netoDia = totDiaC - totDiaP;
+
+    var fechaObjSel = new Date(selISO + 'T12:00:00');
+    var tituloDiaSel = !isNaN(fechaObjSel.getTime())
+        ? fechaObjSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        : selISO;
+    tituloDiaSel = tituloDiaSel.charAt(0).toUpperCase() + tituloDiaSel.slice(1);
+
+    html += '<div class="fin-cal-detail-card" id="fin-cal-dia-detalle">' +
+        '<div class="fin-cal-detail-hdr">' +
+            '<div>' +
+                '<div style="font-size: 11px; color: #38bdf8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">📆 DETALLE DEL DÍA SELECCIONADO</div>' +
+                '<h4 style="margin: 3px 0 0 0; font-size: 16px; font-weight: 800; color: #f8fafc;">' + escaparHTML(tituloDiaSel) + '</h4>' +
+            '</div>' +
+            '<div style="display: flex; gap: 6px; flex-wrap: wrap;">' +
+                '<button type="button" class="btn-add-finanza" onclick="abrirModalIngreso(\'aleatoria\', \'' + selISO + '\')" style="padding: 6px 12px; font-size: 11.5px; border-color: #10b981; color: #34d399; background: rgba(16, 185, 129, 0.12);">+ Cobro este día</button>' +
+                '<button type="button" class="btn-add-finanza" onclick="abrirModalGasto(\'ocasional\', \'' + selISO + '\')" style="padding: 6px 12px; font-size: 11.5px; border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.12);">+ Pago este día</button>' +
+            '</div>' +
+        '</div>' +
+        '<div class="fin-cal-day-metrics">' +
+            '<span class="fin-cal-day-chip" style="color: #34d399; border-color: rgba(16, 185, 129, 0.28);">💰 Cobros: <strong>+$' + totDiaC.toFixed(2) + '</strong> (' + (bucketSel ? bucketSel.cobros.length : 0) + ')</span>' +
+            '<span class="fin-cal-day-chip" style="color: #f87171; border-color: rgba(239, 68, 68, 0.28);">💳 Pagos: <strong>-$' + totDiaP.toFixed(2) + '</strong> (' + (bucketSel ? bucketSel.pagos.length : 0) + ')</span>' +
+            '<span class="fin-cal-day-chip" style="color: ' + (netoDia >= 0 ? '#38bdf8' : '#fbbf24') + ';">⚖️ Neto del día: <strong>' + (netoDia >= 0 ? '+$' : '-$') + Math.abs(netoDia).toFixed(2) + '</strong></span>' +
+        '</div>';
+
+    if (filtradoSel.cobros.length === 0 && filtradoSel.pagos.length === 0) {
+        html += '<div class="finanzas-empty-hint" style="margin-bottom: 0;">Sin ' + (filtro === 'todos' ? 'cobros ni pagos' : (filtro === 'cobros' ? 'cobros' : (filtro === 'pagos' ? 'pagos' : 'movimientos pendientes'))) + ' pautados para este día.</div>';
+    } else {
+        if (filtradoSel.cobros.length > 0) {
+            html += '<div class="fin-cal-subhead" style="color: #34d399;"><span>💰 Cobros del Día (' + filtradoSel.cobros.length + ')</span></div>' +
+                    '<div class="fin-cal-tx-list">';
+            filtradoSel.cobros.forEach(function(item) {
+                var estadoHtml = item.completado
+                    ? '<span class="badge-ingreso-cobrado">✅ Cobrado</span><button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroIngresoUI(\'' + item.id + '\')" title="Revertir cobro">↩</button>'
+                    : '<button type="button" class="btn-cobrar-ingreso" onclick="cobrarIngresoUI(\'' + item.id + '\')">💰 Cobrar</button>';
+                var notaRec = item.esRecurrente
+                    ? (item.esExcepcion ? '📌 Reprogramado (habitual día ' + item.diaRegla + ')' : '🔄 Fijo mensual (día ' + item.diaRegla + ')')
+                    : (item.esCreditoAlmacen ? '📦 Sincroniza cuota en Almacén' : '📆 Fecha puntual');
+
+                html += '<div class="finanzas-tx-item" style="background: rgba(16, 185, 129, 0.04); border-color: rgba(16, 185, 129, 0.2);">' +
+                    '<div class="finanzas-tx-main">' +
+                        '<div class="finanzas-tx-icon" style="color: #34d399;">' + item.icono + '</div>' +
+                        '<div class="finanzas-tx-details">' +
+                            '<div class="finanzas-tx-title">' + escaparHTML(item.titulo) + '</div>' +
+                            '<div class="finanzas-tx-meta" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
+                                '<span class="badge-cat" style="background: rgba(255,255,255,0.06); color:#cbd5e1;">' + escaparHTML(item.categoriaTxt) + '</span>' +
+                                '<span style="font-size:11px; color:#94a3b8;">' + notaRec + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="finanzas-tx-right" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">' +
+                        '<div class="finanzas-tx-monto monto-positivo">+$' + item.monto.toFixed(2) + '</div>' +
+                        estadoHtml +
+                        '<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza(\'ingreso\', \'' + item.id + '\', \'\', \'' + item.mesOrigenRegla + '\', \'' + item.fecha + '\', ' + (item.esRecurrente ? 'true' : 'false') + ')">📅 Mover Día</button>' +
+                    '</div>' +
+                '</div>';
+            });
+            html += '</div>';
+        }
+
+        if (filtradoSel.pagos.length > 0) {
+            html += '<div class="fin-cal-subhead" style="color: #f87171;"><span>💳 Pagos y Cuotas del Día (' + filtradoSel.pagos.length + ')</span></div>' +
+                    '<div class="fin-cal-tx-list">';
+            filtradoSel.pagos.forEach(function(item) {
+                var estadoPagoHtml = '';
+                if (item.origen === 'deuda_cuota') {
+                    estadoPagoHtml = item.completado
+                        ? '<span class="badge-ingreso-cobrado">✅ Pagada</span><button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota pagada">↩</button>'
+                        : '<button type="button" class="btn-pagar-deuda" onclick="pagarCuotaDeudaUI(\'' + item.id + '\', ' + item.cuotaNum + ')">💳 Pagar</button>';
+                } else {
+                    estadoPagoHtml = item.completado
+                        ? '<span class="badge-ingreso-cobrado">✅ Pagado</span><button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerPagoGastoUI(\'' + item.id + '\')" title="Desmarcar pago">↩</button>'
+                        : '<button type="button" class="btn-pagar-deuda" onclick="pagarGastoUI(\'' + item.id + '\')">💳 Pagar</button>';
+                }
+
+                var notaPago = item.origen === 'deuda_cuota'
+                    ? (item.esExcepcion ? '📌 Cuota movida manualmente' : '🛡️ Cronograma de deuda')
+                    : (item.esRecurrente
+                        ? (item.esExcepcion ? '📌 Reprogramado (habitual día ' + item.diaRegla + ')' : '🔄 Fijo mensual (día ' + item.diaRegla + ')')
+                        : '⚡ Pago puntual');
+                var vencidoTag = item.vencida ? '<span class="cuota-badge-vencida">⚠️ Vencido</span>' : '';
+
+                html += '<div class="finanzas-tx-item" style="background: rgba(239, 68, 68, 0.04); border-color: rgba(239, 68, 68, 0.2);">' +
+                    '<div class="finanzas-tx-main">' +
+                        '<div class="finanzas-tx-icon" style="color: #f87171;">' + item.icono + '</div>' +
+                        '<div class="finanzas-tx-details">' +
+                            '<div class="finanzas-tx-title">' + escaparHTML(item.titulo) + '</div>' +
+                            '<div class="finanzas-tx-meta" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
+                                '<span class="badge-cat" style="background: rgba(255,255,255,0.06); color:#cbd5e1;">' + escaparHTML(item.categoriaTxt) + '</span>' +
+                                vencidoTag +
+                                '<span style="font-size:11px; color:#94a3b8;">' + notaPago + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="finanzas-tx-right" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">' +
+                        '<div class="finanzas-tx-monto monto-negativo">-$' + item.monto.toFixed(2) + '</div>' +
+                        estadoPagoHtml +
+                        '<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza(\'' + item.origen + '\', \'' + item.id + '\', \'' + (item.cuotaNum != null ? item.cuotaNum : '') + '\', \'' + item.mesOrigenRegla + '\', \'' + item.fecha + '\', ' + (item.esRecurrente ? 'true' : 'false') + ')">📅 Mover Día</button>' +
+                    '</div>' +
+                '</div>';
+            });
+            html += '</div>';
+        }
+    }
+    html += '</div>';
+
+    // 5. Orden Cronológico Completo del Mes (solo días con actividad filtrada)
+    html += '<div class="fin-cal-detail-card" style="border-color: rgba(255, 255, 255, 0.08);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">' +
+            '<div>' +
+                '<div style="font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase;">📋 ORDEN CRONOLÓGICO DEL MES</div>' +
+                '<div style="font-size: 12.5px; color: #cbd5e1; margin-top: 2px;">Toca cualquier día con actividad para inspeccionar o mover sus cobros/pagos</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="fin-cal-chrono-list">';
+
+    var filasCrono = 0;
+    data.diasConActividad.forEach(function(b) {
+        var fltB = filtrarMovimientosBucketFin(b, filtro);
+        if (fltB.cobros.length === 0 && fltB.pagos.length === 0) return;
+        filasCrono++;
+
+        var fObj = new Date(b.fecha + 'T12:00:00');
+        var diaSemanaCorto = !isNaN(fObj.getTime()) ? fObj.toLocaleDateString('es-ES', { weekday: 'short' }) : '';
+        diaSemanaCorto = diaSemanaCorto ? (diaSemanaCorto.charAt(0).toUpperCase() + diaSemanaCorto.slice(1)) : '';
+
+        var sumC = fltB.cobros.reduce(function(acc, x) { return acc + x.monto; }, 0);
+        var sumP = fltB.pagos.reduce(function(acc, x) { return acc + x.monto; }, 0);
+        var nombresResumen = fltB.cobros.concat(fltB.pagos).slice(0, 3).map(function(it) { return it.titulo; }).join(' · ');
+        if (fltB.cobros.length + fltB.pagos.length > 3) nombresResumen += ' ...';
+
+        html += '<button type="button" class="fin-cal-chrono-row ' + (b.fecha === selISO ? 'is-selected' : '') + '" onclick="seleccionarDiaCalFinanzas(\'' + b.fecha + '\')">' +
+            '<div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">' +
+                '<div style="min-width: 48px; text-align:center; background:#0b0e17; border:1px solid rgba(255,255,255,0.08); border-radius:9px; padding:5px 6px;">' +
+                    '<div style="font-size:10px; color:#94a3b8; font-weight:700; text-transform:uppercase;">' + escaparHTML(diaSemanaCorto) + '</div>' +
+                    '<div style="font-size:15px; color:#f8fafc; font-weight:800;">' + b.dia + '</div>' +
+                '</div>' +
+                '<div style="min-width:0; flex:1;">' +
+                    '<div style="font-size:12.5px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escaparHTML(nombresResumen) + '</div>' +
+                    '<div style="font-size:11px; color:#94a3b8; margin-top:2px;">' +
+                        (fltB.cobros.length > 0 ? '<span style="color:#34d399; font-weight:700;">' + fltB.cobros.length + ' cobro' + (fltB.cobros.length === 1 ? '' : 's') + '</span> ' : '') +
+                        (fltB.cobros.length > 0 && fltB.pagos.length > 0 ? ' · ' : '') +
+                        (fltB.pagos.length > 0 ? '<span style="color:#f87171; font-weight:700;">' + fltB.pagos.length + ' pago' + (fltB.pagos.length === 1 ? '' : 's') + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0;">' +
+                (sumC > 0 ? '<span style="font-size:12.5px; font-weight:800; color:#34d399;">+$' + sumC.toFixed(2) + '</span>' : '') +
+                (sumP > 0 ? '<span style="font-size:12.5px; font-weight:800; color:#f87171;">-$' + sumP.toFixed(2) + '</span>' : '') +
+            '</div>' +
+        '</button>';
+    });
+
+    if (filasCrono === 0) {
+        html += '<div class="finanzas-empty-hint" style="margin:0;">No hay movimientos registrados para este mes con el filtro actual.</div>';
+    }
+
+    html += '</div></div>';
+
+    cont.innerHTML = html;
+}
+
+function abrirModalMoverFechaFinanza(origen, id, cuotaNum, mesClaveOrigen, fechaActualISO, esRecurrente) {
+    var fin = (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var titulo = '';
+    var monto = 0;
+    var clase = 'pago';
+
+    if (origen === 'ingreso') {
+        var ing = (fin.ingresos || []).find(function(x) { return x.id === id; });
+        if (!ing) return;
+        titulo = ing.fuente || ing.concepto || ing.nombre || ing.descripcion || 'Cobro';
+        monto = Number(ing.monto) || 0;
+        clase = 'cobro';
+    } else if (origen === 'gasto') {
+        var gas = (fin.gastos || []).find(function(x) { return x.id === id; });
+        if (!gas) return;
+        titulo = gas.concepto || 'Pago';
+        monto = Number(gas.monto) || 0;
+        clase = 'pago';
+    } else if (origen === 'deuda_cuota') {
+        var deu = (fin.deudas || []).find(function(x) { return x.id === id; });
+        if (!deu) return;
+        normalizarDeuda(deu);
+        var cuotaObj = (deu.cuotas || []).find(function(c) { return String(c.num) === String(cuotaNum); });
+        titulo = deu.nombre + ' · Cuota #' + cuotaNum + '/' + deu.cuotasTotal;
+        monto = cuotaObj ? (Number(cuotaObj.monto) || Number(deu.montoCuota) || 0) : (Number(deu.montoCuota) || 0);
+        clase = 'pago';
+    } else {
+        return;
+    }
+
+    var modal = document.getElementById('modal-mover-fecha-finanza');
+    if (!modal) return;
+
+    document.getElementById('mover-fin-origen').value = origen;
+    document.getElementById('mover-fin-id').value = id;
+    document.getElementById('mover-fin-cuota-num').value = cuotaNum != null ? String(cuotaNum) : '';
+    document.getElementById('mover-fin-mes-clave').value = mesClaveOrigen || '';
+    document.getElementById('mover-fin-es-recurrente').value = esRecurrente ? '1' : '0';
+
+    var badgeEl = document.getElementById('mover-fin-badge-tipo');
+    var montoEl = document.getElementById('mover-fin-monto');
+    var titEl = document.getElementById('mover-fin-titulo');
+    var fechaActEl = document.getElementById('mover-fin-fecha-actual');
+    var inNueva = document.getElementById('mover-fin-nueva-fecha');
+    var grpAlcance = document.getElementById('mover-fin-grupo-alcance');
+    var contAtajos = document.getElementById('mover-fin-atajos');
+
+    if (badgeEl) {
+        if (clase === 'cobro') {
+            badgeEl.innerText = '💰 Cobro / Ingreso';
+            badgeEl.style.background = 'rgba(16, 185, 129, 0.18)';
+            badgeEl.style.color = '#34d399';
+        } else {
+            badgeEl.innerText = origen === 'deuda_cuota' ? '🛡️ Cuota de Deuda' : '💳 Pago / Gasto';
+            badgeEl.style.background = 'rgba(239, 68, 68, 0.18)';
+            badgeEl.style.color = '#f87171';
+        }
+    }
+    if (montoEl) {
+        montoEl.innerText = (clase === 'cobro' ? '+$' : '-$') + monto.toFixed(2);
+        montoEl.style.color = clase === 'cobro' ? '#34d399' : '#f87171';
+    }
+    if (titEl) titEl.innerText = titulo;
+    if (fechaActEl) fechaActEl.innerText = formatearFechaCorta(fechaActualISO);
+
+    var baseISO = (fechaActualISO && fechaActualISO.length >= 10) ? fechaActualISO.slice(0, 10) : obtenerHoyISOFinanzas();
+    if (inNueva) inNueva.value = baseISO;
+
+    if (grpAlcance) {
+        grpAlcance.style.display = esRecurrente ? 'block' : 'none';
+        var radioSoloMes = grpAlcance.querySelector('input[value="solo_mes"]');
+        if (radioSoloMes) radioSoloMes.checked = true;
+    }
+
+    // Generar atajos rápidos desde la fecha base del movimiento
+    if (contAtajos) {
+        var dBase = new Date(baseISO + 'T12:00:00');
+        var sumarDias = function(n) {
+            var c = new Date(dBase.getTime());
+            c.setDate(c.getDate() + n);
+            return obtenerClaveFechaISOFinanzas(c.getFullYear(), c.getMonth(), c.getDate());
+        };
+        var anioB = dBase.getFullYear();
+        var mesB = dBase.getMonth();
+        var ultDiaB = new Date(anioB, mesB + 1, 0).getDate();
+        var proxMes = new Date(anioB, mesB + 1, 1);
+        var atajos = [
+            { lbl: '+1 día', iso: sumarDias(1) },
+            { lbl: '+3 días', iso: sumarDias(3) },
+            { lbl: '+7 días', iso: sumarDias(7) },
+            { lbl: 'Día 15', iso: obtenerClaveFechaISOFinanzas(anioB, mesB, 15) },
+            { lbl: 'Último (' + ultDiaB + ')', iso: obtenerClaveFechaISOFinanzas(anioB, mesB, ultDiaB) },
+            { lbl: 'Día 1 próx. mes', iso: obtenerClaveFechaISOFinanzas(proxMes.getFullYear(), proxMes.getMonth(), 1) }
+        ];
+        var htmlAt = '';
+        atajos.forEach(function(a) {
+            htmlAt += '<button type="button" class="btn-atajo-fecha-fin" onclick="seleccionarAtajoFechaMoverFin(\'' + a.iso + '\')">' + a.lbl + '</button>';
+        });
+        contAtajos.innerHTML = htmlAt;
+    }
+
+    modal.style.display = 'flex';
+}
+
+function seleccionarAtajoFechaMoverFin(fechaISO) {
+    var inNueva = document.getElementById('mover-fin-nueva-fecha');
+    if (inNueva && fechaISO) inNueva.value = fechaISO;
+}
+
+function cerrarModalMoverFechaFinanza() {
+    var modal = document.getElementById('modal-mover-fecha-finanza');
+    if (modal) modal.style.display = 'none';
+}
+
+function ejecutarMoverFechaFinanza() {
+    var origen = document.getElementById('mover-fin-origen').value;
+    var id = document.getElementById('mover-fin-id').value;
+    var cuotaNum = document.getElementById('mover-fin-cuota-num').value;
+    var mesClaveOrigen = document.getElementById('mover-fin-mes-clave').value;
+    var esRecurrente = document.getElementById('mover-fin-es-recurrente').value === '1';
+    var nuevaFecha = document.getElementById('mover-fin-nueva-fecha').value;
+
+    if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) {
+        alert("Selecciona una nueva fecha válida.");
+        return;
+    }
+
+    var radioAlc = document.querySelector('input[name="mover-fin-alcance"]:checked');
+    var alcance = radioAlc ? radioAlc.value : 'solo_mes';
+
+    var partes = nuevaFecha.split('-');
+    var nuevoAnio = parseInt(partes[0], 10);
+    var nuevoMes = parseInt(partes[1], 10) - 1;
+    var nuevoDia = parseInt(partes[2], 10);
+    var mesDestinoClave = nuevaFecha.slice(0, 7);
+    var now = Date.now();
+    var tituloMovido = 'Movimiento';
+
+    if (!APP_STATE || !APP_STATE.finanzas) return;
+
+    function aplicarCambioItemRecurrenteOFijo(item) {
+        if (esRecurrente) {
+            if (alcance === 'siempre') {
+                item.dia = nuevoDia;
+                if (item.excepcionesMes && mesClaveOrigen) {
+                    delete item.excepcionesMes[mesClaveOrigen];
+                }
+            } else {
+                if (!item.excepcionesMes || typeof item.excepcionesMes !== 'object') {
+                    item.excepcionesMes = {};
+                }
+                var totalDiasDest = new Date(nuevoAnio, nuevoMes + 1, 0).getDate();
+                var diaOriginalClamped = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasDest);
+                if (mesDestinoClave === mesClaveOrigen && nuevoDia === diaOriginalClamped) {
+                    delete item.excepcionesMes[mesClaveOrigen];
+                } else {
+                    item.excepcionesMes[mesClaveOrigen] = nuevaFecha;
+                }
+            }
+        } else {
+            item.fecha = nuevaFecha;
+            item.dia = nuevoDia;
+        }
+        item.fechaActualizacion = now;
+    }
+
+    if (origen === 'ingreso') {
+        var ing = (APP_STATE.finanzas.ingresos || []).find(function(x) { return x.id === id; });
+        if (!ing) return;
+        tituloMovido = ing.fuente || ing.concepto || ing.nombre || 'Cobro';
+        aplicarCambioItemRecurrenteOFijo(ing);
+
+        // Si corresponde a cuota de venta a crédito en Inventario, sincronizar también allá
+        if (ing.ventaId && ing.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+            var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === ing.ventaId; });
+            if (vObj && Array.isArray(vObj.cuotas)) {
+                var cObj = vObj.cuotas.find(function(c) { return c.id === ing.cuotaId; });
+                if (cObj) {
+                    cObj.fecha = nuevaFecha;
+                    cObj.dia = nuevoDia;
+                }
+            }
+        }
+    } else if (origen === 'gasto') {
+        var gas = (APP_STATE.finanzas.gastos || []).find(function(x) { return x.id === id; });
+        if (!gas) return;
+        tituloMovido = gas.concepto || 'Pago';
+        aplicarCambioItemRecurrenteOFijo(gas);
+    } else if (origen === 'deuda_cuota') {
+        var deu = (APP_STATE.finanzas.deudas || []).find(function(x) { return x.id === id; });
+        if (!deu) return;
+        normalizarDeuda(deu);
+        var cuotaTarget = (deu.cuotas || []).find(function(c) { return String(c.num) === String(cuotaNum); });
+        if (!cuotaTarget) return;
+        cuotaTarget.fecha = nuevaFecha;
+        cuotaTarget.reprogramada = true;
+        if (Number(deu.cuotasTotal) === 1 || Number(cuotaNum) === 1) {
+            deu.dia = nuevoDia;
+        }
+        deu.fechaActualizacion = now;
+        tituloMovido = deu.nombre + ' · Cuota #' + cuotaNum;
+    } else {
+        return;
+    }
+
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.calUltimoMovimiento = {
+        titulo: tituloMovido,
+        destinoFecha: nuevaFecha
+    };
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalMoverFechaFinanza();
+    renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+}
+
 

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.54">
+    <link rel="stylesheet" href="style.css?v=10.55">
 </head>
 <body>
 
@@ -1315,6 +1315,19 @@
                 </div>
             </div>
 
+            <!-- NAVEGACIÓN DE SECCIONES DE FINANZAS (PANEL VS CALENDARIO) -->
+            <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 16px;">
+                <button type="button" class="finanzas-tab-btn active" id="tab-finanzas-panel" onclick="cambiarSeccionFinanzas('panel')">
+                    <span>📊</span> Resumen & Movimientos
+                </button>
+                <button type="button" class="finanzas-tab-btn" id="tab-finanzas-calendario" onclick="cambiarSeccionFinanzas('calendario')">
+                    <span>📅</span> Calendario de Cobros y Pagos <span id="badge-cal-fin-pendientes" class="fin-cal-tab-badge" style="display: none;">0</span>
+                </button>
+            </div>
+
+            <!-- SUBSECCIÓN A: PANEL GENERAL DE FINANZAS -->
+            <div id="vista-finanzas-panel">
+
             <!-- SELECTOR DE PERÍODO (SEMANAS DEL MES & MES COMPLETO AL FINAL) -->
             <div class="quincena-selector-bar" id="quincena-selector-bar">
                 <button class="btn-quincena-tab" id="btn-vista-sem1" onclick="cambiarPeriodoFinanzas('sem1')">
@@ -1637,6 +1650,12 @@
                 <div class="metas-grid" id="contenedor-metas-cards">
                     <!-- Tarjetas de Metas generadas dinámicamente -->
                 </div>
+            </div>
+            </div>
+
+            <!-- SUBSECCIÓN B: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS -->
+            <div id="vista-finanzas-calendario" style="display: none;">
+                <div id="contenedor-calendario-finanzas"></div>
             </div>
         </div>
     </div>
@@ -2106,6 +2125,64 @@
                     </button>
                     <button class="btn-system" style="flex: 1;" onclick="confirmarAgregarMeta()">
                         ✓ Aceptar y Crear Meta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: MOVER / REPROGRAMAR FECHA DE COBRO O PAGO -->
+    <div id="modal-mover-fecha-finanza" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 440px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📅</span>
+                    <span style="color: #38bdf8; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">REPROGRAMAR FECHA DE MOVIMIENTO</span>
+                </div>
+                <button type="button" onclick="cerrarModalMoverFechaFinanza()" class="modal-close-btn">&times;</button>
+            </div>
+            <div style="padding: 18px;">
+                <input type="hidden" id="mover-fin-origen" value="">
+                <input type="hidden" id="mover-fin-id" value="">
+                <input type="hidden" id="mover-fin-cuota-num" value="">
+                <input type="hidden" id="mover-fin-mes-clave" value="">
+                <input type="hidden" id="mover-fin-es-recurrente" value="0">
+
+                <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <span id="mover-fin-badge-tipo" style="font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 9999px;">Cobro</span>
+                        <strong id="mover-fin-monto" style="font-size: 15px; font-weight: 800; color: #f8fafc;">$0.00</strong>
+                    </div>
+                    <div id="mover-fin-titulo" style="font-size: 14.5px; font-weight: 800; color: #f8fafc; word-break: break-word;">Concepto</div>
+                    <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">
+                        Fecha actual pautada: <strong id="mover-fin-fecha-actual" style="color: #cbd5e1;">-</strong>
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; display: block;">📆 Nueva fecha destino:</label>
+                    <input type="date" id="mover-fin-nueva-fecha" class="modal-input" style="font-weight: 700; text-align: center; font-size: 14px;">
+                    <div id="mover-fin-atajos" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;"></div>
+                </div>
+
+                <div id="mover-fin-grupo-alcance" class="modal-form-group" style="display: none; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 12px; padding: 12px;">
+                    <label style="font-size: 11px; font-weight: 800; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px; display: block;">Este movimiento se repite todos los meses:</label>
+                    <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #f8fafc; margin-bottom: 8px; cursor: pointer; font-weight: 600;">
+                        <input type="radio" name="mover-fin-alcance" value="solo_mes" checked style="margin-top: 3px;">
+                        <span><strong>Solo este mes</strong> (mueve únicamente esta ocurrencia sin cambiar los próximos meses)</span>
+                    </label>
+                    <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #cbd5e1; cursor: pointer; font-weight: 600;">
+                        <input type="radio" name="mover-fin-alcance" value="siempre" style="margin-top: 3px;">
+                        <span><strong>Todos los meses</strong> (cambia permanentemente su día mensual habitual)</span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; margin: 0; padding: 12px; font-size: 13px; justify-content: center;" onclick="cerrarModalMoverFechaFinanza()">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn-system" style="flex: 1.5; margin: 0; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #2563eb, #38bdf8); border-color: #60a5fa; color: #ffffff; font-weight: 800;" onclick="ejecutarMoverFechaFinanza()">
+                        ✓ Mover a esta Fecha
                     </button>
                 </div>
             </div>
@@ -5571,26 +5648,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.54"></script>
-    <script src="js/perfil.js?v=10.54"></script>
-    <script src="js/progresion.js?v=10.54"></script>
-    <script src="js/estado-personal.js?v=10.54"></script>
-    <script src="js/finanzas.js?v=10.54"></script>
-    <script src="js/ideas.js?v=10.54"></script>
-    <script src="js/dinamicas.js?v=10.54"></script>
-    <script src="js/calendario.js?v=10.54"></script>
-    <script src="js/inventario.js?v=10.54"></script>
-    <script src="js/reproductor.js?v=10.54"></script>
-    <script src="js/jarvis-voz.js?v=10.54"></script>
+    <script src="js/core.js?v=10.55"></script>
+    <script src="js/perfil.js?v=10.55"></script>
+    <script src="js/progresion.js?v=10.55"></script>
+    <script src="js/estado-personal.js?v=10.55"></script>
+    <script src="js/finanzas.js?v=10.55"></script>
+    <script src="js/ideas.js?v=10.55"></script>
+    <script src="js/dinamicas.js?v=10.55"></script>
+    <script src="js/calendario.js?v=10.55"></script>
+    <script src="js/inventario.js?v=10.55"></script>
+    <script src="js/reproductor.js?v=10.55"></script>
+    <script src="js/jarvis-voz.js?v=10.55"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.54"></script>
+    <script type="module" src="js/firebase-config.js?v=10.55"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.54')
+                navigator.serviceWorker.register('sw.js?v=10.55')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
