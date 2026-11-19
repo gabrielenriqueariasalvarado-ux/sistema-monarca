@@ -148,6 +148,7 @@ const DEFAULT_STATE = {
         ]
     },
     agendaPersonas: [],
+    gruposPersonas: [],
     ubicacionesAgenda: [
         "💈 Barbería",
         "🏋️ Gimnasio",
@@ -194,6 +195,7 @@ const DEFAULT_STATE = {
     },
     ideas: [],
     calendario: [],
+    cronogramaSemanal: [],
     inventario: {
         productos: [],
         categorias: [],
@@ -208,6 +210,7 @@ const DEFAULT_STATE = {
         habilidades: [],
         ideas: [],
         agendaPersonas: [],
+        gruposPersonas: [],
         ejercicios: [],
         rutinas: [],
         ejerciciosMentales: [],
@@ -215,6 +218,7 @@ const DEFAULT_STATE = {
         conocimientos: [],
         registrosLabores: [],
         calendario: [],
+        cronogramaSemanal: [],
         finanzas_ingresos: [],
         finanzas_gastos: [],
         finanzas_categoriasGastos: [],
@@ -311,6 +315,9 @@ const MonarcaDB = {
             if (!data.agendaPersonas || !Array.isArray(data.agendaPersonas)) {
                 data.agendaPersonas = [];
             }
+            if (!data.gruposPersonas || !Array.isArray(data.gruposPersonas)) {
+                data.gruposPersonas = [];
+            }
             if (!data.ubicacionesAgenda || !Array.isArray(data.ubicacionesAgenda)) {
                 data.ubicacionesAgenda = JSON.parse(JSON.stringify(DEFAULT_STATE.ubicacionesAgenda));
             }
@@ -337,6 +344,7 @@ const MonarcaDB = {
                 if (!data.finanzas.comparacionesAhorro || !Array.isArray(data.finanzas.comparacionesAhorro)) data.finanzas.comparacionesAhorro = [];
             }
             if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
+            if (!data.cronogramaSemanal || !Array.isArray(data.cronogramaSemanal)) data.cronogramaSemanal = [];
             if (!data.registroDiarioCalendario) data.registroDiarioCalendario = {};
             if (!data.ideas || !Array.isArray(data.ideas)) {
                 data.ideas = [];
@@ -641,6 +649,8 @@ function inicializarSistema(omitirLecturaLocal) {
     if (typeof renderizarDesgloseMenteCognitiva === 'function') renderizarDesgloseMenteCognitiva();
     if (typeof inicializarBancoDeIdeas === 'function') inicializarBancoDeIdeas();
     if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
+    if (typeof iniciarMotorRecordatoriosCalendario === 'function') iniciarMotorRecordatoriosCalendario();
+    if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
 
     // Historial inicial para soporte del botón atrás en móvil / PWA
     try {
@@ -1311,97 +1321,25 @@ function cerrarCentroNotificaciones() {
     if (modal) modal.style.display = 'none';
 }
 
+function monarcaEscHtml(str) {
+    if (str === null || typeof str === 'undefined') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function obtenerAlertasSistemaMonarca() {
-    var alertas = [];
-
-    // 1. Alerta de Boom Solutions (Sueldo)
-    try {
-        var boomData = null;
-        if (window.BOOM_SOLUTIONS_DATA) {
-            boomData = window.BOOM_SOLUTIONS_DATA;
-        } else {
-            var rawBoom = localStorage.getItem('MONARCA_BOOM_SOLUTIONS');
-            if (rawBoom) boomData = JSON.parse(rawBoom);
+    if (typeof window.obtenerAlertasCalendarioActivas === 'function') {
+        try {
+            return window.obtenerAlertasCalendarioActivas() || [];
+        } catch(e) {
+            console.warn('[Notificaciones Calendario]', e);
         }
-        if (boomData && boomData.sueldo) {
-            var sueldo = boomData.sueldo;
-            if (!sueldo.cobrado) {
-                alertas.push({
-                    id: 'alerta-boom-sueldo',
-                    tipo: 'urgente',
-                    icono: '🚀',
-                    badge: 'Labor Boom Solutions',
-                    color: '#f59e0b',
-                    titulo: 'Cobro de Sueldo Pendiente',
-                    descripcion: 'Tienes pendiente cobrar el sueldo fijado de Boom Solutions ($' + (sueldo.montoQuincenal || sueldo.montoMensual || 190) + ' USD).',
-                    accionTexto: 'Ir a Boom Solutions',
-                    accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-subapp-boom');"
-                });
-            }
-        }
-    } catch(e) {}
-
-    // 2. Alerta de Quests Diarias
-    try {
-        if (window.APP_STATE && APP_STATE.quests) {
-            var pendientesQuests = 0;
-            var qList = APP_STATE.quests.diarias || [];
-            qList.forEach(function(q) {
-                if (!q.completada) pendientesQuests++;
-            });
-            if (pendientesQuests > 0) {
-                alertas.push({
-                    id: 'alerta-quests-pendientes',
-                    tipo: 'info',
-                    icono: '🎯',
-                    badge: 'Quests del Día',
-                    color: '#6366f1',
-                    titulo: pendientesQuests + ' Quests pendientes hoy',
-                    descripcion: 'Completa tus misiones de disciplina para ganar EXP y subir de nivel.',
-                    accionTexto: 'Ver Quests',
-                    accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-acciones-progresion');"
-                });
-            }
-        }
-    } catch(e) {}
-
-    // 3. Alerta de Finanzas (Resumen de gastos del mes)
-    try {
-        if (window.APP_STATE && APP_STATE.finanzas) {
-            var fin = APP_STATE.finanzas;
-            var numGastos = (fin.gastos && fin.gastos.length) || 0;
-            var numIngresos = (fin.ingresos && fin.ingresos.length) || 0;
-            alertas.push({
-                id: 'alerta-finanzas-status',
-                tipo: 'sistema',
-                icono: '📊',
-                badge: 'Capital & Finanzas',
-                color: '#10b981',
-                titulo: 'Control Financiero Activo',
-                descripcion: 'Tienes ' + numIngresos + ' registros de ingresos y ' + numGastos + ' gastos clasificados en tus pilares.',
-                accionTexto: 'Gestionar Finanzas',
-                accionFn: "cerrarCentroNotificaciones(); cambiarVista('vista-finanzas');"
-            });
-        }
-    } catch(e) {}
-
-    // 4. Estado de Nube / Sincronización
-    try {
-        var cloudOnline = window.MonarcaCloud && window.MonarcaCloud.isOnline;
-        alertas.push({
-            id: 'alerta-cloud-sync',
-            tipo: 'sync',
-            icono: '☁️',
-            badge: 'Firebase Cloud',
-            color: '#38bdf8',
-            titulo: 'Sincronización Monarca Cloud',
-            descripcion: 'Tus datos están resguardados en tiempo real en la nube y disponibles en todos tus dispositivos.',
-            accionTexto: 'Sincronizar Ahora',
-            accionFn: "if(window.MonarcaCloud && window.MonarcaCloud.forzarSincronizacion) window.MonarcaCloud.forzarSincronizacion(); cerrarCentroNotificaciones();"
-        });
-    } catch(e) {}
-
-    return alertas;
+    }
+    return [];
 }
 
 function renderizarCentroNotificaciones() {
@@ -1411,36 +1349,70 @@ function renderizarCentroNotificaciones() {
 
     var alertas = obtenerAlertasSistemaMonarca();
     if (txtResumen) {
-        txtResumen.textContent = alertas.length + (alertas.length === 1 ? ' alerta activa' : ' alertas activas');
-    }
-
-    if (alertas.length === 0) {
-        cont.innerHTML = '<div style="text-align: center; padding: 36px 16px; color: #94a3b8;">' +
-            '<div style="font-size: 32px; margin-bottom: 8px;">✨</div>' +
-            '<div style="font-weight: 700; font-size: 14px; color: #f8fafc; margin-bottom: 4px;">Todo al día</div>' +
-            '<div style="font-size: 12px;">No tienes alertas pendientes por resolver en el Sistema Monarca.</div>' +
-            '</div>';
-        return;
+        txtResumen.textContent = alertas.length + (alertas.length === 1 ? ' notificación activa' : ' notificaciones activas');
     }
 
     var html = '';
-    alertas.forEach(function(a) {
-        html += '<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ' + a.color + '; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s;">' +
-            '<div style="display: flex; align-items: center; justify-content: space-between;">' +
-                '<div style="display: flex; align-items: center; gap: 8px;">' +
-                    '<span style="font-size: 16px;">' + a.icono + '</span>' +
-                    '<span style="font-size: 13px; font-weight: 700; color: #f8fafc;">' + a.titulo + '</span>' +
+    if (alertas.length === 0) {
+        html += '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
+            '<div style="font-size: 32px; margin-bottom: 8px;">✨</div>' +
+            '<div style="font-weight: 700; font-size: 14px; color: #f8fafc; margin-bottom: 4px;">Todo al día</div>' +
+            '<div style="font-size: 12px;">No tienes recordatorios pendientes ni avisos de eventos activos.</div>' +
+            '</div>';
+    } else {
+        alertas.forEach(function(a) {
+            var accionesHtml = '';
+            if (Array.isArray(a.acciones) && a.acciones.length > 0) {
+                a.acciones.forEach(function(ac) {
+                    var esPrimaria = ac.tipo === 'primary';
+                    var btnBg = esPrimaria ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255,255,255,0.07)';
+                    var btnBorder = esPrimaria ? 'rgba(16, 185, 129, 0.45)' : 'rgba(255,255,255,0.12)';
+                    var btnColor = esPrimaria ? '#34d399' : '#f8fafc';
+                    accionesHtml += '<button onclick="' + ac.fn + '" style="background: ' + btnBg + '; border: 1px solid ' + btnBorder + '; color: ' + btnColor + '; padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;">' +
+                        monarcaEscHtml(ac.texto) +
+                    '</button>';
+                });
+            } else if (a.accionTexto && a.accionFn) {
+                accionesHtml = '<button onclick="' + a.accionFn + '" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;">' +
+                    monarcaEscHtml(a.accionTexto) + ' →' +
+                '</button>';
+            }
+
+            html += '<div style="background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); border-left: 3px solid ' + (a.color || '#f59e0b') + '; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">' +
+                '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">' +
+                    '<div style="display: flex; align-items: center; gap: 8px; min-width: 0;">' +
+                        '<span style="font-size: 16px;">' + (a.icono || '🔔') + '</span>' +
+                        '<span style="font-size: 13.5px; font-weight: 700; color: #f8fafc; word-break: break-word;">' + monarcaEscHtml(a.titulo) + '</span>' +
+                    '</div>' +
+                    '<span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(255,255,255,0.06); color: ' + (a.color || '#f59e0b') + '; white-space: nowrap;">' + monarcaEscHtml(a.badge || 'Aviso') + '</span>' +
                 '</div>' +
-                '<span style="font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,0.06); color: ' + a.color + ';">' + a.badge + '</span>' +
-            '</div>' +
-            '<p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.45;">' + a.descripcion + '</p>' +
-            '<div style="display: flex; justify-content: flex-end; margin-top: 2px;">' +
-                '<button onclick="' + a.accionFn + '" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">' +
-                    a.accionTexto + ' →' +
-                '</button>' +
-            '</div>' +
-        '</div>';
-    });
+                (a.metaLinea ? '<div style="font-size: 11.5px; color: #cbd5e1; font-weight: 600;">' + monarcaEscHtml(a.metaLinea) + '</div>' : '') +
+                (a.descripcion ? '<p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.45;">' + monarcaEscHtml(a.descripcion) + '</p>' : '') +
+                '<div style="display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 2px;">' + accionesHtml + '</div>' +
+            '</div>';
+        });
+    }
+
+    // Mostrar próximos recordatorios programados de hoy sin inflar la campana
+    if (typeof window.obtenerProximosRecordatoriosHoy === 'function') {
+        try {
+            var proximos = window.obtenerProximosRecordatoriosHoy() || [];
+            if (proximos.length > 0) {
+                html += '<div style="margin-top: 8px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1);">' +
+                    '<div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 8px;">Programados más tarde hoy</div>';
+                proximos.forEach(function(p) {
+                    html += '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 6px;">' +
+                        '<div style="min-width: 0;">' +
+                            '<div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">🔔 ' + monarcaEscHtml(p.hora || '--:--') + ' · ' + monarcaEscHtml(p.titulo) + '</div>' +
+                            (p.personaNombre ? '<div style="font-size: 11px; color: #64748b;">👤 ' + monarcaEscHtml(p.personaNombre) + '</div>' : '') +
+                        '</div>' +
+                        '<span style="font-size: 10px; color: #64748b; white-space: nowrap;">Pendiente</span>' +
+                    '</div>';
+                });
+                html += '</div>';
+            }
+        } catch(e) {}
+    }
 
     cont.innerHTML = html;
 }
@@ -1450,11 +1422,7 @@ function actualizarBadgeNotificaciones() {
         var badge = document.getElementById('hud-badge-notificaciones');
         if (!badge) return;
         var alertas = obtenerAlertasSistemaMonarca();
-        var urgentes = alertas.filter(function(a) { return a.tipo === 'urgente'; }).length;
-        if (urgentes > 0) {
-            badge.textContent = urgentes;
-            badge.style.display = 'flex';
-        } else if (alertas.length > 0) {
+        if (alertas.length > 0) {
             badge.textContent = alertas.length;
             badge.style.display = 'flex';
         } else {

@@ -1428,6 +1428,12 @@ function guardarConfigBoom() {
 // ==========================================================================
 
 var FILTRO_UBICACION_PERSONAS = "TODAS";
+var FILTRO_GRUPO_PERSONAS = "TODOS";
+
+function escHtmlPersona(str) {
+    if (typeof window.monarcaEscHtml === 'function') return window.monarcaEscHtml(str);
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function cargarAgendaPersonas() {
     renderizarAgendaPersonas();
@@ -1441,6 +1447,71 @@ function filtrarPersonasPorUbicacion(ubicacion, btn) {
     renderizarAgendaPersonas();
 }
 
+function filtrarPersonasPorGrupo(grupoId) {
+    FILTRO_GRUPO_PERSONAS = (FILTRO_GRUPO_PERSONAS === grupoId) ? "TODOS" : grupoId;
+    renderizarAgendaPersonas();
+}
+
+function renderizarGruposPersonas() {
+    var contGrupos = document.getElementById('contenedor-grupos-personas');
+    if (!contGrupos) return;
+    if (!Array.isArray(APP_STATE.gruposPersonas)) APP_STATE.gruposPersonas = [];
+    if (!Array.isArray(APP_STATE.agendaPersonas)) APP_STATE.agendaPersonas = [];
+
+    var grupos = APP_STATE.gruposPersonas;
+    var personasMap = {};
+    APP_STATE.agendaPersonas.forEach(function(p) { personasMap[String(p.id)] = p; });
+
+    var html = '<div class="personas-grupos-box">' +
+        '<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">' +
+            '<div>' +
+                '<div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px;">Grupos de Contactos · Vinculables en Calendario</div>' +
+                '<div style="font-size:12px; color:#64748b;">Agrupa personas (Socios, Familia, Gimnasio, Equipo) para vincularlos de un toque en tus Eventos.</div>' +
+            '</div>' +
+            '<div style="display:flex; gap:6px; align-items:center;">' +
+                (FILTRO_GRUPO_PERSONAS !== 'TODOS'
+                    ? '<button type="button" class="btn-tab-ubi" onclick="filtrarPersonasPorGrupo(\'TODOS\')">✕ Ver todos los grupos</button>'
+                    : '') +
+                '<button type="button" class="btn-system" style="font-size:12px; padding:6px 12px; margin:0;" onclick="abrirModalGrupoPersonas()">+ Nuevo Grupo</button>' +
+            '</div>' +
+        '</div>';
+
+    if (grupos.length === 0) {
+        html += '<div style="font-size:12px; color:#94a3b8; padding:10px 12px; background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.12); border-radius:10px;">' +
+            'Aún no tienes grupos creados. Crea uno con <strong>+ Nuevo Grupo</strong> para vincular varios contactos en el Calendario.' +
+        '</div>';
+    } else {
+        html += '<div class="personas-grupos-grid">';
+        grupos.forEach(function(g) {
+            var miembrosValidos = (g.personaIds || []).map(function(id) { return personasMap[String(id)]; }).filter(Boolean);
+            var activo = (FILTRO_GRUPO_PERSONAS === String(g.id));
+            var color = g.color || '#6366f1';
+            var previewNombres = miembrosValidos.slice(0, 3).map(function(m) { return escHtmlPersona(m.nombre); }).join(', ');
+            if (miembrosValidos.length > 3) previewNombres += ' +' + (miembrosValidos.length - 3);
+            if (!previewNombres) previewNombres = 'Sin miembros asignados';
+
+            html += '<div class="persona-grupo-pill ' + (activo ? 'is-active' : '') + '" style="border-left: 3px solid ' + color + ';">' +
+                '<div style="flex:1; min-width:0; cursor:pointer;" onclick="filtrarPersonasPorGrupo(\'' + escHtmlPersona(g.id) + '\')" title="Toca para filtrar contactos de este grupo">' +
+                    '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">' +
+                        '<span style="font-size:15px;">' + escHtmlPersona(g.icono || '👥') + '</span>' +
+                        '<strong style="font-size:13px; color:#f8fafc;">' + escHtmlPersona(g.nombre) + '</strong>' +
+                        '<span style="font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:9999px; background:rgba(255,255,255,0.08); color:#cbd5e1;">' + miembrosValidos.length + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:11px; color:#94a3b8; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + previewNombres + '</div>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:4px;">' +
+                    '<button type="button" class="btn-sheet-action" style="padding:4px 7px; font-size:11px;" onclick="abrirModalGrupoPersonas(\'' + escHtmlPersona(g.id) + '\')" title="Editar grupo">✏️</button>' +
+                    '<button type="button" class="btn-sheet-action" style="padding:4px 7px; font-size:11px; color:#f87171;" onclick="eliminarGrupoPersonas(\'' + escHtmlPersona(g.id) + '\')" title="Eliminar grupo">🗑️</button>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+    }
+
+    html += '</div>';
+    contGrupos.innerHTML = html;
+}
+
 function renderizarAgendaPersonas() {
     var cont = document.getElementById('contenedor-agenda-personas-grid');
     var bannerResumen = document.getElementById('contenedor-resumen-personas');
@@ -1449,7 +1520,11 @@ function renderizarAgendaPersonas() {
     if (!APP_STATE.agendaPersonas || !Array.isArray(APP_STATE.agendaPersonas)) {
         APP_STATE.agendaPersonas = [];
     }
+    if (!APP_STATE.gruposPersonas || !Array.isArray(APP_STATE.gruposPersonas)) {
+        APP_STATE.gruposPersonas = [];
+    }
     var personas = APP_STATE.agendaPersonas;
+    var grupos = APP_STATE.gruposPersonas;
 
     // Métricas
     var totalTemas = 0;
@@ -1469,30 +1544,42 @@ function renderizarAgendaPersonas() {
                     <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px;">Gestión de Relaciones & Contactos</div>
                     <h3 style="margin: 2px 0 0 0; font-size: 16px; font-weight: 800; color: #f8fafc;">Directorio de Conversaciones Pendientes</h3>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff;">${personas.length} Contactos</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">${grupos.length} Grupos</span>
                     <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${temasResueltos}/${totalTemas} Temas Tratados</span>
                 </div>
             </div>
             <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
-                Ten claridad de los temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás (barbería, gimnasio, café o llamada).
+                Ten claridad de los temas a tratar con cada persona, organízalas por grupos y vincúlalas directo a tus Eventos, Recordatorios y Días Destacados del Calendario.
             </p>
         </div>`;
     }
+
+    renderizarGruposPersonas();
 
     if (!cont) return;
 
     var filtradas = personas;
     if (FILTRO_UBICACION_PERSONAS !== "TODAS") {
-        filtradas = personas.filter(function(p) {
+        filtradas = filtradas.filter(function(p) {
             return p.ubicacionCategoria === FILTRO_UBICACION_PERSONAS;
         });
+    }
+    if (FILTRO_GRUPO_PERSONAS !== "TODOS") {
+        var grupoSel = grupos.find(function(g) { return String(g.id) === String(FILTRO_GRUPO_PERSONAS); });
+        if (grupoSel) {
+            var setIds = (grupoSel.personaIds || []).map(String);
+            filtradas = filtradas.filter(function(p) { return setIds.indexOf(String(p.id)) !== -1; });
+        } else {
+            FILTRO_GRUPO_PERSONAS = "TODOS";
+        }
     }
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 12px;">
-            <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay personas registradas con esta ubicación proyectada.</p>
+            <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay personas registradas para este filtro.</p>
             <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevaPersona()">+ Agregar Contacto y Temas</button>
         </div>`;
         return;
@@ -1507,11 +1594,18 @@ function renderizarAgendaPersonas() {
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed #f3f4f6;">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; ${textStyle}">
                     <input type="checkbox" ${checkState} onchange="toggleTemaPersona('${p.id}', '${t.id}')" style="cursor: pointer; width: 15px; height: 15px; accent-color: #f8fafc;">
-                    <span>${t.texto}</span>
+                    <span>${escHtmlPersona(t.texto)}</span>
                 </label>
                 <button onclick="eliminarTemaPersona('${p.id}', '${t.id}')" title="Quitar tema" style="background:none; border:none; color:#d1d5db; cursor:pointer; font-size:12px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#d1d5db'">✕</button>
             </div>`;
         }).join('');
+
+        var gruposDePersona = grupos.filter(function(g) {
+            return Array.isArray(g.personaIds) && g.personaIds.map(String).indexOf(String(p.id)) !== -1;
+        });
+        var gruposBadges = gruposDePersona.map(function(g) {
+            return '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; background:rgba(255,255,255,0.06); border:1px solid ' + (g.color || '#6366f1') + '; color:#e2e8f0;">' + escHtmlPersona(g.icono || '👥') + ' ' + escHtmlPersona(g.nombre) + '</span>';
+        }).join(' ');
 
         var estadoColor = p.estado === 'Conversado' ? '#059669' : (p.estado === 'Agendado' ? '#2563eb' : '#4b5563');
         var estadoBg = p.estado === 'Conversado' ? '#ecfdf5' : (p.estado === 'Agendado' ? '#eff6ff' : '#f3f4f6');
@@ -1520,9 +1614,10 @@ function renderizarAgendaPersonas() {
         <div class="knowledge-card">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
                 <div>
-                    <span class="knowledge-area-tag" style="background: #111827; color: #ffffff;">${p.ubicacionCategoria || '📍 Ubicación'}</span>
-                    <h4 class="knowledge-title">${p.nombre}</h4>
-                    <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">${p.rol || 'Contacto'}</span>
+                    <span class="knowledge-area-tag" style="background: #111827; color: #ffffff;">${escHtmlPersona(p.ubicacionCategoria || '📍 Ubicación')}</span>
+                    <h4 class="knowledge-title">${escHtmlPersona(p.nombre)}</h4>
+                    <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">${escHtmlPersona(p.rol || 'Contacto')}</span>
+                    ${gruposBadges ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${gruposBadges}</div>` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <button onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
@@ -1530,8 +1625,8 @@ function renderizarAgendaPersonas() {
             </div>
 
             <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; color: #cbd5e1;">
-                <strong>📍 Lugar Proyectado:</strong> ${p.lugarProyectado || 'Por definir'}
-                ${p.fechaObjetivo ? ` · <span style="color: #6b7280;">📅 ${p.fechaObjetivo}</span>` : ''}
+                <strong>📍 Lugar Proyectado:</strong> ${escHtmlPersona(p.lugarProyectado || 'Por definir')}
+                ${p.fechaObjetivo ? ` · <span style="color: #6b7280;">📅 ${escHtmlPersona(p.fechaObjetivo)}</span>` : ''}
             </div>
 
             <div style="margin-bottom: 12px; flex-grow: 1;">
@@ -1549,7 +1644,7 @@ function renderizarAgendaPersonas() {
 
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px; flex-wrap: wrap; gap: 8px;">
                 <span class="item-badge-pill" style="background: ${estadoBg}; color: ${estadoColor}; font-weight: 700; font-size: 11px;">
-                    ${p.estado || 'Pendiente'}
+                    ${escHtmlPersona(p.estado || 'Pendiente')}
                 </span>
                 <div style="display: flex; gap: 4px;">
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 8px;" onclick="cambiarEstadoPersona('${p.id}', 'Agendado')">📅 Agendar</button>
@@ -1616,8 +1711,17 @@ function eliminarPersonaAgenda(id) {
         registrarTombstone('agendaPersonas', id);
     }
     APP_STATE.agendaPersonas = APP_STATE.agendaPersonas.filter(function(p) { return p.id !== id; });
+    if (Array.isArray(APP_STATE.gruposPersonas)) {
+        APP_STATE.gruposPersonas.forEach(function(g) {
+            if (Array.isArray(g.personaIds)) {
+                g.personaIds = g.personaIds.filter(function(pid) { return String(pid) !== String(id); });
+                g.fechaActualizacion = Date.now();
+            }
+        });
+    }
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
 }
 
 function abrirModalNuevaPersona() {
@@ -1655,7 +1759,7 @@ function guardarNuevaPersona() {
 
     if (!APP_STATE.agendaPersonas) APP_STATE.agendaPersonas = [];
     var nuevo = {
-        id: "PER-" + Date.now(),
+        id: "PER-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
         nombre: nom,
         rol: rol,
         ubicacionCategoria: ubi,
@@ -1670,9 +1774,135 @@ function guardarNuevaPersona() {
     sumarExp(15);
     MonarcaDB.save(APP_STATE);
 
+    if (inNom) inNom.value = '';
+    if (inRol) inRol.value = '';
+    if (inLug) inLug.value = '';
+    if (inTem) inTem.value = '';
+    if (inFec) inFec.value = '';
+
     cerrarModalNuevaPersona();
     renderizarAgendaPersonas();
-    alert("👥 Contacto '" + nom + "' agregado a la agenda con sus temas pendientes.");
+    if (typeof refrescarSelectoresPersonasCalendario === 'function') refrescarSelectoresPersonasCalendario();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Contacto '" + nom + "' agregado a Personas", '👥');
+    } else {
+        alert("👥 Contacto '" + nom + "' agregado a la agenda con sus temas pendientes.");
+    }
+}
+
+function abrirModalGrupoPersonas(grupoId) {
+    var modal = document.getElementById('modal-grupo-personas');
+    if (!modal) return;
+    if (!Array.isArray(APP_STATE.gruposPersonas)) APP_STATE.gruposPersonas = [];
+    if (!Array.isArray(APP_STATE.agendaPersonas)) APP_STATE.agendaPersonas = [];
+
+    var inId = document.getElementById('input-grupo-id');
+    var inNom = document.getElementById('input-grupo-nombre');
+    var inIco = document.getElementById('input-grupo-icono');
+    var inCol = document.getElementById('input-grupo-color');
+    var tituloModal = document.getElementById('titulo-modal-grupo-personas');
+    var contMiembros = document.getElementById('contenedor-miembros-grupo-personas');
+
+    var grupo = grupoId ? APP_STATE.gruposPersonas.find(function(g) { return String(g.id) === String(grupoId); }) : null;
+    if (inId) inId.value = grupo ? grupo.id : '';
+    if (inNom) inNom.value = grupo ? (grupo.nombre || '') : '';
+    if (inIco) inIco.value = grupo ? (grupo.icono || '👥') : '👥';
+    if (inCol) inCol.value = grupo ? (grupo.color || '#6366f1') : '#6366f1';
+    if (tituloModal) tituloModal.textContent = grupo ? 'EDITAR GRUPO DE PERSONAS' : 'NUEVO GRUPO DE PERSONAS';
+
+    var selIds = grupo && Array.isArray(grupo.personaIds) ? grupo.personaIds.map(String) : [];
+    if (contMiembros) {
+        if (APP_STATE.agendaPersonas.length === 0) {
+            contMiembros.innerHTML = '<div style="font-size:12px; color:#94a3b8; padding:10px; text-align:center;">Aún no tienes contactos en Personas. Agrega contactos primero para asignarlos al grupo.</div>';
+        } else {
+            contMiembros.innerHTML = APP_STATE.agendaPersonas.map(function(p) {
+                var checked = selIds.indexOf(String(p.id)) !== -1 ? 'checked' : '';
+                return '<label class="grupo-miembro-check-row">' +
+                    '<input type="checkbox" class="check-miembro-grupo-persona" value="' + escHtmlPersona(p.id) + '" ' + checked + '>' +
+                    '<span style="flex:1; min-width:0;">' +
+                        '<strong style="color:#f8fafc; font-size:12.5px;">' + escHtmlPersona(p.nombre) + '</strong>' +
+                        (p.rol ? ' <span style="color:#94a3b8; font-size:11px;">· ' + escHtmlPersona(p.rol) + '</span>' : '') +
+                    '</span>' +
+                '</label>';
+            }).join('');
+        }
+    }
+
+    modal.style.display = 'flex';
+    if (inNom) setTimeout(function() { inNom.focus(); }, 60);
+}
+
+function cerrarModalGrupoPersonas() {
+    var modal = document.getElementById('modal-grupo-personas');
+    if (modal) modal.style.display = 'none';
+}
+
+function guardarGrupoPersonas() {
+    var inId = document.getElementById('input-grupo-id');
+    var inNom = document.getElementById('input-grupo-nombre');
+    var inIco = document.getElementById('input-grupo-icono');
+    var inCol = document.getElementById('input-grupo-color');
+
+    var nombre = inNom ? inNom.value.trim() : '';
+    if (!nombre) {
+        alert('Ingresa el nombre del grupo.');
+        if (inNom) inNom.focus();
+        return;
+    }
+
+    var checks = document.querySelectorAll('.check-miembro-grupo-persona:checked');
+    var personaIds = [];
+    checks.forEach(function(ch) {
+        if (ch.value) personaIds.push(ch.value);
+    });
+
+    if (!Array.isArray(APP_STATE.gruposPersonas)) APP_STATE.gruposPersonas = [];
+    var editId = inId ? inId.value.trim() : '';
+    var ahora = Date.now();
+
+    if (editId) {
+        var existente = APP_STATE.gruposPersonas.find(function(g) { return String(g.id) === String(editId); });
+        if (existente) {
+            existente.nombre = nombre;
+            existente.icono = inIco ? inIco.value : '👥';
+            existente.color = inCol ? inCol.value : '#6366f1';
+            existente.personaIds = personaIds;
+            existente.fechaActualizacion = ahora;
+        }
+    } else {
+        APP_STATE.gruposPersonas.push({
+            id: 'GRP-' + ahora + '-' + Math.random().toString(36).substr(2, 4),
+            nombre: nombre,
+            icono: inIco ? inIco.value : '👥',
+            color: inCol ? inCol.value : '#6366f1',
+            personaIds: personaIds,
+            timestamp: ahora,
+            fechaActualizacion: ahora
+        });
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalGrupoPersonas();
+    renderizarAgendaPersonas();
+    if (typeof refrescarSelectoresPersonasCalendario === 'function') refrescarSelectoresPersonasCalendario();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Grupo '" + nombre + "' guardado", '👥');
+    }
+}
+
+function eliminarGrupoPersonas(grupoId) {
+    if (!confirm('¿Eliminar este grupo de personas? (Los contactos individuales no se borrarán)')) return;
+    if (!Array.isArray(APP_STATE.gruposPersonas)) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('gruposPersonas', grupoId);
+    }
+    APP_STATE.gruposPersonas = APP_STATE.gruposPersonas.filter(function(g) { return String(g.id) !== String(grupoId); });
+    if (String(FILTRO_GRUPO_PERSONAS) === String(grupoId)) FILTRO_GRUPO_PERSONAS = 'TODOS';
+    MonarcaDB.save(APP_STATE);
+    renderizarAgendaPersonas();
+    if (typeof refrescarSelectoresPersonasCalendario === 'function') refrescarSelectoresPersonasCalendario();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
 }
 
 

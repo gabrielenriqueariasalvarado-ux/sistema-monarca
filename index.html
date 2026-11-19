@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.57">
+    <link rel="stylesheet" href="style.css?v=10.58">
 </head>
 <body>
 
@@ -3378,13 +3378,21 @@
                         <span style="font-size: 12px; color: #6b7280;">Agenda temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás.</span>
                     </div>
                 </div>
-                <button class="btn-system" onclick="abrirModalNuevaPersona()" style="font-size: 13px;">
-                    ➕ Agregar Contacto y Temas
-                </button>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-back-system" onclick="abrirModalGrupoPersonas()" style="font-size: 12.5px; margin-bottom: 0; padding: 8px 12px;">
+                        👥 + Nuevo Grupo
+                    </button>
+                    <button class="btn-system" onclick="abrirModalNuevaPersona()" style="font-size: 13px; margin-bottom: 0;">
+                        ➕ Agregar Contacto y Temas
+                    </button>
+                </div>
             </div>
 
             <!-- RESUMEN DE CONTACTOS Y TEMAS -->
             <div id="contenedor-resumen-personas"></div>
+
+            <!-- GRUPOS DE PERSONAS (VINCULABLES AL CALENDARIO) -->
+            <div id="contenedor-grupos-personas" style="margin: 14px 0 6px 0;"></div>
 
             <!-- FILTRO POR CATEGORÍA DE UBICACIÓN -->
             <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 16px 0; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
@@ -3755,63 +3763,272 @@
         </div>
     </div>
 
-    <!-- MODAL NUEVO EVENTO CALENDARIO -->
+    <!-- MODAL UNIFICADO CALENDARIO: RECORDATORIOS, EVENTOS, DÍAS DESTACADOS & CRONOGRAMA -->
     <div id="modal-nuevo-evento" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window" style="max-width: 520px;">
+        <div class="modal-system-window cal-modal-window" style="max-width: 580px; width: 94%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">📅</span>
-                    <span style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">AGENDAR NUEVO EVENTO</span>
+                    <span id="cal-modal-header-icon" style="font-size: 18px;">📅</span>
+                    <span id="cal-modal-header-title" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">PROGRAMAR EN CALENDARIO</span>
                 </div>
-                <button onclick="cerrarModalNuevoEvento()" class="modal-close-btn">&times;</button>
+                <button type="button" onclick="cerrarModalNuevoEvento()" class="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="cal-modal-tabs" id="cal-modal-tabs-bar">
+                <button type="button" id="tab-cal-modal-recordatorio" class="cal-modal-tab-btn active" onclick="seleccionarTipoModalCalendario('recordatorio')">🔔 Recordatorio</button>
+                <button type="button" id="tab-cal-modal-evento" class="cal-modal-tab-btn" onclick="seleccionarTipoModalCalendario('evento')">📆 Evento</button>
+                <button type="button" id="tab-cal-modal-destacado" class="cal-modal-tab-btn" onclick="seleccionarTipoModalCalendario('destacado')">⭐ Día Destacado</button>
+                <button type="button" id="tab-cal-modal-cronograma" class="cal-modal-tab-btn" onclick="seleccionarTipoModalCalendario('cronograma')">🕒 Rutina Base</button>
+            </div>
+
+            <div style="padding: 18px 20px; overflow-y: auto; flex: 1;">
+                <input type="hidden" id="cal-modal-edit-id" value="">
+
+                <!-- PANE 1: RECORDATORIO -->
+                <div id="cal-pane-recordatorio" class="cal-modal-pane">
+                    <div class="modal-form-group">
+                        <label>Nombre del Recordatorio:</label>
+                        <input type="text" id="cal-rec-titulo" class="modal-input" placeholder="Ej: Llamar al contador, Tomar vitaminas, Enviar factura...">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Fecha:</label>
+                            <input type="date" id="cal-rec-fecha" class="modal-input">
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Hora Exacta (Alarma):</label>
+                            <input type="time" id="cal-rec-hora" class="modal-input">
+                        </div>
+                    </div>
+                    <div class="modal-form-group">
+                        <label>Vincular Persona (Opcional · desde Personas):</label>
+                        <select id="cal-rec-persona" class="modal-input"></select>
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Descripción / Nota:</label>
+                        <textarea id="cal-rec-desc" class="modal-input" rows="3" placeholder="Detalles importantes que aparecerán al sonar la alerta..."></textarea>
+                    </div>
+                </div>
+
+                <!-- PANE 2: EVENTO -->
+                <div id="cal-pane-evento" class="cal-modal-pane" style="display: none;">
+                    <div class="modal-form-group">
+                        <label>Nombre del Evento:</label>
+                        <input type="text" id="cal-ev-titulo" class="modal-input" placeholder="Ej: Reunión con equipo, Corte VIP, Cena con socios...">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Fecha:</label>
+                            <input type="date" id="cal-ev-fecha" class="modal-input" onchange="recalcularFinEventoYConflictos()">
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Hora de Inicio:</label>
+                            <input type="time" id="cal-ev-inicio" class="modal-input" oninput="recalcularFinEventoYConflictos()" onchange="recalcularFinEventoYConflictos()">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end;">
+                        <div class="modal-form-group">
+                            <label>Duración:</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="number" id="cal-ev-duracion-val" class="modal-input" min="5" step="5" value="60" style="width: 90px;" oninput="recalcularFinEventoYConflictos()" onchange="recalcularFinEventoYConflictos()">
+                                <select id="cal-ev-duracion-unit" class="modal-input" style="flex: 1;" onchange="recalcularFinEventoYConflictos()">
+                                    <option value="min">Minutos</option>
+                                    <option value="horas">Horas</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Hora de Finalización (Auto):</label>
+                            <div id="cal-ev-hora-fin-preview" class="cal-hora-fin-box">⏱️ --:--</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Aviso Previo (Campana):</label>
+                            <select id="cal-ev-aviso" class="modal-input">
+                                <option value="15" selected>🔔 15 minutos antes</option>
+                                <option value="5">🔔 5 minutos antes</option>
+                                <option value="10">🔔 10 minutos antes</option>
+                                <option value="30">🔔 30 minutos antes</option>
+                                <option value="60">🔔 1 hora antes</option>
+                                <option value="0">Sin aviso previo</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Color / Acento:</label>
+                            <select id="cal-ev-color" class="modal-input">
+                                <option value="#38bdf8">💎 Azul Cian</option>
+                                <option value="#6366f1">🔮 Índigo Monarca</option>
+                                <option value="#10b981">🌿 Esmeralda</option>
+                                <option value="#f59e0b">⚡ Ámbar</option>
+                                <option value="#ec4899">🌸 Magenta</option>
+                                <option value="#ef4444">🔥 Carmesí</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="cal-ev-conflicto-alerta" style="display: none; margin-bottom: 12px;"></div>
+
+                    <div class="modal-form-group">
+                        <label style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Vincular Personas o Grupos (Multi-selección):</span>
+                            <span id="cal-ev-vinculados-count" style="font-size: 11px; color: #38bdf8; font-weight: 700;">0 seleccionados</span>
+                        </label>
+                        <input type="text" id="cal-ev-personas-buscar" class="modal-input" placeholder="Filtrar personas o grupos..." style="margin-bottom: 8px; padding: 7px 10px; font-size: 12px;" oninput="filtrarOpcionesPersonasModalEvento()">
+                        <div id="cal-ev-personas-multiselect" class="cal-personas-multiselect-box"></div>
+                    </div>
+
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Descripción / Agenda del Evento:</label>
+                        <textarea id="cal-ev-desc" class="modal-input" rows="2" placeholder="Lugar, enlace, objetivos o puntos de la reunión..."></textarea>
+                    </div>
+                </div>
+
+                <!-- PANE 3: DÍA DESTACADO -->
+                <div id="cal-pane-destacado" class="cal-modal-pane" style="display: none;">
+                    <div class="modal-form-group">
+                        <label>Nombre del Día Destacado:</label>
+                        <input type="text" id="cal-dest-titulo" class="modal-input" placeholder="Ej: Cumpleaños de Mamá, Aniversario, Viaje...">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Fecha:</label>
+                            <input type="date" id="cal-dest-fecha" class="modal-input">
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Color / Estilo:</label>
+                            <select id="cal-dest-color" class="modal-input">
+                                <option value="#f59e0b">⭐ Dorado Especial</option>
+                                <option value="#ec4899">🎂 Celebración Rosa</option>
+                                <option value="#8b5cf6">👑 Violeta Real</option>
+                                <option value="#10b981">🏆 Logro Esmeralda</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-form-group">
+                        <label>Vincular Persona (Opcional · desde Personas):</label>
+                        <select id="cal-dest-persona" class="modal-input"></select>
+                    </div>
+                    <div class="modal-form-group">
+                        <label class="cal-toggle-row">
+                            <input type="checkbox" id="cal-dest-repetir" checked style="width: 17px; height: 17px; accent-color: #f59e0b; cursor: pointer;">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: #f8fafc;">Repetir anualmente</div>
+                                <div style="font-size: 11px; color: #94a3b8;">Se destacará cada año en este mismo mes y día (00:00–23:59 sin bloquear horas).</div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label>Descripción / Dedicatoria:</label>
+                        <textarea id="cal-dest-desc" class="modal-input" rows="3" placeholder="Ideas de regalo, significado especial o notas..."></textarea>
+                    </div>
+                </div>
+
+                <!-- PANE 4: CRONOGRAMA SEMANAL (RUTINA BASE) -->
+                <div id="cal-pane-cronograma" class="cal-modal-pane" style="display: none;">
+                    <div class="modal-form-group">
+                        <label>Nombre de la Actividad Semanal:</label>
+                        <input type="text" id="cal-cro-titulo" class="modal-input" placeholder="Ej: Gimnasio Fuerza, Bloque Deep Work, Estudio Inglés...">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Hora de Inicio:</label>
+                            <input type="time" id="cal-cro-inicio" class="modal-input">
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Hora de Finalización:</label>
+                            <input type="time" id="cal-cro-fin" class="modal-input">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="modal-form-group">
+                            <label>Etiqueta:</label>
+                            <select id="cal-cro-etiqueta" class="modal-input">
+                                <option value="Rutina">⚡ Rutina</option>
+                                <option value="Trabajo">💼 Trabajo</option>
+                                <option value="Salud">🏋️ Salud & Gym</option>
+                                <option value="Estudio">📚 Estudio</option>
+                                <option value="Personal">🏠 Personal</option>
+                                <option value="Descanso">🌙 Descanso</option>
+                            </select>
+                        </div>
+                        <div class="modal-form-group">
+                            <label>Color del Bloque:</label>
+                            <select id="cal-cro-color" class="modal-input">
+                                <option value="#6366f1">🔮 Índigo</option>
+                                <option value="#10b981">🌿 Esmeralda</option>
+                                <option value="#06b6d4">💎 Cian</option>
+                                <option value="#f59e0b">⚡ Ámbar</option>
+                                <option value="#8b5cf6">👑 Violeta</option>
+                                <option value="#ec4899">🌸 Rosa</option>
+                                <option value="#64748b">🪨 Pizarra</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label id="cal-cro-dias-label">Días de la Semana en que se repite:</label>
+                        <select id="cal-cro-dia" class="modal-input" style="display: none;">
+                            <option value="0">Lunes</option>
+                            <option value="1">Martes</option>
+                            <option value="2">Miércoles</option>
+                            <option value="3">Jueves</option>
+                            <option value="4">Viernes</option>
+                            <option value="5">Sábado</option>
+                            <option value="6">Domingo</option>
+                        </select>
+                        <div id="cal-cro-dias-multi-wrap" class="cal-cro-dias-chips">
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="0"> Lun</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="1"> Mar</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="2"> Mié</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="3"> Jue</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="4"> Vie</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="5"> Sáb</label>
+                            <label class="cal-dia-chip"><input type="checkbox" class="check-cal-cro-dia" value="6"> Dom</label>
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">Si un Evento cae encima en una fecha concreta, el Evento tendrá prioridad visual sin modificar este horario semanal.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02);">
+                <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEvento()">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-guardar-modal-calendario" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarNuevoEvento()">
+                    Guardar en Calendario
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ALERTA VISUAL Y SONORA: RECORDATORIO DE CALENDARIO -->
+    <div id="modal-alerta-recordatorio-cal" class="modal-overlay" style="display: none; z-index: 10500;">
+        <div class="modal-system-window cal-alerta-emergente-card" style="max-width: 440px; width: 92%; border: 1px solid rgba(245, 158, 11, 0.55); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 32px rgba(245, 158, 11, 0.2);">
+            <div class="modal-system-header" style="background: rgba(245, 158, 11, 0.14); border-bottom: 1px solid rgba(245, 158, 11, 0.25);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🔔</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #fcd34d;">RECORDATORIO DEL CALENDARIO</span>
+                </div>
+                <span id="cal-alerta-cola-badge" style="display: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(245, 158, 11, 0.25); color: #fef3c7;"></span>
             </div>
             <div style="padding: 20px;">
-                <div class="modal-form-group">
-                    <label>Título del Evento o Compromiso:</label>
-                    <input type="text" id="modal-evento-titulo" class="modal-input" placeholder="Ej: Pago de tarjeta, Reunión con cliente, Chequeo médico...">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="modal-form-group">
-                        <label>Fecha:</label>
-                        <input type="date" id="modal-evento-fecha" class="modal-input">
-                    </div>
-                    <div class="modal-form-group">
-                        <label>Hora (Opcional):</label>
-                        <input type="time" id="modal-evento-hora" class="modal-input">
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div class="modal-form-group">
-                        <label>Categoría:</label>
-                        <select id="modal-evento-categoria" class="modal-input">
-                            <option value="General">📌 General</option>
-                            <option value="Trabajo">💼 Trabajo & Proyectos</option>
-                            <option value="Finanzas">💰 Finanzas & Pagos</option>
-                            <option value="Salud">⚡ Salud & Gym</option>
-                            <option value="Misión">⚔️ Misión & Hábitos</option>
-                            <option value="Personal">🏠 Personal & Hogar</option>
-                        </select>
-                    </div>
-                    <div class="modal-form-group">
-                        <label>Prioridad:</label>
-                        <select id="modal-evento-prioridad" class="modal-input">
-                            <option value="Normal">Normal</option>
-                            <option value="Alta">Alta (Prioritaria)</option>
-                            <option value="Baja">Baja</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-form-group">
-                    <label>Notas / Recordatorios (Opcional):</label>
-                    <textarea id="modal-evento-notas" class="modal-input" rows="3" placeholder="Detalles, enlaces o recordatorios para este evento..."></textarea>
-                </div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevoEvento()">
-                        Cancelar
+                <div id="cal-alerta-hora-badge" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; margin-bottom: 10px;"></div>
+                <h3 id="cal-alerta-titulo" style="margin: 0 0 8px 0; font-size: 19px; font-weight: 800; color: #f8fafc;"></h3>
+                <div id="cal-alerta-persona" style="display: none; font-size: 12.5px; font-weight: 600; color: #93c5fd; margin-bottom: 8px;"></div>
+                <p id="cal-alerta-desc" style="margin: 0 0 18px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;"></p>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" class="btn-system" style="width: 100%; justify-content: center; margin-bottom: 0; background: #10b981; color: #052e16; font-weight: 800;" onclick="completarRecordatorioDesdePopup()">
+                        ✓ Marcar como Completado
                     </button>
-                    <button class="btn-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="guardarNuevoEvento()">
-                        Guardar Evento
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="posponerRecordatorioDesdePopup(10)">
+                            ⏰ Posponer 10 min
+                        </button>
+                        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="verRecordatorioDesdePopup()">
+                            📅 Ver en Calendario
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4955,6 +5172,60 @@
         </div>
     </div>
 
+    <!-- MODAL: CREAR / EDITAR GRUPO DE PERSONAS -->
+    <div id="modal-grupo-personas" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 480px; width: 94%;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">👥</span>
+                    <span id="titulo-modal-grupo-personas" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">NUEVO GRUPO DE PERSONAS</span>
+                </div>
+                <button type="button" onclick="cerrarModalGrupoPersonas()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="input-grupo-id" value="">
+                <div style="margin-bottom: 14px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Nombre del Grupo:</label>
+                    <input type="text" id="input-grupo-nombre" class="modal-input" placeholder="Ej: Equipo Barbería, Familia, Socios...">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Icono:</label>
+                        <select id="input-grupo-icono" class="modal-input">
+                            <option value="👥">👥 Grupo</option>
+                            <option value="💼">💼 Trabajo / Socios</option>
+                            <option value="🏋️">🏋️ Gimnasio</option>
+                            <option value="💈">💈 Barbería</option>
+                            <option value="🏠">🏠 Familia / Casa</option>
+                            <option value="🎮">🎮 Amigos / Ocio</option>
+                            <option value="🔥">🔥 Metas / Fuego</option>
+                            <option value="⭐">⭐ VIP</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Color Distintivo:</label>
+                        <select id="input-grupo-color" class="modal-input">
+                            <option value="#6366f1">🔮 Índigo</option>
+                            <option value="#10b981">🌿 Esmeralda</option>
+                            <option value="#38bdf8">💎 Cian</option>
+                            <option value="#f59e0b">⚡ Ámbar</option>
+                            <option value="#ec4899">🌸 Magenta</option>
+                            <option value="#8b5cf6">👑 Violeta</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Miembros del Grupo (desde Personas):</label>
+                    <div id="contenedor-miembros-grupo-personas" class="cal-personas-multiselect-box" style="max-height: 190px;"></div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalGrupoPersonas()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarGrupoPersonas()">✓ Guardar Grupo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: AGREGAR OPCIÓN A LA RULETA -->
     <div id="modal-nueva-opcion-ruleta" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 480px;">
@@ -5703,26 +5974,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.57"></script>
-    <script src="js/perfil.js?v=10.57"></script>
-    <script src="js/progresion.js?v=10.57"></script>
-    <script src="js/estado-personal.js?v=10.57"></script>
-    <script src="js/finanzas.js?v=10.57"></script>
-    <script src="js/ideas.js?v=10.57"></script>
-    <script src="js/dinamicas.js?v=10.57"></script>
-    <script src="js/calendario.js?v=10.57"></script>
-    <script src="js/inventario.js?v=10.57"></script>
-    <script src="js/reproductor.js?v=10.57"></script>
-    <script src="js/jarvis-voz.js?v=10.57"></script>
+    <script src="js/core.js?v=10.58"></script>
+    <script src="js/perfil.js?v=10.58"></script>
+    <script src="js/progresion.js?v=10.58"></script>
+    <script src="js/estado-personal.js?v=10.58"></script>
+    <script src="js/finanzas.js?v=10.58"></script>
+    <script src="js/ideas.js?v=10.58"></script>
+    <script src="js/dinamicas.js?v=10.58"></script>
+    <script src="js/calendario.js?v=10.58"></script>
+    <script src="js/inventario.js?v=10.58"></script>
+    <script src="js/reproductor.js?v=10.58"></script>
+    <script src="js/jarvis-voz.js?v=10.58"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.57"></script>
+    <script type="module" src="js/firebase-config.js?v=10.58"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.57')
+                navigator.serviceWorker.register('sw.js?v=10.58')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

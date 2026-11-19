@@ -70,10 +70,15 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.57)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.58)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.57
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.58
             Esta versión nativa incluye:
+            - 📅 **Calendario Integral (4 Apartados) & Grupos en Personas (v10.58)**:
+              - 🔔 **Recordatorios** con hora exacta, persona vinculada, alerta visual/sonora, acción **Completado** y limpieza total del Centro de Notificaciones.
+              - 📆 **Eventos** con cálculo automático de hora fin, detección de choques horarios y multi-selección de Personas y Grupos.
+              - ⭐ **Días Destacados** con repetición anual, resaltado en calendario y banners superiores.
+              - 🕒 **Cronograma Semanal** en cuadrícula horaria con prioridad visual automática para Eventos sin alterar semanas futuras.
             - 🎵 **Música Automática Continua en Rutinas (v10.57)**: elige tu playlist por defecto para entrenamientos y reprodúcela en orden aleatorio continuo sin pausas hasta finalizar tu rutina.
             - 💡 **Captura Rápida de Ideas sincronizada (v10.56)**: incluye la categoría **✨ Emily** y las subcategorías dinámicas del Banco de Ideas sin campo de detalle innecesario.
             - 📅 **Calendario Cronológico de Cobros y Pagos en Finanzas (v10.55)**: visualización por día con picos de cobros/pagos y reprogramación de fechas.

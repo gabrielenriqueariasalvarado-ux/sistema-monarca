@@ -322,8 +322,8 @@ function fusionarEstadosInteligente(local, remoto) {
 
     var allKeys = [
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
-        'ideas', 'agendaPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
-        'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario',
+        'ideas', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
+        'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario', 'cronogramaSemanal',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
@@ -366,15 +366,21 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas, tombstones.ideas);
     }
 
-    // 4. PERSONAS Y AGENDA
+    // 4. PERSONAS, GRUPOS Y AGENDA
     if (Array.isArray(local.agendaPersonas) || Array.isArray(remoto.agendaPersonas)) {
         var perMerged = fusionarColeccionPorId(local.agendaPersonas, remoto.agendaPersonas, tombstones.agendaPersonas);
         fusion.agendaPersonas = deduplicarColeccionPorNombre(perMerged, tombstones.agendaPersonas, 'nombre');
     }
+    if (Array.isArray(local.gruposPersonas) || Array.isArray(remoto.gruposPersonas)) {
+        fusion.gruposPersonas = fusionarColeccionPorId(local.gruposPersonas, remoto.gruposPersonas, tombstones.gruposPersonas);
+    }
 
-    // 5. CALENDARIO Y REGISTRO HISTÓRICO
+    // 5. CALENDARIO, CRONOGRAMA SEMANAL Y REGISTRO HISTÓRICO
     if (Array.isArray(local.calendario) || Array.isArray(remoto.calendario)) {
         fusion.calendario = fusionarColeccionPorId(local.calendario, remoto.calendario, tombstones.calendario);
+    }
+    if (Array.isArray(local.cronogramaSemanal) || Array.isArray(remoto.cronogramaSemanal)) {
+        fusion.cronogramaSemanal = fusionarColeccionPorId(local.cronogramaSemanal, remoto.cronogramaSemanal, tombstones.cronogramaSemanal);
     }
     if (!fusion.registroDiarioCalendario) fusion.registroDiarioCalendario = {};
     if (local.registroDiarioCalendario) {
@@ -1090,6 +1096,15 @@ async function inicializarFirebase() {
                         }
                         if (typeof renderizarCalendario === 'function') {
                             renderizarCalendario();
+                        }
+                        if (typeof renderizarAgendaPersonas === 'function') {
+                            renderizarAgendaPersonas();
+                        }
+                        if (typeof actualizarBadgeNotificaciones === 'function') {
+                            actualizarBadgeNotificaciones();
+                        }
+                        if (typeof programarAlarmasCalendarioNativas === 'function') {
+                            programarAlarmasCalendarioNativas();
                         }
                         if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
                             renderizarMisiones(window.APP_STATE.misiones);
