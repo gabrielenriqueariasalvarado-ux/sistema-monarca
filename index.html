@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.58">
+    <link rel="stylesheet" href="style.css?v=10.59">
 </head>
 <body>
 
@@ -1355,6 +1355,47 @@
                             <button class="btn-month-nav" onclick="cambiarMesFinanzas(1)">▶</button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 1B. TASAS DE CAMBIO OFICIALES (BCV Y EURO - DolarAPI DIARIA) -->
+            <div class="finanzas-tasas-card" id="finanzas-tasas-card">
+                <div class="finanzas-tasas-header">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 16px;">🏦</span>
+                        <span class="finanzas-tasas-title">TASAS OFICIALES · BCV &amp; EURO</span>
+                        <span id="finanzas-tasas-estado-badge" class="finanzas-tasa-status-badge">Cargando...</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span id="finanzas-tasas-fecha-actualizacion" style="font-size: 11px; color: #94a3b8;">Actualización diaria automática</span>
+                        <button type="button" id="btn-actualizar-tasas-bcv" class="btn-sync-action btn-sync-light" onclick="actualizarTasasBCV(true)" style="font-size: 11.5px; padding: 5px 10px;">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="finanzas-tasas-grid">
+                    <div class="finanzas-tasa-box tasa-bcv">
+                        <div class="finanzas-tasa-label">💵 Tasa BCV (USD)</div>
+                        <div class="finanzas-tasa-valor" id="finanzas-valor-tasa-bcv">Bs. --</div>
+                        <div class="finanzas-tasa-sub" id="finanzas-sub-tasa-bcv">Dólar oficial BCV · Esperando API</div>
+                    </div>
+                    <div class="finanzas-tasa-box tasa-euro">
+                        <div class="finanzas-tasa-label">💶 Tasa Euro (EUR)</div>
+                        <div class="finanzas-tasa-valor" id="finanzas-valor-tasa-euro">Bs. --</div>
+                        <div class="finanzas-tasa-sub" id="finanzas-sub-tasa-euro">Euro oficial BCV · Esperando API</div>
+                    </div>
+                </div>
+
+                <div class="finanzas-tasas-conversor">
+                    <span style="font-size: 11px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧮 Conversor rápido:</span>
+                    <input type="number" step="any" min="0" id="finanzas-tasa-calc-monto" class="finanzas-input-clean" placeholder="Ej: 100" value="1" oninput="convertirMontoConTasas()" style="width: 96px; padding: 6px 10px; font-size: 12.5px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    <select id="finanzas-tasa-calc-origen" class="finanzas-input-clean" onchange="convertirMontoConTasas()" style="width: auto; padding: 6px 10px; font-size: 12px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="VES">Bolívares (Bs.)</option>
+                    </select>
+                    <div id="finanzas-tasa-calc-resultado" class="finanzas-tasa-calc-res">Ingresa un monto para convertir</div>
                 </div>
             </div>
 
@@ -5974,26 +6015,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.58"></script>
-    <script src="js/perfil.js?v=10.58"></script>
-    <script src="js/progresion.js?v=10.58"></script>
-    <script src="js/estado-personal.js?v=10.58"></script>
-    <script src="js/finanzas.js?v=10.58"></script>
-    <script src="js/ideas.js?v=10.58"></script>
-    <script src="js/dinamicas.js?v=10.58"></script>
-    <script src="js/calendario.js?v=10.58"></script>
-    <script src="js/inventario.js?v=10.58"></script>
-    <script src="js/reproductor.js?v=10.58"></script>
-    <script src="js/jarvis-voz.js?v=10.58"></script>
+    <script src="js/core.js?v=10.59"></script>
+    <script src="js/perfil.js?v=10.59"></script>
+    <script src="js/progresion.js?v=10.59"></script>
+    <script src="js/estado-personal.js?v=10.59"></script>
+    <script src="js/finanzas.js?v=10.59"></script>
+    <script src="js/ideas.js?v=10.59"></script>
+    <script src="js/dinamicas.js?v=10.59"></script>
+    <script src="js/calendario.js?v=10.59"></script>
+    <script src="js/inventario.js?v=10.59"></script>
+    <script src="js/reproductor.js?v=10.59"></script>
+    <script src="js/jarvis-voz.js?v=10.59"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.58"></script>
+    <script type="module" src="js/firebase-config.js?v=10.59"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.58')
+                navigator.serviceWorker.register('sw.js?v=10.59')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

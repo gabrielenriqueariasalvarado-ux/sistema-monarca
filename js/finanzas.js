@@ -129,6 +129,9 @@ function cargarFinanzas() {
         cambiarSeccionFinanzas(window.ESTADO_FINANZAS.seccionActiva, true);
     }
     renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof actualizarTasasBCV === 'function') {
+        actualizarTasasBCV(false);
+    }
 }
 
 function cambiarModoGrafico(modo) {
@@ -3886,5 +3889,284 @@ function ejecutarMoverFechaFinanza() {
     renderizarFinanzas(APP_STATE.finanzas);
     if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
 }
+
+// ==========================================================================
+// TASAS OFICIALES DEL DÍA (BCV USD & EURO) · DolarAPI VE CON ACTUALIZACIÓN DIARIA
+// ==========================================================================
+
+var MONARCA_TASAS_BCV_API_URL = 'https://ve.dolarapi.com/v1/cotizaciones';
+var MONARCA_TASAS_BCV_STORAGE_KEY = 'MONARCA_TASAS_BCV_V1';
+var MONARCA_TASAS_REFRESH_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+var _monarcaTasasTimerId = null;
+
+function obtenerFechaClaveHoyTasas() {
+    if (typeof obtenerClaveFechaLocal === 'function') {
+        return obtenerClaveFechaLocal();
+    }
+    var h = new Date();
+    return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
+}
+
+function leerCacheTasasBCV() {
+    try {
+        var raw = localStorage.getItem(MONARCA_TASAS_BCV_STORAGE_KEY);
+        if (!raw) return null;
+        var obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') return obj;
+    } catch (e) {}
+    return null;
+}
+
+function guardarCacheTasasBCV(payload) {
+    try {
+        localStorage.setItem(MONARCA_TASAS_BCV_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+}
+
+function extraerTasasDeCotizaciones(data) {
+    if (!Array.isArray(data)) return null;
+    var usdItem = data.find(function(x) {
+        return x && String(x.moneda).toUpperCase() === 'USD' && String(x.fuente).toLowerCase() === 'oficial';
+    }) || data.find(function(x) {
+        return x && String(x.moneda).toUpperCase() === 'USD';
+    });
+
+    var eurItem = data.find(function(x) {
+        return x && String(x.moneda).toUpperCase() === 'EUR' && String(x.fuente).toLowerCase() === 'oficial';
+    }) || data.find(function(x) {
+        return x && String(x.moneda).toUpperCase() === 'EUR';
+    });
+
+    var usdVal = usdItem ? Number(usdItem.promedio || usdItem.venta || usdItem.compra) : NaN;
+    var eurVal = eurItem ? Number(eurItem.promedio || eurItem.venta || eurItem.compra) : NaN;
+
+    if ((isNaN(usdVal) || usdVal <= 0) && (isNaN(eurVal) || eurVal <= 0)) {
+        return null;
+    }
+
+    return {
+        usd: (!isNaN(usdVal) && usdVal > 0) ? usdVal : null,
+        eur: (!isNaN(eurVal) && eurVal > 0) ? eurVal : null,
+        fechaApiUsd: usdItem ? (usdItem.fechaActualizacion || '') : '',
+        fechaApiEur: eurItem ? (eurItem.fechaActualizacion || '') : '',
+        nombreUsd: usdItem ? (usdItem.nombre || 'Dólar') : 'Dólar',
+        nombreEur: eurItem ? (eurItem.nombre || 'Euro') : 'Euro'
+    };
+}
+
+function formatearTasaBsDisplay(valor, decimales) {
+    var num = Number(valor);
+    if (isNaN(num) || num <= 0) return 'Bs. --';
+    var dec = typeof decimales === 'number' ? decimales : 2;
+    try {
+        return 'Bs. ' + num.toLocaleString('es-VE', {
+            minimumFractionDigits: dec,
+            maximumFractionDigits: dec
+        });
+    } catch (e) {
+        return 'Bs. ' + num.toFixed(dec);
+    }
+}
+
+function formatearFechaApiCorta(isoStr) {
+    if (!isoStr || typeof isoStr !== 'string') return '';
+    var ymd = isoStr.slice(0, 10);
+    var p = ymd.split('-');
+    if (p.length === 3) {
+        return p[2] + '/' + p[1] + '/' + p[0];
+    }
+    return ymd;
+}
+
+function convertirMontoConTasas() {
+    var inMonto = document.getElementById('finanzas-tasa-calc-monto');
+    var selOrigen = document.getElementById('finanzas-tasa-calc-origen');
+    var outEl = document.getElementById('finanzas-tasa-calc-resultado');
+    if (!outEl) return;
+
+    var cache = leerCacheTasasBCV();
+    var usd = cache && Number(cache.usd) > 0 ? Number(cache.usd) : 0;
+    var eur = cache && Number(cache.eur) > 0 ? Number(cache.eur) : 0;
+
+    if (!usd && !eur) {
+        outEl.textContent = 'Esperando tasas BCV...';
+        return;
+    }
+
+    var monto = inMonto ? parseFloat(inMonto.value) : 0;
+    if (isNaN(monto) || monto < 0) monto = 0;
+    var origen = selOrigen ? selOrigen.value : 'USD';
+
+    if (origen === 'USD') {
+        if (!usd) {
+            outEl.textContent = 'Tasa BCV USD no disponible';
+            return;
+        }
+        var bsDesdeUsd = monto * usd;
+        var equivEur = eur ? (' · ≈ €' + (bsDesdeUsd / eur).toFixed(2) + ' EUR') : '';
+        outEl.innerHTML = 'Equivale a <strong style="color:#34d399;">' + formatearTasaBsDisplay(bsDesdeUsd, 2) + '</strong>' + equivEur;
+    } else if (origen === 'EUR') {
+        if (!eur) {
+            outEl.textContent = 'Tasa Euro no disponible';
+            return;
+        }
+        var bsDesdeEur = monto * eur;
+        var equivUsd = usd ? (' · ≈ $' + (bsDesdeEur / usd).toFixed(2) + ' USD') : '';
+        outEl.innerHTML = 'Equivale a <strong style="color:#7dd3fc;">' + formatearTasaBsDisplay(bsDesdeEur, 2) + '</strong>' + equivUsd;
+    } else {
+        var partes = [];
+        if (usd) partes.push('<strong style="color:#34d399;">$' + (monto / usd).toFixed(2) + ' USD</strong>');
+        if (eur) partes.push('<strong style="color:#7dd3fc;">€' + (monto / eur).toFixed(2) + ' EUR</strong>');
+        outEl.innerHTML = 'Equivale a ' + partes.join(' · ');
+    }
+}
+
+function renderizarTasasBCV(estadoFetch, errorMsg) {
+    var valBcv = document.getElementById('finanzas-valor-tasa-bcv');
+    var subBcv = document.getElementById('finanzas-sub-tasa-bcv');
+    var valEur = document.getElementById('finanzas-valor-tasa-euro');
+    var subEur = document.getElementById('finanzas-sub-tasa-euro');
+    var badge = document.getElementById('finanzas-tasas-estado-badge');
+    var fechaEl = document.getElementById('finanzas-tasas-fecha-actualizacion');
+    var btnAct = document.getElementById('btn-actualizar-tasas-bcv');
+
+    if (!valBcv && !valEur && !badge) return;
+
+    var cache = leerCacheTasasBCV();
+    var hoyClave = obtenerFechaClaveHoyTasas();
+
+    if (cache && cache.usd) {
+        if (valBcv) valBcv.textContent = formatearTasaBsDisplay(cache.usd, 2);
+        if (subBcv) subBcv.textContent = 'Exacta: ' + Number(cache.usd).toFixed(4) + ' Bs/$ · Oficial BCV';
+    } else {
+        if (valBcv) valBcv.textContent = 'Bs. --';
+        if (subBcv) subBcv.textContent = estadoFetch === 'loading' ? 'Consultando ve.dolarapi.com...' : 'Sin datos disponibles';
+    }
+
+    if (cache && cache.eur) {
+        if (valEur) valEur.textContent = formatearTasaBsDisplay(cache.eur, 2);
+        if (subEur) subEur.textContent = 'Exacta: ' + Number(cache.eur).toFixed(4) + ' Bs/€ · Oficial BCV';
+    } else {
+        if (valEur) valEur.textContent = 'Bs. --';
+        if (subEur) subEur.textContent = estadoFetch === 'loading' ? 'Consultando ve.dolarapi.com...' : 'Sin datos disponibles';
+    }
+
+    if (badge) {
+        badge.classList.remove('is-ok', 'is-warn');
+        if (estadoFetch === 'loading') {
+            badge.textContent = '⏳ Actualizando...';
+        } else if (cache && errorMsg) {
+            badge.textContent = '⚠️ Offline · Caché guardado';
+            badge.classList.add('is-warn');
+        } else if (cache && cache.fechaConsultaLocal === hoyClave) {
+            badge.textContent = '✓ Actualizado hoy';
+            badge.classList.add('is-ok');
+        } else if (cache) {
+            badge.textContent = '✓ Caché (' + (cache.fechaConsultaLocal || '') + ')';
+        } else if (errorMsg) {
+            badge.textContent = '⚠️ Error al conectar';
+            badge.classList.add('is-warn');
+        } else {
+            badge.textContent = 'Pendiente';
+        }
+    }
+
+    if (fechaEl) {
+        if (cache) {
+            var fechaApi = formatearFechaApiCorta(cache.fechaApiUsd || cache.fechaApiEur);
+            var horaSync = '';
+            if (cache.consultadoEn) {
+                var dSync = new Date(cache.consultadoEn);
+                horaSync = String(dSync.getHours()).padStart(2, '0') + ':' + String(dSync.getMinutes()).padStart(2, '0');
+            }
+            fechaEl.textContent = (fechaApi ? 'BCV: ' + fechaApi : 'BCV') + (horaSync ? ' · Sync ' + horaSync : '');
+        } else if (errorMsg) {
+            fechaEl.textContent = 'Sin conexión a ve.dolarapi.com';
+        }
+    }
+
+    if (btnAct) {
+        btnAct.disabled = (estadoFetch === 'loading');
+        btnAct.textContent = (estadoFetch === 'loading') ? '⏳...' : '🔄 Actualizar';
+    }
+
+    convertirMontoConTasas();
+}
+
+function necesitaActualizarTasasDiarias(cache, hoyClave) {
+    if (!cache || (!cache.usd && !cache.eur)) return true;
+    if (cache.fechaConsultaLocal !== hoyClave) return true;
+    if (!cache.consultadoEn || (Date.now() - cache.consultadoEn) > MONARCA_TASAS_REFRESH_MAX_AGE_MS) return true;
+    return false;
+}
+
+function actualizarTasasBCV(forzar) {
+    var hoyClave = obtenerFechaClaveHoyTasas();
+    var cache = leerCacheTasasBCV();
+
+    if (!forzar && !necesitaActualizarTasasDiarias(cache, hoyClave)) {
+        renderizarTasasBCV('idle');
+        return Promise.resolve(cache);
+    }
+
+    if (window._monarcaTasasFetchPromise) {
+        return window._monarcaTasasFetchPromise;
+    }
+
+    renderizarTasasBCV('loading');
+
+    window._monarcaTasasFetchPromise = fetch(MONARCA_TASAS_BCV_API_URL, { cache: 'no-store' })
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+        })
+        .then(function(data) {
+            var parsed = extraerTasasDeCotizaciones(data);
+            if (!parsed) throw new Error('Respuesta sin tasas BCV/Euro válidas');
+            var nuevoCache = {
+                usd: parsed.usd,
+                eur: parsed.eur,
+                fechaApiUsd: parsed.fechaApiUsd,
+                fechaApiEur: parsed.fechaApiEur,
+                fechaConsultaLocal: obtenerFechaClaveHoyTasas(),
+                consultadoEn: Date.now(),
+                fuenteUrl: MONARCA_TASAS_BCV_API_URL
+            };
+            guardarCacheTasasBCV(nuevoCache);
+            renderizarTasasBCV('idle');
+            if (forzar && typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Tasas BCV y Euro actualizadas', '🏦');
+            }
+            return nuevoCache;
+        })
+        .catch(function(err) {
+            console.warn('[Tasas BCV DolarAPI]', err && err.message ? err.message : err);
+            renderizarTasasBCV('error', (err && err.message) ? err.message : 'Error de red');
+            return leerCacheTasasBCV();
+        })
+        .finally(function() {
+            window._monarcaTasasFetchPromise = null;
+        });
+
+    return window._monarcaTasasFetchPromise;
+}
+
+function iniciarAutoActualizacionTasasBCV() {
+    if (_monarcaTasasTimerId) clearInterval(_monarcaTasasTimerId);
+    // Sincronización diaria automática en arranque y chequeo cada 30 min ante cambio de día
+    setTimeout(function() {
+        actualizarTasasBCV(false);
+    }, 1500);
+    _monarcaTasasTimerId = setInterval(function() {
+        actualizarTasasBCV(false);
+    }, 30 * 60 * 1000);
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', function() {
+        iniciarAutoActualizacionTasasBCV();
+    });
+}
+
 
 

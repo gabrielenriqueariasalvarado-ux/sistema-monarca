@@ -70,10 +70,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.58)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.59)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.58
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.59
             Esta versión nativa incluye:
+            - 🏦 **Tasas Oficiales BCV & Euro en Finanzas (v10.59)**: conexión diaria automática con `ve.dolarapi.com/v1/cotizaciones`, caché local offline y conversor rápido USD / EUR / Bolívares.
             - 📅 **Calendario Integral (4 Apartados) & Grupos en Personas (v10.58)**:
               - 🔔 **Recordatorios** con hora exacta, persona vinculada, alerta visual/sonora, acción **Completado** y limpieza total del Centro de Notificaciones.
               - 📆 **Eventos** con cálculo automático de hora fin, detección de choques horarios y multi-selección de Personas y Grupos.
