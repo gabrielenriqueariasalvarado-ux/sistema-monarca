@@ -1758,3 +1758,78 @@ if os.path.exists(manifest_path):
     with open(manifest_path, 'w', encoding='utf-8') as f:
         f.write(content)
     print("AndroidManifest.xml actualizado con Service, Receivers, Permisos y AlarmAlertActivity")
+
+
+# ------------------------------------------------------------------------------
+# 9. Iconos Nativos de Launcher (Adaptativo v26 + Mipmaps) y Splash Screen Emily
+# ------------------------------------------------------------------------------
+import glob
+import re as _re_icons
+import shutil as _shutil_icons
+
+res_dir = 'android/app/src/main/res'
+src_android_icons = 'icons/android'
+if os.path.exists(res_dir) and os.path.exists(src_android_icons):
+    # 9.1 Eliminar posibles definiciones previas de ic_launcher_background para evitar duplicados Gradle
+    for xml_file in glob.glob(os.path.join(res_dir, 'values*', '*.xml')):
+        try:
+            with open(xml_file, 'r', encoding='utf-8') as xf:
+                xtxt = xf.read()
+            if 'ic_launcher_background' in xtxt:
+                xtxt_clean = _re_icons.sub(r'\s*<color\s+name="ic_launcher_background"[^>]*>.*?</color>\s*', '\n', xtxt)
+                with open(xml_file, 'w', encoding='utf-8') as xf:
+                    xf.write(xtxt_clean)
+        except Exception:
+            pass
+
+    values_dir = os.path.join(res_dir, 'values')
+    os.makedirs(values_dir, exist_ok=True)
+    with open(os.path.join(values_dir, 'ic_launcher_background.xml'), 'w', encoding='utf-8') as bgf:
+        bgf.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0B1020</color>\n</resources>\n')
+
+    # 9.2 Limpiar iconos anteriores (png, webp, xml) para evitar duplicados de recurso
+    for old_pat in ('ic_launcher*.png', 'ic_launcher*.webp', 'ic_launcher*.xml'):
+        for fpath in glob.glob(os.path.join(res_dir, 'mipmap-*', old_pat)) + glob.glob(os.path.join(res_dir, 'drawable*', old_pat)):
+            try:
+                os.remove(fpath)
+            except Exception:
+                pass
+
+    # 9.3 Copiar mipmaps por densidad (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
+    for density in ('mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'):
+        m_dir = os.path.join(res_dir, f'mipmap-{density}')
+        os.makedirs(m_dir, exist_ok=True)
+        for src_name, dst_name in (
+            (f'ic_launcher_{density}.png', 'ic_launcher.png'),
+            (f'ic_launcher_round_{density}.png', 'ic_launcher_round.png'),
+            (f'ic_launcher_foreground_{density}.png', 'ic_launcher_foreground.png'),
+        ):
+            s_path = os.path.join(src_android_icons, src_name)
+            if os.path.exists(s_path):
+                _shutil_icons.copy2(s_path, os.path.join(m_dir, dst_name))
+
+    # 9.4 Configurar iconos adaptativos Android 8+ (mipmap-anydpi-v26)
+    anydpi_dir = os.path.join(res_dir, 'mipmap-anydpi-v26')
+    os.makedirs(anydpi_dir, exist_ok=True)
+    adaptive_xml = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+        '    <background android:drawable="@color/ic_launcher_background"/>\n'
+        '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+        '</adaptive-icon>\n'
+    )
+    for xml_name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
+        with open(os.path.join(anydpi_dir, xml_name), 'w', encoding='utf-8') as af:
+            af.write(adaptive_xml)
+
+    # 9.5 Reemplazar pantallas de carga (splash.png) manteniendo proporción vertical/horizontal
+    splash_port = os.path.join(src_android_icons, 'splash.png')
+    splash_land = os.path.join(src_android_icons, 'splash_land.png')
+    if os.path.exists(splash_port):
+        for s_target in glob.glob(os.path.join(res_dir, 'drawable*', 'splash.png')):
+            folder_name = os.path.basename(os.path.dirname(s_target)).lower()
+            src_sp = splash_land if ('-land' in folder_name and os.path.exists(splash_land)) else splash_port
+            _shutil_icons.copy2(src_sp, s_target)
+
+    print("Iconos nativos Emily (mipmap-* + adaptativos v26 + splash) aplicados exitosamente en Android")
+
