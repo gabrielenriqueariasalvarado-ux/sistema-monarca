@@ -2011,10 +2011,9 @@ function reproducirSonidoCalendario(tipo) {
 }
 
 function mostrarSiguientePopupRecordatorio() {
-    var modal = document.getElementById('modal-alerta-recordatorio-cal');
-    if (!modal) return;
-    if (modal.style.display === 'flex' && CALENDARIO_ESTADO.alertaActivaId) {
-        // Actualizar badge de cola si ya hay uno abierto
+    var toast = document.getElementById('cal-floating-reminder-toast');
+    if (!toast) return;
+    if (toast.style.display === 'flex' && CALENDARIO_ESTADO.alertaActivaId) {
         var badgeCola = document.getElementById('cal-alerta-cola-badge');
         if (badgeCola && CALENDARIO_ESTADO.alertaCola.length > 0) {
             badgeCola.textContent = '+' + CALENDARIO_ESTADO.alertaCola.length + ' más';
@@ -2049,7 +2048,13 @@ function mostrarSiguientePopupRecordatorio() {
             }
         }
         if (descEl) {
-            descEl.textContent = rec.descripcion || 'Tienes este recordatorio programado para esta hora.';
+            if (rec.descripcion && rec.descripcion.trim()) {
+                descEl.textContent = rec.descripcion.trim();
+                descEl.style.display = 'block';
+            } else {
+                descEl.textContent = '';
+                descEl.style.display = 'none';
+            }
         }
         if (colaEl) {
             if (CALENDARIO_ESTADO.alertaCola.length > 0) {
@@ -2061,17 +2066,32 @@ function mostrarSiguientePopupRecordatorio() {
         }
 
         reproducirSonidoCalendario('tono_digital');
-        modal.style.display = 'flex';
+        toast.style.display = 'flex';
+        toast.classList.remove('is-hiding');
+        toast.classList.add('is-visible');
         break;
     }
 }
 
 function cerrarPopupRecordatorioActual(abrirSiguiente) {
-    var modal = document.getElementById('modal-alerta-recordatorio-cal');
-    if (modal) modal.style.display = 'none';
+    var toast = document.getElementById('cal-floating-reminder-toast');
+    if (toast) {
+        toast.classList.remove('is-visible');
+        toast.style.display = 'none';
+    }
     CALENDARIO_ESTADO.alertaActivaId = null;
     if (abrirSiguiente && CALENDARIO_ESTADO.alertaCola.length > 0) {
         setTimeout(mostrarSiguientePopupRecordatorio, 150);
+    }
+}
+
+function descartarBannerRecordatorioActual() {
+    // Oculta únicamente la tarjeta flotante visual: NO completa ni elimina el recordatorio,
+    // de modo que sigue figurando en Notificaciones del Sistema y en la campana del HUD.
+    cerrarPopupRecordatorioActual(true);
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Aviso minimizado · Pendiente en 🔔 Notificaciones', '🔔');
     }
 }
 

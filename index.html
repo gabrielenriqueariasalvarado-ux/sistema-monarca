@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.60">
+    <link rel="stylesheet" href="style.css?v=10.61">
 </head>
 <body>
 
@@ -2279,34 +2279,34 @@
 
     <!-- MODAL: ALERTA DE QUEST DIARIA ACTIVADA (TIEMPO CORRIENDO & PENITENCIA) -->
     <div id="modal-alerta-quest-activada" class="modal-overlay" style="display: none; z-index: 100000;">
-        <div class="modal-system-window" style="max-width: 480px; border: 2px solid #111827; box-shadow: 0 10px 35px rgba(0,0,0,0.5);">
-            <div class="modal-system-header" id="modal-alerta-quest-header" style="background: #111827; color: #ffffff;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span id="modal-alerta-quest-icono" style="font-size: 22px;">⚔️</span>
+        <div class="modal-system-window qd-alarm-web-window" style="max-width: 440px; width: 92%; background: linear-gradient(165deg, #060a17 0%, #101833 55%, #181a3d 100%); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 24px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(99, 102, 241, 0.22);">
+            <div class="modal-system-header" id="modal-alerta-quest-header" style="background: rgba(56, 189, 248, 0.08); border-bottom: 1px solid rgba(56, 189, 248, 0.18); color: #f8fafc; padding: 14px 18px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="modal-alerta-quest-icono" style="font-size: 22px;">✦</span>
                     <div>
-                        <span id="modal-alerta-quest-tipo-badge" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">¡QUEST DIARIA ACTIVADA!</span>
-                        <div style="font-size: 11px; color: #9ca3af; font-weight: 600;">El tiempo ha comenzado a correr</div>
+                        <span id="modal-alerta-quest-tipo-badge" style="font-weight: 800; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.7px; color: #7dd3fc;">MISIÓN PROGRAMADA ACTIVA</span>
+                        <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">Tiempo límite iniciado</div>
                     </div>
                 </div>
             </div>
-            <div style="padding: 22px; text-align: center;">
-                <div id="modal-alerta-quest-estado-tag" style="margin-bottom: 8px;"></div>
+            <div style="padding: 22px 20px; text-align: center;">
+                <div id="modal-alerta-quest-estado-tag" style="margin-bottom: 10px;"></div>
                 
-                <h3 id="modal-alerta-quest-titulo" style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #f8fafc; line-height: 1.3;">
+                <h3 id="modal-alerta-quest-titulo" style="margin: 0 0 14px 0; font-size: 21px; font-weight: 800; color: #f8fafc; line-height: 1.25;">
                     Rutina Matutina
                 </h3>
 
-                <div style="background: #121725; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
-                    <div style="font-size: 11.5px; color: #6b7280; font-weight: 700; text-transform: uppercase;">TIEMPO LÍMITE ASIGNADO</div>
-                    <div id="modal-alerta-quest-timer" style="font-size: 30px; font-weight: 800; font-family: monospace; color: #f8fafc; margin: 4px 0;">
+                <div style="background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(129, 140, 248, 0.28); border-radius: 16px; padding: 14px; margin-bottom: 14px;">
+                    <div style="font-size: 10.5px; color: #94a3b8; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;">TIEMPO ASIGNADO</div>
+                    <div id="modal-alerta-quest-timer" style="font-size: 36px; font-weight: 800; font-family: monospace; color: #f8fafc; margin: 4px 0; letter-spacing: 1px;">
                         15:00
                     </div>
-                    <div id="modal-alerta-quest-penitencia-aviso" style="font-size: 12px; color: #991b1b; font-weight: 700;">
-                        💀 Penitencia si no completas a tiempo: 30 Flexiones inmediatas
+                    <div id="modal-alerta-quest-penitencia-aviso" style="font-size: 12px; color: #fda4af; font-weight: 700; margin-top: 4px;">
+                        ⚡ Penitencia en juego: 30 Flexiones inmediatas
                     </div>
                 </div>
 
-                <div id="modal-alerta-quest-aviso-omitible" style="font-size: 12px; color: #94a3b8; margin-bottom: 16px; line-height: 1.45;"></div>
+                <div id="modal-alerta-quest-aviso-omitible" style="font-size: 12px; color: #cbd5e1; margin-bottom: 16px; line-height: 1.45;"></div>
 
                 <div id="modal-alerta-quest-acciones" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                     <!-- Se llena dinámicamente -->
@@ -4042,36 +4042,89 @@
         </div>
     </div>
 
-    <!-- MODAL ALERTA VISUAL Y SONORA: RECORDATORIO DE CALENDARIO -->
-    <div id="modal-alerta-recordatorio-cal" class="modal-overlay" style="display: none; z-index: 10500;">
-        <div class="modal-system-window cal-alerta-emergente-card" style="max-width: 440px; width: 92%; border: 1px solid rgba(245, 158, 11, 0.55); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 32px rgba(245, 158, 11, 0.2);">
-            <div class="modal-system-header" style="background: rgba(245, 158, 11, 0.14); border-bottom: 1px solid rgba(245, 158, 11, 0.25);">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 20px;">🔔</span>
-                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.6px; color: #fcd34d;">RECORDATORIO DEL CALENDARIO</span>
-                </div>
-                <span id="cal-alerta-cola-badge" style="display: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(245, 158, 11, 0.25); color: #fef3c7;"></span>
+    <!-- NOTIFICACIÓN FLOTANTE NO BLOQUEANTE: RECORDATORIO DE CALENDARIO -->
+    <div id="cal-floating-reminder-toast" class="cal-floating-reminder-toast" style="display: none;" role="alert" aria-live="polite">
+        <div class="cal-toast-header">
+            <div class="cal-toast-title-pill">
+                <span class="cal-toast-bell">🔔</span>
+                <span>RECORDATORIO</span>
+                <span id="cal-alerta-hora-badge" class="cal-toast-time-chip"></span>
+                <span id="cal-alerta-cola-badge" class="cal-toast-queue-chip" style="display: none;"></span>
             </div>
-            <div style="padding: 20px;">
-                <div id="cal-alerta-hora-badge" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; margin-bottom: 10px;"></div>
-                <h3 id="cal-alerta-titulo" style="margin: 0 0 8px 0; font-size: 19px; font-weight: 800; color: #f8fafc;"></h3>
-                <div id="cal-alerta-persona" style="display: none; font-size: 12.5px; font-weight: 600; color: #93c5fd; margin-bottom: 8px;"></div>
-                <p id="cal-alerta-desc" style="margin: 0 0 18px 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;"></p>
+            <button type="button" id="btn-cerrar-banner-recordatorio-cal" class="cal-toast-close-btn" onclick="descartarBannerRecordatorioActual()" title="Omitir aviso visual (queda pendiente en Notificaciones)" aria-label="Cerrar aviso">✕</button>
+        </div>
+        <div class="cal-toast-body">
+            <h4 id="cal-alerta-titulo" class="cal-toast-titulo"></h4>
+            <div id="cal-alerta-persona" class="cal-toast-persona" style="display: none;"></div>
+            <p id="cal-alerta-desc" class="cal-toast-desc"></p>
+        </div>
+        <div class="cal-toast-footer">
+            <span class="cal-toast-pending-hint">Pendiente en 🔔 Notificaciones hasta completar</span>
+            <div class="cal-toast-actions">
+                <button type="button" class="cal-toast-btn cal-toast-btn-view" onclick="verRecordatorioDesdePopup()">📅 Ver</button>
+                <button type="button" class="cal-toast-btn cal-toast-btn-done" onclick="completarRecordatorioDesdePopup()">✓ Completado</button>
+            </div>
+        </div>
+    </div>
 
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button type="button" class="btn-system" style="width: 100%; justify-content: center; margin-bottom: 0; background: #10b981; color: #052e16; font-weight: 800;" onclick="completarRecordatorioDesdePopup()">
-                        ✓ Marcar como Completado
-                    </button>
-                    <div style="display: flex; gap: 8px;">
-                        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="posponerRecordatorioDesdePopup(10)">
-                            ⏰ Posponer 10 min
-                        </button>
-                        <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="verRecordatorioDesdePopup()">
-                            📅 Ver en Calendario
-                        </button>
+    <!-- MODAL CREAR LISTA DE REPRODUCCIÓN (REPRODUCTOR) -->
+    <div id="modal-reproductor-crear-playlist" class="modal-overlay" style="display: none; z-index: 10200;" onclick="if(event.target===this) window.MonarcaPlayer.cerrarModalCrearPlaylist();">
+        <div class="modal-system-window pl-modal-card" style="max-width: 440px; width: 92%;">
+            <div class="modal-system-header pl-modal-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="pl-modal-header-icon">🎶</span>
+                    <div>
+                        <div style="font-weight: 800; font-size: 14px; color: #f8fafc; letter-spacing: 0.3px;">Nueva Lista de Reproducción</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Organiza música por rutinas, enfoque o estado de ánimo</div>
                     </div>
                 </div>
+                <button type="button" onclick="window.MonarcaPlayer.cerrarModalCrearPlaylist()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
+            <div style="padding: 18px 20px;">
+                <div class="modal-form-group" style="margin-bottom: 12px;">
+                    <label for="input-nombre-nueva-playlist" style="display: block; font-size: 12px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Nombre de la Lista:</label>
+                    <input type="text" id="input-nombre-nueva-playlist" class="modal-input pl-modal-input" maxlength="50" placeholder="Ej: Gym Motivación, Enfoque Profundo..." onkeydown="if(event.key==='Enter'){event.preventDefault();window.MonarcaPlayer.confirmarCrearPlaylistModal();}">
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 600; margin-bottom: 6px;">Sugerencias rápidas:</span>
+                    <div class="pl-suggest-chips">
+                        <button type="button" class="pl-suggest-chip" onclick="window.MonarcaPlayer.usarSugerenciaPlaylist('Gym Motivación')">🏋️ Gym Motivación</button>
+                        <button type="button" class="pl-suggest-chip" onclick="window.MonarcaPlayer.usarSugerenciaPlaylist('Enfoque Profundo')">🧠 Enfoque Profundo</button>
+                        <button type="button" class="pl-suggest-chip" onclick="window.MonarcaPlayer.usarSugerenciaPlaylist('Rutina Matutina')">🌅 Rutina Matutina</button>
+                        <button type="button" class="pl-suggest-chip" onclick="window.MonarcaPlayer.usarSugerenciaPlaylist('Modo Bestia')">⚡ Modo Bestia</button>
+                    </div>
+                </div>
+
+                <div id="playlist-crear-error" style="display: none; font-size: 11.5px; color: #fca5a5; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 7px 10px; border-radius: 8px; margin-bottom: 10px;"></div>
+
+                <div style="display: flex; gap: 10px; margin-top: 14px;">
+                    <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalCrearPlaylist()">
+                        Cancelar
+                    </button>
+                    <button type="button" id="btn-confirmar-crear-playlist" class="btn-system pl-modal-btn-primary" style="flex: 1.5; justify-content: center; margin-bottom: 0;" onclick="window.MonarcaPlayer.confirmarCrearPlaylistModal()">
+                        ✓ Crear Lista
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AGREGAR CANCIONES A LISTA / ELEGIR LISTA PARA CANCIÓN -->
+    <div id="modal-reproductor-agregar-playlist" class="modal-overlay" style="display: none; z-index: 10250;" onclick="if(event.target===this) window.MonarcaPlayer.cerrarModalAgregarPlaylist();">
+        <div class="modal-system-window pl-modal-card" style="max-width: 520px; width: 94%; max-height: 86vh; display: flex; flex-direction: column;">
+            <div class="modal-system-header pl-modal-header">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                    <span class="pl-modal-header-icon">➕</span>
+                    <div style="min-width: 0; flex: 1;">
+                        <div id="modal-pl-agregar-titulo" style="font-weight: 800; font-size: 14px; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Agregar a Lista de Reproducción</div>
+                        <div id="modal-pl-agregar-subtitulo" style="font-size: 11.5px; color: #7dd3fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Selecciona dónde guardar tus canciones</div>
+                    </div>
+                </div>
+                <button type="button" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div id="modal-pl-agregar-cuerpo" style="padding: 16px 18px; overflow-y: auto; flex: 1;"></div>
+            <div id="modal-pl-agregar-footer" style="padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap;"></div>
         </div>
     </div>
 
@@ -6015,26 +6068,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.60"></script>
-    <script src="js/perfil.js?v=10.60"></script>
-    <script src="js/progresion.js?v=10.60"></script>
-    <script src="js/estado-personal.js?v=10.60"></script>
-    <script src="js/finanzas.js?v=10.60"></script>
-    <script src="js/ideas.js?v=10.60"></script>
-    <script src="js/dinamicas.js?v=10.60"></script>
-    <script src="js/calendario.js?v=10.60"></script>
-    <script src="js/inventario.js?v=10.60"></script>
-    <script src="js/reproductor.js?v=10.60"></script>
-    <script src="js/jarvis-voz.js?v=10.60"></script>
+    <script src="js/core.js?v=10.61"></script>
+    <script src="js/perfil.js?v=10.61"></script>
+    <script src="js/progresion.js?v=10.61"></script>
+    <script src="js/estado-personal.js?v=10.61"></script>
+    <script src="js/finanzas.js?v=10.61"></script>
+    <script src="js/ideas.js?v=10.61"></script>
+    <script src="js/dinamicas.js?v=10.61"></script>
+    <script src="js/calendario.js?v=10.61"></script>
+    <script src="js/inventario.js?v=10.61"></script>
+    <script src="js/reproductor.js?v=10.61"></script>
+    <script src="js/jarvis-voz.js?v=10.61"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.60"></script>
+    <script type="module" src="js/firebase-config.js?v=10.61"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.60')
+                navigator.serviceWorker.register('sw.js?v=10.61')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

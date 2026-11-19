@@ -462,8 +462,11 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
             APP_STATE.questsDiarios.forEach(function(q) {
                 q.estado = 'pendiente';
                 q.temporizadorActivo = false;
+                q.pospuestaHasta = null;
+                q.ultimaActivacionFecha = null;
                 var mins = Number(q.tiempoMinutos) || 15;
-                q.tiempoRestante = mins * 60;
+                q.tiempoRestante = (q.tipoTiempo === 'libre') ? 0 : mins * 60;
+                q.fechaActualizacion = Date.now();
             });
         }
 
@@ -477,6 +480,9 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
         };
 
         MonarcaDB.save(APP_STATE, false);
+        if (typeof programarAlarmasNativasQuests === 'function') {
+            setTimeout(function() { programarAlarmasNativasQuests(); }, 150);
+        }
 
         return {
             reiniciado: true,

@@ -823,7 +823,7 @@ public class MonarcaAlarmService extends Service {
 
 
 # ------------------------------------------------------------------------------
-# 3. AlarmAlertActivity.java: Pantalla nativa de alarma (solo UI + acciones)
+# 3. AlarmAlertActivity.java: Pantalla nativa de alarma (Emily OS Dark Glass UI)
 # ------------------------------------------------------------------------------
 write_java('AlarmAlertActivity.java', '''
 package com.monarca.app;
@@ -837,12 +837,15 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -850,6 +853,10 @@ import java.util.Locale;
 
 public class AlarmAlertActivity extends Activity {
     private static volatile AlarmAlertActivity activeInstance = null;
+    private final Handler clockHandler = new Handler(Looper.getMainLooper());
+    private Runnable clockRunnable = null;
+    private TextView liveClockView = null;
+    private TextView liveSecAmPmView = null;
 
     public static void closeIfOpen() {
         AlarmAlertActivity inst = activeInstance;
@@ -888,6 +895,11 @@ public class AlarmAlertActivity extends Activity {
             );
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(Color.parseColor("#040711"));
+            getWindow().setNavigationBarColor(Color.parseColor("#0b1024"));
+        }
+
         renderFromIntent(getIntent());
     }
 
@@ -896,6 +908,36 @@ public class AlarmAlertActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         renderFromIntent(intent);
+    }
+
+    private int dp(int value) {
+        float d = getResources().getDisplayMetrics().density;
+        return Math.round(value * d);
+    }
+
+    private void stopClockUpdates() {
+        if (clockRunnable != null) {
+            clockHandler.removeCallbacks(clockRunnable);
+            clockRunnable = null;
+        }
+    }
+
+    private void startClockUpdates() {
+        stopClockUpdates();
+        clockRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (liveClockView != null && liveSecAmPmView != null) {
+                    Date now = new Date();
+                    String hm = new SimpleDateFormat("hh:mm", Locale.getDefault()).format(now);
+                    String secAm = new SimpleDateFormat("ss a", Locale.US).format(now).toUpperCase(Locale.US);
+                    liveClockView.setText(hm);
+                    liveSecAmPmView.setText(secAm);
+                }
+                clockHandler.postDelayed(this, 1000L);
+            }
+        };
+        clockHandler.post(clockRunnable);
     }
 
     private void renderFromIntent(Intent intent) {
@@ -916,85 +958,132 @@ public class AlarmAlertActivity extends Activity {
         final String finalPenitencia = penitencia;
         final String finalTono = tono;
 
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        GradientDrawable bgGrad = new GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            esOmitible
+                ? new int[] { Color.parseColor("#040711"), Color.parseColor("#0d152e"), Color.parseColor("#18193d") }
+                : new int[] { Color.parseColor("#0a050b"), Color.parseColor("#1f0b18"), Color.parseColor("#291020") }
+        );
+        scroll.setBackground(bgGrad);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.parseColor("#090d16"));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(56, 84, 56, 72);
+        root.setPadding(dp(24), dp(36), dp(24), dp(28));
 
-        TextView appLabel = new TextView(this);
-        appLabel.setText("EMILY · SISTEMA MONARCA");
-        appLabel.setTextSize(12);
-        appLabel.setTypeface(null, Typeface.BOLD);
-        appLabel.setTextColor(Color.parseColor("#64748b"));
-        appLabel.setGravity(Gravity.CENTER);
-        appLabel.setLetterSpacing(0.15f);
-        root.addView(appLabel);
+        // 1. Pill superior EMILY OS
+        TextView appPill = new TextView(this);
+        appPill.setText("✦ EMILY OS · ALARMA");
+        appPill.setTextSize(11.5f);
+        appPill.setTypeface(Typeface.DEFAULT_BOLD);
+        appPill.setTextColor(Color.parseColor(esOmitible ? "#7dd3fc" : "#fda4af"));
+        appPill.setLetterSpacing(0.14f);
+        appPill.setPadding(dp(14), dp(6), dp(14), dp(6));
+        GradientDrawable appPillBg = new GradientDrawable();
+        appPillBg.setColor(Color.parseColor(esOmitible ? "#182449" : "#3a1322"));
+        appPillBg.setCornerRadius(dp(50));
+        appPillBg.setStroke(dp(1), Color.parseColor(esOmitible ? "#38bdf8" : "#f43f5e"));
+        appPill.setBackground(appPillBg);
+        root.addView(appPill);
 
-        String currentHour = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
-        TextView clockView = new TextView(this);
-        clockView.setText(currentHour);
-        clockView.setTextSize(54);
-        clockView.setTypeface(null, Typeface.BOLD);
-        clockView.setTextColor(Color.WHITE);
-        clockView.setGravity(Gravity.CENTER);
-        clockView.setPadding(0, 18, 0, 8);
-        root.addView(clockView);
+        // 2. Reloj digital en vivo (HH:MM + SS AM/PM)
+        LinearLayout clockRow = new LinearLayout(this);
+        clockRow.setOrientation(LinearLayout.HORIZONTAL);
+        clockRow.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
+        clockRow.setPadding(0, dp(22), 0, dp(8));
 
-        TextView iconView = new TextView(this);
-        iconView.setText(esOmitible ? "⏰" : "🚨");
-        iconView.setTextSize(46);
-        iconView.setGravity(Gravity.CENTER);
-        iconView.setPadding(0, 8, 0, 12);
-        root.addView(iconView);
+        liveClockView = new TextView(this);
+        liveClockView.setText("00:00");
+        liveClockView.setTextSize(58f);
+        liveClockView.setTypeface(Typeface.DEFAULT_BOLD);
+        liveClockView.setTextColor(Color.parseColor("#f8fafc"));
+        clockRow.addView(liveClockView);
 
+        liveSecAmPmView = new TextView(this);
+        liveSecAmPmView.setText("00 AM");
+        liveSecAmPmView.setTextSize(16f);
+        liveSecAmPmView.setTypeface(Typeface.DEFAULT_BOLD);
+        liveSecAmPmView.setTextColor(Color.parseColor(esOmitible ? "#38bdf8" : "#fb7185"));
+        liveSecAmPmView.setPadding(dp(8), 0, 0, dp(10));
+        clockRow.addView(liveSecAmPmView);
+
+        root.addView(clockRow);
+
+        // 3. Emblema circular luminoso
+        TextView emblemView = new TextView(this);
+        emblemView.setText(esOmitible ? "✦" : "⚡");
+        emblemView.setTextSize(32f);
+        emblemView.setTypeface(Typeface.DEFAULT_BOLD);
+        emblemView.setTextColor(Color.WHITE);
+        emblemView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams embParams = new LinearLayout.LayoutParams(dp(74), dp(74));
+        embParams.setMargins(0, dp(10), 0, dp(16));
+        emblemView.setLayoutParams(embParams);
+        GradientDrawable embBg = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            esOmitible
+                ? new int[] { Color.parseColor("#38bdf8"), Color.parseColor("#6366f1") }
+                : new int[] { Color.parseColor("#f43f5e"), Color.parseColor("#f97316") }
+        );
+        embBg.setShape(GradientDrawable.OVAL);
+        embBg.setStroke(dp(2), Color.parseColor(esOmitible ? "#bae6fd" : "#fecdd3"));
+        emblemView.setBackground(embBg);
+        root.addView(emblemView);
+
+        // 4. Etiqueta de tipo y Título de la Misión
         TextView badgeView = new TextView(this);
-        badgeView.setText(esOmitible ? "¡QUEST DIARIA ACTIVADA!" : "¡QUEST OBLIGATORIA · NO OMITIBLE!");
-        badgeView.setTextSize(13);
-        badgeView.setTypeface(null, Typeface.BOLD);
-        badgeView.setTextColor(esOmitible ? Color.parseColor("#38bdf8") : Color.parseColor("#f87171"));
+        badgeView.setText(esOmitible ? "MISIÓN PROGRAMADA ACTIVA" : "MISIÓN OBLIGATORIA · NO OMITIBLE");
+        badgeView.setTextSize(12f);
+        badgeView.setTypeface(Typeface.DEFAULT_BOLD);
+        badgeView.setLetterSpacing(0.08f);
+        badgeView.setTextColor(Color.parseColor(esOmitible ? "#38bdf8" : "#fbbf24"));
         badgeView.setGravity(Gravity.CENTER);
-        badgeView.setPadding(0, 4, 0, 14);
+        badgeView.setPadding(0, 0, 0, dp(8));
         root.addView(badgeView);
 
         TextView titleView = new TextView(this);
         titleView.setText(finalTitulo);
-        titleView.setTextSize(26);
-        titleView.setTypeface(null, Typeface.BOLD);
+        titleView.setTextSize(26f);
+        titleView.setTypeface(Typeface.DEFAULT_BOLD);
         titleView.setTextColor(Color.WHITE);
         titleView.setGravity(Gravity.CENTER);
-        titleView.setPadding(0, 0, 0, 28);
+        titleView.setPadding(dp(8), 0, dp(8), dp(22));
         root.addView(titleView);
 
+        // 5. Tarjeta tipo cristal oscuro con consecuencia / recordatorio
         LinearLayout penBox = new LinearLayout(this);
         penBox.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable penBg = new GradientDrawable();
-        penBg.setColor(Color.parseColor("#161b2e"));
-        penBg.setCornerRadius(28f);
-        penBg.setStroke(2, Color.parseColor(esOmitible ? "#334155" : "#991b1b"));
+        penBg.setColor(Color.parseColor(esOmitible ? "#131c36" : "#26101c"));
+        penBg.setCornerRadius(dp(18));
+        penBg.setStroke(dp(1), Color.parseColor(esOmitible ? "#334b85" : "#881337"));
         penBox.setBackground(penBg);
-        penBox.setPadding(36, 28, 36, 28);
+        penBox.setPadding(dp(18), dp(16), dp(18), dp(16));
         penBox.setGravity(Gravity.CENTER);
 
         TextView penLabel = new TextView(this);
-        penLabel.setText("💀 PENITENCIA SI NO LA CUMPLES:");
-        penLabel.setTextSize(11);
-        penLabel.setTypeface(null, Typeface.BOLD);
-        penLabel.setTextColor(Color.parseColor("#f87171"));
+        penLabel.setText(esOmitible ? "⚡ PENITENCIA EN JUEGO SI EXPIRA EL TIEMPO" : "🚨 PENITENCIA OBLIGATORIA SI FALLAS");
+        penLabel.setTextSize(10.5f);
+        penLabel.setTypeface(Typeface.DEFAULT_BOLD);
+        penLabel.setLetterSpacing(0.07f);
+        penLabel.setTextColor(Color.parseColor(esOmitible ? "#93c5fd" : "#fda4af"));
         penLabel.setGravity(Gravity.CENTER);
         penBox.addView(penLabel);
 
         TextView penText = new TextView(this);
         penText.setText(finalPenitencia);
-        penText.setTextSize(16);
-        penText.setTypeface(null, Typeface.BOLD);
-        penText.setTextColor(Color.WHITE);
+        penText.setTextSize(15.5f);
+        penText.setTypeface(Typeface.DEFAULT_BOLD);
+        penText.setTextColor(Color.parseColor("#f8fafc"));
         penText.setGravity(Gravity.CENTER);
-        penText.setPadding(0, 10, 0, 0);
+        penText.setPadding(0, dp(8), 0, 0);
         penBox.addView(penText);
 
         LinearLayout.LayoutParams penParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        penParams.setMargins(0, 0, 0, dp(18));
         penBox.setLayoutParams(penParams);
         root.addView(penBox);
 
@@ -1003,21 +1092,28 @@ public class AlarmAlertActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f);
         root.addView(spacer, spParams);
 
+        // 6. Botón principal moderno con gradiente Cian/Índigo (o Carmesí/Ámbar)
         Button btnOpen = new Button(this);
-        btnOpen.setText("⚔️ EMPEZAR MISIÓN");
-        btnOpen.setTextSize(17);
-        btnOpen.setTypeface(null, Typeface.BOLD);
+        btnOpen.setText("⚔️  EMPEZAR MISIÓN");
+        btnOpen.setTextSize(16.5f);
+        btnOpen.setTypeface(Typeface.DEFAULT_BOLD);
         btnOpen.setTextColor(Color.WHITE);
-        GradientDrawable startBg = new GradientDrawable();
-        startBg.setColor(Color.parseColor("#e11d48"));
-        startBg.setCornerRadius(28f);
+        btnOpen.setAllCaps(false);
+        GradientDrawable startBg = new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            esOmitible
+                ? new int[] { Color.parseColor("#0284c7"), Color.parseColor("#6366f1") }
+                : new int[] { Color.parseColor("#e11d48"), Color.parseColor("#f97316") }
+        );
+        startBg.setCornerRadius(dp(28));
         btnOpen.setBackground(startBg);
-        btnOpen.setPadding(32, 36, 32, 36);
+        btnOpen.setPadding(dp(20), dp(16), dp(20), dp(16));
         LinearLayout.LayoutParams startParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         btnOpen.setLayoutParams(startParams);
 
         btnOpen.setOnClickListener(v -> {
+            stopClockUpdates();
             MonarcaAlarmService.stopAlarm(AlarmAlertActivity.this);
             AlarmStore.recordPendingAction(AlarmAlertActivity.this, "start", finalQuestId, System.currentTimeMillis(), 0L);
 
@@ -1058,22 +1154,24 @@ public class AlarmAlertActivity extends Activity {
 
         if (esOmitible) {
             Button btnSnooze = new Button(this);
-            btnSnooze.setText("⏸️ POSPONER 1 HORA");
-            btnSnooze.setTextSize(15);
-            btnSnooze.setTypeface(null, Typeface.BOLD);
-            btnSnooze.setTextColor(Color.parseColor("#e2e8f0"));
+            btnSnooze.setText("⏸️  Posponer 1 hora");
+            btnSnooze.setTextSize(14.5f);
+            btnSnooze.setTypeface(Typeface.DEFAULT_BOLD);
+            btnSnooze.setTextColor(Color.parseColor("#cbd5e1"));
+            btnSnooze.setAllCaps(false);
             GradientDrawable snoozeBg = new GradientDrawable();
-            snoozeBg.setColor(Color.parseColor("#1e293b"));
-            snoozeBg.setCornerRadius(24f);
-            snoozeBg.setStroke(2, Color.parseColor("#334155"));
+            snoozeBg.setColor(Color.parseColor("#121a30"));
+            snoozeBg.setCornerRadius(dp(26));
+            snoozeBg.setStroke(dp(1), Color.parseColor("#334155"));
             btnSnooze.setBackground(snoozeBg);
-            btnSnooze.setPadding(32, 30, 32, 30);
+            btnSnooze.setPadding(dp(20), dp(14), dp(20), dp(14));
             LinearLayout.LayoutParams snooParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            snooParams.setMargins(0, 22, 0, 0);
+            snooParams.setMargins(0, dp(12), 0, 0);
             btnSnooze.setLayoutParams(snooParams);
 
             btnSnooze.setOnClickListener(v -> {
+                stopClockUpdates();
                 AlarmStore.scheduleSnooze(AlarmAlertActivity.this, finalQuestId, finalTitulo, finalPenitencia, finalTono);
                 MonarcaAlarmPlugin.emitAlarmAction("snooze", finalQuestId);
                 MonarcaAlarmService.stopAlarm(AlarmAlertActivity.this);
@@ -1082,7 +1180,9 @@ public class AlarmAlertActivity extends Activity {
             root.addView(btnSnooze);
         }
 
-        setContentView(root);
+        scroll.addView(root);
+        setContentView(scroll);
+        startClockUpdates();
     }
 
     @Override
@@ -1101,6 +1201,7 @@ public class AlarmAlertActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        stopClockUpdates();
         if (activeInstance == this) {
             activeInstance = null;
         }
@@ -1111,8 +1212,7 @@ public class AlarmAlertActivity extends Activity {
 
 
 # ------------------------------------------------------------------------------
-# 4. MonarcaAlarmReceiver.java: Arranca MonarcaAlarmService en primer plano
-#    y reprograma automáticamente las alarmas diarias para el día siguiente.
+# 4. MonarcaAlarmReceiver.java: Despierta CPU con WakeLock y arranca ForegroundService
 # ------------------------------------------------------------------------------
 write_java('MonarcaAlarmReceiver.java', '''
 package com.monarca.app;
@@ -1120,38 +1220,52 @@ package com.monarca.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.PowerManager;
 import androidx.core.content.ContextCompat;
 
 public class MonarcaAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        int id = intent.getIntExtra("id", 1001);
-        String questId = intent.getStringExtra("questId");
-        String titulo = intent.getStringExtra("titulo");
-        String penitencia = intent.getStringExtra("penitencia");
-        boolean esOmitible = intent.getBooleanExtra("esOmitible", true);
-        String tono = intent.getStringExtra("tono");
-
-        if (id != AlarmStore.TEST_ALARM_ID && questId != null && !questId.isEmpty()) {
-            AlarmStore.recordPendingAction(context, "fired", questId, System.currentTimeMillis(), 0L);
-        }
-
-        // Reprogramar automáticamente para mañana si es diaria, o limpiar si era one-shot
-        AlarmStore.scheduleNextDayIfRecurring(context, id);
-
-        Intent serviceIntent = new Intent(context, MonarcaAlarmService.class);
-        serviceIntent.setAction(MonarcaAlarmService.ACTION_START);
-        serviceIntent.putExtra("id", id);
-        serviceIntent.putExtra("questId", questId != null ? questId : "");
-        serviceIntent.putExtra("titulo", titulo != null ? titulo : "¡Quest Diaria Activada!");
-        serviceIntent.putExtra("penitencia", penitencia != null ? penitencia : "30 Flexiones inmediatas");
-        serviceIntent.putExtra("esOmitible", esOmitible);
-        serviceIntent.putExtra("tono", tono != null ? tono : "default");
+        PowerManager.WakeLock receiverWl = null;
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                receiverWl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Monarca:AlarmReceiverWake");
+                receiverWl.acquire(8000L);
+            }
+        } catch (Exception ignored) {}
 
         try {
+            int id = intent.getIntExtra("id", 1001);
+            String questId = intent.getStringExtra("questId");
+            String titulo = intent.getStringExtra("titulo");
+            String penitencia = intent.getStringExtra("penitencia");
+            boolean esOmitible = intent.getBooleanExtra("esOmitible", true);
+            String tono = intent.getStringExtra("tono");
+
+            if (id != AlarmStore.TEST_ALARM_ID && questId != null && !questId.isEmpty()) {
+                AlarmStore.recordPendingAction(context, "fired", questId, System.currentTimeMillis(), 0L);
+            }
+
+            // Reprogramar automáticamente para mañana si es diaria, o limpiar si era one-shot
+            AlarmStore.scheduleNextDayIfRecurring(context, id);
+
+            Intent serviceIntent = new Intent(context, MonarcaAlarmService.class);
+            serviceIntent.setAction(MonarcaAlarmService.ACTION_START);
+            serviceIntent.putExtra("id", id);
+            serviceIntent.putExtra("questId", questId != null ? questId : "");
+            serviceIntent.putExtra("titulo", titulo != null ? titulo : "¡Quest Diaria Activada!");
+            serviceIntent.putExtra("penitencia", penitencia != null ? penitencia : "30 Flexiones inmediatas");
+            serviceIntent.putExtra("esOmitible", esOmitible);
+            serviceIntent.putExtra("tono", tono != null ? tono : "default");
+
             ContextCompat.startForegroundService(context, serviceIntent);
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            if (receiverWl != null && receiverWl.isHeld()) {
+                try { receiverWl.release(); } catch (Exception ignored) {}
+            }
         }
     }
 }

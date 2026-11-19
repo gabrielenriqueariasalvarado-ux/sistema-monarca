@@ -12218,19 +12218,948 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v10.61 · RUTINAS DIARIAS MOBILE LAYOUT & COUNTDOWN DE ACTIVACIÓN
+   ========================================================================== */
 
+.qd-card-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
 
+.qd-badges-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
 
+.quest-diario-card .qd-title {
+    margin: 8px 0 0 0;
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.35;
+    word-break: break-word;
+}
 
+.quest-diario-card .qd-title.is-completed {
+    text-decoration: line-through;
+    color: #64748b;
+}
 
+.qd-timer-box {
+    margin-top: 10px;
+    background: rgba(7, 11, 22, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.16);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
 
+.qd-schedule-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
 
+.qd-countdown-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    line-height: 1.3;
+    word-break: break-word;
+}
 
+.qd-dur-chip {
+    font-size: 11px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 3px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
 
+.qd-timer-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11.5px;
+}
 
+.qd-timer-label {
+    color: #94a3b8;
+    font-weight: 600;
+}
 
+.qd-timer-val {
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+}
 
+.qd-timer-track {
+    background: rgba(255, 255, 255, 0.1);
+    height: 6px;
+    border-radius: 9999px;
+    overflow: hidden;
+}
 
+.qd-timer-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 9999px;
+}
 
+.qd-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
 
+@media (max-width: 640px) {
+    .quest-diario-card {
+        padding: 14px 14px !important;
+        border-radius: 14px !important;
+    }
+    .quest-diario-card .qd-title {
+        font-size: 15px;
+    }
+    .qd-countdown-pill {
+        font-size: 11.5px;
+        padding: 4px 9px;
+    }
+    .qd-actions-row {
+        display: flex;
+        gap: 7px;
+    }
+    .qd-actions-row > button {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-height: 38px;
+        padding: 7px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+}
 
+/* ==========================================================================
+   v10.61 · RECORDATORIO CALENDARIO FLOTANTE NO BLOQUEANTE
+   ========================================================================== */
+
+.cal-floating-reminder-toast {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top, 12px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(94vw, 440px);
+    z-index: 10500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 13px 15px;
+    border-radius: 16px;
+    background: linear-gradient(155deg, rgba(13, 19, 36, 0.97) 0%, rgba(20, 26, 48, 0.96) 100%);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(245, 158, 11, 0.48);
+    border-left: 4px solid #f59e0b;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.72), 0 0 24px rgba(245, 158, 11, 0.16);
+    animation: calToastSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes calToastSlideIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -18px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+}
+
+.cal-toast-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cal-toast-title-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    color: #fcd34d;
+    min-width: 0;
+}
+
+.cal-toast-bell {
+    font-size: 15px;
+}
+
+.cal-toast-time-chip {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    color: #fbbf24;
+    white-space: nowrap;
+}
+
+.cal-toast-queue-chip {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.cal-toast-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.16s ease;
+}
+
+.cal-toast-close-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+.cal-toast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cal-toast-titulo {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.cal-toast-persona {
+    font-size: 12px;
+    font-weight: 600;
+    color: #7dd3fc;
+}
+
+.cal-toast-desc {
+    margin: 0;
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.4;
+    max-height: 54px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-toast-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cal-toast-pending-hint {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.cal-toast-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;
+}
+
+.cal-toast-btn {
+    border-radius: 9px;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.cal-toast-btn-view {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: #e2e8f0;
+}
+
+.cal-toast-btn-view:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #7dd3fc;
+}
+
+.cal-toast-btn-done {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: rgba(16, 185, 129, 0.55);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.cal-toast-btn-done:hover {
+    filter: brightness(1.08);
+}
+
+/* ==========================================================================
+   v10.61 · REPRODUCTOR LISTAS DE REPRODUCCIÓN & MODALES IN-APP
+   ========================================================================== */
+
+.pl-view-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pl-view-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pl-view-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.pl-count-badge {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #7dd3fc;
+}
+
+.btn-pl-nueva-cta {
+    background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(56, 189, 248, 0.26);
+    transition: transform 0.15s ease, filter 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-pl-nueva-cta:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.pl-empty-card {
+    text-align: center;
+    padding: 30px 18px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.28);
+    color: #94a3b8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.pl-empty-card h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.pl-empty-card p {
+    margin: 0 0 8px 0;
+    font-size: 12.5px;
+    color: #94a3b8;
+    max-width: 360px;
+    line-height: 1.45;
+}
+
+.pl-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.24));
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.player-playlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 12px;
+}
+
+.player-playlist-card {
+    background: linear-gradient(155deg, rgba(16, 23, 42, 0.92) 0%, rgba(11, 15, 28, 0.94) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-playlist-card:hover {
+    border-color: rgba(56, 189, 248, 0.42);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+
+.player-playlist-card.is-default-rutina {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: linear-gradient(155deg, rgba(16, 185, 129, 0.13) 0%, rgba(12, 18, 34, 0.94) 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.14);
+}
+
+.pl-card-top {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.player-playlist-art {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.34));
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.player-playlist-art.is-default {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.26), rgba(56, 189, 248, 0.28));
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+.pl-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pl-card-title {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pl-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.pl-default-chip {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 9999px;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+
+.btn-pl-delete {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-pl-delete:hover {
+    background: rgba(239, 68, 68, 0.24);
+    border-color: #ef4444;
+    color: #ffffff;
+}
+
+.player-playlist-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.btn-pl-action-play {
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.btn-pl-action-play:hover {
+    filter: brightness(1.1);
+}
+
+.btn-pl-action-add {
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #7dd3fc;
+    border-radius: 9999px;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-pl-action-add:hover {
+    background: rgba(56, 189, 248, 0.24);
+    color: #ffffff;
+}
+
+.pl-detail-banner {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 13px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pl-detail-banner.is-folder {
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.pl-detail-banner-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pl-detail-banner-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.pl-detail-banner-sub {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.pl-detail-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-pl-back-pill {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #cbd5e1;
+    border-radius: 9999px;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-pl-back-pill:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.btn-pl-remove-track {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-pl-remove-track:hover {
+    background: rgba(245, 158, 11, 0.24);
+    color: #fef3c7;
+}
+
+/* Modales de Playlist In-App */
+.pl-modal-card {
+    background: linear-gradient(160deg, #0b1121 0%, #101932 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.32) !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 36px rgba(56, 189, 248, 0.14) !important;
+}
+
+.pl-modal-header {
+    background: rgba(56, 189, 248, 0.08) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.18) !important;
+}
+
+.pl-modal-header-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), rgba(99, 102, 241, 0.32));
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.pl-modal-input {
+    background: rgba(7, 11, 22, 0.9) !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    color: #f8fafc !important;
+    border-radius: 10px !important;
+}
+
+.pl-modal-input:focus {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15) !important;
+}
+
+.pl-suggest-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pl-suggest-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    border-radius: 9999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pl-suggest-chip:hover {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #7dd3fc;
+}
+
+.pl-modal-btn-primary {
+    background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 800 !important;
+}
+
+.pl-picker-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.pl-picker-search {
+    flex: 1 1 200px;
+    padding: 8px 12px !important;
+    font-size: 12.5px !important;
+    background: rgba(7, 11, 22, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    color: #f8fafc !important;
+    margin-bottom: 0 !important;
+}
+
+.pl-picker-list,
+.pl-picker-song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pl-picker-playlist-row,
+.pl-picker-song-row {
+    width: 100%;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.pl-picker-playlist-row:hover,
+.pl-picker-song-row:hover {
+    border-color: rgba(56, 189, 248, 0.42);
+    background: rgba(24, 34, 58, 0.9);
+}
+
+.pl-picker-playlist-row.is-selected,
+.pl-picker-song-row.is-selected {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.pl-picker-row-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pl-picker-icon,
+.pl-picker-check {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.is-selected .pl-picker-icon,
+.is-selected .pl-picker-check {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: rgba(16, 185, 129, 0.65);
+    color: #34d399;
+}
+
+.pl-picker-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.pl-picker-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f8fafc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pl-picker-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pl-picker-status {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #7dd3fc;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pl-picker-status.is-added {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+
+@media (max-width: 600px) {
+    .player-subtabs-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        overflow: visible;
+    }
+    .player-subtab-btn {
+        min-width: 0;
+        padding: 7px 5px;
+        font-size: 11px;
+        white-space: normal;
+        line-height: 1.25;
+        text-align: center;
+        gap: 4px;
+    }
+    .pl-view-toolbar {
+        padding: 9px 12px;
+        gap: 8px;
+    }
+    .pl-view-title {
+        font-size: 12.5px;
+    }
+    .btn-pl-nueva-cta {
+        padding: 7px 12px;
+        font-size: 11.5px;
+    }
+    .player-playlists-grid {
+        grid-template-columns: 1fr;
+    }
+    .player-playlist-actions > button {
+        flex: 1 1 auto;
+        justify-content: center;
+        text-align: center;
+    }
+}
+
+/* ==========================================================================
+   v10.61 · PANTALLA WEB DE ALARMA EMILY OS DARK-GLASS
+   ========================================================================== */
+
+.modal-system-window.qd-alarm-web-window {
+    background: linear-gradient(165deg, #060a17 0%, #101833 55%, #181a3d 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.38) !important;
+    border-radius: 24px !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(99, 102, 241, 0.24) !important;
+    max-width: min(92vw, 440px) !important;
+    width: 92% !important;
+    margin: 0 auto !important;
+}
+
+.modal-system-window.qd-alarm-web-window.is-mandatory {
+    background: linear-gradient(165deg, #0a050b 0%, #1f0b18 55%, #291020 100%) !important;
+    border: 1px solid rgba(244, 63, 94, 0.45) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.88), 0 0 42px rgba(244, 63, 94, 0.22) !important;
+}
+
+.modal-system-window.qd-alarm-web-window .modal-system-header {
+    background: rgba(56, 189, 248, 0.1) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.22) !important;
+}
+
+.modal-system-window.qd-alarm-web-window.is-mandatory .modal-system-header,
+.modal-system-window.qd-alarm-web-window .modal-system-header.is-mandatory {
+    background: rgba(225, 29, 72, 0.18) !important;
+    border-bottom: 1px solid rgba(244, 63, 94, 0.35) !important;
+}
+
+.modal-system-window.pl-modal-card {
+    max-width: min(94vw, 500px) !important;
+    width: 94% !important;
+    margin: 0 auto !important;
+}
+
+.modal-system-window.pl-modal-card .modal-system-header.pl-modal-header {
+    background: rgba(56, 189, 248, 0.08) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2) !important;
+}

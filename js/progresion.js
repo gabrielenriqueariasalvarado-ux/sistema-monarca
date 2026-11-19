@@ -959,11 +959,11 @@ function programarAlarmasNativasQuests() {
 
             // 1. Quests diarios programados a hora fija (incluye los completados/en curso para el día siguiente)
             if (q.tipoTiempo === 'programada' && q.horaActivacion) {
-                var partes = q.horaActivacion.split(':');
+                var partes = String(q.horaActivacion).trim().split(':');
                 if (partes.length >= 2) {
                     var h = parseInt(partes[0], 10);
                     var m = parseInt(partes[1], 10);
-                    if (!isNaN(h) && !isNaN(m)) {
+                    if (!isNaN(h) && !isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
                         var target = new Date();
                         target.setHours(h, m, 0, 0);
                         if (target.getTime() <= ahoraMs || q.estado !== 'pendiente' || q.ultimaActivacionFecha === hoyStr) {
@@ -1005,9 +1005,10 @@ function programarAlarmasNativasQuests() {
             }
         });
 
-        // Motor Nativo Principal (MonarcaAlarm): sin notificación duplicada de respaldo
+        // Motor Nativo Principal (MonarcaAlarm): no bloquear esperando tonos si IDB tarda
         if (monarcaAlarm && typeof monarcaAlarm.sincronizarAlarmas === 'function') {
-            sincronizarTonosConNativo(monarcaAlarm, qList).then(function() {
+            var toneTimeout = new Promise(function(resolve) { setTimeout(resolve, 2500); });
+            Promise.race([sincronizarTonosConNativo(monarcaAlarm, qList), toneTimeout]).catch(function() {}).then(function() {
                 var payloadLimpio = alarmasPayload.map(function(a) {
                     return {
                         id: a.id,
@@ -1489,6 +1490,11 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
     var modal = document.getElementById('modal-alerta-quest-activada');
     if (!modal) return;
 
+    var cardWin = modal.querySelector('.qd-alarm-web-window');
+    if (cardWin) {
+        cardWin.classList.toggle('is-mandatory', !esOmitible);
+    }
+
     var header = document.getElementById('modal-alerta-quest-header');
     var icono = document.getElementById('modal-alerta-quest-icono');
     var tipoBadge = document.getElementById('modal-alerta-quest-tipo-badge');
@@ -1500,51 +1506,54 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
     var contAcciones = document.getElementById('modal-alerta-quest-acciones');
 
     if (header) {
-        header.style.background = esOmitible ? '#111827' : '#991b1b';
+        header.classList.toggle('is-mandatory', !esOmitible);
     }
-    if (icono) icono.textContent = esOmitible ? '⚔️' : '🚨';
+    if (icono) icono.textContent = esOmitible ? '✦' : '🚨';
     if (tipoBadge) {
+        tipoBadge.style.color = esOmitible ? '#7dd3fc' : '#fda4af';
         tipoBadge.textContent = esOmitible
-            ? (esReactivacion ? '¡HORA DE GRACIA TERMINADA!' : '¡QUEST DIARIA ACTIVADA!')
-            : '¡QUEST OBLIGATORIA (NO OMITIBLE)!';
+            ? (esReactivacion ? 'HORA DE GRACIA TERMINADA' : 'MISIÓN PROGRAMADA ACTIVA')
+            : 'MISIÓN OBLIGATORIA · NO OMITIBLE';
     }
 
     if (tagEstado) {
         tagEstado.innerHTML = esOmitible
-            ? `<span class="qd-badge" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 11px;">⏳ Quest Omitible</span>`
-            : `<span class="qd-badge qd-badge-danger" style="font-size: 11.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;">🚨 OBLIGATORIA · PENITENCIA EN JUEGO</span>`;
+            ? `<span class="qd-badge" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 11px;">✦ Quest Omitible</span>`
+            : `<span class="qd-badge" style="font-size: 11px; font-weight: 800; background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.45);">🚨 OBLIGATORIA · PENITENCIA EN JUEGO</span>`;
     }
 
     if (txtTitulo) txtTitulo.textContent = q.titulo;
     if (txtTimer) txtTimer.textContent = formatearSegundos(q.tiempoRestante || mins * 60);
     if (txtPenitencia) {
-        txtPenitencia.textContent = `💀 Penitencia si no cumples a tiempo: ${q.penitencia || '30 Flexiones inmediatas'}`;
+        txtPenitencia.textContent = `⚡ Penitencia si expira el tiempo: ${q.penitencia || '30 Flexiones inmediatas'}`;
     }
 
     if (txtAviso) {
         txtAviso.innerHTML = esOmitible
-            ? `Esta quest te permite <strong>posponer por 1 hora</strong> si no puedes realizarla ahora. Si la pospones, volverá a sonar exactamente en 1 hora.`
-            : `<strong style="color: #991b1b;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El tiempo ya comenzó a rodar. Si se agota el cronómetro, se te aplicará la penitencia y perderás 30 EXP.`;
+            ? `Puedes aceptar ahora o <strong style="color:#7dd3fc;">posponer 1 hora</strong> si estás ocupado.`
+            : `<strong style="color: #fda4af;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El cronómetro está corriendo; si expira, se aplicará tu penitencia (-30 EXP).`;
     }
 
     var rutinaAsocId = q.rutinaId || q.rutinaVinculada || null;
-    var btnTexto = rutinaAsocId ? '🏋️ ¡Comenzar Rutina de Entrenamiento!' : '⚔️ ¡Aceptar y Empezar!';
-    var btnColor = esOmitible ? '#111827' : '#991b1b';
+    var btnTexto = rutinaAsocId ? '🏋️ Comenzar Rutina' : '⚔️ Empezar Misión';
+    var btnBg = esOmitible
+        ? 'linear-gradient(135deg, #0284c7 0%, #6366f1 100%)'
+        : 'linear-gradient(135deg, #e11d48 0%, #f97316 100%)';
 
     if (contAcciones) {
         if (esOmitible) {
             contAcciones.innerHTML = `
-                <button type="button" class="btn-qd-omit" style="flex: 1; padding: 10px 14px; font-size: 12.5px; justify-content: center;" onclick="posponerQuestUnaHora('${q.id}')">
-                    ⏸️ Omitir (Sonar en 1 hora)
+                <button type="button" class="btn-qd-omit" style="flex: 1; padding: 11px 14px; font-size: 12.5px; justify-content: center; border-radius: 9999px;" onclick="posponerQuestUnaHora('${q.id}')">
+                    ⏸️ Posponer 1h
                 </button>
-                <button type="button" class="btn-system" style="flex: 1.3; padding: 10px 14px; font-size: 12.5px; justify-content: center; background: ${btnColor}; color: #ffffff;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
+                <button type="button" class="btn-system" style="flex: 1.4; padding: 11px 16px; font-size: 13px; font-weight: 800; justify-content: center; background: ${btnBg}; color: #ffffff; border: none; border-radius: 9999px; margin-bottom: 0;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
                     ${btnTexto}
                 </button>
             `;
         } else {
             contAcciones.innerHTML = `
-                <button type="button" class="btn-system" style="width: 100%; padding: 12px 18px; font-size: 13.5px; font-weight: 800; justify-content: center; background: #991b1b; color: #ffffff;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
-                    ${btnTexto} (Tiempo Rodando)
+                <button type="button" class="btn-system" style="width: 100%; padding: 13px 18px; font-size: 14px; font-weight: 800; justify-content: center; background: ${btnBg}; color: #ffffff; border: none; border-radius: 9999px; margin-bottom: 0;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
+                    ${btnTexto}
                 </button>
             `;
         }
@@ -1790,6 +1799,86 @@ function cargarQuestsDiarios() {
 /**
  * Loop en vivo de temporizadores, activaciones programadas y penitencias
  */
+function normalizarHora24Str(horaStr) {
+    if (!horaStr) return '';
+    var p = String(horaStr).trim().split(':');
+    if (p.length < 2) return '';
+    var h = parseInt(p[0], 10);
+    var m = parseInt(p[1], 10);
+    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return '';
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+
+function formatearHora12h(hora24) {
+    var norm = normalizarHora24Str(hora24);
+    if (!norm) return hora24 || '08:00 AM';
+    var p = norm.split(':');
+    var h = parseInt(p[0], 10);
+    var m = p[1];
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return (h12 < 10 ? '0' : '') + h12 + ':' + m + ' ' + ampm;
+}
+
+function formatearDiffTiempoCorto(ms) {
+    if (!ms || ms <= 0) return 'menos de 1 min';
+    var totalSeg = Math.ceil(ms / 1000);
+    if (totalSeg < 60) return totalSeg + ' seg';
+    var totalMin = Math.ceil(totalSeg / 60);
+    var hrs = Math.floor(totalMin / 60);
+    var mins = totalMin % 60;
+    if (hrs > 0 && mins > 0) return hrs + (hrs === 1 ? ' hora ' : ' horas ') + mins + ' min';
+    if (hrs > 0) return hrs + (hrs === 1 ? ' hora' : ' horas');
+    return totalMin + ' min';
+}
+
+function obtenerTextoActivacionQuest(q, ahoraDate) {
+    if (!q || q.tipoTiempo !== 'programada' || !q.horaActivacion) return '';
+    var norm = normalizarHora24Str(q.horaActivacion);
+    var hora12 = formatearHora12h(norm || q.horaActivacion);
+    var ahora = ahoraDate || new Date();
+    var ahoraMs = ahora.getTime();
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : ahora.toISOString().split('T')[0];
+
+    if (q.estado === 'pospuesta' && q.pospuestaHasta) {
+        var diffPosp = q.pospuestaHasta - ahoraMs;
+        var pospDate = new Date(q.pospuestaHasta);
+        var pH = String(pospDate.getHours()).padStart(2, '0') + ':' + String(pospDate.getMinutes()).padStart(2, '0');
+        return '⏸️ ' + formatearHora12h(pH) + (diffPosp > 0 ? ' (sonará en ' + formatearDiffTiempoCorto(diffPosp) + ')' : ' (reactivando...)');
+    }
+
+    if (q.estado === 'en_progreso' || q.temporizadorActivo) {
+        return '🔔 ' + hora12 + ' · Activada';
+    }
+
+    if (q.estado === 'completada' || q.estado === 'penitencia_cumplida') {
+        if (norm) {
+            var pDone = norm.split(':');
+            var mananaDone = new Date(ahora);
+            mananaDone.setDate(mananaDone.getDate() + 1);
+            mananaDone.setHours(parseInt(pDone[0], 10), parseInt(pDone[1], 10), 0, 0);
+            return '⏰ ' + hora12 + ' (próxima en ' + formatearDiffTiempoCorto(mananaDone.getTime() - ahoraMs) + ')';
+        }
+        return '✓ ' + hora12;
+    }
+
+    if (!norm) return '⏰ ' + hora12;
+    var p = norm.split(':');
+    var target = new Date(ahora);
+    target.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+
+    if (q.ultimaActivacionFecha === hoyStr || target.getTime() <= ahoraMs) {
+        if (q.estado === 'pendiente' && q.ultimaActivacionFecha !== hoyStr) {
+            return '🔔 ' + hora12 + ' · Hora alcanzada';
+        }
+        target.setDate(target.getDate() + 1);
+        return '⏰ ' + hora12 + ' (sonará en ' + formatearDiffTiempoCorto(target.getTime() - ahoraMs) + ')';
+    }
+
+    return '⏰ ' + hora12 + ' (sonará en ' + formatearDiffTiempoCorto(target.getTime() - ahoraMs) + ')';
+}
+
 function iniciarLoopQuestsDiarios() {
     if (LOOP_QUESTS_DIARIOS_INTERVAL) return;
 
@@ -1805,11 +1894,21 @@ function iniciarLoopQuestsDiarios() {
         var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : ahora.toISOString().split('T')[0];
         var ahoraMs = Date.now();
 
+        // Reseteo seguro si la app quedó abierta pasada la medianoche
+        if (APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.fecha && APP_STATE.desgasteDiario.fecha !== hoyStr) {
+            if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
+                actualizarDesgasteDiarioAutomatico();
+            }
+        }
+
         APP_STATE.questsDiarios.forEach(function(q) {
             if (!q || typeof q !== 'object') return;
+            var horaNorm = normalizarHora24Str(q.horaActivacion);
+
             // 1. ACTIVACIÓN PROGRAMADA (A una hora específica del día)
-            if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && q.horaActivacion) {
-                if (horaActStr >= q.horaActivacion && q.ultimaActivacionFecha !== hoyStr) {
+            if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && horaNorm) {
+                if (horaActStr >= horaNorm && q.ultimaActivacionFecha !== hoyStr) {
+                    q.horaActivacion = horaNorm;
                     q.ultimaActivacionFecha = hoyStr;
                     q.estado = 'en_progreso';
                     q.temporizadorActivo = true;
@@ -1830,6 +1929,14 @@ function iniciarLoopQuestsDiarios() {
                     q.fechaActualizacion = ahoraMs;
                     emitirAlertaQuestActivada(q, true);
                     huboCambios = true;
+                }
+            }
+
+            // Actualizar etiqueta en vivo "06:00 AM (sonará en X)" sin re-renderizar toda la lista
+            if (q.tipoTiempo === 'programada' && q.horaActivacion) {
+                var elCountdown = document.getElementById('quest-countdown-txt-' + q.id);
+                if (elCountdown) {
+                    elCountdown.textContent = obtenerTextoActivacionQuest(q, ahora);
                 }
             }
 
@@ -2085,29 +2192,45 @@ function renderizarQuestsDiarios() {
                 var totalSegs = (q.tiempoMinutos || 15) * 60;
                 var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
 
-                var labelTiempo = (q.tipoTiempo === 'programada')
-                    ? `⏰ SE ACTIVA: <strong>${q.horaActivacion || '08:00'}</strong> (${q.tiempoMinutos || 15} MIN)`
-                    : `⏱️ TIEMPO: <strong>${q.tiempoMinutos || 15} MIN</strong>`;
-
-                bloqueTiempo = `
-                <div style="margin-top: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 6px 10px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; margin-bottom: 4px;">
-                        <span style="color: #94a3b8; font-weight: 600;">${labelTiempo}</span>
-                        <span id="timer-val-${q.id}" style="font-weight: 800; font-family: monospace; font-size: 13px; color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
+                if (q.tipoTiempo === 'programada') {
+                    var countdownTxt = obtenerTextoActivacionQuest(q);
+                    bloqueTiempo = `
+                <div class="qd-timer-box">
+                    <div class="qd-schedule-row">
+                        <span id="quest-countdown-txt-${q.id}" class="qd-countdown-pill">${countdownTxt}</span>
+                        <span class="qd-dur-chip">${q.tiempoMinutos || 15} min</span>
+                    </div>
+                    <div class="qd-timer-meta-row">
+                        <span class="qd-timer-label">⏱️ Temporizador límite</span>
+                        <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
                             ${tiempoStr}
                         </span>
                     </div>
-                    <div style="background: rgba(255, 255, 255, 0.1); height: 5px; border-radius: 9999px; overflow: hidden;">
-                        <div id="timer-bar-${q.id}" style="height: 100%; width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')}; transition: width 0.3s ease;"></div>
+                    <div class="qd-timer-track">
+                        <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
                     </div>
                 </div>`;
+                } else {
+                    bloqueTiempo = `
+                <div class="qd-timer-box">
+                    <div class="qd-timer-meta-row">
+                        <span class="qd-timer-label">⏱️ TIEMPO: <strong>${q.tiempoMinutos || 15} MIN</strong></span>
+                        <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
+                            ${tiempoStr}
+                        </span>
+                    </div>
+                    <div class="qd-timer-track">
+                        <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
+                    </div>
+                </div>`;
+                }
             }
 
             var badgeRutina = q.rutinaId
                 ? `<span class="badge-rutina-vinculada" onclick="event.stopPropagation(); iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Rutina Vinculada: Haz clic para abrir el entrenamiento">🏋️ ${q.rutinaNombre || 'Rutina'}</span>`
                 : '';
 
-            // Botones de acción compactos
+            // Botones de acción uniformes para fila responsive
             var botonesAccion = '';
             if (esLibre) {
                 if (esCompletada) {
@@ -2117,17 +2240,10 @@ function renderizarQuestsDiarios() {
                     var btnRutinaDirecto = q.rutinaId
                         ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
                         : '';
-                    botonesAccion = `
-                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                        ${btnRutinaDirecto}
-                        <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
-                    </div>`;
+                    botonesAccion = `${btnRutinaDirecto}<button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
                 }
             } else if (esPenalizada) {
-                botonesAccion = `
-                <button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">
-                    💀 Penitencia
-                </button>`;
+                botonesAccion = `<button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">💀 Penitencia</button>`;
             } else if (esCompletada) {
                 var btnRutinaComp = q.rutinaId ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')">👁️ Rutina</button>` : '';
                 botonesAccion = btnRutinaComp + `<button class="btn-qd-action btn-qd-done" disabled>✓ Hecho</button>`;
@@ -2137,14 +2253,8 @@ function renderizarQuestsDiarios() {
                 var btnRutinaPosp = q.rutinaId
                     ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
                     : '';
-                botonesAccion = `
-                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                    ${btnRutinaPosp}
-                    <button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶️ Iniciar</button>
-                    <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
-                </div>`;
+                botonesAccion = `${btnRutinaPosp}<button class="btn-qd-timer btn-qd-start" onclick="iniciarTemporizadorQuest('${q.id}')">▶️ Iniciar</button><button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
             } else {
-                // Pendiente o en progreso
                 var btnTimer = '';
                 if (q.tipoTiempo === 'duracion' || q.tipoTiempo === 'programada') {
                     if (q.temporizadorActivo) {
@@ -2158,12 +2268,7 @@ function renderizarQuestsDiarios() {
                     ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700;" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')" title="Ir a la rutina de entrenamiento">🏋️ Entrenar ▶</button>`
                     : '';
 
-                botonesAccion = `
-                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                    ${btnRutinaPend}
-                    ${btnTimer}
-                    <button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>
-                </div>`;
+                botonesAccion = `${btnRutinaPend}${btnTimer}<button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
             }
 
             var btnOmit = (esEnProgreso && esOmitible)
@@ -2187,23 +2292,26 @@ function renderizarQuestsDiarios() {
 
             html += `
             <div class="${cardClass}">
-                <!-- FILA PRINCIPAL COMPACTA (Solo Nombre, Estado, Botón Principal y Flecha) -->
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; flex-wrap: wrap;">
+                <!-- CABECERA COMPACTA RESPONSIVE (Badges arriba + Flecha fija a la derecha) -->
+                <div class="qd-card-header-row">
+                    <div class="qd-badges-group">
                         ${badgeEstado}
                         ${badgeRutina}
-                        <h3 class="qd-title" style="margin: 0; font-size: 15px; font-weight: 700; ${(esCompletada || esPenitenciaCumplida) ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc;'}">${q.titulo}</h3>
                     </div>
-
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        ${botonesAccion}
-                        <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleQuest('${q.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
-                            <span>${isExpanded ? '▲' : '▼'}</span>
-                        </button>
-                    </div>
+                    <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleQuest('${q.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
+                        <span>${isExpanded ? '▲' : '▼'}</span>
+                    </button>
                 </div>
 
+                <!-- TÍTULO A ANCHO COMPLETO PARA LEGIBILIDAD MÓVIL -->
+                <h3 class="qd-title ${(esCompletada || esPenitenciaCumplida) ? 'is-completed' : ''}">${q.titulo}</h3>
+
                 ${bloqueTiempo}
+
+                <!-- BOTONERA DE ACCIONES UNIFORME -->
+                <div class="qd-actions-row">
+                    ${botonesAccion}
+                </div>
 
                 <!-- PANEL DESPLEGABLE CON INFORMACIÓN COMPLETA -->
                 <div class="card-detalle-desplegable" id="quest-detalle-${q.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
@@ -2879,6 +2987,14 @@ function confirmarAgregarQuestDiaria() {
         ? JSON.parse(JSON.stringify(ATRIBUTOS_MODAL_TEMP.quest))
         : [];
 
+    var ahoraCreacion = new Date();
+    var ahoraCreacionHHMM = String(ahoraCreacion.getHours()).padStart(2, '0') + ':' + String(ahoraCreacion.getMinutes()).padStart(2, '0');
+    var hoyCreacionStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : ahoraCreacion.toISOString().split('T')[0];
+    var horaNormCreacion = (tipoTiempo === 'programada') ? normalizarHora24Str(horaActivacion) : null;
+    if (tipoTiempo === 'programada' && horaNormCreacion) {
+        horaActivacion = horaNormCreacion;
+    }
+
     var nuevaQ = {
         id: "QD-" + Date.now(),
         titulo: nombre,
@@ -2905,7 +3021,7 @@ function confirmarAgregarQuestDiaria() {
         estado: 'pendiente',
         tiempoRestante: (tipoTiempo === 'libre') ? 0 : minutos * 60,
         temporizadorActivo: false,
-        ultimaActivacionFecha: null,
+        ultimaActivacionFecha: (tipoTiempo === 'programada' && horaNormCreacion && horaNormCreacion < ahoraCreacionHHMM) ? hoyCreacionStr : null,
         pospuestaHasta: null,
         timestamp: Date.now(),
         fechaActualizacion: Date.now()
@@ -4026,7 +4142,21 @@ if (typeof window !== 'undefined') {
     });
 
     var _alVolverPrimerPlano = function() {
-        procesarAccionesAlarmaNativa();
+        var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        if (window.APP_STATE && APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.fecha && APP_STATE.desgasteDiario.fecha !== hoyStr) {
+            if (typeof actualizarDesgasteDiarioAutomatico === 'function') {
+                actualizarDesgasteDiarioAutomatico();
+            }
+        }
+        Promise.resolve(procesarAccionesAlarmaNativa()).finally(function() {
+            if (typeof programarAlarmasNativasQuests === 'function') {
+                programarAlarmasNativasQuests();
+            }
+            var vistaProg = document.getElementById('vista-acciones-progresion');
+            if (vistaProg && vistaProg.classList.contains('active') && typeof renderizarQuestsDiarios === 'function') {
+                renderizarQuestsDiarios();
+            }
+        });
         actualizarBotonNotificacionesUI();
         var modalDiag = document.getElementById('modal-diagnostico-alarma');
         if (modalDiag && modalDiag.style.display && modalDiag.style.display !== 'none') {

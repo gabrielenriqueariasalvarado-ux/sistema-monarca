@@ -70,10 +70,15 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.60)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.61)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.60
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.61
             Esta versión nativa incluye:
+            - 🔔 **Alarma rediseñada, Rutinas con hora exacta/countdown y Notificaciones no bloqueantes (v10.61)**:
+              - Pantalla de Alarma renovada con estética nocturna Emily OS, reloj en vivo AM/PM y controles claros.
+              - Rutinas diarias con indicador en vivo (`06:00 AM (sonará en X)`), activación puntual con WakeLock nativo/reseteo diario fiable y tarjetas optimizadas para teléfono.
+              - Recordatorios del Calendario mostrados como aviso flotante superior no bloqueante (se pueden cerrar sin perder su estado pendiente en 🔔 Notificaciones).
+              - Nuevo diseño para Listas de Reproducción creadas y selector visual multi-canción sin ventanas emergentes nativas.
             - 🎨 **Nuevo Icono Oficial y Pantalla de Carga de Emily (v10.60)**: reemplazado el icono por defecto de Capacitor por el emblema oscuro **`✦`** de Emily (iconos adaptativos Android, mipmaps HD y splash oscuro). *(Si Play Protect muestra aviso por APK externa, toca **"Instalar de todas formas"**).*
             - 🏦 **Tasas Oficiales BCV & Euro en Finanzas (v10.59)**: conexión diaria automática con `ve.dolarapi.com/v1/cotizaciones`, caché local offline y conversor rápido USD / EUR / Bolívares.
             - 📅 **Calendario Integral (4 Apartados) & Grupos en Personas (v10.58)**:
