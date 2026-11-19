@@ -324,6 +324,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
         'ideas', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario', 'cronogramaSemanal',
+        'reproductorPlaylists',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
@@ -453,6 +454,18 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.subappTrainer.rutinasEnfoques = fusionarColeccionPorId(trainL.rutinasEnfoques || [], trainR.rutinasEnfoques || [], tombstones.subappTrainer_enfoques || []);
     }
 
+    // 6.6 LISTAS DE REPRODUCCIÓN DE MÚSICA (SUPERVIVENCIA EN REINSTALACIÓN)
+    if (Array.isArray(local.reproductorPlaylists) || Array.isArray(remoto.reproductorPlaylists)) {
+        fusion.reproductorPlaylists = fusionarColeccionPorId(
+            local.reproductorPlaylists || [],
+            remoto.reproductorPlaylists || [],
+            tombstones.reproductorPlaylists || []
+        );
+    }
+    if (!fusion.rutinaPlaylistDefaultId && local.rutinaPlaylistDefaultId) {
+        fusion.rutinaPlaylistDefaultId = local.rutinaPlaylistDefaultId;
+    }
+
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)
     if (local.jugador && fusion.jugador) {
         if ((local.jugador.nivel || 1) > (fusion.jugador.nivel || 1)) {
@@ -487,6 +500,9 @@ function refrescarVistasTrasSync() {
             if (typeof renderizarEjercicios === 'function' && window.APP_STATE) renderizarEjercicios(window.APP_STATE.ejercicios);
             if (typeof renderizarPortalesRutinasEjercicios === 'function') renderizarPortalesRutinasEjercicios();
             if (typeof renderizarPortalesRutinas === 'function' && window.APP_STATE) renderizarPortalesRutinas(window.APP_STATE.rutinas);
+        }
+        if (window.MonarcaPlayer && typeof window.MonarcaPlayer.sincronizarPlaylistsDesdeAppState === 'function') {
+            window.MonarcaPlayer.sincronizarPlaylistsDesdeAppState();
         }
     } catch (uiErr) {
         console.warn("[Sync UI] Aviso refrescando vistas:", uiErr);

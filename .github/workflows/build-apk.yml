@@ -70,10 +70,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.61)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.62)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.61
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.62
             Esta versión nativa incluye:
+            - 🎧 **Biblioteca Musical Automática estilo Lark Player (v10.62)**:
+              - Detección nativa instantánea desde Android (`MediaStore` vía `MonarcaMediaPlugin`) sin duplicar archivos ni tener que volver a subir canciones tras actualizar o reinstalar la APK.
+              - Portadas reales cuadradas en el reproductor, miniaturas en la lista y mini-reproductor flotante, nombre real, artista/autor y resplandor ambiental adaptado a cada carátula.
+              - Conservación automática de Playlists y tonos personalizados tras reinstalar o sincronizar con la nube mediante firmas estables de pista.
             - 🔔 **Alarma rediseñada, Rutinas con hora exacta/countdown y Notificaciones no bloqueantes (v10.61)**:
               - Pantalla de Alarma renovada con estética nocturna Emily OS, reloj en vivo AM/PM y controles claros.
               - Rutinas diarias con indicador en vivo (`06:00 AM (sonará en X)`), activación puntual con WakeLock nativo/reseteo diario fiable y tarjetas optimizadas para teléfono.

@@ -1733,7 +1733,600 @@ public class MonarcaAlarmPlugin extends Plugin {
 
 
 # ------------------------------------------------------------------------------
-# 7. MainActivity.java: Registra MonarcaAlarm y procesa el intent "Empezar"
+# 6B. MonarcaMediaPlugin.java: Escáner automático MediaStore + Carátulas + Stream
+# ------------------------------------------------------------------------------
+write_java('MonarcaMediaPlugin.java', '''
+package com.monarca.app;
+
+import android.Manifest;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.MediaStore;
+import android.provider.Settings;
+import android.util.Base64;
+import android.util.Size;
+import androidx.core.content.ContextCompat;
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+
+@CapacitorPlugin(
+    name = "MonarcaMedia",
+    permissions = {
+        @Permission(
+            alias = "mediaAudio",
+            strings = { "android.permission.READ_MEDIA_AUDIO" }
+        ),
+        @Permission(
+            alias = "legacyStorage",
+            strings = { "android.permission.READ_EXTERNAL_STORAGE" }
+        )
+    }
+)
+public class MonarcaMediaPlugin extends Plugin {
+    private static final ConcurrentHashMap<String, Boolean> noArtCache = new ConcurrentHashMap<>();
+
+    private String getActiveAlias() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? "mediaAudio" : "legacyStorage";
+    }
+
+    private String getActivePermString() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            ? Manifest.permission.READ_MEDIA_AUDIO
+            : Manifest.permission.READ_EXTERNAL_STORAGE;
+    }
+
+    private boolean isAudioPermissionGranted() {
+        Context ctx = getContext();
+        if (ctx == null) return false;
+        return ContextCompat.checkSelfPermission(ctx, getActivePermString()) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @PluginMethod
+    public void estadoPermisoAudio(PluginCall call) {
+        boolean granted = isAudioPermissionGranted();
+        PermissionState pState = getPermissionState(getActiveAlias());
+        JSObject res = new JSObject();
+        res.put("granted", granted);
+        res.put("state", granted ? "granted" : (pState != null ? pState.toString().toLowerCase(Locale.US) : "prompt"));
+        res.put("sdk", Build.VERSION.SDK_INT);
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void solicitarPermisoAudio(PluginCall call) {
+        if (isAudioPermissionGranted()) {
+            JSObject res = new JSObject();
+            res.put("granted", true);
+            res.put("state", "granted");
+            call.resolve(res);
+            return;
+        }
+        requestPermissionForAlias(getActiveAlias(), call, "audioPermsCallback");
+    }
+
+    @PermissionCallback
+    private void audioPermsCallback(PluginCall call) {
+        boolean granted = isAudioPermissionGranted();
+        JSObject res = new JSObject();
+        res.put("granted", granted);
+        res.put("state", granted ? "granted" : "denied");
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void abrirAjustesPermiso(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + ctx.getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(intent);
+        } catch (Exception ignored) {}
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void escanearMusica(PluginCall call) {
+        if (!isAudioPermissionGranted()) {
+            JSObject err = new JSObject();
+            err.put("granted", false);
+            err.put("canciones", new JSArray());
+            call.resolve(err);
+            return;
+        }
+
+        getBridge().execute(() -> {
+            JSArray tracks = new JSArray();
+            ContentResolver cr = getContext().getContentResolver();
+            Uri collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+
+            boolean hasRelPath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+            String[] projection = hasRelPath
+                ? new String[] {
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.ALBUM_ID,
+                    MediaStore.Audio.Media.DURATION,
+                    MediaStore.Audio.Media.SIZE,
+                    MediaStore.Audio.Media.DISPLAY_NAME,
+                    MediaStore.Audio.Media.MIME_TYPE,
+                    MediaStore.Audio.Media.DATE_ADDED,
+                    MediaStore.Audio.Media.RELATIVE_PATH,
+                    MediaStore.Audio.Media.DATA
+                }
+                : new String[] {
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.ALBUM_ID,
+                    MediaStore.Audio.Media.DURATION,
+                    MediaStore.Audio.Media.SIZE,
+                    MediaStore.Audio.Media.DISPLAY_NAME,
+                    MediaStore.Audio.Media.MIME_TYPE,
+                    MediaStore.Audio.Media.DATE_ADDED,
+                    MediaStore.Audio.Media.DATA
+                };
+
+            String selection = MediaStore.Audio.Media.SIZE + " > 20000 AND (" +
+                MediaStore.Audio.Media.IS_MUSIC + " != 0 OR " +
+                MediaStore.Audio.Media.MIME_TYPE + " LIKE 'audio/%')";
+            String sortOrder = MediaStore.Audio.Media.DATE_ADDED + " DESC";
+
+            Cursor cursor = null;
+            try {
+                cursor = cr.query(collection, projection, selection, null, sortOrder);
+                if (cursor != null) {
+                    int colId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID);
+                    int colTitle = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
+                    int colArtist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+                    int colAlbum = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
+                    int colAlbumId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID);
+                    int colDur = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
+                    int colSize = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE);
+                    int colName = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME);
+                    int colMime = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE);
+                    int colDate = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED);
+                    int colData = cursor.getColumnIndex(MediaStore.Audio.Media.DATA);
+                    int colRel = hasRelPath ? cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) : -1;
+
+                    while (cursor.moveToNext()) {
+                        long mediaId = cursor.getLong(colId);
+                        long size = cursor.getLong(colSize);
+                        long dur = cursor.getLong(colDur);
+                        String displayName = safeStr(cursor.getString(colName));
+                        String mime = safeStr(cursor.getString(colMime));
+                        String dataPath = colData >= 0 ? safeStr(cursor.getString(colData)) : "";
+                        String relPath = colRel >= 0 ? safeStr(cursor.getString(colRel)) : "";
+
+                        // Excluir clips muy cortos (< 10 seg si trae duración) y notas de voz/tonos de sistema
+                        if (dur > 0 && dur < 10000L) continue;
+                        String checkPathLower = (relPath + " " + dataPath).toLowerCase(Locale.US);
+                        if (checkPathLower.contains("whatsapp voice notes") ||
+                            (checkPathLower.contains("whatsapp/media/whatsapp audio") && dur < 45000L) ||
+                            checkPathLower.contains("/ringtones/") ||
+                            checkPathLower.contains("/notifications/") ||
+                            checkPathLower.contains("/alarms/") ||
+                            checkPathLower.contains("callrecording")) {
+                            continue;
+                        }
+
+                        if (!isAudioFileSupported(displayName, mime)) continue;
+
+                        String rawTitle = safeStr(cursor.getString(colTitle));
+                        String rawArtist = safeStr(cursor.getString(colArtist));
+                        String rawAlbum = safeStr(cursor.getString(colAlbum));
+                        long albumId = cursor.getLong(colAlbumId);
+                        long dateAddedSec = cursor.getLong(colDate);
+
+                        String baseNoExt = stripExtension(displayName);
+                        if (rawTitle.isEmpty() || "<unknown>".equalsIgnoreCase(rawTitle)) {
+                            rawTitle = baseNoExt;
+                        }
+                        if ("<unknown>".equalsIgnoreCase(rawArtist) || "unknown".equalsIgnoreCase(rawArtist)) {
+                            rawArtist = "";
+                        }
+                        if ("<unknown>".equalsIgnoreCase(rawAlbum) || "unknown".equalsIgnoreCase(rawAlbum)) {
+                            rawAlbum = "";
+                        }
+
+                        String carpeta = extractFolderName(relPath, dataPath);
+                        Uri itemUri = ContentUris.withAppendedId(collection, mediaId);
+
+                        JSObject obj = new JSObject();
+                        obj.put("id", "ms_" + mediaId);
+                        obj.put("mediaId", mediaId);
+                        obj.put("sig", buildStableSig(baseNoExt, size));
+                        obj.put("nombre", rawTitle);
+                        obj.put("artista", rawArtist);
+                        obj.put("album", rawAlbum);
+                        obj.put("albumId", albumId);
+                        obj.put("carpeta", carpeta);
+                        obj.put("tamano", size);
+                        obj.put("duracionMs", dur);
+                        obj.put("tipo", !mime.isEmpty() ? mime : "audio/mpeg");
+                        obj.put("archivo", displayName);
+                        obj.put("ruta", dataPath);
+                        obj.put("contentUri", itemUri.toString());
+                        obj.put("fecha", dateAddedSec > 0 ? dateAddedSec * 1000L : System.currentTimeMillis());
+                        tracks.put(obj);
+                    }
+                }
+                JSObject res = new JSObject();
+                res.put("granted", true);
+                res.put("canciones", tracks);
+                res.put("count", tracks.length());
+                call.resolve(res);
+            } catch (Exception e) {
+                call.reject("Error escaneando música MediaStore: " + e.getMessage());
+            } finally {
+                if (cursor != null) {
+                    try { cursor.close(); } catch (Exception ignored) {}
+                }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void obtenerCaratula(PluginCall call) {
+        String sig = safeStr(call.getString("sig", ""));
+        String mediaIdStr = safeStr(call.getString("mediaId", ""));
+        String contentUriStr = safeStr(call.getString("contentUri", ""));
+        String ruta = safeStr(call.getString("ruta", ""));
+        long albumId = call.getData() != null ? call.getData().optLong("albumId", 0L) : 0L;
+        boolean includeDataUrl = Boolean.TRUE.equals(call.getBoolean("includeDataUrl", false));
+
+        String cacheKey = sanitizeKey(!sig.isEmpty() ? sig : ("m_" + mediaIdStr));
+        if (cacheKey.isEmpty()) cacheKey = "art_" + System.currentTimeMillis();
+
+        final String finalKey = cacheKey;
+        getBridge().execute(() -> {
+            try {
+                File coverDir = new File(getContext().getCacheDir(), "cover_cache");
+                if (!coverDir.exists()) coverDir.mkdirs();
+                File cacheFile = new File(coverDir, finalKey + ".jpg");
+
+                if (cacheFile.exists() && cacheFile.length() > 0) {
+                    JSObject ok = new JSObject();
+                    ok.put("hasArt", true);
+                    ok.put("filePath", cacheFile.getAbsolutePath());
+                    if (includeDataUrl) {
+                        ok.put("dataUrl", fileToJpegDataUrl(cacheFile));
+                    }
+                    call.resolve(ok);
+                    return;
+                }
+
+                if (Boolean.TRUE.equals(noArtCache.get(finalKey))) {
+                    JSObject none = new JSObject();
+                    none.put("hasArt", false);
+                    call.resolve(none);
+                    return;
+                }
+
+                Bitmap bmp = extractArtworkBitmap(contentUriStr, ruta, albumId);
+                if (bmp != null) {
+                    saveScaledJpeg(bmp, cacheFile, 360);
+                    bmp.recycle();
+                    if (cacheFile.exists() && cacheFile.length() > 0) {
+                        JSObject ok = new JSObject();
+                        ok.put("hasArt", true);
+                        ok.put("filePath", cacheFile.getAbsolutePath());
+                        if (includeDataUrl) {
+                            ok.put("dataUrl", fileToJpegDataUrl(cacheFile));
+                        }
+                        call.resolve(ok);
+                        return;
+                    }
+                }
+
+                noArtCache.put(finalKey, Boolean.TRUE);
+                JSObject none = new JSObject();
+                none.put("hasArt", false);
+                call.resolve(none);
+            } catch (Exception e) {
+                JSObject none = new JSObject();
+                none.put("hasArt", false);
+                call.resolve(none);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void prepararAudioReproduccion(PluginCall call) {
+        String ruta = safeStr(call.getString("ruta", ""));
+        String contentUriStr = safeStr(call.getString("contentUri", ""));
+        String archivo = safeStr(call.getString("archivo", "track.mp3"));
+
+        getBridge().execute(() -> {
+            try {
+                if (!ruta.isEmpty()) {
+                    File direct = new File(ruta);
+                    if (direct.exists() && direct.canRead() && direct.length() > 0) {
+                        JSObject res = new JSObject();
+                        res.put("filePath", direct.getAbsolutePath());
+                        res.put("isTemp", false);
+                        call.resolve(res);
+                        return;
+                    }
+                }
+
+                if (contentUriStr.isEmpty()) {
+                    call.reject("Ruta o URI de audio faltante");
+                    return;
+                }
+
+                String ext = getExtensionOrDefault(archivo, "mp3");
+                File outFile = new File(getContext().getCacheDir(), "current_playback_track." + ext);
+                copyContentUriToFile(Uri.parse(contentUriStr), outFile);
+
+                if (outFile.exists() && outFile.length() > 0) {
+                    JSObject res = new JSObject();
+                    res.put("filePath", outFile.getAbsolutePath());
+                    res.put("isTemp", true);
+                    call.resolve(res);
+                } else {
+                    call.reject("No se pudo leer el flujo de audio");
+                }
+            } catch (Exception e) {
+                call.reject("Error preparando audio: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void copiarATonoAlarma(PluginCall call) {
+        String ruta = safeStr(call.getString("ruta", ""));
+        String contentUriStr = safeStr(call.getString("contentUri", ""));
+        String nombre = safeStr(call.getString("nombre", "custom_tone.mp3"));
+
+        getBridge().execute(() -> {
+            try {
+                File tonesDir = new File(getContext().getFilesDir(), "alarm_tones");
+                if (!tonesDir.exists()) tonesDir.mkdirs();
+                String safeName = new File(nombre).getName().replaceAll("[^a-zA-Z0-9._-]", "_");
+                if (safeName.isEmpty()) safeName = "custom_tone.mp3";
+                File dest = new File(tonesDir, safeName);
+
+                boolean copied = false;
+                if (!ruta.isEmpty()) {
+                    File src = new File(ruta);
+                    if (src.exists() && src.canRead() && src.length() > 0) {
+                        try (FileInputStream fis = new FileInputStream(src);
+                             FileOutputStream fos = new FileOutputStream(dest)) {
+                            byte[] buf = new byte[16384];
+                            int len;
+                            while ((len = fis.read(buf)) > 0) {
+                                fos.write(buf, 0, len);
+                            }
+                            fos.flush();
+                            copied = true;
+                        } catch (Exception ignored) {}
+                    }
+                }
+
+                if (!copied && !contentUriStr.isEmpty()) {
+                    copyContentUriToFile(Uri.parse(contentUriStr), dest);
+                    copied = dest.exists() && dest.length() > 0;
+                }
+
+                if (copied) {
+                    JSObject res = new JSObject();
+                    res.put("nombre", safeName);
+                    res.put("size", dest.length());
+                    call.resolve(res);
+                } else {
+                    call.reject("No se pudo copiar tono al almacenamiento de alarmas");
+                }
+            } catch (Exception e) {
+                call.reject("Error copiando tono: " + e.getMessage());
+            }
+        });
+    }
+
+    private Bitmap extractArtworkBitmap(String contentUriStr, String ruta, long albumId) {
+        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+        try {
+            boolean loaded = false;
+            if (!contentUriStr.isEmpty()) {
+                try {
+                    mmr.setDataSource(getContext(), Uri.parse(contentUriStr));
+                    loaded = true;
+                } catch (Exception ignored) {}
+            }
+            if (!loaded && !ruta.isEmpty()) {
+                try {
+                    mmr.setDataSource(ruta);
+                    loaded = true;
+                } catch (Exception ignored) {}
+            }
+            if (loaded) {
+                byte[] art = mmr.getEmbeddedPicture();
+                if (art != null && art.length > 0) {
+                    return decodeSampledBitmapFromBytes(art, 360, 360);
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            try { mmr.release(); } catch (Exception ignored) {}
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !contentUriStr.isEmpty()) {
+            try {
+                return getContext().getContentResolver().loadThumbnail(Uri.parse(contentUriStr), new Size(360, 360), null);
+            } catch (Exception ignored) {}
+        }
+
+        if (albumId > 0) {
+            try {
+                Uri artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), albumId);
+                try (InputStream is = getContext().getContentResolver().openInputStream(artUri)) {
+                    if (is != null) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        byte[] buf = new byte[8192];
+                        int n;
+                        while ((n = is.read(buf)) > 0) baos.write(buf, 0, n);
+                        byte[] data = baos.toByteArray();
+                        if (data.length > 0) {
+                            return decodeSampledBitmapFromBytes(data, 360, 360);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private Bitmap decodeSampledBitmapFromBytes(byte[] data, int reqW, int reqH) {
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+        int inSample = 1;
+        if (opts.outHeight > reqH || opts.outWidth > reqW) {
+            int halfH = opts.outHeight / 2;
+            int halfW = opts.outWidth / 2;
+            while ((halfH / inSample) >= reqH && (halfW / inSample) >= reqW) {
+                inSample *= 2;
+            }
+        }
+        opts.inJustDecodeBounds = false;
+        opts.inSampleSize = inSample;
+        return BitmapFactory.decodeByteArray(data, 0, data.length, opts);
+    }
+
+    private void saveScaledJpeg(Bitmap src, File outFile, int maxDim) throws Exception {
+        int w = src.getWidth();
+        int h = src.getHeight();
+        Bitmap toSave = src;
+        if (w > maxDim || h > maxDim) {
+            float ratio = Math.min((float) maxDim / (float) w, (float) maxDim / (float) h);
+            int nw = Math.max(1, Math.round(w * ratio));
+            int nh = Math.max(1, Math.round(h * ratio));
+            toSave = Bitmap.createScaledBitmap(src, nw, nh, true);
+        }
+        try (FileOutputStream fos = new FileOutputStream(outFile)) {
+            toSave.compress(Bitmap.CompressFormat.JPEG, 86, fos);
+            fos.flush();
+        } finally {
+            if (toSave != src) {
+                toSave.recycle();
+            }
+        }
+    }
+
+    private String fileToJpegDataUrl(File file) {
+        try (FileInputStream fis = new FileInputStream(file);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = fis.read(buf)) > 0) baos.write(buf, 0, n);
+            return "data:image/jpeg;base64," + Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private void copyContentUriToFile(Uri uri, File dest) throws Exception {
+        try (InputStream is = getContext().getContentResolver().openInputStream(uri);
+             FileOutputStream fos = new FileOutputStream(dest)) {
+            if (is == null) throw new Exception("InputStream null");
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = is.read(buf)) > 0) {
+                fos.write(buf, 0, n);
+            }
+            fos.flush();
+        }
+    }
+
+    private String safeStr(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private String stripExtension(String name) {
+        if (name == null) return "";
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    private String getExtensionOrDefault(String name, String defExt) {
+        if (name != null) {
+            int dot = name.lastIndexOf('.');
+            if (dot > 0 && dot < name.length() - 1) {
+                String clean = name.substring(dot + 1).toLowerCase(Locale.US).replaceAll("[^a-z0-9]", "");
+                if (!clean.isEmpty() && clean.length() <= 5) return clean;
+            }
+        }
+        return defExt;
+    }
+
+    private boolean isAudioFileSupported(String name, String mime) {
+        String lowerName = name.toLowerCase(Locale.US);
+        if (lowerName.endsWith(".mp3") || lowerName.endsWith(".m4a") || lowerName.endsWith(".wav") ||
+            lowerName.endsWith(".ogg") || lowerName.endsWith(".aac") || lowerName.endsWith(".flac") ||
+            lowerName.endsWith(".opus")) {
+            return true;
+        }
+        return mime.startsWith("audio/");
+    }
+
+    private String extractFolderName(String relPath, String dataPath) {
+        if (relPath != null && !relPath.isEmpty()) {
+            String cleaned = relPath.replace('\\\\', '/');
+            while (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+            int idx = cleaned.lastIndexOf('/');
+            String seg = idx >= 0 ? cleaned.substring(idx + 1) : cleaned;
+            if (!seg.isEmpty()) return seg;
+        }
+        if (dataPath != null && !dataPath.isEmpty()) {
+            File parent = new File(dataPath).getParentFile();
+            if (parent != null && parent.getName() != null && !parent.getName().isEmpty()) {
+                return parent.getName();
+            }
+        }
+        return "Principal";
+    }
+
+    private String buildStableSig(String baseName, long size) {
+        String clean = baseName.toLowerCase(Locale.US).replaceAll("\\\\s+", " ").trim();
+        return clean + "__" + size;
+    }
+
+    private String sanitizeKey(String raw) {
+        if (raw == null) return "";
+        return raw.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+}
+''')
+
+
+# ------------------------------------------------------------------------------
+# 7. MainActivity.java: Registra MonarcaAlarm y MonarcaMedia
 # ------------------------------------------------------------------------------
 write_java('MainActivity.java', '''
 package com.monarca.app;
@@ -1748,6 +2341,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(MonarcaAlarmPlugin.class);
+        registerPlugin(MonarcaMediaPlugin.class);
         super.onCreate(savedInstanceState);
         handleAlarmIntent(getIntent());
     }
@@ -1797,8 +2391,7 @@ public class MainActivity extends BridgeActivity {
 
 
 # ------------------------------------------------------------------------------
-# 8. AndroidManifest.xml: Permisos (incl. FOREGROUND_SERVICE_MEDIA_PLAYBACK e
-#    ignorar optimización batería), Service, Receivers y AlarmAlertActivity
+# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Alarma e Ignorar batería)
 # ------------------------------------------------------------------------------
 manifest_path = 'android/app/src/main/AndroidManifest.xml'
 if os.path.exists(manifest_path):
@@ -1817,12 +2410,16 @@ if os.path.exists(manifest_path):
         'android.permission.FOREGROUND_SERVICE',
         'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
         'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+        'android.permission.READ_MEDIA_AUDIO',
     ]
 
     perms_to_add = []
     for perm in required_permissions:
         if f'android:name="{perm}"' not in content:
             perms_to_add.append(f'    <uses-permission android:name="{perm}" />')
+
+    if 'android.permission.READ_EXTERNAL_STORAGE' not in content:
+        perms_to_add.append('    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />')
 
     if perms_to_add:
         content = content.replace('</manifest>', '\n'.join(perms_to_add) + '\n</manifest>')

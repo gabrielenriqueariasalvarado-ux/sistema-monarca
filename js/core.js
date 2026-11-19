@@ -62,6 +62,7 @@ const DEFAULT_STATE = {
     rutinas: [],
     rutinaCalentamiento: [],
     rutinaPlaylistDefaultId: null,
+    reproductorPlaylists: [],
     ejercicios: [],
     salud: [],
     menteAtributos: {

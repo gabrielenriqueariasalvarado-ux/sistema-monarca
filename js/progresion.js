@@ -902,26 +902,50 @@ function blobABase64Alarma(blob) {
 }
 
 function sincronizarTonosConNativo(monarcaAlarm, qList) {
-    if (!monarcaAlarm || typeof monarcaAlarm.guardarTonoAlarma !== 'function') {
+    if (!window.MonarcaPlayer) {
         return Promise.resolve();
     }
-    if (!window.MonarcaPlayer || typeof window.MonarcaPlayer.obtenerAudioBlob !== 'function') {
-        return Promise.resolve();
-    }
+
+    var monarcaMedia = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaMedia)
+        ? window.Capacitor.Plugins.MonarcaMedia
+        : null;
 
     var promesas = [];
     (qList || []).forEach(function(q) {
-        if (!q || !q.id || q.tonoTipo !== 'cancion' || !q.tonoCancionId) return;
+        if (!q || !q.id || q.tonoTipo !== 'cancion' || (!q.tonoCancionId && !q.tonoCancionSig)) return;
         var safeName = 'tone_' + String(q.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp3';
-        if (TONOS_NATIVOS_SINCRONIZADOS[safeName] === q.tonoCancionId) return;
+        var syncKey = q.tonoCancionSig || q.tonoCancionId;
+        if (TONOS_NATIVOS_SINCRONIZADOS[safeName] === syncKey) return;
 
-        var p = window.MonarcaPlayer.obtenerAudioBlob(q.tonoCancionId)
+        var meta = (typeof window.MonarcaPlayer.buscarCancionPorIdOSig === 'function')
+            ? window.MonarcaPlayer.buscarCancionPorIdOSig(q.tonoCancionId, q.tonoCancionSig)
+            : null;
+
+        if (meta && meta.origen === 'mediastore' && monarcaMedia && typeof monarcaMedia.copiarATonoAlarma === 'function') {
+            var pNat = monarcaMedia.copiarATonoAlarma({
+                ruta: meta.ruta || '',
+                contentUri: meta.contentUri || '',
+                nombre: safeName
+            }).then(function() {
+                TONOS_NATIVOS_SINCRONIZADOS[safeName] = syncKey;
+            }).catch(function(err) {
+                console.warn("[Sincronizar Tono Nativo]", err);
+            });
+            promesas.push(pNat);
+            return;
+        }
+
+        if (!monarcaAlarm || typeof monarcaAlarm.guardarTonoAlarma !== 'function' || typeof window.MonarcaPlayer.obtenerAudioBlob !== 'function') {
+            return;
+        }
+
+        var p = window.MonarcaPlayer.obtenerAudioBlob(q.tonoCancionId, q.tonoCancionSig)
             .then(function(blob) {
                 if (!blob) return;
                 return blobABase64Alarma(blob).then(function(b64) {
                     if (!b64) return;
                     return monarcaAlarm.guardarTonoAlarma({ nombre: safeName, base64: b64 }).then(function() {
-                        TONOS_NATIVOS_SINCRONIZADOS[safeName] = q.tonoCancionId;
+                        TONOS_NATIVOS_SINCRONIZADOS[safeName] = syncKey;
                     });
                 });
             })
@@ -951,7 +975,7 @@ function programarAlarmasNativasQuests() {
         qList.forEach(function(q, idx) {
             if (!q || typeof q !== 'object' || !q.id) return;
 
-            var safeName = (q.tonoTipo === 'cancion' && q.tonoCancionId)
+            var safeName = (q.tonoTipo === 'cancion' && (q.tonoCancionId || q.tonoCancionSig))
                 ? ('tone_' + String(q.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '.mp3')
                 : (q.tonoTipo || 'default');
             var esOmitible = (q.esOmitible !== false);
@@ -1257,13 +1281,30 @@ function iniciarAlarmaContinuaQuest(q) {
     // 3. Audio de la Alarma (Pista MP3 de la biblioteca o Sintetizador continuo)
     var tonoTipo = q ? q.tonoTipo : 'tono_tactico';
     var tonoCancionId = q ? q.tonoCancionId : null;
+    var tonoCancionSig = q ? q.tonoCancionSig : null;
 
-    if (tonoTipo === 'cancion' && tonoCancionId && window.MonarcaPlayer && typeof window.MonarcaPlayer.obtenerAudioBlob === 'function') {
-        window.MonarcaPlayer.obtenerAudioBlob(tonoCancionId).then(function(blob) {
-            if (blob) {
-                if (ALARMA_AUDIO_BLOB_URL) URL.revokeObjectURL(ALARMA_AUDIO_BLOB_URL);
-                ALARMA_AUDIO_BLOB_URL = URL.createObjectURL(blob);
-                ALARMA_AUDIO_INSTANCE = new Audio(ALARMA_AUDIO_BLOB_URL);
+    if (tonoTipo === 'cancion' && (tonoCancionId || tonoCancionSig) && window.MonarcaPlayer) {
+        var metaAlarma = (typeof window.MonarcaPlayer.buscarCancionPorIdOSig === 'function')
+            ? window.MonarcaPlayer.buscarCancionPorIdOSig(tonoCancionId, tonoCancionSig)
+            : null;
+        var promAlarma = (metaAlarma && typeof window.MonarcaPlayer.prepararUrlReproduccion === 'function')
+            ? window.MonarcaPlayer.prepararUrlReproduccion(metaAlarma)
+            : (typeof window.MonarcaPlayer.obtenerAudioBlob === 'function'
+                ? window.MonarcaPlayer.obtenerAudioBlob(tonoCancionId, tonoCancionSig).then(function(blob) {
+                    return blob ? { src: URL.createObjectURL(blob), esBlobUrl: true } : null;
+                })
+                : Promise.resolve(null));
+
+        promAlarma.then(function(prep) {
+            if (prep && prep.src) {
+                if (ALARMA_AUDIO_BLOB_URL) {
+                    try { URL.revokeObjectURL(ALARMA_AUDIO_BLOB_URL); } catch (e) {}
+                    ALARMA_AUDIO_BLOB_URL = null;
+                }
+                if (prep.esBlobUrl) {
+                    ALARMA_AUDIO_BLOB_URL = prep.src;
+                }
+                ALARMA_AUDIO_INSTANCE = new Audio(prep.src);
                 ALARMA_AUDIO_INSTANCE.loop = true;
                 ALARMA_AUDIO_INSTANCE.volume = 1.0;
                 var playProm = ALARMA_AUDIO_INSTANCE.play();
@@ -1386,16 +1427,34 @@ function probarTonoAlarmaModal() {
     var tipo = selTipo ? selTipo.value : 'tono_tactico';
     var cancionId = selCancion ? selCancion.value : null;
 
-    if (tipo === 'cancion' && cancionId && window.MonarcaPlayer && typeof window.MonarcaPlayer.obtenerAudioBlob === 'function') {
-        window.MonarcaPlayer.obtenerAudioBlob(cancionId).then(function(blob) {
-            if (blob) {
-                var url = URL.createObjectURL(blob);
-                PROBANDO_TONO_INSTANCE = new Audio(url);
+    if (tipo === 'cancion' && cancionId && window.MonarcaPlayer) {
+        var metaPrueba = (typeof window.MonarcaPlayer.buscarCancionPorIdOSig === 'function')
+            ? window.MonarcaPlayer.buscarCancionPorIdOSig(cancionId, null)
+            : null;
+        var promPrueba = (metaPrueba && typeof window.MonarcaPlayer.prepararUrlReproduccion === 'function')
+            ? window.MonarcaPlayer.prepararUrlReproduccion(metaPrueba)
+            : (typeof window.MonarcaPlayer.obtenerAudioBlob === 'function'
+                ? window.MonarcaPlayer.obtenerAudioBlob(cancionId).then(function(blob) {
+                    return blob ? { src: URL.createObjectURL(blob), esBlobUrl: true } : null;
+                })
+                : Promise.resolve(null));
+
+        promPrueba.then(function(prep) {
+            if (prep && prep.src) {
+                PROBANDO_TONO_INSTANCE = new Audio(prep.src);
                 PROBANDO_TONO_INSTANCE.volume = 1.0;
                 PROBANDO_TONO_INSTANCE.play();
                 if (btn) btn.innerHTML = '⏹ Detener Prueba';
-                setTimeout(function() { detenerPruebaTonoAlarma(); if (btn) btn.innerHTML = '▶ Probar Tono'; }, 8000);
+                setTimeout(function() {
+                    detenerPruebaTonoAlarma();
+                    if (prep.esBlobUrl) {
+                        try { URL.revokeObjectURL(prep.src); } catch (e) {}
+                    }
+                    if (btn) btn.innerHTML = '▶ Probar Tono';
+                }, 8000);
             }
+        }).catch(function() {
+            reproducirGolpeAlarmaSintetizada('tono_tactico');
         });
     } else {
         reproducirGolpeAlarmaSintetizada(tipo);
@@ -2926,6 +2985,11 @@ function confirmarAgregarQuestDiaria() {
     var selTonoCancion = document.getElementById('modal-qd-tono-cancion');
     var tonoTipo = (tipoTiempo === 'programada' && selTonoTipo) ? selTonoTipo.value : 'tono_tactico';
     var tonoCancionId = (tonoTipo === 'cancion' && selTonoCancion) ? selTonoCancion.value : null;
+    var tonoCancionSig = null;
+    if (tonoTipo === 'cancion' && tonoCancionId && window.MonarcaPlayer && typeof window.MonarcaPlayer.buscarCancionPorIdOSig === 'function') {
+        var metaTono = window.MonarcaPlayer.buscarCancionPorIdOSig(tonoCancionId, null);
+        if (metaTono && metaTono.sig) tonoCancionSig = metaTono.sig;
+    }
 
     // Obtener objeto de penitencia seleccionado
     var penitenciaId = 'sin_penitencia';
@@ -3010,6 +3074,7 @@ function confirmarAgregarQuestDiaria() {
         esOmitible: esOmitible,
         tonoTipo: tonoTipo,
         tonoCancionId: tonoCancionId,
+        tonoCancionSig: tonoCancionSig,
         penitenciaId: penitenciaId,
         penitenciaNombre: penitenciaNombre,
         penitenciaDesc: penitenciaDesc,

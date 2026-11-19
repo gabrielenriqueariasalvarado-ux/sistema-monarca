@@ -14,4 +14,11 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         console.warn("[Monarca Native] MonarcaAlarm register error:", e);
     }
+
+    try {
+        window.Capacitor.Plugins.MonarcaMedia = registerPlugin('MonarcaMedia');
+        console.log("[Monarca Native] Plugin MonarcaMedia registrado con éxito.");
+    } catch (e) {
+        console.warn("[Monarca Native] MonarcaMedia register error:", e);
+    }
 }

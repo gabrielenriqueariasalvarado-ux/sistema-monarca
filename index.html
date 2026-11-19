@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.61">
+    <link rel="stylesheet" href="style.css?v=10.62">
 </head>
 <body>
 
@@ -3672,24 +3672,35 @@
         <input type="file" id="input-file-mp3-monarca" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" multiple style="display: none;">
         <input type="file" id="input-folder-mp3-monarca" webkitdirectory directory multiple style="display: none;">
 
-        <!-- TARJETA HERO DEL REPRODUCTOR -->
-        <div class="player-hero-card">
-            <!-- VINILO CIBERNÉTICO ANIMADO -->
-            <div class="player-vinyl-wrapper">
-                <div id="player-vinyl-disc" class="player-vinyl-disc">
-                    <div class="player-vinyl-center">
-                        <div class="player-vinyl-center-dot"></div>
+        <!-- TARJETA HERO DEL REPRODUCTOR (ESTILO CARÁTULA LARK + EMILY AMBIENT) -->
+        <div id="player-hero-card" class="player-hero-card">
+            <!-- PORTADA REAL CUADRADA (O VINILO FALLBACK SI NO HAY CARÁTULA) -->
+            <div id="player-artwork-stage" class="player-artwork-stage">
+                <img id="player-artwork-img" class="player-artwork-img" src="" alt="Portada del álbum" style="display: none;">
+                <div id="player-vinyl-fallback" class="player-vinyl-wrapper">
+                    <div id="player-vinyl-disc" class="player-vinyl-disc">
+                        <div class="player-vinyl-center">
+                            <div class="player-vinyl-center-dot"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- TÍTULO Y SUBTÍTULO -->
-            <h2 id="player-current-title" style="margin: 0 0 4px 0; font-size: 19px; font-weight: 800; color: #f8fafc; letter-spacing: -0.3px; word-break: break-word;">
-                Ninguna canción seleccionada
-            </h2>
-            <p id="player-current-subtitle" style="margin: 0; font-size: 12.5px; color: #38bdf8; font-weight: 600;">
-                Sube tus canciones MP3 para comenzar
-            </p>
+            <!-- TÍTULO, AUTOR / ARTISTA Y ACCESO RÁPIDO A LISTAS -->
+            <div class="player-hero-track-row">
+                <div class="player-hero-track-meta">
+                    <h2 id="player-current-title" class="player-hero-title">
+                        Ninguna canción seleccionada
+                    </h2>
+                    <div id="player-current-artist" class="player-hero-artist" style="display: none;"></div>
+                    <p id="player-current-subtitle" class="player-hero-subtitle">
+                        Sube tus canciones MP3 o concede permiso para detectar tu biblioteca
+                    </p>
+                </div>
+                <button type="button" id="btn-hero-add-playlist" class="btn-hero-add-playlist" onclick="window.MonarcaPlayer.agregarActualAPlaylist()" title="Añadir esta canción a una lista de reproducción" style="display: none;">
+                    ➕ Lista
+                </button>
+            </div>
 
             <!-- ONDAS DE SONIDO / EQUALIZER -->
             <div id="player-sound-waves" class="player-waves-container">
@@ -3749,27 +3760,45 @@
             </div>
         </div>
 
-        <!-- SECCIÓN: BIBLIOTECA DE CANCIONES (INDEXEDDB) -->
+        <!-- SECCIÓN: BIBLIOTECA DE CANCIONES (MEDIASTORE NATIVO ANDROID + INDEXEDDB RESPALDO) -->
         <div class="card" style="margin-bottom: 24px; padding: 18px 20px;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                 <div>
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
-                        <span>📂 Biblioteca Offline</span>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>🎵 Biblioteca Musical</span>
                         <span id="player-total-songs-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">0 canciones</span>
                         <span id="player-total-size-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: #94a3b8;">0 MB</span>
                     </h3>
-                    <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Archivos guardados en tu dispositivo. Suenan sin internet ni consumo de megas.</p>
+                    <p id="player-library-origin-desc" style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Archivos guardados en tu dispositivo. Suenan sin internet ni consumo de megas.</p>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button type="button" id="btn-player-reescanear" class="btn-pl-action-add" style="display: none; padding: 7px 12px; font-size: 12px;" onclick="window.MonarcaPlayer.reescanearBibliotecaNativa(true)" title="Buscar nuevas canciones guardadas en el teléfono">
+                        🔄 Re-escanear
+                    </button>
                     <button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById('input-file-mp3-monarca').click()">
                         <span>+ Cargar MP3s</span>
                     </button>
                     <button type="button" class="btn-cargar-mp3-action" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);" onclick="document.getElementById('input-folder-mp3-monarca').click()" title="Cargar una carpeta completa con canciones">
                         <span>📂 + Carpeta</span>
                     </button>
-                    <button type="button" class="btn-system-secondary" style="font-size: 11.5px; padding: 7px 12px; color: #f87171;" onclick="window.MonarcaPlayer.vaciarBiblioteca()" title="Vaciar biblioteca">
+                    <button type="button" id="btn-player-vaciar-idb" class="btn-system-secondary" style="font-size: 11.5px; padding: 7px 12px; color: #f87171;" onclick="window.MonarcaPlayer.vaciarBiblioteca()" title="Vaciar caché de archivos cargados manualmente">
                         Vaciar
                     </button>
+                </div>
+            </div>
+
+            <!-- BANNER DE PERMISO DE AUDIO ANDROID (MEDIASTORE AUTOMÁTICO) -->
+            <div id="player-permiso-banner" class="player-permiso-banner" style="display: none;">
+                <div class="player-permiso-info">
+                    <span class="player-permiso-ico">🎧</span>
+                    <div>
+                        <div class="player-permiso-title">Detecta automáticamente toda tu música del teléfono</div>
+                        <div class="player-permiso-desc">Concede permiso de audio una vez para leer tus MP3, carpetas, portadas y artistas sin tener que subir nada (igual que Lark Player).</div>
+                    </div>
+                </div>
+                <div class="player-permiso-actions">
+                    <button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.solicitarPermisoYScanNativo()">🔓 Permitir Música</button>
+                    <button type="button" id="btn-player-abrir-ajustes" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.abrirAjustesAudioNativo()" style="display: none;">⚙️ Ajustes</button>
                 </div>
             </div>
 
@@ -5984,7 +6013,8 @@
             <div id="mini-player-fill" class="mini-player-fill"></div>
         </div>
         <div id="mini-player-disc-icon" class="mini-player-disc-icon">
-            🎵
+            <img id="mini-player-thumb-img" src="" alt="" style="display: none;">
+            <span id="mini-player-disc-glyph">🎵</span>
         </div>
         <div class="mini-player-text">
             <div id="mini-player-title" class="mini-player-title">Cargando música...</div>
@@ -6068,26 +6098,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.61"></script>
-    <script src="js/perfil.js?v=10.61"></script>
-    <script src="js/progresion.js?v=10.61"></script>
-    <script src="js/estado-personal.js?v=10.61"></script>
-    <script src="js/finanzas.js?v=10.61"></script>
-    <script src="js/ideas.js?v=10.61"></script>
-    <script src="js/dinamicas.js?v=10.61"></script>
-    <script src="js/calendario.js?v=10.61"></script>
-    <script src="js/inventario.js?v=10.61"></script>
-    <script src="js/reproductor.js?v=10.61"></script>
-    <script src="js/jarvis-voz.js?v=10.61"></script>
+    <script src="js/core.js?v=10.62"></script>
+    <script src="js/perfil.js?v=10.62"></script>
+    <script src="js/progresion.js?v=10.62"></script>
+    <script src="js/estado-personal.js?v=10.62"></script>
+    <script src="js/finanzas.js?v=10.62"></script>
+    <script src="js/ideas.js?v=10.62"></script>
+    <script src="js/dinamicas.js?v=10.62"></script>
+    <script src="js/calendario.js?v=10.62"></script>
+    <script src="js/inventario.js?v=10.62"></script>
+    <script src="js/reproductor.js?v=10.62"></script>
+    <script src="js/jarvis-voz.js?v=10.62"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.61"></script>
+    <script type="module" src="js/firebase-config.js?v=10.62"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.61')
+                navigator.serviceWorker.register('sw.js?v=10.62')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

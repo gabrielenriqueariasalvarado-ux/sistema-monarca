@@ -14,8 +14,8 @@
 
     var state = {
         db: null,
-        canciones: [],        // Metadatos { id, nombre, carpeta, tamano, tipo, fecha }
-        playlists: [],        // { id, nombre, cancionIds: [] }
+        canciones: [],        // Metadatos { id, sig, origen, nombre, artista, album, carpeta, tamano, tipo, fecha, ruta, contentUri, albumId }
+        playlists: [],        // { id, nombre, fecha, fechaActualizacion, cancionIds: [], cancionSigs: [] }
         subtabActual: 'todas',// 'todas' | 'carpetas' | 'playlists'
         carpetaSeleccionada: null,
         playlistSeleccionada: null,
@@ -46,11 +46,191 @@
         _modalAgregarSongId: null,
         _modalAgregarPlaylistId: null,
         _modalAgregarFiltro: '',
-        _modalAgregarSeleccionIds: []
+        _modalAgregarSeleccionIds: [],
+        // Soporte nativo MediaStore & portadas
+        mediaPermiso: 'unknown', // 'granted' | 'denied' | 'prompt' | 'unknown'
+        mediaPermisoChecked: false,
+        nativoActivo: false,
+        artworkCache: {},        // id -> url o 'none'
+        artworkDataUrlCache: {}, // id -> dataUrl (solo para portada activa/MediaSession)
+        _artQueue: [],
+        _artInflight: 0,
+        _artQueuedIds: {},
+        _artObserver: null
     };
 
+    function obtenerPluginMonarcaMedia() {
+        try {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaMedia) {
+                return window.Capacitor.Plugins.MonarcaMedia;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function convertirArchivoAWebUrl(filePath) {
+        if (!filePath) return '';
+        try {
+            if (window.Capacitor && typeof window.Capacitor.convertFileSrc === 'function') {
+                return window.Capacitor.convertFileSrc(filePath);
+            }
+        } catch (e) {}
+        return filePath.indexOf('file://') === 0 ? filePath : ('file://' + filePath);
+    }
+
+    function generarFirmaCancion(nombreBase, tamano) {
+        var clean = String(nombreBase || '')
+            .replace(/\.[a-z0-9]{2,5}$/i, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        return clean + '__' + (Number(tamano) || 0);
+    }
+
+    function obtenerTituloLimpoYArtista(meta) {
+        if (!meta) return { titulo: 'Canción Offline', artista: '' };
+        var art = (meta.artista && String(meta.artista).trim() && !/^<unknown>$/i.test(meta.artista))
+            ? String(meta.artista).trim()
+            : '';
+        var tit = meta.nombre ? String(meta.nombre).trim() : 'Sin título';
+        if (!art) {
+            var parsed = parsearTituloYArtista(tit);
+            if (parsed && parsed.artista && parsed.artista !== 'Emily OS') {
+                return { titulo: parsed.titulo || tit, artista: parsed.artista };
+            }
+        }
+        return { titulo: tit, artista: art || 'Artista desconocido' };
+    }
+
+    // Lector ligero de ID3v2 (TIT2, TPE1, TALB, APIC) para archivos importados desde navegador/PC
+    function leerTextoFrameID3(bytes, encByte) {
+        if (!bytes || bytes.length === 0) return '';
+        try {
+            if (encByte === 1 || encByte === 2) {
+                var offset = 0;
+                var littleEndian = (encByte === 1);
+                if (bytes.length >= 2) {
+                    if (bytes[0] === 0xFF && bytes[1] === 0xFE) { littleEndian = true; offset = 2; }
+                    else if (bytes[0] === 0xFE && bytes[1] === 0xFF) { littleEndian = false; offset = 2; }
+                }
+                var out = [];
+                for (var i = offset; i + 1 < bytes.length; i += 2) {
+                    var code = littleEndian ? (bytes[i] | (bytes[i + 1] << 8)) : ((bytes[i] << 8) | bytes[i + 1]);
+                    if (code === 0) break;
+                    out.push(String.fromCharCode(code));
+                }
+                return out.join('').trim();
+            }
+            var end = bytes.length;
+            while (end > 0 && bytes[end - 1] === 0) end--;
+            var slice = bytes.subarray(0, end);
+            if (encByte === 3 && typeof TextDecoder !== 'undefined') {
+                return new TextDecoder('utf-8').decode(slice).replace(/\0/g, '').trim();
+            }
+            if (typeof TextDecoder !== 'undefined') {
+                return new TextDecoder('latin1').decode(slice).replace(/\0/g, '').trim();
+            }
+            var s = '';
+            for (var k = 0; k < slice.length; k++) s += String.fromCharCode(slice[k]);
+            return s.replace(/\0/g, '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function extraerTagsID3v2File(file) {
+        if (!file || typeof file.slice !== 'function' || file.size < 24) return Promise.resolve({});
+        var maxRead = Math.min(file.size, 768 * 1024);
+        return file.slice(0, maxRead).arrayBuffer().then(function(buf) {
+            var u8 = new Uint8Array(buf);
+            if (u8.length < 10 || u8[0] !== 0x49 || u8[1] !== 0x44 || u8[2] !== 0x33) {
+                return {};
+            }
+            var ver = u8[3];
+            if (ver < 2 || ver > 4) return {};
+            var tagSize = ((u8[6] & 0x7F) << 21) | ((u8[7] & 0x7F) << 14) | ((u8[8] & 0x7F) << 7) | (u8[9] & 0x7F);
+            var tagEnd = Math.min(u8.length, 10 + tagSize);
+            var pos = 10;
+            var result = {};
+
+            // Saltar extended header si existe (bit 6 del byte de flags)
+            if ((u8[5] & 0x40) !== 0 && pos + 4 <= tagEnd) {
+                var extSz = (ver === 4)
+                    ? (((u8[pos] & 0x7F) << 21) | ((u8[pos + 1] & 0x7F) << 14) | ((u8[pos + 2] & 0x7F) << 7) | (u8[pos + 3] & 0x7F))
+                    : ((u8[pos] << 24) | (u8[pos + 1] << 16) | (u8[pos + 2] << 8) | u8[pos + 3]);
+                pos += (ver === 4) ? extSz : (extSz + 4);
+            }
+
+            while (pos + (ver === 2 ? 6 : 10) <= tagEnd) {
+                var fid = '';
+                var fsize = 0;
+                var hdrLen = (ver === 2) ? 6 : 10;
+                if (ver === 2) {
+                    fid = String.fromCharCode(u8[pos], u8[pos + 1], u8[pos + 2]);
+                    fsize = (u8[pos + 3] << 16) | (u8[pos + 4] << 8) | u8[pos + 5];
+                } else {
+                    fid = String.fromCharCode(u8[pos], u8[pos + 1], u8[pos + 2], u8[pos + 3]);
+                    if (ver === 4) {
+                        fsize = ((u8[pos + 4] & 0x7F) << 21) | ((u8[pos + 5] & 0x7F) << 14) | ((u8[pos + 6] & 0x7F) << 7) | (u8[pos + 7] & 0x7F);
+                    } else {
+                        fsize = ((u8[pos + 4] << 24) >>> 0) + (u8[pos + 5] << 16) + (u8[pos + 6] << 8) + u8[pos + 7];
+                    }
+                }
+                if (!/^[A-Z0-9]{3,4}$/.test(fid) || fsize <= 0 || pos + hdrLen + fsize > tagEnd) {
+                    break;
+                }
+                var payload = u8.subarray(pos + hdrLen, pos + hdrLen + fsize);
+                pos += hdrLen + fsize;
+
+                if (fid === 'TIT2' || fid === 'TT2') {
+                    var t = leerTextoFrameID3(payload.subarray(1), payload[0]);
+                    if (t) result.titulo = t;
+                } else if (fid === 'TPE1' || fid === 'TP1') {
+                    var a = leerTextoFrameID3(payload.subarray(1), payload[0]);
+                    if (a) result.artista = a;
+                } else if (fid === 'TALB' || fid === 'TAL') {
+                    var al = leerTextoFrameID3(payload.subarray(1), payload[0]);
+                    if (al) result.album = al;
+                } else if ((fid === 'APIC' || fid === 'PIC') && !result.artBlob && payload.length > 8) {
+                    var enc = payload[0];
+                    var p = 1;
+                    var mime = 'image/jpeg';
+                    if (fid === 'APIC') {
+                        var mimeEnd = p;
+                        while (mimeEnd < payload.length && payload[mimeEnd] !== 0) mimeEnd++;
+                        var rawMime = '';
+                        for (var m = p; m < mimeEnd; m++) rawMime += String.fromCharCode(payload[m]);
+                        if (rawMime && rawMime.indexOf('/') !== -1) mime = rawMime;
+                        p = mimeEnd + 1;
+                    } else {
+                        var fmt = String.fromCharCode(payload[p], payload[p + 1], payload[p + 2]).toUpperCase();
+                        mime = (fmt === 'PNG') ? 'image/png' : 'image/jpeg';
+                        p += 3;
+                    }
+                    p += 1; // picture type byte
+                    if (enc === 1 || enc === 2) {
+                        while (p + 1 < payload.length && !(payload[p] === 0 && payload[p + 1] === 0)) p += 2;
+                        p += 2;
+                    } else {
+                        while (p < payload.length && payload[p] !== 0) p++;
+                        p += 1;
+                    }
+                    if (p < payload.length) {
+                        var imgSlice = payload.subarray(p);
+                        if (imgSlice.length > 64) {
+                            result.artBlob = new Blob([imgSlice], { type: mime });
+                        }
+                    }
+                }
+            }
+            return result;
+        }).catch(function() {
+            return {};
+        });
+    }
+
     // ----------------------------------------------------------------------
-    // 1. INICIALIZACIÓN DE INDEXEDDB
+    // 1. INICIALIZACIÓN DE INDEXEDDB (RESPALDO WEB/PC Y TRANSFERENCIAS)
     // ----------------------------------------------------------------------
     function abrirDB() {
         return new Promise(function(resolve, reject) {
@@ -76,11 +256,8 @@
         });
     }
 
-    // ----------------------------------------------------------------------
-    // 2. OPERACIONES DE BIBLIOTECA EN INDEXEDDB (OPTIMIZADO PARA ALTO VOLUMEN)
-    // ----------------------------------------------------------------------
-    function cargarMetadatosCanciones() {
-        var prom = abrirDB().then(function(db) {
+    function cargarCancionesDesdeIDB() {
+        return abrirDB().then(function(db) {
             return new Promise(function(resolve, reject) {
                 var tx = db.transaction([STORE_NAME], 'readonly');
                 var store = tx.objectStore(STORE_NAME);
@@ -91,21 +268,32 @@
                     var cursor = e.target.result;
                     if (cursor) {
                         var val = cursor.value;
+                        var archivoNom = val.archivo || val.nombre || '';
+                        var sig = val.sig || generarFirmaCancion(archivoNom, val.tamano);
+                        if (val.artBlob) {
+                            try {
+                                if (!state.artworkCache[val.id]) {
+                                    state.artworkCache[val.id] = URL.createObjectURL(val.artBlob);
+                                }
+                            } catch (artErr) {}
+                        }
                         lista.push({
                             id: val.id,
+                            sig: sig,
+                            origen: 'idb',
                             nombre: val.nombre,
+                            artista: val.artista || '',
+                            album: val.album || '',
                             carpeta: val.carpeta || 'Principal',
                             tamano: val.tamano,
                             tipo: val.tipo,
-                            fecha: val.fecha
+                            fecha: val.fecha,
+                            archivo: archivoNom,
+                            tienePortada: !!val.artBlob
                         });
                         cursor.continue();
                     } else {
                         lista.sort(function(a, b) { return (b.fecha || 0) - (a.fecha || 0); });
-                        state.canciones = lista;
-                        state._dbReady = true;
-                        cargarPlaylistsStorage();
-                        notificarCambioPlaylistsYDefault();
                         resolve(lista);
                     }
                 };
@@ -113,12 +301,203 @@
                     reject(e.target.error);
                 };
             });
+        }).catch(function() {
+            return [];
+        });
+    }
+
+    function cargarCancionesDesdeMediaStore() {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.estadoPermisoAudio !== 'function' || typeof plugin.escanearMusica !== 'function') {
+            return Promise.resolve({ nativoDisponible: false, granted: false, canciones: [] });
+        }
+        return plugin.estadoPermisoAudio().then(function(perm) {
+            state.mediaPermisoChecked = true;
+            state.mediaPermiso = perm && perm.granted ? 'granted' : ((perm && perm.state) || 'prompt');
+            if (!perm || !perm.granted) {
+                return { nativoDisponible: true, granted: false, state: state.mediaPermiso, canciones: [] };
+            }
+            return plugin.escanearMusica().then(function(scan) {
+                var rawList = (scan && Array.isArray(scan.canciones)) ? scan.canciones : [];
+                var canciones = rawList.map(function(m) {
+                    return {
+                        id: String(m.id || ('ms_' + m.mediaId)),
+                        mediaId: m.mediaId,
+                        sig: m.sig || generarFirmaCancion(m.archivo || m.nombre, m.tamano),
+                        origen: 'mediastore',
+                        nombre: m.nombre || 'Sin título',
+                        artista: m.artista || '',
+                        album: m.album || '',
+                        albumId: m.albumId || 0,
+                        carpeta: m.carpeta || 'Principal',
+                        tamano: Number(m.tamano) || 0,
+                        duracionMs: Number(m.duracionMs) || 0,
+                        tipo: m.tipo || 'audio/mpeg',
+                        archivo: m.archivo || '',
+                        ruta: m.ruta || '',
+                        contentUri: m.contentUri || '',
+                        fecha: Number(m.fecha) || Date.now()
+                    };
+                });
+                return { nativoDisponible: true, granted: true, state: 'granted', canciones: canciones };
+            });
+        }).catch(function(err) {
+            console.warn('[Reproductor Nativo] Error escaneando MediaStore:', err);
+            return { nativoDisponible: true, granted: false, state: state.mediaPermiso, canciones: [] };
+        });
+    }
+
+    function actualizarControlesFuenteBiblioteca() {
+        var bannerPerm = document.getElementById('player-permiso-banner');
+        var btnAjustes = document.getElementById('btn-player-abrir-ajustes');
+        var btnReescan = document.getElementById('btn-player-reescanear');
+        var descEl = document.getElementById('player-library-origin-desc');
+        var plugin = obtenerPluginMonarcaMedia();
+
+        if (plugin) {
+            if (state.mediaPermiso === 'granted') {
+                if (bannerPerm) bannerPerm.style.display = 'none';
+                if (btnReescan) btnReescan.style.display = 'inline-flex';
+                if (descEl) {
+                    descEl.textContent = 'Sincronizado automáticamente con las carpetas de música reales de tu teléfono.';
+                }
+            } else {
+                if (bannerPerm) bannerPerm.style.display = 'flex';
+                if (btnReescan) btnReescan.style.display = 'none';
+                if (btnAjustes) {
+                    btnAjustes.style.display = (state.mediaPermiso === 'denied' || state.mediaPermiso === 'prompt-with-rationale') ? 'inline-flex' : 'none';
+                }
+                if (descEl) {
+                    descEl.textContent = 'Concede permiso de audio para detectar tus canciones reales o carga MP3 manualmente.';
+                }
+            }
+        } else {
+            if (bannerPerm) bannerPerm.style.display = 'none';
+            if (btnReescan) btnReescan.style.display = 'none';
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 2. OPERACIONES DE BIBLIOTECA (MEDIASTORE + INDEXEDDB SIN DUPLICADOS)
+    // ----------------------------------------------------------------------
+    function cargarMetadatosCanciones() {
+        var prom = Promise.all([cargarCancionesDesdeMediaStore(), cargarCancionesDesdeIDB()]).then(function(pair) {
+            var nativo = pair[0] || { nativoDisponible: false, granted: false, canciones: [] };
+            var idbList = Array.isArray(pair[1]) ? pair[1] : [];
+
+            state.nativoActivo = !!(nativo.nativoDisponible && nativo.granted);
+            var combinadas = [];
+            var sigVistas = {};
+
+            if (nativo.granted && Array.isArray(nativo.canciones)) {
+                nativo.canciones.forEach(function(item) {
+                    combinadas.push(item);
+                    if (item.sig) sigVistas[item.sig] = true;
+                });
+            }
+
+            idbList.forEach(function(item) {
+                if (item.sig && sigVistas[item.sig]) return;
+                combinadas.push(item);
+            });
+
+            state.canciones = combinadas;
+            state._dbReady = true;
+            cargarPlaylistsStorage();
+            reconciliarPlaylistsConCanciones();
+            notificarCambioPlaylistsYDefault();
+            actualizarControlesFuenteBiblioteca();
+            return combinadas;
         });
         state._dbReadyPromise = prom;
         return prom;
     }
 
+    function solicitarPermisoYScanNativo() {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.solicitarPermisoAudio !== 'function') return Promise.resolve(false);
+        return plugin.solicitarPermisoAudio().then(function(res) {
+            state.mediaPermisoChecked = true;
+            state.mediaPermiso = (res && res.granted) ? 'granted' : 'denied';
+            return cargarMetadatosCanciones().then(function() {
+                renderizarContenidoSegunSubtab();
+                actualizarUIPlayerCompleto();
+                if (res && res.granted) {
+                    notificarPlayerToast('Se detectaron ' + state.canciones.length + ' canciones de tu dispositivo', '🎶');
+                }
+                return !!(res && res.granted);
+            });
+        }).catch(function(e) {
+            console.warn('[Reproductor Permiso]', e);
+            return false;
+        });
+    }
+
+    function reescanearBibliotecaNativa(mostrarToast) {
+        return cargarMetadatosCanciones().then(function(list) {
+            renderizarContenidoSegunSubtab();
+            actualizarUIPlayerCompleto();
+            if (mostrarToast) {
+                notificarPlayerToast('Biblioteca actualizada: ' + list.length + ' canciones', '🔄');
+            }
+            return list;
+        });
+    }
+
+    function abrirAjustesAudioNativo() {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (plugin && typeof plugin.abrirAjustesPermiso === 'function') {
+            plugin.abrirAjustesPermiso().catch(function() {});
+        }
+    }
+
+    function prepararUrlReproduccion(meta) {
+        if (!meta) return Promise.reject(new Error('Sin pista'));
+        if (meta.origen === 'mediastore') {
+            var plugin = obtenerPluginMonarcaMedia();
+            if (plugin && typeof plugin.prepararAudioReproduccion === 'function') {
+                return plugin.prepararAudioReproduccion({
+                    ruta: meta.ruta || '',
+                    contentUri: meta.contentUri || '',
+                    archivo: meta.archivo || 'track.mp3'
+                }).then(function(res) {
+                    var url = convertirArchivoAWebUrl(res && res.filePath ? res.filePath : meta.ruta);
+                    if (!url) throw new Error('Ruta nativa vacía');
+                    return { src: url, esBlobUrl: false, esNativo: true };
+                });
+            }
+            if (meta.ruta) {
+                return Promise.resolve({ src: convertirArchivoAWebUrl(meta.ruta), esBlobUrl: false, esNativo: true });
+            }
+            return Promise.reject(new Error('Plugin nativo no disponible'));
+        }
+
+        return abrirDB().then(function(db) {
+            return new Promise(function(resolve, reject) {
+                var tx = db.transaction([STORE_NAME], 'readonly');
+                var store = tx.objectStore(STORE_NAME);
+                var req = store.get(meta.id);
+                req.onsuccess = function() { resolve(req.result); };
+                req.onerror = function(e) { reject(e.target.error); };
+            });
+        }).then(function(item) {
+            if (!item || !item.blob) throw new Error('Archivo no encontrado en IndexedDB');
+            return { src: URL.createObjectURL(item.blob), esBlobUrl: true, esNativo: false, item: item };
+        });
+    }
+
     function obtenerCancionCompleta(id) {
+        var meta = state.canciones.find(function(c) { return c.id === id; });
+        if (meta && meta.origen === 'mediastore') {
+            return prepararUrlReproduccion(meta).then(function(prep) {
+                return fetch(prep.src).then(function(res) {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.blob();
+                }).then(function(blob) {
+                    return { id: meta.id, nombre: meta.nombre, artista: meta.artista, blob: blob };
+                });
+            });
+        }
         return abrirDB().then(function(db) {
             return new Promise(function(resolve, reject) {
                 var tx = db.transaction([STORE_NAME], 'readonly');
@@ -137,44 +516,51 @@
     function guardarCancionesFiles(fileList, carpetaForzada) {
         if (!fileList || fileList.length === 0) return Promise.resolve();
 
-        return abrirDB().then(function(db) {
-            return new Promise(function(resolve, reject) {
-                var tx = db.transaction([STORE_NAME], 'readwrite');
-                var store = tx.objectStore(STORE_NAME);
+        var archivosAudio = [];
+        for (var i = 0; i < fileList.length; i++) {
+            var f = fileList[i];
+            if (f && (f.type.startsWith('audio/') || /\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(f.name || ''))) {
+                archivosAudio.push(f);
+            }
+        }
+        if (archivosAudio.length === 0) return Promise.resolve();
 
-                for (var i = 0; i < fileList.length; i++) {
-                    var file = fileList[i];
-                    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/i)) {
-                        continue;
+        // Leer tags ID3v2 (título, artista, portada) antes de abrir transacción IDB
+        return Promise.all(archivosAudio.map(function(file, idx) {
+            return extraerTagsID3v2File(file).then(function(tags) {
+                var dotIdx = file.name.lastIndexOf('.');
+                var cleanName = (dotIdx > 0) ? file.name.substring(0, dotIdx) : file.name;
+                var folder = carpetaForzada || 'Principal';
+                if (file.webkitRelativePath) {
+                    var parts = file.webkitRelativePath.split('/');
+                    if (parts.length > 1) {
+                        folder = parts[parts.length - 2] || 'Principal';
                     }
-                    var dotIdx = file.name.lastIndexOf('.');
-                    var cleanName = (dotIdx > 0) ? file.name.substring(0, dotIdx) : file.name;
-                    var folder = carpetaForzada || 'Principal';
-                    if (file.webkitRelativePath) {
-                        var parts = file.webkitRelativePath.split('/');
-                        if (parts.length > 1) {
-                            folder = parts[parts.length - 2] || 'Principal';
-                        }
-                    }
-
-                    var cancionObj = {
-                        id: 'song_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 5),
-                        nombre: cleanName,
-                        carpeta: folder,
-                        tamano: file.size,
-                        tipo: file.type || 'audio/mpeg',
-                        fecha: Date.now() + i,
-                        blob: file
-                    };
-                    store.add(cancionObj);
                 }
-
-                tx.oncomplete = function() {
-                    resolve();
+                return {
+                    id: 'song_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substr(2, 5),
+                    sig: generarFirmaCancion(cleanName, file.size),
+                    nombre: (tags && tags.titulo) ? tags.titulo : cleanName,
+                    artista: (tags && tags.artista) ? tags.artista : '',
+                    album: (tags && tags.album) ? tags.album : '',
+                    archivo: file.name,
+                    carpeta: folder,
+                    tamano: file.size,
+                    tipo: file.type || 'audio/mpeg',
+                    fecha: Date.now() + idx,
+                    blob: file,
+                    artBlob: (tags && tags.artBlob) ? tags.artBlob : null
                 };
-                tx.onerror = function(err) {
-                    reject(err);
-                };
+            });
+        })).then(function(registros) {
+            return abrirDB().then(function(db) {
+                return new Promise(function(resolve, reject) {
+                    var tx = db.transaction([STORE_NAME], 'readwrite');
+                    var store = tx.objectStore(STORE_NAME);
+                    registros.forEach(function(r) { store.add(r); });
+                    tx.oncomplete = function() { resolve(); };
+                    tx.onerror = function(err) { reject(err); };
+                });
             }).then(function() {
                 return cargarMetadatosCanciones();
             });
@@ -182,30 +568,42 @@
     }
 
     function guardarBlobDirecto(nombre, blob, carpeta) {
-        return abrirDB().then(function(db) {
-            return new Promise(function(resolve, reject) {
-                var tx = db.transaction([STORE_NAME], 'readwrite');
-                var store = tx.objectStore(STORE_NAME);
-                var cancionObj = {
-                    id: 'song_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                    nombre: nombre,
-                    carpeta: carpeta || 'Descargas PC',
-                    tamano: blob.size,
-                    tipo: blob.type || 'audio/mpeg',
-                    fecha: Date.now(),
-                    blob: blob
-                };
-                var req = store.add(cancionObj);
-                req.onsuccess = function() { resolve(); };
-                req.onerror = function(e) { reject(e); };
-            }).then(function() {
-                return cargarMetadatosCanciones();
+        return extraerTagsID3v2File(blob).then(function(tags) {
+            return abrirDB().then(function(db) {
+                return new Promise(function(resolve, reject) {
+                    var tx = db.transaction([STORE_NAME], 'readwrite');
+                    var store = tx.objectStore(STORE_NAME);
+                    var cancionObj = {
+                        id: 'song_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        sig: generarFirmaCancion(nombre, blob.size),
+                        nombre: (tags && tags.titulo) ? tags.titulo : nombre,
+                        artista: (tags && tags.artista) ? tags.artista : '',
+                        album: (tags && tags.album) ? tags.album : '',
+                        archivo: nombre + '.mp3',
+                        carpeta: carpeta || 'Descargas PC',
+                        tamano: blob.size,
+                        tipo: blob.type || 'audio/mpeg',
+                        fecha: Date.now(),
+                        blob: blob,
+                        artBlob: (tags && tags.artBlob) ? tags.artBlob : null
+                    };
+                    var req = store.add(cancionObj);
+                    req.onsuccess = function() { resolve(); };
+                    req.onerror = function(e) { reject(e); };
+                }).then(function() {
+                    return cargarMetadatosCanciones();
+                });
             });
         });
     }
 
     function eliminarCancion(id) {
-        if (!confirm('¿Eliminar esta canción de tu biblioteca?')) return Promise.resolve();
+        var target = state.canciones.find(function(c) { return c.id === id; });
+        if (target && target.origen === 'mediastore') {
+            notificarPlayerToast('Las pistas de tu teléfono solo se leen sin modificarse', '🔒');
+            return Promise.resolve();
+        }
+        if (!confirm('¿Eliminar esta canción de la biblioteca local?')) return Promise.resolve();
 
         return abrirDB().then(function(db) {
             return new Promise(function(resolve, reject) {
@@ -221,9 +619,11 @@
                 delReq.onerror = function(e) { reject(e.target.error); };
             });
         }).then(function() {
-            // Eliminar también de cualquier playlist
             state.playlists.forEach(function(pl) {
                 pl.cancionIds = (pl.cancionIds || []).filter(function(cid) { return cid !== id; });
+                if (Array.isArray(pl.cancionSigs)) {
+                    pl.cancionSigs = pl.cancionSigs.filter(function(s) { return s && s.id !== id; });
+                }
             });
             guardarPlaylistsStorage();
             return cargarMetadatosCanciones();
@@ -235,26 +635,283 @@
     }
 
     function vaciarBiblioteca() {
-        if (!confirm('¿Estás seguro de que deseas vaciar toda la biblioteca de música? Esta acción no se puede deshacer.')) return;
+        var msg = state.nativoActivo
+            ? '¿Vaciar únicamente los archivos importados manualmente a caché (tus MP3 reales del teléfono NO se borrarán)?'
+            : '¿Estás seguro de que deseas vaciar toda la biblioteca de música cargada manualmente? Esta acción no se puede deshacer.';
+        if (!confirm(msg)) return;
 
         detenerMusicaDeRutina(true);
         abrirDB().then(function(db) {
             var tx = db.transaction([STORE_NAME], 'readwrite');
             tx.objectStore(STORE_NAME).clear();
             tx.oncomplete = function() {
-                state.canciones = [];
-                state.playlists = [];
-                guardarPlaylistsStorage();
-                setPlaylistDefaultRutina(null, true);
+                if (!state.nativoActivo) {
+                    state.canciones = [];
+                    state.playlists = [];
+                    guardarPlaylistsStorage();
+                    setPlaylistDefaultRutina(null, true);
+                }
                 state.indiceActual = -1;
                 state.cancionActual = null;
-                notificarCambioPlaylistsYDefault();
-                renderizarContenidoSegunSubtab();
-                actualizarUIPlayerCompleto();
-                actualizarMiniPlayer();
-                actualizarBarraAudioRutina();
+                cargarMetadatosCanciones().then(function() {
+                    notificarCambioPlaylistsYDefault();
+                    renderizarContenidoSegunSubtab();
+                    actualizarUIPlayerCompleto();
+                    actualizarMiniPlayer();
+                    actualizarBarraAudioRutina();
+                });
             };
         });
+    }
+
+    // Motor perezoso (Lazy) de Portadas / Carátulas sin bloquear el hilo principal
+    function resolverCaratulaCancion(meta, includeDataUrl) {
+        if (!meta || !meta.id) return Promise.resolve(null);
+        var cached = state.artworkCache[meta.id];
+        if (cached === 'none' && !includeDataUrl) return Promise.resolve(null);
+        if (cached && cached !== 'none' && (!includeDataUrl || state.artworkDataUrlCache[meta.id])) {
+            return Promise.resolve({
+                url: cached,
+                dataUrl: state.artworkDataUrlCache[meta.id] || null
+            });
+        }
+
+        if (meta.origen === 'idb') {
+            return abrirDB().then(function(db) {
+                return new Promise(function(resolve) {
+                    var tx = db.transaction([STORE_NAME], 'readonly');
+                    var req = tx.objectStore(STORE_NAME).get(meta.id);
+                    req.onsuccess = function() {
+                        var rec = req.result;
+                        if (rec && rec.artBlob) {
+                            var objUrl = state.artworkCache[meta.id] && state.artworkCache[meta.id] !== 'none'
+                                ? state.artworkCache[meta.id]
+                                : URL.createObjectURL(rec.artBlob);
+                            state.artworkCache[meta.id] = objUrl;
+                            if (!includeDataUrl) {
+                                resolve({ url: objUrl, dataUrl: null });
+                                return;
+                            }
+                            var fr = new FileReader();
+                            fr.onloadend = function() {
+                                state.artworkDataUrlCache[meta.id] = fr.result || '';
+                                resolve({ url: objUrl, dataUrl: state.artworkDataUrlCache[meta.id] });
+                            };
+                            fr.onerror = function() { resolve({ url: objUrl, dataUrl: null }); };
+                            fr.readAsDataURL(rec.artBlob);
+                        } else {
+                            state.artworkCache[meta.id] = 'none';
+                            resolve(null);
+                        }
+                    };
+                    req.onerror = function() { resolve(null); };
+                });
+            }).catch(function() { return null; });
+        }
+
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.obtenerCaratula !== 'function') {
+            state.artworkCache[meta.id] = 'none';
+            return Promise.resolve(null);
+        }
+
+        return plugin.obtenerCaratula({
+            sig: meta.sig || '',
+            mediaId: String(meta.mediaId || meta.id || ''),
+            contentUri: meta.contentUri || '',
+            ruta: meta.ruta || '',
+            albumId: Number(meta.albumId) || 0,
+            includeDataUrl: !!includeDataUrl
+        }).then(function(res) {
+            if (res && res.hasArt && res.filePath) {
+                var url = convertirArchivoAWebUrl(res.filePath);
+                state.artworkCache[meta.id] = url;
+                if (res.dataUrl) {
+                    state.artworkDataUrlCache[meta.id] = res.dataUrl;
+                }
+                return { url: url, dataUrl: res.dataUrl || state.artworkDataUrlCache[meta.id] || null };
+            }
+            state.artworkCache[meta.id] = 'none';
+            return null;
+        }).catch(function() {
+            return null;
+        });
+    }
+
+    function aplicarCaratulaEnElementosDOM(songId, url) {
+        if (!songId || !url) return;
+        var imgs = document.querySelectorAll('img[data-art-song="' + songId + '"]');
+        imgs.forEach(function(img) {
+            if (img.getAttribute('src') !== url) {
+                img.setAttribute('src', url);
+            }
+            img.style.display = 'block';
+            var box = img.parentElement;
+            if (box) {
+                var ph = box.querySelector('.song-thumb-placeholder');
+                if (ph) ph.style.display = 'none';
+            }
+        });
+        if (state.cancionActual && state.cancionActual.id === songId) {
+            actualizarHeroCaratula(url);
+            actualizarMiniCaratula(url);
+        }
+    }
+
+    function procesarColaCaratulas() {
+        while (state._artInflight < 4 && state._artQueue.length > 0) {
+            var meta = state._artQueue.shift();
+            if (!meta || !meta.id) continue;
+            state._artInflight++;
+            (function(targetMeta) {
+                resolverCaratulaCancion(targetMeta, false).then(function(res) {
+                    if (res && res.url) {
+                        aplicarCaratulaEnElementosDOM(targetMeta.id, res.url);
+                    }
+                }).finally(function() {
+                    delete state._artQueuedIds[targetMeta.id];
+                    state._artInflight = Math.max(0, state._artInflight - 1);
+                    procesarColaCaratulas();
+                });
+            })(meta);
+        }
+    }
+
+    function encolarCaratulaLazy(meta) {
+        if (!meta || !meta.id) return;
+        var cached = state.artworkCache[meta.id];
+        if (cached === 'none') return;
+        if (cached) {
+            aplicarCaratulaEnElementosDOM(meta.id, cached);
+            return;
+        }
+        if (state._artQueuedIds[meta.id]) return;
+        state._artQueuedIds[meta.id] = true;
+        state._artQueue.push(meta);
+        procesarColaCaratulas();
+    }
+
+    function observarMiniaturasLista() {
+        var cont = document.getElementById('reproductor-lista-canciones');
+        if (!cont) return;
+        var items = cont.querySelectorAll('.song-list-item[data-song-id]');
+        if (items.length === 0) return;
+
+        // Cargar inmediatas las primeras 12 visibles + IntersectionObserver para el resto
+        if ('IntersectionObserver' in window) {
+            if (state._artObserver) {
+                try { state._artObserver.disconnect(); } catch (e) {}
+            }
+            state._artObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (!entry.isIntersecting) return;
+                    var sid = entry.target.getAttribute('data-song-id');
+                    var found = state.canciones.find(function(c) { return c.id === sid; });
+                    if (found) encolarCaratulaLazy(found);
+                    if (state._artObserver) state._artObserver.unobserve(entry.target);
+                });
+            }, { rootMargin: '120px 0px' });
+
+            items.forEach(function(el, idx) {
+                if (idx < 10) {
+                    var sid = el.getAttribute('data-song-id');
+                    var found = state.canciones.find(function(c) { return c.id === sid; });
+                    if (found) encolarCaratulaLazy(found);
+                } else {
+                    state._artObserver.observe(el);
+                }
+            });
+        } else {
+            items.forEach(function(el, idx) {
+                if (idx >= 24) return;
+                var sid = el.getAttribute('data-song-id');
+                var found = state.canciones.find(function(c) { return c.id === sid; });
+                if (found) encolarCaratulaLazy(found);
+            });
+        }
+    }
+
+    function aplicarAmbientDesdeImagen(imgEl) {
+        var hero = document.getElementById('player-hero-card');
+        if (!hero) return;
+        try {
+            if (!imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return;
+            var canvas = document.createElement('canvas');
+            canvas.width = 12;
+            canvas.height = 12;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(imgEl, 0, 0, 12, 12);
+            var data = ctx.getImageData(0, 0, 12, 12).data;
+            var rSum = 0, gSum = 0, bSum = 0, count = 0;
+            for (var i = 0; i < data.length; i += 4) {
+                var r = data[i], g = data[i + 1], b = data[i + 2];
+                var luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (luma < 25 || luma > 235) continue;
+                rSum += r; gSum += g; bSum += b; count++;
+            }
+            if (count > 0) {
+                var rf = Math.round(rSum / count);
+                var gf = Math.round(gSum / count);
+                var bf = Math.round(bSum / count);
+                hero.style.setProperty('--player-accent-rgb', rf + ', ' + gf + ', ' + bf);
+            }
+        } catch (e) {
+            hero.style.removeProperty('--player-accent-rgb');
+        }
+    }
+
+    function actualizarHeroCaratula(url) {
+        var hero = document.getElementById('player-hero-card');
+        var img = document.getElementById('player-artwork-img');
+        var fallback = document.getElementById('player-vinyl-fallback');
+        if (!img || !fallback) return;
+
+        if (url) {
+            img.onload = function() {
+                aplicarAmbientDesdeImagen(img);
+            };
+            img.onerror = function() {
+                img.style.display = 'none';
+                fallback.style.display = 'block';
+                if (hero) {
+                    hero.classList.remove('has-cover-art');
+                    hero.style.removeProperty('--player-accent-rgb');
+                }
+            };
+            if (img.getAttribute('src') !== url) {
+                img.setAttribute('src', url);
+            }
+            img.style.display = 'block';
+            fallback.style.display = 'none';
+            if (hero) hero.classList.add('has-cover-art');
+        } else {
+            img.style.display = 'none';
+            img.removeAttribute('src');
+            fallback.style.display = 'block';
+            if (hero) {
+                hero.classList.remove('has-cover-art');
+                hero.style.removeProperty('--player-accent-rgb');
+            }
+        }
+    }
+
+    function actualizarMiniCaratula(url) {
+        var img = document.getElementById('mini-player-thumb-img');
+        var glyph = document.getElementById('mini-player-disc-glyph');
+        var box = document.getElementById('mini-player-disc-icon');
+        if (!img || !glyph) return;
+        if (url) {
+            img.setAttribute('src', url);
+            img.style.display = 'block';
+            glyph.style.display = 'none';
+            if (box) box.classList.add('has-art');
+        } else {
+            img.style.display = 'none';
+            img.removeAttribute('src');
+            glyph.style.display = 'inline';
+            if (box) box.classList.remove('has-art');
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -294,21 +951,175 @@
         return state.rutinaDefaultPlaylistId;
     }
 
+    function construirFirmasParaIds(cancionIds) {
+        var map = {};
+        state.canciones.forEach(function(c) { map[c.id] = c; });
+        var sigs = [];
+        (cancionIds || []).forEach(function(id) {
+            var c = map[id];
+            if (c) {
+                sigs.push({
+                    id: c.id,
+                    sig: c.sig || generarFirmaCancion(c.archivo || c.nombre, c.tamano),
+                    nombre: c.nombre || '',
+                    archivo: c.archivo || '',
+                    tamano: Number(c.tamano) || 0
+                });
+            }
+        });
+        return sigs;
+    }
+
+    function reconciliarPlaylistsConCanciones() {
+        if (!Array.isArray(state.playlists) || state.playlists.length === 0 || !Array.isArray(state.canciones) || state.canciones.length === 0) {
+            return false;
+        }
+        var byId = {};
+        var bySig = {};
+        var byFile = {};
+        state.canciones.forEach(function(c) {
+            byId[c.id] = c;
+            if (c.sig) bySig[c.sig] = c;
+            if (c.archivo && c.tamano) {
+                byFile[String(c.archivo).toLowerCase() + '__' + c.tamano] = c;
+            }
+        });
+
+        var huboCambios = false;
+        state.playlists.forEach(function(pl) {
+            if (!pl) return;
+            var ids = Array.isArray(pl.cancionIds) ? pl.cancionIds : [];
+            var sigs = Array.isArray(pl.cancionSigs) ? pl.cancionSigs : [];
+            var sigMap = {};
+            sigs.forEach(function(s) {
+                if (s && s.id) sigMap[s.id] = s;
+            });
+
+            var nuevosIds = [];
+            var vistos = {};
+            var listaOrden = sigs.length >= ids.length ? sigs.map(function(s) { return s.id; }) : ids;
+            ids.forEach(function(id) { if (listaOrden.indexOf(id) === -1) listaOrden.push(id); });
+
+            listaOrden.forEach(function(rawId) {
+                var matched = byId[rawId] || null;
+                var info = sigMap[rawId];
+                if (!matched && info) {
+                    if (info.sig && bySig[info.sig]) matched = bySig[info.sig];
+                    else if (info.archivo && info.tamano && byFile[String(info.archivo).toLowerCase() + '__' + info.tamano]) {
+                        matched = byFile[String(info.archivo).toLowerCase() + '__' + info.tamano];
+                    } else if (info.nombre && info.tamano) {
+                        var fbSig = generarFirmaCancion(info.nombre, info.tamano);
+                        if (bySig[fbSig]) matched = bySig[fbSig];
+                    }
+                }
+                if (matched) {
+                    if (!vistos[matched.id]) {
+                        vistos[matched.id] = true;
+                        nuevosIds.push(matched.id);
+                    }
+                    if (matched.id !== rawId) huboCambios = true;
+                } else {
+                    // Conservar temporalmente para no perder referencias si el medio aún no cargó
+                    if (!vistos[rawId]) {
+                        vistos[rawId] = true;
+                        nuevosIds.push(rawId);
+                    }
+                }
+            });
+
+            pl.cancionIds = nuevosIds;
+            if (nuevosIds.length > 0 && state.canciones.length > 0) {
+                var actSigs = construirFirmasParaIds(nuevosIds);
+                if (actSigs.length > 0) {
+                    // Conservar firmas antiguas que no estén aún montadas en esta sesión
+                    var presentes = {};
+                    actSigs.forEach(function(s) { presentes[s.id] = true; });
+                    sigs.forEach(function(oldS) {
+                        if (oldS && oldS.id && !presentes[oldS.id] && nuevosIds.indexOf(oldS.id) !== -1) {
+                            actSigs.push(oldS);
+                        }
+                    });
+                    pl.cancionSigs = actSigs;
+                }
+            }
+        });
+
+        if (huboCambios) {
+            try { localStorage.setItem('monarca_musica_playlists', JSON.stringify(state.playlists)); } catch (e) {}
+        }
+        return huboCambios;
+    }
+
     function cargarPlaylistsStorage() {
+        var locales = [];
         try {
             var raw = localStorage.getItem('monarca_musica_playlists');
-            state.playlists = raw ? JSON.parse(raw) : [];
+            locales = raw ? JSON.parse(raw) : [];
         } catch(e) {
-            state.playlists = [];
+            locales = [];
         }
+        if (!Array.isArray(locales)) locales = [];
+
+        var appPls = (typeof window.APP_STATE !== 'undefined' && window.APP_STATE && Array.isArray(window.APP_STATE.reproductorPlaylists))
+            ? window.APP_STATE.reproductorPlaylists
+            : [];
+        var elimSet = {};
+        if (typeof window.APP_STATE !== 'undefined' && window.APP_STATE && window.APP_STATE._eliminados && Array.isArray(window.APP_STATE._eliminados.reproductorPlaylists)) {
+            window.APP_STATE._eliminados.reproductorPlaylists.forEach(function(tid) { elimSet[tid] = true; });
+        }
+
+        // Fusionar locales y APP_STATE conservando la versión más reciente
+        var mapa = {};
+        locales.concat(appPls).forEach(function(p) {
+            if (!p || !p.id || elimSet[p.id]) return;
+            var prev = mapa[p.id];
+            var tsNew = Number(p.fechaActualizacion || p.fecha) || 0;
+            var tsPrev = prev ? (Number(prev.fechaActualizacion || prev.fecha) || 0) : -1;
+            if (!prev || tsNew >= tsPrev) {
+                mapa[p.id] = JSON.parse(JSON.stringify(p));
+            }
+        });
+        state.playlists = Object.keys(mapa).map(function(k) { return mapa[k]; });
         cargarDefaultPlaylistRutinaStorage();
     }
 
-    function guardarPlaylistsStorage() {
+    function guardarPlaylistsStorage(omitirCloud) {
+        state.playlists.forEach(function(pl) {
+            if (!pl) return;
+            if (!pl.fechaActualizacion) pl.fechaActualizacion = Date.now();
+            var ids = Array.isArray(pl.cancionIds) ? pl.cancionIds : [];
+            var sigsNuevas = construirFirmasParaIds(ids);
+            var prevById = {};
+            (pl.cancionSigs || []).forEach(function(s) { if (s && s.id) prevById[s.id] = s; });
+            var mapPresent = {};
+            sigsNuevas.forEach(function(s) { mapPresent[s.id] = true; });
+            ids.forEach(function(id) {
+                if (!mapPresent[id] && prevById[id]) sigsNuevas.push(prevById[id]);
+            });
+            pl.cancionSigs = sigsNuevas;
+        });
+
         try {
             localStorage.setItem('monarca_musica_playlists', JSON.stringify(state.playlists));
         } catch(e) {}
+
+        if (!omitirCloud && typeof window.APP_STATE !== 'undefined' && window.APP_STATE) {
+            try {
+                window.APP_STATE.reproductorPlaylists = JSON.parse(JSON.stringify(state.playlists));
+                if (typeof window.MonarcaDB !== 'undefined' && typeof window.MonarcaDB.save === 'function') {
+                    window.MonarcaDB.save(window.APP_STATE);
+                }
+            } catch (e) {}
+        }
         notificarCambioPlaylistsYDefault();
+    }
+
+    function sincronizarPlaylistsDesdeAppState() {
+        cargarPlaylistsStorage();
+        reconciliarPlaylistsConCanciones();
+        notificarCambioPlaylistsYDefault();
+        renderizarContenidoSegunSubtab();
+        actualizarBarraAudioRutina();
     }
 
     function getPlaylistDefaultRutinaId() {
@@ -436,15 +1247,18 @@
         }
 
         var pendingSong = state._pendingSongForNewPlaylist;
+        var ahora = Date.now();
+        var initIds = pendingSong ? [pendingSong] : [];
         var nueva = {
-            id: 'pl_' + Date.now(),
+            id: 'pl_' + ahora,
             nombre: nombre,
-            fecha: Date.now(),
-            cancionIds: pendingSong ? [pendingSong] : []
+            fecha: ahora,
+            fechaActualizacion: ahora,
+            cancionIds: initIds,
+            cancionSigs: construirFirmasParaIds(initIds)
         };
         state.playlists.push(nueva);
         guardarPlaylistsStorage();
-        notificarCambioPlaylistsYDefault();
         cerrarModalCrearPlaylist();
         renderizarContenidoSegunSubtab();
         notificarPlayerToast('Lista "' + nombre + '" creada' + (pendingSong ? ' y canción agregada' : ''), '🎶');
@@ -463,8 +1277,10 @@
         if (!pl.cancionIds) pl.cancionIds = [];
         if (pl.cancionIds.indexOf(songId) === -1) {
             pl.cancionIds.push(songId);
+            pl.fechaActualizacion = Date.now();
             guardarPlaylistsStorage();
             renderizarContenidoSegunSubtab();
+            actualizarUIPlayerCompleto();
             if (!silencioso) notificarPlayerToast('Canción agregada a "' + pl.nombre + '"', '✓');
             return true;
         } else {
@@ -478,13 +1294,23 @@
         if (!pl || !Array.isArray(pl.cancionIds)) return false;
         var prevLen = pl.cancionIds.length;
         pl.cancionIds = pl.cancionIds.filter(function(id) { return id !== songId; });
+        if (Array.isArray(pl.cancionSigs)) {
+            pl.cancionSigs = pl.cancionSigs.filter(function(s) { return s && s.id !== songId; });
+        }
         if (pl.cancionIds.length !== prevLen) {
+            pl.fechaActualizacion = Date.now();
             guardarPlaylistsStorage();
             renderizarContenidoSegunSubtab();
+            actualizarUIPlayerCompleto();
             if (!silencioso) notificarPlayerToast('Quitada de "' + pl.nombre + '"', '➖');
             return true;
         }
         return false;
+    }
+
+    function agregarActualAPlaylist() {
+        if (!state.cancionActual) return;
+        abrirModalAgregarPlaylist(state.cancionActual.id);
     }
 
     function reproducirPlaylistDirecto(plId) {
@@ -500,13 +1326,16 @@
         if (lista.length > 0) {
             reproducirIndice(0);
         } else {
-            notificarPlayerToast('Agrega archivos MP3 para reproducir esta lista', '🎵');
+            notificarPlayerToast('No se encontraron pistas disponibles para esta lista', '🎵');
         }
     }
 
     function eliminarPlaylist(plId) {
-        if (!confirm('¿Eliminar esta lista de reproducción? Las canciones se mantendrán en tu biblioteca.')) return;
+        if (!confirm('¿Eliminar esta lista de reproducción? Las canciones se mantendrán en tu dispositivo.')) return;
         state.playlists = state.playlists.filter(function(p) { return p.id !== plId; });
+        if (typeof window.registrarTombstone === 'function') {
+            window.registrarTombstone('reproductorPlaylists', plId);
+        }
         if (state.rutinaDefaultPlaylistId === plId) {
             setPlaylistDefaultRutina(null, false);
         }
@@ -514,9 +1343,9 @@
             detenerMusicaDeRutina();
         }
         guardarPlaylistsStorage();
-        notificarCambioPlaylistsYDefault();
         if (state.playlistSeleccionada === plId) state.playlistSeleccionada = null;
         renderizarContenidoSegunSubtab();
+        actualizarUIPlayerCompleto();
         notificarPlayerToast('Lista eliminada (canciones conservadas)', '🗑️');
     }
 
@@ -599,29 +1428,39 @@
         var playSeq = ++state._playSeqId;
         state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
 
-        return obtenerCancionCompleta(meta.id).then(function(itemCompleto) {
-            if (playSeq !== state._playSeqId) return false;
-            if (!itemCompleto || !itemCompleto.blob) {
-                if (opciones && opciones.silencioso && state.rutinaModoActivo) {
-                    var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
-                    state.rutinaConsecErrors++;
-                    if (tracksFallback.length > 1 && state.rutinaConsecErrors < tracksFallback.length) {
-                        siguienteCancion(false);
-                    }
-                    return false;
+        return prepararUrlReproduccion(meta).then(function(prep) {
+            if (playSeq !== state._playSeqId) {
+                if (prep && prep.esBlobUrl && prep.src) {
+                    try { URL.revokeObjectURL(prep.src); } catch (e) {}
                 }
-                alert('No se pudo cargar el archivo de audio.');
                 return false;
+            }
+            if (!prep || !prep.src) {
+                throw new Error('URL de audio vacía');
             }
 
             if (state.blobUrlActual) {
-                URL.revokeObjectURL(state.blobUrlActual);
+                try { URL.revokeObjectURL(state.blobUrlActual); } catch (e) {}
+                state.blobUrlActual = null;
             }
 
-            state.blobUrlActual = URL.createObjectURL(itemCompleto.blob);
-            state.audio.src = state.blobUrlActual;
+            if (prep.esBlobUrl) {
+                state.blobUrlActual = prep.src;
+            }
+            state.audio.src = prep.src;
             state.audio.volume = state.volumen;
             state.cancionActual = meta;
+
+            // Actualizar UI de inmediato y cargar carátula real en paralelo
+            actualizarUIPlayerCompleto();
+            actualizarMiniPlayer();
+            resolverCaratulaCancion(meta, true).then(function(artRes) {
+                if (playSeq !== state._playSeqId) return;
+                if (artRes && artRes.url) {
+                    aplicarCaratulaEnElementosDOM(meta.id, artRes.url);
+                }
+                actualizarMediaSession();
+            }).catch(function() {});
 
             var playPromise = state.audio.play();
             if (playPromise !== undefined) {
@@ -654,6 +1493,19 @@
                 });
             }
             return true;
+        }).catch(function(err) {
+            if (playSeq !== state._playSeqId) return false;
+            console.warn('[Reproducor] Error abriendo audio:', err);
+            if (opciones && opciones.silencioso && state.rutinaModoActivo) {
+                var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+                state.rutinaConsecErrors++;
+                if (tracksFallback.length > 1 && state.rutinaConsecErrors < tracksFallback.length) {
+                    siguienteCancion(false);
+                }
+                return false;
+            }
+            notificarPlayerToast('No se pudo cargar el archivo de audio', '⚠️');
+            return false;
         });
     }
 
@@ -678,6 +1530,21 @@
         var listaActual = obtenerListaReproducibleActual();
         if (idx < 0 || idx >= listaActual.length) return;
         reproducirMetaCancion(listaActual[idx], idx);
+    }
+
+    function reproducirPorId(songId) {
+        if (!songId) return;
+        salirModoRutinaSilencioso(false);
+        var listaActual = obtenerListaReproducibleActual();
+        var idx = listaActual.findIndex(function(c) { return c.id === songId; });
+        if (idx !== -1) {
+            reproducirMetaCancion(listaActual[idx], idx);
+            return;
+        }
+        var enTodas = state.canciones.find(function(c) { return c.id === songId; });
+        if (enTodas) {
+            reproducirMetaCancion(enTodas, -1);
+        }
     }
 
     function obtenerListaReproducibleActual() {
@@ -1062,14 +1929,14 @@
         return new URL(relPath, href).href;
     }
 
-    function enviarMetadataNativa(nativeMS, metaInfo, albumName, dataUrl) {
+    function enviarMetadataNativa(nativeMS, metaInfo, albumName, dataUrl, mimeType) {
         try {
             var p = nativeMS.setMetadata({
                 title: metaInfo.titulo,
                 artist: metaInfo.artista,
                 album: albumName,
                 artwork: [
-                    { src: dataUrl || TINY_PNG_DATA_URL, sizes: '192x192', type: 'image/png' }
+                    { src: dataUrl || TINY_PNG_DATA_URL, sizes: '360x360', type: mimeType || 'image/jpeg' }
                 ]
             });
             if (p && typeof p.catch === 'function') p.catch(function() {});
@@ -1082,8 +1949,10 @@
         if (nativeMS) {
             if (state.cancionActual) {
                 var cancionRef = state.cancionActual;
-                var metaInfo = parsearTituloYArtista(cancionRef.nombre);
-                var albumName = cancionRef.carpeta ? ('Carpeta: ' + cancionRef.carpeta) : 'Emily OS · Bóveda Offline';
+                var metaInfo = obtenerTituloLimpoYArtista(cancionRef);
+                var albumName = cancionRef.album
+                    ? cancionRef.album
+                    : (cancionRef.carpeta ? ('Carpeta: ' + cancionRef.carpeta) : 'Emily OS · Música');
 
                 try {
                     var psProm = nativeMS.setPlaybackState({
@@ -1092,13 +1961,24 @@
                     if (psProm && typeof psProm.catch === 'function') psProm.catch(function() {});
                 } catch(e) {}
 
-                if (cachedArtworkDataUrl) {
-                    enviarMetadataNativa(nativeMS, metaInfo, albumName, cachedArtworkDataUrl);
+                var trackDataUrl = state.artworkDataUrlCache[cancionRef.id];
+                if (trackDataUrl) {
+                    enviarMetadataNativa(nativeMS, metaInfo, albumName, trackDataUrl, 'image/jpeg');
                 } else {
-                    enviarMetadataNativa(nativeMS, metaInfo, albumName, TINY_PNG_DATA_URL);
-                    obtenerArtworkDataUrl().then(function(dataUrl) {
+                    var fallbackArt = cachedArtworkDataUrl || TINY_PNG_DATA_URL;
+                    enviarMetadataNativa(nativeMS, metaInfo, albumName, fallbackArt, 'image/png');
+                    resolverCaratulaCancion(cancionRef, true).then(function(artRes) {
                         if (state.cancionActual && state.cancionActual.id === cancionRef.id) {
-                            enviarMetadataNativa(nativeMS, metaInfo, albumName, dataUrl);
+                            var imgData = (artRes && artRes.dataUrl) ? artRes.dataUrl : null;
+                            if (imgData) {
+                                enviarMetadataNativa(nativeMS, metaInfo, albumName, imgData, 'image/jpeg');
+                            } else if (!cachedArtworkDataUrl) {
+                                obtenerArtworkDataUrl().then(function(appLogo) {
+                                    if (state.cancionActual && state.cancionActual.id === cancionRef.id) {
+                                        enviarMetadataNativa(nativeMS, metaInfo, albumName, appLogo, 'image/png');
+                                    }
+                                }).catch(function() {});
+                            }
                         }
                     }).catch(function() {});
                 }
@@ -1115,19 +1995,24 @@
 
         if (!('mediaSession' in navigator)) return;
         if (state.cancionActual) {
-            var metaWeb = parsearTituloYArtista(state.cancionActual.nombre);
-            var art192 = obtenerUrlIcono('icons/icon-192.png');
-            var art512 = obtenerUrlIcono('icons/icon-512.png');
+            var metaWeb = obtenerTituloLimpoYArtista(state.cancionActual);
+            var albumWeb = state.cancionActual.album
+                ? state.cancionActual.album
+                : (state.cancionActual.carpeta ? ('Carpeta: ' + state.cancionActual.carpeta) : 'Emily OS · Música');
+            var trackArtUrl = state.artworkCache[state.cancionActual.id];
+            var artList = (trackArtUrl && trackArtUrl !== 'none')
+                ? [{ src: trackArtUrl, sizes: '360x360', type: 'image/jpeg' }]
+                : [
+                    { src: obtenerUrlIcono('icons/icon-192.png'), sizes: '192x192', type: 'image/png' },
+                    { src: obtenerUrlIcono('icons/icon-512.png'), sizes: '512x512', type: 'image/png' }
+                ];
 
             try {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: metaWeb.titulo,
                     artist: metaWeb.artista,
-                    album: state.cancionActual.carpeta ? ('Carpeta: ' + state.cancionActual.carpeta) : 'Emily OS · Bóveda Offline',
-                    artwork: [
-                        { src: art192, sizes: '192x192', type: 'image/png' },
-                        { src: art512, sizes: '512x512', type: 'image/png' }
-                    ]
+                    album: albumWeb,
+                    artwork: artList
                 });
             } catch(e) {
                 console.warn('[MediaSession Metadata]', e);
@@ -1501,7 +2386,7 @@
         var html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">';
         nombres.forEach(function(nom) {
             var obj = carpetasMap[nom];
-            html += '<div class="player-folder-card" onclick="window.MonarcaPlayer.seleccionarCarpeta(\'' + escaparHTML(nom) + '\')">' +
+            html += '<div class="player-folder-card" data-folder-name="' + escaparHTML(nom) + '" onclick="window.MonarcaPlayer.seleccionarCarpeta(this.getAttribute(\'data-folder-name\'))">' +
                 '<div style="display: flex; align-items: center; gap: 10px;">' +
                     '<span style="font-size: 26px;">📁</span>' +
                     '<div style="min-width: 0; flex: 1;">' +
@@ -1585,7 +2470,9 @@
 
         var listaFiltrada = lista.filter(function(c) {
             if (!q) return true;
-            return (c.nombre || '').toLowerCase().indexOf(q) !== -1;
+            return (c.nombre || '').toLowerCase().indexOf(q) !== -1 ||
+                   (c.artista || '').toLowerCase().indexOf(q) !== -1 ||
+                   (c.carpeta || '').toLowerCase().indexOf(q) !== -1;
         });
 
         var encabezadoFiltro = '';
@@ -1616,7 +2503,7 @@
             cont.innerHTML = encabezadoFiltro + '<div style="text-align: center; padding: 32px 16px; color: #94a3b8;">' +
                 '<div style="font-size: 38px; margin-bottom: 8px;">🎵</div>' +
                 '<h4 style="color: #f8fafc; margin: 0 0 6px 0; font-size: 15px;">Tu biblioteca de música está vacía</h4>' +
-                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Puedes cargar canciones individuales o carpetas completas desde tu dispositivo.</p>' +
+                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Puedes conceder permiso de audio en Android o cargar MP3 manualmente.</p>' +
                 '<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">' +
                     '<button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById(\'input-file-mp3-monarca\').click()">' +
                         '📁 Cargar Archivos MP3' +
@@ -1650,24 +2537,33 @@
         listaFiltrada.forEach(function(c, listIndex) {
             var esActual = (state.cancionActual && state.cancionActual.id === c.id);
             var sonando = esActual && state.reproduciendo;
+            var metaTrack = obtenerTituloLimpoYArtista(c);
+            var cachedArt = state.artworkCache[c.id];
+            var tieneArtLista = !!(cachedArt && cachedArt !== 'none');
 
             var accionDerecha = enVistaPlaylist
                 ? '<button type="button" class="btn-pl-remove-track" title="Quitar de esta lista (mantiene el MP3 en tu biblioteca)" onclick="window.MonarcaPlayer.quitarCancionDePlaylist(\'' + state.playlistSeleccionada + '\', \'' + c.id + '\')">Quitar</button>'
                 : ('<button type="button" id="btn-transfer-' + c.id + '" class="btn-song-option-pill" title="Enviar únicamente esta canción a la PC" onclick="window.MonarcaPlayer.enviarCancionAPC(\'' + c.id + '\')">☁️ PC</button>' +
                    '<button type="button" class="btn-song-option-pill" title="Añadir a lista de reproducción" onclick="window.MonarcaPlayer.abrirModalAgregarPlaylist(\'' + c.id + '\')">➕ Lista</button>' +
-                   '<button type="button" class="btn-song-option-pill" title="Descargar archivo local" onclick="window.MonarcaPlayer.descargarCancionArchivoLocal(\'' + c.id + '\')">⬇️</button>' +
-                   '<button type="button" class="btn-song-delete" title="Eliminar de la biblioteca" onclick="window.MonarcaPlayer.eliminarCancion(\'' + c.id + '\')">✕</button>');
+                   (c.origen !== 'mediastore' ? '<button type="button" class="btn-song-option-pill" title="Descargar archivo local" onclick="window.MonarcaPlayer.descargarCancionArchivoLocal(\'' + c.id + '\')">⬇️</button>' : '') +
+                   (c.origen !== 'mediastore' ? '<button type="button" class="btn-song-delete" title="Eliminar de caché local" onclick="window.MonarcaPlayer.eliminarCancion(\'' + c.id + '\')">✕</button>' : ''));
 
-            html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" onclick="window.MonarcaPlayer.reproducirIndice(' + listIndex + ')">' +
-                '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden;">' +
-                    '<div class="song-item-icon">' +
-                        (sonando
-                            ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>'
-                            : (esActual ? '▶' : (listIndex + 1))) +
+            html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" data-song-id="' + escaparHTML(c.id) + '" onclick="window.MonarcaPlayer.reproducirPorId(this.getAttribute(\'data-song-id\'))">' +
+                '<div style="display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; overflow: hidden;">' +
+                    '<div class="song-thumb-box ' + (esActual ? 'is-playing-item' : '') + '">' +
+                        '<img class="song-thumb-img" data-art-song="' + escaparHTML(c.id) + '" src="' + (tieneArtLista ? escaparHTML(cachedArt) : '') + '" alt="" style="display: ' + (tieneArtLista ? 'block' : 'none') + ';">' +
+                        '<span class="song-thumb-placeholder" style="display: ' + (tieneArtLista ? 'none' : 'flex') + ';">' +
+                            (sonando
+                                ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>'
+                                : (esActual ? '▶' : (listIndex + 1))) +
+                        '</span>' +
                     '</div>' +
                     '<div style="min-width: 0; flex: 1; overflow: hidden;">' +
-                        '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(c.nombre) + '</div>' +
+                        '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(metaTrack.titulo) + '</div>' +
                         '<div class="song-item-meta" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+                            (metaTrack.artista && metaTrack.artista !== 'Artista desconocido'
+                                ? '<span style="color: #e2e8f0; font-weight: 600;">' + escaparHTML(metaTrack.artista) + '</span><span>•</span>'
+                                : '') +
                             '<span style="color: #38bdf8;">📁 ' + escaparHTML(c.carpeta || 'Principal') + '</span>' +
                             '<span>•</span>' +
                             '<span>' + formatearTamano(c.tamano) + '</span>' +
@@ -1681,6 +2577,7 @@
         });
 
         cont.innerHTML = html;
+        observarMiniaturasLista();
     }
 
     function abrirModalAgregarPlaylist(songId) {
@@ -1790,7 +2687,7 @@
 
         cuerpo.innerHTML =
             '<div class="pl-picker-toolbar">' +
-                '<input type="text" id="input-buscar-song-modal-playlist" class="modal-input pl-picker-search" placeholder="🔍 Filtrar canciones de tu biblioteca..." value="' + escaparHTML(state._modalAgregarFiltro || '') + '" oninput="window.MonarcaPlayer.filtrarModalPlaylistCanciones(this.value)">' +
+                '<input type="text" id="input-buscar-song-modal-playlist" class="modal-input pl-picker-search" placeholder="🔍 Filtrar por título, artista o carpeta..." value="' + escaparHTML(state._modalAgregarFiltro || '') + '" oninput="window.MonarcaPlayer.filtrarModalPlaylistCanciones(this.value)">' +
                 '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.toggleTodasVisibleModalPlaylist()">✓ Seleccionar visibles</button>' +
             '</div>' +
             '<div id="modal-pl-song-list-inner" class="pl-picker-song-list"></div>';
@@ -1803,6 +2700,7 @@
         return state.canciones.filter(function(c) {
             if (!f) return true;
             return (c.nombre || '').toLowerCase().indexOf(f) !== -1 ||
+                   (c.artista || '').toLowerCase().indexOf(f) !== -1 ||
                    (c.carpeta || '').toLowerCase().indexOf(f) !== -1;
         });
     }
@@ -1821,11 +2719,13 @@
             var html = '';
             filtradas.forEach(function(c) {
                 var marcado = selSet.has(c.id);
+                var metaM = obtenerTituloLimpoYArtista(c);
+                var artistaSeg = (metaM.artista && metaM.artista !== 'Artista desconocido') ? (escaparHTML(metaM.artista) + ' · ') : '';
                 html += '<button type="button" class="pl-picker-song-row' + (marcado ? ' is-selected' : '') + '" onclick="window.MonarcaPlayer.toggleSeleccionCancionEnModal(\'' + c.id + '\')">' +
                     '<div class="pl-picker-check">' + (marcado ? '✓' : '') + '</div>' +
                     '<div class="pl-picker-text">' +
-                        '<div class="pl-picker-name">' + escaparHTML(c.nombre) + '</div>' +
-                        '<div class="pl-picker-sub">📁 ' + escaparHTML(c.carpeta || 'Principal') + ' · ' + formatearTamano(c.tamano) + '</div>' +
+                        '<div class="pl-picker-name">' + escaparHTML(metaM.titulo) + '</div>' +
+                        '<div class="pl-picker-sub">' + artistaSeg + '📁 ' + escaparHTML(c.carpeta || 'Principal') + ' · ' + formatearTamano(c.tamano) + '</div>' +
                     '</div>' +
                     '<span class="pl-picker-status' + (marcado ? ' is-added' : '') + '">' + (marcado ? 'Seleccionada' : '+ Añadir') + '</span>' +
                 '</button>';
@@ -1894,34 +2794,78 @@
             return;
         }
         pl.cancionIds = (state._modalAgregarSeleccionIds || []).slice();
+        pl.cancionSigs = construirFirmasParaIds(pl.cancionIds);
+        pl.fechaActualizacion = Date.now();
         guardarPlaylistsStorage();
         notificarCambioPlaylistsYDefault();
         cerrarModalAgregarPlaylist();
         renderizarContenidoSegunSubtab();
+        actualizarUIPlayerCompleto();
         notificarPlayerToast('Lista "' + pl.nombre + '" actualizada (' + pl.cancionIds.length + ')', '🎶');
     }
 
     // ----------------------------------------------------------------------
     // 8. RENDERIZADO DEL PLAYER HERO & MINI-REPRODUCTOR FLOTANTE
     // ----------------------------------------------------------------------
+    function actualizarHeroHeartButton(songId) {
+        var btnHeart = document.getElementById('btn-hero-add-playlist');
+        if (!btnHeart) return;
+        if (!songId) {
+            btnHeart.style.display = 'none';
+            btnHeart.classList.remove('in-playlist');
+            return;
+        }
+        btnHeart.style.display = 'inline-flex';
+        var enLista = state.playlists.some(function(pl) {
+            return pl && Array.isArray(pl.cancionIds) && pl.cancionIds.indexOf(songId) !== -1;
+        });
+        btnHeart.classList.toggle('in-playlist', enLista);
+        btnHeart.innerHTML = enLista ? '❤️ En lista' : '🤍 + Lista';
+    }
+
     function actualizarUIPlayerCompleto() {
         var elTitulo = document.getElementById('player-current-title');
+        var elArtista = document.getElementById('player-current-artist');
         var elSub = document.getElementById('player-current-subtitle');
         var elDisc = document.getElementById('player-vinyl-disc');
         var btnPlay = document.getElementById('player-btn-play-main');
         var waveContainer = document.getElementById('player-sound-waves');
 
         var tieneCancion = !!state.cancionActual;
+        var metaInfo = tieneCancion ? obtenerTituloLimpoYArtista(state.cancionActual) : null;
 
         if (elTitulo) {
-            elTitulo.textContent = tieneCancion ? state.cancionActual.nombre : 'Ninguna canción seleccionada';
+            elTitulo.textContent = tieneCancion ? metaInfo.titulo : 'Ninguna canción seleccionada';
+        }
+        if (elArtista) {
+            if (tieneCancion) {
+                var albumPart = (state.cancionActual.album && state.cancionActual.album.trim())
+                    ? (' · ' + state.cancionActual.album.trim())
+                    : '';
+                elArtista.textContent = metaInfo.artista + albumPart;
+                elArtista.style.display = 'block';
+            } else {
+                elArtista.textContent = '';
+                elArtista.style.display = 'none';
+            }
         }
         if (elSub) {
             if (tieneCancion) {
                 elSub.textContent = (state.cancionActual.carpeta ? ('📁 ' + state.cancionActual.carpeta + ' · ') : '') + formatearTamano(state.cancionActual.tamano);
             } else {
-                elSub.textContent = state.canciones.length > 0 ? (state.canciones.length + ' canciones listas en la biblioteca') : 'Sube tus archivos MP3 para comenzar';
+                elSub.textContent = state.canciones.length > 0
+                    ? (state.canciones.length + ' canciones listas en la biblioteca')
+                    : (state.nativoActivo ? 'Sin archivos de audio detectados' : 'Sube tus archivos MP3 o concede permiso para detectar tu biblioteca');
             }
+        }
+
+        actualizarHeroHeartButton(tieneCancion ? state.cancionActual.id : null);
+
+        if (tieneCancion) {
+            var cachedArt = state.artworkCache[state.cancionActual.id];
+            actualizarHeroCaratula((cachedArt && cachedArt !== 'none') ? cachedArt : null);
+        } else {
+            actualizarHeroCaratula(null);
         }
 
         if (elDisc) {
@@ -2007,21 +2951,25 @@
         }
 
         elMini.style.display = 'flex';
+        var metaMini = obtenerTituloLimpoYArtista(state.cancionActual);
 
         var elTit = document.getElementById('mini-player-title');
         if (elTit) {
-            elTit.textContent = state.cancionActual.nombre || 'Reproduciendo...';
+            elTit.textContent = metaMini.titulo || 'Reproduciendo...';
         }
 
         var elSubTxt = document.getElementById('mini-player-subtitle-text');
         if (elSubTxt) {
             if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
                 var plAct = state.playlists.find(function(p) { return p && p.id === state.rutinaPlaylistActivaId; });
-                elSubTxt.textContent = '🏋️ ' + (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio continuo';
+                elSubTxt.textContent = '🏋️ ' + (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio';
             } else {
-                elSubTxt.textContent = 'Monarca Audio Deck';
+                elSubTxt.textContent = metaMini.artista || 'Monarca Audio Deck';
             }
         }
+
+        var cachedMiniArt = state.artworkCache[state.cancionActual.id];
+        actualizarMiniCaratula((cachedMiniArt && cachedMiniArt !== 'none') ? cachedMiniArt : null);
 
         var btnPlay = document.getElementById('mini-player-btn-play');
         if (btnPlay) {
@@ -2036,7 +2984,8 @@
 
         var iconDisc = document.getElementById('mini-player-disc-icon');
         if (iconDisc) {
-            iconDisc.classList.toggle('spinning', state.reproduciendo);
+            var hasArt = !!(cachedMiniArt && cachedMiniArt !== 'none');
+            iconDisc.classList.toggle('spinning', state.reproduciendo && !hasArt);
         }
     }
 
@@ -2068,8 +3017,22 @@
     // ----------------------------------------------------------------------
     // 9. API PÚBLICA PARA EL MOTOR DE ALARMAS
     // ----------------------------------------------------------------------
-    function obtenerAudioBlob(songId) {
-        return obtenerCancionCompleta(songId).then(function(item) {
+    function buscarCancionPorIdOSig(songId, songSig) {
+        var found = null;
+        if (songId) {
+            found = state.canciones.find(function(c) { return c.id === songId; }) || null;
+        }
+        if (!found && songSig) {
+            found = state.canciones.find(function(c) { return c.sig === songSig; }) || null;
+        }
+        return found;
+    }
+
+    function obtenerAudioBlob(songId, songSig) {
+        var target = buscarCancionPorIdOSig(songId, songSig);
+        var lookupId = target ? target.id : songId;
+        if (!lookupId) return Promise.resolve(null);
+        return obtenerCancionCompleta(lookupId).then(function(item) {
             return (item && item.blob) ? item.blob : null;
         });
     }
@@ -2088,6 +3051,22 @@
     // ----------------------------------------------------------------------
     // 10. INICIALIZADOR GLOBAL
     // ----------------------------------------------------------------------
+    function verificarPermisoNativoAlVolver() {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.estadoPermisoAudio !== 'function') return;
+        plugin.estadoPermisoAudio().then(function(perm) {
+            var nuevoEstado = (perm && perm.granted) ? 'granted' : ((perm && perm.state) || 'prompt');
+            var cambio = (nuevoEstado === 'granted' && state.mediaPermiso !== 'granted');
+            state.mediaPermiso = nuevoEstado;
+            state.mediaPermisoChecked = true;
+            if (cambio) {
+                reescanearBibliotecaNativa(false);
+            } else {
+                actualizarControlesFuenteBiblioteca();
+            }
+        }).catch(function() {});
+    }
+
     function init() {
         var elAudio = document.getElementById('monarca-player-audio');
         if (elAudio) {
@@ -2097,6 +3076,7 @@
         cargarPlaylistsStorage();
         initAudioListeners();
         initMediaSession();
+        actualizarControlesFuenteBiblioteca();
         if (obtenerPluginMediaSession()) {
             obtenerArtworkDataUrl();
         }
@@ -2111,7 +3091,13 @@
             console.error('[Reproductor] Error cargando canciones iniciales:', e);
         });
 
-        // Enganchar input de archivos individuales
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                verificarPermisoNativoAlVolver();
+            }
+        });
+
+        // Enganchar input de archivos individuales (Navegador / PC o respaldo manual)
         var fileIn = document.getElementById('input-file-mp3-monarca');
         if (fileIn) {
             fileIn.addEventListener('change', function(e) {
@@ -2125,18 +3111,19 @@
                         actualizarUIPlayerCompleto();
                         fileIn.value = '';
                         if (loader) loader.style.display = 'none';
+                        notificarPlayerToast('Se importaron ' + files.length + (files.length === 1 ? ' canción' : ' canciones'), '🎵');
                         if (!state.cancionActual && state.canciones.length > 0) {
                             reproducirIndice(0);
                         }
                     }).catch(function(err) {
-                        alert('Error guardando archivos: ' + (err.message || err));
+                        notificarPlayerToast('Error guardando archivos: ' + (err.message || err), '⚠️');
                         if (loader) loader.style.display = 'none';
                     });
                 }
             });
         }
 
-        // Enganchar input de carpetas completas
+        // Enganchar input de carpetas completas (Navegador / PC o respaldo manual)
         var folderIn = document.getElementById('input-folder-mp3-monarca');
         if (folderIn) {
             folderIn.addEventListener('change', function(e) {
@@ -2150,9 +3137,9 @@
                         actualizarUIPlayerCompleto();
                         folderIn.value = '';
                         if (loader) loader.style.display = 'none';
-                        alert('✓ Se cargaron ' + files.length + ' pistas organizadas por carpetas.');
+                        notificarPlayerToast('Se cargaron ' + files.length + ' pistas organizadas por carpetas', '📂');
                     }).catch(function(err) {
-                        alert('Error cargando carpeta: ' + (err.message || err));
+                        notificarPlayerToast('Error cargando carpeta: ' + (err.message || err), '⚠️');
                         if (loader) loader.style.display = 'none';
                     });
                 }
@@ -2164,12 +3151,13 @@
             window.MonarcaCloud.escucharTransferencias(alRecibirTransferenciasNube);
         }
 
-        // Hook en cambiarVista para sincronizar visibilidad del mini-reproductor
+        // Hook en cambiarVista para sincronizar visibilidad del mini-reproductor y permisos nativos
         var origCambiarVista = window.cambiarVista;
         if (typeof origCambiarVista === 'function') {
             window.cambiarVista = function(vistaId, noPushState) {
                 origCambiarVista(vistaId, noPushState);
                 if (vistaId === 'vista-reproductor') {
+                    verificarPermisoNativoAlVolver();
                     renderizarContenidoSegunSubtab();
                 }
                 actualizarMiniPlayer();
@@ -2182,6 +3170,7 @@
     window.MonarcaPlayer = {
         init: init,
         reproducirIndice: reproducirIndice,
+        reproducirPorId: reproducirPorId,
         togglePlayPausa: togglePlayPausa,
         siguienteCancion: function() { siguienteCancion(true); },
         anteriorCancion: anteriorCancion,
@@ -2206,6 +3195,7 @@
         confirmarCrearPlaylistModal: confirmarCrearPlaylistModal,
         agregarCancionAPlaylist: agregarCancionAPlaylist,
         quitarCancionDePlaylist: quitarCancionDePlaylist,
+        agregarActualAPlaylist: agregarActualAPlaylist,
         reproducirPlaylistDirecto: reproducirPlaylistDirecto,
         eliminarPlaylist: eliminarPlaylist,
         abrirModalAgregarPlaylist: abrirModalAgregarPlaylist,
@@ -2227,6 +3217,14 @@
         descargarCancionArchivoLocal: descargarCancionArchivoLocal,
         alRecibirTransferenciasNube: alRecibirTransferenciasNube,
         obtenerAudioBlob: obtenerAudioBlob,
+        buscarCancionPorIdOSig: buscarCancionPorIdOSig,
+        prepararUrlReproduccion: prepararUrlReproduccion,
+        solicitarPermisoYScanNativo: solicitarPermisoYScanNativo,
+        reescanearBibliotecaNativa: reescanearBibliotecaNativa,
+        abrirAjustesAudioNativo: abrirAjustesAudioNativo,
+        sincronizarPlaylistsDesdeAppState: sincronizarPlaylistsDesdeAppState,
+        generarFirmaCancion: generarFirmaCancion,
+        extraerTagsID3v2File: extraerTagsID3v2File,
         getCanciones: getCancionesMeta,
         getState: function() { return state; }
     };
