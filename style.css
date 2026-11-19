@@ -11238,6 +11238,219 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   MÚSICA AUTOMÁTICA CONTINUA EN RUTINAS (v10.57)
+   ========================================================================== */
+
+.player-folder-card.player-playlist-card {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.player-folder-card.player-playlist-card.is-default-rutina {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.85));
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.14);
+}
+
+.btn-playlist-default-rutina {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #cbd5e1;
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-playlist-default-rutina:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.14);
+}
+
+.btn-playlist-default-rutina.active {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.65);
+    color: #34d399;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.rutina-musica-config-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.65));
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+}
+
+.rutina-musica-config-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 220px;
+}
+
+.rutina-musica-config-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rutina-playlist-select {
+    background: #0b0f19;
+    color: #f8fafc;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 9px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    min-width: 190px;
+    max-width: 260px;
+    cursor: pointer;
+}
+
+.rutina-musica-live-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.8));
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+}
+
+.rutina-musica-live-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 210px;
+}
+
+.rutina-musica-live-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.rutina-musica-live-icon.playing {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.6);
+    animation: monarcaVinylSpin 5s linear infinite;
+}
+
+.rutina-musica-mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+
+.rutina-musica-live-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rutina-playlist-select-compact {
+    background: #0b0f19;
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    max-width: 170px;
+    cursor: pointer;
+}
+
+.rutina-musica-ctrl-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.rutina-musica-ctrl-btn:hover:not(:disabled) {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+}
+
+.rutina-musica-ctrl-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.rutina-musica-ctrl-btn.stop:hover:not(:disabled) {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+.rutina-musica-ctrl-btn.needs-tap {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.24);
+    color: #fcd34d;
+    animation: monarcaPulseTap 1.4s ease-in-out infinite;
+}
+
+@keyframes monarcaPulseTap {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45); }
+    50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+}
+
+@media (max-width: 600px) {
+    .rutina-playlist-select,
+    .rutina-playlist-select-compact {
+        max-width: 100%;
+    }
+    .rutina-musica-config-controls {
+        width: 100%;
+    }
+    .rutina-musica-config-controls .rutina-playlist-select {
+        flex: 1;
+    }
+}
+
+
 
 
 

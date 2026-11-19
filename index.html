@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.56">
+    <link rel="stylesheet" href="style.css?v=10.57">
 </head>
 <body>
 
@@ -808,6 +808,25 @@
                     </div>
                 </div>
 
+                <!-- CONFIGURACIÓN DE PLAYLIST AUTOMÁTICA PARA RUTINAS -->
+                <div class="rutina-musica-config-card">
+                    <div class="rutina-musica-config-info">
+                        <span style="font-size: 18px;">🎧</span>
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Playlist por Defecto en Rutinas</div>
+                            <div id="rutina-musica-default-status" style="font-size: 11px; color: #94a3b8;">Elige una playlist para que suene aleatoriamente durante tus rutinas</div>
+                        </div>
+                    </div>
+                    <div class="rutina-musica-config-controls">
+                        <select id="select-playlist-rutina-default" class="finanzas-input-clean rutina-playlist-select" onchange="alCambiarPlaylistDefaultRutina(this.value)">
+                            <option value="">🔇 Desactivado (Sin música automática)</option>
+                        </select>
+                        <button type="button" class="btn-subfiltro-ej" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" style="padding: 6px 10px; font-size: 11.5px; white-space: nowrap;" title="Gestionar listas de reproducción">
+                            📋 Playlists
+                        </button>
+                    </div>
+                </div>
+
                 <!-- PORTALES DE RUTINAS DINÁMICAS (SIN DUPLICADOS) -->
                 <div id="contenedor-portales-rutinas-ejercicios">
                     <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas...</p>
@@ -932,6 +951,30 @@
                 <button type="button" class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Editar calentamiento">
                     <span>⚙</span> Configurar
                 </button>
+            </div>
+
+            <!-- MÚSICA DE LA RUTINA (REPRODUCCIÓN ALEATORIA CONTINUA) -->
+            <div id="rutina-musica-live-bar" class="rutina-musica-live-bar">
+                <div class="rutina-musica-live-left">
+                    <span id="rutina-musica-live-icon" class="rutina-musica-live-icon">🎵</span>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span id="rutina-musica-live-playlist" style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.4px;">Música Automática de Rutina</span>
+                            <span id="rutina-musica-mode-pill" class="rutina-musica-mode-pill" style="display: none;">🔀 Aleatorio continuo</span>
+                        </div>
+                        <div id="rutina-musica-live-track" style="font-size: 12.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            Sin playlist seleccionada para rutinas
+                        </div>
+                    </div>
+                </div>
+                <div class="rutina-musica-live-actions">
+                    <select id="select-playlist-rutina-activa" class="finanzas-input-clean rutina-playlist-select-compact" onchange="alCambiarPlaylistEnRutinaActiva(this.value)" title="Cambiar playlist en vivo">
+                        <option value="">🔇 Sin música</option>
+                    </select>
+                    <button type="button" id="btn-rutina-musica-play" class="rutina-musica-ctrl-btn" onclick="togglePlayMusicaRutina()" title="Reproducir / Pausar">▶</button>
+                    <button type="button" id="btn-rutina-musica-next" class="rutina-musica-ctrl-btn" onclick="siguienteCancionMusicaRutina()" title="Siguiente aleatoria">⏭</button>
+                    <button type="button" id="btn-rutina-musica-stop" class="rutina-musica-ctrl-btn stop" onclick="detenerMusicaManualDesdeRutina()" title="Detener audio de rutina">⏹</button>
+                </div>
             </div>
 
             <!-- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER) -->
@@ -2742,6 +2785,13 @@
                 <div class="modal-form-group">
                     <label>Descripción / Enfoque:</label>
                     <input type="text" id="modal-rutina-desc" class="modal-input" placeholder="Ej: Desarrollo de fuerza máxima e hipertrofia...">
+                </div>
+                <div class="modal-form-group">
+                    <label>🎵 Playlist de Audio para esta Rutina:</label>
+                    <select id="modal-rutina-playlist" class="modal-input">
+                        <option value="">🎧 Usar Playlist por Defecto del Sistema</option>
+                        <option value="__none__">🔇 Sin música en esta rutina</option>
+                    </select>
                 </div>
 
                 <div class="modal-form-group" style="margin-bottom: 6px;">
@@ -5575,7 +5625,7 @@
             <div id="mini-player-title" class="mini-player-title">Cargando música...</div>
             <div class="mini-player-subtitle">
                 <span class="mini-equalizer-bars"><span></span><span></span><span></span></span>
-                <span>Monarca Audio Deck</span>
+                <span id="mini-player-subtitle-text">Monarca Audio Deck</span>
             </div>
         </div>
         <div class="mini-player-actions" onclick="event.stopPropagation();">
@@ -5653,26 +5703,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.56"></script>
-    <script src="js/perfil.js?v=10.56"></script>
-    <script src="js/progresion.js?v=10.56"></script>
-    <script src="js/estado-personal.js?v=10.56"></script>
-    <script src="js/finanzas.js?v=10.56"></script>
-    <script src="js/ideas.js?v=10.56"></script>
-    <script src="js/dinamicas.js?v=10.56"></script>
-    <script src="js/calendario.js?v=10.56"></script>
-    <script src="js/inventario.js?v=10.56"></script>
-    <script src="js/reproductor.js?v=10.56"></script>
-    <script src="js/jarvis-voz.js?v=10.56"></script>
+    <script src="js/core.js?v=10.57"></script>
+    <script src="js/perfil.js?v=10.57"></script>
+    <script src="js/progresion.js?v=10.57"></script>
+    <script src="js/estado-personal.js?v=10.57"></script>
+    <script src="js/finanzas.js?v=10.57"></script>
+    <script src="js/ideas.js?v=10.57"></script>
+    <script src="js/dinamicas.js?v=10.57"></script>
+    <script src="js/calendario.js?v=10.57"></script>
+    <script src="js/inventario.js?v=10.57"></script>
+    <script src="js/reproductor.js?v=10.57"></script>
+    <script src="js/jarvis-voz.js?v=10.57"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.56"></script>
+    <script type="module" src="js/firebase-config.js?v=10.57"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.56')
+                navigator.serviceWorker.register('sw.js?v=10.57')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

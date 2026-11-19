@@ -61,6 +61,7 @@ const DEFAULT_STATE = {
     gym: [],
     rutinas: [],
     rutinaCalentamiento: [],
+    rutinaPlaylistDefaultId: null,
     ejercicios: [],
     salud: [],
     menteAtributos: {
@@ -278,6 +279,7 @@ const MonarcaDB = {
             if (!data.ejercicios || !Array.isArray(data.ejercicios)) data.ejercicios = [];
             if (!data.rutinas || !Array.isArray(data.rutinas)) data.rutinas = [];
             if (!data.rutinaCalentamiento || !Array.isArray(data.rutinaCalentamiento)) data.rutinaCalentamiento = [];
+            if (typeof data.rutinaPlaylistDefaultId === 'undefined') data.rutinaPlaylistDefaultId = null;
             if (!data.questsDiarios || !Array.isArray(data.questsDiarios)) data.questsDiarios = [];
             if (!data.fatiga) data.fatiga = JSON.parse(JSON.stringify(DEFAULT_STATE.fatiga));
             if (!data.gym || !Array.isArray(data.gym)) data.gym = [];
@@ -638,6 +640,7 @@ function inicializarSistema(omitirLecturaLocal) {
     if (typeof renderizarDesgloseCuerpoAnatomico === 'function') renderizarDesgloseCuerpoAnatomico();
     if (typeof renderizarDesgloseMenteCognitiva === 'function') renderizarDesgloseMenteCognitiva();
     if (typeof inicializarBancoDeIdeas === 'function') inicializarBancoDeIdeas();
+    if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
 
     // Historial inicial para soporte del botón atrás en móvil / PWA
     try {

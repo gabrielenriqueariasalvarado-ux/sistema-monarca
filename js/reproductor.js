@@ -10,6 +10,8 @@
     var DB_VERSION = 1;
     var STORE_NAME = 'canciones';
 
+    var DEFAULT_RUTINA_PL_KEY = 'monarca_musica_rutina_playlist_default';
+
     var state = {
         db: null,
         canciones: [],        // Metadatos { id, nombre, carpeta, tamano, tipo, fecha }
@@ -27,7 +29,18 @@
         repeat: 'all',        // 'off' | 'all' | 'one'
         volumen: 1.0,
         busqueda: '',
-        miniPlayerVisible: true
+        miniPlayerVisible: true,
+        // Modo música continua para rutinas
+        rutinaDefaultPlaylistId: null,
+        rutinaModoActivo: false,
+        rutinaPlaylistActivaId: null,
+        rutinaNombreActiva: '',
+        rutinaColaAleatoria: [],
+        rutinaPrevConfig: null,
+        rutinaConsecErrors: 0,
+        _dbReady: false,
+        _dbReadyPromise: null,
+        _playSeqId: 0
     };
 
     // ----------------------------------------------------------------------
@@ -61,7 +74,7 @@
     // 2. OPERACIONES DE BIBLIOTECA EN INDEXEDDB (OPTIMIZADO PARA ALTO VOLUMEN)
     // ----------------------------------------------------------------------
     function cargarMetadatosCanciones() {
-        return abrirDB().then(function(db) {
+        var prom = abrirDB().then(function(db) {
             return new Promise(function(resolve, reject) {
                 var tx = db.transaction([STORE_NAME], 'readonly');
                 var store = tx.objectStore(STORE_NAME);
@@ -84,7 +97,9 @@
                     } else {
                         lista.sort(function(a, b) { return (b.fecha || 0) - (a.fecha || 0); });
                         state.canciones = lista;
+                        state._dbReady = true;
                         cargarPlaylistsStorage();
+                        notificarCambioPlaylistsYDefault();
                         resolve(lista);
                     }
                 };
@@ -93,6 +108,8 @@
                 };
             });
         });
+        state._dbReadyPromise = prom;
+        return prom;
     }
 
     function obtenerCancionCompleta(id) {
@@ -214,7 +231,7 @@
     function vaciarBiblioteca() {
         if (!confirm('¿Estás seguro de que deseas vaciar toda la biblioteca de música? Esta acción no se puede deshacer.')) return;
 
-        detenerReproductor();
+        detenerMusicaDeRutina(true);
         abrirDB().then(function(db) {
             var tx = db.transaction([STORE_NAME], 'readwrite');
             tx.objectStore(STORE_NAME).clear();
@@ -222,18 +239,55 @@
                 state.canciones = [];
                 state.playlists = [];
                 guardarPlaylistsStorage();
+                setPlaylistDefaultRutina(null, true);
                 state.indiceActual = -1;
                 state.cancionActual = null;
+                notificarCambioPlaylistsYDefault();
                 renderizarContenidoSegunSubtab();
                 actualizarUIPlayerCompleto();
                 actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
             };
         });
     }
 
     // ----------------------------------------------------------------------
-    // 3. PLAYLISTS (LISTAS DE REPRODUCCIÓN)
+    // 3. PLAYLISTS (LISTAS DE REPRODUCCIÓN) Y PLAYLIST POR DEFECTO EN RUTINAS
     // ----------------------------------------------------------------------
+    function notificarCambioPlaylistsYDefault() {
+        try {
+            if (typeof window.actualizarSelectoresPlaylistRutinas === 'function') {
+                window.actualizarSelectoresPlaylistRutinas();
+            }
+        } catch(e) {}
+    }
+
+    function cargarDefaultPlaylistRutinaStorage() {
+        var val = null;
+        try {
+            var raw = localStorage.getItem(DEFAULT_RUTINA_PL_KEY);
+            if (raw && raw.trim() && raw !== '__none__') {
+                val = raw.trim();
+            } else if (raw === '') {
+                val = null;
+            }
+        } catch(e) {}
+
+        if (!val && typeof window.APP_STATE !== 'undefined' && window.APP_STATE && window.APP_STATE.rutinaPlaylistDefaultId) {
+            val = window.APP_STATE.rutinaPlaylistDefaultId;
+        }
+
+        if (val && state.playlists && state.playlists.length > 0) {
+            var existe = state.playlists.some(function(p) { return p && p.id === val; });
+            if (!existe) val = null;
+        } else if (val && state.playlists && state.playlists.length === 0 && state._dbReady) {
+            val = null;
+        }
+
+        state.rutinaDefaultPlaylistId = val || null;
+        return state.rutinaDefaultPlaylistId;
+    }
+
     function cargarPlaylistsStorage() {
         try {
             var raw = localStorage.getItem('monarca_musica_playlists');
@@ -241,12 +295,69 @@
         } catch(e) {
             state.playlists = [];
         }
+        cargarDefaultPlaylistRutinaStorage();
     }
 
     function guardarPlaylistsStorage() {
         try {
             localStorage.setItem('monarca_musica_playlists', JSON.stringify(state.playlists));
         } catch(e) {}
+        notificarCambioPlaylistsYDefault();
+    }
+
+    function getPlaylistDefaultRutinaId() {
+        if (state.playlists.length === 0) {
+            cargarPlaylistsStorage();
+        } else if (state.rutinaDefaultPlaylistId === null) {
+            cargarDefaultPlaylistRutinaStorage();
+        }
+        if (state.rutinaDefaultPlaylistId) {
+            var existe = state.playlists.some(function(p) { return p && p.id === state.rutinaDefaultPlaylistId; });
+            if (!existe) {
+                state.rutinaDefaultPlaylistId = null;
+            }
+        }
+        return state.rutinaDefaultPlaylistId || null;
+    }
+
+    function setPlaylistDefaultRutina(plId, omitirGuardadoNube) {
+        var cleanId = (plId && plId !== '__none__') ? String(plId).trim() : null;
+        if (cleanId && state.playlists && state.playlists.length > 0) {
+            var existe = state.playlists.some(function(p) { return p && p.id === cleanId; });
+            if (!existe) cleanId = null;
+        }
+
+        state.rutinaDefaultPlaylistId = cleanId;
+        try {
+            if (cleanId) {
+                localStorage.setItem(DEFAULT_RUTINA_PL_KEY, cleanId);
+            } else {
+                localStorage.setItem(DEFAULT_RUTINA_PL_KEY, '');
+            }
+        } catch(e) {}
+
+        try {
+            if (typeof window.APP_STATE !== 'undefined' && window.APP_STATE) {
+                window.APP_STATE.rutinaPlaylistDefaultId = cleanId;
+                if (!omitirGuardadoNube && typeof window.MonarcaDB !== 'undefined' && typeof window.MonarcaDB.save === 'function') {
+                    window.MonarcaDB.save(window.APP_STATE);
+                }
+            }
+        } catch(e) {}
+
+        renderizarContenidoSegunSubtab();
+        notificarCambioPlaylistsYDefault();
+        actualizarBarraAudioRutina();
+        return cleanId;
+    }
+
+    function togglePlaylistDefaultRutina(plId) {
+        var actual = getPlaylistDefaultRutinaId();
+        if (actual === plId) {
+            setPlaylistDefaultRutina(null);
+        } else {
+            setPlaylistDefaultRutina(plId);
+        }
     }
 
     function crearPlaylistPrompt() {
@@ -277,15 +388,21 @@
     }
 
     function eliminarPlaylist(plId) {
-        if (!confirm('¿Eliminar esta lista de reproducción? Las canciones se mantendrán en tu biblioteca.')) return;
+        if (!confirm('¿Eliminar esta lista de reproducción? Las canciones se mantrán en tu biblioteca.'.replace('mantrán', 'mantendrán'))) return;
         state.playlists = state.playlists.filter(function(p) { return p.id !== plId; });
+        if (state.rutinaDefaultPlaylistId === plId) {
+            setPlaylistDefaultRutina(null, false);
+        }
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId === plId) {
+            detenerMusicaDeRutina();
+        }
         guardarPlaylistsStorage();
         if (state.playlistSeleccionada === plId) state.playlistSeleccionada = null;
         renderizarContenidoSegunSubtab();
     }
 
     // ----------------------------------------------------------------------
-    // 4. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN
+    // 4. MOTOR DE AUDIO Y CONTROL DE REPRODUCCIÓN (INCLUYE MODO RUTINA CONTINUO)
     // ----------------------------------------------------------------------
     function solicitarPermisoNotifReproductorSiFalta() {
         try {
@@ -307,18 +424,75 @@
         } catch(e) {}
     }
 
-    function reproducirIndice(idx) {
+    function obtenerCancionesDePlaylist(plId) {
+        if (!plId) return [];
+        var pl = state.playlists.find(function(p) { return p && p.id === plId; });
+        if (!pl || !Array.isArray(pl.cancionIds) || pl.cancionIds.length === 0) return [];
+        var mapaCanciones = {};
+        state.canciones.forEach(function(c) { mapaCanciones[c.id] = c; });
+        var resultado = [];
+        pl.cancionIds.forEach(function(cid) {
+            if (mapaCanciones[cid]) resultado.push(mapaCanciones[cid]);
+        });
+        return resultado;
+    }
+
+    function construirColaAleatoriaRutina(tracks, evitarId) {
+        var ids = tracks.map(function(t) { return t.id; });
+        for (var i = ids.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = ids[i];
+            ids[i] = ids[j];
+            ids[j] = tmp;
+        }
+        if (ids.length > 1 && evitarId && ids[0] === evitarId) {
+            var swapIdx = 1 + Math.floor(Math.random() * (ids.length - 1));
+            var tSwap = ids[0];
+            ids[0] = ids[swapIdx];
+            ids[swapIdx] = tSwap;
+        }
+        return ids;
+    }
+
+    function siguienteIdEnColaRutina(tracks, evitarId) {
+        if (!tracks || tracks.length === 0) return null;
+        var idsValidos = {};
+        tracks.forEach(function(t) { idsValidos[t.id] = true; });
+        state.rutinaColaAleatoria = (state.rutinaColaAleatoria || []).filter(function(id) {
+            return !!idsValidos[id];
+        });
+        if (state.rutinaColaAleatoria.length === 0) {
+            state.rutinaColaAleatoria = construirColaAleatoriaRutina(tracks, evitarId);
+        }
+        return state.rutinaColaAleatoria.shift();
+    }
+
+    function obtenerListaParaReproduccionActiva() {
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+            return obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+        }
+        return obtenerListaReproducibleActual();
+    }
+
+    function reproducirMetaCancion(meta, idxEnLista, opciones) {
+        if (!meta) return Promise.resolve(false);
         solicitarPermisoNotifReproductorSiFalta();
+        var playSeq = ++state._playSeqId;
+        state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
 
-        var listaActual = obtenerListaReproducibleActual();
-        if (idx < 0 || idx >= listaActual.length) return;
-        var meta = listaActual[idx];
-        state.indiceActual = idx;
-
-        obtenerCancionCompleta(meta.id).then(function(itemCompleto) {
+        return obtenerCancionCompleta(meta.id).then(function(itemCompleto) {
+            if (playSeq !== state._playSeqId) return false;
             if (!itemCompleto || !itemCompleto.blob) {
+                if (opciones && opciones.silencioso && state.rutinaModoActivo) {
+                    var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+                    state.rutinaConsecErrors++;
+                    if (tracksFallback.length > 1 && state.rutinaConsecErrors < tracksFallback.length) {
+                        siguienteCancion(false);
+                    }
+                    return false;
+                }
                 alert('No se pudo cargar el archivo de audio.');
-                return;
+                return false;
             }
 
             if (state.blobUrlActual) {
@@ -332,29 +506,64 @@
 
             var playPromise = state.audio.play();
             if (playPromise !== undefined) {
-                playPromise.then(function() {
+                return playPromise.then(function() {
+                    if (playSeq !== state._playSeqId) return false;
                     state.reproduciendo = true;
+                    state.rutinaConsecErrors = 0;
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
+                    actualizarBarraAudioRutina();
                     renderizarContenidoSegunSubtab();
                     actualizarMediaSession();
+                    return true;
                 }).catch(function(err) {
+                    if (playSeq !== state._playSeqId) return false;
                     console.warn('[Reproductor] Autoplay prevenido o error:', err);
                     state.reproduciendo = false;
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
+                    actualizarBarraAudioRutina();
                     actualizarMediaSession();
+                    if (err && err.name !== 'NotAllowedError' && state.rutinaModoActivo) {
+                        var tracksErr = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+                        state.rutinaConsecErrors++;
+                        if (tracksErr.length > 1 && state.rutinaConsecErrors < tracksErr.length) {
+                            siguienteCancion(false);
+                        }
+                    }
+                    return false;
                 });
             }
+            return true;
         });
+    }
+
+    function salirModoRutinaSilencioso(restaurarPreferencias) {
+        if (!state.rutinaModoActivo && !state.rutinaPrevConfig) return;
+        state.rutinaModoActivo = false;
+        state.rutinaPlaylistActivaId = null;
+        state.rutinaNombreActiva = '';
+        state.rutinaColaAleatoria = [];
+        state.rutinaConsecErrors = 0;
+        if (restaurarPreferencias && state.rutinaPrevConfig) {
+            state.shuffle = !!state.rutinaPrevConfig.shuffle;
+            state.repeat = state.rutinaPrevConfig.repeat || 'all';
+        }
+        state.rutinaPrevConfig = null;
+        actualizarControlesModo();
+        actualizarBarraAudioRutina();
+    }
+
+    function reproducirIndice(idx) {
+        salirModoRutinaSilencioso(false);
+        var listaActual = obtenerListaReproducibleActual();
+        if (idx < 0 || idx >= listaActual.length) return;
+        reproducirMetaCancion(listaActual[idx], idx);
     }
 
     function obtenerListaReproducibleActual() {
         if (state.playlistSeleccionada) {
-            var pl = state.playlists.find(function(p) { return p.id === state.playlistSeleccionada; });
-            if (pl && pl.cancionIds) {
-                return state.canciones.filter(function(c) { return pl.cancionIds.indexOf(c.id) !== -1; });
-            }
+            return obtenerCancionesDePlaylist(state.playlistSeleccionada);
         }
         if (state.carpetaSeleccionada) {
             return state.canciones.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
@@ -362,11 +571,93 @@
         return state.canciones;
     }
 
+    function iniciarMusicaDeRutina(playlistIdOverride, nombreRutina) {
+        var reqSeq = ++state._playSeqId;
+
+        function ejecutarInicio() {
+            if (reqSeq !== state._playSeqId) return Promise.resolve(false);
+            var targetId = playlistIdOverride || getPlaylistDefaultRutinaId();
+            if (!targetId || targetId === '__none__') {
+                actualizarBarraAudioRutina();
+                return Promise.resolve(false);
+            }
+
+            var pl = state.playlists.find(function(p) { return p && p.id === targetId; });
+            if (!pl) {
+                actualizarBarraAudioRutina();
+                return Promise.resolve(false);
+            }
+
+            var tracks = obtenerCancionesDePlaylist(targetId);
+            if (tracks.length === 0) {
+                state.rutinaModoActivo = true;
+                state.rutinaPlaylistActivaId = targetId;
+                state.rutinaNombreActiva = nombreRutina || '';
+                actualizarBarraAudioRutina();
+                return Promise.resolve(false);
+            }
+
+            if (!state.rutinaPrevConfig) {
+                state.rutinaPrevConfig = {
+                    shuffle: state.shuffle,
+                    repeat: state.repeat
+                };
+            }
+
+            state.rutinaModoActivo = true;
+            state.rutinaPlaylistActivaId = targetId;
+            state.rutinaNombreActiva = nombreRutina || '';
+            state.rutinaConsecErrors = 0;
+            state.shuffle = true;
+            state.repeat = 'all';
+            actualizarControlesModo();
+
+            var evitarId = (state.cancionActual && tracks.length > 1) ? state.cancionActual.id : null;
+            state.rutinaColaAleatoria = construirColaAleatoriaRutina(tracks, evitarId);
+            var primerId = state.rutinaColaAleatoria.shift();
+            var idx = tracks.findIndex(function(c) { return c.id === primerId; });
+            if (idx === -1) idx = 0;
+
+            return reproducirMetaCancion(tracks[idx], idx, { silencioso: true });
+        }
+
+        if (state._dbReady) {
+            return ejecutarInicio();
+        }
+
+        var asegurarDB = state._dbReadyPromise || cargarMetadatosCanciones();
+        return asegurarDB.then(ejecutarInicio).catch(function(err) {
+            console.warn('[Reproductor] Error iniciando música de rutina:', err);
+            return false;
+        });
+    }
+
+    function detenerMusicaDeRutina(omitirStopSiNoEsRutina) {
+        state._playSeqId++;
+        var estabaEnRutina = !!state.rutinaModoActivo;
+        salirModoRutinaSilencioso(true);
+        if (estabaEnRutina || !omitirStopSiNoEsRutina) {
+            if (estabaEnRutina || (state.cancionActual && !omitirStopSiNoEsRutina)) {
+                detenerReproductor();
+            } else {
+                actualizarBarraAudioRutina();
+            }
+        }
+    }
+
     function reproducirActual() {
-        var lista = obtenerListaReproducibleActual();
+        if (state.rutinaModoActivo && !state.cancionActual && state.rutinaPlaylistActivaId) {
+            iniciarMusicaDeRutina(state.rutinaPlaylistActivaId, state.rutinaNombreActiva);
+            return;
+        }
+        var lista = obtenerListaParaReproduccionActiva();
         if (!state.cancionActual) {
             if (lista.length > 0) {
-                reproducirIndice(0);
+                if (state.rutinaModoActivo) {
+                    siguienteCancion(true);
+                } else {
+                    reproducirIndice(0);
+                }
             }
             return;
         }
@@ -376,6 +667,7 @@
                 state.reproduciendo = true;
                 actualizarUIPlayerCompleto();
                 actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
                 renderizarContenidoSegunSubtab();
                 actualizarMediaSession();
             }).catch(function(e) {
@@ -392,6 +684,7 @@
         state.reproduciendo = false;
         actualizarUIPlayerCompleto();
         actualizarMiniPlayer();
+        actualizarBarraAudioRutina();
         renderizarContenidoSegunSubtab();
         actualizarMediaSession();
     }
@@ -405,8 +698,10 @@
     }
 
     function detenerReproductor() {
+        state._playSeqId++;
         state.audio.pause();
-        state.audio.currentTime = 0;
+        state.audio.removeAttribute('src');
+        state.audio.load();
         state.reproduciendo = false;
         if (state.blobUrlActual) {
             URL.revokeObjectURL(state.blobUrlActual);
@@ -416,11 +711,26 @@
         state.indiceActual = -1;
         actualizarUIPlayerCompleto();
         actualizarMiniPlayer();
+        actualizarBarraAudioRutina();
         renderizarContenidoSegunSubtab();
         actualizarMediaSession();
     }
 
     function siguienteCancion(esManual) {
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+            var tracksRut = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+            if (tracksRut.length === 0) {
+                detenerMusicaDeRutina();
+                return;
+            }
+            var evitar = state.cancionActual ? state.cancionActual.id : null;
+            var nextId = siguienteIdEnColaRutina(tracksRut, evitar);
+            var nextIdx = tracksRut.findIndex(function(c) { return c.id === nextId; });
+            if (nextIdx === -1) nextIdx = 0;
+            reproducirMetaCancion(tracksRut[nextIdx], nextIdx, { silencioso: true });
+            return;
+        }
+
         var lista = obtenerListaReproducibleActual();
         if (lista.length === 0) return;
 
@@ -448,11 +758,11 @@
             }
         }
 
-        reproducirIndice(siguienteIdx);
+        reproducirMetaCancion(lista[siguienteIdx], siguienteIdx);
     }
 
     function anteriorCancion() {
-        var lista = obtenerListaReproducibleActual();
+        var lista = obtenerListaParaReproduccionActiva();
         if (lista.length === 0) return;
 
         if (state.audio.currentTime > 3) {
@@ -460,11 +770,16 @@
             return;
         }
 
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+            siguienteCancion(true);
+            return;
+        }
+
         var anteriorIdx = state.indiceActual - 1;
         if (anteriorIdx < 0) {
             anteriorIdx = lista.length - 1;
         }
-        reproducirIndice(anteriorIdx);
+        reproducirMetaCancion(lista[anteriorIdx], anteriorIdx);
     }
 
     function cambiarSeek(porcentaje) {
@@ -827,8 +1142,10 @@
 
         state.audio.addEventListener('play', function() {
             state.reproduciendo = true;
+            state.rutinaConsecErrors = 0;
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
             actualizarMediaSession();
         });
 
@@ -836,6 +1153,7 @@
             state.reproduciendo = false;
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
             actualizarMediaSession();
         });
 
@@ -844,6 +1162,16 @@
             state.reproduciendo = false;
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
+            if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+                var tracks = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+                state.rutinaConsecErrors++;
+                if (tracks.length > 1 && state.rutinaConsecErrors < tracks.length) {
+                    setTimeout(function() {
+                        if (state.rutinaModoActivo) siguienteCancion(false);
+                    }, 200);
+                }
+            }
         });
     }
 
@@ -1070,7 +1398,8 @@
     }
 
     function renderizarPlaylistsView(cont) {
-        var html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
+        var defaultPlId = getPlaylistDefaultRutinaId();
+        var html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">' +
             '<span style="font-size: 13px; font-weight: 700; color: #f8fafc;">Tus Listas Personalizadas</span>' +
             '<button type="button" class="btn-system-secondary" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.MonarcaPlayer.crearPlaylistPrompt()">+ Nueva Lista</button>' +
         '</div>';
@@ -1084,22 +1413,26 @@
             return;
         }
 
-        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">';
+        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px;">';
         state.playlists.forEach(function(pl) {
             var count = (pl.cancionIds || []).length;
-            html += '<div class="player-folder-card" onclick="window.MonarcaPlayer.seleccionarPlaylist(\'' + pl.id + '\')">' +
-                '<div style="display: flex; align-items: center; justify-content: space-between;">' +
+            var esDefaultRutina = (defaultPlId && defaultPlId === pl.id);
+            html += '<div class="player-folder-card player-playlist-card' + (esDefaultRutina ? ' is-default-rutina' : '') + '" onclick="window.MonarcaPlayer.seleccionarPlaylist(\'' + pl.id + '\')">' +
+                '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">' +
                     '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
                         '<span style="font-size: 24px;">📑</span>' +
                         '<div style="min-width: 0; flex: 1;">' +
                             '<div style="font-size: 14px; font-weight: 800; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaparHTML(pl.nombre) + '</div>' +
-                            '<div style="font-size: 11px; color: #94a3b8;">' + count + ' canciones</div>' +
+                            '<div style="font-size: 11px; color: #94a3b8;">' + count + (count === 1 ? ' canción' : ' canciones') + '</div>' +
                         '</div>' +
                     '</div>' +
                     '<button type="button" class="btn-song-delete" onclick="event.stopPropagation(); window.MonarcaPlayer.eliminarPlaylist(\'' + pl.id + '\')" title="Eliminar lista">✕</button>' +
                 '</div>' +
-                '<div style="margin-top: 10px; display: flex; justify-content: flex-end;">' +
-                    '<span style="font-size: 11px; color: #38bdf8; font-weight: 700;">Reproducir Lista ▶</span>' +
+                '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">' +
+                    '<button type="button" class="btn-playlist-default-rutina' + (esDefaultRutina ? ' active' : '') + '" onclick="event.stopPropagation(); window.MonarcaPlayer.togglePlaylistDefaultRutina(\'' + pl.id + '\')" title="Elegir como playlist automática al iniciar rutinas">' +
+                        (esDefaultRutina ? '🏋️ Por defecto ✓' : '🏋️ Usar en Rutinas') +
+                    '</button>' +
+                    '<span style="font-size: 11px; color: #38bdf8; font-weight: 700;">Ver lista ▶</span>' +
                 '</div>' +
             '</div>';
         });
@@ -1124,9 +1457,15 @@
             '</div>';
         } else if (state.playlistSeleccionada) {
             var plObj = state.playlists.find(function(p) { return p.id === state.playlistSeleccionada; });
-            encabezadoFiltro = '<div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">' +
+            var esDefSel = (getPlaylistDefaultRutinaId() === state.playlistSeleccionada);
+            encabezadoFiltro = '<div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
                 '<span style="font-size: 12px; color: #818cf8;">📑 Playlist: <strong>' + escaparHTML(plObj ? plObj.nombre : 'Lista') + '</strong> (' + listaFiltrada.length + ')</span>' +
-                '<button type="button" class="btn-song-delete" style="font-size: 11px; color: #94a3b8;" onclick="window.MonarcaPlayer.seleccionarPlaylist(null)">Mostrar todas</button>' +
+                '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">' +
+                    '<button type="button" class="btn-playlist-default-rutina' + (esDefSel ? ' active' : '') + '" onclick="window.MonarcaPlayer.togglePlaylistDefaultRutina(\'' + state.playlistSeleccionada + '\')" title="Elegir como playlist automática al iniciar rutinas">' +
+                        (esDefSel ? '🏋️ Por defecto en Rutinas ✓' : '🏋️ Usar en Rutinas') +
+                    '</button>' +
+                    '<button type="button" class="btn-song-delete" style="font-size: 11px; color: #94a3b8;" onclick="window.MonarcaPlayer.seleccionarPlaylist(null)">Mostrar todas</button>' +
+                '</div>' +
             '</div>';
         }
 
@@ -1257,6 +1596,61 @@
         }
     }
 
+    function actualizarBarraAudioRutina() {
+        var bar = document.getElementById('rutina-musica-live-bar');
+        if (!bar) return;
+
+        var elPl = document.getElementById('rutina-musica-live-playlist');
+        var elPill = document.getElementById('rutina-musica-mode-pill');
+        var elTrack = document.getElementById('rutina-musica-live-track');
+        var elIcon = document.getElementById('rutina-musica-live-icon');
+        var btnPlay = document.getElementById('btn-rutina-musica-play');
+        var btnNext = document.getElementById('btn-rutina-musica-next');
+        var btnStop = document.getElementById('btn-rutina-musica-stop');
+
+        var plActivaId = state.rutinaModoActivo ? state.rutinaPlaylistActivaId : getPlaylistDefaultRutinaId();
+        var plObj = plActivaId ? state.playlists.find(function(p) { return p && p.id === plActivaId; }) : null;
+        var tracksPl = plObj ? obtenerCancionesDePlaylist(plObj.id) : [];
+
+        if (elPl) {
+            elPl.textContent = plObj ? ('Playlist: ' + plObj.nombre) : 'Música Automática de Rutina';
+        }
+        if (elPill) {
+            elPill.style.display = (state.rutinaModoActivo && plObj && tracksPl.length > 0) ? 'inline-flex' : 'none';
+        }
+
+        if (elTrack) {
+            if (state.rutinaModoActivo && state.cancionActual) {
+                elTrack.textContent = (state.reproduciendo ? '▶ ' : '⏸ (Toca ▶ para sonar) ') + state.cancionActual.nombre;
+            } else if (plObj && tracksPl.length === 0) {
+                elTrack.textContent = '⚠️ La playlist "' + plObj.nombre + '" no tiene canciones aún';
+            } else if (state.cancionActual) {
+                elTrack.textContent = (state.reproduciendo ? '▶ ' : '⏸ ') + state.cancionActual.nombre;
+            } else if (plObj) {
+                elTrack.textContent = 'Lista "' + plObj.nombre + '" (' + tracksPl.length + ' canciones) lista';
+            } else {
+                elTrack.textContent = 'Sin playlist seleccionada para rutinas';
+            }
+        }
+
+        if (elIcon) {
+            elIcon.classList.toggle('playing', !!state.reproduciendo);
+        }
+
+        if (btnPlay) {
+            btnPlay.textContent = state.reproduciendo ? '⏸' : '▶';
+            btnPlay.title = state.reproduciendo ? 'Pausar música' : 'Reproducir música';
+            btnPlay.disabled = (!state.cancionActual && tracksPl.length === 0);
+            btnPlay.classList.toggle('needs-tap', !!(state.rutinaModoActivo && state.cancionActual && !state.reproduciendo));
+        }
+        if (btnNext) {
+            btnNext.disabled = !(state.rutinaModoActivo && tracksPl.length > 0) && !state.cancionActual;
+        }
+        if (btnStop) {
+            btnStop.disabled = !(state.rutinaModoActivo || state.cancionActual);
+        }
+    }
+
     function actualizarMiniPlayer() {
         var elMini = document.getElementById('monarca-mini-player');
         if (!elMini) return;
@@ -1271,6 +1665,16 @@
         var elTit = document.getElementById('mini-player-title');
         if (elTit) {
             elTit.textContent = state.cancionActual.nombre || 'Reproduciendo...';
+        }
+
+        var elSubTxt = document.getElementById('mini-player-subtitle-text');
+        if (elSubTxt) {
+            if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+                var plAct = state.playlists.find(function(p) { return p && p.id === state.rutinaPlaylistActivaId; });
+                elSubTxt.textContent = '🏋️ ' + (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio continuo';
+            } else {
+                elSubTxt.textContent = 'Monarca Audio Deck';
+            }
         }
 
         var btnPlay = document.getElementById('mini-player-btn-play');
@@ -1328,6 +1732,13 @@
         return state.canciones || [];
     }
 
+    function getPlaylists() {
+        if (state.playlists.length === 0) {
+            cargarPlaylistsStorage();
+        }
+        return state.playlists || [];
+    }
+
     // ----------------------------------------------------------------------
     // 10. INICIALIZADOR GLOBAL
     // ----------------------------------------------------------------------
@@ -1337,6 +1748,7 @@
             state.audio = elAudio;
         }
 
+        cargarPlaylistsStorage();
         initAudioListeners();
         initMediaSession();
         if (obtenerPluginMediaSession()) {
@@ -1347,6 +1759,7 @@
             renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
             actualizarControlesModo();
         }).catch(function(e) {
             console.error('[Reproductor] Error cargando canciones iniciales:', e);
@@ -1410,7 +1823,11 @@
         if (typeof origCambiarVista === 'function') {
             window.cambiarVista = function(vistaId, noPushState) {
                 origCambiarVista(vistaId, noPushState);
+                if (vistaId === 'vista-reproductor') {
+                    renderizarContenidoSegunSubtab();
+                }
                 actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
             };
         }
     }
@@ -1432,12 +1849,19 @@
         cerrarMiniPlayer: cerrarMiniPlayer,
         expandirReproductorCompleto: expandirReproductorCompleto,
         actualizarMiniPlayer: actualizarMiniPlayer,
+        actualizarBarraAudioRutina: actualizarBarraAudioRutina,
         cambiarSubtab: cambiarSubtab,
         seleccionarCarpeta: seleccionarCarpeta,
         seleccionarPlaylist: seleccionarPlaylist,
         crearPlaylistPrompt: crearPlaylistPrompt,
         eliminarPlaylist: eliminarPlaylist,
         abrirModalAgregarPlaylist: abrirModalAgregarPlaylist,
+        getPlaylists: getPlaylists,
+        getPlaylistDefaultRutinaId: getPlaylistDefaultRutinaId,
+        setPlaylistDefaultRutina: setPlaylistDefaultRutina,
+        togglePlaylistDefaultRutina: togglePlaylistDefaultRutina,
+        iniciarMusicaDeRutina: iniciarMusicaDeRutina,
+        detenerMusicaDeRutina: detenerMusicaDeRutina,
         enviarCancionAPC: enviarCancionAPC,
         descargarCancionTransferidaEnPC: descargarCancionTransferidaEnPC,
         descargarCancionArchivoLocal: descargarCancionArchivoLocal,

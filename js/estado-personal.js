@@ -2103,6 +2103,9 @@ function cambiarCategoriaEjercicios(cat) {
     if (CATEGORIA_EJERCICIOS_ACTIVA === 'rutinas') {
         if (btnRut) btnRut.classList.add('active');
         if (secRut) secRut.style.display = 'block';
+        if (typeof actualizarSelectoresPlaylistRutinas === 'function') {
+            actualizarSelectoresPlaylistRutinas();
+        }
         renderizarPortalesRutinasEjercicios();
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-fisico') {
         if (btnBancoFis) btnBancoFis.classList.add('active');
@@ -2166,6 +2169,10 @@ function renderizarPortalesRutinasEjercicios() {
         return;
     }
 
+    var playlistsCache = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+        ? window.MonarcaPlayer.getPlaylists()
+        : [];
+
     var html = '';
     filtradas.forEach(function(item) {
         var rut = item.r;
@@ -2181,6 +2188,16 @@ function renderizarPortalesRutinasEjercicios() {
                         (esHibrida ? '<span class="muscle-tag" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:700;">⚡ Híbrida</span>' :
                         '<span class="muscle-tag" style="background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; font-weight:700;">🏋️ Física</span>');
 
+        var badgeMusica = '';
+        if (rut.playlistId === '__none__') {
+            badgeMusica = '<span class="muscle-tag" style="background:rgba(148,163,184,0.12); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25);">🔇 Silencio</span>';
+        } else if (rut.playlistId) {
+            var plMatch = playlistsCache.find(function(p) { return p && p.id === rut.playlistId; });
+            if (plMatch) {
+                badgeMusica = '<span class="muscle-tag" style="background:rgba(56,189,248,0.14); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">🎵 ' + escaparHtmlRutina(plMatch.nombre) + '</span>';
+            }
+        }
+
         var borderAccent = esMental ? '#2563eb' : (esHibrida ? '#f59e0b' : '#111827');
 
         html += `
@@ -2192,6 +2209,7 @@ function renderizarPortalesRutinasEjercicios() {
               <div class="muscle-tags-row">
                 ${badgeTipo}
                 <span class="muscle-tag">${badgeEj}</span>
+                ${badgeMusica}
                 ${rut.descripcion ? `<span class="muscle-tag" style="background:none; border:none; color:#6b7280;">${rut.descripcion}</span>` : ''}
               </div>
             </div>
@@ -4404,10 +4422,13 @@ function abrirModalNuevaRutina() {
     var inDesc = document.getElementById('modal-rutina-desc');
     var inTipo = document.getElementById('modal-rutina-tipo');
     var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
+    var selPl = document.getElementById('modal-rutina-playlist');
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
     if (inBusq) inBusq.value = "";
     if (inTipo) inTipo.value = (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || SUBFILTRO_BANCO_ACTIVO === 'mental' || FILTRO_RUTINAS_ACTIVO === 'mentales') ? 'mental' : 'fisica';
+    if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
+    if (selPl) selPl.value = "";
 
     SUBFILTRO_RUTINA_MODAL_ACTIVO = 'todos';
     var pills = document.querySelectorAll('.rutina-cat-pill');
@@ -4466,11 +4487,18 @@ function abrirModalEditarRutina(rutinaIdOIdx, event) {
     var inDesc = document.getElementById('modal-rutina-desc');
     var inTipo = document.getElementById('modal-rutina-tipo');
     var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
+    var selPl = document.getElementById('modal-rutina-playlist');
 
     if (inNom) inNom.value = rutina.nombre || "";
     if (inDesc) inDesc.value = rutina.descripcion || "";
     if (inBusq) inBusq.value = "";
     if (inTipo) inTipo.value = rutina.tipo || "fisica";
+    if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
+    if (selPl) {
+        var targetVal = rutina.playlistId || "";
+        var optExists = Array.from(selPl.options).some(function(o) { return o.value === targetVal; });
+        selPl.value = optExists ? targetVal : "";
+    }
 
     SUBFILTRO_RUTINA_MODAL_ACTIVO = 'todos';
     var pills = document.querySelectorAll('.rutina-cat-pill');
@@ -4664,11 +4692,14 @@ function confirmarAgregarRutina() {
 
         if (idxExistente !== -1 && APP_STATE.rutinas[idxExistente]) {
             var rutAEditar = APP_STATE.rutinas[idxExistente];
+            var selPlEdit = document.getElementById('modal-rutina-playlist');
+            var plIdEdit = selPlEdit ? selPlEdit.value.trim() : '';
             rutAEditar.nombre = nom;
             rutAEditar.descripcion = desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado");
             rutAEditar.tipo = tipo;
             rutAEditar.rankLabel = tag;
             rutAEditar.ejercicios = selectedEjercicios;
+            rutAEditar.playlistId = plIdEdit || null;
             rutAEditar.fechaActualizacion = Date.now();
 
             MonarcaDB.save(APP_STATE);
@@ -4701,6 +4732,8 @@ function confirmarAgregarRutina() {
 
     var nowRut = Date.now();
     var prefix = tipo === 'mental' ? 'COG-' : (tipo === 'hibrida' ? 'HIB-' : 'RUT-');
+    var selPlNew = document.getElementById('modal-rutina-playlist');
+    var plIdNew = selPlNew ? selPlNew.value.trim() : '';
     var nuevaRutina = {
         id: "RUT-" + nowRut,
         codigo: prefix + (APP_STATE.rutinas.length + 1),
@@ -4709,6 +4742,7 @@ function confirmarAgregarRutina() {
         descripcion: desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado"),
         rankLabel: tag,
         ejercicios: selectedEjercicios,
+        playlistId: plIdNew || null,
         permitirDuplicadoNombre: permitirDuplicadoRut,
         timestamp: nowRut,
         fechaActualizacion: nowRut
@@ -6538,6 +6572,211 @@ if (typeof window !== 'undefined') {
     });
 }
 
+function escaparHtmlRutina(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function actualizarSelectoresPlaylistRutinas() {
+    var playlists = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+        ? window.MonarcaPlayer.getPlaylists()
+        : [];
+    var defaultPlId = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylistDefaultRutinaId === 'function')
+        ? window.MonarcaPlayer.getPlaylistDefaultRutinaId()
+        : null;
+    var canciones = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getCanciones === 'function')
+        ? window.MonarcaPlayer.getCanciones()
+        : [];
+
+    var cancionesMap = {};
+    canciones.forEach(function(c) { cancionesMap[c.id] = true; });
+
+    function contarValidas(pl) {
+        if (!pl || !Array.isArray(pl.cancionIds)) return 0;
+        if (canciones.length === 0) return pl.cancionIds.length;
+        return pl.cancionIds.filter(function(cid) { return !!cancionesMap[cid]; }).length;
+    }
+
+    function construirOpcionesPlaylists(textoLargo) {
+        return playlists.map(function(pl) {
+            var n = contarValidas(pl);
+            var sufijo = textoLargo ? (n + (n === 1 ? ' canción' : ' canciones')) : n;
+            return '<option value="' + escaparHtmlRutina(pl.id) + '">📑 ' + escaparHtmlRutina(pl.nombre) + ' (' + sufijo + ')</option>';
+        }).join('');
+    }
+
+    var existePl = function(id) {
+        return !!(id && playlists.some(function(p) { return p && p.id === id; }));
+    };
+
+    var selDef = document.getElementById('select-playlist-rutina-default');
+    if (selDef) {
+        selDef.innerHTML = '<option value="">🔇 Desactivado (Sin música automática)</option>' + construirOpcionesPlaylists(true);
+        selDef.value = existePl(defaultPlId) ? defaultPlId : '';
+    }
+
+    var elStatusDef = document.getElementById('rutina-musica-default-status');
+    if (elStatusDef) {
+        var plDefObj = defaultPlId ? playlists.find(function(p) { return p && p.id === defaultPlId; }) : null;
+        if (playlists.length === 0) {
+            elStatusDef.textContent = 'Crea una lista en Reproductor → Listas de Reproducción para asignarla aquí';
+        } else if (plDefObj) {
+            elStatusDef.textContent = 'Activa: "' + plDefObj.nombre + '" (' + contarValidas(plDefObj) + ' pistas) · Sonará en aleatorio continuo hasta terminar';
+        } else {
+            elStatusDef.textContent = 'Elige una playlist para que suene aleatoriamente durante tus rutinas';
+        }
+    }
+
+    var selAct = document.getElementById('select-playlist-rutina-activa');
+    if (selAct) {
+        var valActPrev = selAct.value;
+        selAct.innerHTML = '<option value="">🔇 Sin música</option>' + construirOpcionesPlaylists(false);
+        var pState = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getState === 'function')
+            ? window.MonarcaPlayer.getState()
+            : null;
+        var targetAct = (pState && pState.rutinaModoActivo && pState.rutinaPlaylistActivaId)
+            ? pState.rutinaPlaylistActivaId
+            : (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina ? resolverPlaylistIdParaRutina(RUTINA_ACTIVA.rutina) : (defaultPlId || valActPrev || ''));
+        selAct.value = existePl(targetAct) ? targetAct : '';
+    }
+
+    var selModal = document.getElementById('modal-rutina-playlist');
+    if (selModal) {
+        var prevModalVal = selModal.value;
+        var plDObj = defaultPlId ? playlists.find(function(p) { return p && p.id === defaultPlId; }) : null;
+        var plDefNombre = plDObj ? (' (' + escaparHtmlRutina(plDObj.nombre) + ')') : '';
+        selModal.innerHTML = '<option value="">🎧 Usar Playlist por Defecto del Sistema' + plDefNombre + '</option>' +
+            '<option value="__none__">🔇 Sin música en esta rutina</option>' +
+            construirOpcionesPlaylists(true);
+        if (prevModalVal && Array.from(selModal.options).some(function(o) { return o.value === prevModalVal; })) {
+            selModal.value = prevModalVal;
+        }
+    }
+
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.actualizarBarraAudioRutina === 'function') {
+        window.MonarcaPlayer.actualizarBarraAudioRutina();
+    }
+}
+
+function resolverPlaylistIdParaRutina(rutina) {
+    var playlists = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+        ? window.MonarcaPlayer.getPlaylists()
+        : [];
+    if (rutina && rutina.playlistId) {
+        if (rutina.playlistId === '__none__') return null;
+        if (playlists.some(function(p) { return p && p.id === rutina.playlistId; })) {
+            return rutina.playlistId;
+        }
+    }
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylistDefaultRutinaId === 'function') {
+        return window.MonarcaPlayer.getPlaylistDefaultRutinaId();
+    }
+    return null;
+}
+
+function iniciarAudioAutomaticoParaRutina(rutina, omitirReinicio) {
+    actualizarSelectoresPlaylistRutinas();
+    if (!window.MonarcaPlayer) return;
+
+    var targetPlId = resolverPlaylistIdParaRutina(rutina);
+    var selAct = document.getElementById('select-playlist-rutina-activa');
+    if (selAct) selAct.value = targetPlId || '';
+
+    var pSt = (typeof window.MonarcaPlayer.getState === 'function') ? window.MonarcaPlayer.getState() : null;
+
+    if (!omitirReinicio) {
+        window._rutinaAudioDetenidoManual = false;
+    } else if (window._rutinaAudioDetenidoManual && pSt && !pSt.rutinaModoActivo) {
+        if (typeof window.MonarcaPlayer.actualizarBarraAudioRutina === 'function') {
+            window.MonarcaPlayer.actualizarBarraAudioRutina();
+        }
+        return;
+    }
+
+    if (!targetPlId) {
+        if (pSt && pSt.rutinaModoActivo && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
+            window.MonarcaPlayer.detenerMusicaDeRutina(true);
+        } else if (typeof window.MonarcaPlayer.actualizarBarraAudioRutina === 'function') {
+            window.MonarcaPlayer.actualizarBarraAudioRutina();
+        }
+        return;
+    }
+
+    if (pSt && pSt.rutinaModoActivo && pSt.rutinaPlaylistActivaId === targetPlId && (pSt.reproduciendo || pSt.cancionActual)) {
+        if (typeof window.MonarcaPlayer.actualizarBarraAudioRutina === 'function') {
+            window.MonarcaPlayer.actualizarBarraAudioRutina();
+        }
+        return;
+    }
+
+    if (typeof window.MonarcaPlayer.iniciarMusicaDeRutina === 'function') {
+        window.MonarcaPlayer.iniciarMusicaDeRutina(targetPlId, rutina ? rutina.nombre : '');
+    }
+}
+
+function alCambiarPlaylistDefaultRutina(plId) {
+    if (!window.MonarcaPlayer || typeof window.MonarcaPlayer.setPlaylistDefaultRutina !== 'function') return;
+    window.MonarcaPlayer.setPlaylistDefaultRutina(plId || null);
+}
+
+function alCambiarPlaylistEnRutinaActiva(plId) {
+    if (!window.MonarcaPlayer) return;
+    var nombreRut = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) ? RUTINA_ACTIVA.rutina.nombre : '';
+    if (!plId) {
+        window._rutinaAudioDetenidoManual = true;
+        if (typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
+            window.MonarcaPlayer.detenerMusicaDeRutina(true);
+        }
+        return;
+    }
+    window._rutinaAudioDetenidoManual = false;
+    if (typeof window.MonarcaPlayer.iniciarMusicaDeRutina === 'function') {
+        window.MonarcaPlayer.iniciarMusicaDeRutina(plId, nombreRut);
+    }
+}
+
+function togglePlayMusicaRutina() {
+    if (!window.MonarcaPlayer) return;
+    window._rutinaAudioDetenidoManual = false;
+    var pSt = (typeof window.MonarcaPlayer.getState === 'function') ? window.MonarcaPlayer.getState() : null;
+    if (pSt && !pSt.cancionActual) {
+        var selAct = document.getElementById('select-playlist-rutina-activa');
+        var plId = (selAct && selAct.value) ? selAct.value : (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina ? resolverPlaylistIdParaRutina(RUTINA_ACTIVA.rutina) : null);
+        if (plId && typeof window.MonarcaPlayer.iniciarMusicaDeRutina === 'function') {
+            window.MonarcaPlayer.iniciarMusicaDeRutina(plId, (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) ? RUTINA_ACTIVA.rutina.nombre : '');
+            return;
+        }
+    }
+    if (typeof window.MonarcaPlayer.togglePlayPausa === 'function') {
+        window.MonarcaPlayer.togglePlayPausa();
+    }
+}
+
+function siguienteCancionMusicaRutina() {
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.siguienteCancion === 'function') {
+        window.MonarcaPlayer.siguienteCancion();
+    }
+}
+
+function detenerMusicaManualDesdeRutina() {
+    window._rutinaAudioDetenidoManual = true;
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
+        window.MonarcaPlayer.detenerMusicaDeRutina();
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.actualizarSelectoresPlaylistRutinas = actualizarSelectoresPlaylistRutinas;
+    window.alCambiarPlaylistDefaultRutina = alCambiarPlaylistDefaultRutina;
+    window.alCambiarPlaylistEnRutinaActiva = alCambiarPlaylistEnRutinaActiva;
+    window.togglePlayMusicaRutina = togglePlayMusicaRutina;
+    window.siguienteCancionMusicaRutina = siguienteCancionMusicaRutina;
+    window.detenerMusicaManualDesdeRutina = detenerMusicaManualDesdeRutina;
+}
+
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     limpiarTodosLosTimersSeries();
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
@@ -6566,6 +6805,7 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     HISTORIAL_FACTOR_SERIES = {};
 
     cambiarVista('vista-detalle-rutina-dinamica');
+    iniciarAudioAutomaticoParaRutina(rutina, !!omitirAutoCalentamiento);
 
     var tituloEl = document.getElementById('detalle-rutina-titulo');
     var badgeEl = document.getElementById('detalle-rutina-badge');
@@ -6752,6 +6992,9 @@ function ejecutarRutina(tipo) {
 
     sumarExp(50);
     MonarcaDB.save(APP_STATE);
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
+        window.MonarcaPlayer.detenerMusicaDeRutina(true);
+    }
 
     alert("¡Excelente trabajo! Has completado la " + nombre + " al 100% (+50 EXP y fatiga registrada).");
     cambiarVista('vista-ejercicios');
@@ -7052,6 +7295,9 @@ function ejecutarRutinaDinamica() {
     limpiarTodosLosTimersSeries();
     limpiarSesionActivaStorage();
     MonarcaDB.save(APP_STATE);
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
+        window.MonarcaPlayer.detenerMusicaDeRutina(true);
+    }
 
     var msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
     if (tieneMentales && tieneFisicos) {
@@ -7094,6 +7340,7 @@ function ejecutarRutinaDinamica() {
         renderizarEjercicios(APP_STATE.ejercicios);
     }
 
+    RUTINA_ACTIVA = null;
     cambiarVista('vista-ejercicios');
     if (typeof cambiarCategoriaEjercicios === 'function') {
         cambiarCategoriaEjercicios('rutinas');
@@ -8826,6 +9073,7 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     HISTORIAL_FACTOR_SERIES = {};
 
     cambiarVista('vista-detalle-rutina-dinamica');
+    iniciarAudioAutomaticoParaRutina(rutina, false);
 
     var tituloEl = document.getElementById('detalle-rutina-titulo');
     var badgeEl = document.getElementById('detalle-rutina-badge');
