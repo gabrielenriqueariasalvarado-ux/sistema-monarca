@@ -70,10 +70,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.63)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.64)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.63
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.64
             Esta versión nativa incluye:
+            - 🌿 **Árbol de Habilidades & Skills optimizado para teléfono (v10.64)**:
+              - Tarjetas responsivas donde el rango (`RANGO E..SSS`) y el nombre completo se leen sin cortes ni truncamientos (`J...`).
+              - Mini-HUD resumen con total de habilidades, horas invertidas y rango líder, botones táctiles **`+1h` / `+2h` / `+3h`** equilibrados y ruta visual desplegable de progresión **`E → SSS`**.
+              - Gráfica **Inversión de Tiempo** proporcionada y limpia (sin bloques gigantes cuando hay pocas habilidades) con etiquetas legibles en móvil.
             - 🖤 **Reproductor Executive Noir B&N + SnapTube por defecto (v10.63)**:
               - Detección filtrada para mostrar **solo tus canciones de SnapTube por defecto** (con botón rápido si alguna vez quieres ver otras carpetas) y exclusión de grabaciones (`SoundRecorder`) y audios de `WhatsApp`/`Telegram`.
               - Filtro **blanco y negro (`grayscale`)** en todas las portadas y miniaturas para una estética nocturna uniforme y sin saturación de colores.

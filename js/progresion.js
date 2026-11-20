@@ -697,6 +697,97 @@ function confirmarAgregarHabilidad() {
 
 var SKILLS_EXPANDIDAS = (typeof SKILLS_EXPANDIDAS !== 'undefined') ? SKILLS_EXPANDIDAS : new Set();
 
+var SKILL_RANK_TIERS = [
+    { id: 'E',   nombre: 'Rango E',   minHrs: 0,   badgeClass: 'badge-rank-e',   accent: '#94a3b8' },
+    { id: 'D',   nombre: 'Rango D',   minHrs: 5,   badgeClass: 'badge-rank-d',   accent: '#38bdf8' },
+    { id: 'C',   nombre: 'Rango C',   minHrs: 15,  badgeClass: 'badge-rank-c',   accent: '#60a5fa' },
+    { id: 'B',   nombre: 'Rango B',   minHrs: 35,  badgeClass: 'badge-rank-b',   accent: '#a78bfa' },
+    { id: 'A',   nombre: 'Rango A',   minHrs: 70,  badgeClass: 'badge-rank-a',   accent: '#f472b6' },
+    { id: 'S',   nombre: 'Rango S',   minHrs: 125, badgeClass: 'badge-rank-s',   accent: '#fbbf24' },
+    { id: 'SS',  nombre: 'Rango SS',  minHrs: 210, badgeClass: 'badge-rank-ss',  accent: '#34d399' },
+    { id: 'SSS', nombre: 'Rango SSS', minHrs: 340, badgeClass: 'badge-rank-sss', accent: '#fde047' }
+];
+
+function escaparHtmlSkill(txt) {
+    return String(txt || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function obtenerTierSkill(badgeClass) {
+    for (var i = 0; i < SKILL_RANK_TIERS.length; i++) {
+        if (SKILL_RANK_TIERS[i].badgeClass === badgeClass) return SKILL_RANK_TIERS[i];
+    }
+    return SKILL_RANK_TIERS[0];
+}
+
+function renderizarHudSkillsResumen(sList) {
+    var totalSkills = sList.length;
+    var totalHoras = 0;
+    var maxTierIdx = 0;
+
+    sList.forEach(function(s) {
+        var h = Math.max(0, Number(s && s.horasTotales) || 0);
+        totalHoras += h;
+        var calc = calcularRangoYProgreso(h);
+        for (var i = 0; i < SKILL_RANK_TIERS.length; i++) {
+            if (SKILL_RANK_TIERS[i].badgeClass === calc.badgeClass && i > maxTierIdx) {
+                maxTierIdx = i;
+            }
+        }
+    });
+
+    var tierLider = SKILL_RANK_TIERS[maxTierIdx] || SKILL_RANK_TIERS[0];
+    var totalHrsFmt = (Math.round(totalHoras * 10) / 10);
+
+    return `
+        <div class="skills-hud-grid" aria-label="Resumen de habilidades">
+            <div class="skills-hud-item">
+                <span class="skills-hud-label">Skills</span>
+                <span class="skills-hud-value">${totalSkills}</span>
+            </div>
+            <div class="skills-hud-item">
+                <span class="skills-hud-label">Invertido</span>
+                <span class="skills-hud-value">${totalHrsFmt} h</span>
+            </div>
+            <div class="skills-hud-item">
+                <span class="skills-hud-label">Máx. Rango</span>
+                <span class="skills-hud-value" style="color: ${tierLider.accent};">${tierLider.id}</span>
+            </div>
+        </div>`;
+}
+
+function renderizarEscaleraRangosSkill(horasTotales, activeBadgeClass) {
+    var h = Math.max(0, Number(horasTotales) || 0);
+    var activeIdx = 0;
+    for (var i = 0; i < SKILL_RANK_TIERS.length; i++) {
+        if (SKILL_RANK_TIERS[i].badgeClass === activeBadgeClass) {
+            activeIdx = i;
+            break;
+        }
+    }
+
+    var nodos = SKILL_RANK_TIERS.map(function(t, idx) {
+        var cls = 'skill-tree-node';
+        if (idx === activeIdx) cls += ' is-current';
+        else if (idx < activeIdx || h >= t.minHrs) cls += ' is-done';
+        return `
+            <div class="${cls}" title="${t.nombre} (${t.minHrs}h+)">
+                <span class="skill-tree-node-rank">${t.id}</span>
+                <span class="skill-tree-node-hrs">${t.minHrs}h</span>
+            </div>`;
+    }).join('');
+
+    return `
+        <div class="skill-rank-tree-wrap">
+            <span class="skill-rank-tree-label">Ruta de Ascenso (E → SSS)</span>
+            <div class="skill-rank-tree-grid">${nodos}</div>
+        </div>`;
+}
+
 function toggleDetalleSkill(id) {
     var sid = String(id);
     if (SKILLS_EXPANDIDAS.has(sid)) {
@@ -712,57 +803,99 @@ function renderizarHabilidades(skills) {
     var html = "";
 
     if (sList && sList.length > 0) {
+        html += renderizarHudSkillsResumen(sList);
+
         sList.forEach(function(s) {
-            var calc = calcularRangoYProgreso(s.horasTotales);
+            var horasTotales = Math.max(0, Number(s.horasTotales) || 0);
+            var horasFmt = (Math.round(horasTotales * 10) / 10);
+            var calc = calcularRangoYProgreso(horasTotales);
+            var tier = obtenerTierSkill(calc.badgeClass);
             var porcentaje = calc.porcentaje;
             var isExpanded = SKILLS_EXPANDIDAS.has(String(s.id));
+            var safeId = escaparHtmlSkill(s.id);
+            var safeNombre = escaparHtmlSkill(s.nombre);
+            var safeBeneficio = escaparHtmlSkill(s.beneficio);
+
+            var metaProgresoIzq = (tier.id === 'SSS')
+                ? `Maestría máxima · <strong>${horasFmt} h</strong>`
+                : `En ${tier.id}: <strong>${calc.horasEnNivel} / ${calc.horasReqNivel} h</strong>`;
+
+            var metaProgresoDer = (tier.id === 'SSS')
+                ? `100%`
+                : `<strong>${porcentaje}%</strong> · ${escaparHtmlSkill(calc.siguiente)}`;
 
             html += `
-            <div class="skill-card">
-                <div class="skill-card-header" style="align-items: center;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                        <span class="skill-rank-badge ${calc.badgeClass}">${calc.rango}</span>
-                        <h3 class="skill-name" style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.nombre}</h3>
+            <div class="skill-card skill-noir-card" style="--skill-accent: ${tier.accent};">
+                <div class="skill-card-top-row">
+                    <div class="skill-card-badges">
+                        <span class="skill-rank-badge ${calc.badgeClass}">${escaparHtmlSkill(calc.rango)}</span>
+                        <span class="skill-total-pill">${horasFmt} h totales</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <button onclick="sumarHorasHabilidad('${s.id}', 1)" class="btn-add-hora" title="Sumar 1 hora de práctica y +10 EXP">+1h</button>
-                        <button onclick="sumarHorasHabilidad('${s.id}', 2)" class="btn-add-hora" title="Sumar 2 horas de práctica y +20 EXP">+2h</button>
-                        <button onclick="sumarHorasHabilidad('${s.id}', 3)" class="btn-add-hora" title="Sumar 3 horas de práctica y +30 EXP">+3h</button>
-                        <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleSkill('${s.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
-                            <span>${isExpanded ? '▲' : '▼'}</span>
-                        </button>
-                    </div>
+                    <button type="button" class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleSkill('${safeId}')" aria-expanded="${isExpanded ? 'true' : 'false'}" title="${isExpanded ? 'Ocultar árbol y detalles' : 'Ver árbol de rangos y detalles'}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="skill-progress-track" style="margin: 10px 0 6px 0;">
+                <h3 class="skill-name-noir">${safeNombre}</h3>
+
+                <div class="skill-progress-track">
                     <div class="skill-progress-fill" style="width: ${porcentaje}%;"></div>
                 </div>
 
-                <div class="skill-progress-info">
-                    <span>Progreso: <strong>${calc.horasEnNivel} / ${calc.horasReqNivel} hrs</strong> &nbsp;·&nbsp; Total: ${s.horasTotales} hrs</span>
-                    <span style="font-weight: 700; color: #a5b4fc;">${calc.siguiente} (${porcentaje}%)</span>
+                <div class="skill-progress-meta">
+                    <span class="skill-progress-current">${metaProgresoIzq}</span>
+                    <span class="skill-progress-next" style="color: ${tier.accent};">${metaProgresoDer}</span>
                 </div>
 
-                <!-- PANEL DESPLEGABLE: BENEFICIO Y DESARROLLO -->
-                <div class="card-detalle-desplegable" id="skill-detalle-${s.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
+                <div class="skill-actions-grid">
+                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 1)" class="btn-skill-hora" title="Sumar 1 hora de práctica y +10 EXP">
+                        <span class="btn-hora-main">+1h</span>
+                        <span class="btn-hora-xp">+10 XP</span>
+                    </button>
+                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 2)" class="btn-skill-hora" title="Sumar 2 horas de práctica y +20 EXP">
+                        <span class="btn-hora-main">+2h</span>
+                        <span class="btn-hora-xp">+20 XP</span>
+                    </button>
+                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 3)" class="btn-skill-hora" title="Sumar 3 horas de práctica y +30 EXP">
+                        <span class="btn-hora-main">+3h</span>
+                        <span class="btn-hora-xp">+30 XP</span>
+                    </button>
+                </div>
+
+                <!-- PANEL DESPLEGABLE: RUTA DE RANGOS, BENEFICIO Y DESARROLLO -->
+                <div class="card-detalle-desplegable skill-detalle-noir" id="skill-detalle-${safeId}" style="display: ${isExpanded ? 'flex' : 'none'};">
+                    ${calc.descripcion ? `
+                        <div class="skill-rank-desc-box">
+                            <strong style="color: ${tier.accent};">${escaparHtmlSkill(tier.nombre)}:</strong> ${escaparHtmlSkill(calc.descripcion)}
+                        </div>
+                    ` : ''}
+                    ${renderizarEscaleraRangosSkill(horasTotales, calc.badgeClass)}
                     ${s.beneficio ? `
-                        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
-                            🎁 <strong>Beneficio / Recompensa:</strong> ${s.beneficio}
+                        <div class="skill-detail-row">
+                            <strong>Recompensa:</strong> ${safeBeneficio}
                         </div>
                     ` : ''}
                     ${(s.atributos && s.atributos.length > 0) ? `
-                        <div style="margin-top: 2px;">
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 4px;">Atributos que Desarrolla (+% por hora):</span>
+                        <div>
+                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; display: block; margin-bottom: 5px;">Atributos que Desarrolla (+% por hora):</span>
                             <div class="atributos-chips-container">
                                 ${s.atributos.map(function(a) {
-                                    return `<span class="chip-atributo-impacto ${a.tipo}">${a.icono || '🔮'} ${a.nombre} (+${a.porcentaje}% / h)</span>`;
+                                    return `<span class="chip-atributo-impacto ${escaparHtmlSkill(a.tipo)}">${escaparHtmlSkill(a.icono || '•')} ${escaparHtmlSkill(a.nombre)} (+${Number(a.porcentaje) || 0}% / h)</span>`;
                                 }).join('')}
                             </div>
                         </div>
                     ` : ''}
-                    <div style="display: flex; justify-content: flex-end; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 6px;">
-                        <button onclick="eliminarHabilidad('${s.id}')" style="background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 11px; border-radius: 6px; padding: 4px 8px; cursor: pointer;">
-                            ✕ Eliminar Habilidad
+                    <div class="skill-detail-footer">
+                        <button type="button" onclick="eliminarHabilidad('${safeId}')" class="btn-skill-delete">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                <path d="M10 11v6"></path>
+                                <path d="M14 11v6"></path>
+                            </svg>
+                            <span>Eliminar Habilidad</span>
                         </button>
                     </div>
                 </div>
@@ -770,14 +903,21 @@ function renderizarHabilidades(skills) {
         });
     } else {
         html = `
-        <div style="text-align: center; padding: 40px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
-            <span style="font-size: 32px; display: block; margin-bottom: 8px;">🔮</span>
+        <div class="skills-empty-card">
+            <div class="skills-empty-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="2.5"></circle>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                    <path d="M12 7.5v4m0 0-5 4.8m5-4.8 5 4.8"></path>
+                </svg>
+            </div>
             <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay habilidades registradas</h4>
-            <p style="color: #94a3b8; font-size: 13px; max-width: 400px; margin: 0 auto 16px auto;">
-                Registra una nueva disciplina o tecnología. Comenzará en Rango E e irá ascendiendo automáticamente de rango hasta Rango SSS a medida que acumules horas.
+            <p style="color: #94a3b8; font-size: 13px; max-width: 380px; margin: 0 auto 16px auto; line-height: 1.45;">
+                Registra una disciplina o área técnica. Comienza en Rango E y asciende automáticamente hasta SSS acumulando horas de práctica.
             </p>
-            <button class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()">
-                ➕ Registrar Nueva Habilidad
+            <button type="button" class="btn-add-finanza" onclick="abrirModalNuevaHabilidad()" style="justify-content: center;">
+                + Registrar Nueva Habilidad
             </button>
         </div>`;
     }
@@ -3548,11 +3688,22 @@ function renderizarChartProductividadSkills(filtro) {
 
     var labels = Object.keys(conteoHoras);
     var data = Object.values(conteoHoras);
+    var isEmptyState = false;
 
     if (labels.length === 0) {
-        labels = ['Sin habilidades registradas'];
+        labels = ['Sin habilidades'];
         data = [0];
+        isEmptyState = true;
     }
+
+    // Ajustar altura del contenedor según el número de habilidades para evitar bloques gigantes en móvil
+    var wrapper = document.getElementById('chart-skills-wrapper');
+    if (wrapper) {
+        var rowCount = Math.max(1, labels.length);
+        wrapper.style.height = Math.max(128, Math.min(360, rowCount * 46 + 52)) + 'px';
+    }
+
+    var maxHoras = Math.max.apply(null, data.concat([0]));
 
     if (_CHART_SKILLS_INSTANCE) {
         _CHART_SKILLS_INSTANCE.destroy();
@@ -3567,11 +3718,14 @@ function renderizarChartProductividadSkills(filtro) {
             datasets: [{
                 label: 'Horas Trabajadas',
                 data: data,
-                backgroundColor: 'rgba(139, 92, 246, 0.45)',
-                borderColor: '#a78bfa',
-                borderWidth: 2,
+                backgroundColor: isEmptyState ? 'rgba(148, 163, 184, 0.2)' : 'rgba(129, 140, 248, 0.34)',
+                hoverBackgroundColor: isEmptyState ? 'rgba(148, 163, 184, 0.3)' : 'rgba(129, 140, 248, 0.54)',
+                borderColor: isEmptyState ? '#64748b' : '#a5b4fc',
+                borderWidth: 1.5,
                 borderRadius: 6,
-                barPercentage: 0.6
+                borderSkipped: false,
+                barThickness: 20,
+                maxBarThickness: 24
             }]
         },
         options: {
@@ -3581,7 +3735,14 @@ function renderizarChartProductividadSkills(filtro) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: '#0b1120',
+                    borderColor: 'rgba(165, 180, 252, 0.25)',
+                    borderWidth: 1,
+                    padding: 10,
                     callbacks: {
+                        title: function(items) {
+                            return (items && items[0]) ? items[0].label : '';
+                        },
                         label: function(c) {
                             return ' ' + c.raw + ' hr' + (c.raw === 1 ? '' : 's') + ' practicadas';
                         }
@@ -3591,16 +3752,28 @@ function renderizarChartProductividadSkills(filtro) {
             scales: {
                 x: {
                     beginAtZero: true,
+                    suggestedMax: maxHoras <= 2 ? 4 : Math.ceil(maxHoras * 1.15),
                     ticks: {
                         color: '#94a3b8',
-                        font: { size: 11 }
+                        precision: 0,
+                        maxTicksLimit: 5,
+                        font: { size: 10.5 },
+                        callback: function(v) {
+                            return Number.isInteger(v) ? (v + 'h') : '';
+                        }
                     },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
                 },
                 y: {
                     ticks: {
-                        color: '#f8fafc',
-                        font: { size: 11, weight: '600' }
+                        color: '#e2e8f0',
+                        font: { size: 11.5, weight: '600' },
+                        padding: 6,
+                        callback: function(value) {
+                            var lbl = this.getLabelForValue ? this.getLabelForValue(value) : String(value);
+                            var maxLen = (typeof window !== 'undefined' && window.innerWidth <= 480) ? 18 : 24;
+                            return (lbl && lbl.length > maxLen) ? lbl.slice(0, maxLen - 1) + '…' : lbl;
+                        }
                     },
                     grid: { display: false }
                 }
