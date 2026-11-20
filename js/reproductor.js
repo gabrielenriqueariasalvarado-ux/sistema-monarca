@@ -11,12 +11,16 @@
     var STORE_NAME = 'canciones';
 
     var DEFAULT_RUTINA_PL_KEY = 'monarca_musica_rutina_playlist_default';
+    var PLAYER_SCOPE_KEY = 'monarca_player_folder_scope';
 
     var state = {
         db: null,
         canciones: [],        // Metadatos { id, sig, origen, nombre, artista, album, carpeta, tamano, tipo, fecha, ruta, contentUri, albumId }
         playlists: [],        // { id, nombre, fecha, fechaActualizacion, cancionIds: [], cancionSigs: [] }
         subtabActual: 'todas',// 'todas' | 'carpetas' | 'playlists'
+        soloSnapTube: (function() {
+            try { return localStorage.getItem(PLAYER_SCOPE_KEY) !== 'all'; } catch (e) { return true; }
+        })(),
         carpetaSeleccionada: null,
         playlistSeleccionada: null,
         transferenciasPendientes: [],
@@ -58,6 +62,43 @@
         _artQueuedIds: {},
         _artObserver: null
     };
+
+    function esCancionSnapTube(meta) {
+        if (!meta) return false;
+        var c = String(meta.carpeta || '').toLowerCase();
+        var r = String(meta.ruta || '').toLowerCase();
+        return c.indexOf('snaptube') !== -1 || r.indexOf('snaptube') !== -1;
+    }
+
+    function tienePistasSnapTube() {
+        return (state.canciones || []).some(esCancionSnapTube);
+    }
+
+    function obtenerCancionesActivasScope() {
+        var todas = state.canciones || [];
+        if (state.soloSnapTube && tienePistasSnapTube()) {
+            return todas.filter(function(c) {
+                return esCancionSnapTube(c) || c.origen === 'idb';
+            });
+        }
+        return todas;
+    }
+
+    function toggleSoloSnapTube(forzarVal) {
+        var nuevo = (typeof forzarVal === 'boolean') ? forzarVal : !state.soloSnapTube;
+        state.soloSnapTube = !!nuevo;
+        try {
+            localStorage.setItem(PLAYER_SCOPE_KEY, state.soloSnapTube ? 'snaptube' : 'all');
+        } catch (e) {}
+        state.carpetaSeleccionada = null;
+        actualizarControlesFuenteBiblioteca();
+        renderizarContenidoSegunSubtab();
+        actualizarUIPlayerCompleto();
+        notificarPlayerToast(
+            state.soloSnapTube ? 'Mostrando solo canciones de SnapTube' : 'Mostrando todas tus carpetas de música',
+            '🎧'
+        );
+    }
 
     function obtenerPluginMonarcaMedia() {
         try {
@@ -351,29 +392,54 @@
         var bannerPerm = document.getElementById('player-permiso-banner');
         var btnAjustes = document.getElementById('btn-player-abrir-ajustes');
         var btnReescan = document.getElementById('btn-player-reescanear');
+        var btnCargarCarpeta = document.getElementById('btn-player-cargar-carpeta');
+        var btnVaciar = document.getElementById('btn-player-vaciar-idb');
+        var btnScope = document.getElementById('btn-player-scope-snaptube');
         var descEl = document.getElementById('player-library-origin-desc');
         var plugin = obtenerPluginMonarcaMedia();
+
+        var hasSnap = tienePistasSnapTube();
+        var idbCount = (state.canciones || []).filter(function(c) { return c && c.origen === 'idb'; }).length;
+
+        if (btnScope) {
+            if (hasSnap) {
+                btnScope.style.display = 'inline-flex';
+                btnScope.classList.toggle('active', !!state.soloSnapTube);
+                btnScope.textContent = state.soloSnapTube ? 'Solo SnapTube ✓' : 'Todas';
+            } else {
+                btnScope.style.display = 'none';
+            }
+        }
+
+        if (btnVaciar) {
+            btnVaciar.style.display = (idbCount > 0) ? 'inline-flex' : 'none';
+        }
 
         if (plugin) {
             if (state.mediaPermiso === 'granted') {
                 if (bannerPerm) bannerPerm.style.display = 'none';
                 if (btnReescan) btnReescan.style.display = 'inline-flex';
+                if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'none';
                 if (descEl) {
-                    descEl.textContent = 'Sincronizado automáticamente con las carpetas de música reales de tu teléfono.';
+                    descEl.textContent = (state.soloSnapTube && hasSnap)
+                        ? 'Mostrando automáticamente tus canciones de SnapTube sin duplicar almacenamiento.'
+                        : 'Sincronizado automáticamente con tus carpetas de música reales del teléfono.';
                 }
             } else {
                 if (bannerPerm) bannerPerm.style.display = 'flex';
                 if (btnReescan) btnReescan.style.display = 'none';
+                if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'inline-flex';
                 if (btnAjustes) {
                     btnAjustes.style.display = (state.mediaPermiso === 'denied' || state.mediaPermiso === 'prompt-with-rationale') ? 'inline-flex' : 'none';
                 }
                 if (descEl) {
-                    descEl.textContent = 'Concede permiso de audio para detectar tus canciones reales o carga MP3 manualmente.';
+                    descEl.textContent = 'Concede permiso de audio para detectar tus canciones de SnapTube automáticamente.';
                 }
             }
         } else {
             if (bannerPerm) bannerPerm.style.display = 'none';
             if (btnReescan) btnReescan.style.display = 'none';
+            if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'inline-flex';
         }
     }
 
@@ -423,7 +489,8 @@
                 renderizarContenidoSegunSubtab();
                 actualizarUIPlayerCompleto();
                 if (res && res.granted) {
-                    notificarPlayerToast('Se detectaron ' + state.canciones.length + ' canciones de tu dispositivo', '🎶');
+                    var visCount = obtenerCancionesActivasScope().length;
+                    notificarPlayerToast('Se detectaron ' + visCount + ' canciones listas', '🎧');
                 }
                 return !!(res && res.granted);
             });
@@ -438,7 +505,8 @@
             renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             if (mostrarToast) {
-                notificarPlayerToast('Biblioteca actualizada: ' + list.length + ' canciones', '🔄');
+                var visCount = obtenerCancionesActivasScope().length;
+                notificarPlayerToast('Biblioteca actualizada: ' + visCount + ' pistas', '🔄');
             }
             return list;
         });
@@ -831,34 +899,10 @@
         }
     }
 
-    function aplicarAmbientDesdeImagen(imgEl) {
+    function aplicarAmbientDesdeImagen() {
         var hero = document.getElementById('player-hero-card');
         if (!hero) return;
-        try {
-            if (!imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return;
-            var canvas = document.createElement('canvas');
-            canvas.width = 12;
-            canvas.height = 12;
-            var ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.drawImage(imgEl, 0, 0, 12, 12);
-            var data = ctx.getImageData(0, 0, 12, 12).data;
-            var rSum = 0, gSum = 0, bSum = 0, count = 0;
-            for (var i = 0; i < data.length; i += 4) {
-                var r = data[i], g = data[i + 1], b = data[i + 2];
-                var luma = 0.299 * r + 0.587 * g + 0.114 * b;
-                if (luma < 25 || luma > 235) continue;
-                rSum += r; gSum += g; bSum += b; count++;
-            }
-            if (count > 0) {
-                var rf = Math.round(rSum / count);
-                var gf = Math.round(gSum / count);
-                var bf = Math.round(bSum / count);
-                hero.style.setProperty('--player-accent-rgb', rf + ', ' + gf + ', ' + bf);
-            }
-        } catch (e) {
-            hero.style.removeProperty('--player-accent-rgb');
-        }
+        hero.style.removeProperty('--player-accent-rgb');
     }
 
     function actualizarHeroCaratula(url) {
@@ -1551,10 +1595,11 @@
         if (state.playlistSeleccionada) {
             return obtenerCancionesDePlaylist(state.playlistSeleccionada);
         }
+        var base = obtenerCancionesActivasScope();
         if (state.carpetaSeleccionada) {
-            return state.canciones.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
+            return base.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
         }
-        return state.canciones;
+        return base;
     }
 
     function iniciarMusicaDeRutina(playlistIdOverride, nombreRutina) {
@@ -1769,6 +1814,10 @@
     }
 
     function cambiarSeek(porcentaje) {
+        var slider = document.getElementById('player-seek-slider');
+        if (slider) {
+            slider.style.setProperty('--seek-pct', (Number(porcentaje) || 0).toFixed(1) + '%');
+        }
         if (!state.audio.duration || isNaN(state.audio.duration)) return;
         state.audio.currentTime = (porcentaje / 100) * state.audio.duration;
     }
@@ -1800,6 +1849,8 @@
         actualizarControlesModo();
     }
 
+    var SVG_REPEAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>';
+
     function actualizarControlesModo() {
         var btnShuf = document.getElementById('player-btn-shuffle');
         if (btnShuf) {
@@ -1817,15 +1868,15 @@
             btnRep.classList.remove('repeat-all', 'repeat-one', 'repeat-off');
             if (state.repeat === 'all') {
                 btnRep.classList.add('repeat-all');
-                btnRep.innerHTML = '🔁 <span style="font-size: 10px;">Todas</span>';
+                btnRep.innerHTML = SVG_REPEAT + '<span class="repeat-mode-tag">Todas</span>';
                 btnRep.title = 'Repetir: Toda la lista';
             } else if (state.repeat === 'one') {
                 btnRep.classList.add('repeat-one');
-                btnRep.innerHTML = '🔂 <span style="font-size: 10px;">1</span>';
+                btnRep.innerHTML = SVG_REPEAT + '<span class="repeat-mode-tag">1</span>';
                 btnRep.title = 'Repetir: Canción actual';
             } else {
                 btnRep.classList.add('repeat-off');
-                btnRep.innerHTML = '➡️ <span style="font-size: 10px;">Off</span>';
+                btnRep.innerHTML = SVG_REPEAT + '<span class="repeat-mode-tag">Off</span>';
                 btnRep.title = 'Repetir: Desactivado';
             }
         }
@@ -2109,8 +2160,11 @@
             var pct = dur > 0 ? (cur / dur) * 100 : 0;
 
             var slider = document.getElementById('player-seek-slider');
-            if (slider && !slider.matches(':active')) {
-                slider.value = pct;
+            if (slider) {
+                slider.style.setProperty('--seek-pct', pct.toFixed(1) + '%');
+                if (!slider.matches(':active')) {
+                    slider.value = pct;
+                }
             }
             var elCur = document.getElementById('player-time-current');
             if (elCur) elCur.textContent = formatearTiempo(cur);
@@ -2199,24 +2253,24 @@
         if (!meta) return;
 
         if (!window.MonarcaCloud || typeof window.MonarcaCloud.subirCancionTransferencia !== 'function') {
-            alert('El servicio de nube aún se está inicializando o no está disponible.');
+            notificarPlayerToast('El servicio de nube aún no está disponible', '☁️');
             return;
         }
 
         var btn = document.getElementById('btn-transfer-' + id);
-        if (btn) btn.innerHTML = '⏳ Subiendo...';
+        if (btn) btn.innerHTML = '⏳';
 
         obtenerCancionCompleta(id).then(function(itemCompleto) {
             if (!itemCompleto || !itemCompleto.blob) {
                 throw new Error("No se pudo leer el archivo local.");
             }
             return window.MonarcaCloud.subirCancionTransferencia(meta, itemCompleto.blob);
-        }).then(function(res) {
-            alert('✓ Canción "' + meta.nombre + '" enviada a la nube.\nÁbrela en tu PC para descargarla localmente.');
-            if (btn) btn.innerHTML = '✓ Enviada';
+        }).then(function() {
+            notificarPlayerToast('"' + meta.nombre + '" enviada a tu PC', '✓');
+            if (btn) btn.innerHTML = '✓';
         }).catch(function(err) {
-            alert('Error al enviar canción a PC: ' + (err.message || err));
-            if (btn) btn.innerHTML = '☁️ Enviar a PC';
+            notificarPlayerToast('Error al enviar a PC: ' + (err.message || err), '⚠️');
+            if (btn) btn.innerHTML = SVG_CLOUD_UP;
         });
     }
 
@@ -2344,15 +2398,21 @@
         renderizarContenidoSegunSubtab();
     }
 
+    var SVG_LIST_PLUS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    var SVG_CLOUD_UP = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>';
+    var SVG_DOWNLOAD = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+    var SVG_FOLDER_MINI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+
     function renderizarContenidoSegunSubtab() {
         var cont = document.getElementById('reproductor-lista-canciones');
         if (!cont) return;
 
+        var visibles = obtenerCancionesActivasScope();
         var countBadge = document.getElementById('player-total-songs-badge');
         var sizeBadge = document.getElementById('player-total-size-badge');
         var totalBytes = 0;
-        state.canciones.forEach(function(c) { totalBytes += (c.tamano || 0); });
-        if (countBadge) countBadge.textContent = state.canciones.length + ' ' + (state.canciones.length === 1 ? 'canción' : 'canciones');
+        visibles.forEach(function(c) { totalBytes += (c.tamano || 0); });
+        if (countBadge) countBadge.textContent = visibles.length + ' ' + (visibles.length === 1 ? 'pista' : 'pistas');
         if (sizeBadge) sizeBadge.textContent = formatearTamano(totalBytes);
 
         if (state.subtabActual === 'carpetas') {
@@ -2365,8 +2425,9 @@
     }
 
     function renderizarCarpetasView(cont) {
+        var visibles = obtenerCancionesActivasScope();
         var carpetasMap = {};
-        state.canciones.forEach(function(c) {
+        visibles.forEach(function(c) {
             var f = c.carpeta || 'Principal';
             if (!carpetasMap[f]) carpetasMap[f] = { count: 0, tamano: 0, canciones: [] };
             carpetasMap[f].count++;
@@ -2377,26 +2438,24 @@
         var nombres = Object.keys(carpetasMap);
         if (nombres.length === 0) {
             cont.innerHTML = '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
-                '<h4>No hay carpetas organizadas</h4>' +
-                '<p style="font-size: 12px; color: #64748b;">Usa el botón "+ Cargar Carpeta" para leer tus directorios de música automáticamente.</p>' +
+                '<h4 style="color:#f8fafc; margin:0 0 6px 0;">No hay carpetas disponibles</h4>' +
+                '<p style="font-size: 12px; color: #64748b; margin:0;">Re-escanea tu biblioteca o importa una carpeta manualmente.</p>' +
             '</div>';
             return;
         }
 
-        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">';
+        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;">';
         nombres.forEach(function(nom) {
             var obj = carpetasMap[nom];
             html += '<div class="player-folder-card" data-folder-name="' + escaparHTML(nom) + '" onclick="window.MonarcaPlayer.seleccionarCarpeta(this.getAttribute(\'data-folder-name\'))">' +
-                '<div style="display: flex; align-items: center; gap: 10px;">' +
-                    '<span style="font-size: 26px;">📁</span>' +
+                '<div style="display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0;">' +
+                    '<span class="player-folder-ico-box">' + SVG_FOLDER_MINI + '</span>' +
                     '<div style="min-width: 0; flex: 1;">' +
-                        '<div style="font-size: 14px; font-weight: 800; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaparHTML(nom) + '</div>' +
-                        '<div style="font-size: 11px; color: #94a3b8;">' + obj.count + ' canciones · ' + formatearTamano(obj.tamano) + '</div>' +
+                        '<div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaparHTML(nom) + '</div>' +
+                        '<div style="font-size: 11.5px; color: #94a3b8;">' + obj.count + (obj.count === 1 ? ' pista · ' : ' pistas · ') + formatearTamano(obj.tamano) + '</div>' +
                     '</div>' +
                 '</div>' +
-                '<div style="margin-top: 10px; display: flex; justify-content: flex-end;">' +
-                    '<span style="font-size: 11px; color: #38bdf8; font-weight: 700;">Ver canciones →</span>' +
-                '</div>' +
+                '<span style="font-size: 12px; color: #94a3b8; font-weight: 700; flex-shrink: 0;">→</span>' +
             '</div>';
         });
         html += '</div>';
@@ -2414,10 +2473,10 @@
         var defaultPlId = getPlaylistDefaultRutinaId();
         var html = '<div class="pl-view-toolbar">' +
             '<div class="pl-view-toolbar-left">' +
-                '<span class="pl-view-title">📋 Listas de Reproducción</span>' +
+                '<span class="pl-view-title">Listas de Reproducción</span>' +
                 '<span class="pl-count-badge">' + state.playlists.length + '</span>' +
             '</div>' +
-            '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist()">✨ + Nueva Lista</button>' +
+            '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist()">+ Nueva Lista</button>' +
         '</div>';
 
         if (state.playlists.length === 0) {
@@ -2425,7 +2484,7 @@
                 '<div class="pl-empty-icon">🎶</div>' +
                 '<h4>Aún no tienes listas creadas</h4>' +
                 '<p>Agrupa tus MP3 favoritos en listas personalizadas (ej: "Gym", "Enfoque", "Rutina Matutina") y añádelas con un toque.</p>' +
-                '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist()">✨ Crear Mi Primera Lista</button>' +
+                '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist()">Crear Mi Primera Lista</button>' +
             '</div>';
             cont.innerHTML = html;
             return;
@@ -2467,6 +2526,7 @@
     function renderizarTodasCancionesView(cont) {
         var lista = obtenerListaReproducibleActual();
         var q = (state.busqueda || '').toLowerCase().trim();
+        var filtroSnapActivo = (state.soloSnapTube && tienePistasSnapTube() && !state.playlistSeleccionada && !state.carpetaSeleccionada);
 
         var listaFiltrada = lista.filter(function(c) {
             if (!q) return true;
@@ -2478,7 +2538,7 @@
         var encabezadoFiltro = '';
         if (state.carpetaSeleccionada) {
             encabezadoFiltro = '<div class="pl-detail-banner is-folder">' +
-                '<span class="pl-detail-banner-title">📁 Carpeta: <strong>' + escaparHTML(state.carpetaSeleccionada) + '</strong> (' + listaFiltrada.length + ')</span>' +
+                '<span class="pl-detail-banner-title">Carpeta: <strong>' + escaparHTML(state.carpetaSeleccionada) + '</strong> (' + listaFiltrada.length + ')</span>' +
                 '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.seleccionarCarpeta(null)">← Todas</button>' +
             '</div>';
         } else if (state.playlistSeleccionada) {
@@ -2486,13 +2546,13 @@
             var esDefSel = (getPlaylistDefaultRutinaId() === state.playlistSeleccionada);
             encabezadoFiltro = '<div class="pl-detail-banner">' +
                 '<div class="pl-detail-banner-left">' +
-                    '<div class="pl-detail-banner-title">📑 ' + escaparHTML(plObj ? plObj.nombre : 'Lista') + ' <span class="pl-count-badge">' + listaFiltrada.length + '</span></div>' +
-                    '<div class="pl-detail-banner-sub">Puedes reproducir, añadir pistas de tu biblioteca o quitar sin borrar archivos MP3.</div>' +
+                    '<div class="pl-detail-banner-title">' + escaparHTML(plObj ? plObj.nombre : 'Lista') + ' <span class="pl-count-badge">' + listaFiltrada.length + '</span></div>' +
+                    '<div class="pl-detail-banner-sub">Puedes reproducir, añadir pistas o quitar sin borrar tus archivos MP3.</div>' +
                 '</div>' +
                 '<div class="pl-detail-banner-actions">' +
-                    '<button type="button" class="btn-pl-action-add" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">➕ Agregar Canciones</button>' +
+                    '<button type="button" class="btn-pl-action-add" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">+ Canciones</button>' +
                     '<button type="button" class="btn-playlist-default-rutina' + (esDefSel ? ' active' : '') + '" onclick="window.MonarcaPlayer.togglePlaylistDefaultRutina(\'' + state.playlistSeleccionada + '\')" title="Elegir como playlist automática al iniciar rutinas">' +
-                        (esDefSel ? '🏋️ Rutinas ✓' : '🏋️ Rutinas') +
+                        (esDefSel ? 'Rutinas ✓' : 'Rutinas') +
                     '</button>' +
                     '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.cambiarSubtab(\'playlists\')">← Listas</button>' +
                 '</div>' +
@@ -2501,15 +2561,14 @@
 
         if (state.canciones.length === 0) {
             cont.innerHTML = encabezadoFiltro + '<div style="text-align: center; padding: 32px 16px; color: #94a3b8;">' +
-                '<div style="font-size: 38px; margin-bottom: 8px;">🎵</div>' +
                 '<h4 style="color: #f8fafc; margin: 0 0 6px 0; font-size: 15px;">Tu biblioteca de música está vacía</h4>' +
-                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Puedes conceder permiso de audio en Android o cargar MP3 manualmente.</p>' +
+                '<p style="font-size: 12.5px; margin: 0 0 16px 0; color: #64748b;">Concede permiso de audio en Android para detectar SnapTube o carga tus MP3 manualmente.</p>' +
                 '<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">' +
-                    '<button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById(\'input-file-mp3-monarca\').click()">' +
-                        '📁 Cargar Archivos MP3' +
+                    '<button type="button" class="btn-lib-primary-noir" onclick="document.getElementById(\'input-file-mp3-monarca\').click()">' +
+                        '+ Importar MP3' +
                     '</button>' +
-                    '<button type="button" class="btn-cargar-mp3-action" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);" onclick="document.getElementById(\'input-folder-mp3-monarca\').click()">' +
-                        '📂 Cargar Carpeta Completa' +
+                    '<button type="button" class="btn-lib-ghost" onclick="document.getElementById(\'input-folder-mp3-monarca\').click()">' +
+                        '+ Importar Carpeta' +
                     '</button>' +
                 '</div>' +
             '</div>';
@@ -2519,14 +2578,14 @@
         if (listaFiltrada.length === 0) {
             if (state.playlistSeleccionada && !q) {
                 cont.innerHTML = encabezadoFiltro + '<div class="pl-empty-card">' +
-                    '<div class="pl-empty-icon">🎵</div>' +
+                    '<div class="pl-empty-icon">🎶</div>' +
                     '<h4>Esta lista todavía no tiene canciones</h4>' +
                     '<p>Selecciona pistas desde tu biblioteca offline para añadirlas a esta lista de reproducción.</p>' +
-                    '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">➕ Agregar Canciones</button>' +
+                    '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">+ Agregar Canciones</button>' +
                 '</div>';
             } else {
                 cont.innerHTML = encabezadoFiltro + '<div style="text-align: center; padding: 24px 16px; color: #94a3b8; font-size: 13px;">' +
-                    'No se encontraron canciones que coincidan con la búsqueda.' +
+                    'No se encontraron pistas que coincidan con la búsqueda.' +
                 '</div>';
             }
             return;
@@ -2543,13 +2602,26 @@
 
             var accionDerecha = enVistaPlaylist
                 ? '<button type="button" class="btn-pl-remove-track" title="Quitar de esta lista (mantiene el MP3 en tu biblioteca)" onclick="window.MonarcaPlayer.quitarCancionDePlaylist(\'' + state.playlistSeleccionada + '\', \'' + c.id + '\')">Quitar</button>'
-                : ('<button type="button" id="btn-transfer-' + c.id + '" class="btn-song-option-pill" title="Enviar únicamente esta canción a la PC" onclick="window.MonarcaPlayer.enviarCancionAPC(\'' + c.id + '\')">☁️ PC</button>' +
-                   '<button type="button" class="btn-song-option-pill" title="Añadir a lista de reproducción" onclick="window.MonarcaPlayer.abrirModalAgregarPlaylist(\'' + c.id + '\')">➕ Lista</button>' +
-                   (c.origen !== 'mediastore' ? '<button type="button" class="btn-song-option-pill" title="Descargar archivo local" onclick="window.MonarcaPlayer.descargarCancionArchivoLocal(\'' + c.id + '\')">⬇️</button>' : '') +
+                : ('<button type="button" class="btn-song-icon-ctrl" title="Añadir a lista de reproducción" onclick="window.MonarcaPlayer.abrirModalAgregarPlaylist(\'' + c.id + '\')">' + SVG_LIST_PLUS + '</button>' +
+                   '<button type="button" id="btn-transfer-' + c.id + '" class="btn-song-icon-ctrl" title="Enviar únicamente esta canción a la PC" onclick="window.MonarcaPlayer.enviarCancionAPC(\'' + c.id + '\')">' + SVG_CLOUD_UP + '</button>' +
+                   (c.origen !== 'mediastore' ? '<button type="button" class="btn-song-icon-ctrl" title="Descargar archivo local" onclick="window.MonarcaPlayer.descargarCancionArchivoLocal(\'' + c.id + '\')">' + SVG_DOWNLOAD + '</button>' : '') +
                    (c.origen !== 'mediastore' ? '<button type="button" class="btn-song-delete" title="Eliminar de caché local" onclick="window.MonarcaPlayer.eliminarCancion(\'' + c.id + '\')">✕</button>' : ''));
 
+            var tieneArtistaConocido = (metaTrack.artista && metaTrack.artista !== 'Artista desconocido');
+            var carpetaTxt = (c.carpeta || 'Principal');
+            var metaSubHtml = '';
+            if (tieneArtistaConocido) {
+                metaSubHtml += '<span class="song-meta-artist">' + escaparHTML(metaTrack.artista) + '</span>';
+                if (!filtroSnapActivo) {
+                    metaSubHtml += '<span class="song-meta-dot">·</span><span>' + escaparHTML(carpetaTxt) + '</span>';
+                }
+                metaSubHtml += '<span class="song-meta-dot">·</span><span>' + formatearTamano(c.tamano) + '</span>';
+            } else {
+                metaSubHtml += '<span>' + escaparHTML(carpetaTxt) + '</span><span class="song-meta-dot">·</span><span>' + formatearTamano(c.tamano) + '</span>';
+            }
+
             html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" data-song-id="' + escaparHTML(c.id) + '" onclick="window.MonarcaPlayer.reproducirPorId(this.getAttribute(\'data-song-id\'))">' +
-                '<div style="display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; overflow: hidden;">' +
+                '<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; overflow: hidden;">' +
                     '<div class="song-thumb-box ' + (esActual ? 'is-playing-item' : '') + '">' +
                         '<img class="song-thumb-img" data-art-song="' + escaparHTML(c.id) + '" src="' + (tieneArtLista ? escaparHTML(cachedArt) : '') + '" alt="" style="display: ' + (tieneArtLista ? 'block' : 'none') + ';">' +
                         '<span class="song-thumb-placeholder" style="display: ' + (tieneArtLista ? 'none' : 'flex') + ';">' +
@@ -2559,18 +2631,11 @@
                         '</span>' +
                     '</div>' +
                     '<div style="min-width: 0; flex: 1; overflow: hidden;">' +
-                        '<div class="song-item-title ' + (esActual ? 'text-glow-cyan' : '') + '">' + escaparHTML(metaTrack.titulo) + '</div>' +
-                        '<div class="song-item-meta" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
-                            (metaTrack.artista && metaTrack.artista !== 'Artista desconocido'
-                                ? '<span style="color: #e2e8f0; font-weight: 600;">' + escaparHTML(metaTrack.artista) + '</span><span>•</span>'
-                                : '') +
-                            '<span style="color: #38bdf8;">📁 ' + escaparHTML(c.carpeta || 'Principal') + '</span>' +
-                            '<span>•</span>' +
-                            '<span>' + formatearTamano(c.tamano) + '</span>' +
-                        '</div>' +
+                        '<div class="song-item-title ' + (esActual ? 'is-active-title' : '') + '">' + escaparHTML(metaTrack.titulo) + '</div>' +
+                        '<div class="song-item-meta">' + metaSubHtml + '</div>' +
                     '</div>' +
                 '</div>' +
-                '<div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;" onclick="event.stopPropagation();">' +
+                '<div class="song-row-actions" onclick="event.stopPropagation();">' +
                     accionDerecha +
                 '</div>' +
             '</div>';
@@ -2591,7 +2656,7 @@
         var song = state.canciones.find(function(c) { return c.id === songId; });
 
         if (tit) tit.textContent = 'Agregar Canción a Lista';
-        if (sub) sub.textContent = song ? ('🎵 ' + song.nombre) : 'Selecciona una o más listas';
+        if (sub) sub.textContent = song ? song.nombre : 'Selecciona una o más listas';
 
         renderizarCuerpoModalAgregarPlaylist();
         if (modal) modal.style.display = 'flex';
@@ -2612,7 +2677,7 @@
         var sub = document.getElementById('modal-pl-agregar-subtitulo');
 
         if (tit) tit.textContent = 'Agregar Canciones a la Lista';
-        if (sub) sub.textContent = '📑 ' + pl.nombre;
+        if (sub) sub.textContent = pl.nombre;
 
         renderizarCuerpoModalAgregarPlaylist();
         if (modal) {
@@ -2643,7 +2708,7 @@
                     '<div class="pl-empty-icon">📋</div>' +
                     '<h4>No tienes listas de reproducción</h4>' +
                     '<p>Crea tu primera lista ahora y esta canción se añadirá automáticamente.</p>' +
-                    '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist(\'' + songId + '\')">✨ Crear Lista y Agregar</button>' +
+                    '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist(\'' + songId + '\')">Crear Lista y Agregar</button>' +
                 '</div>';
                 footer.innerHTML = '<button type="button" class="btn-back-system" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()">Cerrar</button>';
                 return;
@@ -2668,18 +2733,19 @@
             cuerpo.innerHTML = html;
 
             footer.innerHTML =
-                '<button type="button" class="btn-pl-action-add" style="margin-right: auto;" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist(\'' + songId + '\')">✨ + Nueva Lista</button>' +
+                '<button type="button" class="btn-pl-action-add" style="margin-right: auto;" onclick="window.MonarcaPlayer.abrirModalCrearPlaylist(\'' + songId + '\')">+ Nueva Lista</button>' +
                 '<button type="button" class="btn-system pl-modal-btn-primary" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()">✓ Listo</button>';
             return;
         }
 
-        // Modo 'playlist': agregar múltiples canciones de la biblioteca a la playlist
-        if (state.canciones.length === 0) {
+        // Modo 'playlist': agregar múltiples canciones de la biblioteca activa a la playlist
+        var visiblesModal = obtenerCancionesActivasScope();
+        if (visiblesModal.length === 0) {
             cuerpo.innerHTML = '<div class="pl-empty-card">' +
                 '<div class="pl-empty-icon">🎧</div>' +
                 '<h4>No hay MP3 en tu biblioteca</h4>' +
                 '<p>Carga canciones desde tu dispositivo para poder añadirlas a esta lista.</p>' +
-                '<button type="button" class="btn-cargar-mp3-action" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist(); document.getElementById(\'input-file-mp3-monarca\').click();">📁 Cargar Archivos MP3</button>' +
+                '<button type="button" class="btn-lib-primary-noir" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist(); document.getElementById(\'input-file-mp3-monarca\').click();">Importar Archivos MP3</button>' +
             '</div>';
             footer.innerHTML = '<button type="button" class="btn-back-system" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()">Cerrar</button>';
             return;
@@ -2687,7 +2753,7 @@
 
         cuerpo.innerHTML =
             '<div class="pl-picker-toolbar">' +
-                '<input type="text" id="input-buscar-song-modal-playlist" class="modal-input pl-picker-search" placeholder="🔍 Filtrar por título, artista o carpeta..." value="' + escaparHTML(state._modalAgregarFiltro || '') + '" oninput="window.MonarcaPlayer.filtrarModalPlaylistCanciones(this.value)">' +
+                '<input type="text" id="input-buscar-song-modal-playlist" class="modal-input pl-picker-search" placeholder="Filtrar por título o artista..." value="' + escaparHTML(state._modalAgregarFiltro || '') + '" oninput="window.MonarcaPlayer.filtrarModalPlaylistCanciones(this.value)">' +
                 '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.toggleTodasVisibleModalPlaylist()">✓ Seleccionar visibles</button>' +
             '</div>' +
             '<div id="modal-pl-song-list-inner" class="pl-picker-song-list"></div>';
@@ -2697,7 +2763,7 @@
 
     function obtenerCancionesFiltradasModal() {
         var f = (state._modalAgregarFiltro || '').toLowerCase().trim();
-        return state.canciones.filter(function(c) {
+        return obtenerCancionesActivasScope().filter(function(c) {
             if (!f) return true;
             return (c.nombre || '').toLowerCase().indexOf(f) !== -1 ||
                    (c.artista || '').toLowerCase().indexOf(f) !== -1 ||
@@ -2807,6 +2873,9 @@
     // ----------------------------------------------------------------------
     // 8. RENDERIZADO DEL PLAYER HERO & MINI-REPRODUCTOR FLOTANTE
     // ----------------------------------------------------------------------
+    var SVG_HEART_OUTLINE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+    var SVG_HEART_SOLID = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+
     function actualizarHeroHeartButton(songId) {
         var btnHeart = document.getElementById('btn-hero-add-playlist');
         if (!btnHeart) return;
@@ -2820,7 +2889,7 @@
             return pl && Array.isArray(pl.cancionIds) && pl.cancionIds.indexOf(songId) !== -1;
         });
         btnHeart.classList.toggle('in-playlist', enLista);
-        btnHeart.innerHTML = enLista ? '❤️ En lista' : '🤍 + Lista';
+        btnHeart.innerHTML = enLista ? (SVG_HEART_SOLID + '<span>En lista</span>') : (SVG_HEART_OUTLINE + '<span>Lista</span>');
     }
 
     function actualizarUIPlayerCompleto() {
@@ -2833,6 +2902,7 @@
 
         var tieneCancion = !!state.cancionActual;
         var metaInfo = tieneCancion ? obtenerTituloLimpoYArtista(state.cancionActual) : null;
+        var visibles = obtenerCancionesActivasScope();
 
         if (elTitulo) {
             elTitulo.textContent = tieneCancion ? metaInfo.titulo : 'Ninguna canción seleccionada';
@@ -2851,11 +2921,12 @@
         }
         if (elSub) {
             if (tieneCancion) {
-                elSub.textContent = (state.cancionActual.carpeta ? ('📁 ' + state.cancionActual.carpeta + ' · ') : '') + formatearTamano(state.cancionActual.tamano);
+                var carpetaNom = state.cancionActual.carpeta ? state.cancionActual.carpeta : '';
+                elSub.textContent = (carpetaNom ? (carpetaNom + ' · ') : '') + formatearTamano(state.cancionActual.tamano);
             } else {
-                elSub.textContent = state.canciones.length > 0
-                    ? (state.canciones.length + ' canciones listas en la biblioteca')
-                    : (state.nativoActivo ? 'Sin archivos de audio detectados' : 'Sube tus archivos MP3 o concede permiso para detectar tu biblioteca');
+                elSub.textContent = visibles.length > 0
+                    ? (visibles.length + ' pistas listas sin conexión')
+                    : (state.nativoActivo ? 'Sin archivos de música detectados' : 'Concede permiso de audio o importa archivos MP3');
             }
         }
 
@@ -2877,10 +2948,10 @@
 
         if (btnPlay) {
             if (state.reproduciendo) {
-                btnPlay.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
+                btnPlay.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
                 btnPlay.title = 'Pausar';
             } else {
-                btnPlay.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>';
+                btnPlay.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>';
                 btnPlay.title = 'Reproducir';
             }
         }
@@ -2962,9 +3033,9 @@
         if (elSubTxt) {
             if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
                 var plAct = state.playlists.find(function(p) { return p && p.id === state.rutinaPlaylistActivaId; });
-                elSubTxt.textContent = '🏋️ ' + (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio';
+                elSubTxt.textContent = (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio';
             } else {
-                elSubTxt.textContent = metaMini.artista || 'Monarca Audio Deck';
+                elSubTxt.textContent = metaMini.artista || 'Emily Audio Deck';
             }
         }
 
@@ -2974,10 +3045,10 @@
         var btnPlay = document.getElementById('mini-player-btn-play');
         if (btnPlay) {
             if (state.reproduciendo) {
-                btnPlay.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
+                btnPlay.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
                 btnPlay.title = 'Pausar';
             } else {
-                btnPlay.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>';
+                btnPlay.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style="margin-left:1px;"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>';
                 btnPlay.title = 'Reproducir';
             }
         }
@@ -3223,6 +3294,8 @@
         reescanearBibliotecaNativa: reescanearBibliotecaNativa,
         abrirAjustesAudioNativo: abrirAjustesAudioNativo,
         sincronizarPlaylistsDesdeAppState: sincronizarPlaylistsDesdeAppState,
+        toggleSoloSnapTube: toggleSoloSnapTube,
+        obtenerCancionesActivasScope: obtenerCancionesActivasScope,
         generarFirmaCancion: generarFirmaCancion,
         extraerTagsID3v2File: extraerTagsID3v2File,
         getCanciones: getCancionesMeta,

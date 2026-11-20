@@ -13396,11 +13396,525 @@ body.modal-open {
         align-items: flex-start;
     }
     .player-hero-title {
-        font-size: 16px;
+        font-size: 16.5px;
     }
     .song-thumb-box {
-        width: 40px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
     }
 }
+
+/* ==========================================================================
+   v10.63 · REPRODUCTOR EXECUTIVE NOIR (B&N MONOCROMO, SNAPTUBE & UI LIMPIA)
+   ========================================================================== */
+
+/* Filtro Blanco y Negro elegante en TODAS las carátulas y miniaturas */
+.player-artwork-img,
+.song-thumb-img,
+.mini-player-disc-icon img {
+    filter: grayscale(100%) contrast(1.06) brightness(0.96);
+    -webkit-filter: grayscale(100%) contrast(1.06) brightness(0.96);
+}
+
+/* Tarjeta Hero Executive Noir */
+.player-hero-card.player-noir-hero {
+    --player-accent-rgb: 226, 232, 240;
+    background: linear-gradient(165deg, #0d121d 0%, #070a11 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 22px;
+    padding: 24px 20px 20px 20px;
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.player-hero-card.player-noir-hero::before {
+    width: 300px;
+    height: 160px;
+    background: radial-gradient(ellipse, rgba(226, 232, 240, 0.1) 0%, transparent 72%);
+}
+
+.player-hero-card.player-noir-hero.has-cover-art {
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.76), 0 0 32px rgba(226, 232, 240, 0.07);
+}
+
+.player-hero-card.player-noir-hero.has-cover-art::before {
+    background: radial-gradient(ellipse, rgba(226, 232, 240, 0.13) 0%, transparent 72%);
+}
+
+.player-noir-hero .player-artwork-stage {
+    width: min(216px, 58vw);
+    height: min(216px, 58vw);
+    margin: 0 auto 20px auto;
+}
+
+.player-noir-hero .player-artwork-img {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    background: #090d16;
+}
+
+.player-noir-hero .player-vinyl-disc {
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 16px rgba(0, 0, 0, 0.85);
+}
+
+.player-noir-hero .player-vinyl-center {
+    background: linear-gradient(135deg, #475569, #1e293b);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.14);
+}
+
+.player-noir-hero .player-hero-artist {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.player-noir-hero .player-hero-subtitle {
+    color: #64748b;
+    font-size: 11.5px;
+    margin-top: 3px;
+}
+
+.player-noir-hero .btn-hero-add-playlist {
+    padding: 7px 13px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.player-noir-hero .btn-hero-add-playlist.in-playlist {
+    background: rgba(248, 250, 252, 0.94);
+    border-color: #f8fafc;
+    color: #090d16;
+    font-weight: 700;
+}
+
+/* Equalizer y scrubber monocromático con relleno progresivo */
+.player-noir-hero .player-waves-container .wave-bar {
+    width: 3px;
+    background: rgba(226, 232, 240, 0.65);
+    opacity: 0.45;
+}
+
+.player-noir-hero .player-waves-container.playing .wave-bar {
+    background: #f8fafc;
+    opacity: 0.95;
+}
+
+.player-noir-hero .player-seek-slider {
+    height: 4px;
+    background: linear-gradient(
+        90deg,
+        #f8fafc 0%,
+        #f8fafc var(--seek-pct, 0%),
+        rgba(255, 255, 255, 0.12) var(--seek-pct, 0%),
+        rgba(255, 255, 255, 0.12) 100%
+    );
+    border-radius: 999px;
+}
+
+.player-noir-hero .player-seek-slider::-webkit-slider-thumb {
+    width: 13px;
+    height: 13px;
+    background: #f8fafc;
+    border: none;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.55);
+}
+
+.player-noir-hero .player-time-labels {
+    color: #64748b;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Botonera Hero Platino */
+.player-noir-hero .player-controls-row {
+    gap: 14px;
+    margin: 14px 0 10px 0;
+}
+
+.player-noir-hero .player-btn-ctrl {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: #e2e8f0;
+    width: 44px;
+    height: 44px;
+}
+
+.player-noir-hero .player-btn-ctrl:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.player-noir-hero .player-btn-play-hero {
+    width: 62px;
+    height: 62px;
+    background: linear-gradient(145deg, #ffffff 0%, #dbe3ee 100%);
+    color: #070b13;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 24px rgba(255, 255, 255, 0.16);
+}
+
+.player-noir-hero .player-btn-play-hero:hover {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 255, 255, 0.28);
+}
+
+.player-noir-hero .player-btn-mode {
+    color: #64748b;
+    padding: 7px 10px;
+    border-radius: 10px;
+    position: relative;
+}
+
+.player-noir-hero .player-btn-mode.active,
+.player-noir-hero .player-btn-mode.repeat-all,
+.player-noir-hero .player-btn-mode.repeat-one {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: none;
+}
+
+.player-noir-hero .player-btn-mode.repeat-off {
+    opacity: 0.55;
+}
+
+.repeat-mode-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.player-vol-ico {
+    color: #64748b;
+    flex-shrink: 0;
+}
+
+.player-vol-percent {
+    font-size: 11px;
+    color: #64748b;
+    font-family: monospace;
+    min-width: 32px;
+    text-align: right;
+}
+
+.player-noir-hero .player-volume-slider {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.player-noir-hero .player-volume-slider::-webkit-slider-thumb {
+    width: 11px;
+    height: 11px;
+    background: #e2e8f0;
+}
+
+/* Header Biblioteca limpio sin botones chillones */
+.player-library-card {
+    background: linear-gradient(180deg, rgba(13, 18, 29, 0.94) 0%, rgba(8, 11, 18, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.player-lib-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.player-lib-heading {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.player-meta-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.09);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.player-meta-pill.is-muted {
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.07);
+}
+
+.player-lib-subdesc {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.player-lib-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.btn-lib-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.btn-lib-ghost:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.btn-lib-ghost.active {
+    background: rgba(248, 250, 252, 0.92);
+    color: #090d16;
+    border-color: #f8fafc;
+    font-weight: 700;
+}
+
+.btn-lib-ghost.is-danger {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.24);
+}
+
+.btn-lib-primary-noir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #090d16;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    transition: all 0.18s ease;
+}
+
+.btn-lib-primary-noir:hover {
+    background: #e2e8f0;
+}
+
+.player-permiso-banner {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.player-permiso-ico {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #e2e8f0;
+}
+
+/* Subtabs, buscador y carpetas en escala monocromática limpia */
+.player-subtabs-bar {
+    background: rgba(7, 10, 17, 0.72);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.player-subtab-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #f8fafc;
+    box-shadow: none;
+}
+
+.player-search-wrap {
+    position: relative;
+}
+
+.player-search-ico {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.player-search-wrap .player-search-input-noir {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px 10px 40px !important;
+    font-size: 13px;
+    color: #f8fafc;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(7, 10, 17, 0.78);
+    outline: none;
+    transition: border-color 0.18s ease;
+}
+
+.player-search-wrap .player-search-input-noir:focus {
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.player-folder-ico-box {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+    flex-shrink: 0;
+}
+
+/* Filas de Canciones más espaciosas y limpias */
+.song-list-item {
+    background: rgba(15, 23, 42, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 9px 11px;
+    gap: 10px;
+}
+
+.song-list-item:hover {
+    background: rgba(30, 41, 59, 0.55);
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: none;
+}
+
+.song-list-item.active-song {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(148, 163, 184, 0.06) 100%);
+    border-color: rgba(255, 255, 255, 0.34);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.song-item-title.is-active-title {
+    color: #ffffff;
+}
+
+.song-thumb-box {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.song-thumb-box.is-playing-item {
+    border-color: rgba(255, 255, 255, 0.65);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+}
+
+.song-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-meta-artist {
+    color: #cbd5e1;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-meta-dot {
+    color: #475569;
+    flex-shrink: 0;
+}
+
+.song-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.btn-song-icon-ctrl {
+    width: 31px;
+    height: 31px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: #94a3b8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    padding: 0;
+}
+
+.btn-song-icon-ctrl:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #f8fafc;
+}
+
+/* Mini-Reproductor y Equalizer en tono platino coherente */
+.monarca-mini-player {
+    background: rgba(10, 14, 24, 0.94);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.68);
+}
+
+.monarca-mini-player:hover {
+    border-color: rgba(255, 255, 255, 0.32);
+}
+
+.mini-player-fill {
+    background: linear-gradient(90deg, #e2e8f0, #f8fafc);
+}
+
+.mini-player-disc-icon {
+    background: radial-gradient(circle, #334155 25%, #090d16 70%);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow: none;
+    color: #e2e8f0;
+}
+
+.mini-player-subtitle {
+    color: #94a3b8;
+    min-width: 0;
+    overflow: hidden;
+}
+
+#mini-player-subtitle-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-equalizer-bars span {
+    background: #e2e8f0;
+}
+
+.mini-btn-play {
+    background: #f8fafc;
+    color: #090d16;
+    box-shadow: 0 2px 10px rgba(255, 255, 255, 0.16);
+}
+
+.mini-btn-play:hover {
+    background: #e2e8f0;
+}
+
 

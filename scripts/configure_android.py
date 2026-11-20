@@ -1924,11 +1924,18 @@ public class MonarcaMediaPlugin extends Plugin {
                         String dataPath = colData >= 0 ? safeStr(cursor.getString(colData)) : "";
                         String relPath = colRel >= 0 ? safeStr(cursor.getString(colRel)) : "";
 
-                        // Excluir clips muy cortos (< 10 seg si trae duración) y notas de voz/tonos de sistema
+                        // Excluir clips muy cortos (< 10 seg si trae duración), notas de voz, WhatsApp/Telegram y grabadoras
                         if (dur > 0 && dur < 10000L) continue;
-                        String checkPathLower = (relPath + " " + dataPath).toLowerCase(Locale.US);
-                        if (checkPathLower.contains("whatsapp voice notes") ||
-                            (checkPathLower.contains("whatsapp/media/whatsapp audio") && dur < 45000L) ||
+                        String checkPathLower = (relPath + " " + dataPath + " " + displayName).toLowerCase(Locale.US);
+                        if (checkPathLower.contains("whatsapp") ||
+                            checkPathLower.contains("soundrecorder") ||
+                            checkPathLower.contains("sound_recorder") ||
+                            checkPathLower.contains("audiorecorder") ||
+                            checkPathLower.contains("voice_recorder") ||
+                            checkPathLower.contains("voicerecorder") ||
+                            checkPathLower.contains("/recordings/") ||
+                            checkPathLower.contains("/recorder/") ||
+                            checkPathLower.contains("telegram") ||
                             checkPathLower.contains("/ringtones/") ||
                             checkPathLower.contains("/notifications/") ||
                             checkPathLower.contains("/alarms/") ||

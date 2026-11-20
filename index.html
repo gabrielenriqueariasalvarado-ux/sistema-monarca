@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.62">
+    <link rel="stylesheet" href="style.css?v=10.63">
 </head>
 <body>
 
@@ -3672,9 +3672,9 @@
         <input type="file" id="input-file-mp3-monarca" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" multiple style="display: none;">
         <input type="file" id="input-folder-mp3-monarca" webkitdirectory directory multiple style="display: none;">
 
-        <!-- TARJETA HERO DEL REPRODUCTOR (ESTILO CARÁTULA LARK + EMILY AMBIENT) -->
-        <div id="player-hero-card" class="player-hero-card">
-            <!-- PORTADA REAL CUADRADA (O VINILO FALLBACK SI NO HAY CARÁTULA) -->
+        <!-- TARJETA HERO DEL REPRODUCTOR (ESTILO EXECUTIVE NOIR B&N) -->
+        <div id="player-hero-card" class="player-hero-card player-noir-hero">
+            <!-- PORTADA REAL CUADRADA EN B&N (O VINILO FALLBACK SI NO HAY CARÁTULA) -->
             <div id="player-artwork-stage" class="player-artwork-stage">
                 <img id="player-artwork-img" class="player-artwork-img" src="" alt="Portada del álbum" style="display: none;">
                 <div id="player-vinyl-fallback" class="player-vinyl-wrapper">
@@ -3698,11 +3698,12 @@
                     </p>
                 </div>
                 <button type="button" id="btn-hero-add-playlist" class="btn-hero-add-playlist" onclick="window.MonarcaPlayer.agregarActualAPlaylist()" title="Añadir esta canción a una lista de reproducción" style="display: none;">
-                    ➕ Lista
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <span>Lista</span>
                 </button>
             </div>
 
-            <!-- ONDAS DE SONIDO / EQUALIZER -->
+            <!-- ONDAS DE SONIDO / EQUALIZER MONOCROMÁTICO -->
             <div id="player-sound-waves" class="player-waves-container">
                 <div class="wave-bar"></div>
                 <div class="wave-bar"></div>
@@ -3716,18 +3717,18 @@
 
             <!-- BARRA DE TIEMPO / SCRUBBER -->
             <div class="player-seek-container">
-                <input type="range" id="player-seek-slider" class="player-seek-slider" min="0" max="100" value="0" step="0.1" oninput="window.MonarcaPlayer.cambiarSeek(this.value)">
+                <input type="range" id="player-seek-slider" class="player-seek-slider" min="0" max="100" value="0" step="0.1" style="--seek-pct: 0%;" oninput="window.MonarcaPlayer.cambiarSeek(this.value)">
                 <div class="player-time-labels">
                     <span id="player-time-current">00:00</span>
                     <span id="player-time-duration">00:00</span>
                 </div>
             </div>
 
-            <!-- BOTONERA DE CONTROLES PRINCIPALES -->
+            <!-- BOTONERA DE CONTROLES PRINCIPALES (SVGs NOIR) -->
             <div class="player-controls-row">
                 <!-- Modo Shuffle -->
                 <button type="button" id="player-btn-shuffle" class="player-btn-mode" onclick="window.MonarcaPlayer.toggleShuffle()" title="Aleatorio: DESACTIVADO">
-                    🔀
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
                 </button>
 
                 <!-- Anterior -->
@@ -3737,7 +3738,7 @@
 
                 <!-- Play / Pause Principal -->
                 <button type="button" id="player-btn-play-main" class="player-btn-play-hero" onclick="window.MonarcaPlayer.togglePlayPausa()" title="Reproducir">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
                 </button>
 
                 <!-- Siguiente -->
@@ -3747,41 +3748,46 @@
 
                 <!-- Modo Repetir -->
                 <button type="button" id="player-btn-repeat" class="player-btn-mode repeat-all" onclick="window.MonarcaPlayer.toggleRepeat()" title="Repetir: Toda la lista">
-                    🔁 <span style="font-size: 10px;">Todas</span>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                    <span class="repeat-mode-tag">Todas</span>
                 </button>
             </div>
 
             <!-- CONTROL DE VOLUMEN -->
             <div class="player-volume-wrapper">
-                <span style="font-size: 14px;">🔈</span>
+                <svg class="player-vol-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
                 <input type="range" id="player-volume-slider" class="player-volume-slider" min="0" max="1" step="0.05" value="1" oninput="window.MonarcaPlayer.cambiarVolumen(this.value)">
-                <span style="font-size: 14px;">🔊</span>
-                <span id="player-vol-text" style="font-size: 11px; color: #94a3b8; font-family: monospace; min-width: 32px;">100%</span>
+                <svg class="player-vol-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                <span id="player-vol-text" class="player-vol-percent">100%</span>
             </div>
         </div>
 
-        <!-- SECCIÓN: BIBLIOTECA DE CANCIONES (MEDIASTORE NATIVO ANDROID + INDEXEDDB RESPALDO) -->
-        <div class="card" style="margin-bottom: 24px; padding: 18px 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-                <div>
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span>🎵 Biblioteca Musical</span>
-                        <span id="player-total-songs-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">0 canciones</span>
-                        <span id="player-total-size-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: #94a3b8;">0 MB</span>
+        <!-- SECCIÓN: BIBLIOTECA DE CANCIONES (SNAPTUBE POR DEFECTO + MEDIASTORE / INDEXEDDB) -->
+        <div class="card player-library-card" style="margin-bottom: 24px; padding: 18px 18px;">
+            <div class="player-lib-header">
+                <div class="player-lib-title-block">
+                    <h3 class="player-lib-heading">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                        <span>Biblioteca</span>
+                        <span id="player-total-songs-badge" class="player-meta-pill">0 pistas</span>
+                        <span id="player-total-size-badge" class="player-meta-pill is-muted">0 MB</span>
                     </h3>
-                    <p id="player-library-origin-desc" style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;">Archivos guardados en tu dispositivo. Suenan sin internet ni consumo de megas.</p>
+                    <p id="player-library-origin-desc" class="player-lib-subdesc">Música offline sin consumir datos móviles.</p>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <button type="button" id="btn-player-reescanear" class="btn-pl-action-add" style="display: none; padding: 7px 12px; font-size: 12px;" onclick="window.MonarcaPlayer.reescanearBibliotecaNativa(true)" title="Buscar nuevas canciones guardadas en el teléfono">
-                        🔄 Re-escanear
+                <div class="player-lib-toolbar">
+                    <button type="button" id="btn-player-scope-snaptube" class="btn-lib-ghost active" style="display: none;" onclick="window.MonarcaPlayer.toggleSoloSnapTube()" title="Alternar entre solo carpeta SnapTube o todas tus carpetas de música">
+                        Solo SnapTube ✓
                     </button>
-                    <button type="button" class="btn-cargar-mp3-action" onclick="document.getElementById('input-file-mp3-monarca').click()">
-                        <span>+ Cargar MP3s</span>
+                    <button type="button" id="btn-player-reescanear" class="btn-lib-ghost" style="display: none;" onclick="window.MonarcaPlayer.reescanearBibliotecaNativa(true)" title="Buscar nuevas canciones guardadas en el teléfono">
+                        ↻ Escanear
                     </button>
-                    <button type="button" class="btn-cargar-mp3-action" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);" onclick="document.getElementById('input-folder-mp3-monarca').click()" title="Cargar una carpeta completa con canciones">
-                        <span>📂 + Carpeta</span>
+                    <button type="button" id="btn-player-cargar-mp3" class="btn-lib-ghost" onclick="document.getElementById('input-file-mp3-monarca').click()">
+                        + Archivo
                     </button>
-                    <button type="button" id="btn-player-vaciar-idb" class="btn-system-secondary" style="font-size: 11.5px; padding: 7px 12px; color: #f87171;" onclick="window.MonarcaPlayer.vaciarBiblioteca()" title="Vaciar caché de archivos cargados manualmente">
+                    <button type="button" id="btn-player-cargar-carpeta" class="btn-lib-ghost" onclick="document.getElementById('input-folder-mp3-monarca').click()" title="Importar carpeta completa">
+                        + Carpeta
+                    </button>
+                    <button type="button" id="btn-player-vaciar-idb" class="btn-lib-ghost is-danger" style="display: none;" onclick="window.MonarcaPlayer.vaciarBiblioteca()" title="Vaciar caché de archivos cargados manualmente">
                         Vaciar
                     </button>
                 </div>
@@ -3790,15 +3796,17 @@
             <!-- BANNER DE PERMISO DE AUDIO ANDROID (MEDIASTORE AUTOMÁTICO) -->
             <div id="player-permiso-banner" class="player-permiso-banner" style="display: none;">
                 <div class="player-permiso-info">
-                    <span class="player-permiso-ico">🎧</span>
+                    <span class="player-permiso-ico">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                    </span>
                     <div>
-                        <div class="player-permiso-title">Detecta automáticamente toda tu música del teléfono</div>
-                        <div class="player-permiso-desc">Concede permiso de audio una vez para leer tus MP3, carpetas, portadas y artistas sin tener que subir nada (igual que Lark Player).</div>
+                        <div class="player-permiso-title">Detecta tu música de SnapTube automáticamente</div>
+                        <div class="player-permiso-desc">Concede permiso de audio una vez para mostrar tus pistas, portadas y artistas sin tener que subir archivos.</div>
                     </div>
                 </div>
                 <div class="player-permiso-actions">
-                    <button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.solicitarPermisoYScanNativo()">🔓 Permitir Música</button>
-                    <button type="button" id="btn-player-abrir-ajustes" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.abrirAjustesAudioNativo()" style="display: none;">⚙️ Ajustes</button>
+                    <button type="button" class="btn-lib-primary-noir" onclick="window.MonarcaPlayer.solicitarPermisoYScanNativo()">Permitir Música</button>
+                    <button type="button" id="btn-player-abrir-ajustes" class="btn-lib-ghost" onclick="window.MonarcaPlayer.abrirAjustesAudioNativo()" style="display: none;">Ajustes</button>
                 </div>
             </div>
 
@@ -3808,24 +3816,28 @@
             <!-- BARRA DE SUBPESTAÑAS: TODAS / CARPETAS / PLAYLISTS -->
             <div class="player-subtabs-bar">
                 <button type="button" class="player-subtab-btn active" data-subtab="todas" onclick="window.MonarcaPlayer.cambiarSubtab('todas')">
-                    🎵 Todas las Pistas
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                    <span>Pistas</span>
                 </button>
                 <button type="button" class="player-subtab-btn" data-subtab="carpetas" onclick="window.MonarcaPlayer.cambiarSubtab('carpetas')">
-                    📁 Por Carpetas
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Carpetas</span>
                 </button>
                 <button type="button" class="player-subtab-btn" data-subtab="playlists" onclick="window.MonarcaPlayer.cambiarSubtab('playlists')">
-                    📋 Listas de Reproducción
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    <span>Listas</span>
                 </button>
             </div>
 
             <!-- AVISO DE CARGA -->
-            <div id="reproductor-cargando-aviso" style="display: none; background: rgba(56, 189, 248, 0.1); border: 1px dashed #38bdf8; border-radius: 10px; padding: 10px 14px; text-align: center; color: #38bdf8; font-size: 12.5px; margin-bottom: 14px;">
-                ⏳ Guardando canciones en IndexedDB...
+            <div id="reproductor-cargando-aviso" style="display: none; background: rgba(255, 255, 255, 0.05); border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 10px; padding: 10px 14px; text-align: center; color: #e2e8f0; font-size: 12.5px; margin-bottom: 14px;">
+                Procesando archivos de audio...
             </div>
 
             <!-- BUSCADOR DE CANCIONES -->
-            <div style="margin-bottom: 14px;">
-                <input type="text" id="input-buscar-cancion-player" class="finanzas-input-clean" placeholder="🔍 Buscar canción en tu biblioteca..." oninput="window.MonarcaPlayer.filtrarCanciones(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 14px; font-size: 13px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0b0f19;">
+            <div class="player-search-wrap" style="margin-bottom: 14px;">
+                <svg class="player-search-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="input-buscar-cancion-player" class="player-search-input-noir" placeholder="Buscar por título o artista..." oninput="window.MonarcaPlayer.filtrarCanciones(this.value)">
             </div>
 
             <!-- CONTENEDOR DE LA LISTA -->
@@ -6014,7 +6026,7 @@
         </div>
         <div id="mini-player-disc-icon" class="mini-player-disc-icon">
             <img id="mini-player-thumb-img" src="" alt="" style="display: none;">
-            <span id="mini-player-disc-glyph">🎵</span>
+            <span id="mini-player-disc-glyph"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></span>
         </div>
         <div class="mini-player-text">
             <div id="mini-player-title" class="mini-player-title">Cargando música...</div>
@@ -6098,26 +6110,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.62"></script>
-    <script src="js/perfil.js?v=10.62"></script>
-    <script src="js/progresion.js?v=10.62"></script>
-    <script src="js/estado-personal.js?v=10.62"></script>
-    <script src="js/finanzas.js?v=10.62"></script>
-    <script src="js/ideas.js?v=10.62"></script>
-    <script src="js/dinamicas.js?v=10.62"></script>
-    <script src="js/calendario.js?v=10.62"></script>
-    <script src="js/inventario.js?v=10.62"></script>
-    <script src="js/reproductor.js?v=10.62"></script>
-    <script src="js/jarvis-voz.js?v=10.62"></script>
+    <script src="js/core.js?v=10.63"></script>
+    <script src="js/perfil.js?v=10.63"></script>
+    <script src="js/progresion.js?v=10.63"></script>
+    <script src="js/estado-personal.js?v=10.63"></script>
+    <script src="js/finanzas.js?v=10.63"></script>
+    <script src="js/ideas.js?v=10.63"></script>
+    <script src="js/dinamicas.js?v=10.63"></script>
+    <script src="js/calendario.js?v=10.63"></script>
+    <script src="js/inventario.js?v=10.63"></script>
+    <script src="js/reproductor.js?v=10.63"></script>
+    <script src="js/jarvis-voz.js?v=10.63"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.62"></script>
+    <script type="module" src="js/firebase-config.js?v=10.63"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.62')
+                navigator.serviceWorker.register('sw.js?v=10.63')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

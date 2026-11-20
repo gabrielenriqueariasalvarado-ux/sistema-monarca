@@ -70,10 +70,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.62)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.63)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.62
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.63
             Esta versión nativa incluye:
+            - 🖤 **Reproductor Executive Noir B&N + SnapTube por defecto (v10.63)**:
+              - Detección filtrada para mostrar **solo tus canciones de SnapTube por defecto** (con botón rápido si alguna vez quieres ver otras carpetas) y exclusión de grabaciones (`SoundRecorder`) y audios de `WhatsApp`/`Telegram`.
+              - Filtro **blanco y negro (`grayscale`)** en todas las portadas y miniaturas para una estética nocturna uniforme y sin saturación de colores.
+              - Controles vectoriales SVG minimalistas, botón central Play/Pause platino, barra de progreso rellena y tarjetas de pista mucho más limpias para títulos y artistas.
             - 🎧 **Biblioteca Musical Automática estilo Lark Player (v10.62)**:
               - Detección nativa instantánea desde Android (`MediaStore` vía `MonarcaMediaPlugin`) sin duplicar archivos ni tener que volver a subir canciones tras actualizar o reinstalar la APK.
               - Portadas reales cuadradas en el reproductor, miniaturas en la lista y mini-reproductor flotante, nombre real, artista/autor y resplandor ambiental adaptado a cada carátula.
