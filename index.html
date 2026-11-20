@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.64">
+    <link rel="stylesheet" href="style.css?v=10.65">
 </head>
 <body>
 
@@ -787,73 +787,120 @@
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
-        <div class="card">
-            <div style="border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 18px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 26px;">🏋️‍♂️🧠</span>
-                    <div>
-                        <h2 style="margin: 0; font-size: 18px;">Entrenamiento (Cuerpo & Mente)</h2>
-                        <span style="font-size: 12px; color: #6b7280;">Sesiones activas, bancos de ejercicios físicos y mentales, e historial del día</span>
-                    </div>
+        <div class="card ejercicios-card-noir">
+            <div class="rutinas-view-header">
+                <div class="rutinas-header-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6.5 6.5v11"></path>
+                        <path d="M17.5 6.5v11"></path>
+                        <path d="M3.5 9v6"></path>
+                        <path d="M20.5 9v6"></path>
+                        <line x1="6.5" y1="12" x2="17.5" y2="12"></line>
+                    </svg>
+                </div>
+                <div class="rutinas-header-copy">
+                    <h2>Entrenamiento</h2>
+                    <p>Cuerpo &amp; Mente · Sesiones, arsenales e historial</p>
                 </div>
             </div>
 
-            <!-- NAVEGACIÓN PRINCIPAL: 4 APARTADOS INDEPENDIENTES (NUNCA SE SOLAPAN) -->
+            <!-- NAVEGACIÓN PRINCIPAL: 4 APARTADOS INDEPENDIENTES -->
             <div class="training-tabs-grid">
                 <button id="btn-cat-rutinas" class="training-tab-btn active" onclick="cambiarCategoriaEjercicios('rutinas')">
-                    <span>📋</span> Rutinas & Sesiones
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="8" y="2" width="8" height="4" rx="1"></rect>
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                        <path d="M9 12h6"></path>
+                        <path d="M9 16h4"></path>
+                    </svg>
+                    <span>Rutinas &amp; Sesiones</span>
                 </button>
                 <button id="btn-cat-banco-fisico" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-fisico')">
-                    <span>🏋️</span> Arsenal Físico
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M6.5 6.5v11"></path>
+                        <path d="M17.5 6.5v11"></path>
+                        <line x1="6.5" y1="12" x2="17.5" y2="12"></line>
+                    </svg>
+                    <span>Arsenal Físico</span>
                 </button>
                 <button id="btn-cat-banco-mental" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('banco-mental')">
-                    <span>🧠</span> Arsenal Mental
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 7v5l3 2"></path>
+                    </svg>
+                    <span>Arsenal Mental</span>
                 </button>
                 <button id="btn-cat-historial" class="training-tab-btn" onclick="cambiarCategoriaEjercicios('historial')">
-                    <span>📜</span> Historial
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <polyline points="12 7 12 12 15.5 14"></polyline>
+                    </svg>
+                    <span>Historial</span>
                 </button>
             </div>
 
             <!-- 1. APARTADO: SESIONES Y RUTINAS (FÍSICAS, MENTALES O HÍBRIDAS) -->
             <div id="seccion-categoria-rutinas">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <div class="rutinas-toolbar-wrap">
+                    <div class="rutinas-filter-row">
                         <button class="btn-subfiltro-ej active" id="filtro-rutina-todas" onclick="filtrarTipoRutinas('todas')">Todas</button>
-                        <button class="btn-subfiltro-ej" id="filtro-rutina-fisicas" onclick="filtrarTipoRutinas('fisicas')">🏋️ Físicas</button>
-                        <button class="btn-subfiltro-ej" id="filtro-rutina-mentales" onclick="filtrarTipoRutinas('mentales')">🧠 Mentales</button>
+                        <button class="btn-subfiltro-ej" id="filtro-rutina-fisicas" onclick="filtrarTipoRutinas('fisicas')">Físicas</button>
+                        <button class="btn-subfiltro-ej" id="filtro-rutina-mentales" onclick="filtrarTipoRutinas('mentales')">Mentales</button>
                     </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" style="padding: 7px 12px; font-size: 12px;" title="Configurar calentamiento">
-                            ⚙️ Calentamiento
+                    <div class="rutinas-action-row">
+                        <button class="btn-subfiltro-ej" onclick="abrirGestorCalentamiento()" title="Configurar calentamiento">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                            <span>Calentamiento</span>
                         </button>
-                        <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="font-size: 12px; padding: 6px 12px;">
-                            ➕ Nueva Rutina
+                        <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Nueva Rutina</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- CONFIGURACIÓN DE PLAYLIST AUTOMÁTICA PARA RUTINAS -->
-                <div class="rutina-musica-config-card">
+                <!-- CONFIGURACIÓN GLOBAL DE PLAYLIST POR DEFECTO EN RUTINAS -->
+                <div class="rutina-musica-config-card rutina-musica-noir">
                     <div class="rutina-musica-config-info">
-                        <span style="font-size: 18px;">🎧</span>
+                        <div class="rutina-musica-icon-box" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
                         <div style="min-width: 0; flex: 1;">
-                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Playlist por Defecto en Rutinas</div>
-                            <div id="rutina-musica-default-status" style="font-size: 11px; color: #94a3b8;">Elige una playlist para que suene aleatoriamente durante tus rutinas</div>
+                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Playlist por Defecto (Global)</div>
+                            <div id="rutina-musica-default-status" style="font-size: 11px; color: #94a3b8; line-height: 1.35;">Se usa cuando una rutina no tiene lista propia asignada</div>
                         </div>
                     </div>
                     <div class="rutina-musica-config-controls">
                         <select id="select-playlist-rutina-default" class="finanzas-input-clean rutina-playlist-select" onchange="alCambiarPlaylistDefaultRutina(this.value)">
-                            <option value="">🔇 Desactivado (Sin música automática)</option>
+                            <option value="">Desactivado (Sin música)</option>
                         </select>
-                        <button type="button" class="btn-subfiltro-ej" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" style="padding: 6px 10px; font-size: 11.5px; white-space: nowrap;" title="Gestionar listas de reproducción">
-                            📋 Playlists
+                        <button type="button" class="btn-subfiltro-ej btn-rutinas-gestionar-pl" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" title="Gestionar listas de reproducción">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="8" y1="6" x2="21" y2="6"></line>
+                                <line x1="8" y1="12" x2="21" y2="12"></line>
+                                <line x1="8" y1="18" x2="21" y2="18"></line>
+                                <circle cx="3.5" cy="6" r="1"></circle>
+                                <circle cx="3.5" cy="12" r="1"></circle>
+                                <circle cx="3.5" cy="18" r="1"></circle>
+                            </svg>
+                            <span>Listas</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- PORTALES DE RUTINAS DINÁMICAS (SIN DUPLICADOS) -->
                 <div id="contenedor-portales-rutinas-ejercicios">
-                    <p style="color: #6b7280; text-align: center; padding: 20px;">Cargando rutinas...</p>
+                    <p style="color: #94a3b8; text-align: center; padding: 20px;">Cargando rutinas...</p>
                 </div>
             </div>
 
@@ -2852,10 +2899,10 @@
                     <input type="text" id="modal-rutina-desc" class="modal-input" placeholder="Ej: Desarrollo de fuerza máxima e hipertrofia...">
                 </div>
                 <div class="modal-form-group">
-                    <label>🎵 Playlist de Audio para esta Rutina:</label>
+                    <label>Playlist específica para esta rutina:</label>
                     <select id="modal-rutina-playlist" class="modal-input">
-                        <option value="">🎧 Usar Playlist por Defecto del Sistema</option>
-                        <option value="__none__">🔇 Sin música en esta rutina</option>
+                        <option value="">Usar playlist por defecto</option>
+                        <option value="__none__">Sin música en esta rutina</option>
                     </select>
                 </div>
 
@@ -6139,26 +6186,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.64"></script>
-    <script src="js/perfil.js?v=10.64"></script>
-    <script src="js/progresion.js?v=10.64"></script>
-    <script src="js/estado-personal.js?v=10.64"></script>
-    <script src="js/finanzas.js?v=10.64"></script>
-    <script src="js/ideas.js?v=10.64"></script>
-    <script src="js/dinamicas.js?v=10.64"></script>
-    <script src="js/calendario.js?v=10.64"></script>
-    <script src="js/inventario.js?v=10.64"></script>
-    <script src="js/reproductor.js?v=10.64"></script>
-    <script src="js/jarvis-voz.js?v=10.64"></script>
+    <script src="js/core.js?v=10.65"></script>
+    <script src="js/perfil.js?v=10.65"></script>
+    <script src="js/progresion.js?v=10.65"></script>
+    <script src="js/estado-personal.js?v=10.65"></script>
+    <script src="js/finanzas.js?v=10.65"></script>
+    <script src="js/ideas.js?v=10.65"></script>
+    <script src="js/dinamicas.js?v=10.65"></script>
+    <script src="js/calendario.js?v=10.65"></script>
+    <script src="js/inventario.js?v=10.65"></script>
+    <script src="js/reproductor.js?v=10.65"></script>
+    <script src="js/jarvis-voz.js?v=10.65"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.64"></script>
+    <script type="module" src="js/firebase-config.js?v=10.65"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.64')
+                navigator.serviceWorker.register('sw.js?v=10.65')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

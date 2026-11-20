@@ -2138,6 +2138,169 @@ function accionBotonCrearEjercicios() {
     }
 }
 
+var SVG_RUTINA_CLIPBOARD = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>';
+var SVG_RUTINA_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
+var SVG_RUTINA_DELETE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>';
+var SVG_RUTINA_MUSIC = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>';
+var SVG_RUTINA_CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+
+function limpiarBadgeRutina(txt, fallbackTxt) {
+    var raw = String(txt || fallbackTxt || 'SESIÓN').replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s·\-]/gi, '').trim();
+    return raw || String(fallbackTxt || 'SESIÓN');
+}
+
+function construirMapaCancionesPlaylist(canciones) {
+    var map = {};
+    (canciones || []).forEach(function(c) {
+        if (c && c.id) map[c.id] = true;
+    });
+    return map;
+}
+
+function contarCancionesValidasPlaylist(pl, canciones, cancionesMap) {
+    if (!pl || !Array.isArray(pl.cancionIds)) return 0;
+    if (!canciones || canciones.length === 0) return pl.cancionIds.length;
+    return pl.cancionIds.filter(function(cid) { return !!cancionesMap[cid]; }).length;
+}
+
+function construirOpcionesPlaylistsLimpio(playlists, canciones, cancionesMap) {
+    return (playlists || []).map(function(pl) {
+        var n = contarCancionesValidasPlaylist(pl, canciones, cancionesMap);
+        return '<option value="' + escaparHtmlRutina(pl.id) + '">' + escaparHtmlRutina(pl.nombre) + ' (' + n + ')</option>';
+    }).join('');
+}
+
+function construirOpcionesSelectorRutinaIndividual(selectedVal, defaultPlId, playlists, canciones, cancionesMap) {
+    var plDef = defaultPlId ? (playlists || []).find(function(p) { return p && p.id === defaultPlId; }) : null;
+    var defLabel = plDef ? ('Por defecto (' + escaparHtmlRutina(plDef.nombre) + ')') : 'Playlist por defecto';
+    var selTarget = (selectedVal === '__none__' || (selectedVal && (playlists || []).some(function(p) { return p && p.id === selectedVal; })))
+        ? selectedVal
+        : '';
+
+    var opts = [
+        '<option value=""' + (selTarget === '' ? ' selected' : '') + '>' + defLabel + '</option>',
+        '<option value="__none__"' + (selTarget === '__none__' ? ' selected' : '') + '>Sin música</option>'
+    ];
+    (playlists || []).forEach(function(pl) {
+        var n = contarCancionesValidasPlaylist(pl, canciones, cancionesMap);
+        var selAttr = (selTarget === pl.id) ? ' selected' : '';
+        opts.push('<option value="' + escaparHtmlRutina(pl.id) + '"' + selAttr + '>' + escaparHtmlRutina(pl.nombre) + ' (' + n + ')</option>');
+    });
+    return {
+        html: opts.join(''),
+        estadoClase: (selTarget === '__none__') ? 'is-muted' : (selTarget ? 'is-custom' : '')
+    };
+}
+
+function buscarRutinaPorIdentificador(rutinaIdOIdx) {
+    if (!APP_STATE.rutinas || !Array.isArray(APP_STATE.rutinas)) return { rutina: null, idx: -1 };
+    var idx = -1;
+    if (typeof rutinaIdOIdx === 'string') {
+        idx = APP_STATE.rutinas.findIndex(function(r) {
+            return r && (String(r.id) === rutinaIdOIdx || String(r.codigo) === rutinaIdOIdx);
+        });
+        if (idx === -1 && !isNaN(parseInt(rutinaIdOIdx, 10))) {
+            idx = parseInt(rutinaIdOIdx, 10);
+        }
+    } else if (typeof rutinaIdOIdx === 'number') {
+        idx = rutinaIdOIdx;
+    }
+    if (idx < 0 || idx >= APP_STATE.rutinas.length) return { rutina: null, idx: -1 };
+    return { rutina: APP_STATE.rutinas[idx], idx: idx };
+}
+
+function cambiarPlaylistDeRutina(rutinaIdOIdx, playlistId, event) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    var match = buscarRutinaPorIdentificador(rutinaIdOIdx);
+    if (!match.rutina) return;
+
+    var cleanPlId = (playlistId && String(playlistId).trim()) ? String(playlistId).trim() : null;
+    match.rutina.playlistId = cleanPlId;
+    match.rutina.fechaActualizacion = Date.now();
+    MonarcaDB.save(APP_STATE);
+
+    var bar = document.getElementById('rutina-pl-bar-' + String(match.rutina.id || match.idx));
+    if (bar) {
+        bar.classList.toggle('is-muted', cleanPlId === '__none__');
+        bar.classList.toggle('is-custom', !!(cleanPlId && cleanPlId !== '__none__'));
+    }
+
+    var inEditId = document.getElementById('modal-rutina-edit-id');
+    var selModal = document.getElementById('modal-rutina-playlist');
+    if (selModal && inEditId && inEditId.value && (inEditId.value === String(match.rutina.id) || inEditId.value === ('RUT_IDX_' + match.idx))) {
+        selModal.value = cleanPlId || '';
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.cambiarPlaylistDeRutina = cambiarPlaylistDeRutina;
+}
+
+function construirTarjetaRutinaNoirHtml(rut, idx, ctx) {
+    var esMental = (rut.tipo === 'mental' || rut.tipo === 'cerebral');
+    var esHibrida = (rut.tipo === 'hibrida');
+    var numEj = (rut.ejercicios && rut.ejercicios.length) ? rut.ejercicios.length : 0;
+    var badgeEj = numEj > 0 ? (numEj + (numEj === 1 ? ' ejercicio' : ' ejercicios')) : 'Sin ejercicios';
+    var rutCodigo = rut.codigo || (esMental ? ('COG-' + (idx + 1)) : (esHibrida ? ('HIB-' + (idx + 1)) : ('RUT-' + (idx + 1))));
+    var cleanRank = limpiarBadgeRutina(
+        rut.rankLabel,
+        esMental ? 'MENTAL · ENFOQUE' : (esHibrida ? 'HÍBRIDA · INTEGRAL' : 'SESIÓN · FUERZA')
+    );
+
+    var tipoTexto = esMental ? 'Mental' : (esHibrida ? 'Híbrida' : 'Física');
+    var tipoClase = esMental ? 'mental' : (esHibrida ? 'hibrida' : '');
+    var borderAccent = esMental ? '#38bdf8' : (esHibrida ? '#f59e0b' : '#cbd5e1');
+    var ident = String(rut.id || idx);
+    var safeId = escaparHtmlRutina(ident);
+    var safeNombre = escaparHtmlRutina(rut.nombre || 'Rutina');
+    var safeDesc = escaparHtmlRutina(rut.descripcion || '');
+
+    var plUI = construirOpcionesSelectorRutinaIndividual(
+        rut.playlistId || '',
+        ctx.defaultPlId,
+        ctx.playlists,
+        ctx.canciones,
+        ctx.cancionesMap
+    );
+
+    return `
+        <div class="rutina-card-noir" onclick="abrirDetalleRutina('${safeId}')" style="border-left-color: ${borderAccent};">
+            <div class="rutina-card-top">
+                <div class="rutina-card-meta">
+                    <span class="rutina-code-chip">${escaparHtmlRutina(rutCodigo)}</span>
+                    <span class="rutina-rank-chip">${escaparHtmlRutina(cleanRank)}</span>
+                    <span class="rutina-type-chip ${tipoClase}">${tipoTexto}</span>
+                </div>
+                <div class="rutina-card-icon-actions" onclick="event.stopPropagation();">
+                    <button type="button" class="rutina-icon-btn edit" title="Editar rutina" aria-label="Editar ${safeNombre}" onclick="event.stopPropagation(); event.stopImmediatePropagation(); abrirModalEditarRutina('${safeId}', event)">
+                        ${SVG_RUTINA_EDIT}
+                    </button>
+                    <button type="button" class="rutina-icon-btn delete" title="Eliminar rutina" aria-label="Eliminar ${safeNombre}" onclick="event.stopPropagation(); event.stopImmediatePropagation(); eliminarRutina('${safeId}', event)">
+                        ${SVG_RUTINA_DELETE}
+                    </button>
+                </div>
+            </div>
+
+            <h3 class="rutina-card-title">${safeNombre}</h3>
+            ${safeDesc ? `<p class="rutina-card-desc">${safeDesc}</p>` : ''}
+
+            <div id="rutina-pl-bar-${safeId}" class="rutina-card-playlist-bar ${plUI.estadoClase}" onclick="event.stopPropagation();" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+                <span class="rutina-card-playlist-label" title="Playlist de esta rutina">${SVG_RUTINA_MUSIC}</span>
+                <select class="rutina-card-playlist-select" data-rutina-playlist-id="${safeId}" aria-label="Playlist de ${safeNombre}" onchange="cambiarPlaylistDeRutina('${safeId}', this.value, event)" onclick="event.stopPropagation();">
+                    ${plUI.html}
+                </select>
+            </div>
+
+            <div class="rutina-card-footer">
+                <span class="rutina-card-ej-count">${badgeEj}</span>
+                <span class="btn-rutina-enter-cta">
+                    <span>Iniciar sesión</span>
+                    ${SVG_RUTINA_CHEVRON}
+                </span>
+            </div>
+        </div>`;
+}
+
 function renderizarPortalesRutinasEjercicios() {
     var cont = document.getElementById('contenedor-portales-rutinas-ejercicios');
     if (!cont) return;
@@ -2145,14 +2308,14 @@ function renderizarPortalesRutinasEjercicios() {
     var rList = APP_STATE.rutinas || [];
     if (!rList || rList.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 35px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
-            <span style="font-size: 32px; display: block; margin-bottom: 8px;">📋</span>
+        <div class="skills-empty-card">
+            <div class="skills-empty-icon">${SVG_RUTINA_CLIPBOARD}</div>
             <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes rutinas creadas</h4>
-            <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                Arma tus sesiones de entrenamiento físico, cognitivo o híbrido seleccionando ejercicios de tus bancos.
+            <p style="color: #94a3b8; font-size: 13px; max-width: 380px; margin: 0 auto 16px auto; line-height: 1.45;">
+                Arma tus sesiones de entrenamiento físico, cognitivo o híbrido y asígnales su propia playlist.
             </p>
-            <button class="btn-add-finanza" onclick="abrirModalNuevaRutina()">
-                ➕ Crear Primera Rutina
+            <button type="button" class="btn-add-finanza" onclick="abrirModalNuevaRutina()" style="justify-content: center;">
+                + Crear Primera Rutina
             </button>
         </div>`;
         return;
@@ -2168,66 +2331,32 @@ function renderizarPortalesRutinasEjercicios() {
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
-        <div style="text-align: center; padding: 30px 20px; background: #121725; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px; color: #94a3b8; font-size: 13px;">
-            No tienes rutinas en la categoría seleccionada.<br>
-            <button class="btn-subfiltro-ej" onclick="abrirModalNuevaRutina()" style="margin-top: 10px;">➕ Crear Rutina</button>
+        <div class="skills-empty-card" style="padding: 28px 18px;">
+            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">No tienes rutinas en la categoría seleccionada.</p>
+            <button type="button" class="btn-subfiltro-ej" onclick="abrirModalNuevaRutina()">+ Crear Rutina</button>
         </div>`;
         return;
     }
 
-    var playlistsCache = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+    var playlists = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
         ? window.MonarcaPlayer.getPlaylists()
         : [];
+    var defaultPlId = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylistDefaultRutinaId === 'function')
+        ? window.MonarcaPlayer.getPlaylistDefaultRutinaId()
+        : null;
+    var canciones = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getCanciones === 'function')
+        ? window.MonarcaPlayer.getCanciones()
+        : [];
+    var ctx = {
+        playlists: playlists,
+        defaultPlId: defaultPlId,
+        canciones: canciones,
+        cancionesMap: construirMapaCancionesPlaylist(canciones)
+    };
 
-    var html = '';
-    filtradas.forEach(function(item) {
-        var rut = item.r;
-        var idx = item.idx;
-        var esMental = (rut.tipo === 'mental' || rut.tipo === 'cerebral');
-        var esHibrida = (rut.tipo === 'hibrida');
-        var numEj = (rut.ejercicios && rut.ejercicios.length) ? rut.ejercicios.length : 0;
-        var badgeEj = numEj + (numEj === 1 ? ' Ejercicio' : ' Ejercicios');
-        var rutCodigo = rut.codigo || (esMental ? ('COG-' + (idx + 1)) : (esHibrida ? ('HIB-' + (idx + 1)) : ('RUT-' + (idx + 1))));
-        var cleanRank = (rut.rankLabel || (esMental ? 'MENTAL · ENFOQUE' : (esHibrida ? 'HÍBRIDA · INTEGRAL' : 'SESIÓN DE FUERZA'))).replace(/[^\w\s·-]/gi, '').trim();
-
-        var badgeTipo = esMental ? '<span class="muscle-tag" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; font-weight:700;">🧠 Mental</span>' :
-                        (esHibrida ? '<span class="muscle-tag" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:700;">⚡ Híbrida</span>' :
-                        '<span class="muscle-tag" style="background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; font-weight:700;">🏋️ Física</span>');
-
-        var badgeMusica = '';
-        if (rut.playlistId === '__none__') {
-            badgeMusica = '<span class="muscle-tag" style="background:rgba(148,163,184,0.12); color:#cbd5e1; border:1px solid rgba(148,163,184,0.25);">🔇 Silencio</span>';
-        } else if (rut.playlistId) {
-            var plMatch = playlistsCache.find(function(p) { return p && p.id === rut.playlistId; });
-            if (plMatch) {
-                badgeMusica = '<span class="muscle-tag" style="background:rgba(56,189,248,0.14); color:#38bdf8; border:1px solid rgba(56,189,248,0.3);">🎵 ' + escaparHtmlRutina(plMatch.nombre) + '</span>';
-            }
-        }
-
-        var borderAccent = esMental ? '#2563eb' : (esHibrida ? '#f59e0b' : '#111827');
-
-        html += `
-        <div class="quest-card" onclick="abrirDetalleRutina('${rut.id || idx}')" style="position: relative; cursor: pointer; margin-bottom: 12px; border-radius: 14px; border-left: 4px solid ${borderAccent};">
-            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
-            <div style="flex:1; padding-left: 4px;">
-              <span class="quest-badge-rank">${cleanRank}</span>
-              <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
-              <div class="muscle-tags-row">
-                ${badgeTipo}
-                <span class="muscle-tag">${badgeEj}</span>
-                ${badgeMusica}
-                ${rut.descripcion ? `<span class="muscle-tag" style="background:none; border:none; color:#6b7280;">${rut.descripcion}</span>` : ''}
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <button type="button" class="btn-edit-row" title="Editar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); abrirModalEditarRutina('${rut.id || idx}', event)">✏️ Editar</button>
-                <button type="button" class="btn-delete-row" title="Eliminar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); eliminarRutina('${rut.id || idx}', event)" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 8px; z-index: 5; position: relative;">✕</button>
-                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
-            </div>
-        </div>`;
-    });
-
-    cont.innerHTML = html;
+    cont.innerHTML = filtradas.map(function(item) {
+        return construirTarjetaRutinaNoirHtml(item.r, item.idx, ctx);
+    }).join('');
 }
 
 var BUSQUEDA_BANCO_FISICO_TEXTO = "";
@@ -4822,33 +4951,25 @@ function renderizarPortalesRutinas(rutinas) {
         return;
     }
 
-    var html = '';
-    rList.forEach(function(rut, idx) {
-        var numEj = rut.ejercicios ? rut.ejercicios.length : 0;
-        var badgeEj = numEj > 0 ? (numEj + (numEj === 1 ? ' Ejercicio' : ' Ejercicios')) : 'Sin Ejercicios';
-        var rutCodigo = rut.codigo || ('RUT-' + (idx + 1));
-        var cleanRank = (rut.rankLabel || 'SESIÓN').replace(/[^\w\s·-]/gi, '').trim();
+    var playlists = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+        ? window.MonarcaPlayer.getPlaylists()
+        : [];
+    var defaultPlId = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylistDefaultRutinaId === 'function')
+        ? window.MonarcaPlayer.getPlaylistDefaultRutinaId()
+        : null;
+    var canciones = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getCanciones === 'function')
+        ? window.MonarcaPlayer.getCanciones()
+        : [];
+    var ctx = {
+        playlists: playlists,
+        defaultPlId: defaultPlId,
+        canciones: canciones,
+        cancionesMap: construirMapaCancionesPlaylist(canciones)
+    };
 
-        html += `
-        <div class="quest-card" onclick="abrirDetalleRutina('${rut.id || idx}')" style="position: relative; cursor: pointer; border-radius: 14px;">
-            <div class="quest-icon-box" style="font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #f8fafc;">${rutCodigo}</div>
-            <div style="flex:1; padding-left: 4px;">
-              <span class="quest-badge-rank">${cleanRank}</span>
-              <p class="quest-card-name" style="margin:4px 0 6px 0;color:#111827;font-size:15px;font-weight:700;">${rut.nombre}</p>
-              <div class="muscle-tags-row">
-                <span class="muscle-tag">${badgeEj}</span>
-                ${rut.descripcion ? `<span class="muscle-tag" style="background:none; border:none; color:#6b7280;">${rut.descripcion}</span>` : ''}
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <button type="button" class="btn-edit-row" title="Editar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); abrirModalEditarRutina('${rut.id || idx}', event)">✏️ Editar</button>
-                <button type="button" class="btn-delete-row" title="Eliminar rutina" onclick="event.stopPropagation(); event.stopImmediatePropagation(); eliminarRutina('${rut.id || idx}', event)" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 8px; z-index: 5; position: relative;">✕</button>
-                <span class="quest-arrow" style="font-size: 13px; font-weight: 700; color: #f8fafc;">Entrar ›</span>
-            </div>
-        </div>`;
-    });
-
-    cont.innerHTML = html;
+    cont.innerHTML = rList.map(function(rut, idx) {
+        return construirTarjetaRutinaNoirHtml(rut, idx, ctx);
+    }).join('');
 }
 
 // ==========================================================================
@@ -6597,30 +6718,15 @@ function actualizarSelectoresPlaylistRutinas() {
         ? window.MonarcaPlayer.getCanciones()
         : [];
 
-    var cancionesMap = {};
-    canciones.forEach(function(c) { cancionesMap[c.id] = true; });
-
-    function contarValidas(pl) {
-        if (!pl || !Array.isArray(pl.cancionIds)) return 0;
-        if (canciones.length === 0) return pl.cancionIds.length;
-        return pl.cancionIds.filter(function(cid) { return !!cancionesMap[cid]; }).length;
-    }
-
-    function construirOpcionesPlaylists(textoLargo) {
-        return playlists.map(function(pl) {
-            var n = contarValidas(pl);
-            var sufijo = textoLargo ? (n + (n === 1 ? ' canción' : ' canciones')) : n;
-            return '<option value="' + escaparHtmlRutina(pl.id) + '">📑 ' + escaparHtmlRutina(pl.nombre) + ' (' + sufijo + ')</option>';
-        }).join('');
-    }
-
+    var cancionesMap = construirMapaCancionesPlaylist(canciones);
     var existePl = function(id) {
         return !!(id && playlists.some(function(p) { return p && p.id === id; }));
     };
 
     var selDef = document.getElementById('select-playlist-rutina-default');
     if (selDef) {
-        selDef.innerHTML = '<option value="">🔇 Desactivado (Sin música automática)</option>' + construirOpcionesPlaylists(true);
+        selDef.innerHTML = '<option value="">Desactivado (Sin música)</option>' +
+            construirOpcionesPlaylistsLimpio(playlists, canciones, cancionesMap);
         selDef.value = existePl(defaultPlId) ? defaultPlId : '';
     }
 
@@ -6628,18 +6734,19 @@ function actualizarSelectoresPlaylistRutinas() {
     if (elStatusDef) {
         var plDefObj = defaultPlId ? playlists.find(function(p) { return p && p.id === defaultPlId; }) : null;
         if (playlists.length === 0) {
-            elStatusDef.textContent = 'Crea una lista en Reproductor → Listas de Reproducción para asignarla aquí';
+            elStatusDef.textContent = 'Crea una lista en Reproductor → Listas para asignarla a tus rutinas';
         } else if (plDefObj) {
-            elStatusDef.textContent = 'Activa: "' + plDefObj.nombre + '" (' + contarValidas(plDefObj) + ' pistas) · Sonará en aleatorio continuo hasta terminar';
+            elStatusDef.textContent = 'Activa: "' + plDefObj.nombre + '" (' + contarCancionesValidasPlaylist(plDefObj, canciones, cancionesMap) + ' pistas) · Aleatorio continuo';
         } else {
-            elStatusDef.textContent = 'Elige una playlist para que suene aleatoriamente durante tus rutinas';
+            elStatusDef.textContent = 'Se usa cuando una rutina no tiene lista propia asignada';
         }
     }
 
     var selAct = document.getElementById('select-playlist-rutina-activa');
     if (selAct) {
         var valActPrev = selAct.value;
-        selAct.innerHTML = '<option value="">🔇 Sin música</option>' + construirOpcionesPlaylists(false);
+        selAct.innerHTML = '<option value="">Sin música</option>' +
+            construirOpcionesPlaylistsLimpio(playlists, canciones, cancionesMap);
         var pState = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getState === 'function')
             ? window.MonarcaPlayer.getState()
             : null;
@@ -6654,13 +6761,29 @@ function actualizarSelectoresPlaylistRutinas() {
         var prevModalVal = selModal.value;
         var plDObj = defaultPlId ? playlists.find(function(p) { return p && p.id === defaultPlId; }) : null;
         var plDefNombre = plDObj ? (' (' + escaparHtmlRutina(plDObj.nombre) + ')') : '';
-        selModal.innerHTML = '<option value="">🎧 Usar Playlist por Defecto del Sistema' + plDefNombre + '</option>' +
-            '<option value="__none__">🔇 Sin música en esta rutina</option>' +
-            construirOpcionesPlaylists(true);
+        selModal.innerHTML = '<option value="">Usar playlist por defecto' + plDefNombre + '</option>' +
+            '<option value="__none__">Sin música en esta rutina</option>' +
+            construirOpcionesPlaylistsLimpio(playlists, canciones, cancionesMap);
         if (prevModalVal && Array.from(selModal.options).some(function(o) { return o.value === prevModalVal; })) {
             selModal.value = prevModalVal;
         }
     }
+
+    // Actualizar todos los selectores individuales visibles en cada tarjeta de rutina
+    var cardSelects = document.querySelectorAll('.rutina-card-playlist-select[data-rutina-playlist-id]');
+    cardSelects.forEach(function(sel) {
+        var rId = sel.getAttribute('data-rutina-playlist-id');
+        var match = buscarRutinaPorIdentificador(rId);
+        var curVal = (match && match.rutina && match.rutina.playlistId) ? match.rutina.playlistId : '';
+        var ui = construirOpcionesSelectorRutinaIndividual(curVal, defaultPlId, playlists, canciones, cancionesMap);
+        sel.innerHTML = ui.html;
+        sel.value = (curVal === '__none__' || existePl(curVal)) ? curVal : '';
+        var bar = document.getElementById('rutina-pl-bar-' + String(rId));
+        if (bar) {
+            bar.classList.toggle('is-muted', ui.estadoClase === 'is-muted');
+            bar.classList.toggle('is-custom', ui.estadoClase === 'is-custom');
+        }
+    });
 
     if (window.MonarcaPlayer && typeof window.MonarcaPlayer.actualizarBarraAudioRutina === 'function') {
         window.MonarcaPlayer.actualizarBarraAudioRutina();
@@ -6816,7 +6939,7 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     var tituloEl = document.getElementById('detalle-rutina-titulo');
     var badgeEl = document.getElementById('detalle-rutina-badge');
     if (tituloEl) tituloEl.innerText = rutina.nombre;
-    if (badgeEl) badgeEl.innerText = (rutina.rankLabel || 'SESIÓN DE ENTRENAMIENTO').replace(/[^\w\s·-]/gi, '').trim();
+    if (badgeEl) badgeEl.innerText = limpiarBadgeRutina(rutina.rankLabel, 'SESIÓN DE ENTRENAMIENTO');
 
     var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
     if (!cont) return;

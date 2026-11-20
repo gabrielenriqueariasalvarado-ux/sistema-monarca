@@ -70,10 +70,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.64)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.65)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.64
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.65
             Esta versión nativa incluye:
+            - 🏋️ **Rutinas móviles y Playlist específica por rutina (v10.65)**:
+              - Cada tarjeta de rutina ahora incluye su propio **selector directo de Playlist** (puedes elegir una lista distinta para cada rutina, usar la global por defecto o dejarla sin música con guardado instantáneo).
+              - Rediseño móvil limpio para **Entrenamiento & Rutinas**: iconos vectoriales SVG, código (`RUT-1`), badge (`SESIÓN · FUERZA` con acentos intactos), título completo sin aplastamientos y botones táctiles claros (**`Iniciar sesión ›`**).
             - 🌿 **Árbol de Habilidades & Skills optimizado para teléfono (v10.64)**:
               - Tarjetas responsivas donde el rango (`RANGO E..SSS`) y el nombre completo se leen sin cortes ni truncamientos (`J...`).
               - Mini-HUD resumen con total de habilidades, horas invertidas y rango líder, botones táctiles **`+1h` / `+2h` / `+3h`** equilibrados y ruta visual desplegable de progresión **`E → SSS`**.

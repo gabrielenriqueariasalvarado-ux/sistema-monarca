@@ -14423,4 +14423,407 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v10.65 · ENTRENAMIENTO, RUTINAS MOBILE-FIRST & PLAYLIST POR RUTINA
+   ========================================================================== */
+
+.rutinas-view-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rutinas-header-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.rutinas-header-copy {
+    min-width: 0;
+}
+
+.rutinas-header-copy h2 {
+    margin: 0;
+    font-size: 17.5px;
+    line-height: 1.25;
+    color: #f8fafc;
+}
+
+.rutinas-header-copy p {
+    margin: 3px 0 0 0;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+.ejercicios-card-noir .training-tabs-grid {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    gap: 8px;
+}
+
+.ejercicios-card-noir .training-tab-btn {
+    padding: 10px 8px;
+    font-size: 12.5px;
+    gap: 7px;
+    border-radius: 11px;
+    min-width: 0;
+}
+
+.rutinas-toolbar-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.rutinas-filter-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rutinas-action-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rutinas-action-row .btn-subfiltro-ej,
+.rutinas-action-row .btn-add-finanza {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.rutina-musica-config-card.rutina-musica-noir {
+    background: rgba(9, 13, 22, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 12px 13px;
+    margin-bottom: 14px;
+    gap: 10px;
+}
+
+.rutina-musica-icon-box {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.btn-rutinas-gestionar-pl {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 11px !important;
+    font-size: 11.5px !important;
+    min-height: 34px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Tarjeta de Rutina Mobile-First */
+.rutina-card-noir {
+    position: relative;
+    background: linear-gradient(165deg, #101624 0%, #0a0f1a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-left-width: 3px;
+    border-radius: 16px;
+    padding: 14px 14px 13px 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: border-color 0.2s ease, transform 0.16s ease, background 0.2s ease;
+}
+
+.rutina-card-noir:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: linear-gradient(165deg, #131a2b 0%, #0c121f 100%);
+}
+
+.rutina-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.rutina-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+
+.rutina-code-chip {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    padding: 3px 7px;
+    white-space: nowrap;
+}
+
+.rutina-rank-chip {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    padding: 3px 8px;
+    white-space: nowrap;
+}
+
+.rutina-type-chip {
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 9999px;
+    padding: 2.5px 8px;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.rutina-type-chip.mental {
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.28);
+}
+
+.rutina-type-chip.hibrida {
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.rutina-card-icon-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.rutina-icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.rutina-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #f8fafc;
+}
+
+.rutina-icon-btn.delete {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.28);
+    background: rgba(239, 68, 68, 0.09);
+}
+
+.rutina-icon-btn.delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
+.rutina-card-title {
+    margin: 9px 0 0 0;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.3;
+    color: #f8fafc;
+    word-break: break-word;
+}
+
+.rutina-card-desc {
+    margin: 3px 0 0 0;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+/* Selector de playlist específico dentro de cada tarjeta de rutina */
+.rutina-card-playlist-bar {
+    margin-top: 11px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 9px;
+    border-radius: 10px;
+    background: rgba(6, 9, 16, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.rutina-card-playlist-bar.is-custom {
+    border-color: rgba(56, 189, 248, 0.35);
+    background: rgba(14, 165, 233, 0.08);
+}
+
+.rutina-card-playlist-bar.is-muted {
+    opacity: 0.78;
+}
+
+.rutina-card-playlist-label {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.05);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.rutina-card-playlist-bar.is-custom .rutina-card-playlist-label {
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.14);
+}
+
+.rutina-card-playlist-select {
+    flex: 1;
+    min-width: 0;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    text-overflow: ellipsis;
+}
+
+.rutina-card-playlist-select:focus {
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+.rutina-card-footer {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.rutina-card-ej-count {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.btn-rutina-enter-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 14px;
+    min-height: 36px;
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #f8fafc;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.btn-rutina-enter-cta:hover {
+    background: rgba(248, 250, 252, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 560px) {
+    .rutinas-toolbar-wrap {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .rutinas-filter-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+    .rutinas-filter-row .btn-subfiltro-ej {
+        width: 100%;
+        text-align: center;
+        padding: 7px 6px;
+    }
+    .rutinas-action-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .rutinas-action-row > button {
+        width: 100%;
+    }
+    .rutina-musica-noir .rutina-musica-config-controls {
+        flex-wrap: nowrap;
+        width: 100%;
+    }
+    .rutina-musica-noir .rutina-playlist-select {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+    }
+    .rutina-card-footer {
+        padding-top: 9px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .btn-rutina-enter-cta {
+        padding: 7px 13px;
+    }
+}
+
 
