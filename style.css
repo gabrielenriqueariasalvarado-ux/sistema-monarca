@@ -15668,15 +15668,109 @@ body.modal-open {
 }
 
 .quincena-selector-bar {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    white-space: normal;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 5px 6px;
+    overflow: hidden;
 }
 
-.btn-quincena-tab {
+.fin-semana-stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex: 1 1 auto;
-    padding: 8px 10px;
+    min-width: 0;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 10px;
+    padding: 2px;
+    transition: all 0.2s ease;
+}
+
+.fin-semana-stepper.is-active {
+    background: #1a2236;
+    border-color: rgba(56, 189, 248, 0.42);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.fin-semana-arrow {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #111624;
+    color: #cbd5e1;
+    font-size: 10.5px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fin-semana-arrow:hover {
+    background: #1e293b;
+    color: #38bdf8;
+}
+
+.fin-semana-pill-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fin-semana-pill-btn.active {
+    color: #38bdf8;
+}
+
+.fin-semana-counter {
+    font-size: 10.5px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.btn-mes-completo-toggle {
+    flex: 0 0 auto;
+    padding: 7px 12px;
     font-size: 11.5px;
+    white-space: nowrap;
+}
+
+@media (max-width: 440px) {
+    .quincena-selector-bar {
+        gap: 6px;
+        padding: 4px 5px;
+    }
+    .fin-semana-pill-btn {
+        font-size: 11px;
+        padding: 0 4px;
+    }
+    .fin-semana-counter {
+        display: none;
+    }
+    .btn-mes-completo-toggle {
+        padding: 7px 9px;
+        font-size: 11px;
+    }
 }
 
 .finanzas-analytics-split {

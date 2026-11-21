@@ -433,22 +433,33 @@ function renderizarFinanzas(fin) {
     }
     var semanaActivaObj = semanasActivas.find(function(s) { return s.clave === vq; });
 
-    // Renderizar dinámicamente la barra de selector de período con Mes Completo y las semanas exactas del mes
+    // Renderizar barra compacta de una sola fila: stepper de semana con flechas (◀ Semana X ▶) + botón Mes Completo
     var barraSemanas = document.getElementById('quincena-selector-bar');
     if (barraSemanas) {
         var esMesActivo = (vq === 'mes');
-        var htmlBarra = `
-            <button class="btn-quincena-tab ${esMesActivo ? 'active' : ''}" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
+        if (!esMesActivo && semanaActivaObj && window.ESTADO_FINANZAS) {
+            window.ESTADO_FINANZAS.ultimaSemanaSeleccionada = semanaActivaObj.clave;
+        }
+        var claveFallback = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.ultimaSemanaSeleccionada) || obtenerSemanaActualParaMes(anioActivo, mesActivo);
+        var semMostrar = semanaActivaObj || semanasActivas.find(function(s) { return s.clave === claveFallback; }) || semanasActivas[0];
+        var semIdx = semMostrar ? semanasActivas.indexOf(semMostrar) : 0;
+        var semLabel = semMostrar ? semMostrar.etiqueta : 'Sem 1';
+        var semTotalTxt = semanasActivas.length ? ((semIdx + 1) + '/' + semanasActivas.length) : '';
+        var semClaveClick = semMostrar ? semMostrar.clave : 'sem1';
+
+        barraSemanas.innerHTML = `
+            <div class="fin-semana-stepper ${!esMesActivo ? 'is-active' : ''}" role="group" aria-label="Navegación semanal">
+                <button type="button" class="fin-semana-arrow" onclick="navegarSemanaFinanzas(-1)" aria-label="Semana anterior" title="Semana anterior">◀</button>
+                <button type="button" class="fin-semana-pill-btn ${!esMesActivo ? 'active' : ''}" id="btn-vista-semana-actual" onclick="cambiarPeriodoFinanzas('${semClaveClick}')" title="Ver solo ${semLabel}">
+                    <span>🗓️</span>
+                    <span class="fin-semana-label">${semLabel}</span>
+                    ${semTotalTxt ? `<span class="fin-semana-counter">${semTotalTxt}</span>` : ''}
+                </button>
+                <button type="button" class="fin-semana-arrow" onclick="navegarSemanaFinanzas(1)" aria-label="Semana siguiente" title="Semana siguiente">▶</button>
+            </div>
+            <button type="button" class="btn-quincena-tab btn-mes-completo-toggle ${esMesActivo ? 'active' : ''}" id="btn-vista-mes" onclick="toggleMesCompletoFinanzas()" title="Alternar entre Mes Completo y la semana activa">
                 <span>📅</span> Mes Completo
             </button>`;
-        semanasActivas.forEach(function(sem) {
-            var esActivo = (vq === sem.clave);
-            htmlBarra += `
-                <button class="btn-quincena-tab ${esActivo ? 'active' : ''}" id="btn-vista-${sem.clave}" onclick="cambiarPeriodoFinanzas('${sem.clave}')">
-                    <span>🗓️</span> ${sem.etiqueta}
-                </button>`;
-        });
-        barraSemanas.innerHTML = htmlBarra;
     }
 
     var mesClaveVista = anioActivo + '-' + String(mesActivo + 1).padStart(2, '0');
@@ -2955,26 +2966,80 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
 
 function cambiarPeriodoFinanzas(periodo, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    window.ESTADO_FINANZAS.vistaQuincena = periodo || 'mes';
-
-    var barra = document.getElementById('quincena-selector-bar');
-    if (barra) {
-        var tabs = barra.querySelectorAll('.btn-quincena-tab');
-        tabs.forEach(function(b) {
-            b.classList.remove('active');
-        });
-        var btnActivo = document.getElementById('btn-vista-' + periodo);
-        if (btnActivo) {
-            btnActivo.classList.add('active');
-            try {
-                btnActivo.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            } catch (e) {}
-        }
+    var p = periodo || 'mes';
+    window.ESTADO_FINANZAS.vistaQuincena = p;
+    if (p !== 'mes') {
+        window.ESTADO_FINANZAS.ultimaSemanaSeleccionada = p;
     }
+
+    var btnMes = document.getElementById('btn-vista-mes');
+    var btnSem = document.getElementById('btn-vista-semana-actual');
+    if (btnMes) btnMes.classList.toggle('active', p === 'mes');
+    if (btnSem) btnSem.classList.toggle('active', p !== 'mes');
 
     if (!omitirRender) {
         renderizarFinanzas(APP_STATE.finanzas);
     }
+}
+
+function navegarSemanaFinanzas(delta) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    var f = obtenerFechaMesFinanzas();
+    var anio = f.getFullYear();
+    var mes = f.getMonth();
+    var semanas = calcularSemanasDelMes(anio, mes);
+    if (!semanas.length) return;
+
+    var vq = window.ESTADO_FINANZAS.vistaQuincena || 'mes';
+    if (vq === 'mes') {
+        var semDest = window.ESTADO_FINANZAS.ultimaSemanaSeleccionada || obtenerSemanaActualParaMes(anio, mes);
+        if (!semanas.some(function(s) { return s.clave === semDest; })) {
+            semDest = semanas[0].clave;
+        }
+        cambiarPeriodoFinanzas(semDest);
+        return;
+    }
+
+    var idx = semanas.findIndex(function(s) { return s.clave === vq; });
+    if (idx === -1) idx = 0;
+    var nextIdx = idx + (Number(delta) || 0);
+
+    if (nextIdx < 0) {
+        window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) - 1;
+        var fPrev = obtenerFechaMesFinanzas();
+        var semPrev = calcularSemanasDelMes(fPrev.getFullYear(), fPrev.getMonth());
+        var ult = semPrev.length ? semPrev[semPrev.length - 1].clave : 'sem1';
+        cambiarPeriodoFinanzas(ult);
+        return;
+    }
+
+    if (nextIdx >= semanas.length) {
+        window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) + 1;
+        var fNext = obtenerFechaMesFinanzas();
+        var semNext = calcularSemanasDelMes(fNext.getFullYear(), fNext.getMonth());
+        var pri = semNext.length ? semNext[0].clave : 'sem1';
+        cambiarPeriodoFinanzas(pri);
+        return;
+    }
+
+    cambiarPeriodoFinanzas(semanas[nextIdx].clave);
+}
+
+function toggleMesCompletoFinanzas() {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    var vq = window.ESTADO_FINANZAS.vistaQuincena || 'mes';
+    if (vq === 'mes') {
+        var f = obtenerFechaMesFinanzas();
+        var semDest = window.ESTADO_FINANZAS.ultimaSemanaSeleccionada || obtenerSemanaActualParaMes(f.getFullYear(), f.getMonth());
+        cambiarPeriodoFinanzas(semDest);
+    } else {
+        cambiarPeriodoFinanzas('mes');
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.navegarSemanaFinanzas = navegarSemanaFinanzas;
+    window.toggleMesCompletoFinanzas = toggleMesCompletoFinanzas;
 }
 
 function eliminarRegistroFinanzasUI(id, tipo) {
