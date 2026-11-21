@@ -1053,12 +1053,19 @@ function renderizarFinanzas(fin) {
     // Actualizar selector dinámico de categorías para el modal de gastos
     poblarSelectCategoriasGastos();
 
+    // Sincronizar badge y selects de Tarjetas & Billeteras
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') {
+        poblarSelectsTarjetasFinanzas();
+    }
+
     // Sincronizar badge y vista del Calendario Cronológico de Cobros y Pagos
     if (typeof actualizarBadgeCalendarioFinanzas === 'function') {
         actualizarBadgeCalendarioFinanzas(f, anioActivo, mesActivo);
     }
     if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'calendario' && typeof renderizarCalendarioFinanzas === 'function') {
         renderizarCalendarioFinanzas();
+    } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
+        renderizarTarjetasFinanzas();
     }
 }
 
@@ -1463,6 +1470,9 @@ function abrirModalGasto(tipoPorDefecto, fechaOpcional) {
         }
         m.style.display = 'flex';
         poblarSelectCategoriasGastos();
+        if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+        var selTrjG = document.getElementById('modal-gasto-tarjeta');
+        if (selTrjG) selTrjG.value = '';
         seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
         alCambiarCategoriaEnModalGasto();
         var inM = document.getElementById('modal-gasto-monto');
@@ -1485,6 +1495,7 @@ function confirmarAgregarGasto() {
     var inM = document.getElementById('modal-gasto-monto');
     var inTipo = document.getElementById('modal-gasto-tipo');
     var inPilar = document.getElementById('modal-gasto-pilar');
+    var selTrjG = document.getElementById('modal-gasto-tarjeta');
 
     var tipo = inTipo ? inTipo.value : 'programado';
     var c = inC ? inC.value : "Otros";
@@ -1497,6 +1508,7 @@ function confirmarAgregarGasto() {
     }
     var m = inM ? (Number(inM.value) || 0) : 0;
     var pilar = inPilar ? inPilar.value : "gastos";
+    var trjGId = selTrjG ? selTrjG.value : '';
 
     if (!cp || m <= 0) {
         alert("Completa el concepto del gasto y un monto válido.");
@@ -1516,6 +1528,7 @@ function confirmarAgregarGasto() {
         fecha: fecha,
         monto: m,
         pilar: pilar,
+        tarjetaId: trjGId || null,
         pagado: false,
         timestamp: nowGas,
         fechaActualizacion: nowGas
@@ -1525,6 +1538,7 @@ function confirmarAgregarGasto() {
 
     if (inCp) inCp.value = "";
     if (inM) inM.value = "";
+    if (selTrjG) selTrjG.value = "";
 
     MonarcaDB.save(APP_STATE);
     cerrarModalGasto();
@@ -1534,10 +1548,20 @@ function confirmarAgregarGasto() {
 function pagarGastoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.gastos) return;
     for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
-        if (APP_STATE.finanzas.gastos[i].id === id) {
-            APP_STATE.finanzas.gastos[i].pagado = true;
-            APP_STATE.finanzas.gastos[i].fechaPago = new Date().toISOString();
-            APP_STATE.finanzas.gastos[i].fechaActualizacion = Date.now();
+        var g = APP_STATE.finanzas.gastos[i];
+        if (g.id === id) {
+            if (!g.pagado) {
+                g.pagado = true;
+                g.fechaPago = new Date().toISOString();
+                g.fechaActualizacion = Date.now();
+                if (g.tarjetaId && Number(g.monto) > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+                    var movGas = aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', Number(g.monto), 'USD', 'Gasto: ' + (g.concepto || g.categoria || 'Pago'), g.id);
+                    if (movGas) {
+                        g.tarjetaDeltaNativo = movGas.deltaNativo;
+                        g.tarjetaDeltaUsdRef = movGas.deltaUsdRef;
+                    }
+                }
+            }
             break;
         }
     }
@@ -1548,10 +1572,16 @@ function pagarGastoUI(id) {
 function deshacerPagoGastoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.gastos) return;
     for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
-        if (APP_STATE.finanzas.gastos[i].id === id) {
-            APP_STATE.finanzas.gastos[i].pagado = false;
-            delete APP_STATE.finanzas.gastos[i].fechaPago;
-            APP_STATE.finanzas.gastos[i].fechaActualizacion = Date.now();
+        var g = APP_STATE.finanzas.gastos[i];
+        if (g.id === id) {
+            if (g.tarjetaId && g.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                revertirMovimientoEnTarjeta(g.tarjetaId, false, g.tarjetaDeltaNativo, g.tarjetaDeltaUsdRef, g.id);
+                delete g.tarjetaDeltaNativo;
+                delete g.tarjetaDeltaUsdRef;
+            }
+            g.pagado = false;
+            delete g.fechaPago;
+            g.fechaActualizacion = Date.now();
             break;
         }
     }
@@ -1931,6 +1961,37 @@ function abonarCuotaMetaUI(id) {
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
+function actualizarPreviewCobroTarjeta() {
+    var prev = document.getElementById('modal-cobro-tarjeta-preview');
+    var selTarj = document.getElementById('modal-cobro-ingreso-tarjeta');
+    var inReal = document.getElementById('modal-cobro-ingreso-real');
+    if (!prev || !selTarj) return;
+
+    var trjId = selTarj.value;
+    if (!trjId) {
+        prev.style.display = 'none';
+        return;
+    }
+
+    var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === trjId; });
+    if (!t) {
+        prev.style.display = 'none';
+        return;
+    }
+    var est = calcularEstadoTarjetaEnVivo(t);
+    var montoUsd = Math.max(0, parseFloat(inReal ? inReal.value : '0') || 0);
+
+    prev.style.display = 'block';
+    if (est.monedaBase === 'USD') {
+        prev.innerHTML = 'Entrarán <strong style="color:#fbbf24;">+' + formatearUsdTarjeta(montoUsd) + ' USDT</strong> directo a ' + escaparHTML(construirTituloTarjeta(t)) + '.';
+    } else if (est.tasaActual > 0) {
+        var bsAdd = montoUsd * est.tasaActual;
+        prev.innerHTML = 'Entrarán <strong style="color:#7dd3fc;">+' + formatearTasaBsDisplay(bsAdd, 2) + '</strong> a tasa ' + escaparHTML(est.tasaLabel) + ' (<strong>' + Number(est.tasaActual).toFixed(2) + '</strong>) en ' + escaparHTML(construirTituloTarjeta(t)) + '.';
+    } else {
+        prev.innerHTML = '⚠️ No hay tasa API cargada para convertir $ a Bs. Actualiza las tasas primero.';
+    }
+}
+
 function cobrarIngresoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.ingresos) return;
     var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
@@ -1939,10 +2000,13 @@ function cobrarIngresoUI(id) {
     // Abrir panel/modal para colocar lo que realmente se cobró hoy
     var modal = document.getElementById('modal-confirmar-cobro-ingreso');
     if (modal) {
+        if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+
         var inId = document.getElementById('modal-cobro-ingreso-id');
         var elTitulo = document.getElementById('modal-cobro-ingreso-titulo');
         var elProy = document.getElementById('modal-cobro-ingreso-proyectado');
         var inReal = document.getElementById('modal-cobro-ingreso-real');
+        var selTarj = document.getElementById('modal-cobro-ingreso-tarjeta');
 
         var tit = item.fuente || item.concepto || item.nombre || 'Entrada Fija';
         var mProy = Number(item.monto) || 0;
@@ -1954,6 +2018,11 @@ function cobrarIngresoUI(id) {
         if (elTitulo) elTitulo.innerText = tit;
         if (elProy) elProy.innerText = '$' + mProy.toFixed(2);
         if (inReal) inReal.value = mDefecto.toFixed(2);
+        if (selTarj) {
+            var existeTarj = item.tarjetaId && asegurarArrayTarjetasFinanzas().some(function(x) { return x.id === item.tarjetaId; });
+            selTarj.value = existeTarj ? item.tarjetaId : '';
+        }
+        actualizarPreviewCobroTarjeta();
 
         modal.style.display = 'flex';
         setTimeout(function() {
@@ -2010,6 +2079,7 @@ function cerrarModalConfirmarCobro() {
 function ejecutarCobroIngresoReal() {
     var inId = document.getElementById('modal-cobro-ingreso-id');
     var inReal = document.getElementById('modal-cobro-ingreso-real');
+    var selTarj = document.getElementById('modal-cobro-ingreso-tarjeta');
     if (!inId || !inReal) return;
 
     var id = inId.value;
@@ -2019,6 +2089,7 @@ function ejecutarCobroIngresoReal() {
         return;
     }
     montoVal = Math.round(montoVal * 100) / 100;
+    var trjId = selTarj ? selTarj.value : '';
 
     // Caso especial: Pago de Sueldo / Bono de Boom Solutions
     if (id.indexOf('BOOM:') === 0) {
@@ -2062,19 +2133,20 @@ function ejecutarCobroIngresoReal() {
         var existe = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === idFinanza; });
         var mesActualStr = (typeof MES_BOOM_ACTUAL !== 'undefined') ? MES_BOOM_ACTUAL : new Date().toISOString().slice(0, 7);
         var fechaCobro = mesActualStr + '-' + String(diaCobro).padStart(2, '0');
+        var targetBoomItem = existe;
 
-        if (existe) {
-            existe.cobrado = true;
-            existe.tipo = 'fija'; // Pagos programados
-            existe.categoria = "Sueldos & Pagos Programados";
-            existe.fuente = concepto;
-            existe.monto = montoProy;
-            existe.montoCobrado = montoVal;
-            existe.dia = diaCobro;
-            existe.fecha = fechaCobro;
-            existe.fechaCobro = new Date().toISOString();
+        if (targetBoomItem) {
+            targetBoomItem.cobrado = true;
+            targetBoomItem.tipo = 'fija'; // Pagos programados
+            targetBoomItem.categoria = "Sueldos & Pagos Programados";
+            targetBoomItem.fuente = concepto;
+            targetBoomItem.monto = montoProy;
+            targetBoomItem.montoCobrado = montoVal;
+            targetBoomItem.dia = diaCobro;
+            targetBoomItem.fecha = fechaCobro;
+            targetBoomItem.fechaCobro = new Date().toISOString();
         } else {
-            APP_STATE.finanzas.ingresos.push({
+            targetBoomItem = {
                 id: idFinanza,
                 fuente: concepto,
                 tipo: 'fija', // Pagos programados en Finanzas
@@ -2085,7 +2157,24 @@ function ejecutarCobroIngresoReal() {
                 fecha: fechaCobro,
                 cobrado: true,
                 fechaCobro: new Date().toISOString()
-            });
+            };
+            APP_STATE.finanzas.ingresos.push(targetBoomItem);
+        }
+
+        if (targetBoomItem.tarjetaId && targetBoomItem.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+            revertirMovimientoEnTarjeta(targetBoomItem.tarjetaId, true, targetBoomItem.tarjetaDeltaNativo, targetBoomItem.tarjetaDeltaUsdRef, idFinanza);
+            delete targetBoomItem.tarjetaDeltaNativo;
+            delete targetBoomItem.tarjetaDeltaUsdRef;
+        }
+        if (trjId && montoVal > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+            var movBoom = aplicarMovimientoEnTarjeta(trjId, 'ingreso', montoVal, 'USD', concepto, idFinanza);
+            if (movBoom) {
+                targetBoomItem.tarjetaId = trjId;
+                targetBoomItem.tarjetaDeltaNativo = movBoom.deltaNativo;
+                targetBoomItem.tarjetaDeltaUsdRef = movBoom.deltaUsdRef;
+            }
+        } else if (!trjId) {
+            delete targetBoomItem.tarjetaId;
         }
 
         MonarcaDB.save(APP_STATE);
@@ -2100,9 +2189,27 @@ function ejecutarCobroIngresoReal() {
     var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
     if (!item) return;
 
+    if (item.tarjetaId && item.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+        revertirMovimientoEnTarjeta(item.tarjetaId, true, item.tarjetaDeltaNativo, item.tarjetaDeltaUsdRef, item.id);
+        delete item.tarjetaDeltaNativo;
+        delete item.tarjetaDeltaUsdRef;
+    }
+
     item.cobrado = true;
     item.montoCobrado = montoVal;
     item.fechaCobro = new Date().toISOString();
+
+    if (trjId && montoVal > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+        var titMov = item.fuente || item.concepto || item.nombre || 'Cobro Finanzas';
+        var movRes = aplicarMovimientoEnTarjeta(trjId, 'ingreso', montoVal, 'USD', titMov, item.id);
+        if (movRes) {
+            item.tarjetaId = trjId;
+            item.tarjetaDeltaNativo = movRes.deltaNativo;
+            item.tarjetaDeltaUsdRef = movRes.deltaUsdRef;
+        }
+    } else if (!trjId) {
+        delete item.tarjetaId;
+    }
 
     // Sincronizar con Boom Solutions si este ingreso corresponde a Boom
     var descBoom = ((item.fuente || item.concepto || item.descripcion || '') + ' ' + (item.categoria || '')).toLowerCase();
@@ -2161,6 +2268,11 @@ function deshacerCobroIngresoUI(id) {
         for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
             if (APP_STATE.finanzas.ingresos[i].id === id) {
                 var item = APP_STATE.finanzas.ingresos[i];
+                if (item.tarjetaId && item.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                    revertirMovimientoEnTarjeta(item.tarjetaId, true, item.tarjetaDeltaNativo, item.tarjetaDeltaUsdRef, item.id);
+                    delete item.tarjetaDeltaNativo;
+                    delete item.tarjetaDeltaUsdRef;
+                }
                 item.cobrado = false;
                 delete item.montoCobrado;
                 delete item.fechaCobro;
@@ -3018,21 +3130,27 @@ function alCambiarMontoGastoModal(val) {
 
 function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    var destino = seccion === 'calendario' ? 'calendario' : 'panel';
+    var destino = (seccion === 'calendario' || seccion === 'tarjetas') ? seccion : 'panel';
     window.ESTADO_FINANZAS.seccionActiva = destino;
 
     var tabPanel = document.getElementById('tab-finanzas-panel');
     var tabCal = document.getElementById('tab-finanzas-calendario');
+    var tabTarj = document.getElementById('tab-finanzas-tarjetas');
     var vistaPanel = document.getElementById('vista-finanzas-panel');
     var vistaCal = document.getElementById('vista-finanzas-calendario');
+    var vistaTarj = document.getElementById('vista-finanzas-tarjetas');
 
     if (tabPanel) tabPanel.classList.toggle('active', destino === 'panel');
     if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
+    if (tabTarj) tabTarj.classList.toggle('active', destino === 'tarjetas');
     if (vistaPanel) vistaPanel.style.display = destino === 'panel' ? 'block' : 'none';
     if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
+    if (vistaTarj) vistaTarj.style.display = destino === 'tarjetas' ? 'block' : 'none';
 
     if (!omitirRender && destino === 'calendario') {
         renderizarCalendarioFinanzas();
+    } else if (!omitirRender && destino === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
+        renderizarTarjetasFinanzas();
     }
 }
 
@@ -3895,6 +4013,7 @@ function ejecutarMoverFechaFinanza() {
 // ==========================================================================
 
 var MONARCA_TASAS_BCV_API_URL = 'https://ve.dolarapi.com/v1/cotizaciones';
+var MONARCA_TASAS_DOLARES_API_URL = 'https://ve.dolarapi.com/v1/dolares';
 var MONARCA_TASAS_BCV_STORAGE_KEY = 'MONARCA_TASAS_BCV_V1';
 var MONARCA_TASAS_REFRESH_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 var _monarcaTasasTimerId = null;
@@ -3923,34 +4042,45 @@ function guardarCacheTasasBCV(payload) {
     } catch (e) {}
 }
 
-function extraerTasasDeCotizaciones(data) {
-    if (!Array.isArray(data)) return null;
-    var usdItem = data.find(function(x) {
+function extraerTasasDeCotizaciones(data, dolaresData) {
+    var cotArr = Array.isArray(data) ? data : [];
+    var dolArr = Array.isArray(dolaresData) ? dolaresData : [];
+
+    var usdItem = cotArr.find(function(x) {
         return x && String(x.moneda).toUpperCase() === 'USD' && String(x.fuente).toLowerCase() === 'oficial';
-    }) || data.find(function(x) {
+    }) || dolArr.find(function(x) {
+        return x && String(x.moneda).toUpperCase() === 'USD' && String(x.fuente).toLowerCase() === 'oficial';
+    }) || cotArr.find(function(x) {
         return x && String(x.moneda).toUpperCase() === 'USD';
     });
 
-    var eurItem = data.find(function(x) {
+    var eurItem = cotArr.find(function(x) {
         return x && String(x.moneda).toUpperCase() === 'EUR' && String(x.fuente).toLowerCase() === 'oficial';
-    }) || data.find(function(x) {
+    }) || cotArr.find(function(x) {
         return x && String(x.moneda).toUpperCase() === 'EUR';
+    });
+
+    var parItem = dolArr.find(function(x) {
+        return x && String(x.fuente).toLowerCase() === 'paralelo';
+    }) || cotArr.find(function(x) {
+        return x && String(x.fuente).toLowerCase() === 'paralelo';
     });
 
     var usdVal = usdItem ? Number(usdItem.promedio || usdItem.venta || usdItem.compra) : NaN;
     var eurVal = eurItem ? Number(eurItem.promedio || eurItem.venta || eurItem.compra) : NaN;
+    var parVal = parItem ? Number(parItem.promedio || parItem.venta || parItem.compra) : NaN;
 
-    if ((isNaN(usdVal) || usdVal <= 0) && (isNaN(eurVal) || eurVal <= 0)) {
+    if ((isNaN(usdVal) || usdVal <= 0) && (isNaN(eurVal) || eurVal <= 0) && (isNaN(parVal) || parVal <= 0)) {
         return null;
     }
 
     return {
         usd: (!isNaN(usdVal) && usdVal > 0) ? usdVal : null,
         eur: (!isNaN(eurVal) && eurVal > 0) ? eurVal : null,
+        paralelo: (!isNaN(parVal) && parVal > 0) ? parVal : null,
         fechaApiUsd: usdItem ? (usdItem.fechaActualizacion || '') : '',
         fechaApiEur: eurItem ? (eurItem.fechaActualizacion || '') : '',
-        nombreUsd: usdItem ? (usdItem.nombre || 'Dólar') : 'Dólar',
-        nombreEur: eurItem ? (eurItem.nombre || 'Euro') : 'Euro'
+        fechaApiParalelo: parItem ? (parItem.fechaActualizacion || '') : ''
     };
 }
 
@@ -3987,9 +4117,10 @@ function convertirMontoConTasas() {
     var cache = leerCacheTasasBCV();
     var usd = cache && Number(cache.usd) > 0 ? Number(cache.usd) : 0;
     var eur = cache && Number(cache.eur) > 0 ? Number(cache.eur) : 0;
+    var par = cache && Number(cache.paralelo) > 0 ? Number(cache.paralelo) : 0;
 
-    if (!usd && !eur) {
-        outEl.textContent = 'Esperando tasas BCV...';
+    if (!usd && !eur && !par) {
+        outEl.textContent = 'Esperando tasas de DolarAPI...';
         return;
     }
 
@@ -4004,7 +4135,15 @@ function convertirMontoConTasas() {
         }
         var bsDesdeUsd = monto * usd;
         var equivEur = eur ? (' · ≈ €' + (bsDesdeUsd / eur).toFixed(2) + ' EUR') : '';
-        outEl.innerHTML = 'Equivale a <strong style="color:#34d399;">' + formatearTasaBsDisplay(bsDesdeUsd, 2) + '</strong>' + equivEur;
+        outEl.innerHTML = 'BCV: <strong style="color:#34d399;">' + formatearTasaBsDisplay(bsDesdeUsd, 2) + '</strong>' + equivEur;
+    } else if (origen === 'PARALELO') {
+        if (!par) {
+            outEl.textContent = 'Tasa Paralelo no disponible';
+            return;
+        }
+        var bsDesdePar = monto * par;
+        var equivBcv = usd ? (' · ≈ $' + (bsDesdePar / usd).toFixed(2) + ' BCV') : '';
+        outEl.innerHTML = 'Paralelo: <strong style="color:#fbbf24;">' + formatearTasaBsDisplay(bsDesdePar, 2) + '</strong>' + equivBcv;
     } else if (origen === 'EUR') {
         if (!eur) {
             outEl.textContent = 'Tasa Euro no disponible';
@@ -4015,7 +4154,8 @@ function convertirMontoConTasas() {
         outEl.innerHTML = 'Equivale a <strong style="color:#7dd3fc;">' + formatearTasaBsDisplay(bsDesdeEur, 2) + '</strong>' + equivUsd;
     } else {
         var partes = [];
-        if (usd) partes.push('<strong style="color:#34d399;">$' + (monto / usd).toFixed(2) + ' USD</strong>');
+        if (usd) partes.push('<strong style="color:#34d399;">$' + (monto / usd).toFixed(2) + ' BCV</strong>');
+        if (par) partes.push('<strong style="color:#fbbf24;">$' + (monto / par).toFixed(2) + ' Par.</strong>');
         if (eur) partes.push('<strong style="color:#7dd3fc;">€' + (monto / eur).toFixed(2) + ' EUR</strong>');
         outEl.innerHTML = 'Equivale a ' + partes.join(' · ');
     }
@@ -4026,11 +4166,13 @@ function renderizarTasasBCV(estadoFetch, errorMsg) {
     var subBcv = document.getElementById('finanzas-sub-tasa-bcv');
     var valEur = document.getElementById('finanzas-valor-tasa-euro');
     var subEur = document.getElementById('finanzas-sub-tasa-euro');
+    var valPar = document.getElementById('finanzas-valor-tasa-paralelo');
+    var subPar = document.getElementById('finanzas-sub-tasa-paralelo');
     var badge = document.getElementById('finanzas-tasas-estado-badge');
     var fechaEl = document.getElementById('finanzas-tasas-fecha-actualizacion');
     var btnAct = document.getElementById('btn-actualizar-tasas-bcv');
 
-    if (!valBcv && !valEur && !badge) return;
+    if (!valBcv && !valEur && !valPar && !badge) return;
 
     var cache = leerCacheTasasBCV();
     var hoyClave = obtenerFechaClaveHoyTasas();
@@ -4049,6 +4191,14 @@ function renderizarTasasBCV(estadoFetch, errorMsg) {
     } else {
         if (valEur) valEur.textContent = 'Bs. --';
         if (subEur) subEur.textContent = estadoFetch === 'loading' ? 'Consultando ve.dolarapi.com...' : 'Sin datos disponibles';
+    }
+
+    if (cache && cache.paralelo) {
+        if (valPar) valPar.textContent = formatearTasaBsDisplay(cache.paralelo, 2);
+        if (subPar) subPar.textContent = 'Exacta: ' + Number(cache.paralelo).toFixed(2) + ' Bs/$ · Mercado/USDT';
+    } else {
+        if (valPar) valPar.textContent = 'Bs. --';
+        if (subPar) subPar.textContent = estadoFetch === 'loading' ? 'Consultando ve.dolarapi.com...' : 'Sin datos disponibles';
     }
 
     if (badge) {
@@ -4091,10 +4241,16 @@ function renderizarTasasBCV(estadoFetch, errorMsg) {
     }
 
     convertirMontoConTasas();
+    if (typeof renderizarTarjetasFinanzas === 'function') {
+        renderizarTarjetasFinanzas();
+    }
+    if (typeof actualizarResumenTarjetasUI === 'function') {
+        actualizarResumenTarjetasUI();
+    }
 }
 
 function necesitaActualizarTasasDiarias(cache, hoyClave) {
-    if (!cache || (!cache.usd && !cache.eur)) return true;
+    if (!cache || (!cache.usd && !cache.eur) || !cache.paralelo) return true;
     if (cache.fechaConsultaLocal !== hoyClave) return true;
     if (!cache.consultadoEn || (Date.now() - cache.consultadoEn) > MONARCA_TASAS_REFRESH_MAX_AGE_MS) return true;
     return false;
@@ -4115,19 +4271,34 @@ function actualizarTasasBCV(forzar) {
 
     renderizarTasasBCV('loading');
 
-    window._monarcaTasasFetchPromise = fetch(MONARCA_TASAS_BCV_API_URL, { cache: 'no-store' })
-        .then(function(resp) {
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            return resp.json();
-        })
-        .then(function(data) {
-            var parsed = extraerTasasDeCotizaciones(data);
+    var pCot = fetch(MONARCA_TASAS_BCV_API_URL, { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); });
+    var pDol = fetch(MONARCA_TASAS_DOLARES_API_URL, { cache: 'no-store' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .catch(function() { return null; });
+
+    window._monarcaTasasFetchPromise = Promise.all([
+        pCot.catch(function(err) { return { __err: err }; }),
+        pDol
+    ])
+        .then(function(res) {
+            var cotData = res[0];
+            var dolData = res[1];
+            if (cotData && cotData.__err && !Array.isArray(dolData)) {
+                throw cotData.__err;
+            }
+            var parsed = extraerTasasDeCotizaciones(
+                (cotData && !cotData.__err) ? cotData : [],
+                dolData
+            );
             if (!parsed) throw new Error('Respuesta sin tasas BCV/Euro válidas');
             var nuevoCache = {
-                usd: parsed.usd,
-                eur: parsed.eur,
-                fechaApiUsd: parsed.fechaApiUsd,
-                fechaApiEur: parsed.fechaApiEur,
+                usd: parsed.usd || (cache && cache.usd) || null,
+                eur: parsed.eur || (cache && cache.eur) || null,
+                paralelo: parsed.paralelo || (cache && cache.paralelo) || null,
+                fechaApiUsd: parsed.fechaApiUsd || (cache && cache.fechaApiUsd) || '',
+                fechaApiEur: parsed.fechaApiEur || (cache && cache.fechaApiEur) || '',
+                fechaApiParalelo: parsed.fechaApiParalelo || (cache && cache.fechaApiParalelo) || '',
                 fechaConsultaLocal: obtenerFechaClaveHoyTasas(),
                 consultadoEn: Date.now(),
                 fuenteUrl: MONARCA_TASAS_BCV_API_URL
@@ -4135,7 +4306,7 @@ function actualizarTasasBCV(forzar) {
             guardarCacheTasasBCV(nuevoCache);
             renderizarTasasBCV('idle');
             if (forzar && typeof mostrarToastMonarca === 'function') {
-                mostrarToastMonarca('Tasas BCV y Euro actualizadas', '🏦');
+                mostrarToastMonarca('Tasas BCV, Euro y Paralelo actualizadas', '🏦');
             }
             return nuevoCache;
         })
@@ -4162,11 +4333,789 @@ function iniciarAutoActualizacionTasasBCV() {
     }, 30 * 60 * 1000);
 }
 
+// ==========================================================================
+// MÓDULO: TARJETAS Y CONTROL CAMBIARIO (PROVINCIAL, VENEZUELA, BINANCE, TODOTICKET)
+// ==========================================================================
+
+var MONARCA_BANCOS_TARJETAS = {
+    provincial: {
+        id: 'provincial',
+        nombre: 'Provincial',
+        subtitulo: 'BBVA Provincial · Bolívares (Bs.)',
+        monedaBase: 'VES',
+        tasaPorDefecto: 'bcv',
+        accent: '#3b82f6',
+        siglas: 'PRV'
+    },
+    venezuela: {
+        id: 'venezuela',
+        nombre: 'Venezuela',
+        subtitulo: 'Banco de Venezuela · Bolívares (Bs.)',
+        monedaBase: 'VES',
+        tasaPorDefecto: 'bcv',
+        accent: '#ef4444',
+        siglas: 'BDV'
+    },
+    binance: {
+        id: 'binance',
+        nombre: 'Binance',
+        subtitulo: 'Binance · Dólares / USDT',
+        monedaBase: 'USD',
+        tasaPorDefecto: 'paralelo',
+        accent: '#f59e0b',
+        siglas: 'BNB'
+    },
+    todoticket: {
+        id: 'todoticket',
+        nombre: 'Todoticket',
+        subtitulo: 'Todoticket · Bolívares (Bs.)',
+        monedaBase: 'VES',
+        tasaPorDefecto: 'bcv',
+        accent: '#10b981',
+        siglas: 'TDT'
+    }
+};
+
+function asegurarArrayTarjetasFinanzas() {
+    if (!APP_STATE.finanzas) {
+        APP_STATE.finanzas = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas));
+    }
+    if (!Array.isArray(APP_STATE.finanzas.tarjetas)) {
+        APP_STATE.finanzas.tarjetas = [];
+    }
+    return APP_STATE.finanzas.tarjetas;
+}
+
+function obtenerInfoBancoTarjeta(bancoKey) {
+    return MONARCA_BANCOS_TARJETAS[String(bancoKey || '').toLowerCase()] || MONARCA_BANCOS_TARJETAS.provincial;
+}
+
+function obtenerTasaParaTarjeta(tasaTipo, cacheOpt) {
+    var cache = cacheOpt || leerCacheTasasBCV() || {};
+    var tipo = tasaTipo || 'bcv';
+    var tasaUsdBcv = (Number(cache.usd) > 0) ? Number(cache.usd) : 0;
+    var tasaEur = (Number(cache.eur) > 0) ? Number(cache.eur) : 0;
+    var tasaPar = (Number(cache.paralelo) > 0) ? Number(cache.paralelo) : 0;
+
+    if (tipo === 'paralelo') {
+        if (tasaPar > 0) return { valor: tasaPar, label: 'Paralelo', fallback: false };
+        if (tasaUsdBcv > 0) return { valor: tasaUsdBcv, label: 'BCV (resp.)', fallback: true };
+        return { valor: 0, label: 'Sin tasa', fallback: true };
+    }
+    if (tipo === 'eur') {
+        if (tasaEur > 0) return { valor: tasaEur, label: 'Euro BCV', fallback: false };
+        if (tasaUsdBcv > 0) return { valor: tasaUsdBcv, label: 'BCV (resp.)', fallback: true };
+        return { valor: 0, label: 'Sin tasa', fallback: true };
+    }
+    if (tasaUsdBcv > 0) return { valor: tasaUsdBcv, label: 'BCV USD', fallback: false };
+    if (tasaPar > 0) return { valor: tasaPar, label: 'Paralelo (resp.)', fallback: true };
+    return { valor: 0, label: 'Sin tasa', fallback: true };
+}
+
+function calcularEstadoTarjetaEnVivo(tarjeta, cacheOpt) {
+    var info = obtenerInfoBancoTarjeta(tarjeta && tarjeta.banco);
+    var monedaBase = info.monedaBase;
+    var tasaTipo = (tarjeta && tarjeta.tasaTipo) ? tarjeta.tasaTipo : info.tasaPorDefecto;
+    var tasaInfo = obtenerTasaParaTarjeta(tasaTipo, cacheOpt);
+    var tasaActual = tasaInfo.valor;
+
+    if (monedaBase === 'USD') {
+        var saldoUsd = Math.max(0, Number(tarjeta && tarjeta.saldoUsd) || 0);
+        var equivBs = tasaActual > 0 ? (saldoUsd * tasaActual) : 0;
+        return {
+            bancoInfo: info,
+            monedaBase: 'USD',
+            tasaTipo: tasaTipo,
+            tasaLabel: tasaInfo.label,
+            tasaActual: tasaActual,
+            saldoBs: 0,
+            saldoUsd: saldoUsd,
+            valorActualUsd: saldoUsd,
+            valorActualBs: equivBs,
+            usdReferenciaBase: saldoUsd,
+            devaluacionUsd: 0,
+            devaluacionPct: 0
+        };
+    }
+
+    var saldoBs = Math.max(0, Number(tarjeta && tarjeta.saldoBs) || 0);
+    var refUsd = (tarjeta && tarjeta.usdReferenciaBase != null) ? Math.max(0, Number(tarjeta.usdReferenciaBase) || 0) : 0;
+    var valorActualUsd = (tasaActual > 0) ? (saldoBs / tasaActual) : refUsd;
+    var devaluacionUsd = (tasaActual > 0 && saldoBs > 0 && refUsd > 0) ? (valorActualUsd - refUsd) : 0;
+    var devaluacionPct = (tasaActual > 0 && saldoBs > 0 && refUsd > 0.0001) ? ((valorActualUsd - refUsd) / refUsd) * 100 : 0;
+
+    return {
+        bancoInfo: info,
+        monedaBase: 'VES',
+        tasaTipo: tasaTipo,
+        tasaLabel: tasaInfo.label,
+        tasaActual: tasaActual,
+        saldoBs: saldoBs,
+        saldoUsd: valorActualUsd,
+        valorActualUsd: valorActualUsd,
+        valorActualBs: saldoBs,
+        usdReferenciaBase: refUsd,
+        devaluacionUsd: devaluacionUsd,
+        devaluacionPct: devaluacionPct
+    };
+}
+
+function formatearUsdTarjeta(val) {
+    var num = Number(val) || 0;
+    return '$' + num.toFixed(2);
+}
+
+function construirTituloTarjeta(tarjeta) {
+    var info = obtenerInfoBancoTarjeta(tarjeta && tarjeta.banco);
+    var alias = (tarjeta && tarjeta.alias) ? String(tarjeta.alias).trim() : '';
+    return alias ? (info.nombre + ' · ' + alias) : info.nombre;
+}
+
+function obtenerResumenGlobalTarjetas(cacheOpt) {
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var cache = cacheOpt || leerCacheTasasBCV();
+    var totalUsdHoy = 0;
+    var totalBsBancos = 0;
+    var totalUsdtBinance = 0;
+    var totalDevalUsd = 0;
+
+    tarjetas.forEach(function(t) {
+        var est = calcularEstadoTarjetaEnVivo(t, cache);
+        totalUsdHoy += est.valorActualUsd;
+        if (est.monedaBase === 'VES') {
+            totalBsBancos += est.saldoBs;
+            totalDevalUsd += est.devaluacionUsd;
+        } else {
+            totalUsdtBinance += est.saldoUsd;
+        }
+    });
+
+    return {
+        cantidad: tarjetas.length,
+        totalUsdHoy: Math.round(totalUsdHoy * 100) / 100,
+        totalBsBancos: Math.round(totalBsBancos * 100) / 100,
+        totalUsdtBinance: Math.round(totalUsdtBinance * 100) / 100,
+        totalDevalUsd: Math.round(totalDevalUsd * 100) / 100
+    };
+}
+
+function actualizarResumenTarjetasUI() {
+    var res = obtenerResumenGlobalTarjetas();
+    var tabBadge = document.getElementById('badge-finanzas-tarjetas-total');
+    if (tabBadge) {
+        if (res.cantidad > 0) {
+            tabBadge.textContent = formatearUsdTarjeta(res.totalUsdHoy);
+            tabBadge.style.display = 'inline-flex';
+        } else {
+            tabBadge.style.display = 'none';
+        }
+    }
+
+    var chipResumen = document.getElementById('resumen-tarjetas-vinculadas-chip');
+    if (chipResumen) {
+        if (res.cantidad > 0) {
+            var devStr = res.totalDevalUsd < -0.005 ? (' · Dev: -$' + Math.abs(res.totalDevalUsd).toFixed(2)) : '';
+            chipResumen.textContent = '💳 Tarjetas hoy: ' + formatearUsdTarjeta(res.totalUsdHoy) + devStr;
+            chipResumen.style.display = 'inline-flex';
+        } else {
+            chipResumen.style.display = 'none';
+        }
+    }
+}
+
+function poblarSelectsTarjetasFinanzas() {
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var cache = leerCacheTasasBCV();
+
+    function rellenarSelect(selId, etiquetaNula) {
+        var sel = document.getElementById(selId);
+        if (!sel) return;
+        var prev = sel.value;
+        var html = '<option value="">' + escaparHTML(etiquetaNula) + '</option>';
+        tarjetas.forEach(function(t) {
+            var est = calcularEstadoTarjetaEnVivo(t, cache);
+            var saldoTxt = est.monedaBase === 'USD'
+                ? (formatearUsdTarjeta(est.saldoUsd) + ' USDT')
+                : (formatearTasaBsDisplay(est.saldoBs, 2) + ' ≈ ' + formatearUsdTarjeta(est.valorActualUsd));
+            html += '<option value="' + escaparHTML(t.id) + '">' + escaparHTML(construirTituloTarjeta(t)) + ' (' + saldoTxt + ')</option>';
+        });
+        sel.innerHTML = html;
+        if (prev && tarjetas.some(function(t) { return t.id === prev; })) {
+            sel.value = prev;
+        }
+    }
+
+    rellenarSelect('modal-cobro-ingreso-tarjeta', 'No asociar a tarjeta (solo registro)');
+    rellenarSelect('modal-gasto-tarjeta', 'Sin tarjeta asociada (solo registro)');
+    actualizarResumenTarjetasUI();
+}
+
+function renderizarTarjetasFinanzas() {
+    var cont = document.getElementById('contenedor-tarjetas-finanzas-root');
+    poblarSelectsTarjetasFinanzas();
+    if (!cont) return;
+
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var cache = leerCacheTasasBCV();
+    var res = obtenerResumenGlobalTarjetas(cache);
+
+    var devalColor = res.totalDevalUsd < -0.01 ? '#f87171' : (res.totalDevalUsd > 0.01 ? '#38bdf8' : '#34d399');
+    var devalTexto = (res.totalDevalUsd < 0 ? '-$' : (res.totalDevalUsd > 0 ? '+$' : '$')) + Math.abs(res.totalDevalUsd).toFixed(2);
+
+    var kpiHtml = `
+        <div class="tarjetas-kpi-grid">
+            <div class="tarjeta-kpi-box" style="border-top: 2px solid #10b981;">
+                <div class="tarjeta-kpi-label">Total Hoy en $</div>
+                <div class="tarjeta-kpi-value" style="color: #34d399;">${formatearUsdTarjeta(res.totalUsdHoy)}</div>
+                <div class="tarjeta-kpi-sub">${res.cantidad} ${res.cantidad === 1 ? 'tarjeta activa' : 'tarjetas activas'}</div>
+            </div>
+            <div class="tarjeta-kpi-box" style="border-top: 2px solid #38bdf8;">
+                <div class="tarjeta-kpi-label">En Bolívares</div>
+                <div class="tarjeta-kpi-value" style="color: #7dd3fc;">${formatearTasaBsDisplay(res.totalBsBancos, 2)}</div>
+                <div class="tarjeta-kpi-sub">Provincial / Venezuela / Todoticket</div>
+            </div>
+            <div class="tarjeta-kpi-box" style="border-top: 2px solid #f59e0b;">
+                <div class="tarjeta-kpi-label">Binance USDT</div>
+                <div class="tarjeta-kpi-value" style="color: #fbbf24;">${formatearUsdTarjeta(res.totalUsdtBinance)}</div>
+                <div class="tarjeta-kpi-sub">Saldo protegido en $</div>
+            </div>
+            <div class="tarjeta-kpi-box" style="border-top: 2px solid ${devalColor};">
+                <div class="tarjeta-kpi-label">Devaluación Bs.</div>
+                <div class="tarjeta-kpi-value" style="color: ${devalColor};">${devalTexto}</div>
+                <div class="tarjeta-kpi-sub">Vs. tasa al ingresar</div>
+            </div>
+        </div>`;
+
+    if (tarjetas.length === 0) {
+        cont.innerHTML = kpiHtml + `
+            <div class="finanzas-empty-hint" style="padding: 32px 18px; border-radius: 16px;">
+                <div style="font-size: 28px; margin-bottom: 8px;">💳</div>
+                <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 6px;">Sin tarjetas o billeteras registradas</div>
+                <div style="font-size: 12.5px; color: #94a3b8; max-width: 400px; margin: 0 auto 14px auto; line-height: 1.45;">
+                    Registra tus saldos en <strong>Provincial</strong>, <strong>Venezuela</strong>, <strong>Todoticket</strong> o <strong>Binance</strong>. Los montos en Bolívares se recalculan cada día con la tasa del API para mostrar cuánto valen hoy en dólares.
+                </div>
+                <button type="button" class="btn-add-finanza" onclick="abrirModalTarjeta()">
+                    ➕ Agregar Primera Tarjeta
+                </button>
+            </div>`;
+        return;
+    }
+
+    var cardsHtml = tarjetas.map(function(t) {
+        var est = calcularEstadoTarjetaEnVivo(t, cache);
+        var info = est.bancoInfo;
+        var titulo = escaparHTML(construirTituloTarjeta(t));
+
+        var saldoNativoTexto = (est.monedaBase === 'USD')
+            ? (formatearUsdTarjeta(est.saldoUsd) + ' USDT')
+            : formatearTasaBsDisplay(est.saldoBs, 2);
+
+        var equivPrincipalTexto = (est.monedaBase === 'USD')
+            ? (est.tasaActual > 0 ? ('≈ ' + formatearTasaBsDisplay(est.valorActualBs, 2)) : 'Esperando tasa API...')
+            : (est.tasaActual > 0 ? ('≈ ' + formatearUsdTarjeta(est.valorActualUsd) + ' USD hoy') : 'Esperando tasa API...');
+
+        var tasaTag = est.tasaActual > 0
+            ? (est.tasaLabel + ': ' + Number(est.tasaActual).toFixed(2) + ' Bs/$')
+            : 'Sin conexión API';
+
+        var devalPillHtml = '';
+        if (est.monedaBase === 'USD') {
+            devalPillHtml = '<div class="tarjeta-deval-pill is-stable">🛡️ Protegido en USDT (0% devaluación en $)</div>';
+        } else if (est.saldoBs <= 0) {
+            devalPillHtml = '<div class="tarjeta-deval-pill is-stable">Saldo en Bs. 0,00</div>';
+        } else if (Math.abs(est.devaluacionUsd) < 0.01) {
+            devalPillHtml = '<div class="tarjeta-deval-pill is-stable">✓ A tasa de referencia (Base: ' + formatearUsdTarjeta(est.usdReferenciaBase) + ')</div>';
+        } else if (est.devaluacionUsd < 0) {
+            devalPillHtml = '<div class="tarjeta-deval-pill is-loss">📉 Devaluación: -$' + Math.abs(est.devaluacionUsd).toFixed(2) + ' (' + est.devaluacionPct.toFixed(1) + '% vs ' + formatearUsdTarjeta(est.usdReferenciaBase) + ')</div>';
+        } else {
+            devalPillHtml = '<div class="tarjeta-deval-pill is-gain">📈 Diferencia: +$' + est.devaluacionUsd.toFixed(2) + ' (Base: ' + formatearUsdTarjeta(est.usdReferenciaBase) + ')</div>';
+        }
+
+        var histItems = Array.isArray(t.historial) ? t.historial.slice(0, 3) : [];
+        var histHtml = '';
+        if (histItems.length > 0) {
+            histHtml = '<div class="tarjeta-historial-mini">' + histItems.map(function(h) {
+                var sign = h.tipo === 'retiro' ? '-' : (h.tipo === 'ingreso' ? '+' : '⇄ ');
+                var col = h.tipo === 'retiro' ? '#f87171' : (h.tipo === 'ingreso' ? '#34d399' : '#7dd3fc');
+                var mDisp = (est.monedaBase === 'USD')
+                    ? (sign + formatearUsdTarjeta(Math.abs(Number(h.montoUsd) || 0)))
+                    : (sign + formatearTasaBsDisplay(Math.abs(Number(h.montoBs) || 0), 2));
+                return '<div class="tarjeta-hist-row"><span class="tarjeta-hist-nota">' + escaparHTML(h.nota || 'Movimiento') + '</span><span class="tarjeta-hist-monto" style="color:' + col + ';">' + mDisp + '</span></div>';
+            }).join('') + '</div>';
+        }
+
+        return `
+        <div class="tarjeta-banco-card" style="--banco-accent: ${info.accent};" data-tarjeta-id="${escaparHTML(t.id)}">
+            <div class="tarjeta-banco-top">
+                <div class="tarjeta-banco-ident">
+                    <div class="tarjeta-banco-badge">${info.siglas}</div>
+                    <div style="min-width: 0;">
+                        <h4 class="tarjeta-banco-nombre">${titulo}</h4>
+                        <div class="tarjeta-banco-sub">${escaparHTML(info.subtitulo)}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                    <button type="button" class="rutina-icon-btn edit" title="Editar tarjeta" onclick="abrirModalTarjeta('${escaparHTML(t.id)}')">✎</button>
+                    <button type="button" class="rutina-icon-btn delete" title="Eliminar tarjeta" onclick="eliminarTarjetaFinanzas('${escaparHTML(t.id)}')">✕</button>
+                </div>
+            </div>
+
+            <div class="tarjeta-saldos-box">
+                <div class="tarjeta-saldo-nativo-label">${est.monedaBase === 'USD' ? 'Saldo Disponible (USDT / $)' : 'Saldo Guardado en Banco (Bolívares)'}</div>
+                <div class="tarjeta-saldo-nativo">${saldoNativoTexto}</div>
+                <div class="tarjeta-equiv-row">
+                    <span class="tarjeta-equiv-principal">${equivPrincipalTexto}</span>
+                    <span class="tarjeta-tasa-aplicada">${escaparHTML(tasaTag)}</span>
+                </div>
+            </div>
+
+            ${devalPillHtml}
+
+            <div class="tarjeta-actions-grid">
+                <button type="button" class="btn-tarjeta-op ingreso" onclick="abrirModalMovimientoTarjeta('${escaparHTML(t.id)}', 'ingreso')">+ Ingresar</button>
+                <button type="button" class="btn-tarjeta-op retiro" onclick="abrirModalMovimientoTarjeta('${escaparHTML(t.id)}', 'retiro')">- Retirar</button>
+                <button type="button" class="btn-tarjeta-op ajuste" onclick="abrirModalMovimientoTarjeta('${escaparHTML(t.id)}', 'ajuste')">⇄ Ajustar</button>
+            </div>
+
+            ${histHtml}
+        </div>`;
+    }).join('');
+
+    cont.innerHTML = kpiHtml + '<div class="tarjetas-cards-grid">' + cardsHtml + '</div>';
+}
+
+function abrirModalTarjeta(idOpcional) {
+    var modal = document.getElementById('modal-finanzas-tarjeta');
+    if (!modal) return;
+
+    var inId = document.getElementById('modal-tarjeta-id');
+    var selBanco = document.getElementById('modal-tarjeta-banco');
+    var inAlias = document.getElementById('modal-tarjeta-alias');
+    var selTasa = document.getElementById('modal-tarjeta-tasa');
+    var inSaldo = document.getElementById('modal-tarjeta-saldo');
+    var selMonedaIn = document.getElementById('modal-tarjeta-moneda-input');
+    var wrapSaldoIni = document.getElementById('grupo-modal-tarjeta-saldo-inicial');
+    var titEl = document.getElementById('modal-tarjeta-titulo');
+
+    if (selBanco) {
+        selBanco.innerHTML = ['provincial', 'venezuela', 'binance', 'todoticket'].map(function(k) {
+            var b = MONARCA_BANCOS_TARJETAS[k];
+            return '<option value="' + b.id + '">' + b.nombre + (b.monedaBase === 'USD' ? ' ($ USDT)' : ' (Bs.)') + '</option>';
+        }).join('');
+    }
+
+    var existente = idOpcional ? asegurarArrayTarjetasFinanzas().find(function(t) { return t.id === idOpcional; }) : null;
+
+    if (existente) {
+        if (titEl) titEl.textContent = 'EDITAR TARJETA';
+        if (inId) inId.value = existente.id;
+        if (selBanco) selBanco.value = MONARCA_BANCOS_TARJETAS[existente.banco] ? existente.banco : 'provincial';
+        if (inAlias) inAlias.value = existente.alias || '';
+        if (selTasa) selTasa.value = existente.tasaTipo || obtenerInfoBancoTarjeta(existente.banco).tasaPorDefecto;
+        if (wrapSaldoIni) wrapSaldoIni.style.display = 'none';
+    } else {
+        if (titEl) titEl.textContent = 'AGREGAR TARJETA O BILLETERA';
+        if (inId) inId.value = '';
+        if (selBanco) selBanco.value = 'provincial';
+        if (inAlias) inAlias.value = '';
+        if (selTasa) selTasa.value = 'bcv';
+        if (inSaldo) inSaldo.value = '';
+        if (selMonedaIn) selMonedaIn.value = 'VES';
+        if (wrapSaldoIni) wrapSaldoIni.style.display = 'block';
+    }
+
+    alCambiarBancoTarjetaModal(!!existente);
+    modal.style.display = 'flex';
+}
+
+function cerrarModalTarjeta() {
+    var m = document.getElementById('modal-finanzas-tarjeta');
+    if (m) m.style.display = 'none';
+}
+
+function alCambiarBancoTarjetaModal(mantenerTasa) {
+    var selBanco = document.getElementById('modal-tarjeta-banco');
+    var selTasa = document.getElementById('modal-tarjeta-tasa');
+    var selMonedaIn = document.getElementById('modal-tarjeta-moneda-input');
+    var lblSaldo = document.getElementById('label-modal-tarjeta-saldo');
+    var info = obtenerInfoBancoTarjeta(selBanco ? selBanco.value : 'provincial');
+
+    if (!mantenerTasa && selTasa) {
+        selTasa.value = info.tasaPorDefecto;
+    }
+    if (selMonedaIn) {
+        selMonedaIn.value = info.monedaBase;
+    }
+    if (lblSaldo) {
+        lblSaldo.textContent = info.monedaBase === 'USD'
+            ? 'Saldo Inicial en Binance ($ USDT):'
+            : 'Saldo Actual en ' + info.nombre + ':';
+    }
+    alCambiarInputPreviewModalTarjeta();
+}
+
+function alCambiarInputPreviewModalTarjeta() {
+    var prev = document.getElementById('preview-modal-tarjeta-tasa');
+    if (!prev) return;
+    var selBanco = document.getElementById('modal-tarjeta-banco');
+    var selTasa = document.getElementById('modal-tarjeta-tasa');
+    var inSaldo = document.getElementById('modal-tarjeta-saldo');
+    var selMonedaIn = document.getElementById('modal-tarjeta-moneda-input');
+
+    var info = obtenerInfoBancoTarjeta(selBanco ? selBanco.value : 'provincial');
+    var tasaInfo = obtenerTasaParaTarjeta(selTasa ? selTasa.value : info.tasaPorDefecto);
+    var monto = Math.max(0, parseFloat(inSaldo ? inSaldo.value : '0') || 0);
+    var monedaIn = selMonedaIn ? selMonedaIn.value : info.monedaBase;
+
+    if (!tasaInfo.valor) {
+        prev.textContent = 'Sin tasa cargada aún. Conecta internet o presiona Actualizar en Tasas.';
+        return;
+    }
+    if (info.monedaBase === 'USD') {
+        var bsEquiv = monedaIn === 'USD' ? (monto * tasaInfo.valor) : monto;
+        var usdFinal = monedaIn === 'USD' ? monto : (monto / tasaInfo.valor);
+        prev.innerHTML = 'Tasa ' + tasaInfo.label + ': <strong>' + Number(tasaInfo.valor).toFixed(2) + ' Bs/$</strong> · Guardará <strong style="color:#fbbf24;">' + formatearUsdTarjeta(usdFinal) + ' USDT</strong> (≈ ' + formatearTasaBsDisplay(bsEquiv, 2) + ')';
+    } else {
+        var bsFinal = monedaIn === 'USD' ? (monto * tasaInfo.valor) : monto;
+        var usdHoy = bsFinal / tasaInfo.valor;
+        prev.innerHTML = 'Tasa ' + tasaInfo.label + ': <strong>' + Number(tasaInfo.valor).toFixed(2) + ' Bs/$</strong> · Guardará <strong style="color:#7dd3fc;">' + formatearTasaBsDisplay(bsFinal, 2) + '</strong> (equivale hoy a <strong style="color:#34d399;">' + formatearUsdTarjeta(usdHoy) + '</strong>)';
+    }
+}
+
+function confirmarGuardarTarjeta() {
+    var inId = document.getElementById('modal-tarjeta-id');
+    var selBanco = document.getElementById('modal-tarjeta-banco');
+    var inAlias = document.getElementById('modal-tarjeta-alias');
+    var selTasa = document.getElementById('modal-tarjeta-tasa');
+    var inSaldo = document.getElementById('modal-tarjeta-saldo');
+    var selMonedaIn = document.getElementById('modal-tarjeta-moneda-input');
+
+    var bancoKey = selBanco ? String(selBanco.value).toLowerCase() : '';
+    if (!MONARCA_BANCOS_TARJETAS[bancoKey]) {
+        alert('Solo puedes seleccionar Provincial, Venezuela, Binance o Todoticket.');
+        return;
+    }
+
+    var info = MONARCA_BANCOS_TARJETAS[bancoKey];
+    var alias = inAlias ? inAlias.value.trim() : '';
+    var tasaTipo = selTasa ? selTasa.value : info.tasaPorDefecto;
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var editId = inId ? inId.value.trim() : '';
+    var now = Date.now();
+
+    if (editId) {
+        var existing = tarjetas.find(function(t) { return t.id === editId; });
+        if (!existing) return;
+        existing.banco = bancoKey;
+        existing.monedaBase = info.monedaBase;
+        existing.alias = alias;
+        existing.tasaTipo = tasaTipo;
+        existing.fechaActualizacion = now;
+        MonarcaDB.save(APP_STATE);
+        cerrarModalTarjeta();
+        renderizarTarjetasFinanzas();
+        return;
+    }
+
+    var montoInput = Math.max(0, parseFloat(inSaldo ? inSaldo.value : '0') || 0);
+    var monedaIn = selMonedaIn ? selMonedaIn.value : info.monedaBase;
+    var tasaInfo = obtenerTasaParaTarjeta(tasaTipo);
+    var tasaVal = tasaInfo.valor;
+
+    if (montoInput > 0 && ((info.monedaBase === 'VES' && monedaIn === 'USD') || (info.monedaBase === 'USD' && monedaIn === 'VES')) && !tasaVal) {
+        alert('Se requiere una tasa vigente del API para convertir el monto inicial.');
+        return;
+    }
+
+    var saldoBs = 0;
+    var saldoUsd = 0;
+    var usdRef = 0;
+    if (info.monedaBase === 'USD') {
+        saldoUsd = (monedaIn === 'VES' && tasaVal > 0) ? (montoInput / tasaVal) : montoInput;
+        saldoUsd = Math.round(saldoUsd * 100) / 100;
+        usdRef = saldoUsd;
+    } else {
+        saldoBs = (monedaIn === 'USD' && tasaVal > 0) ? (montoInput * tasaVal) : montoInput;
+        saldoBs = Math.round(saldoBs * 100) / 100;
+        usdRef = tasaVal > 0 ? Math.round((saldoBs / tasaVal) * 100) / 100 : 0;
+    }
+
+    var nuevaTarjeta = {
+        id: 'TRJ-' + now,
+        banco: bancoKey,
+        alias: alias,
+        monedaBase: info.monedaBase,
+        tasaTipo: tasaTipo,
+        saldoBs: saldoBs,
+        saldoUsd: saldoUsd,
+        usdReferenciaBase: usdRef,
+        tasaRegistroInicial: tasaVal || 0,
+        fechaCreacion: now,
+        fechaActualizacion: now,
+        historial: (montoInput > 0) ? [{
+            id: 'TMV-' + now,
+            tipo: 'ingreso',
+            montoBs: saldoBs,
+            montoUsd: usdRef,
+            tasaUsada: tasaVal || 0,
+            nota: 'Saldo inicial registrado',
+            fecha: new Date().toISOString()
+        }] : []
+    };
+
+    tarjetas.push(nuevaTarjeta);
+    MonarcaDB.save(APP_STATE);
+    cerrarModalTarjeta();
+    renderizarTarjetasFinanzas();
+}
+
+function eliminarTarjetaFinanzas(id) {
+    if (!confirm('¿Eliminar esta tarjeta? Los movimientos de ingresos y gastos existentes no se borrarán.')) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('finanzas_tarjetas', id);
+    }
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    APP_STATE.finanzas.tarjetas = tarjetas.filter(function(t) { return t.id !== id; });
+    MonarcaDB.save(APP_STATE);
+    renderizarTarjetasFinanzas();
+}
+
+function abrirModalMovimientoTarjeta(id, modo) {
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var t = tarjetas.find(function(x) { return x.id === id; });
+    if (!t) return;
+
+    var m = document.getElementById('modal-movimiento-tarjeta');
+    if (!m) return;
+
+    var info = obtenerInfoBancoTarjeta(t.banco);
+    var inId = document.getElementById('modal-mov-tarjeta-id');
+    var inModo = document.getElementById('modal-mov-tarjeta-modo');
+    var tit = document.getElementById('modal-mov-tarjeta-titulo');
+    var sub = document.getElementById('modal-mov-tarjeta-sub');
+    var selMon = document.getElementById('modal-mov-tarjeta-moneda');
+    var inMonto = document.getElementById('modal-mov-tarjeta-monto');
+    var inNota = document.getElementById('modal-mov-tarjeta-nota');
+
+    if (inId) inId.value = id;
+    if (inModo) inModo.value = modo || 'ingreso';
+    if (tit) {
+        tit.textContent = modo === 'retiro'
+            ? ('RETIRAR / GASTAR DE ' + info.nombre.toUpperCase())
+            : (modo === 'ajuste' ? ('AJUSTAR SALDO EN ' + info.nombre.toUpperCase()) : ('INGRESAR DINERO A ' + info.nombre.toUpperCase()));
+    }
+    var est = calcularEstadoTarjetaEnVivo(t);
+    if (sub) {
+        var sTxt = est.monedaBase === 'USD' ? (formatearUsdTarjeta(est.saldoUsd) + ' USDT') : (formatearTasaBsDisplay(est.saldoBs, 2) + ' (' + formatearUsdTarjeta(est.valorActualUsd) + ')');
+        sub.textContent = construirTituloTarjeta(t) + ' · Saldo actual: ' + sTxt;
+    }
+    if (selMon) selMon.value = info.monedaBase;
+    if (inMonto) {
+        inMonto.value = (modo === 'ajuste') ? (est.monedaBase === 'USD' ? est.saldoUsd : est.saldoBs) : '';
+    }
+    if (inNota) inNota.value = '';
+
+    alCambiarMontoMovimientoTarjeta();
+    m.style.display = 'flex';
+}
+
+function cerrarModalMovimientoTarjeta() {
+    var m = document.getElementById('modal-movimiento-tarjeta');
+    if (m) m.style.display = 'none';
+}
+
+function alCambiarMontoMovimientoTarjeta() {
+    var prev = document.getElementById('preview-mov-tarjeta-calc');
+    if (!prev) return;
+    var inId = document.getElementById('modal-mov-tarjeta-id');
+    var inModo = document.getElementById('modal-mov-tarjeta-modo');
+    var selMon = document.getElementById('modal-mov-tarjeta-moneda');
+    var inMonto = document.getElementById('modal-mov-tarjeta-monto');
+
+    var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === (inId ? inId.value : ''); });
+    if (!t) return;
+    var est = calcularEstadoTarjetaEnVivo(t);
+    var monto = Math.max(0, parseFloat(inMonto ? inMonto.value : '0') || 0);
+    var mon = selMon ? selMon.value : est.monedaBase;
+    var modo = inModo ? inModo.value : 'ingreso';
+
+    if (!est.tasaActual) {
+        prev.textContent = 'Sin tasa del API en caché. Presiona Actualizar en Tasas para convertir automáticamente.';
+        return;
+    }
+    var convTxt = (mon === 'USD')
+        ? ('Equivale a ' + formatearTasaBsDisplay(monto * est.tasaActual, 2) + ' (Tasa ' + est.tasaLabel + ': ' + Number(est.tasaActual).toFixed(2) + ')')
+        : ('Equivale a ' + formatearUsdTarjeta(monto / est.tasaActual) + ' hoy (Tasa ' + est.tasaLabel + ': ' + Number(est.tasaActual).toFixed(2) + ')');
+
+    if (modo === 'ajuste') {
+        prev.innerHTML = 'Al ajustar, este saldo quedará como nueva línea base al día de hoy.<br><strong>' + convTxt + '</strong>';
+    } else {
+        prev.innerHTML = '<strong>' + convTxt + '</strong>';
+    }
+}
+
+function aplicarMovimientoEnTarjeta(tarjetaId, modo, montoInput, monedaInput, nota, refId) {
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var t = tarjetas.find(function(x) { return x.id === tarjetaId; });
+    if (!t) return null;
+
+    var est = calcularEstadoTarjetaEnVivo(t);
+    var tasaVal = est.tasaActual;
+    var monto = Math.max(0, Number(montoInput) || 0);
+    if (isNaN(monto) || (modo !== 'ajuste' && monto <= 0)) return null;
+
+    var moneda = monedaInput || est.monedaBase;
+    if (((est.monedaBase === 'VES' && moneda === 'USD') || (est.monedaBase === 'USD' && moneda === 'VES')) && !tasaVal) {
+        return null;
+    }
+
+    var now = Date.now();
+    var deltaNativo = 0;
+    var deltaUsdRef = 0;
+    var movBs = 0;
+    var movUsd = 0;
+
+    if (est.monedaBase === 'USD') {
+        movUsd = (moneda === 'VES' && tasaVal > 0) ? (monto / tasaVal) : monto;
+        movUsd = Math.round(movUsd * 100) / 100;
+        movBs = tasaVal > 0 ? Math.round((movUsd * tasaVal) * 100) / 100 : 0;
+        var prevUsd = Number(t.saldoUsd) || 0;
+        if (modo === 'retiro') {
+            deltaNativo = Math.min(prevUsd, movUsd);
+            t.saldoUsd = Math.max(0, Math.round((prevUsd - deltaNativo) * 100) / 100);
+        } else if (modo === 'ajuste') {
+            deltaNativo = movUsd - prevUsd;
+            t.saldoUsd = movUsd;
+        } else {
+            deltaNativo = movUsd;
+            t.saldoUsd = Math.round((prevUsd + movUsd) * 100) / 100;
+        }
+        t.usdReferenciaBase = t.saldoUsd;
+        deltaUsdRef = deltaNativo;
+    } else {
+        movBs = (moneda === 'USD' && tasaVal > 0) ? (monto * tasaVal) : monto;
+        movBs = Math.round(movBs * 100) / 100;
+        movUsd = tasaVal > 0 ? Math.round((movBs / tasaVal) * 100) / 100 : 0;
+        var prevBs = Number(t.saldoBs) || 0;
+        var prevRefUsd = (t.usdReferenciaBase != null) ? Number(t.usdReferenciaBase) : (tasaVal > 0 ? (prevBs / tasaVal) : 0);
+
+        if (modo === 'retiro') {
+            deltaNativo = Math.min(prevBs, movBs);
+            var ratio = prevBs > 0 ? Math.min(1, deltaNativo / prevBs) : 0;
+            deltaUsdRef = Math.round((prevRefUsd * ratio) * 100) / 100;
+            t.saldoBs = Math.max(0, Math.round((prevBs - deltaNativo) * 100) / 100);
+            t.usdReferenciaBase = (t.saldoBs <= 0.001) ? 0 : Math.max(0, Math.round((prevRefUsd - deltaUsdRef) * 100) / 100);
+        } else if (modo === 'ajuste') {
+            deltaNativo = movBs - prevBs;
+            deltaUsdRef = movUsd - prevRefUsd;
+            t.saldoBs = movBs;
+            t.usdReferenciaBase = movUsd;
+        } else {
+            deltaNativo = movBs;
+            deltaUsdRef = movUsd;
+            t.saldoBs = Math.round((prevBs + movBs) * 100) / 100;
+            t.usdReferenciaBase = Math.round((prevRefUsd + movUsd) * 100) / 100;
+        }
+    }
+
+    if (!Array.isArray(t.historial)) t.historial = [];
+    t.historial.unshift({
+        id: 'TMV-' + now,
+        refMovimientoId: refId || null,
+        tipo: modo,
+        montoBs: movBs,
+        montoUsd: movUsd,
+        tasaUsada: tasaVal || 0,
+        nota: nota || (modo === 'retiro' ? 'Retiro / Gasto' : (modo === 'ajuste' ? 'Ajuste manual' : 'Ingreso a tarjeta')),
+        fecha: new Date().toISOString()
+    });
+    if (t.historial.length > 25) t.historial = t.historial.slice(0, 25);
+    t.fechaActualizacion = now;
+
+    return {
+        tarjetaId: t.id,
+        monedaBase: est.monedaBase,
+        deltaNativo: deltaNativo,
+        deltaUsdRef: deltaUsdRef,
+        tasaUsada: tasaVal || 0
+    };
+}
+
+function revertirMovimientoEnTarjeta(tarjetaId, fueIngreso, deltaNativo, deltaUsdRef, refMovimientoId) {
+    if (!tarjetaId || !deltaNativo) return;
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var t = tarjetas.find(function(x) { return x.id === tarjetaId; });
+    if (!t) return;
+
+    var info = obtenerInfoBancoTarjeta(t.banco);
+    var dNat = Number(deltaNativo) || 0;
+    var dRef = Number(deltaUsdRef) || 0;
+
+    if (info.monedaBase === 'USD') {
+        var curU = Number(t.saldoUsd) || 0;
+        t.saldoUsd = Math.max(0, Math.round((fueIngreso ? (curU - dNat) : (curU + dNat)) * 100) / 100);
+        t.usdReferenciaBase = t.saldoUsd;
+    } else {
+        var curB = Number(t.saldoBs) || 0;
+        var curRef = Number(t.usdReferenciaBase) || 0;
+        t.saldoBs = Math.max(0, Math.round((fueIngreso ? (curB - dNat) : (curB + dNat)) * 100) / 100);
+        t.usdReferenciaBase = (t.saldoBs <= 0.001) ? 0 : Math.max(0, Math.round((fueIngreso ? (curRef - dRef) : (curRef + dRef)) * 100) / 100);
+    }
+
+    if (refMovimientoId && Array.isArray(t.historial)) {
+        t.historial = t.historial.filter(function(h) { return h.refMovimientoId !== refMovimientoId; });
+    }
+    t.fechaActualizacion = Date.now();
+}
+
+function confirmarMovimientoTarjeta() {
+    var inId = document.getElementById('modal-mov-tarjeta-id');
+    var inModo = document.getElementById('modal-mov-tarjeta-modo');
+    var selMon = document.getElementById('modal-mov-tarjeta-moneda');
+    var inMonto = document.getElementById('modal-mov-tarjeta-monto');
+    var inNota = document.getElementById('modal-mov-tarjeta-nota');
+
+    var id = inId ? inId.value : '';
+    var modo = inModo ? inModo.value : 'ingreso';
+    var mon = selMon ? selMon.value : 'VES';
+    var monto = parseFloat(inMonto ? inMonto.value : '0');
+    var nota = inNota ? inNota.value.trim() : '';
+
+    if (isNaN(monto) || (modo !== 'ajuste' && monto <= 0) || monto < 0) {
+        alert('Ingresa un monto válido.');
+        return;
+    }
+
+    var res = aplicarMovimientoEnTarjeta(id, modo, monto, mon, nota);
+    if (!res) {
+        alert('No se pudo aplicar el movimiento (verifica la tasa o el monto).');
+        return;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalMovimientoTarjeta();
+    renderizarTarjetasFinanzas();
+}
+
 if (typeof window !== 'undefined') {
+    window.MONARCA_BANCOS_TARJETAS = MONARCA_BANCOS_TARJETAS;
+    window.abrirModalTarjeta = abrirModalTarjeta;
+    window.cerrarModalTarjeta = cerrarModalTarjeta;
+    window.alCambiarBancoTarjetaModal = alCambiarBancoTarjetaModal;
+    window.alCambiarInputPreviewModalTarjeta = alCambiarInputPreviewModalTarjeta;
+    window.confirmarGuardarTarjeta = confirmarGuardarTarjeta;
+    window.eliminarTarjetaFinanzas = eliminarTarjetaFinanzas;
+    window.abrirModalMovimientoTarjeta = abrirModalMovimientoTarjeta;
+    window.cerrarModalMovimientoTarjeta = cerrarModalMovimientoTarjeta;
+    window.alCambiarMontoMovimientoTarjeta = alCambiarMontoMovimientoTarjeta;
+    window.confirmarMovimientoTarjeta = confirmarMovimientoTarjeta;
+    window.renderizarTarjetasFinanzas = renderizarTarjetasFinanzas;
+    window.obtenerResumenGlobalTarjetas = obtenerResumenGlobalTarjetas;
     window.addEventListener('DOMContentLoaded', function() {
         iniciarAutoActualizacionTasasBCV();
     });
 }
+
 
 
 

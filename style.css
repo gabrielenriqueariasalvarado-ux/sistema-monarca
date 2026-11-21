@@ -14826,4 +14826,348 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v10.66 · FINANZAS TARJETAS (PROVINCIAL, VENEZUELA, BINANCE, TODOTICKET)
+   ========================================================================== */
 
+.finanzas-tasas-grid.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finanzas-tasa-box.tasa-paralelo {
+    border-top: 2px solid #f59e0b;
+}
+
+.finanzas-tasa-box.tasa-paralelo .finanzas-tasa-valor {
+    color: #fbbf24;
+}
+
+.fin-tarjetas-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #7dd3fc;
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.fin-tarjetas-link-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: #7dd3fc;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.fin-tarjetas-link-chip:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.45);
+}
+
+.tarjetas-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.tarjeta-kpi-box {
+    background: rgba(9, 13, 22, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 13px;
+    padding: 12px 11px;
+    min-width: 0;
+}
+
+.tarjeta-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.45px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tarjeta-kpi-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: #f8fafc;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tarjeta-kpi-sub {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tarjetas-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.tarjeta-banco-card {
+    --banco-accent: #38bdf8;
+    background: linear-gradient(160deg, #101727 0%, #090d16 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-top: 3px solid var(--banco-accent);
+    border-radius: 16px;
+    padding: 15px 15px 13px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.tarjeta-banco-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tarjeta-banco-ident {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.tarjeta-banco-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--banco-accent) 16%, #0b1120);
+    border: 1px solid color-mix(in srgb, var(--banco-accent) 40%, transparent);
+    color: var(--banco-accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tarjeta-banco-nombre {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.tarjeta-banco-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 1px;
+}
+
+.tarjeta-saldos-box {
+    background: rgba(6, 9, 16, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 11px 12px;
+}
+
+.tarjeta-saldo-nativo-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    color: #64748b;
+}
+
+.tarjeta-saldo-nativo {
+    font-size: 21px;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.3px;
+}
+
+.tarjeta-equiv-row {
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+
+.tarjeta-equiv-principal {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #34d399;
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-tasa-aplicada {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-deval-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+}
+
+.tarjeta-deval-pill.is-loss {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.tarjeta-deval-pill.is-stable {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #6ee7b7;
+}
+
+.tarjeta-deval-pill.is-gain {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+}
+
+.tarjeta-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.btn-tarjeta-op {
+    min-height: 36px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.btn-tarjeta-op.ingreso {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.12);
+    color: #6ee7b7;
+}
+
+.btn-tarjeta-op.retiro {
+    border-color: rgba(239, 68, 68, 0.32);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+
+.btn-tarjeta-op.ajuste {
+    border-color: rgba(56, 189, 248, 0.3);
+    background: rgba(56, 189, 248, 0.09);
+    color: #7dd3fc;
+}
+
+.tarjeta-historial-mini {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tarjeta-hist-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.tarjeta-hist-nota {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tarjeta-hist-monto {
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-preview-box {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-size: 12px;
+    color: #cbd5e1;
+    margin-top: 8px;
+    line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+    .finanzas-tasas-grid.cols-3 {
+        grid-template-columns: 1fr;
+    }
+    #finanzas-secciones-nav {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        white-space: normal;
+        gap: 6px;
+    }
+    #finanzas-secciones-nav .finanzas-tab-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 8px 10px;
+        font-size: 11.5px;
+    }
+    .tarjetas-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tarjetas-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}

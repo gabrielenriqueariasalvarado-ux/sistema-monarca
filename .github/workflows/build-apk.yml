@@ -70,10 +70,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.65)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.66)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.65
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.66
             Esta versión nativa incluye:
+            - 💳 **Apartado Tarjetas en Finanzas con tasa viva y control de devaluación (v10.66)**:
+              - Bancos/plataformas disponibles estrictamente configurados: **Provincial**, **Venezuela**, **Binance** y **Todoticket**.
+              - Saldos en **Bolívares (`Bs.`)** recalibrados automáticamente cada vez que actualiza `ve.dolarapi.com` (`BCV USD`, `Euro BCV` y `Paralelo`) para reflejar al instante su equivalente real hoy en `$ USD` y medir cuánto se ha devaluado frente al dólar desde tu ingreso.
+              - Saldo en **`$ USDT`** para **Binance** protegido contra la devaluación en Bs., además de asociación directa al cobrar ingresos o marcar pagos de gastos.
             - 🏋️ **Rutinas móviles y Playlist específica por rutina (v10.65)**:
               - Cada tarjeta de rutina ahora incluye su propio **selector directo de Playlist** (puedes elegir una lista distinta para cada rutina, usar la global por defecto o dejarla sin música con guardado instantáneo).
               - Rediseño móvil limpio para **Entrenamiento & Rutinas**: iconos vectoriales SVG, código (`RUT-1`), badge (`SESIÓN · FUERZA` con acentos intactos), título completo sin aplastamientos y botones táctiles claros (**`Iniciar sesión ›`**).

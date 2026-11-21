@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.65">
+    <link rel="stylesheet" href="style.css?v=10.66">
 </head>
 <body>
 
@@ -1429,12 +1429,12 @@
                 </div>
             </div>
 
-            <!-- 1B. TASAS DE CAMBIO OFICIALES (BCV Y EURO - DolarAPI DIARIA) -->
+            <!-- 1B. TASAS DE CAMBIO OFICIALES (BCV, EURO Y PARALELO - DolarAPI DIARIA) -->
             <div class="finanzas-tasas-card" id="finanzas-tasas-card">
                 <div class="finanzas-tasas-header">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span style="font-size: 16px;">🏦</span>
-                        <span class="finanzas-tasas-title">TASAS OFICIALES · BCV &amp; EURO</span>
+                        <span class="finanzas-tasas-title">TASAS DEL DÍA · BCV, EURO &amp; PARALELO</span>
                         <span id="finanzas-tasas-estado-badge" class="finanzas-tasa-status-badge">Cargando...</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1445,7 +1445,7 @@
                     </div>
                 </div>
 
-                <div class="finanzas-tasas-grid">
+                <div class="finanzas-tasas-grid cols-3">
                     <div class="finanzas-tasa-box tasa-bcv">
                         <div class="finanzas-tasa-label">💵 Tasa BCV (USD)</div>
                         <div class="finanzas-tasa-valor" id="finanzas-valor-tasa-bcv">Bs. --</div>
@@ -1456,13 +1456,19 @@
                         <div class="finanzas-tasa-valor" id="finanzas-valor-tasa-euro">Bs. --</div>
                         <div class="finanzas-tasa-sub" id="finanzas-sub-tasa-euro">Euro oficial BCV · Esperando API</div>
                     </div>
+                    <div class="finanzas-tasa-box tasa-paralelo">
+                        <div class="finanzas-tasa-label">⚡ Paralelo / USDT</div>
+                        <div class="finanzas-tasa-valor" id="finanzas-valor-tasa-paralelo">Bs. --</div>
+                        <div class="finanzas-tasa-sub" id="finanzas-sub-tasa-paralelo">Referencia Binance · Esperando API</div>
+                    </div>
                 </div>
 
                 <div class="finanzas-tasas-conversor">
                     <span style="font-size: 11px; font-weight: 700; color: #94a3b8; white-space: nowrap;">🧮 Conversor rápido:</span>
                     <input type="number" step="any" min="0" id="finanzas-tasa-calc-monto" class="finanzas-input-clean" placeholder="Ej: 100" value="1" oninput="convertirMontoConTasas()" style="width: 96px; padding: 6px 10px; font-size: 12.5px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
                     <select id="finanzas-tasa-calc-origen" class="finanzas-input-clean" onchange="convertirMontoConTasas()" style="width: auto; padding: 6px 10px; font-size: 12px; background: #0b0e15; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
-                        <option value="USD">USD ($)</option>
+                        <option value="USD">USD BCV ($)</option>
+                        <option value="PARALELO">USD Paralelo ($)</option>
                         <option value="EUR">EUR (€)</option>
                         <option value="VES">Bolívares (Bs.)</option>
                     </select>
@@ -1470,10 +1476,13 @@
                 </div>
             </div>
 
-            <!-- NAVEGACIÓN DE SECCIONES DE FINANZAS (PANEL VS CALENDARIO) -->
+            <!-- NAVEGACIÓN DE SECCIONES DE FINANZAS (PANEL, TARJETAS Y CALENDARIO) -->
             <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 16px;">
                 <button type="button" class="finanzas-tab-btn active" id="tab-finanzas-panel" onclick="cambiarSeccionFinanzas('panel')">
-                    <span>📊</span> Resumen & Movimientos
+                    <span>📊</span> Resumen &amp; Movimientos
+                </button>
+                <button type="button" class="finanzas-tab-btn" id="tab-finanzas-tarjetas" onclick="cambiarSeccionFinanzas('tarjetas')">
+                    <span>💳</span> Tarjetas <span id="badge-finanzas-tarjetas-total" class="fin-tarjetas-tab-badge" style="display: none;">$0.00</span>
                 </button>
                 <button type="button" class="finanzas-tab-btn" id="tab-finanzas-calendario" onclick="cambiarSeccionFinanzas('calendario')">
                     <span>📅</span> Calendario de Cobros y Pagos <span id="badge-cal-fin-pendientes" class="fin-cal-tab-badge" style="display: none;">0</span>
@@ -1519,6 +1528,7 @@
                         <div class="metric-num" id="resumen-dinero-real" style="color: #10b981;">$0.00</div>
                         <div class="metric-title">Dinero Real en Cuenta</div>
                         <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-por-cobrar-txt">Pendiente: $0.00</div>
+                        <button type="button" id="resumen-tarjetas-vinculadas-chip" class="fin-tarjetas-link-chip" style="display: none;" onclick="cambiarSeccionFinanzas('tarjetas')">💳 Tarjetas hoy: $0.00</button>
                     </div>
                     <div class="metric-card-ideas" style="border-top: 2px solid #06b6d4;">
                         <div class="metric-num" id="resumen-total-inversion" style="color: #06b6d4;">$0.00</div>
@@ -1812,6 +1822,22 @@
             <div id="vista-finanzas-calendario" style="display: none;">
                 <div id="contenedor-calendario-finanzas"></div>
             </div>
+
+            <!-- SUBSECCIÓN C: MIS TARJETAS & CUENTAS (PROVINCIAL / VENEZUELA / BINANCE / TODOTICKET) -->
+            <div id="vista-finanzas-tarjetas" style="display: none;">
+                <div class="finanzas-tarjetas-topbar">
+                    <div>
+                        <h3 class="card-subtitle" style="margin: 0;">💳 MIS TARJETAS & CUENTAS EN TIEMPO REAL</h3>
+                        <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; line-height: 1.4;">
+                            Tus bancos en Bs. se mantienen en bolívares y recalculan su valor en <strong>$</strong> y devaluación automáticamente con la tasa del API. Binance se protege en <strong>$ USDT</strong>.
+                        </div>
+                    </div>
+                    <button type="button" class="btn-system btn-system-add" style="margin: 0; white-space: nowrap;" onclick="abrirModalTarjeta()">
+                        + Nueva Tarjeta
+                    </button>
+                </div>
+                <div id="contenedor-tarjetas-finanzas-root"></div>
+            </div>
         </div>
     </div>
 
@@ -1904,10 +1930,20 @@
                     <label style="font-size: 12px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
                         <span>💵</span> ¿Cuánto cobraste realmente hoy? ($)
                     </label>
-                    <input type="number" id="modal-cobro-ingreso-real" class="modal-input" step="0.01" min="0" placeholder="0.00" style="font-size: 20px; font-weight: 800; text-align: center; color: #34d399; background: #0b0e15; border: 1px solid rgba(52, 211, 153, 0.4); padding: 12px; border-radius: 10px;">
+                    <input type="number" id="modal-cobro-ingreso-real" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="if(typeof actualizarPreviewCobroTarjeta==='function')actualizarPreviewCobroTarjeta()" style="font-size: 20px; font-weight: 800; text-align: center; color: #34d399; background: #0b0e15; border: 1px solid rgba(52, 211, 153, 0.4); padding: 12px; border-radius: 10px;">
                     <div style="font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.4;">
                         Este es el monto exacto que se sumará al dinero real disponible en tu cuenta.
                     </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="modal-cobro-ingreso-tarjeta" style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                        <span>💳</span> ¿A qué tarjeta / banco entra este dinero?
+                    </label>
+                    <select id="modal-cobro-ingreso-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="if(typeof actualizarPreviewCobroTarjeta==='function')actualizarPreviewCobroTarjeta()">
+                        <option value="">No asociar a tarjeta (solo registro)</option>
+                    </select>
+                    <div id="modal-cobro-tarjeta-preview" class="tarjeta-preview-box" style="display: none; margin-top: 8px;"></div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 18px;">
@@ -2019,6 +2055,13 @@
                     <label>Monto ($):</label>
                     <input type="number" id="modal-gasto-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarMontoGastoModal(this.value)">
                     <div id="contenedor-freno-impulso-modal-gasto" style="display: none; margin-top: 10px;"></div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="modal-gasto-tarjeta" style="font-size: 12px; color: #94a3b8;">💳 Pagar / Descontar de Tarjeta (Opcional):</label>
+                    <select id="modal-gasto-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(148, 163, 184, 0.25);">
+                        <option value="">Sin tarjeta asociada (solo registro)</option>
+                    </select>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -2338,6 +2381,108 @@
                     </button>
                     <button type="button" class="btn-system" style="flex: 1.5; margin: 0; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #2563eb, #38bdf8); border-color: #60a5fa; color: #ffffff; font-weight: 800;" onclick="ejecutarMoverFechaFinanza()">
                         ✓ Mover a esta Fecha
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CREAR / EDITAR TARJETA O BILLETERA (FINANZAS) -->
+    <div id="modal-finanzas-tarjeta" class="modal-overlay" style="display: none;">
+        <div class="modal-box" style="max-width: 440px;">
+            <div class="modal-header">
+                <h2 id="modal-tarjeta-titulo" style="margin: 0;">AGREGAR TARJETA O BILLETERA</h2>
+                <button type="button" class="modal-close" onclick="cerrarModalTarjeta()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-tarjeta-id" value="">
+
+                <div class="modal-form-group">
+                    <label for="modal-tarjeta-banco">Banco o Billetera Permitida:</label>
+                    <select id="modal-tarjeta-banco" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="alCambiarBancoTarjetaModal(false)">
+                        <option value="provincial">Provincial (Bs.)</option>
+                        <option value="venezuela">Venezuela (Bs.)</option>
+                        <option value="binance">Binance ($ USDT)</option>
+                        <option value="todoticket">Todoticket (Bs.)</option>
+                    </select>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="modal-tarjeta-alias">Alias / Etiqueta (Opcional):</label>
+                    <input type="text" id="modal-tarjeta-alias" class="modal-input" maxlength="40" placeholder="Ej: Nómina, Ahorros, Bono...">
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="modal-tarjeta-tasa">Tasa API para conversión automática:</label>
+                    <select id="modal-tarjeta-tasa" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="alCambiarInputPreviewModalTarjeta()">
+                        <option value="bcv">BCV Oficial (ve.dolarapi.com)</option>
+                        <option value="paralelo">Paralelo / USDT</option>
+                        <option value="eur">Euro BCV</option>
+                    </select>
+                </div>
+
+                <div id="grupo-modal-tarjeta-saldo-inicial" class="modal-form-group">
+                    <label id="label-modal-tarjeta-saldo" for="modal-tarjeta-saldo">Saldo Actual en Provincial:</label>
+                    <div style="display: flex; gap: 8px; align-items: stretch;">
+                        <input type="number" id="modal-tarjeta-saldo" class="modal-input" step="0.01" min="0" placeholder="0.00" style="flex: 1.6; font-size: 16px; font-weight: 800;" oninput="alCambiarInputPreviewModalTarjeta()">
+                        <select id="modal-tarjeta-moneda-input" class="ideas-select" style="flex: 0.9; min-width: 90px; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="alCambiarInputPreviewModalTarjeta()">
+                            <option value="VES">Bs.</option>
+                            <option value="USD">$ USD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="preview-modal-tarjeta-tasa" class="tarjeta-preview-box">
+                    Calculando equivalencia según la tasa API actual...
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn-system btn-cancelar" style="flex: 1;" onclick="cerrarModalTarjeta()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 1.4; margin: 0; background: linear-gradient(135deg, #059669, #10b981); border-color: #34d399; color: #fff; font-weight: 800;" onclick="confirmarGuardarTarjeta()">
+                        💾 Guardar Tarjeta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: MOVIMIENTO RÁPIDO EN TARJETA (INGRESAR / RETIRAR / AJUSTAR) -->
+    <div id="modal-movimiento-tarjeta" class="modal-overlay" style="display: none;">
+        <div class="modal-box" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 id="modal-mov-tarjeta-titulo" style="margin: 0; font-size: 14px;">MOVIMIENTO EN TARJETA</h2>
+                <button type="button" class="modal-close" onclick="cerrarModalMovimientoTarjeta()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-mov-tarjeta-id" value="">
+                <input type="hidden" id="modal-mov-tarjeta-modo" value="ingreso">
+
+                <div id="modal-mov-tarjeta-sub" style="font-size: 12px; color: #94a3b8; margin-bottom: 14px; padding: 8px 10px; border-radius: 8px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.16);"></div>
+
+                <div class="modal-form-group">
+                    <label for="modal-mov-tarjeta-monto">Monto:</label>
+                    <div style="display: flex; gap: 8px; align-items: stretch;">
+                        <input type="number" id="modal-mov-tarjeta-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" style="flex: 1.6; font-size: 18px; font-weight: 800;" oninput="alCambiarMontoMovimientoTarjeta()">
+                        <select id="modal-mov-tarjeta-moneda" class="ideas-select" style="flex: 0.9; min-width: 90px; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="alCambiarMontoMovimientoTarjeta()">
+                            <option value="VES">Bs.</option>
+                            <option value="USD">$ USD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="modal-mov-tarjeta-nota">Nota / Concepto (Opcional):</label>
+                    <input type="text" id="modal-mov-tarjeta-nota" class="modal-input" maxlength="60" placeholder="Ej: Pago móvil, recarga, ajuste diario...">
+                </div>
+
+                <div id="preview-mov-tarjeta-calc" class="tarjeta-preview-box">
+                    Calculando equivalencia en vivo...
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn-system btn-cancelar" style="flex: 1;" onclick="cerrarModalMovimientoTarjeta()">Cancelar</button>
+                    <button type="button" class="btn-system" style="flex: 1.4; margin: 0; background: linear-gradient(135deg, #0284c7, #38bdf8); border-color: #7dd3fc; color: #fff; font-weight: 800;" onclick="confirmarMovimientoTarjeta()">
+                        ✓ Aplicar Movimiento
                     </button>
                 </div>
             </div>
@@ -6186,26 +6331,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.65"></script>
-    <script src="js/perfil.js?v=10.65"></script>
-    <script src="js/progresion.js?v=10.65"></script>
-    <script src="js/estado-personal.js?v=10.65"></script>
-    <script src="js/finanzas.js?v=10.65"></script>
-    <script src="js/ideas.js?v=10.65"></script>
-    <script src="js/dinamicas.js?v=10.65"></script>
-    <script src="js/calendario.js?v=10.65"></script>
-    <script src="js/inventario.js?v=10.65"></script>
-    <script src="js/reproductor.js?v=10.65"></script>
-    <script src="js/jarvis-voz.js?v=10.65"></script>
+    <script src="js/core.js?v=10.66"></script>
+    <script src="js/perfil.js?v=10.66"></script>
+    <script src="js/progresion.js?v=10.66"></script>
+    <script src="js/estado-personal.js?v=10.66"></script>
+    <script src="js/finanzas.js?v=10.66"></script>
+    <script src="js/ideas.js?v=10.66"></script>
+    <script src="js/dinamicas.js?v=10.66"></script>
+    <script src="js/calendario.js?v=10.66"></script>
+    <script src="js/inventario.js?v=10.66"></script>
+    <script src="js/reproductor.js?v=10.66"></script>
+    <script src="js/jarvis-voz.js?v=10.66"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.65"></script>
+    <script type="module" src="js/firebase-config.js?v=10.66"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.65')
+                navigator.serviceWorker.register('sw.js?v=10.66')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
