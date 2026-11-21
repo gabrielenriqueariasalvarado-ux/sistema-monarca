@@ -15153,16 +15153,20 @@ body.modal-open {
         grid-template-columns: 1fr;
     }
     #finanzas-secciones-nav {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         overflow-x: visible;
         white-space: normal;
         gap: 6px;
     }
     #finanzas-secciones-nav .finanzas-tab-btn {
-        flex: 1 1 auto;
+        width: 100%;
         min-width: 0;
-        padding: 8px 10px;
-        font-size: 11.5px;
+        padding: 8px 8px;
+        font-size: 11px;
+        white-space: normal;
+        line-height: 1.25;
+        text-align: center;
     }
     .tarjetas-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -15171,3 +15175,378 @@ body.modal-open {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   v10.67 · FINANZAS PLANIFICACIÓN DE PAGOS (GASTOS, DEUDAS Y COMPRAS)
+   ========================================================================== */
+
+.fin-plan-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    background: rgba(168, 85, 247, 0.2);
+    color: #e9d5ff;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    font-variant-numeric: tabular-nums;
+}
+
+.finanzas-plan-topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(15, 23, 42, 0.94));
+    border: 1px solid rgba(168, 85, 247, 0.28);
+}
+
+.plan-topbar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.plan-topbar-actions .btn-add-finanza {
+    flex: 1 1 auto;
+    justify-content: center;
+}
+
+.plan-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.plan-kpi-box {
+    background: #101624;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 14px;
+    padding: 12px;
+    min-width: 0;
+}
+
+.plan-kpi-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.plan-kpi-value {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+}
+
+.plan-kpi-sub {
+    font-size: 10.5px;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.3;
+}
+
+.plan-global-progress-card {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.plan-global-progress-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+}
+
+.plan-progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.14);
+    overflow: hidden;
+}
+
+.plan-progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+.plan-filtros-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.plan-filtro-pill {
+    padding: 7px 11px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.75);
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.plan-filtro-pill.active {
+    background: rgba(168, 85, 247, 0.22);
+    color: #f3e8ff;
+    border-color: rgba(192, 132, 252, 0.55);
+}
+
+.plan-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.plan-item-card {
+    background: linear-gradient(160deg, rgba(17, 24, 39, 0.96), rgba(11, 15, 25, 0.98));
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plan-item-card.plan-completo {
+    border-color: rgba(16, 185, 129, 0.35);
+    opacity: 0.88;
+}
+
+.plan-item-card.plan-cubrible {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.12);
+}
+
+.plan-item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.plan-item-title-wrap {
+    min-width: 0;
+    flex: 1;
+}
+
+.plan-item-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    word-break: break-word;
+    line-height: 1.25;
+}
+
+.plan-item-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    align-items: center;
+}
+
+.plan-tipo-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.plan-tipo-pill.tipo-gasto {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.plan-tipo-pill.tipo-deuda {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.plan-tipo-pill.tipo-compra {
+    background: rgba(168, 85, 247, 0.18);
+    color: #e9d5ff;
+    border: 1px solid rgba(192, 132, 252, 0.35);
+}
+
+.plan-prio-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.plan-mini-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.85);
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plan-amounts-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    background: rgba(11, 15, 25, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 12px;
+    padding: 9px 10px;
+}
+
+.plan-amt-cell {
+    min-width: 0;
+}
+
+.plan-amt-lbl {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.plan-amt-val {
+    font-size: 13.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.plan-alcance-banner {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 7px 10px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.plan-alcance-banner.alc-completo {
+    background: rgba(16, 185, 129, 0.13);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.plan-alcance-banner.alc-parcial {
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.plan-alcance-banner.alc-espera {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.plan-actions-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.plan-action-btn {
+    padding: 10px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(30, 41, 59, 0.72);
+    color: #e2e8f0;
+    text-align: center;
+}
+
+.plan-action-btn.btn-abonar {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.38);
+    color: #7dd3fc;
+}
+
+.plan-action-btn.btn-pagar-todo {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.42);
+    color: #34d399;
+}
+
+.plan-abonos-hist {
+    border-top: 1px dashed rgba(148, 163, 184, 0.18);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.plan-abono-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.plan-undo-mini-btn {
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+    .plan-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .plan-amounts-row {
+        gap: 6px;
+        padding: 8px;
+    }
+    .plan-amt-val {
+        font-size: 12.5px;
+    }
+}
+

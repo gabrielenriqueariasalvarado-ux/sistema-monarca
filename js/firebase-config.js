@@ -325,7 +325,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'ideas', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario', 'cronogramaSemanal',
         'reproductorPlaylists',
-        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas',
+        'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
     ];
@@ -393,7 +393,7 @@ function fusionarEstadosInteligente(local, remoto) {
     }
 
     // 6. FINANZAS (Con protección de tombstones por cada categoría)
-    if (!fusion.finanzas) fusion.finanzas = { ingresos: [], gastos: [], categoriasGastos: [], deudas: [], metas: [], comparacionesAhorro: [], tarjetas: [] };
+    if (!fusion.finanzas) fusion.finanzas = { ingresos: [], gastos: [], categoriasGastos: [], deudas: [], metas: [], comparacionesAhorro: [], tarjetas: [], planificacionCompras: [] };
     if (local.finanzas) {
         fusion.finanzas.ingresos = fusionarColeccionPorId(local.finanzas.ingresos, fusion.finanzas.ingresos, tombstones.finanzas_ingresos);
         fusion.finanzas.gastos = fusionarColeccionPorId(local.finanzas.gastos, fusion.finanzas.gastos, tombstones.finanzas_gastos);
@@ -405,6 +405,7 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.finanzas.metas = fusionarColeccionPorId(local.finanzas.metas, fusion.finanzas.metas, tombstones.finanzas_metas);
         fusion.finanzas.comparacionesAhorro = fusionarColeccionPorId(local.finanzas.comparacionesAhorro || [], fusion.finanzas.comparacionesAhorro || [], tombstones.finanzas_comparacionesAhorro);
         fusion.finanzas.tarjetas = fusionarColeccionPorId(local.finanzas.tarjetas || [], fusion.finanzas.tarjetas || [], tombstones.finanzas_tarjetas);
+        fusion.finanzas.planificacionCompras = fusionarColeccionPorId(local.finanzas.planificacionCompras || [], fusion.finanzas.planificacionCompras || [], tombstones.finanzas_planificacionCompras);
     }
 
     // 7. EJERCICIOS, RUTINAS Y ENTRENAMIENTO MENTAL / CEREBRAL

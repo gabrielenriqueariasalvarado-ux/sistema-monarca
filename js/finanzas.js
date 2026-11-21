@@ -785,6 +785,9 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-list">`;
 
             grupo.items.forEach(function(gasto) {
+                var estAbG = (typeof normalizarAbonosGasto === 'function')
+                    ? normalizarAbonosGasto(gasto)
+                    : { total: Number(gasto.monto) || 0, abonado: Number(gasto.montoAbonado) || 0 };
                 var gm = Number(gasto.monto) || 0;
                 var gDia = gasto.dia || 16;
                 var esOcasG = gasto.tipo === 'ocasional';
@@ -800,6 +803,10 @@ function renderizarFinanzas(fin) {
                 else if (pilarG === 'caprichos') badgePilarHtml = `<span class="badge-pilar-caprichos">🎉 10% Caprichos</span>`;
                 else badgePilarHtml = `<span class="badge-pilar-gastos">🏠 40% Fijos</span>`;
 
+                var badgeAbonoHtml = (!estaPagadoG && estAbG.abonado > 0.009)
+                    ? `<span class="badge-pilar-inversion" style="background: rgba(56, 189, 248, 0.14); color: #38bdf8;">💸 Abonado: $${estAbG.abonado.toFixed(2)} / $${gm.toFixed(2)}</span>`
+                    : '';
+
                 var badgePagoHtml = estaPagadoG
                     ? `<span class="badge-ingreso-cobrado">✅ PAGADO</span>
                        <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerPagoGastoUI('${gasto.id}')" title="Desmarcar pago">↩</button>`
@@ -813,6 +820,7 @@ function renderizarFinanzas(fin) {
                                 <div class="finanzas-tx-meta" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 3px;">
                                     ${badgeTipoHtml}
                                     ${badgePilarHtml}
+                                    ${badgeAbonoHtml}
                                 </div>
                             </div>
                         </div>
@@ -1058,6 +1066,11 @@ function renderizarFinanzas(fin) {
         poblarSelectsTarjetasFinanzas();
     }
 
+    // Sincronizar badge de Planificación de Pagos
+    if (typeof actualizarBadgePlanificacionFinanzas === 'function') {
+        actualizarBadgePlanificacionFinanzas(f);
+    }
+
     // Sincronizar badge y vista del Calendario Cronológico de Cobros y Pagos
     if (typeof actualizarBadgeCalendarioFinanzas === 'function') {
         actualizarBadgeCalendarioFinanzas(f, anioActivo, mesActivo);
@@ -1066,6 +1079,8 @@ function renderizarFinanzas(fin) {
         renderizarCalendarioFinanzas();
     } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
         renderizarTarjetasFinanzas();
+    } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
+        renderizarPlanificacionFinanzas();
     }
 }
 
@@ -1550,17 +1565,41 @@ function pagarGastoUI(id) {
     for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
         var g = APP_STATE.finanzas.gastos[i];
         if (g.id === id) {
+            var estG = (typeof normalizarAbonosGasto === 'function')
+                ? normalizarAbonosGasto(g)
+                : { restante: Number(g.monto) || 0, abonado: 0 };
             if (!g.pagado) {
-                g.pagado = true;
-                g.fechaPago = new Date().toISOString();
-                g.fechaActualizacion = Date.now();
-                if (g.tarjetaId && Number(g.monto) > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
-                    var movGas = aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', Number(g.monto), 'USD', 'Gasto: ' + (g.concepto || g.categoria || 'Pago'), g.id);
-                    if (movGas) {
-                        g.tarjetaDeltaNativo = movGas.deltaNativo;
-                        g.tarjetaDeltaUsdRef = movGas.deltaUsdRef;
+                var montoRest = estG.restante;
+                if (Array.isArray(g.abonos) && g.abonos.length > 0 && montoRest > 0.009) {
+                    var abId = 'PLA-' + Date.now();
+                    var movPart = (g.tarjetaId && typeof aplicarMovimientoEnTarjeta === 'function')
+                        ? aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', montoRest, 'USD', 'Liquidación gasto: ' + (g.concepto || g.categoria || 'Pago'), abId)
+                        : null;
+                    g.abonos.push({
+                        id: abId,
+                        montoUsd: montoRest,
+                        montoBs: movPart ? (movPart.tasaUsada * montoRest) : 0,
+                        tasaUsada: movPart ? movPart.tasaUsada : 0,
+                        tarjetaId: g.tarjetaId || null,
+                        deltaNativo: movPart ? movPart.deltaNativo : 0,
+                        deltaUsdRef: movPart ? movPart.deltaUsdRef : 0,
+                        nota: 'Liquidación gasto',
+                        fecha: new Date().toISOString()
+                    });
+                    normalizarAbonosGasto(g);
+                } else {
+                    g.pagado = true;
+                    g.montoAbonado = Number(g.monto) || 0;
+                    g.fechaPago = new Date().toISOString();
+                    if (g.tarjetaId && Number(g.monto) > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+                        var movGas = aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', Number(g.monto), 'USD', 'Gasto: ' + (g.concepto || g.categoria || 'Pago'), g.id);
+                        if (movGas) {
+                            g.tarjetaDeltaNativo = movGas.deltaNativo;
+                            g.tarjetaDeltaUsdRef = movGas.deltaUsdRef;
+                        }
                     }
                 }
+                g.fechaActualizacion = Date.now();
             }
             break;
         }
@@ -1574,12 +1613,21 @@ function deshacerPagoGastoUI(id) {
     for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
         var g = APP_STATE.finanzas.gastos[i];
         if (g.id === id) {
+            if (Array.isArray(g.abonos) && g.abonos.length > 0) {
+                g.abonos.forEach(function(ab) {
+                    if (ab.tarjetaId && ab.deltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                        revertirMovimientoEnTarjeta(ab.tarjetaId, false, ab.deltaNativo, ab.deltaUsdRef, ab.id);
+                    }
+                });
+                g.abonos = [];
+            }
             if (g.tarjetaId && g.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
                 revertirMovimientoEnTarjeta(g.tarjetaId, false, g.tarjetaDeltaNativo, g.tarjetaDeltaUsdRef, g.id);
                 delete g.tarjetaDeltaNativo;
                 delete g.tarjetaDeltaUsdRef;
             }
             g.pagado = false;
+            g.montoAbonado = 0;
             delete g.fechaPago;
             g.fechaActualizacion = Date.now();
             break;
@@ -2362,22 +2410,62 @@ function normalizarDeuda(d) {
                 fecha: fCuotaStr,
                 monto: Number(d.montoCuota),
                 pagada: isPaid,
+                pagadoDirecto: isPaid,
+                cubiertaPorAbono: false,
+                montoAbonado: isPaid ? Number(d.montoCuota) : 0,
                 fechaPago: isPaid ? (d.fechaPago || new Date().toISOString()) : null
             });
         }
         d.cuotas = cuotas;
     }
 
+    if (!Array.isArray(d.abonosLibres)) d.abonosLibres = [];
+    var totalAbonosLibres = 0;
+    d.abonosLibres.forEach(function(ab) {
+        totalAbonosLibres += (Number(ab.montoUsd) || 0);
+    });
+    totalAbonosLibres = Math.round(totalAbonosLibres * 100) / 100;
+
+    var sumDirecto = 0;
+    (d.cuotas || []).forEach(function(c) {
+        if (c.pagada && !c.cubiertaPorAbono) {
+            c.pagadoDirecto = true;
+            sumDirecto += (Number(c.monto) || Number(d.montoCuota) || 0);
+        } else {
+            c.pagadoDirecto = false;
+        }
+    });
+
+    var pool = totalAbonosLibres;
+    (d.cuotas || []).forEach(function(c) {
+        var montoC = Number(c.monto) || Number(d.montoCuota) || 0;
+        if (c.pagadoDirecto) {
+            c.montoAbonado = montoC;
+            return;
+        }
+        if (pool >= montoC - 0.009) {
+            c.pagada = true;
+            c.cubiertaPorAbono = true;
+            c.montoAbonado = montoC;
+            if (!c.fechaPago && d.abonosLibres.length > 0) {
+                c.fechaPago = d.abonosLibres[d.abonosLibres.length - 1].fecha || new Date().toISOString();
+            }
+            pool = Math.max(0, Math.round((pool - montoC) * 100) / 100);
+        } else {
+            c.pagada = false;
+            c.cubiertaPorAbono = false;
+            c.fechaPago = null;
+            c.montoAbonado = Math.round(pool * 100) / 100;
+            pool = 0;
+        }
+    });
+
     var numPagadas = (d.cuotas || []).filter(function(c) { return c.pagada; }).length;
     d.cuotasPagadas = numPagadas;
-    var pagadoCuotas = numPagadas * Number(d.montoCuota);
-    d.montoRestante = Math.max(0, Number(d.precioTotal) - Number(d.pagoInicial) - pagadoCuotas);
+    d.montoRestante = Math.max(0, Math.round((Number(d.precioTotal) - Number(d.pagoInicial) - sumDirecto - totalAbonosLibres) * 100) / 100);
+    if (d.montoRestante <= 0.009) d.montoRestante = 0;
     d.montoTotal = d.montoRestante;
-    if (d.cuotasPagadas >= d.cuotasTotal || d.montoRestante <= 0) {
-        d.pagada = true;
-    } else {
-        d.pagada = false;
-    }
+    d.pagada = (d.cuotasPagadas >= d.cuotasTotal || d.montoRestante <= 0);
 }
 
 function formatearFechaCorta(fechaStr) {
@@ -2406,8 +2494,28 @@ function pagarCuotaDeudaUI(deudaId, cuotaNum) {
 
     if (!targetCuota || targetCuota.pagada) return;
 
-    targetCuota.pagada = true;
-    targetCuota.fechaPago = new Date().toISOString();
+    var montoC = Number(targetCuota.monto) || Number(deuda.montoCuota) || 0;
+    var yaAbonado = Number(targetCuota.montoAbonado) || 0;
+    if (yaAbonado > 0.009 && !targetCuota.pagadoDirecto) {
+        var faltanteC = Math.max(0.01, Math.round((montoC - yaAbonado) * 100) / 100);
+        if (!Array.isArray(deuda.abonosLibres)) deuda.abonosLibres = [];
+        deuda.abonosLibres.push({
+            id: 'PLA-' + Date.now(),
+            montoUsd: faltanteC,
+            montoBs: 0,
+            tasaUsada: 0,
+            tarjetaId: null,
+            deltaNativo: 0,
+            deltaUsdRef: 0,
+            nota: 'Cuota #' + targetCuota.num + ' completada',
+            fecha: new Date().toISOString()
+        });
+    } else {
+        targetCuota.pagada = true;
+        targetCuota.cubiertaPorAbono = false;
+        targetCuota.pagadoDirecto = true;
+        targetCuota.fechaPago = new Date().toISOString();
+    }
 
     normalizarDeuda(deuda);
     deuda.fechaActualizacion = Date.now();
@@ -2417,7 +2525,7 @@ function pagarCuotaDeudaUI(deudaId, cuotaNum) {
     if (deuda.pagada) {
         alert('🎉 ¡Felicidades! Has liquidado por completo la deuda de "' + deuda.nombre + '".');
     } else {
-        alert('💳 Cuota ' + targetCuota.num + ' de ' + deuda.cuotasTotal + ' de "' + deuda.nombre + '" registrada como pagada ($' + Number(targetCuota.monto).toFixed(2) + ').');
+        alert('💳 Cuota ' + targetCuota.num + ' de ' + deuda.cuotasTotal + ' de "' + deuda.nombre + '" registrada como pagada ($' + montoC.toFixed(2) + ').');
     }
 }
 
@@ -2426,18 +2534,27 @@ function pagarDeudaUI(id) {
 }
 
 function deshacerCuotaDeudaUI(deudaId) {
-    solicitarReversionCobro("¿Estás seguro de que deseas revertir la última cuota pagada de esta deuda y devolverla a estado pendiente?", function() {
+    solicitarReversionCobro("¿Estás seguro de que deseas revertir el último pago/abono de esta deuda y devolverlo a estado pendiente?", function() {
         if (!APP_STATE.finanzas || !APP_STATE.finanzas.deudas) return;
         var deuda = APP_STATE.finanzas.deudas.find(function(d) { return d.id === deudaId; });
         if (!deuda) return;
         normalizarDeuda(deuda);
 
         var pagadas = (deuda.cuotas || []).filter(function(c) { return c.pagada; });
-        if (pagadas.length === 0) return;
+        var ultimaPagada = pagadas.length > 0 ? pagadas[pagadas.length - 1] : null;
 
-        var ultimaPagada = pagadas[pagadas.length - 1];
-        ultimaPagada.pagada = false;
-        ultimaPagada.fechaPago = null;
+        if ((!ultimaPagada || ultimaPagada.cubiertaPorAbono) && Array.isArray(deuda.abonosLibres) && deuda.abonosLibres.length > 0) {
+            var ultAb = deuda.abonosLibres.pop();
+            if (ultAb && ultAb.tarjetaId && ultAb.deltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                revertirMovimientoEnTarjeta(ultAb.tarjetaId, false, ultAb.deltaNativo, ultAb.deltaUsdRef, ultAb.id);
+            }
+        } else if (ultimaPagada) {
+            ultimaPagada.pagada = false;
+            ultimaPagada.pagadoDirecto = false;
+            ultimaPagada.cubiertaPorAbono = false;
+            ultimaPagada.montoAbonado = 0;
+            ultimaPagada.fechaPago = null;
+        }
 
         normalizarDeuda(deuda);
         deuda.fechaActualizacion = Date.now();
@@ -2457,10 +2574,30 @@ function liquidarDeudaCompletaUI(deudaId) {
     if (!deuda) return;
     normalizarDeuda(deuda);
 
-    (deuda.cuotas || []).forEach(function(c) {
-        c.pagada = true;
-        if (!c.fechaPago) c.fechaPago = new Date().toISOString();
-    });
+    var tieneAbonosParciales = (Array.isArray(deuda.abonosLibres) && deuda.abonosLibres.length > 0)
+        || (deuda.cuotas || []).some(function(c) { return !c.pagada && Number(c.montoAbonado) > 0.009; });
+
+    if (tieneAbonosParciales && deuda.montoRestante > 0.009) {
+        if (!Array.isArray(deuda.abonosLibres)) deuda.abonosLibres = [];
+        deuda.abonosLibres.push({
+            id: 'PLA-' + Date.now(),
+            montoUsd: deuda.montoRestante,
+            montoBs: 0,
+            tasaUsada: 0,
+            tarjetaId: null,
+            deltaNativo: 0,
+            deltaUsdRef: 0,
+            nota: 'Liquidación completa',
+            fecha: new Date().toISOString()
+        });
+    } else {
+        (deuda.cuotas || []).forEach(function(c) {
+            c.pagada = true;
+            c.cubiertaPorAbono = false;
+            c.pagadoDirecto = true;
+            if (!c.fechaPago) c.fechaPago = new Date().toISOString();
+        });
+    }
 
     normalizarDeuda(deuda);
     deuda.fechaActualizacion = Date.now();
@@ -3130,20 +3267,24 @@ function alCambiarMontoGastoModal(val) {
 
 function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    var destino = (seccion === 'calendario' || seccion === 'tarjetas') ? seccion : 'panel';
+    var destino = (seccion === 'calendario' || seccion === 'tarjetas' || seccion === 'planificacion') ? seccion : 'panel';
     window.ESTADO_FINANZAS.seccionActiva = destino;
 
     var tabPanel = document.getElementById('tab-finanzas-panel');
+    var tabPlan = document.getElementById('tab-finanzas-planificacion');
     var tabCal = document.getElementById('tab-finanzas-calendario');
     var tabTarj = document.getElementById('tab-finanzas-tarjetas');
     var vistaPanel = document.getElementById('vista-finanzas-panel');
+    var vistaPlan = document.getElementById('vista-finanzas-planificacion');
     var vistaCal = document.getElementById('vista-finanzas-calendario');
     var vistaTarj = document.getElementById('vista-finanzas-tarjetas');
 
     if (tabPanel) tabPanel.classList.toggle('active', destino === 'panel');
+    if (tabPlan) tabPlan.classList.toggle('active', destino === 'planificacion');
     if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
     if (tabTarj) tabTarj.classList.toggle('active', destino === 'tarjetas');
     if (vistaPanel) vistaPanel.style.display = destino === 'panel' ? 'block' : 'none';
+    if (vistaPlan) vistaPlan.style.display = destino === 'planificacion' ? 'block' : 'none';
     if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
     if (vistaTarj) vistaTarj.style.display = destino === 'tarjetas' ? 'block' : 'none';
 
@@ -3151,6 +3292,8 @@ function cambiarSeccionFinanzas(seccion, omitirRender) {
         renderizarCalendarioFinanzas();
     } else if (!omitirRender && destino === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
         renderizarTarjetasFinanzas();
+    } else if (!omitirRender && destino === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
+        renderizarPlanificacionFinanzas();
     }
 }
 
@@ -4247,6 +4390,9 @@ function renderizarTasasBCV(estadoFetch, errorMsg) {
     if (typeof actualizarResumenTarjetasUI === 'function') {
         actualizarResumenTarjetasUI();
     }
+    if (typeof renderizarPlanificacionFinanzas === 'function') {
+        renderizarPlanificacionFinanzas();
+    }
 }
 
 function necesitaActualizarTasasDiarias(cache, hoyClave) {
@@ -4547,6 +4693,7 @@ function poblarSelectsTarjetasFinanzas() {
 
     rellenarSelect('modal-cobro-ingreso-tarjeta', 'No asociar a tarjeta (solo registro)');
     rellenarSelect('modal-gasto-tarjeta', 'Sin tarjeta asociada (solo registro)');
+    rellenarSelect('modal-plan-abono-tarjeta', 'Caja / Dinero cobrado (sin descontar tarjeta)');
     actualizarResumenTarjetasUI();
 }
 
@@ -5116,6 +5263,1030 @@ if (typeof window !== 'undefined') {
     });
 }
 
+// ============================================================================
+// PLANIFICACIÓN DE PAGOS & COMPRAS (COBRADO VS GASTOS PROG., DEUDAS, COMPRAS)
+// ============================================================================
 
+function asegurarArrayComprasPlanificacion() {
+    if (typeof APP_STATE === 'undefined' || !APP_STATE) return [];
+    if (!APP_STATE.finanzas) APP_STATE.finanzas = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas));
+    if (!Array.isArray(APP_STATE.finanzas.planificacionCompras)) APP_STATE.finanzas.planificacionCompras = [];
+    return APP_STATE.finanzas.planificacionCompras;
+}
 
+function normalizarAbonosGasto(g) {
+    if (!g) return { total: 0, abonado: 0, restante: 0 };
+    var total = Math.max(0, Number(g.monto) || 0);
+    if (!Array.isArray(g.abonos)) g.abonos = [];
 
+    if (g.abonos.length > 0) {
+        var sumAb = 0;
+        g.abonos.forEach(function(ab) {
+            sumAb += (Number(ab.montoUsd) || 0);
+        });
+        g.montoAbonado = Math.min(total, Math.round(sumAb * 100) / 100);
+        if (g.montoAbonado >= total - 0.009 && total > 0) {
+            g.pagado = true;
+            if (!g.fechaPago) g.fechaPago = new Date().toISOString();
+        } else {
+            g.pagado = false;
+            delete g.fechaPago;
+        }
+    } else {
+        g.montoAbonado = g.pagado ? total : 0;
+    }
+
+    var restante = Math.max(0, Math.round((total - g.montoAbonado) * 100) / 100);
+    return {
+        total: Math.round(total * 100) / 100,
+        abonado: g.montoAbonado,
+        restante: restante
+    };
+}
+
+function normalizarCompraPlanificada(c) {
+    if (!c) return { total: 0, abonado: 0, restante: 0 };
+    var total = Math.max(0, Number(c.precioTotal) || 0);
+    if (!Array.isArray(c.abonos)) c.abonos = [];
+
+    if (c.abonos.length > 0) {
+        var sumAb = 0;
+        c.abonos.forEach(function(ab) {
+            sumAb += (Number(ab.montoUsd) || 0);
+        });
+        c.montoAbonado = Math.min(total, Math.round(sumAb * 100) / 100);
+        c.comprado = (c.montoAbonado >= total - 0.009 && total > 0);
+        if (c.comprado && !c.fechaComprado) {
+            c.fechaComprado = new Date().toISOString();
+        } else if (!c.comprado) {
+            c.fechaComprado = null;
+        }
+    } else {
+        c.montoAbonado = c.comprado ? total : 0;
+    }
+
+    var restante = Math.max(0, Math.round((total - c.montoAbonado) * 100) / 100);
+    return {
+        total: Math.round(total * 100) / 100,
+        abonado: c.montoAbonado,
+        restante: restante
+    };
+}
+
+function itemPerteneceAMesActivoPlan(fechaStr, esRecurrente, anioActivo, mesActivo) {
+    var mesClave = anioActivo + '-' + String(mesActivo + 1).padStart(2, '0');
+    if (fechaStr && typeof fechaStr === 'string' && fechaStr.length >= 7) {
+        return fechaStr.slice(0, 7) === mesClave;
+    }
+    return !!esRecurrente;
+}
+
+function obtenerDisponibleParaPlanificacion(fin, cacheOpt) {
+    var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var cache = cacheOpt || leerCacheTasasBCV();
+    var fechaMes = (typeof obtenerFechaMesFinanzas === 'function') ? obtenerFechaMesFinanzas() : new Date();
+    var anioActivo = fechaMes.getFullYear();
+    var mesActivo = fechaMes.getMonth();
+    var mesClave = anioActivo + '-' + String(mesActivo + 1).padStart(2, '0');
+
+    var resTarjetas = obtenerResumenGlobalTarjetas(cache);
+    var enTarjetasUsd = Number(resTarjetas.totalUsdHoy) || 0;
+
+    var cobradoMesTotalUsd = 0;
+    var cobradoSinTarjetaUsd = 0;
+    var pendientePorCobrarMesUsd = 0;
+
+    (f.ingresos || []).forEach(function(item) {
+        var esRec = (item.tipo === 'fija' && (!item.fecha || String(item.fecha).length < 10));
+        if (!itemPerteneceAMesActivoPlan(item.fecha, esRec, anioActivo, mesActivo)) return;
+        var m = Number(item.monto) || 0;
+        if (item.cobrado) {
+            var realM = (item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== '')
+                ? Number(item.montoCobrado)
+                : m;
+            cobradoMesTotalUsd += realM;
+            if (!item.tarjetaId) {
+                cobradoSinTarjetaUsd += realM;
+            }
+        } else {
+            pendientePorCobrarMesUsd += m;
+        }
+    });
+
+    var ejecutadoSinTarjetaUsd = 0;
+    (f.gastos || []).forEach(function(g) {
+        if (Array.isArray(g.abonos) && g.abonos.length > 0) {
+            g.abonos.forEach(function(ab) {
+                if (!ab.tarjetaId && (!ab.fecha || String(ab.fecha).slice(0, 7) === mesClave)) {
+                    ejecutadoSinTarjetaUsd += (Number(ab.montoUsd) || 0);
+                }
+            });
+        } else if (g.pagado && !g.tarjetaId) {
+            var fP = g.fechaPago || g.fecha || '';
+            if (!fP || String(fP).slice(0, 7) === mesClave) {
+                ejecutadoSinTarjetaUsd += (Number(g.monto) || 0);
+            }
+        }
+    });
+
+    (f.deudas || []).forEach(function(d) {
+        (d.abonosLibres || []).forEach(function(ab) {
+            if (!ab.tarjetaId && (!ab.fecha || String(ab.fecha).slice(0, 7) === mesClave)) {
+                ejecutadoSinTarjetaUsd += (Number(ab.montoUsd) || 0);
+            }
+        });
+    });
+
+    (f.planificacionCompras || []).forEach(function(c) {
+        (c.abonos || []).forEach(function(ab) {
+            if (!ab.tarjetaId && (!ab.fecha || String(ab.fecha).slice(0, 7) === mesClave)) {
+                ejecutadoSinTarjetaUsd += (Number(ab.montoUsd) || 0);
+            }
+        });
+    });
+
+    var cajaSinTarjetaUsd = Math.round((cobradoSinTarjetaUsd - ejecutadoSinTarjetaUsd) * 100) / 100;
+    var disponibleHoyUsd = Math.max(0, Math.round((enTarjetasUsd + cajaSinTarjetaUsd) * 100) / 100);
+
+    return {
+        enTarjetasUsd: Math.round(enTarjetasUsd * 100) / 100,
+        cantidadTarjetas: resTarjetas.cantidad || 0,
+        cobradoMesTotalUsd: Math.round(cobradoMesTotalUsd * 100) / 100,
+        pendientePorCobrarMesUsd: Math.round(pendientePorCobrarMesUsd * 100) / 100,
+        cobradoSinTarjetaUsd: Math.round(cobradoSinTarjetaUsd * 100) / 100,
+        ejecutadoSinTarjetaUsd: Math.round(ejecutadoSinTarjetaUsd * 100) / 100,
+        cajaSinTarjetaUsd: cajaSinTarjetaUsd,
+        disponibleHoyUsd: disponibleHoyUsd
+    };
+}
+
+function obtenerPesoPrioridadPlan(prio) {
+    if (prio === 'alta') return 1;
+    if (prio === 'baja') return 3;
+    return 2;
+}
+
+function construirEtiquetaPrioridadPlan(prio) {
+    if (prio === 'alta') return { texto: '🔴 Alta', color: '#f87171', bg: 'rgba(239,68,68,0.14)', border: 'rgba(239,68,68,0.3)' };
+    if (prio === 'baja') return { texto: '🟢 Baja', color: '#34d399', bg: 'rgba(16,185,129,0.14)', border: 'rgba(16,185,129,0.28)' };
+    return { texto: '🟡 Media', color: '#fbbf24', bg: 'rgba(245,158,11,0.14)', border: 'rgba(245,158,11,0.28)' };
+}
+
+function construirItemsPlanificacion(fin) {
+    var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var items = [];
+
+    // 1. Gastos Programados
+    (f.gastos || []).forEach(function(g, idx) {
+        if (g.tipo === 'ocasional') return;
+        var est = normalizarAbonosGasto(g);
+        var prio = g.planPrioridad || 'alta';
+        var orden = (g.planOrden != null) ? Number(g.planOrden) : (100 + idx);
+        items.push({
+            uid: 'gasto:' + g.id,
+            tipo: 'gasto',
+            id: g.id,
+            titulo: g.concepto || 'Gasto Programado',
+            categoria: g.categoria || 'Gasto Programado',
+            icono: '📅',
+            subDetalle: g.fecha ? ('Fecha: ' + formatearFechaCorta(g.fecha)) : ('Día ' + (g.dia || 15) + ' de cada mes'),
+            nota: '',
+            prioridad: prio,
+            orden: orden,
+            totalUsd: est.total,
+            abonadoUsd: est.abonado,
+            restanteUsd: est.restante,
+            completo: !!g.pagado,
+            abonos: Array.isArray(g.abonos) ? g.abonos : []
+        });
+    });
+
+    // 2. Deudas
+    (f.deudas || []).forEach(function(d, idx) {
+        normalizarDeuda(d);
+        var precioTot = Number(d.precioTotal) || 0;
+        var rest = Number(d.montoRestante) || 0;
+        var abonado = Math.max(0, Math.round((precioTot - rest) * 100) / 100);
+        var prio = d.planPrioridad || 'alta';
+        var orden = (d.planOrden != null) ? Number(d.planOrden) : (200 + idx);
+        var proxCuota = (d.cuotas || []).find(function(c) { return !c.pagada; });
+        var subD = d.pagada
+            ? ('Crédito 100% liquidado (' + d.cuotasTotal + '/' + d.cuotasTotal + ' cuotas)')
+            : ('Cuotas: ' + d.cuotasPagadas + '/' + d.cuotasTotal + (proxCuota ? (' · Próx #' + proxCuota.num + ': $' + Number(proxCuota.monto).toFixed(2) + (proxCuota.fecha ? (' (' + formatearFechaCorta(proxCuota.fecha) + ')') : '')) : ''));
+
+        items.push({
+            uid: 'deuda:' + d.id,
+            tipo: 'deuda',
+            id: d.id,
+            titulo: d.nombre || 'Deuda',
+            categoria: d.categoria || 'Deuda',
+            icono: d.iconoCategoria || '🛡️',
+            subDetalle: subD,
+            nota: '',
+            prioridad: prio,
+            orden: orden,
+            totalUsd: Math.round(precioTot * 100) / 100,
+            abonadoUsd: abonado,
+            restanteUsd: Math.round(rest * 100) / 100,
+            completo: !!d.pagada,
+            abonos: Array.isArray(d.abonosLibres) ? d.abonosLibres : [],
+            proxCuotaMonto: proxCuota ? Math.max(0, Math.round((Number(proxCuota.monto) - (Number(proxCuota.montoAbonado) || 0)) * 100) / 100) : 0
+        });
+    });
+
+    // 3. Compras / Ítems Planeados
+    (f.planificacionCompras || []).forEach(function(c, idx) {
+        var est = normalizarCompraPlanificada(c);
+        var prio = c.prioridad || 'media';
+        var orden = (c.orden != null) ? Number(c.orden) : (300 + idx);
+        var subC = c.fechaLimite ? ('Meta: ' + formatearFechaCorta(c.fechaLimite)) : 'Compra / meta en planificación';
+        items.push({
+            uid: 'compra:' + c.id,
+            tipo: 'compra',
+            id: c.id,
+            titulo: c.titulo || 'Compra Planeada',
+            categoria: c.categoria || 'Compras',
+            icono: c.icono || '🛒',
+            subDetalle: subC,
+            nota: c.nota || '',
+            prioridad: prio,
+            orden: orden,
+            totalUsd: est.total,
+            abonadoUsd: est.abonado,
+            restanteUsd: est.restante,
+            completo: !!c.comprado,
+            abonos: Array.isArray(c.abonos) ? c.abonos : []
+        });
+    });
+
+    // Ordenar pendientes primero por prioridad y luego orden explícito
+    items.sort(function(a, b) {
+        if (a.completo !== b.completo) return a.completo ? 1 : -1;
+        var pa = obtenerPesoPrioridadPlan(a.prioridad);
+        var pb = obtenerPesoPrioridadPlan(b.prioridad);
+        if (pa !== pb) return pa - pb;
+        return (a.orden || 0) - (b.orden || 0);
+    });
+
+    return items;
+}
+
+function actualizarBadgePlanificacionFinanzas(fin) {
+    var badge = document.getElementById('badge-finanzas-planificacion-pend');
+    if (!badge) return;
+    var items = construirItemsPlanificacion(fin);
+    var pend = items.filter(function(it) { return !it.completo; }).length;
+    if (pend > 0) {
+        badge.textContent = String(pend);
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function cambiarFiltroPlanificacionUI(filtro) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.filtroPlanificacion = filtro || 'todos';
+    renderizarPlanificacionFinanzas();
+}
+
+function moverPrioridadItemPlanificacion(tipo, id, delta) {
+    var fin = APP_STATE && APP_STATE.finanzas;
+    if (!fin) return;
+    var pendientes = construirItemsPlanificacion(fin).filter(function(x) { return !x.completo; });
+    var idx = pendientes.findIndex(function(x) { return x.tipo === tipo && x.id === id; });
+    if (idx === -1) return;
+    var targetIdx = idx + delta;
+    if (targetIdx < 0 || targetIdx >= pendientes.length) return;
+
+    var actual = pendientes[idx];
+    var vecino = pendientes[targetIdx];
+
+    // Alinear prioridad con el vecino y asignar orden secuencial claro a todos los pendientes
+    var nuevoPrio = vecino.prioridad;
+    var temp = pendientes[idx];
+    pendientes[idx] = pendientes[targetIdx];
+    pendientes[targetIdx] = temp;
+
+    pendientes.forEach(function(item, i) {
+        var nuevoOrden = (i + 1) * 10;
+        if (item.tipo === 'gasto') {
+            var g = (fin.gastos || []).find(function(x) { return x.id === item.id; });
+            if (g) {
+                g.planOrden = nuevoOrden;
+                if (item.id === id && delta !== 0) g.planPrioridad = nuevoPrio;
+                g.fechaActualizacion = Date.now();
+            }
+        } else if (item.tipo === 'deuda') {
+            var d = (fin.deudas || []).find(function(x) { return x.id === item.id; });
+            if (d) {
+                d.planOrden = nuevoOrden;
+                if (item.id === id && delta !== 0) d.planPrioridad = nuevoPrio;
+                d.fechaActualizacion = Date.now();
+            }
+        } else if (item.tipo === 'compra') {
+            var c = (fin.planificacionCompras || []).find(function(x) { return x.id === item.id; });
+            if (c) {
+                c.orden = nuevoOrden;
+                if (item.id === id && delta !== 0) c.prioridad = nuevoPrio;
+                c.fechaActualizacion = Date.now();
+            }
+        }
+    });
+
+    MonarcaDB.save(APP_STATE);
+    renderizarPlanificacionFinanzas();
+}
+
+function renderizarPlanificacionFinanzas() {
+    var cont = document.getElementById('contenedor-planificacion-finanzas-root');
+    var fin = (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    actualizarBadgePlanificacionFinanzas(fin);
+    if (!cont) return;
+
+    var cache = leerCacheTasasBCV();
+    var tasaBcv = Number(cache && cache.usd) || 0;
+    var disp = obtenerDisponibleParaPlanificacion(fin, cache);
+    var todosItems = construirItemsPlanificacion(fin);
+
+    var totalPlanUsd = 0;
+    var totalAbonadoUsd = 0;
+    var totalFaltaUsd = 0;
+    var poolSim = disp.disponibleHoyUsd;
+    var countCubribles = 0;
+
+    todosItems.forEach(function(it) {
+        totalPlanUsd += it.totalUsd;
+        totalAbonadoUsd += it.abonadoUsd;
+        totalFaltaUsd += it.restanteUsd;
+
+        if (it.completo) {
+            it.alcance = { estado: 'completo', montoCubrible: 0, restanteDespues: poolSim };
+        } else if (poolSim >= it.restanteUsd - 0.009 && it.restanteUsd > 0) {
+            var sobraDespues = Math.max(0, Math.round((poolSim - it.restanteUsd) * 100) / 100);
+            it.alcance = { estado: 'completo_disponible', montoCubrible: it.restanteUsd, restanteDespues: sobraDespues };
+            poolSim = sobraDespues;
+            countCubribles++;
+        } else if (poolSim > 0.009) {
+            it.alcance = { estado: 'parcial', montoCubrible: Math.round(poolSim * 100) / 100, falta: Math.round((it.restanteUsd - poolSim) * 100) / 100 };
+            poolSim = 0;
+            countCubribles++;
+        } else {
+            it.alcance = { estado: 'espera', montoCubrible: 0, falta: it.restanteUsd };
+        }
+    });
+
+    totalPlanUsd = Math.round(totalPlanUsd * 100) / 100;
+    totalAbonadoUsd = Math.round(totalAbonadoUsd * 100) / 100;
+    totalFaltaUsd = Math.round(totalFaltaUsd * 100) / 100;
+    var pctGlobal = totalPlanUsd > 0 ? Math.min(100, Math.round((totalAbonadoUsd / totalPlanUsd) * 100)) : 0;
+
+    var diffPlan = Math.round((disp.disponibleHoyUsd - totalFaltaUsd) * 100) / 100;
+    var diffColor = diffPlan >= 0 ? '#34d399' : '#fbbf24';
+    var diffLabel = diffPlan >= 0 ? 'Sobrante tras Plan' : 'Falta por Cobrar';
+    var diffValorTxt = diffPlan >= 0 ? ('+$' + diffPlan.toFixed(2)) : ('-$' + Math.abs(diffPlan).toFixed(2));
+    var diffSubTxt = diffPlan >= 0
+        ? '¡Cubres el 100% de tu plan!'
+        : (disp.pendientePorCobrarMesUsd > 0 ? ('Por cobrar este mes: $' + disp.pendientePorCobrarMesUsd.toFixed(2)) : 'Pendiente de próximos ingresos');
+
+    var dispSubParts = [];
+    if (disp.cantidadTarjetas > 0) dispSubParts.push('Tarjetas: ' + formatearUsdTarjeta(disp.enTarjetasUsd));
+    if (Math.abs(disp.cajaSinTarjetaUsd) > 0.005) dispSubParts.push('Caja: ' + (disp.cajaSinTarjetaUsd >= 0 ? '$' : '-$') + Math.abs(disp.cajaSinTarjetaUsd).toFixed(2));
+    if (dispSubParts.length === 0) dispSubParts.push('Marca cobros o agrega saldo en Tarjetas');
+
+    var kpiHtml = `
+        <div class="plan-kpi-grid">
+            <div class="plan-kpi-box" style="border-top: 2px solid #10b981;">
+                <div class="plan-kpi-label">Disponible Hoy</div>
+                <div class="plan-kpi-value" style="color: #34d399;">$${disp.disponibleHoyUsd.toFixed(2)}</div>
+                <div class="plan-kpi-sub">${dispSubParts.join(' · ')}</div>
+            </div>
+            <div class="plan-kpi-box" style="border-top: 2px solid #a855f7;">
+                <div class="plan-kpi-label">Plan Total</div>
+                <div class="plan-kpi-value" style="color: #e9d5ff;">$${totalPlanUsd.toFixed(2)}</div>
+                <div class="plan-kpi-sub">Abonado: $${totalAbonadoUsd.toFixed(2)}</div>
+            </div>
+            <div class="plan-kpi-box" style="border-top: 2px solid #f59e0b;">
+                <div class="plan-kpi-label">Por Pagar / Comprar</div>
+                <div class="plan-kpi-value" style="color: #fbbf24;">$${totalFaltaUsd.toFixed(2)}</div>
+                <div class="plan-kpi-sub">${tasaBcv > 0 ? ('≈ ' + formatearTasaBsDisplay(totalFaltaUsd * tasaBcv, 2) + ' BCV') : 'Sin tasa BCV en caché'}</div>
+            </div>
+            <div class="plan-kpi-box" style="border-top: 2px solid #38bdf8;">
+                <div class="plan-kpi-label">${diffLabel}</div>
+                <div class="plan-kpi-value" style="color: ${diffColor};">${diffValorTxt}</div>
+                <div class="plan-kpi-sub">${diffSubTxt}</div>
+            </div>
+        </div>
+        <div class="plan-global-progress-card">
+            <div class="plan-global-progress-top">
+                <span><strong>Progreso del Plan:</strong> ${pctGlobal}% cubierto ($${totalAbonadoUsd.toFixed(2)} de $${totalPlanUsd.toFixed(2)})</span>
+                <span style="color: #34d399; font-weight: 700;">${countCubribles} ${countCubribles === 1 ? 'ítem cubrible hoy' : 'ítems cubribles hoy'}</span>
+            </div>
+            <div class="plan-progress-track">
+                <div class="plan-progress-fill" style="width: ${pctGlobal}%; background: linear-gradient(90deg, #a855f7, #10b981);"></div>
+            </div>
+        </div>`;
+
+    var filtroAct = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.filtroPlanificacion) || 'todos';
+    var filtrosDef = [
+        { k: 'todos', lbl: '📋 Pendientes (' + todosItems.filter(function(x) { return !x.completo; }).length + ')' },
+        { k: 'cubribles', lbl: '🟢 Alcanza Hoy (' + countCubribles + ')' },
+        { k: 'gasto', lbl: '📅 Gastos Prog.' },
+        { k: 'deuda', lbl: '🛡️ Deudas' },
+        { k: 'compra', lbl: '🛒 Compras' },
+        { k: 'completados', lbl: '✅ Completados (' + todosItems.filter(function(x) { return x.completo; }).length + ')' }
+    ];
+
+    var filtrosHtml = '<div class="plan-filtros-bar">' + filtrosDef.map(function(fDef) {
+        return '<button type="button" class="plan-filtro-pill ' + (filtroAct === fDef.k ? 'active' : '') + '" onclick="cambiarFiltroPlanificacionUI(\'' + fDef.k + '\')">' + fDef.lbl + '</button>';
+    }).join('') + '</div>';
+
+    var listaFiltrada = todosItems.filter(function(it) {
+        if (filtroAct === 'completados') return it.completo;
+        if (filtroAct === 'todos') return !it.completo;
+        if (filtroAct === 'cubribles') return !it.completo && (it.alcance.estado === 'completo_disponible' || it.alcance.estado === 'parcial');
+        return !it.completo && it.tipo === filtroAct;
+    });
+
+    if (listaFiltrada.length === 0) {
+        var emptyHtml = `
+            <div class="finanzas-empty-hint" style="margin-top: 8px;">
+                <div style="font-size: 28px; margin-bottom: 8px;">📋</div>
+                <div style="font-weight: 700; color: #f8fafc; font-size: 14px;">${filtroAct === 'completados' ? 'Aún no has completado pagos o compras en tu planificación' : 'Sin ítems pendientes en este filtro'}</div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 6px; line-height: 1.45;">
+                    Agrega una <strong>🛒 Compra / Plan</strong>, un <strong>📅 Gasto Programado</strong> o una <strong>🛡️ Deuda</strong> con los botones superiores para planificar tus pagos con lo que vayas cobrando.
+                </div>
+            </div>`;
+        cont.innerHTML = kpiHtml + filtrosHtml + emptyHtml;
+        return;
+    }
+
+    var cardsHtml = listaFiltrada.map(function(it) {
+        var pct = it.totalUsd > 0 ? Math.min(100, Math.round((it.abonadoUsd / it.totalUsd) * 100)) : (it.completo ? 100 : 0);
+        var tipoBadge = it.tipo === 'gasto'
+            ? '<span class="plan-tipo-pill tipo-gasto">📅 Gasto Prog.</span>'
+            : (it.tipo === 'deuda'
+                ? '<span class="plan-tipo-pill tipo-deuda">🛡️ Deuda</span>'
+                : '<span class="plan-tipo-pill tipo-compra">🛒 Compra Planeada</span>');
+        var prioBadge = construirEtiquetaPrioridadPlan(it.prioridad);
+        var prioHtml = `<span style="padding:3px 8px;border-radius:9999px;font-size:10.5px;font-weight:700;background:${prioBadge.bg};color:${prioBadge.color};border:1px solid ${prioBadge.border};">${prioBadge.texto}</span>`;
+
+        var cardCls = 'plan-item-card' + (it.completo ? ' plan-completo' : (it.alcance.estado === 'completo_disponible' ? ' plan-cubrible' : ''));
+
+        var alcanceHtml = '';
+        if (it.completo) {
+            alcanceHtml = `<div class="plan-alcance-banner alc-completo"><span>✅ ${it.tipo === 'compra' ? '¡Comprado al 100%!' : '¡Pagado / Liquidado al 100%!'}</span><span>$0.00 restante</span></div>`;
+        } else if (it.alcance.estado === 'completo_disponible') {
+            alcanceHtml = `<div class="plan-alcance-banner alc-completo"><span>🟢 Te alcanza completo hoy ($${it.restanteUsd.toFixed(2)})</span><span>Quedaría $${it.alcance.restanteDespues.toFixed(2)}</span></div>`;
+        } else if (it.alcance.estado === 'parcial') {
+            alcanceHtml = `<div class="plan-alcance-banner alc-parcial"><span>🟡 Puedes abonar $${it.alcance.montoCubrible.toFixed(2)} ahora</span><span>Faltaría $${it.alcance.falta.toFixed(2)}</span></div>`;
+        } else {
+            alcanceHtml = `<div class="plan-alcance-banner alc-espera"><span>⏳ Esperando próximo cobro</span><span>Falta $${it.restanteUsd.toFixed(2)}</span></div>`;
+        }
+
+        var bsRestTxt = tasaBcv > 0 ? ('<div style="font-size:10px;color:#64748b;">≈ ' + formatearTasaBsDisplay(it.restanteUsd * tasaBcv, 2) + '</div>') : '';
+
+        var controlsPrio = '';
+        if (!it.completo) {
+            controlsPrio += `<button type="button" class="plan-mini-btn" title="Subir prioridad" onclick="moverPrioridadItemPlanificacion('${it.tipo}','${it.id}',-1)">▲</button>`;
+            controlsPrio += `<button type="button" class="plan-mini-btn" title="Bajar prioridad" onclick="moverPrioridadItemPlanificacion('${it.tipo}','${it.id}',1)">▼</button>`;
+        }
+        if (it.tipo === 'compra') {
+            controlsPrio += `<button type="button" class="plan-mini-btn" title="Editar compra" onclick="abrirModalCompraPlanificada('${it.id}')">✎</button>`;
+            controlsPrio += `<button type="button" class="plan-mini-btn" style="color:#f87171;border-color:rgba(248,113,113,0.3);" title="Eliminar" onclick="eliminarCompraPlanificada('${it.id}')">✕</button>`;
+        }
+
+        var btnsHtml = '';
+        if (!it.completo) {
+            var lblFull = it.tipo === 'compra'
+                ? ('🛒 Comprar ($' + it.restanteUsd.toFixed(2) + ')')
+                : ('✅ Pagar Todo ($' + it.restanteUsd.toFixed(2) + ')');
+            btnsHtml = `
+                <div class="plan-actions-row">
+                    <button type="button" class="plan-action-btn btn-abonar" onclick="abrirModalAbonoPlanificacion('${it.tipo}','${it.id}','abono')">💵 Abonar</button>
+                    <button type="button" class="plan-action-btn btn-pagar-todo" onclick="abrirModalAbonoPlanificacion('${it.tipo}','${it.id}','completo')">${lblFull}</button>
+                </div>`;
+        }
+
+        var histHtml = '';
+        if (Array.isArray(it.abonos) && it.abonos.length > 0) {
+            var ultAbonos = it.abonos.slice().reverse().slice(0, 4);
+            histHtml = '<div class="plan-abonos-hist">' + ultAbonos.map(function(ab) {
+                var trjObj = ab.tarjetaId ? asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === ab.tarjetaId; }) : null;
+                var srcTxt = trjObj ? (' · ' + escaparHTML(obtenerInfoBancoTarjeta(trjObj.banco).nombre)) : ' · Caja';
+                var fTxt = ab.fecha ? formatearFechaCorta(String(ab.fecha).slice(0, 10)) : '';
+                return `<div class="plan-abono-row">
+                    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escaparHTML(ab.nota || 'Abono')}${srcTxt} (${fTxt})</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <strong style="color:#34d399;white-space:nowrap;">$${(Number(ab.montoUsd) || 0).toFixed(2)}</strong>
+                        <button type="button" class="plan-undo-mini-btn" title="Deshacer este abono" onclick="revertirAbonoPlanificacion('${it.tipo}','${it.id}','${ab.id}')">↩</button>
+                    </div>
+                </div>`;
+            }).join('') + '</div>';
+        }
+
+        return `
+        <div class="${cardCls}">
+            <div class="plan-item-header">
+                <div class="plan-item-title-wrap">
+                    <div class="plan-item-title">${it.icono} ${escaparHTML(it.titulo)}</div>
+                    <div class="plan-item-badges">
+                        ${tipoBadge}
+                        ${prioHtml}
+                        <span style="font-size:11px;color:#94a3b8;">${escaparHTML(it.subDetalle)}</span>
+                    </div>
+                    ${it.nota ? ('<div style="font-size:11px;color:#64748b;margin-top:4px;">📝 ' + escaparHTML(it.nota) + '</div>') : ''}
+                </div>
+                <div class="plan-prio-controls">${controlsPrio}</div>
+            </div>
+
+            <div class="plan-amounts-row">
+                <div class="plan-amt-cell">
+                    <div class="plan-amt-lbl">Total</div>
+                    <div class="plan-amt-val" style="color:#f8fafc;">$${it.totalUsd.toFixed(2)}</div>
+                </div>
+                <div class="plan-amt-cell">
+                    <div class="plan-amt-lbl">Abonado</div>
+                    <div class="plan-amt-val" style="color:#34d399;">$${it.abonadoUsd.toFixed(2)}</div>
+                </div>
+                <div class="plan-amt-cell">
+                    <div class="plan-amt-lbl">Falta</div>
+                    <div class="plan-amt-val" style="color:${it.restanteUsd > 0 ? '#fbbf24' : '#34d399'};">$${it.restanteUsd.toFixed(2)}</div>
+                    ${bsRestTxt}
+                </div>
+            </div>
+
+            <div class="plan-progress-track">
+                <div class="plan-progress-fill" style="width:${pct}%;background:${it.completo ? '#10b981' : 'linear-gradient(90deg,#38bdf8,#a855f7)'};"></div>
+            </div>
+
+            ${alcanceHtml}
+            ${btnsHtml}
+            ${histHtml}
+        </div>`;
+    }).join('');
+
+    cont.innerHTML = kpiHtml + filtrosHtml + '<div class="plan-items-list">' + cardsHtml + '</div>';
+}
+
+function poblarSelectCategoriasCompraPlan() {
+    var sel = document.getElementById('modal-plan-compra-categoria');
+    if (!sel) return;
+    var base = ['Compras', 'Moto & Transporte', 'Inversión & Trabajo', 'Vivienda', 'Servicios', 'Salud', 'Otros'];
+    var cats = (APP_STATE && APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.categoriasGastos))
+        ? APP_STATE.finanzas.categoriasGastos.map(function(c) { return c.nombre; })
+        : [];
+    var unicas = Array.from(new Set(base.concat(cats)));
+    sel.innerHTML = unicas.map(function(nombre) {
+        return '<option value="' + escaparHTML(nombre) + '">' + escaparHTML(nombre) + '</option>';
+    }).join('');
+}
+
+var _planSugerenciasCache = [];
+
+function abrirModalCompraPlanificada(idOpcional) {
+    var modal = document.getElementById('modal-planificacion-compra');
+    if (!modal) return;
+    poblarSelectCategoriasCompraPlan();
+
+    var inId = document.getElementById('modal-plan-compra-id');
+    var titEl = document.getElementById('modal-plan-compra-titulo-el');
+    var inNom = document.getElementById('modal-plan-compra-nombre');
+    var inMon = document.getElementById('modal-plan-compra-monto');
+    var selPrio = document.getElementById('modal-plan-compra-prioridad');
+    var selCat = document.getElementById('modal-plan-compra-categoria');
+    var inFec = document.getElementById('modal-plan-compra-fecha');
+    var inNot = document.getElementById('modal-plan-compra-nota');
+    var impWrap = document.getElementById('modal-plan-compra-import-wrap');
+    var impChips = document.getElementById('modal-plan-compra-import-chips');
+
+    var lista = asegurarArrayComprasPlanificacion();
+    var ex = idOpcional ? lista.find(function(x) { return x.id === idOpcional; }) : null;
+
+    if (ex) {
+        if (titEl) titEl.textContent = 'EDITAR COMPRA / ÍTEM PLANEADO';
+        if (inId) inId.value = ex.id;
+        if (inNom) inNom.value = ex.titulo || '';
+        if (inMon) inMon.value = Number(ex.precioTotal || 0).toFixed(2);
+        if (selPrio) selPrio.value = ex.prioridad || 'media';
+        if (selCat) selCat.value = ex.categoria || 'Compras';
+        if (inFec) inFec.value = ex.fechaLimite || '';
+        if (inNot) inNot.value = ex.nota || '';
+        if (impWrap) impWrap.style.display = 'none';
+    } else {
+        if (titEl) titEl.textContent = 'NUEVA COMPRA / ÍTEM PLANEADO';
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inMon) inMon.value = '';
+        if (selPrio) selPrio.value = 'media';
+        if (selCat) selCat.value = 'Compras';
+        if (inFec) inFec.value = '';
+        if (inNot) inNot.value = '';
+
+        _planSugerenciasCache = [];
+        var f = (APP_STATE && APP_STATE.finanzas) || {};
+        (f.comparacionesAhorro || []).forEach(function(item) {
+            if (item && item.nombre && Number(item.precio) > 0) {
+                _planSugerenciasCache.push({ nombre: item.nombre, monto: Number(item.precio), cat: 'Compras' });
+            }
+        });
+        (f.metas || []).forEach(function(m) {
+            var falt = Math.max(0, (Number(m.metaTotal) || 0) - (Number(m.ahorrado) || 0));
+            if (m && m.nombre && falt > 0) {
+                _planSugerenciasCache.push({ nombre: m.nombre, monto: Math.round(falt * 100) / 100, cat: 'Inversión & Trabajo' });
+            }
+        });
+        if (impWrap && impChips) {
+            if (_planSugerenciasCache.length > 0) {
+                impWrap.style.display = 'block';
+                impChips.innerHTML = _planSugerenciasCache.slice(0, 6).map(function(s, i) {
+                    return '<button type="button" class="plan-filtro-pill" style="padding:4px 9px;font-size:11px;" onclick="rellenarCompraDesdeSugerencia(' + i + ')">+ ' + escaparHTML(s.nombre) + ' ($' + s.monto.toFixed(2) + ')</button>';
+                }).join('');
+            } else {
+                impWrap.style.display = 'none';
+            }
+        }
+    }
+
+    modal.style.display = 'flex';
+}
+
+function rellenarCompraDesdeSugerencia(idx) {
+    var s = _planSugerenciasCache[idx];
+    if (!s) return;
+    var inNom = document.getElementById('modal-plan-compra-nombre');
+    var inMon = document.getElementById('modal-plan-compra-monto');
+    var selCat = document.getElementById('modal-plan-compra-categoria');
+    if (inNom) inNom.value = s.nombre;
+    if (inMon) inMon.value = Number(s.monto).toFixed(2);
+    if (selCat && s.cat) selCat.value = s.cat;
+}
+
+function cerrarModalCompraPlanificada() {
+    var m = document.getElementById('modal-planificacion-compra');
+    if (m) m.style.display = 'none';
+}
+
+function confirmarGuardarCompraPlanificada() {
+    var inId = document.getElementById('modal-plan-compra-id');
+    var inNom = document.getElementById('modal-plan-compra-nombre');
+    var inMon = document.getElementById('modal-plan-compra-monto');
+    var selPrio = document.getElementById('modal-plan-compra-prioridad');
+    var selCat = document.getElementById('modal-plan-compra-categoria');
+    var inFec = document.getElementById('modal-plan-compra-fecha');
+    var inNot = document.getElementById('modal-plan-compra-nota');
+
+    var titulo = inNom ? inNom.value.trim() : '';
+    var precio = parseFloat(inMon ? inMon.value : '0');
+    if (!titulo || isNaN(precio) || precio <= 0) {
+        alert('Ingresa el nombre y un precio o monto objetivo mayor a 0.');
+        return;
+    }
+    precio = Math.round(precio * 100) / 100;
+
+    var lista = asegurarArrayComprasPlanificacion();
+    var editId = inId ? inId.value.trim() : '';
+    var now = Date.now();
+
+    if (editId) {
+        var ex = lista.find(function(x) { return x.id === editId; });
+        if (!ex) return;
+        ex.titulo = titulo;
+        ex.precioTotal = precio;
+        ex.prioridad = selPrio ? selPrio.value : 'media';
+        ex.categoria = selCat ? selCat.value : 'Compras';
+        ex.fechaLimite = inFec ? inFec.value : '';
+        ex.nota = inNot ? inNot.value.trim() : '';
+        normalizarCompraPlanificada(ex);
+        ex.fechaActualizacion = now;
+    } else {
+        lista.push({
+            id: 'PLC-' + now,
+            titulo: titulo,
+            categoria: selCat ? selCat.value : 'Compras',
+            icono: '🛒',
+            precioTotal: precio,
+            prioridad: selPrio ? selPrio.value : 'media',
+            orden: (lista.length + 1) * 10 + 300,
+            fechaLimite: inFec ? inFec.value : '',
+            nota: inNot ? inNot.value.trim() : '',
+            abonos: [],
+            montoAbonado: 0,
+            comprado: false,
+            fechaComprado: null,
+            timestamp: now,
+            fechaActualizacion: now
+        });
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalCompraPlanificada();
+    renderizarPlanificacionFinanzas();
+}
+
+function eliminarCompraPlanificada(id) {
+    if (!confirm('¿Eliminar esta compra de tu planificación?')) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('finanzas_planificacionCompras', id);
+    }
+    var lista = asegurarArrayComprasPlanificacion();
+    APP_STATE.finanzas.planificacionCompras = lista.filter(function(c) { return c.id !== id; });
+    MonarcaDB.save(APP_STATE);
+    renderizarPlanificacionFinanzas();
+}
+
+function buscarItemPlanificacionPorClave(tipo, id) {
+    var fin = (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    return construirItemsPlanificacion(fin).find(function(x) { return x.tipo === tipo && x.id === id; }) || null;
+}
+
+function abrirModalAbonoPlanificacion(tipo, id, modo) {
+    var item = buscarItemPlanificacionPorClave(tipo, id);
+    if (!item || item.restanteUsd <= 0) return;
+
+    var modal = document.getElementById('modal-planificacion-abono');
+    if (!modal) return;
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+
+    var inTipo = document.getElementById('modal-plan-abono-tipo');
+    var inId = document.getElementById('modal-plan-abono-id');
+    var inModo = document.getElementById('modal-plan-abono-modo');
+    var tit = document.getElementById('modal-plan-abono-titulo-modal');
+    var resEl = document.getElementById('modal-plan-abono-resumen');
+    var inMonto = document.getElementById('modal-plan-abono-monto');
+    var selMon = document.getElementById('modal-plan-abono-moneda');
+    var selTarj = document.getElementById('modal-plan-abono-tarjeta');
+    var inNota = document.getElementById('modal-plan-abono-nota');
+    var btnConf = document.getElementById('btn-confirmar-plan-abono');
+
+    if (inTipo) inTipo.value = tipo;
+    if (inId) inId.value = id;
+    if (inModo) inModo.value = modo || 'abono';
+    if (tit) {
+        tit.textContent = modo === 'completo'
+            ? (tipo === 'compra' ? 'COMPRAR ÍTEM PLANEADO' : 'PAGAR TOTAL PENDIENTE')
+            : 'ABONAR A PLANIFICACIÓN';
+    }
+    if (btnConf) {
+        btnConf.textContent = modo === 'completo'
+            ? (tipo === 'compra' ? '✓ Confirmar Compra ($' + item.restanteUsd.toFixed(2) + ')' : '✓ Pagar Completo ($' + item.restanteUsd.toFixed(2) + ')')
+            : '✓ Registrar Abono';
+    }
+    if (resEl) {
+        resEl.innerHTML = '<strong>' + item.icono + ' ' + escaparHTML(item.titulo) + '</strong><br>' +
+            'Total: <strong>$' + item.totalUsd.toFixed(2) + '</strong> · Abonado: <strong style="color:#34d399;">$' + item.abonadoUsd.toFixed(2) + '</strong> · Restante: <strong style="color:#fbbf24;">$' + item.restanteUsd.toFixed(2) + '</strong>';
+    }
+    if (selMon) selMon.value = 'USD';
+    if (inMonto) {
+        var sugerido = (modo === 'completo') ? item.restanteUsd : ((item.tipo === 'deuda' && item.proxCuotaMonto > 0) ? Math.min(item.restanteUsd, item.proxCuotaMonto) : item.restanteUsd);
+        inMonto.value = Number(sugerido).toFixed(2);
+    }
+    if (selTarj) {
+        var tarjetas = asegurarArrayTarjetasFinanzas();
+        selTarj.value = (tipo === 'gasto' && (APP_STATE.finanzas.gastos || []).some(function(g) { return g.id === id && g.tarjetaId && tarjetas.some(function(t) { return t.id === g.tarjetaId; }); }))
+            ? (APP_STATE.finanzas.gastos.find(function(g) { return g.id === id; }).tarjetaId)
+            : '';
+    }
+    if (inNota) inNota.value = '';
+
+    alCambiarInputAbonoPlanificacion();
+    modal.style.display = 'flex';
+}
+
+function cerrarModalAbonoPlanificacion() {
+    var m = document.getElementById('modal-planificacion-abono');
+    if (m) m.style.display = 'none';
+}
+
+function autocompletarMontoAbonoPlan(factor) {
+    var inTipo = document.getElementById('modal-plan-abono-tipo');
+    var inId = document.getElementById('modal-plan-abono-id');
+    var selMon = document.getElementById('modal-plan-abono-moneda');
+    var inMonto = document.getElementById('modal-plan-abono-monto');
+    var selTarj = document.getElementById('modal-plan-abono-tarjeta');
+    var item = buscarItemPlanificacionPorClave(inTipo ? inTipo.value : '', inId ? inId.value : '');
+    if (!item || !inMonto) return;
+
+    var usdCalc = Math.max(0.01, Math.round((item.restanteUsd * (Number(factor) || 1)) * 100) / 100);
+    var mon = selMon ? selMon.value : 'USD';
+    if (mon === 'VES') {
+        var trjId = selTarj ? selTarj.value : '';
+        var tasa = obtenerTasaReferenciaAbonoPlan(trjId).valor;
+        if (tasa > 0) {
+            inMonto.value = (usdCalc * tasa).toFixed(2);
+        } else {
+            inMonto.value = usdCalc.toFixed(2);
+            if (selMon) selMon.value = 'USD';
+        }
+    } else {
+        inMonto.value = usdCalc.toFixed(2);
+    }
+    alCambiarInputAbonoPlanificacion();
+}
+
+function obtenerTasaReferenciaAbonoPlan(tarjetaId) {
+    var cache = leerCacheTasasBCV();
+    if (tarjetaId) {
+        var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === tarjetaId; });
+        if (t) return obtenerTasaParaTarjeta(t.tasaTipo, cache);
+    }
+    return obtenerTasaParaTarjeta('bcv', cache);
+}
+
+function alCambiarInputAbonoPlanificacion() {
+    var prev = document.getElementById('preview-modal-plan-abono');
+    if (!prev) return;
+
+    var inTipo = document.getElementById('modal-plan-abono-tipo');
+    var inId = document.getElementById('modal-plan-abono-id');
+    var inMonto = document.getElementById('modal-plan-abono-monto');
+    var selMon = document.getElementById('modal-plan-abono-moneda');
+    var selTarj = document.getElementById('modal-plan-abono-tarjeta');
+
+    var item = buscarItemPlanificacionPorClave(inTipo ? inTipo.value : '', inId ? inId.value : '');
+    if (!item) return;
+
+    var montoIn = Math.max(0, parseFloat(inMonto ? inMonto.value : '0') || 0);
+    var mon = selMon ? selMon.value : 'USD';
+    var trjId = selTarj ? selTarj.value : '';
+    var tasaInfo = obtenerTasaReferenciaAbonoPlan(trjId);
+
+    var usdEq = (mon === 'VES' && tasaInfo.valor > 0) ? (montoIn / tasaInfo.valor) : montoIn;
+    usdEq = Math.round(usdEq * 100) / 100;
+
+    if (mon === 'VES' && !tasaInfo.valor) {
+        prev.textContent = '⚠️ Sin tasa API en caché para convertir Bs. a $. Cambia a $ USD o actualiza las tasas.';
+        return;
+    }
+
+    var usdAplicado = Math.min(item.restanteUsd, usdEq);
+    var nuevoRest = Math.max(0, Math.round((item.restanteUsd - usdAplicado) * 100) / 100);
+    var msgTasa = tasaInfo.valor > 0
+        ? (' (' + formatearTasaBsDisplay(usdAplicado * tasaInfo.valor, 2) + ' a ' + escaparHTML(tasaInfo.label) + ' ' + Number(tasaInfo.valor).toFixed(2) + ')')
+        : '';
+
+    var trjMsg = '';
+    if (trjId) {
+        var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === trjId; });
+        if (t) {
+            var est = calcularEstadoTarjetaEnVivo(t);
+            if (est.monedaBase === 'USD') {
+                trjMsg = '<br>Saldrán <strong style="color:#fbbf24;">-$' + usdAplicado.toFixed(2) + ' USDT</strong> de ' + escaparHTML(construirTituloTarjeta(t)) + '.';
+            } else {
+                trjMsg = '<br>Saldrán <strong style="color:#7dd3fc;">-' + formatearTasaBsDisplay(usdAplicado * est.tasaActual, 2) + '</strong> de ' + escaparHTML(construirTituloTarjeta(t)) + '.';
+            }
+        }
+    }
+
+    prev.innerHTML = 'Abono: <strong style="color:#34d399;">$' + usdAplicado.toFixed(2) + '</strong>' + msgTasa +
+        ' · Quedará pendiente: <strong>$' + nuevoRest.toFixed(2) + '</strong>' + trjMsg;
+}
+
+function confirmarAbonoPlanificacion() {
+    var inTipo = document.getElementById('modal-plan-abono-tipo');
+    var inId = document.getElementById('modal-plan-abono-id');
+    var inMonto = document.getElementById('modal-plan-abono-monto');
+    var selMon = document.getElementById('modal-plan-abono-moneda');
+    var selTarj = document.getElementById('modal-plan-abono-tarjeta');
+    var inNota = document.getElementById('modal-plan-abono-nota');
+
+    var tipo = inTipo ? inTipo.value : '';
+    var id = inId ? inId.value : '';
+    var mon = selMon ? selMon.value : 'USD';
+    var trjId = selTarj ? selTarj.value : '';
+    var montoIn = parseFloat(inMonto ? inMonto.value : '0');
+    var nota = inNota ? inNota.value.trim() : '';
+
+    var item = buscarItemPlanificacionPorClave(tipo, id);
+    if (!item) return;
+
+    if (isNaN(montoIn) || montoIn <= 0) {
+        alert('Ingresa un monto mayor a 0.');
+        return;
+    }
+
+    var tasaInfo = obtenerTasaReferenciaAbonoPlan(trjId);
+    if (mon === 'VES' && !tasaInfo.valor) {
+        alert('Se requiere una tasa vigente del API para registrar pagos en Bolívares.');
+        return;
+    }
+
+    var usdEq = (mon === 'VES') ? (montoIn / tasaInfo.valor) : montoIn;
+    var usdAplicado = Math.min(item.restanteUsd, Math.round(usdEq * 100) / 100);
+    if (usdAplicado <= 0) {
+        alert('Este ítem ya está cubierto en su totalidad.');
+        return;
+    }
+
+    var now = Date.now();
+    var abonoId = 'PLA-' + now;
+    var movCard = null;
+    if (trjId && typeof aplicarMovimientoEnTarjeta === 'function') {
+        movCard = aplicarMovimientoEnTarjeta(trjId, 'retiro', usdAplicado, 'USD', (tipo === 'compra' ? 'Compra: ' : 'Abono: ') + item.titulo, abonoId);
+        if (!movCard) {
+            alert('No se pudo descontar de la tarjeta seleccionada.');
+            return;
+        }
+    }
+
+    var tasaUsada = movCard ? movCard.tasaUsada : (tasaInfo.valor || 0);
+    var abonoObj = {
+        id: abonoId,
+        montoUsd: usdAplicado,
+        montoBs: tasaUsada > 0 ? Math.round((usdAplicado * tasaUsada) * 100) / 100 : 0,
+        tasaUsada: tasaUsada,
+        tasaLabel: tasaInfo.label || 'BCV USD',
+        tarjetaId: trjId || null,
+        deltaNativo: movCard ? movCard.deltaNativo : 0,
+        deltaUsdRef: movCard ? movCard.deltaUsdRef : 0,
+        nota: nota || (usdAplicado >= item.restanteUsd - 0.009 ? (tipo === 'compra' ? 'Compra realizada' : 'Pago total') : 'Abono parcial'),
+        fecha: new Date().toISOString()
+    };
+
+    var fin = APP_STATE.finanzas;
+    if (tipo === 'gasto') {
+        var g = (fin.gastos || []).find(function(x) { return x.id === id; });
+        if (!g) return;
+        if (!Array.isArray(g.abonos)) g.abonos = [];
+        g.abonos.push(abonoObj);
+        normalizarAbonosGasto(g);
+        g.fechaActualizacion = now;
+    } else if (tipo === 'deuda') {
+        var d = (fin.deudas || []).find(function(x) { return x.id === id; });
+        if (!d) return;
+        if (!Array.isArray(d.abonosLibres)) d.abonosLibres = [];
+        d.abonosLibres.push(abonoObj);
+        normalizarDeuda(d);
+        d.fechaActualizacion = now;
+    } else if (tipo === 'compra') {
+        var c = (fin.planificacionCompras || []).find(function(x) { return x.id === id; });
+        if (!c) return;
+        if (!Array.isArray(c.abonos)) c.abonos = [];
+        c.abonos.push(abonoObj);
+        normalizarCompraPlanificada(c);
+        c.fechaActualizacion = now;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    cerrarModalAbonoPlanificacion();
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+function revertirAbonoPlanificacion(tipo, id, abonoId) {
+    if (!APP_STATE || !APP_STATE.finanzas) return;
+    var fin = APP_STATE.finanzas;
+    var obj = null;
+    var arr = null;
+
+    if (tipo === 'gasto') {
+        obj = (fin.gastos || []).find(function(x) { return x.id === id; });
+        arr = obj && obj.abonos;
+    } else if (tipo === 'deuda') {
+        obj = (fin.deudas || []).find(function(x) { return x.id === id; });
+        arr = obj && obj.abonosLibres;
+    } else if (tipo === 'compra') {
+        obj = (fin.planificacionCompras || []).find(function(x) { return x.id === id; });
+        arr = obj && obj.abonos;
+    }
+    if (!obj || !Array.isArray(arr)) return;
+
+    var ab = arr.find(function(x) { return x.id === abonoId; });
+    if (!ab) return;
+
+    if (ab.tarjetaId && ab.deltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+        revertirMovimientoEnTarjeta(ab.tarjetaId, false, ab.deltaNativo, ab.deltaUsdRef, ab.id);
+    }
+
+    var filtrado = arr.filter(function(x) { return x.id !== abonoId; });
+    if (tipo === 'gasto') {
+        obj.abonos = filtrado;
+        normalizarAbonosGasto(obj);
+    } else if (tipo === 'deuda') {
+        obj.abonosLibres = filtrado;
+        normalizarDeuda(obj);
+    } else if (tipo === 'compra') {
+        obj.abonos = filtrado;
+        normalizarCompraPlanificada(obj);
+    }
+    obj.fechaActualizacion = Date.now();
+
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+
+if (typeof window !== 'undefined') {
+    window.renderizarPlanificacionFinanzas = renderizarPlanificacionFinanzas;
+    window.cambiarFiltroPlanificacionUI = cambiarFiltroPlanificacionUI;
+    window.moverPrioridadItemPlanificacion = moverPrioridadItemPlanificacion;
+    window.abrirModalCompraPlanificada = abrirModalCompraPlanificada;
+    window.rellenarCompraDesdeSugerencia = rellenarCompraDesdeSugerencia;
+    window.cerrarModalCompraPlanificada = cerrarModalCompraPlanificada;
+    window.confirmarGuardarCompraPlanificada = confirmarGuardarCompraPlanificada;
+    window.eliminarCompraPlanificada = eliminarCompraPlanificada;
+    window.abrirModalAbonoPlanificacion = abrirModalAbonoPlanificacion;
+    window.cerrarModalAbonoPlanificacion = cerrarModalAbonoPlanificacion;
+    window.autocompletarMontoAbonoPlan = autocompletarMontoAbonoPlan;
+    window.alCambiarInputAbonoPlanificacion = alCambiarInputAbonoPlanificacion;
+    window.confirmarAbonoPlanificacion = confirmarAbonoPlanificacion;
+    window.revertirAbonoPlanificacion = revertirAbonoPlanificacion;
+}

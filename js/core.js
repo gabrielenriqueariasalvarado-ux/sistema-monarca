@@ -193,7 +193,8 @@ const DEFAULT_STATE = {
         metas: [],
         aportesMetas: [],
         comparacionesAhorro: [],
-        tarjetas: []
+        tarjetas: [],
+        planificacionCompras: []
     },
     ideas: [],
     calendario: [],
@@ -227,7 +228,8 @@ const DEFAULT_STATE = {
         finanzas_deudas: [],
         finanzas_metas: [],
         finanzas_comparacionesAhorro: [],
-        finanzas_tarjetas: []
+        finanzas_tarjetas: [],
+        finanzas_planificacionCompras: []
     },
     v2_clean_defaults: true,
     v3_clean_rutinas: true
@@ -346,6 +348,7 @@ const MonarcaDB = {
                 if (!data.finanzas.metas || !Array.isArray(data.finanzas.metas)) data.finanzas.metas = [];
                 if (!data.finanzas.comparacionesAhorro || !Array.isArray(data.finanzas.comparacionesAhorro)) data.finanzas.comparacionesAhorro = [];
                 if (!data.finanzas.tarjetas || !Array.isArray(data.finanzas.tarjetas)) data.finanzas.tarjetas = [];
+                if (!data.finanzas.planificacionCompras || !Array.isArray(data.finanzas.planificacionCompras)) data.finanzas.planificacionCompras = [];
             }
             if (!data.calendario || !Array.isArray(data.calendario)) data.calendario = [];
             if (!data.cronogramaSemanal || !Array.isArray(data.cronogramaSemanal)) data.cronogramaSemanal = [];

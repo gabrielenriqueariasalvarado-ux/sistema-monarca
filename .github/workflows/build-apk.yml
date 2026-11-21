@@ -70,10 +70,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.66)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.67)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.66
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.67
             Esta versión nativa incluye:
+            - 📋 **Apartado Planificación de Pagos en Finanzas (v10.67)**:
+              - Tablero unificado que cruza lo que ya llevas **cobrado / en tarjetas** con tus **Gastos Programados**, **Deudas activas** y **Compras / Pagos Planeados** ordenados por prioridad.
+              - Simulación en vivo de alcance (**`Te alcanza completo`**, **`Puedes abonar`** o **`Esperando cobro`**) más botones directos para **Abonar por partes**, **Pagar Completo** o **Comprar** (descontando opcionalmente en `Bs.` o `$` desde tus tarjetas **Provincial**, **Venezuela**, **Binance** o **Todoticket** con historial y reversión `↩`).
             - 💳 **Apartado Tarjetas en Finanzas con tasa viva y control de devaluación (v10.66)**:
               - Bancos/plataformas disponibles estrictamente configurados: **Provincial**, **Venezuela**, **Binance** y **Todoticket**.
               - Saldos en **Bolívares (`Bs.`)** recalibrados automáticamente cada vez que actualiza `ve.dolarapi.com` (`BCV USD`, `Euro BCV` y `Paralelo`) para reflejar al instante su equivalente real hoy en `$ USD` y medir cuánto se ha devaluado frente al dólar desde tu ingreso.
