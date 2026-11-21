@@ -748,6 +748,10 @@ function cambiarVista(vistaId, noPushState) {
         }
     } catch(e) {}
 
+    if (vistaId !== 'vista-home' && typeof detenerRelojHome === 'function') {
+        detenerRelojHome();
+    }
+
     switch(vistaId) {
         case 'vista-home':
             if (typeof renderizarVistaHome === 'function') renderizarVistaHome();
@@ -1325,6 +1329,61 @@ function obtenerNumeroSemanaISO(fecha) {
     return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
 }
 
+var MONARCA_HOME_CLOCK_TIMER = null;
+var MONARCA_HOME_ULTIMA_CLAVE_DIA = '';
+
+function actualizarRelojHome(fechaCustom) {
+    var ahora = (fechaCustom instanceof Date && !isNaN(fechaCustom.getTime())) ? fechaCustom : new Date();
+    var h24 = ahora.getHours();
+    var min = ahora.getMinutes();
+    var seg = ahora.getSeconds();
+    var ampm = h24 >= 12 ? 'PM' : 'AM';
+    var h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+
+    var hmTxt = String(h12).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    var segTxt = ':' + String(seg).padStart(2, '0');
+
+    var elHm = document.getElementById('home-reloj-hm');
+    var elSeg = document.getElementById('home-reloj-seg');
+    var elAmPm = document.getElementById('home-reloj-ampm');
+    var elTime = document.getElementById('home-reloj-tiempo');
+
+    if (elHm) elHm.textContent = hmTxt;
+    if (elSeg) elSeg.textContent = segTxt;
+    if (elAmPm) elAmPm.textContent = ampm;
+    if (elTime) {
+        elTime.setAttribute('datetime', String(h24).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(seg).padStart(2, '0'));
+    }
+
+    // Si cruza la medianoche estando abierto en Home, refrescar automáticamente la fecha
+    if (!(fechaCustom instanceof Date)) {
+        var claveHoy = ahora.getFullYear() + '-' + (ahora.getMonth() + 1) + '-' + ahora.getDate();
+        if (MONARCA_HOME_ULTIMA_CLAVE_DIA && MONARCA_HOME_ULTIMA_CLAVE_DIA !== claveHoy) {
+            renderizarVistaHome(ahora);
+        }
+    }
+}
+
+function detenerRelojHome() {
+    if (MONARCA_HOME_CLOCK_TIMER) {
+        clearInterval(MONARCA_HOME_CLOCK_TIMER);
+        MONARCA_HOME_CLOCK_TIMER = null;
+    }
+}
+
+function iniciarRelojHome() {
+    detenerRelojHome();
+    actualizarRelojHome();
+    MONARCA_HOME_CLOCK_TIMER = setInterval(function() {
+        if (document.hidden || (window.VISTA_ACTUAL && window.VISTA_ACTUAL !== 'vista-home')) {
+            detenerRelojHome();
+            return;
+        }
+        actualizarRelojHome();
+    }, 1000);
+}
+
 function renderizarVistaHome(fechaCustom) {
     var ahora = (fechaCustom instanceof Date && !isNaN(fechaCustom.getTime())) ? fechaCustom : new Date();
     var diaIdx = ahora.getDay();
@@ -1332,6 +1391,8 @@ function renderizarVistaHome(fechaCustom) {
     var mesIdx = ahora.getMonth();
     var anio = ahora.getFullYear();
     var hora = ahora.getHours();
+
+    MONARCA_HOME_ULTIMA_CLAVE_DIA = anio + '-' + (mesIdx + 1) + '-' + diaNum;
 
     var diaNombre = MONARCA_HOME_DIAS[diaIdx] || 'Hoy';
     var mesNombre = MONARCA_HOME_MESES[mesIdx] || '';
@@ -1359,6 +1420,14 @@ function renderizarVistaHome(fechaCustom) {
     if (elDiaSemana) elDiaSemana.textContent = diaNombre;
     if (elFechaComp) elFechaComp.textContent = diaNum + ' de ' + mesCap + ' de ' + anio;
     if (elFechaMeta) elFechaMeta.textContent = 'Semana ' + semanaAnio + ' · Día ' + diaDelAnio + ' del año';
+
+    if (fechaCustom instanceof Date) {
+        actualizarRelojHome(ahora);
+    } else if (!document.hidden && (!window.VISTA_ACTUAL || window.VISTA_ACTUAL === 'vista-home')) {
+        iniciarRelojHome();
+    } else {
+        actualizarRelojHome(ahora);
+    }
 }
 
 function abrirSeccionHome() {
@@ -1369,9 +1438,14 @@ function abrirSeccionHome() {
 
 if (typeof window !== 'undefined') {
     window.renderizarVistaHome = renderizarVistaHome;
+    window.actualizarRelojHome = actualizarRelojHome;
+    window.iniciarRelojHome = iniciarRelojHome;
+    window.detenerRelojHome = detenerRelojHome;
     window.abrirSeccionHome = abrirSeccionHome;
     document.addEventListener('visibilitychange', function() {
-        if (!document.hidden && window.VISTA_ACTUAL === 'vista-home') {
+        if (document.hidden) {
+            detenerRelojHome();
+        } else if (window.VISTA_ACTUAL === 'vista-home') {
             renderizarVistaHome();
         }
     });

@@ -16182,3 +16182,88 @@ body.modal-open {
         gap: 14px;
     }
 }
+
+/* Reloj en tiempo real dentro de Home (v10.71) */
+.home-fecha-showcase {
+    flex-wrap: wrap;
+}
+
+.home-fecha-textos {
+    flex: 1 1 220px;
+}
+
+.home-reloj-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 20px rgba(0, 0, 0, 0.35);
+    min-width: 172px;
+}
+
+.home-reloj-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #38bdf8;
+}
+
+.home-reloj-tiempo {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-reloj-hm {
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #f8fafc;
+}
+
+.home-reloj-sub {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.05;
+    gap: 2px;
+}
+
+.home-reloj-seg {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.home-reloj-ampm {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #818cf8;
+}
+
+@media (max-width: 640px) {
+    .home-reloj-box {
+        flex-basis: 100%;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 14px;
+        min-width: 0;
+        border-radius: 14px;
+    }
+    .home-reloj-hm {
+        font-size: 24px;
+    }
+}

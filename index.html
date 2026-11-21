@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.70">
+    <link rel="stylesheet" href="style.css?v=10.71">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
         </div>
     </header>
 
-    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.70) -->
+    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.71) -->
     <div id="vista-home" class="tab-content active">
         <div class="home-hero-card">
             <div class="home-hero-top">
@@ -73,6 +73,16 @@
                     <div id="home-fecha-dia-semana" class="home-dia-semana">Cargando día...</div>
                     <h2 id="home-fecha-completa" class="home-fecha-principal">-- de ---- de ----</h2>
                     <div id="home-fecha-meta" class="home-fecha-meta">Sincronizando calendario...</div>
+                </div>
+                <div class="home-reloj-box" aria-label="Hora actual del día">
+                    <span class="home-reloj-label">🕒 Hora actual</span>
+                    <time id="home-reloj-tiempo" class="home-reloj-tiempo" datetime="00:00:00">
+                        <span id="home-reloj-hm" class="home-reloj-hm">--:--</span>
+                        <span class="home-reloj-sub">
+                            <span id="home-reloj-seg" class="home-reloj-seg">:--</span>
+                            <span id="home-reloj-ampm" class="home-reloj-ampm">--</span>
+                        </span>
+                    </time>
                 </div>
             </div>
 
@@ -6532,26 +6542,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.70"></script>
-    <script src="js/perfil.js?v=10.70"></script>
-    <script src="js/progresion.js?v=10.70"></script>
-    <script src="js/estado-personal.js?v=10.70"></script>
-    <script src="js/finanzas.js?v=10.70"></script>
-    <script src="js/ideas.js?v=10.70"></script>
-    <script src="js/dinamicas.js?v=10.70"></script>
-    <script src="js/calendario.js?v=10.70"></script>
-    <script src="js/inventario.js?v=10.70"></script>
-    <script src="js/reproductor.js?v=10.70"></script>
-    <script src="js/jarvis-voz.js?v=10.70"></script>
+    <script src="js/core.js?v=10.71"></script>
+    <script src="js/perfil.js?v=10.71"></script>
+    <script src="js/progresion.js?v=10.71"></script>
+    <script src="js/estado-personal.js?v=10.71"></script>
+    <script src="js/finanzas.js?v=10.71"></script>
+    <script src="js/ideas.js?v=10.71"></script>
+    <script src="js/dinamicas.js?v=10.71"></script>
+    <script src="js/calendario.js?v=10.71"></script>
+    <script src="js/inventario.js?v=10.71"></script>
+    <script src="js/reproductor.js?v=10.71"></script>
+    <script src="js/jarvis-voz.js?v=10.71"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.70"></script>
+    <script type="module" src="js/firebase-config.js?v=10.71"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.70')
+                navigator.serviceWorker.register('sw.js?v=10.71')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
