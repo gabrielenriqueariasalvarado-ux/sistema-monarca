@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.67">
+    <link rel="stylesheet" href="style.css?v=10.68">
 </head>
 <body>
 
@@ -1395,42 +1395,36 @@
         </div>
     </div>
 
-    <!-- VISTA: FINANZAS (CONTROL FINANCIERO PERSONAL MONARCA) -->
+    <!-- VISTA: FINANZAS (CONTROL FINANCIERO PERSONAL MONARCA v10.68) -->
     <div id="vista-finanzas" class="tab-content">
         <button class="btn-back-system" onclick="cambiarVista('vista-menu')">
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
 
         <div class="card">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
-                <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
-                    <span>💰</span> CONTROL FINANCIERO PERSONAL
+            <!-- 1. CABECERA EJECUTIVA COMPACTA -->
+            <div class="finanzas-top-toolbar">
+                <h2 class="finanzas-toolbar-title">
+                    <span>💰</span> FINANZAS
                 </h2>
-                <button type="button" class="btn-comparador-ahorro-header" onclick="abrirModalComparadorAhorro()" title="Gestionar cosas deseadas para comparar con tus gastos">
-                    <span>⚖️</span> Freno de Impulso · Comparador de Ahorro
-                </button>
-            </div>
-
-            <!-- 1. CABECERA Y DATOS GENERALES -->
-            <div class="finanzas-header-card">
-                <div class="finanzas-meta-row" style="margin-bottom: 0;">
-                    <div>
-                        <span class="finanzas-field-label">👤 Titular:</span>
-                        <input type="text" id="finanzas-input-nombre" class="finanzas-input-clean" value="Gabriel Arias" readonly style="pointer-events: none; opacity: 0.95; font-weight: 700; color: #f8fafc; background: #0f131d; border: 1px solid rgba(255, 255, 255, 0.08); cursor: default;">
+                <div class="finanzas-toolbar-controls">
+                    <div class="finanzas-mes-pill">
+                        <button type="button" class="btn-month-nav" onclick="cambiarMesFinanzas(-1)" aria-label="Mes anterior">◀</button>
+                        <input type="text" id="finanzas-input-mes" class="finanzas-input-clean" value="Noviembre de 2026" readonly>
+                        <button type="button" class="btn-month-nav" onclick="cambiarMesFinanzas(1)" aria-label="Mes siguiente">▶</button>
                     </div>
-                    <div>
-                        <span class="finanzas-field-label">📅 Mes de Control:</span>
-                        <div style="display: flex; gap: 6px;">
-                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(-1)">◀</button>
-                            <input type="text" id="finanzas-input-mes" class="finanzas-input-clean" value="Noviembre de 2026" style="text-align: center; font-weight: 700; color: #f8fafc; background: #0f131d;" readonly>
-                            <button class="btn-month-nav" onclick="cambiarMesFinanzas(1)">▶</button>
-                        </div>
-                    </div>
+                    <button type="button" id="btn-toggle-panel-tasas" class="finanzas-tasas-pill-btn" onclick="togglePanelTasasFinanzas()" title="Ver Tasas BCV, Euro, Paralelo y Conversor">
+                        <span id="tasas-mini-ticker">🏦 BCV: -- · ⚡ --</span>
+                        <span>▾</span>
+                    </button>
+                    <button type="button" id="btn-actualizar-tasas-bcv-mini" class="finanzas-tasas-sync-mini" onclick="actualizarTasasBCV(true)" title="Actualizar tasas del API">
+                        🔄
+                    </button>
                 </div>
             </div>
 
-            <!-- 1B. TASAS DE CAMBIO OFICIALES (BCV, EURO Y PARALELO - DolarAPI DIARIA) -->
-            <div class="finanzas-tasas-card" id="finanzas-tasas-card">
+            <!-- 1B. PANEL DESPLEGABLE DE TASAS & CONVERSOR (BCV, EURO Y PARALELO) -->
+            <div class="finanzas-tasas-card is-collapsed-panel" id="finanzas-tasas-card" style="display: none;">
                 <div class="finanzas-tasas-header">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span style="font-size: 16px;">🏦</span>
@@ -1476,10 +1470,13 @@
                 </div>
             </div>
 
-            <!-- NAVEGACIÓN DE SECCIONES DE FINANZAS (PANEL, PLANIFICACIÓN, TARJETAS Y CALENDARIO) -->
-            <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 16px;">
+            <!-- 2. NAVEGACIÓN PRINCIPAL EN 5 APARTADOS LIMPIOS -->
+            <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 14px;">
                 <button type="button" class="finanzas-tab-btn active" id="tab-finanzas-panel" onclick="cambiarSeccionFinanzas('panel')">
-                    <span>📊</span> Resumen &amp; Movimientos
+                    <span>📊</span> Resumen
+                </button>
+                <button type="button" class="finanzas-tab-btn" id="tab-finanzas-movimientos" onclick="cambiarSeccionFinanzas('movimientos')">
+                    <span>💸</span> Movimientos <span id="badge-finanzas-mov-count" class="fin-plan-tab-badge" style="display: none; background: rgba(56,189,248,0.18); color: #bae6fd; border-color: rgba(56,189,248,0.35);">0</span>
                 </button>
                 <button type="button" class="finanzas-tab-btn" id="tab-finanzas-planificacion" onclick="cambiarSeccionFinanzas('planificacion')">
                     <span>📋</span> Planificación <span id="badge-finanzas-planificacion-pend" class="fin-plan-tab-badge" style="display: none;">0</span>
@@ -1488,14 +1485,11 @@
                     <span>💳</span> Tarjetas <span id="badge-finanzas-tarjetas-total" class="fin-tarjetas-tab-badge" style="display: none;">$0.00</span>
                 </button>
                 <button type="button" class="finanzas-tab-btn" id="tab-finanzas-calendario" onclick="cambiarSeccionFinanzas('calendario')">
-                    <span>📅</span> Calendario de Cobros y Pagos <span id="badge-cal-fin-pendientes" class="fin-cal-tab-badge" style="display: none;">0</span>
+                    <span>📅</span> Calendario <span id="badge-cal-fin-pendientes" class="fin-cal-tab-badge" style="display: none;">0</span>
                 </button>
             </div>
 
-            <!-- SUBSECCIÓN A: PANEL GENERAL DE FINANZAS -->
-            <div id="vista-finanzas-panel">
-
-            <!-- SELECTOR DE PERÍODO (SEMANAS DEL MES & MES COMPLETO AL FINAL) -->
+            <!-- 3. SELECTOR DE PERÍODO (VISIBLE EN RESUMEN & MOVIMIENTOS, SIN CORTES) -->
             <div class="quincena-selector-bar" id="quincena-selector-bar">
                 <button class="btn-quincena-tab" id="btn-vista-sem1" onclick="cambiarPeriodoFinanzas('sem1')">
                     <span>🗓️</span> Sem 1 (1-7)
@@ -1514,65 +1508,71 @@
                 </button>
             </div>
 
-            <!-- 6. RESUMEN FINANCIERO Y GRÁFICA (COLOCADO DE FORMA PROMINENTE) -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>📊</span> RESUMEN FINANCIERO Y OPERATIVIDAD
-                    </h3>
-                    <span id="badge-balance-estado" style="font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
-                        FLUJO SALUDABLE
-                    </span>
-                </div>
-
-                <!-- Métricas Clave de Resumen (Dinero Real vs Proyección) -->
-                <div class="operatividad-metrics-grid" style="margin-bottom: 16px;">
-                    <div class="metric-card-ideas" style="border-top: 2px solid #10b981;">
-                        <div class="metric-num" id="resumen-dinero-real" style="color: #10b981;">$0.00</div>
-                        <div class="metric-title">Dinero Real en Cuenta</div>
-                        <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-por-cobrar-txt">Pendiente: $0.00</div>
-                        <button type="button" id="resumen-tarjetas-vinculadas-chip" class="fin-tarjetas-link-chip" style="display: none;" onclick="cambiarSeccionFinanzas('tarjetas')">💳 Tarjetas hoy: $0.00</button>
-                    </div>
-                    <div class="metric-card-ideas" style="border-top: 2px solid #06b6d4;">
-                        <div class="metric-num" id="resumen-total-inversion" style="color: #06b6d4;">$0.00</div>
-                        <div class="metric-title">50% Inversión y Multiplicación</div>
-                    </div>
-                    <div class="metric-card-ideas" style="border-top: 2px solid #f87171;">
-                        <div class="metric-num" id="resumen-total-gastos" style="color: #f87171;">$0.00</div>
-                        <div class="metric-title">Gastos Registrados</div>
-                    </div>
-                    <div class="metric-card-ideas" style="border-top: 2px solid #fbbf24;">
-                        <div class="metric-num" id="resumen-total-deudas" style="color: #fbbf24;">$0.00</div>
-                        <div class="metric-title">Deudas Pendientes</div>
-                    </div>
-                    <div class="metric-card-ideas" style="border-top: 2px solid #38bdf8;">
-                        <div class="metric-num" id="resumen-flujo-neto" style="color: #38bdf8;">$0.00</div>
-                        <div class="metric-title">Balance Neto Libre (En Mano)</div>
-                    </div>
-                </div>
-
-                <!-- Desglose de Dinero Real Disponible -->
-                <div class="balance-breakdown-strip" id="balance-breakdown-strip">
-                    <span id="breakdown-cobrado">Cobrado: <strong>$0.00</strong></span>
-                    <span>-</span>
-                    <span id="breakdown-gastos">Gastos: <strong>$0.00</strong></span>
-                    <span>-</span>
-                    <span id="breakdown-cuotas">Cuotas Metas: <strong>$0.00</strong></span>
-                    <span>-</span>
-                    <span id="breakdown-deudas">Deudas Pagadas: <strong>$0.00</strong></span>
-                    <span>=</span>
-                    <span id="breakdown-resultado" style="color: #38bdf8; font-weight: 800;">$0.00</span>
-                    <div style="width: 100%; margin-top: 6px; font-size: 11px; color: #94a3b8;" id="breakdown-proyeccion">
-                        🔮 Proyección Fin de Mes: Total Ingresos ($0.00) - Compromisos Totales = <strong>$0.00</strong>
-                    </div>
-                </div>
-
-                <!-- Gráfica de Finanzas y Análisis de Regla 50/40/10 -->
-                <div class="chart-container-ideas" style="margin-bottom: 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
-                        <h3 style="font-size: 13px; color: #94a3b8; margin: 0; display: flex; align-items: center; gap: 6px;">
-                            <span>📈</span> ANÁLISIS DE REGLA Y GASTOS
+            <!-- ==============================================================
+                 SUBSECCIÓN A: RESUMEN EJECUTIVO & ANÁLISIS 50/40/10 UNIFICADO
+                 ============================================================== -->
+            <div id="vista-finanzas-panel">
+                <div class="finanzas-section-card">
+                    <div class="finanzas-section-header">
+                        <h3 class="finanzas-section-title">
+                            <span>📊</span> RESUMEN FINANCIERO DEL PERÍODO
                         </h3>
+                        <span id="badge-balance-estado" style="font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
+                            FLUJO SALUDABLE
+                        </span>
+                    </div>
+
+                    <div class="operatividad-metrics-grid" style="margin-bottom: 14px;">
+                        <div class="metric-card-ideas" style="border-top: 2px solid #10b981;">
+                            <div class="metric-num" id="resumen-dinero-real" style="color: #10b981;">$0.00</div>
+                            <div class="metric-title">Cobrado en Período</div>
+                            <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-por-cobrar-txt">Pendiente: $0.00</div>
+                            <button type="button" id="resumen-tarjetas-vinculadas-chip" class="fin-tarjetas-link-chip" style="display: none;" onclick="cambiarSeccionFinanzas('tarjetas')">💳 Tarjetas hoy: $0.00</button>
+                        </div>
+                        <div class="metric-card-ideas" style="border-top: 2px solid #06b6d4;">
+                            <div class="metric-num" id="resumen-total-inversion" style="color: #06b6d4;">$0.00</div>
+                            <div class="metric-title">Meta 50% Inversión</div>
+                        </div>
+                        <div class="metric-card-ideas" style="border-top: 2px solid #f87171;">
+                            <div class="metric-num" id="resumen-total-gastos" style="color: #f87171;">$0.00</div>
+                            <div class="metric-title">Gastos del Período</div>
+                        </div>
+                        <div class="metric-card-ideas" style="border-top: 2px solid #fbbf24;">
+                            <div class="metric-num" id="resumen-total-deudas" style="color: #fbbf24;">$0.00</div>
+                            <div class="metric-title">Deuda Activa Global</div>
+                            <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-deudas-sub-txt">Cuotas período: $0.00</div>
+                        </div>
+                        <div class="metric-card-ideas" style="border-top: 2px solid #38bdf8;">
+                            <div class="metric-num" id="resumen-flujo-neto" style="color: #38bdf8;">$0.00</div>
+                            <div class="metric-title">Balance Neto Período</div>
+                        </div>
+                    </div>
+
+                    <div class="balance-breakdown-strip" id="balance-breakdown-strip">
+                        <span id="breakdown-cobrado">Cobrado: <strong>$0.00</strong></span>
+                        <span>-</span>
+                        <span id="breakdown-gastos">Gastos: <strong>$0.00</strong></span>
+                        <span>-</span>
+                        <span id="breakdown-cuotas">Cuotas Metas: <strong>$0.00</strong></span>
+                        <span>-</span>
+                        <span id="breakdown-deudas">Cuotas Deuda: <strong>$0.00</strong></span>
+                        <span>=</span>
+                        <span id="breakdown-resultado" style="color: #38bdf8; font-weight: 800;">$0.00</span>
+                        <div style="width: 100%; margin-top: 6px; font-size: 11px; color: #94a3b8;" id="breakdown-proyeccion">
+                            🔮 Proyección Período: Total Ingresos ($0.00) - Compromisos = <strong>$0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GRÁFICO Y REGLA 50/40/10 UNIFICADOS EN UN SOLO MÓDULO (SIN DUPLICACIONES) -->
+                <div class="finanzas-section-card" style="margin-bottom: 0;">
+                    <div class="finanzas-section-header">
+                        <div>
+                            <h3 class="finanzas-section-title">
+                                <span>⚖️</span> ANÁLISIS VISUAL Y REGLA 50 / 40 / 10
+                            </h3>
+                            <span style="font-size: 11px; color: #94a3b8;" id="regla-subtitulo-periodo">Presupuesto Estimado vs Ejecución Real</span>
+                        </div>
                         <div class="chart-mode-tabs">
                             <button type="button" class="btn-chart-mode active" id="btn-chart-504010" onclick="cambiarModoGrafico('comparativa')">
                                 📊 Comparativa 50/40/10
@@ -1582,288 +1582,307 @@
                             </button>
                         </div>
                     </div>
-                    <div style="position: relative; height: 260px; width: 100%;">
-                        <canvas id="graficoFinanzas"></canvas>
-                    </div>
-                </div>
-            </div>
 
-            <!-- 4. SECCIÓN 3: REGLA 50/40/10 -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>⚖️</span> DISTRIBUCIÓN INTELIGENTE: REGLA 50 / 40 / 10
-                    </h3>
-                    <span style="font-size: 11px; color: #94a3b8;" id="regla-subtitulo-periodo">Presupuesto Estimado vs Ejecución Real</span>
-                </div>
-
-                <div class="regla-504010-grid">
-                    <div class="regla-card regla-card-50">
-                        <div class="regla-porcentaje regla-porcentaje-50">50%</div>
-                        <div class="regla-monto" id="regla-monto-50">$0.00</div>
-                        <div class="regla-concepto">Inversión y Multiplicación</div>
-
-                        <!-- Comparativa Real -->
-                        <div class="regla-real-box">
-                            <div class="regla-real-numbers">
-                                <span>Real Invertido:</span>
-                                <span class="regla-real-monto" id="regla-real-50">$0.00</span>
+                    <div class="finanzas-analytics-split">
+                        <div class="finanzas-analytics-chart-pane">
+                            <div style="position: relative; height: 250px; width: 100%;">
+                                <canvas id="graficoFinanzas"></canvas>
                             </div>
-                            <div class="regla-progress-track">
-                                <div class="regla-progress-fill" id="regla-bar-fill-50" style="width: 0%; background: #06b6d4;"></div>
+                        </div>
+
+                        <div class="finanzas-analytics-regla-pane">
+                            <div class="regla-504010-grid">
+                                <div class="regla-card regla-card-50">
+                                    <div class="regla-card-top-compact">
+                                        <span class="regla-porcentaje regla-porcentaje-50">50% Inversión</span>
+                                        <span class="regla-monto" id="regla-monto-50">$0.00</span>
+                                    </div>
+                                    <div class="regla-real-box">
+                                        <div class="regla-real-numbers">
+                                            <span>Real Invertido:</span>
+                                            <span class="regla-real-monto" id="regla-real-50">$0.00</span>
+                                        </div>
+                                        <div class="regla-progress-track">
+                                            <div class="regla-progress-fill" id="regla-bar-fill-50" style="width: 0%; background: #06b6d4;"></div>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                            <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-50">0% meta</span>
+                                            <span class="regla-status-tag" id="regla-tag-50" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee;">En curso</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="regla-card regla-card-40">
+                                    <div class="regla-card-top-compact">
+                                        <span class="regla-porcentaje regla-porcentaje-40">40% Fijos</span>
+                                        <span class="regla-monto" id="regla-monto-40">$0.00</span>
+                                    </div>
+                                    <div class="regla-real-box">
+                                        <div class="regla-real-numbers">
+                                            <span>Real Gastado:</span>
+                                            <span class="regla-real-monto" id="regla-real-40">$0.00</span>
+                                        </div>
+                                        <div class="regla-progress-track">
+                                            <div class="regla-progress-fill" id="regla-bar-fill-40" style="width: 0%; background: #f59e0b;"></div>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                            <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-40">0% límite</span>
+                                            <span class="regla-status-tag" id="regla-tag-40" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">Dentro de límite</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="regla-card regla-card-10">
+                                    <div class="regla-card-top-compact">
+                                        <span class="regla-porcentaje regla-porcentaje-10">10% Caprichos</span>
+                                        <span class="regla-monto" id="regla-monto-10">$0.00</span>
+                                    </div>
+                                    <div class="regla-real-box">
+                                        <div class="regla-real-numbers">
+                                            <span>Real Gastado:</span>
+                                            <span class="regla-real-monto" id="regla-real-10">$0.00</span>
+                                        </div>
+                                        <div class="regla-progress-track">
+                                            <div class="regla-progress-fill" id="regla-bar-fill-10" style="width: 0%; background: #ec4899;"></div>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                            <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-10">0% límite</span>
+                                            <span class="regla-status-tag" id="regla-tag-10" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">Dentro de límite</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                                <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-50">0% meta</span>
-                                <span class="regla-status-tag" id="regla-tag-50" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee;">En curso</span>
+
+                            <div class="regla-bar-track" style="margin-top: 2px;">
+                                <div class="regla-bar-seg-50" title="50% Inversión y Multiplicación"></div>
+                                <div class="regla-bar-seg-40" title="40% Gastos Fijos y Necesidades"></div>
+                                <div class="regla-bar-seg-10" title="10% Caprichos y Ocio"></div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div class="regla-card regla-card-40">
-                        <div class="regla-porcentaje regla-porcentaje-40">40%</div>
-                        <div class="regla-monto" id="regla-monto-40">$0.00</div>
-                        <div class="regla-concepto">Gastos Fijos y Necesidades</div>
+            <!-- ==============================================================
+                 SUBSECCIÓN B: MOVIMIENTOS DEL PERÍODO (INGRESOS & GASTOS)
+                 ============================================================== -->
+            <div id="vista-finanzas-movimientos" style="display: none;">
+                <div class="finanzas-movimientos-topbar">
+                    <div style="font-size: 12.5px; color: #94a3b8;">
+                        Mostrando movimientos de: <strong id="movimientos-periodo-label" style="color: #f8fafc;">Período Activo</strong>
+                    </div>
+                    <button type="button" class="btn-comparador-ahorro-header" onclick="abrirModalComparadorAhorro()" title="Gestionar cosas deseadas para comparar con tus gastos">
+                        <span>⚖️</span> Freno de Impulso · Comparador de Ahorro
+                    </button>
+                </div>
 
-                        <!-- Comparativa Real -->
-                        <div class="regla-real-box">
-                            <div class="regla-real-numbers">
-                                <span>Real Gastado:</span>
-                                <span class="regla-real-monto" id="regla-real-40">$0.00</span>
+                <div class="finanzas-movimientos-grid">
+                    <!-- INGRESOS MENSUALES -->
+                    <div class="finanzas-section-card">
+                        <div class="finanzas-section-header">
+                            <h3 class="finanzas-section-title">
+                                <span>💵</span> INGRESOS
+                            </h3>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button class="btn-add-finanza" onclick="abrirModalIngreso('fija')" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399;">
+                                    <span>📅</span> + Fija
+                                </button>
+                                <button class="btn-add-finanza" onclick="abrirModalIngreso('aleatoria')" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8;">
+                                    <span>⚡</span> + Aleatoria
+                                </button>
+                                <button class="btn-add-finanza" onclick="abrirModalIngreso('almacen')" style="background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #c084fc;">
+                                    <span>📦</span> + Almacén
+                                </button>
                             </div>
-                            <div class="regla-progress-track">
-                                <div class="regla-progress-fill" id="regla-bar-fill-40" style="width: 0%; background: #f59e0b;"></div>
+                        </div>
+
+                        <div class="finanzas-tabs-nav">
+                            <button class="finanzas-tab-btn active" id="tab-ingresos-fijos" onclick="cambiarTabIngresos('fijos')">
+                                <span>📅</span> Fijas (<span id="badge-count-fijos">0</span>)
+                            </button>
+                            <button class="finanzas-tab-btn" id="tab-ingresos-aleatorios" onclick="cambiarTabIngresos('aleatorios')">
+                                <span>⚡</span> Aleatorias (<span id="badge-count-aleatorios">0</span>)
+                            </button>
+                            <button class="finanzas-tab-btn" id="tab-ingresos-almacen" onclick="cambiarTabIngresos('almacen')">
+                                <span>📦</span> Almacén (<span id="badge-count-almacen">0</span>)
+                            </button>
+                        </div>
+
+                        <div id="vista-ingresos-fijos">
+                            <div id="lista-ingresos-fijos" class="finanzas-tx-list"></div>
+                            <div class="total-box-finanzas" style="margin-top: 10px;">
+                                <span class="total-box-label">Subtotal Fijas:</span>
+                                <span class="total-box-val monto-positivo" id="subtotal-ingresos-fijos">$0.00</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                                <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-40">0% límite</span>
-                                <span class="regla-status-tag" id="regla-tag-40" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">Dentro de límite</span>
+                        </div>
+
+                        <div id="vista-ingresos-aleatorios" style="display: none;">
+                            <div id="lista-ingresos-aleatorios" class="finanzas-tx-list"></div>
+                            <div class="total-box-finanzas" style="margin-top: 10px;">
+                                <span class="total-box-label">Subtotal Aleatorias:</span>
+                                <span class="total-box-val monto-positivo" id="subtotal-ingresos-aleatorios">$0.00</span>
                             </div>
+                        </div>
+
+                        <div id="vista-ingresos-almacen" style="display: none;">
+                            <div id="lista-ingresos-almacen" class="finanzas-tx-list"></div>
+                            <div class="total-box-finanzas" style="margin-top: 10px;">
+                                <span class="total-box-label">Subtotal Almacén:</span>
+                                <span class="total-box-val monto-positivo" id="subtotal-ingresos-almacen">$0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="total-box-finanzas" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
+                            <span class="total-box-label" style="color: #34d399;">Total Ingresos Período:</span>
+                            <span class="total-box-val monto-positivo" id="label-total-ingresos" style="font-size: 19px;">$0.00</span>
                         </div>
                     </div>
 
-                    <div class="regla-card regla-card-10">
-                        <div class="regla-porcentaje regla-porcentaje-10">10%</div>
-                        <div class="regla-monto" id="regla-monto-10">$0.00</div>
-                        <div class="regla-concepto">Caprichos y Ocio</div>
+                    <!-- GASTOS MENSUALES -->
+                    <div class="finanzas-section-card">
+                        <div class="finanzas-section-header">
+                            <h3 class="finanzas-section-title">
+                                <span>💳</span> GASTOS (SALIDAS)
+                            </h3>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button class="btn-add-finanza" onclick="abrirModalGasto('programado')" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.15);">
+                                    <span>📅</span> + Programado
+                                </button>
+                                <button class="btn-add-finanza" onclick="abrirModalGasto('ocasional')" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
+                                    <span>⚡</span> + Ocasional
+                                </button>
+                                <button class="btn-add-finanza" onclick="abrirModalCategoriasGastos()" style="border-color: rgba(255, 255, 255, 0.2); color: #cbd5e1; background: #161c2d;">
+                                    <span>🏷️</span> Categorías
+                                </button>
+                            </div>
+                        </div>
 
-                        <!-- Comparativa Real -->
-                        <div class="regla-real-box">
-                            <div class="regla-real-numbers">
-                                <span>Real Gastado:</span>
-                                <span class="regla-real-monto" id="regla-real-10">$0.00</span>
+                        <div class="finanzas-tabs-nav" style="margin-bottom: 12px;">
+                            <button class="finanzas-tab-btn active" id="tab-gastos-todos" onclick="cambiarFiltroGastosUI('todos')">
+                                <span>🏷️</span> Categorías
+                            </button>
+                            <button class="finanzas-tab-btn" id="tab-gastos-programados" onclick="cambiarFiltroGastosUI('programados')">
+                                <span>📅</span> Prog. (<span id="badge-count-gastos-prog">0</span>)
+                            </button>
+                            <button class="finanzas-tab-btn" id="tab-gastos-ocasionales" onclick="cambiarFiltroGastosUI('ocasionales')">
+                                <span>⚡</span> Ocas. (<span id="badge-count-gastos-ocas">0</span>)
+                            </button>
+                        </div>
+
+                        <div id="contenedor-gastos-categorias"></div>
+
+                        <div class="total-box-finanzas" style="background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25);">
+                            <span class="total-box-label" style="color: #f87171;">Total Gastos Período:</span>
+                            <span class="total-box-val monto-negativo" id="label-total-gastos" style="font-size: 19px;">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==============================================================
+                 SUBSECCIÓN C: PLANIFICACIÓN DE PAGOS, DEUDAS & METAS (SUBTABS)
+                 ============================================================== -->
+            <div id="vista-finanzas-planificacion" style="display: none;">
+                <div class="plan-subtabs-nav" id="plan-subtabs-nav">
+                    <button type="button" class="plan-subtab-btn active" id="subtab-plan-cola" onclick="cambiarSubtabPlanificacionFin('cola')">
+                        <span>📋</span> Cola de Pagos
+                    </button>
+                    <button type="button" class="plan-subtab-btn" id="subtab-plan-deudas" onclick="cambiarSubtabPlanificacionFin('deudas')">
+                        <span>🛡️</span> Deudas <span id="badge-plan-deudas-count" class="fin-plan-tab-badge" style="display: none;">0</span>
+                    </button>
+                    <button type="button" class="plan-subtab-btn" id="subtab-plan-metas" onclick="cambiarSubtabPlanificacionFin('metas')">
+                        <span>🎯</span> Metas <span id="badge-plan-metas-count" class="fin-plan-tab-badge" style="display: none;">0</span>
+                    </button>
+                </div>
+
+                <!-- SUB-VISTA C1: COLA DE PAGOS (ABONOS / COMPRAS PLANEADAS) -->
+                <div id="plan-subvista-cola">
+                    <div class="finanzas-plan-topbar">
+                        <div style="min-width: 0; flex: 1;">
+                            <h3 class="card-subtitle" style="margin: 0;">📋 PLANIFICACIÓN DE PAGOS &amp; COMPRAS</h3>
+                            <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; line-height: 1.4;">
+                                Con lo que vayas cobrando (y el saldo de tus tarjetas), visualiza qué puedes <strong>pagar</strong>, <strong>abonar por partes</strong> o <strong>comprar</strong> dentro de tus gastos programados, deudas y compras planeadas.
                             </div>
-                            <div class="regla-progress-track">
-                                <div class="regla-progress-fill" id="regla-bar-fill-10" style="width: 0%; background: #ec4899;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                                <span style="font-size: 10px; color: #94a3b8;" id="regla-pct-label-10">0% límite</span>
-                                <span class="regla-status-tag" id="regla-tag-10" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">Dentro de límite</span>
-                            </div>
+                        </div>
+                        <div class="plan-topbar-actions">
+                            <button type="button" class="btn-add-finanza" onclick="abrirModalCompraPlanificada()" style="background: rgba(168, 85, 247, 0.2); border-color: #c084fc; color: #f3e8ff;">
+                                🛒 + Compra / Plan
+                            </button>
+                            <button type="button" class="btn-add-finanza" onclick="abrirModalGasto('programado')" style="background: rgba(245, 158, 11, 0.16); border-color: #f59e0b; color: #fbbf24;">
+                                📅 + Gasto Prog.
+                            </button>
+                            <button type="button" class="btn-add-finanza" onclick="abrirModalDeuda()" style="background: rgba(56, 189, 248, 0.16); border-color: #38bdf8; color: #7dd3fc;">
+                                🛡️ + Deuda
+                            </button>
+                        </div>
+                    </div>
+                    <div id="contenedor-planificacion-finanzas-root"></div>
+                </div>
+
+                <!-- SUB-VISTA C2: DEUDAS & CRONOGRAMAS -->
+                <div id="plan-subvista-deudas" style="display: none;">
+                    <div class="finanzas-section-card" style="margin-bottom: 0;">
+                        <div class="finanzas-section-header">
+                            <h3 class="finanzas-section-title">
+                                <span>🛡️</span> DEUDAS &amp; RECORDATORIOS DE PAGO
+                            </h3>
+                            <button class="btn-add-finanza" onclick="abrirModalDeuda()" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.15);">
+                                <span>➕</span> Nueva Deuda
+                            </button>
+                        </div>
+                        <div id="banner-proxima-deuda" style="margin-bottom: 14px;"></div>
+                        <div id="lista-deudas-tx" class="finanzas-tx-list"></div>
+                        <div class="total-box-finanzas">
+                            <span class="total-box-label">Total Deudas Pendientes:</span>
+                            <span class="total-box-val monto-deuda" id="label-total-deudas">$0.00</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="regla-bar-track">
-                    <div class="regla-bar-seg-50" title="50% Inversión y Multiplicación"></div>
-                    <div class="regla-bar-seg-40" title="40% Gastos Fijos y Necesidades"></div>
-                    <div class="regla-bar-seg-10" title="10% Caprichos y Ocio"></div>
-                </div>
-            </div>
-
-            <!-- 2. SECCIÓN 1: INGRESOS MENSUALES (ENTRADAS FIJAS & ALEATORIAS) -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>💵</span> INGRESOS MENSUALES
-                    </h3>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-add-finanza" onclick="abrirModalIngreso('fija')" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399;">
-                            <span>📅</span> + Entrada Fija
-                        </button>
-                        <button class="btn-add-finanza" onclick="abrirModalIngreso('aleatoria')" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8;">
-                            <span>⚡</span> + Entrada Aleatoria
-                        </button>
-                        <button class="btn-add-finanza" onclick="abrirModalIngreso('almacen')" style="background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #c084fc;">
-                            <span>📦</span> + Almacén
-                        </button>
+                <!-- SUB-VISTA C3: METAS FINANCIERAS (QUINCE Y ÚLTIMO) -->
+                <div id="plan-subvista-metas" style="display: none;">
+                    <div class="finanzas-section-card" style="margin-bottom: 0;">
+                        <div class="finanzas-section-header">
+                            <h3 class="finanzas-section-title">
+                                <span>🎯</span> METAS FINANCIERAS (CUOTAS DE QUINCE Y ÚLTIMO)
+                            </h3>
+                            <button class="btn-add-finanza" onclick="abrirModalMeta()" style="border-color: #10b981; color: #34d399; background: rgba(16, 185, 129, 0.15);">
+                                <span>➕</span> Nueva Meta Financiera
+                            </button>
+                        </div>
+                        <div class="metas-grid" id="contenedor-metas-cards"></div>
                     </div>
                 </div>
-
-                <!-- Tabs de Navegación Fijas vs Aleatorias vs Almacén -->
-                <div class="finanzas-tabs-nav">
-                    <button class="finanzas-tab-btn active" id="tab-ingresos-fijos" onclick="cambiarTabIngresos('fijos')">
-                        <span>📅</span> Entradas Fijas (<span id="badge-count-fijos">0</span>)
-                    </button>
-                    <button class="finanzas-tab-btn" id="tab-ingresos-aleatorios" onclick="cambiarTabIngresos('aleatorios')">
-                        <span>⚡</span> Entradas Aleatorias (<span id="badge-count-aleatorios">0</span>)
-                    </button>
-                    <button class="finanzas-tab-btn" id="tab-ingresos-almacen" onclick="cambiarTabIngresos('almacen')">
-                        <span>📦</span> Almacén (<span id="badge-count-almacen">0</span>)
-                    </button>
-                </div>
-
-                <!-- Lista de Entradas Fijas -->
-                <div id="vista-ingresos-fijos">
-                    <div id="lista-ingresos-fijos" class="finanzas-tx-list"></div>
-                    <div class="total-box-finanzas" style="margin-top: 10px;">
-                        <span class="total-box-label">Subtotal Fijas:</span>
-                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-fijos">$0.00</span>
-                    </div>
-                </div>
-
-                <!-- Lista de Entradas Aleatorias -->
-                <div id="vista-ingresos-aleatorios" style="display: none;">
-                    <div id="lista-ingresos-aleatorios" class="finanzas-tx-list"></div>
-                    <div class="total-box-finanzas" style="margin-top: 10px;">
-                        <span class="total-box-label">Subtotal Aleatorias:</span>
-                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-aleatorios">$0.00</span>
-                    </div>
-                </div>
-
-                <!-- Lista de Entradas de Almacén (Ventas Contado/Crédito y Cuotas de Inventario) -->
-                <div id="vista-ingresos-almacen" style="display: none;">
-                    <div id="lista-ingresos-almacen" class="finanzas-tx-list"></div>
-                    <div class="total-box-finanzas" style="margin-top: 10px;">
-                        <span class="total-box-label">Subtotal Almacén:</span>
-                        <span class="total-box-val monto-positivo" id="subtotal-ingresos-almacen">$0.00</span>
-                    </div>
-                </div>
-
-                <div class="total-box-finanzas" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25);">
-                    <span class="total-box-label" style="color: #34d399;">Total Ingresos Mensuales:</span>
-                    <span class="total-box-val monto-positivo" id="label-total-ingresos" style="font-size: 20px;">$0.00</span>
-                </div>
             </div>
 
-            <!-- 3. SECCIÓN 2: GASTOS MENSUALES (SALIDAS POR CATEGORÍA) -->
-            <!-- 3. SECCIÓN 2: GASTOS MENSUALES (PROGRAMADOS & OCASIONALES) -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>💳</span> GASTOS MENSUALES (SALIDAS)
-                    </h3>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-add-finanza" onclick="abrirModalGasto('programado')" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.15);">
-                            <span>📅</span> + Gasto Programado
-                        </button>
-                        <button class="btn-add-finanza" onclick="abrirModalGasto('ocasional')" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
-                            <span>⚡</span> + Gasto Ocasional
-                        </button>
-                        <button class="btn-add-finanza" onclick="abrirModalCategoriasGastos()" style="border-color: rgba(255, 255, 255, 0.2); color: #cbd5e1; background: #161c2d;">
-                            <span>🏷️</span> Categorías
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tabs de Filtrado de Gastos -->
-                <div class="finanzas-tabs-nav" style="margin-bottom: 12px;">
-                    <button class="finanzas-tab-btn active" id="tab-gastos-todos" onclick="cambiarFiltroGastosUI('todos')">
-                        <span>🏷️</span> Por Categorías
-                    </button>
-                    <button class="finanzas-tab-btn" id="tab-gastos-programados" onclick="cambiarFiltroGastosUI('programados')">
-                        <span>📅</span> Programados (<span id="badge-count-gastos-prog">0</span>)
-                    </button>
-                    <button class="finanzas-tab-btn" id="tab-gastos-ocasionales" onclick="cambiarFiltroGastosUI('ocasionales')">
-                        <span>⚡</span> Ocasionales (<span id="badge-count-gastos-ocas">0</span>)
-                    </button>
-                </div>
-
-                <!-- Contenedor de Gastos Agrupados por Categoría -->
-                <div id="contenedor-gastos-categorias">
-                    <!-- Grupos y gastos generados dinámicamente -->
-                </div>
-
-                <div class="total-box-finanzas" style="background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25);">
-                    <span class="total-box-label" style="color: #f87171;">Total Gastos Mensuales:</span>
-                    <span class="total-box-val monto-negativo" id="label-total-gastos" style="font-size: 20px;">$0.00</span>
-                </div>
-            </div>
-
-            <!-- 5. SECCIÓN 4: DEUDAS Y CRONOGRAMA DE PAGOS -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>🛡️</span> DEUDAS & RECORDATORIOS DE PAGO
-                    </h3>
-                    <button class="btn-add-finanza" onclick="abrirModalDeuda()" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.15);">
-                        <span>➕</span> Nueva Deuda
-                    </button>
-                </div>
-
-                <!-- BANNER INTELIGENTE: PRÓXIMA DEUDA A PAGAR -->
-                <div id="banner-proxima-deuda" style="margin-bottom: 14px;">
-                    <!-- Renderizado dinámicamente -->
-                </div>
-
-                <div id="lista-deudas-tx" class="finanzas-tx-list">
-                    <!-- Tarjetas de deudas y cronogramas generados dinámicamente -->
-                </div>
-
-                <div class="total-box-finanzas">
-                    <span class="total-box-label">Total Deudas Pendientes:</span>
-                    <span class="total-box-val monto-deuda" id="label-total-deudas">$0.00</span>
-                </div>
-            </div>
-
-            <!-- 6. SECCIÓN 5: METAS FINANCIERAS (CUOTAS QUINCE Y ÚLTIMO) -->
-            <div class="finanzas-section-card">
-                <div class="finanzas-section-header">
-                    <h3 class="finanzas-section-title">
-                        <span>🎯</span> METAS FINANCIERAS (CUOTAS DE QUINCE Y ÚLTIMO)
-                    </h3>
-                    <button class="btn-add-finanza" onclick="abrirModalMeta()" style="border-color: #10b981; color: #34d399; background: rgba(16, 185, 129, 0.15);">
-                        <span>➕</span> Nueva Meta Financiera
-                    </button>
-                </div>
-
-                <div class="metas-grid" id="contenedor-metas-cards">
-                    <!-- Tarjetas de Metas generadas dinámicamente -->
-                </div>
-            </div>
-            </div>
-
-            <!-- SUBSECCIÓN B: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS -->
-            <div id="vista-finanzas-calendario" style="display: none;">
-                <div id="contenedor-calendario-finanzas"></div>
-            </div>
-
-            <!-- SUBSECCIÓN C: MIS TARJETAS & CUENTAS (PROVINCIAL / VENEZUELA / BINANCE / TODOTICKET) -->
+            <!-- ==============================================================
+                 SUBSECCIÓN D: MIS TARJETAS & CUENTAS
+                 ============================================================== -->
             <div id="vista-finanzas-tarjetas" style="display: none;">
                 <div class="finanzas-tarjetas-topbar">
                     <div>
-                        <h3 class="card-subtitle" style="margin: 0;">💳 MIS TARJETAS & CUENTAS EN TIEMPO REAL</h3>
+                        <h3 class="card-subtitle" style="margin: 0;">💳 MIS TARJETAS &amp; CUENTAS EN TIEMPO REAL</h3>
                         <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; line-height: 1.4;">
                             Tus bancos en Bs. se mantienen en bolívares y recalculan su valor en <strong>$</strong> y devaluación automáticamente con la tasa del API. Binance se protege en <strong>$ USDT</strong>.
                         </div>
                     </div>
-                    <button type="button" class="btn-system btn-system-add" style="margin: 0; white-space: nowrap;" onclick="abrirModalTarjeta()">
-                        + Nueva Tarjeta
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-add-finanza" onclick="togglePanelTasasFinanzas(true)" style="border-color: rgba(56,189,248,0.35); color: #bae6fd;">
+                            🏦 Ver Tasas
+                        </button>
+                        <button type="button" class="btn-system btn-system-add" style="margin: 0; white-space: nowrap;" onclick="abrirModalTarjeta()">
+                            + Nueva Tarjeta
+                        </button>
+                    </div>
                 </div>
                 <div id="contenedor-tarjetas-finanzas-root"></div>
             </div>
 
-            <!-- SUBSECCIÓN D: PLANIFICACIÓN DE PAGOS (GASTOS PROGRAMADOS, DEUDAS Y COMPRAS) -->
-            <div id="vista-finanzas-planificacion" style="display: none;">
-                <div class="finanzas-plan-topbar">
-                    <div style="min-width: 0; flex: 1;">
-                        <h3 class="card-subtitle" style="margin: 0;">📋 PLANIFICACIÓN DE PAGOS &amp; COMPRAS</h3>
-                        <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; line-height: 1.4;">
-                            Con lo que vayas cobrando (y el saldo de tus tarjetas), visualiza qué puedes <strong>pagar</strong>, <strong>abonar por partes</strong> o <strong>comprar</strong> dentro de tus gastos programados, deudas y compras planeadas.
-                        </div>
-                    </div>
-                    <div class="plan-topbar-actions">
-                        <button type="button" class="btn-add-finanza" onclick="abrirModalCompraPlanificada()" style="background: rgba(168, 85, 247, 0.2); border-color: #c084fc; color: #f3e8ff;">
-                            🛒 + Compra / Plan
-                        </button>
-                        <button type="button" class="btn-add-finanza" onclick="abrirModalGasto('programado')" style="background: rgba(245, 158, 11, 0.16); border-color: #f59e0b; color: #fbbf24;">
-                            📅 + Gasto Prog.
-                        </button>
-                        <button type="button" class="btn-add-finanza" onclick="abrirModalDeuda()" style="background: rgba(56, 189, 248, 0.16); border-color: #38bdf8; color: #7dd3fc;">
-                            🛡️ + Deuda
-                        </button>
-                    </div>
-                </div>
-                <div id="contenedor-planificacion-finanzas-root"></div>
+            <!-- ==============================================================
+                 SUBSECCIÓN E: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS
+                 ============================================================== -->
+            <div id="vista-finanzas-calendario" style="display: none;">
+                <div id="contenedor-calendario-finanzas"></div>
             </div>
         </div>
     </div>
@@ -6480,26 +6499,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.67"></script>
-    <script src="js/perfil.js?v=10.67"></script>
-    <script src="js/progresion.js?v=10.67"></script>
-    <script src="js/estado-personal.js?v=10.67"></script>
-    <script src="js/finanzas.js?v=10.67"></script>
-    <script src="js/ideas.js?v=10.67"></script>
-    <script src="js/dinamicas.js?v=10.67"></script>
-    <script src="js/calendario.js?v=10.67"></script>
-    <script src="js/inventario.js?v=10.67"></script>
-    <script src="js/reproductor.js?v=10.67"></script>
-    <script src="js/jarvis-voz.js?v=10.67"></script>
+    <script src="js/core.js?v=10.68"></script>
+    <script src="js/perfil.js?v=10.68"></script>
+    <script src="js/progresion.js?v=10.68"></script>
+    <script src="js/estado-personal.js?v=10.68"></script>
+    <script src="js/finanzas.js?v=10.68"></script>
+    <script src="js/ideas.js?v=10.68"></script>
+    <script src="js/dinamicas.js?v=10.68"></script>
+    <script src="js/calendario.js?v=10.68"></script>
+    <script src="js/inventario.js?v=10.68"></script>
+    <script src="js/reproductor.js?v=10.68"></script>
+    <script src="js/jarvis-voz.js?v=10.68"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.67"></script>
+    <script type="module" src="js/firebase-config.js?v=10.68"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.67')
+                navigator.serviceWorker.register('sw.js?v=10.68')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

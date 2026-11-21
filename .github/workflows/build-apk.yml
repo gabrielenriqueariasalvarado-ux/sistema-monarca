@@ -70,10 +70,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.67)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.68)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.67
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.68
             Esta versión nativa incluye:
+            - ✨ **Rediseño Limpio y Modular de Finanzas (v10.68)**:
+              - Cabecera compacta con indicador rápido de Tasas (`BCV` / `Paralelo`) desplegable bajo demanda para no ocupar media pantalla al entrar.
+              - Separación clara en **5 pestañas enfocadas**: **`Resumen`** (KPIs reales del período + gráfico y Regla 50/40/10 unificados sin duplicaciones), **`Movimientos`** (Ingresos y Gastos del día a día), **`Planificación`** (sub-pestañas organizadas para *Cola de Pagos*, *Deudas & Cuotas* y *Metas*), **`Tarjetas`** y **`Calendario`**.
+              - Selector de semanas envolvente (sin cortar **`Mes Completo`**) y cálculo preciso de cuotas pagadas dentro del período activo.
             - 📋 **Apartado Planificación de Pagos en Finanzas (v10.67)**:
               - Tablero unificado que cruza lo que ya llevas **cobrado / en tarjetas** con tus **Gastos Programados**, **Deudas activas** y **Compras / Pagos Planeados** ordenados por prioridad.
               - Simulación en vivo de alcance (**`Te alcanza completo`**, **`Puedes abonar`** o **`Esperando cobro`**) más botones directos para **Abonar por partes**, **Pagar Completo** o **Comprar** (descontando opcionalmente en `Bs.` o `$` desde tus tarjetas **Provincial**, **Venezuela**, **Binance** o **Todoticket** con historial y reversión `↩`).

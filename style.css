@@ -15550,3 +15550,333 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v10.68 · REORGANIZACIÓN MODULAR Y LIMPIA DE FINANZAS (PC + MÓVIL)
+   ========================================================================== */
+
+#vista-finanzas {
+    padding-bottom: 96px;
+}
+
+.finanzas-top-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finanzas-toolbar-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.2px;
+}
+
+.finanzas-toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.finanzas-mes-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #0b0e15;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 3px;
+}
+
+.finanzas-mes-pill .btn-month-nav {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+}
+
+.finanzas-mes-pill .finanzas-input-clean {
+    width: auto;
+    min-width: 124px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.finanzas-tasas-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 10px;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.1);
+    color: #d1fae5;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-variant-numeric: tabular-nums;
+}
+
+.finanzas-tasas-pill-btn:hover {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+.finanzas-tasas-pill-btn.is-open {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #bae6fd;
+}
+
+.finanzas-tasas-sync-mini {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.9);
+    color: #cbd5e1;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.finanzas-tasas-card.is-collapsed-panel {
+    margin-bottom: 14px;
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+.quincena-selector-bar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    white-space: normal;
+}
+
+.btn-quincena-tab {
+    flex: 1 1 auto;
+    padding: 8px 10px;
+    font-size: 11.5px;
+}
+
+.finanzas-analytics-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.finanzas-analytics-chart-pane {
+    background: rgba(11, 15, 25, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.finanzas-analytics-regla-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.finanzas-analytics-regla-pane .regla-504010-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 0;
+}
+
+.finanzas-analytics-regla-pane .regla-card {
+    padding: 10px 12px !important;
+    text-align: left;
+}
+
+.finanzas-analytics-regla-pane .regla-card-top-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.finanzas-analytics-regla-pane .regla-porcentaje {
+    font-size: 13.5px !important;
+    margin-bottom: 0;
+}
+
+.finanzas-analytics-regla-pane .regla-monto {
+    font-size: 15px !important;
+    margin-bottom: 0;
+}
+
+.finanzas-analytics-regla-pane .regla-concepto {
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+
+.finanzas-analytics-regla-pane .regla-real-box {
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+.finanzas-movimientos-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.finanzas-movimientos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.finanzas-movimientos-grid > .finanzas-section-card {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.finanzas-movimientos-grid .finanzas-tabs-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    white-space: normal;
+    gap: 5px;
+}
+
+.finanzas-movimientos-grid .finanzas-tab-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 8px;
+    font-size: 11px;
+}
+
+.finanzas-movimientos-grid .finanzas-tx-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.finanzas-movimientos-grid .finanzas-tx-right {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    text-align: left;
+}
+
+.plan-subtabs-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
+    background: #0b0e15;
+    padding: 5px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plan-subtab-btn {
+    padding: 9px 10px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.plan-subtab-btn.active {
+    background: rgba(168, 85, 247, 0.22);
+    color: #f3e8ff;
+    border: 1px solid rgba(192, 132, 252, 0.42);
+}
+
+@media (max-width: 960px) {
+    .finanzas-analytics-split {
+        grid-template-columns: 1fr;
+    }
+    .finanzas-movimientos-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .finanzas-top-toolbar {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+    .finanzas-toolbar-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .finanzas-mes-pill {
+        flex: 1 1 auto;
+        justify-content: space-between;
+    }
+    .finanzas-mes-pill .finanzas-input-clean {
+        min-width: 0;
+        flex: 1;
+        font-size: 12px;
+    }
+    .finanzas-tasas-pill-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        font-size: 11px;
+        padding: 6px 8px;
+    }
+    #finanzas-secciones-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    #finanzas-secciones-nav .finanzas-tab-btn {
+        flex: 1 1 46%;
+        width: auto;
+        min-width: 0;
+        padding: 8px 8px;
+        font-size: 11.5px;
+    }
+    .plan-subtabs-nav {
+        gap: 4px;
+    }
+    .plan-subtab-btn {
+        padding: 8px 4px;
+        font-size: 11px;
+        flex-direction: column;
+        gap: 2px;
+    }
+}

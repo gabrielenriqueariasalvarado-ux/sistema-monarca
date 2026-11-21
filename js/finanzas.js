@@ -433,10 +433,14 @@ function renderizarFinanzas(fin) {
     }
     var semanaActivaObj = semanasActivas.find(function(s) { return s.clave === vq; });
 
-    // Renderizar dinámicamente la barra de selector de período con las semanas exactas de este mes
+    // Renderizar dinámicamente la barra de selector de período con Mes Completo y las semanas exactas del mes
     var barraSemanas = document.getElementById('quincena-selector-bar');
     if (barraSemanas) {
-        var htmlBarra = '';
+        var esMesActivo = (vq === 'mes');
+        var htmlBarra = `
+            <button class="btn-quincena-tab ${esMesActivo ? 'active' : ''}" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
+                <span>📅</span> Mes Completo
+            </button>`;
         semanasActivas.forEach(function(sem) {
             var esActivo = (vq === sem.clave);
             htmlBarra += `
@@ -444,11 +448,6 @@ function renderizarFinanzas(fin) {
                     <span>🗓️</span> ${sem.etiqueta}
                 </button>`;
         });
-        var esMesActivo = (vq === 'mes');
-        htmlBarra += `
-            <button class="btn-quincena-tab ${esMesActivo ? 'active' : ''}" id="btn-vista-mes" onclick="cambiarPeriodoFinanzas('mes')">
-                <span>📅</span> Mes Completo
-            </button>`;
         barraSemanas.innerHTML = htmlBarra;
     }
 
@@ -950,9 +949,21 @@ function renderizarFinanzas(fin) {
     if (resInversionEl) resInversionEl.innerText = '$' + meta50.toFixed(2);
 
     // 5. Deudas y Cronograma de Pagos (Créditos en Cuotas)
-    var resDeudas = renderizarDeudasYCronograma(f, vq);
+    var resDeudas = renderizarDeudasYCronograma(f, vq, coincideQuincena);
     var totDeudasPendientes = resDeudas.totPendientes;
     var totDeudasPagadas = resDeudas.totPagadas;
+    var deudasPagadasPeriodo = Number(resDeudas.pagadasPeriodo) || 0;
+    var deudasPendientesPeriodo = Number(resDeudas.pendientesPeriodo) || 0;
+
+    var badgePlanDeu = document.getElementById('badge-plan-deudas-count');
+    if (badgePlanDeu) {
+        if (resDeudas.activasCount > 0) {
+            badgePlanDeu.textContent = String(resDeudas.activasCount);
+            badgePlanDeu.style.display = 'inline-flex';
+        } else {
+            badgePlanDeu.style.display = 'none';
+        }
+    }
 
     // 6. Metas Quincenales
     var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
@@ -995,12 +1006,41 @@ function renderizarFinanzas(fin) {
         gridMetas.innerHTML = htmlMetas;
     }
 
-    // 7. Fórmula de Liquidez Real (Balance Neto Libre)
-    // Dinero Real en Mano = Ingresos Cobrados - Gastos Registrados - Cuotas Metas Abonadas - Deudas Pagadas
-    var balanceRealEnMano = ingresosCobradosVista - totGastos - cuotasAbonadasVista - totDeudasPagadas;
+    var badgePlanMet = document.getElementById('badge-plan-metas-count');
+    if (badgePlanMet) {
+        var metasActivas = (f.metas || []).filter(function(m) { return (Number(m.ahorrado) || 0) < (Number(m.metaTotal) || 0) - 0.009; }).length;
+        if (metasActivas > 0) {
+            badgePlanMet.textContent = String(metasActivas);
+            badgePlanMet.style.display = 'inline-flex';
+        } else {
+            badgePlanMet.style.display = 'none';
+        }
+    }
 
-    // Proyección Fin de Mes = Total Ingresos - Gastos - Metas - Deudas
-    var balanceProyectado = totIngresosVista - totGastos - cuotasAbonadasVista - totDeudasPendientes - totDeudasPagadas;
+    var resDeuSub = document.getElementById('resumen-deudas-sub-txt');
+    if (resDeuSub) {
+        resDeuSub.textContent = 'Cuotas período: $' + (deudasPagadasPeriodo + deudasPendientesPeriodo).toFixed(2);
+    }
+
+    var badgeMov = document.getElementById('badge-finanzas-mov-count');
+    if (badgeMov) {
+        var movTotCount = (countFijos + countAleatorios + countAlmacen) + (countProg + countOcas);
+        if (movTotCount > 0) {
+            badgeMov.textContent = String(movTotCount);
+            badgeMov.style.display = 'inline-flex';
+        } else {
+            badgeMov.style.display = 'none';
+        }
+    }
+    var movPerLbl = document.getElementById('movimientos-periodo-label');
+    if (movPerLbl) {
+        movPerLbl.textContent = obtenerTituloPeriodo(vq);
+    }
+
+    // 7. Fórmula de Liquidez Real (Balance Neto Libre del Período)
+    var balanceRealEnMano = ingresosCobradosVista - totGastos - cuotasAbonadasVista - deudasPagadasPeriodo;
+    var compromisosPeriodo = totGastos + cuotasAbonadasVista + deudasPendientesPeriodo + deudasPagadasPeriodo;
+    var balanceProyectado = totIngresosVista - compromisosPeriodo;
 
     var resFlujoEl = document.getElementById('resumen-flujo-neto');
     if (resFlujoEl) {
@@ -1019,14 +1059,14 @@ function renderizarFinanzas(fin) {
     if (bCobrado) bCobrado.innerHTML = `Cobrado: <strong>$${ingresosCobradosVista.toFixed(2)}</strong>`;
     if (bGastos) bGastos.innerHTML = `Gastos: <strong>$${totGastos.toFixed(2)}</strong>`;
     if (bCuotas) bCuotas.innerHTML = `Cuotas Metas: <strong>$${cuotasAbonadasVista.toFixed(2)}</strong>`;
-    if (bDeudas) bDeudas.innerHTML = `Deudas Pagadas: <strong>$${totDeudasPagadas.toFixed(2)}</strong>`;
+    if (bDeudas) bDeudas.innerHTML = `Cuotas Deuda: <strong>$${deudasPagadasPeriodo.toFixed(2)}</strong>`;
     if (bResultado) {
-        bResultado.innerText = (balanceRealEnMano >= 0 ? '+$' : '-$') + Math.abs(balanceRealEnMano).toFixed(2) + ' (En Mano)';
+        bResultado.innerText = (balanceRealEnMano >= 0 ? '+$' : '-$') + Math.abs(balanceRealEnMano).toFixed(2) + ' (Período)';
         bResultado.style.color = balanceRealEnMano >= 0 ? '#34d399' : '#f87171';
     }
     if (bProyeccion) {
         var titProy = vq === 'mes' ? 'Fin de Mes' : obtenerTituloPeriodo(vq);
-        bProyeccion.innerHTML = `🔮 Proyección ${titProy}: Total Ingresos ($${totIngresosVista.toFixed(2)}) - Compromisos ($${(totGastos + cuotasAbonadasVista + totDeudasPendientes + totDeudasPagadas).toFixed(2)}) = <strong style="color: ${balanceProyectado >= 0 ? '#34d399' : '#f87171'};">${balanceProyectado >= 0 ? '+$' : '-$'}${Math.abs(balanceProyectado).toFixed(2)}</strong>`;
+        bProyeccion.innerHTML = `🔮 Proyección ${titProy}: Ingresos ($${totIngresosVista.toFixed(2)}) - Compromisos período ($${compromisosPeriodo.toFixed(2)}) = <strong style="color: ${balanceProyectado >= 0 ? '#34d399' : '#f87171'};">${balanceProyectado >= 0 ? '+$' : '-$'}${Math.abs(balanceProyectado).toFixed(2)}</strong>`;
     }
 
     var badgeEstado = document.getElementById('badge-balance-estado');
@@ -1037,7 +1077,7 @@ function renderizarFinanzas(fin) {
             badgeEstado.style.color = "#34d399";
             badgeEstado.style.borderColor = "rgba(16, 185, 129, 0.3)";
         } else {
-            badgeEstado.innerText = "DÉFICIT EN CUENTA";
+            badgeEstado.innerText = "DÉFICIT EN PERÍODO";
             badgeEstado.style.background = "rgba(239, 68, 68, 0.15)";
             badgeEstado.style.color = "#f87171";
             badgeEstado.style.borderColor = "rgba(239, 68, 68, 0.3)";
@@ -2619,7 +2659,7 @@ function toggleCronogramaDeudaUI(deudaId) {
     }
 }
 
-function renderizarDeudasYCronograma(f, vq) {
+function renderizarDeudasYCronograma(f, vq, coincideFn) {
     var totPendientes = 0;
     var totPagadas = 0;
     var deudas = f.deudas || [];
@@ -2872,12 +2912,45 @@ function renderizarDeudasYCronograma(f, vq) {
         }
     }
 
+    var pagadasPeriodo = 0;
+    var pendientesPeriodo = 0;
+    var activasCount = 0;
+    deudas.forEach(function(d) {
+        if (!d.pagada) activasCount++;
+        (d.cuotas || []).forEach(function(c) {
+            var montoC = Number(c.monto) || Number(d.montoCuota) || 0;
+            if (c.pagada && !c.cubiertaPorAbono) {
+                var fPagC = (c.fechaPago && typeof c.fechaPago === 'string') ? c.fechaPago.slice(0, 10) : (c.fecha || '');
+                if (!coincideFn || coincideFn(null, fPagC)) {
+                    pagadasPeriodo += montoC;
+                }
+            } else if (!c.pagada) {
+                var falC = Math.max(0, montoC - (Number(c.montoAbonado) || 0));
+                if (!coincideFn || coincideFn(null, c.fecha)) {
+                    pendientesPeriodo += falC;
+                }
+            }
+        });
+        (d.abonosLibres || []).forEach(function(ab) {
+            var fAb = (ab.fecha && typeof ab.fecha === 'string') ? ab.fecha.slice(0, 10) : '';
+            if (!coincideFn || coincideFn(null, fAb)) {
+                pagadasPeriodo += (Number(ab.montoUsd) || 0);
+            }
+        });
+    });
+
     var totalDeuEl = document.getElementById('label-total-deudas') || document.getElementById('total-deudas-display');
     if (totalDeuEl) totalDeuEl.innerText = '$' + totPendientes.toFixed(2);
     var resDeuEl = document.getElementById('resumen-total-deudas');
     if (resDeuEl) resDeuEl.innerText = '$' + totPendientes.toFixed(2);
 
-    return { totPendientes: totPendientes, totPagadas: totPagadas };
+    return {
+        totPendientes: totPendientes,
+        totPagadas: totPagadas,
+        pagadasPeriodo: Math.round(pagadasPeriodo * 100) / 100,
+        pendientesPeriodo: Math.round(pendientesPeriodo * 100) / 100,
+        activasCount: activasCount
+    };
 }
 
 function cambiarPeriodoFinanzas(periodo, omitirRender) {
@@ -3267,26 +3340,38 @@ function alCambiarMontoGastoModal(val) {
 
 function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    var destino = (seccion === 'calendario' || seccion === 'tarjetas' || seccion === 'planificacion') ? seccion : 'panel';
+    var validos = ['panel', 'movimientos', 'planificacion', 'tarjetas', 'calendario'];
+    var destino = validos.indexOf(seccion) !== -1 ? seccion : 'panel';
     window.ESTADO_FINANZAS.seccionActiva = destino;
 
     var tabPanel = document.getElementById('tab-finanzas-panel');
+    var tabMov = document.getElementById('tab-finanzas-movimientos');
     var tabPlan = document.getElementById('tab-finanzas-planificacion');
-    var tabCal = document.getElementById('tab-finanzas-calendario');
     var tabTarj = document.getElementById('tab-finanzas-tarjetas');
+    var tabCal = document.getElementById('tab-finanzas-calendario');
+
     var vistaPanel = document.getElementById('vista-finanzas-panel');
+    var vistaMov = document.getElementById('vista-finanzas-movimientos');
     var vistaPlan = document.getElementById('vista-finanzas-planificacion');
-    var vistaCal = document.getElementById('vista-finanzas-calendario');
     var vistaTarj = document.getElementById('vista-finanzas-tarjetas');
+    var vistaCal = document.getElementById('vista-finanzas-calendario');
+    var barraPeriodo = document.getElementById('quincena-selector-bar');
 
     if (tabPanel) tabPanel.classList.toggle('active', destino === 'panel');
+    if (tabMov) tabMov.classList.toggle('active', destino === 'movimientos');
     if (tabPlan) tabPlan.classList.toggle('active', destino === 'planificacion');
-    if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
     if (tabTarj) tabTarj.classList.toggle('active', destino === 'tarjetas');
+    if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
+
     if (vistaPanel) vistaPanel.style.display = destino === 'panel' ? 'block' : 'none';
+    if (vistaMov) vistaMov.style.display = destino === 'movimientos' ? 'block' : 'none';
     if (vistaPlan) vistaPlan.style.display = destino === 'planificacion' ? 'block' : 'none';
-    if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
     if (vistaTarj) vistaTarj.style.display = destino === 'tarjetas' ? 'block' : 'none';
+    if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
+
+    if (barraPeriodo) {
+        barraPeriodo.style.display = (destino === 'panel' || destino === 'movimientos') ? 'flex' : 'none';
+    }
 
     if (!omitirRender && destino === 'calendario') {
         renderizarCalendarioFinanzas();
@@ -3294,7 +3379,37 @@ function cambiarSeccionFinanzas(seccion, omitirRender) {
         renderizarTarjetasFinanzas();
     } else if (!omitirRender && destino === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
         renderizarPlanificacionFinanzas();
+    } else if (!omitirRender && destino === 'panel' && typeof renderizarFinanzas === 'function') {
+        renderizarFinanzas(APP_STATE.finanzas);
     }
+}
+
+function cambiarSubtabPlanificacionFin(subtab) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    var sub = (subtab === 'deudas' || subtab === 'metas') ? subtab : 'cola';
+    window.ESTADO_FINANZAS.subtabPlanificacion = sub;
+
+    var btnCola = document.getElementById('subtab-plan-cola');
+    var btnDeu = document.getElementById('subtab-plan-deudas');
+    var btnMet = document.getElementById('subtab-plan-metas');
+    var vCola = document.getElementById('plan-subvista-cola');
+    var vDeu = document.getElementById('plan-subvista-deudas');
+    var vMet = document.getElementById('plan-subvista-metas');
+
+    if (btnCola) btnCola.classList.toggle('active', sub === 'cola');
+    if (btnDeu) btnDeu.classList.toggle('active', sub === 'deudas');
+    if (btnMet) btnMet.classList.toggle('active', sub === 'metas');
+    if (vCola) vCola.style.display = sub === 'cola' ? 'block' : 'none';
+    if (vDeu) vDeu.style.display = sub === 'deudas' ? 'block' : 'none';
+    if (vMet) vMet.style.display = sub === 'metas' ? 'block' : 'none';
+
+    if (sub === 'cola' && typeof renderizarPlanificacionFinanzas === 'function') {
+        renderizarPlanificacionFinanzas();
+    }
+}
+if (typeof window !== 'undefined') {
+    window.cambiarSeccionFinanzas = cambiarSeccionFinanzas;
+    window.cambiarSubtabPlanificacionFin = cambiarSubtabPlanificacionFin;
 }
 
 function obtenerClaveFechaISOFinanzas(anio, mes, dia) {
@@ -4304,6 +4419,21 @@ function convertirMontoConTasas() {
     }
 }
 
+function togglePanelTasasFinanzas(forzarAbrir) {
+    var card = document.getElementById('finanzas-tasas-card');
+    var btn = document.getElementById('btn-toggle-panel-tasas');
+    if (!card) return;
+    var abrir = (forzarAbrir === true) ? true : (card.style.display === 'none' || getComputedStyle(card).display === 'none');
+    card.style.display = abrir ? 'block' : 'none';
+    if (btn) btn.classList.toggle('is-open', abrir);
+    if (abrir) {
+        try { card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    }
+}
+if (typeof window !== 'undefined') {
+    window.togglePanelTasasFinanzas = togglePanelTasasFinanzas;
+}
+
 function renderizarTasasBCV(estadoFetch, errorMsg) {
     var valBcv = document.getElementById('finanzas-valor-tasa-bcv');
     var subBcv = document.getElementById('finanzas-sub-tasa-bcv');
@@ -4314,11 +4444,25 @@ function renderizarTasasBCV(estadoFetch, errorMsg) {
     var badge = document.getElementById('finanzas-tasas-estado-badge');
     var fechaEl = document.getElementById('finanzas-tasas-fecha-actualizacion');
     var btnAct = document.getElementById('btn-actualizar-tasas-bcv');
-
-    if (!valBcv && !valEur && !valPar && !badge) return;
+    var miniTicker = document.getElementById('tasas-mini-ticker');
+    var btnMini = document.getElementById('btn-actualizar-tasas-bcv-mini');
 
     var cache = leerCacheTasasBCV();
     var hoyClave = obtenerFechaClaveHoyTasas();
+
+    if (miniTicker) {
+        var bcvShort = (cache && cache.usd) ? Number(cache.usd).toFixed(2) : '--';
+        var parShort = (cache && cache.paralelo) ? Number(cache.paralelo).toFixed(2) : '--';
+        miniTicker.textContent = estadoFetch === 'loading'
+            ? '⏳ Actualizando tasas...'
+            : ('🏦 BCV ' + bcvShort + ' · ⚡ ' + parShort);
+    }
+    if (btnMini) {
+        btnMini.disabled = (estadoFetch === 'loading');
+        btnMini.textContent = (estadoFetch === 'loading') ? '⏳' : '🔄';
+    }
+
+    if (!valBcv && !valEur && !valPar && !badge) return;
 
     if (cache && cache.usd) {
         if (valBcv) valBcv.textContent = formatearTasaBsDisplay(cache.usd, 2);
