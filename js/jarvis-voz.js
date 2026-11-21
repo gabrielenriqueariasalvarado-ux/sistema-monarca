@@ -405,8 +405,12 @@ function procesarComandoJarvis(comandoOriginal) {
     }
 
     // 8. NAVEGACIÓN GENERAL DEL SISTEMA
-    if (cmd.includes('inicio') || cmd.includes('menu principal') || cmd.includes('pantalla principal')) {
-        navegarPorVoz('vista-menu', 'el menú principal');
+    if (cmd.includes('menu principal') || cmd.includes('aplicaciones') || cmd.includes('apps')) {
+        navegarPorVoz('vista-menu', 'el menú de aplicaciones');
+        return;
+    }
+    if (cmd.includes('home') || cmd.includes('inicio') || cmd.includes('pantalla principal')) {
+        navegarPorVoz('vista-home', 'tu pantalla de inicio Home');
         return;
     }
     if (cmd.includes('perfil') || cmd.includes('mi nivel') || cmd.includes('atributos')) {

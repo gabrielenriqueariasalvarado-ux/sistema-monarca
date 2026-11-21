@@ -492,6 +492,10 @@ function fusionarEstadosInteligente(local, remoto) {
  */
 function refrescarVistasTrasSync() {
     try {
+        var vistaHome = document.getElementById('vista-home');
+        if (vistaHome && vistaHome.classList.contains('active') && typeof renderizarVistaHome === 'function') {
+            renderizarVistaHome();
+        }
         if (typeof renderizarInventarioSiActivo === 'function') renderizarInventarioSiActivo();
         var vistaFin = document.getElementById('vista-finanzas');
         if (vistaFin && vistaFin.classList.contains('active') && typeof renderizarFinanzas === 'function' && window.APP_STATE) {

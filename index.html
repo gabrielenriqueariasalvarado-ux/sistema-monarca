@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.69">
+    <link rel="stylesheet" href="style.css?v=10.70">
 </head>
 <body>
 
@@ -53,8 +53,41 @@
         </div>
     </header>
 
-    <!-- VISTA 1: MENÚ PRINCIPAL -->
-    <div id="vista-menu" class="tab-content active">
+    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.70) -->
+    <div id="vista-home" class="tab-content active">
+        <div class="home-hero-card">
+            <div class="home-hero-top">
+                <div class="home-eyebrow-badge">
+                    <span class="home-live-dot"></span>
+                    <span>HOME · HOY</span>
+                </div>
+                <span id="home-saludo-contexto" class="home-saludo-chip">Bienvenido</span>
+            </div>
+
+            <div class="home-fecha-showcase">
+                <div class="home-calendario-badge" aria-hidden="true">
+                    <span id="home-fecha-mes-corto" class="home-cal-mes">---</span>
+                    <span id="home-fecha-dia-num" class="home-cal-dia">--</span>
+                </div>
+                <div class="home-fecha-textos">
+                    <div id="home-fecha-dia-semana" class="home-dia-semana">Cargando día...</div>
+                    <h2 id="home-fecha-completa" class="home-fecha-principal">-- de ---- de ----</h2>
+                    <div id="home-fecha-meta" class="home-fecha-meta">Sincronizando calendario...</div>
+                </div>
+            </div>
+
+            <div class="home-base-footer">
+                <span class="home-base-hint">Base inicial de Home · Listo para ir sumando tus bloques diarios</span>
+                <button type="button" class="home-btn-apps-rapido" onclick="cambiarVista('vista-menu')">
+                    <span>Ver Apps</span>
+                    <span>→</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VISTA 1: MENÚ PRINCIPAL (APPS) -->
+    <div id="vista-menu" class="tab-content">
         <div class="user-header-card">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
                 <div style="display: flex; align-items: center; gap: 14px;">
@@ -6440,8 +6473,8 @@
 
     <!-- BARRA HUD INFERIOR FLOTANTE (ESTILO EXECUTIVE PILL) -->
     <nav class="monarca-bottom-hud" aria-label="Navegación Rápida">
-        <!-- 1. HOME (Próximamente) -->
-        <button class="bottom-hud-item" data-hud="home" onclick="abrirSeccionHome()" title="Home · En desarrollo" aria-label="Home">
+        <!-- 1. HOME -->
+        <button class="bottom-hud-item active" data-hud="home" onclick="abrirSeccionHome()" title="Home" aria-label="Home">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 9.5L12 3l9 6.5v10.5a1.5 1.5 0 0 1-1.5 1.5h-4.5a1 1 0 0 1-1-1v-5a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v5a1 1 0 0 1-1 1H4.5A1.5 1.5 0 0 1 3 20V9.5z"></path>
             </svg>
@@ -6449,7 +6482,7 @@
         </button>
 
         <!-- 2. APPS / MENÚ -->
-        <button class="bottom-hud-item active" data-hud="apps" onclick="cambiarVista('vista-menu')" title="Aplicaciones" aria-label="Apps">
+        <button class="bottom-hud-item" data-hud="apps" onclick="cambiarVista('vista-menu')" title="Aplicaciones" aria-label="Apps">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
                 <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
@@ -6499,26 +6532,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.69"></script>
-    <script src="js/perfil.js?v=10.69"></script>
-    <script src="js/progresion.js?v=10.69"></script>
-    <script src="js/estado-personal.js?v=10.69"></script>
-    <script src="js/finanzas.js?v=10.69"></script>
-    <script src="js/ideas.js?v=10.69"></script>
-    <script src="js/dinamicas.js?v=10.69"></script>
-    <script src="js/calendario.js?v=10.69"></script>
-    <script src="js/inventario.js?v=10.69"></script>
-    <script src="js/reproductor.js?v=10.69"></script>
-    <script src="js/jarvis-voz.js?v=10.69"></script>
+    <script src="js/core.js?v=10.70"></script>
+    <script src="js/perfil.js?v=10.70"></script>
+    <script src="js/progresion.js?v=10.70"></script>
+    <script src="js/estado-personal.js?v=10.70"></script>
+    <script src="js/finanzas.js?v=10.70"></script>
+    <script src="js/ideas.js?v=10.70"></script>
+    <script src="js/dinamicas.js?v=10.70"></script>
+    <script src="js/calendario.js?v=10.70"></script>
+    <script src="js/inventario.js?v=10.70"></script>
+    <script src="js/reproductor.js?v=10.70"></script>
+    <script src="js/jarvis-voz.js?v=10.70"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.69"></script>
+    <script type="module" src="js/firebase-config.js?v=10.70"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.69')
+                navigator.serviceWorker.register('sw.js?v=10.70')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

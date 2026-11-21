@@ -658,17 +658,19 @@ function inicializarSistema(omitirLecturaLocal) {
     if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
     if (typeof iniciarMotorRecordatoriosCalendario === 'function') iniciarMotorRecordatoriosCalendario();
     if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
+    if (typeof renderizarVistaHome === 'function') renderizarVistaHome();
 
     // Historial inicial para soporte del botón atrás en móvil / PWA
+    var vistaInicial = (omitirLecturaLocal && window.VISTA_ACTUAL) ? window.VISTA_ACTUAL : 'vista-home';
     try {
         if (!history.state || !history.state.vista) {
-            history.replaceState({ vista: 'vista-menu' }, '', '#vista-menu');
+            history.replaceState({ vista: vistaInicial }, '', '#' + vistaInicial);
         }
     } catch(e) {}
-    window.VISTA_ACTUAL = 'vista-menu';
+    window.VISTA_ACTUAL = vistaInicial;
 }
 
-window.VISTA_ACTUAL = 'vista-menu';
+window.VISTA_ACTUAL = 'vista-home';
 
 function cambiarVista(vistaId, noPushState) {
     if (!vistaId) return;
@@ -704,7 +706,7 @@ function cambiarVista(vistaId, noPushState) {
         return;
     }
 
-    var vistaAnterior = window.VISTA_ACTUAL || 'vista-menu';
+    var vistaAnterior = window.VISTA_ACTUAL || 'vista-home';
     window.VISTA_ACTUAL = vistaId;
 
     // Manejo de historial para soporte nativo del botón de retroceso (Android / Gesture navigation)
@@ -731,7 +733,9 @@ function cambiarVista(vistaId, noPushState) {
         hudItems.forEach(function(item) {
             var dataHud = item.getAttribute('data-hud');
             var oc = item.getAttribute('onclick') || '';
-            if (vistaId === 'vista-menu' && (dataHud === 'apps' || oc.indexOf("'vista-menu'") !== -1)) {
+            if (vistaId === 'vista-home' && (dataHud === 'home' || oc.indexOf('abrirSeccionHome') !== -1 || oc.indexOf("'vista-home'") !== -1)) {
+                item.classList.add('active');
+            } else if (vistaId === 'vista-menu' && (dataHud === 'apps' || oc.indexOf("'vista-menu'") !== -1)) {
                 item.classList.add('active');
             } else if (vistaId === 'vista-perfil' && (dataHud === 'perfil' || oc.indexOf("'vista-perfil'") !== -1)) {
                 item.classList.add('active');
@@ -745,6 +749,9 @@ function cambiarVista(vistaId, noPushState) {
     } catch(e) {}
 
     switch(vistaId) {
+        case 'vista-home':
+            if (typeof renderizarVistaHome === 'function') renderizarVistaHome();
+            break;
         case 'vista-menu':
             renderizarJugador(APP_STATE.jugador);
             break;
@@ -834,13 +841,13 @@ function retrocederNavegacionMonarca() {
                 try { detenerEscuchaJarvis(); } catch(e) {}
             }
             try {
-                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-home' }, '', '#' + (window.VISTA_ACTUAL || 'vista-home'));
             } catch(e) {}
             return true;
         }
     }
 
-    var vistaActual = window.VISTA_ACTUAL || 'vista-menu';
+    var vistaActual = window.VISTA_ACTUAL || 'vista-home';
 
     // 2. Si está en el detalle de la rutina dinámica, regresar al hub de ejercicios sin destruir la sesión
     if (vistaActual === 'vista-detalle-rutina-dinamica') {
@@ -851,13 +858,17 @@ function retrocederNavegacionMonarca() {
         return true;
     }
 
-    // 3. Si está en cualquier subvista secundaria, volver al menú principal
-    if (vistaActual !== 'vista-menu') {
+    // 3. Si está en cualquier módulo, volver a Apps; si está en Apps, volver a Home
+    if (vistaActual === 'vista-menu') {
+        cambiarVista('vista-home');
+        return true;
+    }
+    if (vistaActual !== 'vista-home') {
         cambiarVista('vista-menu');
         return true;
     }
 
-    // 4. Si ya está en vista-menu: prevenir cierre accidental mediante doble confirmación (2.2s)
+    // 4. Si ya está en vista-home: prevenir cierre accidental mediante doble confirmación (2.2s)
     var ahora = Date.now();
     if (ahora - MONARCA_ULTIMO_BACK_TIMESTAMP < 2200) {
         // Segundo toque consecutivo: permitir salir de la app
@@ -869,7 +880,7 @@ function retrocederNavegacionMonarca() {
         MONARCA_ULTIMO_BACK_TIMESTAMP = ahora;
         mostrarToastRetrocesoSalir();
         try {
-            history.pushState({ vista: 'vista-menu' }, '', '#vista-menu');
+            history.pushState({ vista: 'vista-home' }, '', '#vista-home');
         } catch(e) {}
         return true;
     }
@@ -885,8 +896,8 @@ if (typeof window !== 'undefined') {
     document.addEventListener('DOMContentLoaded', function() {
         try {
             if (!history.state) {
-                history.replaceState({ vista: 'vista-menu' }, '', '#vista-menu');
-                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-menu' }, '', '#' + (window.VISTA_ACTUAL || 'vista-menu'));
+                history.replaceState({ vista: 'vista-home' }, '', '#vista-home');
+                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-home' }, '', '#' + (window.VISTA_ACTUAL || 'vista-home'));
             }
         } catch(e) {}
 
@@ -1302,14 +1313,73 @@ function mostrarToastMonarca(mensaje, icono) {
     } catch(e) {}
 }
 
+var MONARCA_HOME_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+var MONARCA_HOME_MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+var MONARCA_HOME_MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+function obtenerNumeroSemanaISO(fecha) {
+    var d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+    var diaNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - diaNum);
+    var inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+}
+
+function renderizarVistaHome(fechaCustom) {
+    var ahora = (fechaCustom instanceof Date && !isNaN(fechaCustom.getTime())) ? fechaCustom : new Date();
+    var diaIdx = ahora.getDay();
+    var diaNum = ahora.getDate();
+    var mesIdx = ahora.getMonth();
+    var anio = ahora.getFullYear();
+    var hora = ahora.getHours();
+
+    var diaNombre = MONARCA_HOME_DIAS[diaIdx] || 'Hoy';
+    var mesNombre = MONARCA_HOME_MESES[mesIdx] || '';
+    var mesCap = mesNombre ? (mesNombre.charAt(0).toUpperCase() + mesNombre.slice(1)) : '';
+    var mesCorto = MONARCA_HOME_MESES_CORTOS[mesIdx] || '---';
+
+    var saludoBase = hora < 12 ? 'Buenos días' : (hora < 19 ? 'Buenas tardes' : 'Buenas noches');
+    var tituloJugador = (window.APP_STATE && APP_STATE.jugador && APP_STATE.jugador.titulo) ? String(APP_STATE.jugador.titulo).trim() : 'Gabriel';
+    var primerNombre = tituloJugador.split(/\s+/)[0] || 'Gabriel';
+
+    var semanaAnio = obtenerNumeroSemanaISO(ahora);
+    var inicioAnioLocal = new Date(anio, 0, 1);
+    var diaDelAnio = Math.floor((new Date(anio, mesIdx, diaNum) - inicioAnioLocal) / 86400000) + 1;
+
+    var elSaludo = document.getElementById('home-saludo-contexto');
+    var elMesCorto = document.getElementById('home-fecha-mes-corto');
+    var elDiaNum = document.getElementById('home-fecha-dia-num');
+    var elDiaSemana = document.getElementById('home-fecha-dia-semana');
+    var elFechaComp = document.getElementById('home-fecha-completa');
+    var elFechaMeta = document.getElementById('home-fecha-meta');
+
+    if (elSaludo) elSaludo.textContent = saludoBase + ', ' + primerNombre;
+    if (elMesCorto) elMesCorto.textContent = mesCorto;
+    if (elDiaNum) elDiaNum.textContent = String(diaNum).padStart(2, '0');
+    if (elDiaSemana) elDiaSemana.textContent = diaNombre;
+    if (elFechaComp) elFechaComp.textContent = diaNum + ' de ' + mesCap + ' de ' + anio;
+    if (elFechaMeta) elFechaMeta.textContent = 'Semana ' + semanaAnio + ' · Día ' + diaDelAnio + ' del año';
+}
+
 function abrirSeccionHome() {
-    try {
-        var hudItems = document.querySelectorAll('.monarca-bottom-hud .bottom-hud-item');
-        hudItems.forEach(function(i) { i.classList.remove('active'); });
-        var btnHome = document.querySelector('.monarca-bottom-hud .bottom-hud-item[data-hud="home"]');
-        if (btnHome) btnHome.classList.add('active');
-        mostrarToastMonarca('Apartado Home · Próximamente disponible. En preparación.', '🏠');
-    } catch(e) {}
+    if (typeof cambiarVista === 'function') {
+        cambiarVista('vista-home');
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.renderizarVistaHome = renderizarVistaHome;
+    window.abrirSeccionHome = abrirSeccionHome;
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && window.VISTA_ACTUAL === 'vista-home') {
+            renderizarVistaHome();
+        }
+    });
+    window.addEventListener('focus', function() {
+        if (window.VISTA_ACTUAL === 'vista-home') {
+            renderizarVistaHome();
+        }
+    });
 }
 
 function abrirSeccionPerfil() {

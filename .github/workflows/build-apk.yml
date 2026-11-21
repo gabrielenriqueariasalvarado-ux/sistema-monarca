@@ -70,10 +70,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.69)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.70)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.69
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.70
             Esta versión nativa incluye:
+            - 🏠 **Apartado Home como pantalla inicial (v10.70)**:
+              - Al abrir la aplicación arranca directamente en **Home** (`#vista-home`) con la **fecha actual** destacada en calendario del día, día de semana, saludo según hora y acceso rápido a tus **Apps**.
             - ✨ **Rediseño Limpio y Modular de Finanzas (v10.68–v10.69)**:
               - Cabecera compacta con indicador rápido de Tasas (`BCV` / `Paralelo`) desplegable bajo demanda y selector semanal compacto en una sola línea (**`◀ Sem X ▶`** + **`Mes Completo`**).
               - Separación clara en **5 pestañas enfocadas**: **`Resumen`** (KPIs reales del período + gráfico y Regla 50/40/10 unificados sin duplicaciones), **`Movimientos`** (Ingresos y Gastos del día a día), **`Planificación`** (sub-pestañas organizadas para *Cola de Pagos*, *Deudas & Cuotas* y *Metas*), **`Tarjetas`** y **`Calendario`**.
