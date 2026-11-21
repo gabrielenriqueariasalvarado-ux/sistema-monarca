@@ -37,6 +37,7 @@ jobs:
           cp index.html style.css www/
           cp -r js icons www/
           [ -f manifest.json ] && cp manifest.json www/ || true
+          [ -f version.json ] && cp version.json www/ || true
           [ -f sw.js ] && cp sw.js www/ || true
           [ -f app.js ] && cp app.js www/ || true
           npx esbuild js/capacitor-bridge-entry.js --bundle --minify --outfile=www/js/capacitor-bridge.js
@@ -70,10 +71,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.71)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.72)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.71
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.72
             Esta versión nativa incluye:
+            - 🔍 **Detector de Actualizaciones en Home (v10.72)**:
+              - Compara automáticamente la versión instalada en tu teléfono contra la última versión publicada en GitHub (APK / Web), detallando si estás al día o si tienes cambios nuevos pendientes por descargar con botón directo.
             - 🏠 **Apartado Home como pantalla inicial (v10.70–v10.71)**:
               - Al abrir la aplicación arranca directamente en **Home** (`#vista-home`) con la **fecha actual** destacada en calendario del día, día de semana, **hora en vivo** (`HH:MM:SS AM/PM`), saludo según hora y acceso rápido a tus **Apps**.
             - ✨ **Rediseño Limpio y Modular de Finanzas (v10.68–v10.69)**:

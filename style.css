@@ -16267,3 +16267,318 @@ body.modal-open {
         font-size: 24px;
     }
 }
+
+/* Tarjeta Estado de Actualización de la App en Home (v10.72) */
+.home-update-card {
+    margin-top: 16px;
+    background: linear-gradient(155deg, rgba(17, 23, 38, 0.96) 0%, rgba(10, 14, 24, 0.98) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 20px;
+    padding: 18px 20px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 32px -8px rgba(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.home-update-card.is-uptodate {
+    border-color: rgba(16, 185, 129, 0.34);
+    box-shadow: inset 0 1px 0 rgba(52, 211, 153, 0.12), 0 14px 32px -8px rgba(6, 78, 59, 0.35);
+}
+
+.home-update-card.is-outdated {
+    border-color: rgba(245, 158, 11, 0.48);
+    box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.16), 0 14px 34px -8px rgba(120, 53, 15, 0.45);
+}
+
+.home-update-card.is-offline {
+    border-color: rgba(148, 163, 184, 0.24);
+}
+
+.home-update-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.home-update-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.home-update-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.home-update-card.is-uptodate .home-update-icon {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.32);
+}
+
+.home-update-card.is-outdated .home-update-icon {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.home-update-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 2px;
+}
+
+.home-update-card.is-uptodate .home-update-eyebrow {
+    color: #34d399;
+}
+
+.home-update-card.is-outdated .home-update-eyebrow {
+    color: #fbbf24;
+}
+
+.home-update-titulo {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+}
+
+.home-update-check-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+}
+
+.home-update-check-btn:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #ffffff;
+}
+
+.home-update-check-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.home-update-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.home-update-metric {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.home-metric-lbl {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.home-metric-val {
+    font-size: 13px;
+    font-weight: 800;
+    color: #f1f5f9;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-update-card.is-outdated #home-ver-local {
+    color: #fbbf24;
+}
+
+.home-update-card.is-outdated #home-ver-remota {
+    color: #34d399;
+}
+
+.home-update-detalle-banner {
+    font-size: 12.5px;
+    line-height: 1.48;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 10px 13px;
+}
+
+.home-update-card.is-outdated .home-update-detalle-banner {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #fef3c7;
+}
+
+.home-update-acciones {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.home-btn-descargar-update {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 800;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 8px 20px -4px rgba(245, 158, 11, 0.45);
+    transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.home-btn-descargar-update:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.home-btn-secundaria-update {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+@media (max-width: 560px) {
+    .home-hero-card {
+        padding: 14px;
+        gap: 12px;
+        border-radius: 18px;
+    }
+    .home-calendario-badge {
+        width: 56px;
+        min-width: 56px;
+        border-radius: 13px;
+    }
+    .home-cal-dia {
+        font-size: 22px;
+        padding: 6px 0 7px 0;
+    }
+    .home-fecha-showcase {
+        gap: 10px 12px;
+    }
+    .home-fecha-textos {
+        flex: 1 1 160px;
+    }
+    .home-fecha-principal {
+        font-size: 18px;
+    }
+    .home-reloj-box {
+        padding: 9px 12px;
+    }
+    .home-reloj-hm {
+        font-size: 22px;
+    }
+    .home-base-footer {
+        padding-top: 10px;
+        gap: 8px;
+    }
+    .home-base-hint {
+        font-size: 11px;
+        flex: 1 1 150px;
+    }
+    .home-update-card {
+        margin-top: 12px;
+        padding: 13px 14px;
+        gap: 9px;
+        border-radius: 18px;
+    }
+    .home-update-header {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+    .home-update-title-wrap {
+        flex: 1;
+        min-width: 0;
+        gap: 9px;
+    }
+    .home-update-icon {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        font-size: 16px;
+    }
+    .home-update-titulo {
+        font-size: 13.5px;
+        line-height: 1.25;
+    }
+    .home-update-check-btn {
+        padding: 6px 9px;
+        font-size: 11px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .home-update-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .home-update-metric {
+        padding: 7px 10px;
+    }
+    .home-metric-val {
+        font-size: 12px;
+    }
+    .home-update-metrics .home-update-metric:last-child {
+        grid-column: span 2;
+    }
+    .home-update-detalle-banner {
+        padding: 8px 11px;
+        font-size: 11.8px;
+    }
+    .home-update-acciones {
+        gap: 8px;
+    }
+    .home-btn-descargar-update,
+    .home-btn-secundaria-update {
+        width: 100%;
+    }
+}

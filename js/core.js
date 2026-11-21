@@ -1428,6 +1428,358 @@ function renderizarVistaHome(fechaCustom) {
     } else {
         actualizarRelojHome(ahora);
     }
+
+    if (!(fechaCustom instanceof Date)) {
+        if (typeof window !== 'undefined' && window.MONARCA_ESTADO_ACTUALIZACION && window.MONARCA_ESTADO_ACTUALIZACION.ultimaComprobacionMs) {
+            aplicarUIEstadoActualizacionHome();
+        }
+        verificarActualizacionAppHome(false);
+    }
+}
+
+var MONARCA_APP_VERSION = '10.72';
+var MONARCA_APP_VERSION_FECHA = '2026-11-21';
+var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
+var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
+var MONARCA_APK_DOWNLOAD_URL = 'https://github.com/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/download/latest-apk/Sistema-Monarca.apk';
+
+if (typeof window !== 'undefined') {
+    window.MONARCA_APP_VERSION = MONARCA_APP_VERSION;
+    window.MONARCA_ESTADO_ACTUALIZACION = {
+        comprobando: false,
+        estado: 'checking',
+        versionLocal: MONARCA_APP_VERSION,
+        versionRemota: null,
+        fechaRemota: '',
+        resumenRemoto: '',
+        fuente: '',
+        apkUrl: MONARCA_APK_DOWNLOAD_URL,
+        swPendiente: false,
+        ultimaComprobacionMs: 0,
+        entorno: null
+    };
+}
+
+function parsearSegmentosVersion(v) {
+    return String(v || '')
+        .replace(/^[^0-9]*/, '')
+        .split(/[^0-9]+/)
+        .filter(function(p) { return p.length > 0; })
+        .map(function(n) { return parseInt(n, 10) || 0; });
+}
+
+function compararVersionesSemver(vLocal, vRemota) {
+    var a = parsearSegmentosVersion(vLocal);
+    var b = parsearSegmentosVersion(vRemota);
+    var len = Math.max(a.length, b.length);
+    for (var i = 0; i < len; i++) {
+        var na = a[i] || 0;
+        var nb = b[i] || 0;
+        if (na < nb) return -1;
+        if (na > nb) return 1;
+    }
+    return 0;
+}
+
+function extraerVersionDeTexto(txt) {
+    if (!txt) return null;
+    var m = String(txt).match(/v?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i);
+    return m ? m[1] : null;
+}
+
+function detectarEntornoAppMonarca() {
+    try {
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+            var plat = (typeof window.Capacitor.getPlatform === 'function') ? window.Capacitor.getPlatform() : 'android';
+            return {
+                esNativo: true,
+                esPwa: false,
+                etiqueta: plat === 'ios' ? '📱 App iOS (Nativa)' : '📱 App Android (APK)'
+            };
+        }
+        if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+            return { esNativo: false, esPwa: true, etiqueta: '📲 PWA Instalada' };
+        }
+    } catch(e) {}
+    return { esNativo: false, esPwa: false, etiqueta: '🌐 Web / Navegador' };
+}
+
+function formatearHoraCorta(ms) {
+    var d = new Date(ms || Date.now());
+    var h24 = d.getHours();
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var ampm = h24 >= 12 ? 'PM' : 'AM';
+    var h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    return String(h12).padStart(2, '0') + ':' + m + ' ' + ampm;
+}
+
+function formatearFechaReleaseCorta(isoStr) {
+    if (!isoStr) return '';
+    try {
+        var soloFecha = String(isoStr).trim().match(/^([0-9]+)-([0-9]+)-([0-9]+)$/);
+        if (soloFecha) {
+            return soloFecha[3].padStart(2, '0') + '/' + soloFecha[2].padStart(2, '0') + '/' + soloFecha[1].slice(-2);
+        }
+        var d = new Date(isoStr);
+        if (isNaN(d.getTime())) return String(isoStr).slice(0, 10);
+        return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getFullYear()).slice(-2);
+    } catch(e) {
+        return '';
+    }
+}
+
+function aplicarUIEstadoActualizacionHome() {
+    var card = document.getElementById('home-update-card');
+    if (!card || !window.MONARCA_ESTADO_ACTUALIZACION) return;
+
+    var st = window.MONARCA_ESTADO_ACTUALIZACION;
+    var verLocal = String((window.MONARCA_APP_VERSION || st.versionLocal || MONARCA_APP_VERSION)).replace(/^v/i, '');
+    var verRemota = st.versionRemota ? String(st.versionRemota).replace(/^v/i, '') : '';
+    var entorno = st.entorno || detectarEntornoAppMonarca();
+
+    var iconEl = document.getElementById('home-update-status-icon');
+    var tituloEl = document.getElementById('home-update-titulo');
+    var btnCheck = document.getElementById('btn-home-check-update');
+    var valLocalEl = document.getElementById('home-ver-local');
+    var valRemotaEl = document.getElementById('home-ver-remota');
+    var valEntornoEl = document.getElementById('home-ver-entorno');
+    var detalleEl = document.getElementById('home-update-detalle-banner');
+    var accionesEl = document.getElementById('home-update-acciones');
+
+    if (valLocalEl) valLocalEl.textContent = 'v' + verLocal;
+    if (valEntornoEl) valEntornoEl.textContent = entorno.etiqueta;
+    if (btnCheck) {
+        btnCheck.disabled = !!st.comprobando;
+        btnCheck.innerHTML = st.comprobando
+            ? '<span>⏳</span><span>Revisando...</span>'
+            : '<span>🔄</span><span>Comprobar</span>';
+    }
+
+    card.classList.remove('is-checking', 'is-uptodate', 'is-outdated', 'is-offline');
+
+    if (st.comprobando && !st.ultimaComprobacionMs) {
+        card.classList.add('is-checking');
+        if (iconEl) iconEl.textContent = '🔄';
+        if (tituloEl) tituloEl.textContent = 'Comprobando versión...';
+        if (valRemotaEl) valRemotaEl.textContent = 'Verificando...';
+        if (detalleEl) detalleEl.textContent = 'Consultando si existen cambios nuevos publicados para tu dispositivo...';
+        if (accionesEl) { accionesEl.style.display = 'none'; accionesEl.innerHTML = ''; }
+        return;
+    }
+
+    if (st.estado === 'offline') {
+        card.classList.add('is-offline');
+        if (iconEl) iconEl.textContent = '📶';
+        if (tituloEl) tituloEl.textContent = 'Sin conexión para comprobar';
+        if (valRemotaEl) valRemotaEl.textContent = verRemota ? ('v' + verRemota) : 'Sin red';
+        if (detalleEl) {
+            detalleEl.textContent = 'No se pudo conectar al servidor para verificar si hay cambios nuevos. Sigues operando con la versión local v' + verLocal + '.';
+        }
+        if (accionesEl) { accionesEl.style.display = 'none'; accionesEl.innerHTML = ''; }
+        return;
+    }
+
+    if (!verRemota) {
+        card.classList.add('is-checking');
+        if (iconEl) iconEl.textContent = '⚠️';
+        if (tituloEl) tituloEl.textContent = 'No se pudo leer la versión remota';
+        if (valRemotaEl) valRemotaEl.textContent = '--';
+        if (detalleEl) detalleEl.textContent = 'Versión instalada: v' + verLocal + '. Pulsa Comprobar para reintentar.';
+        if (accionesEl) { accionesEl.style.display = 'none'; accionesEl.innerHTML = ''; }
+        return;
+    }
+
+    var fechaTxt = st.fechaRemota ? (' · ' + formatearFechaReleaseCorta(st.fechaRemota)) : '';
+    if (valRemotaEl) valRemotaEl.textContent = 'v' + verRemota + fechaTxt;
+
+    var cmp = compararVersionesSemver(verLocal, verRemota);
+    var horaTxt = st.ultimaComprobacionMs ? (' (revisado ' + formatearHoraCorta(st.ultimaComprobacionMs) + ')') : '';
+
+    if (cmp < 0 || st.swPendiente) {
+        card.classList.add('is-outdated');
+        if (iconEl) iconEl.textContent = '🚀';
+        if (tituloEl) {
+            tituloEl.textContent = st.swPendiente && cmp === 0
+                ? 'Nueva versión lista para aplicar (v' + verRemota + ')'
+                : 'Actualización pendiente (v' + verRemota + ')';
+        }
+        var desc = 'Tu dispositivo aún mantiene la versión anterior v' + verLocal + ' y no ha descargado los cambios de la v' + verRemota + '.';
+        if (st.resumenRemoto) {
+            desc += ' Novedades: ' + st.resumenRemoto;
+        }
+        if (detalleEl) detalleEl.textContent = desc;
+
+        if (accionesEl) {
+            var apkLink = monarcaEscHtml(st.apkUrl || MONARCA_APK_DOWNLOAD_URL);
+            if (entorno.esNativo) {
+                accionesEl.innerHTML =
+                    '<a class="home-btn-descargar-update" href="' + apkLink + '" target="_blank" rel="noopener noreferrer">' +
+                        '<span>⬇️</span><span>Descargar APK v' + monarcaEscHtml(verRemota) + '</span>' +
+                    '</a>' +
+                    '<button type="button" class="home-btn-secundaria-update" onclick="verificarActualizacionAppHome(true)">' +
+                        '<span>🔄</span><span>Ya instalé · Revalidar</span>' +
+                    '</button>';
+            } else {
+                accionesEl.innerHTML =
+                    '<button type="button" class="home-btn-descargar-update" onclick="aplicarActualizacionWebHome()">' +
+                        '<span>⚡</span><span>Actualizar Web a v' + monarcaEscHtml(verRemota) + '</span>' +
+                    '</button>' +
+                    '<a class="home-btn-secundaria-update" href="' + apkLink + '" target="_blank" rel="noopener noreferrer">' +
+                        '<span>📱</span><span>Descargar APK</span>' +
+                    '</a>';
+            }
+            accionesEl.style.display = 'flex';
+        }
+    } else if (cmp > 0) {
+        card.classList.add('is-uptodate');
+        if (iconEl) iconEl.textContent = '✨';
+        if (tituloEl) tituloEl.textContent = 'Versión adelantada en este dispositivo';
+        if (detalleEl) {
+            detalleEl.textContent = 'Tu dispositivo ya tiene la v' + verLocal + ', mientras el servidor público muestra v' + verRemota + horaTxt + '.';
+        }
+        if (accionesEl) { accionesEl.style.display = 'none'; accionesEl.innerHTML = ''; }
+    } else {
+        card.classList.add('is-uptodate');
+        if (iconEl) iconEl.textContent = '✅';
+        if (tituloEl) tituloEl.textContent = 'App actualizada en tu teléfono';
+        if (detalleEl) {
+            detalleEl.textContent = 'Tu dispositivo ya tiene la última versión (v' + verLocal + ') con todos los cambios al día' + horaTxt + '.';
+        }
+        if (accionesEl) { accionesEl.style.display = 'none'; accionesEl.innerHTML = ''; }
+    }
+}
+
+async function verificarActualizacionAppHome(forzarManual) {
+    if (typeof window === 'undefined') return null;
+    var st = window.MONARCA_ESTADO_ACTUALIZACION;
+    if (!st) return null;
+
+    var entorno = detectarEntornoAppMonarca();
+    st.entorno = entorno;
+    st.versionLocal = String(window.MONARCA_APP_VERSION || MONARCA_APP_VERSION).replace(/^v/i, '');
+
+    if (!forzarManual && st.ultimaComprobacionMs && (Date.now() - st.ultimaComprobacionMs) < 90000) {
+        aplicarUIEstadoActualizacionHome();
+        return st;
+    }
+    if (st.comprobando) return st;
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        st.estado = 'offline';
+        st.comprobando = false;
+        st.ultimaComprobacionMs = Date.now();
+        aplicarUIEstadoActualizacionHome();
+        return st;
+    }
+
+    st.comprobando = true;
+    aplicarUIEstadoActualizacionHome();
+
+    var swPendiente = false;
+    try {
+        if (!entorno.esNativo && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            var reg = await navigator.serviceWorker.getRegistration();
+            if (reg) {
+                try { await reg.update(); } catch(igSw) {}
+                if (reg.waiting) swPendiente = true;
+            }
+        }
+    } catch(eSw) {}
+
+    var encontrado = null;
+
+    async function intentarReleaseGitHub() {
+        var r = await fetch(MONARCA_GITHUB_RELEASE_API, { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var rel = await r.json();
+        var ver = extraerVersionDeTexto(rel && rel.name) || extraerVersionDeTexto(rel && rel.body);
+        if (!ver) throw new Error('Version no encontrada en release');
+        var asset = (rel && Array.isArray(rel.assets) && rel.assets[0]) ? rel.assets[0] : null;
+        return {
+            version: ver,
+            fecha: (asset && asset.updated_at) || (rel && rel.published_at) || '',
+            resumen: '',
+            apkUrl: (asset && asset.browser_download_url) || MONARCA_APK_DOWNLOAD_URL,
+            fuente: 'Release APK GitHub'
+        };
+    }
+
+    async function intentarVersionJson(baseUrl, fuenteLbl) {
+        var sep = baseUrl.indexOf('?') !== -1 ? '&' : '?';
+        var r = await fetch(baseUrl + sep + 't=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var data = await r.json();
+        var ver = extraerVersionDeTexto(data && data.version);
+        if (!ver) throw new Error('Version invalida en version.json');
+        return {
+            version: ver,
+            fecha: (data && data.fecha) || '',
+            resumen: (data && data.resumen) || '',
+            apkUrl: (data && data.apkUrl) || MONARCA_APK_DOWNLOAD_URL,
+            fuente: fuenteLbl
+        };
+    }
+
+    try {
+        if (entorno.esNativo) {
+            try {
+                encontrado = await intentarReleaseGitHub();
+            } catch(eRel) {
+                encontrado = await intentarVersionJson(MONARCA_GITHUB_PAGES_VERSION_URL, 'Servidor Web GitHub Pages');
+            }
+        } else {
+            var puedeLocalHttp = (typeof location !== 'undefined' && location.protocol && location.protocol.indexOf('http') === 0);
+            if (puedeLocalHttp) {
+                try {
+                    encontrado = await intentarVersionJson('./version.json', 'Servidor Web');
+                } catch(eLoc) {}
+            }
+            if (!encontrado) {
+                try {
+                    encontrado = await intentarVersionJson(MONARCA_GITHUB_PAGES_VERSION_URL, 'GitHub Pages');
+                } catch(ePages) {}
+            }
+            if (!encontrado) {
+                encontrado = await intentarReleaseGitHub();
+            }
+        }
+    } catch(errNet) {
+        encontrado = null;
+    }
+
+    st.comprobando = false;
+    st.swPendiente = swPendiente;
+    st.ultimaComprobacionMs = Date.now();
+
+    if (encontrado) {
+        st.versionRemota = encontrado.version;
+        st.fechaRemota = encontrado.fecha;
+        st.resumenRemoto = encontrado.resumen;
+        st.apkUrl = encontrado.apkUrl || MONARCA_APK_DOWNLOAD_URL;
+        st.fuente = encontrado.fuente;
+        var cmpRes = compararVersionesSemver(st.versionLocal, st.versionRemota);
+        st.estado = (cmpRes < 0 || swPendiente) ? 'outdated' : 'uptodate';
+    } else {
+        st.estado = 'offline';
+    }
+
+    aplicarUIEstadoActualizacionHome();
+    return st;
+}
+
+async function aplicarActualizacionWebHome() {
+    try {
+        if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
+            var keys = await caches.keys();
+            await Promise.all(keys.map(function(k) { return caches.delete(k); }));
+        }
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(function(r) { return r.update().catch(function() {}); }));
+        }
+    } catch(e) {}
+    location.reload();
 }
 
 function abrirSeccionHome() {
@@ -1442,6 +1794,9 @@ if (typeof window !== 'undefined') {
     window.iniciarRelojHome = iniciarRelojHome;
     window.detenerRelojHome = detenerRelojHome;
     window.abrirSeccionHome = abrirSeccionHome;
+    window.compararVersionesSemver = compararVersionesSemver;
+    window.verificarActualizacionAppHome = verificarActualizacionAppHome;
+    window.aplicarActualizacionWebHome = aplicarActualizacionWebHome;
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
             detenerRelojHome();

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.71">
+    <link rel="stylesheet" href="style.css?v=10.72">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
         </div>
     </header>
 
-    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.71) -->
+    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.72) -->
     <div id="vista-home" class="tab-content active">
         <div class="home-hero-card">
             <div class="home-hero-top">
@@ -87,12 +87,49 @@
             </div>
 
             <div class="home-base-footer">
-                <span class="home-base-hint">Base inicial de Home · Listo para ir sumando tus bloques diarios</span>
+                <span class="home-base-hint">Panel central · Hora, fecha y estado de tu versión</span>
                 <button type="button" class="home-btn-apps-rapido" onclick="cambiarVista('vista-menu')">
                     <span>Ver Apps</span>
                     <span>→</span>
                 </button>
             </div>
+        </div>
+
+        <div id="home-update-card" class="home-update-card is-checking" aria-live="polite">
+            <div class="home-update-header">
+                <div class="home-update-title-wrap">
+                    <span id="home-update-status-icon" class="home-update-icon">🔄</span>
+                    <div>
+                        <div class="home-update-eyebrow">ESTADO DE LA APLICACIÓN</div>
+                        <h3 id="home-update-titulo" class="home-update-titulo">Comprobando versión...</h3>
+                    </div>
+                </div>
+                <button type="button" id="btn-home-check-update" class="home-update-check-btn" onclick="verificarActualizacionAppHome(true)" title="Volver a comprobar ahora">
+                    <span>🔄</span>
+                    <span>Comprobar</span>
+                </button>
+            </div>
+
+            <div class="home-update-metrics">
+                <div class="home-update-metric">
+                    <span class="home-metric-lbl">En tu dispositivo</span>
+                    <span id="home-ver-local" class="home-metric-val">v10.72</span>
+                </div>
+                <div class="home-update-metric">
+                    <span class="home-metric-lbl">Última publicada</span>
+                    <span id="home-ver-remota" class="home-metric-val">Verificando...</span>
+                </div>
+                <div class="home-update-metric">
+                    <span class="home-metric-lbl">Entorno</span>
+                    <span id="home-ver-entorno" class="home-metric-val">Detectando...</span>
+                </div>
+            </div>
+
+            <div id="home-update-detalle-banner" class="home-update-detalle-banner">
+                Consultando si hay cambios nuevos pendientes por descargar...
+            </div>
+
+            <div id="home-update-acciones" class="home-update-acciones" style="display: none;"></div>
         </div>
     </div>
 
@@ -6542,26 +6579,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.71"></script>
-    <script src="js/perfil.js?v=10.71"></script>
-    <script src="js/progresion.js?v=10.71"></script>
-    <script src="js/estado-personal.js?v=10.71"></script>
-    <script src="js/finanzas.js?v=10.71"></script>
-    <script src="js/ideas.js?v=10.71"></script>
-    <script src="js/dinamicas.js?v=10.71"></script>
-    <script src="js/calendario.js?v=10.71"></script>
-    <script src="js/inventario.js?v=10.71"></script>
-    <script src="js/reproductor.js?v=10.71"></script>
-    <script src="js/jarvis-voz.js?v=10.71"></script>
+    <script src="js/core.js?v=10.72"></script>
+    <script src="js/perfil.js?v=10.72"></script>
+    <script src="js/progresion.js?v=10.72"></script>
+    <script src="js/estado-personal.js?v=10.72"></script>
+    <script src="js/finanzas.js?v=10.72"></script>
+    <script src="js/ideas.js?v=10.72"></script>
+    <script src="js/dinamicas.js?v=10.72"></script>
+    <script src="js/calendario.js?v=10.72"></script>
+    <script src="js/inventario.js?v=10.72"></script>
+    <script src="js/reproductor.js?v=10.72"></script>
+    <script src="js/jarvis-voz.js?v=10.72"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.71"></script>
+    <script type="module" src="js/firebase-config.js?v=10.72"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.71')
+                navigator.serviceWorker.register('sw.js?v=10.72')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
