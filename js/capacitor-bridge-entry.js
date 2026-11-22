@@ -21,4 +21,11 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         console.warn("[Monarca Native] MonarcaMedia register error:", e);
     }
+
+    try {
+        window.Capacitor.Plugins.MonarcaLocalBridge = registerPlugin('MonarcaLocalBridge');
+        console.log("[Monarca Native] Plugin MonarcaLocalBridge registrado con éxito.");
+    } catch (e) {
+        console.warn("[Monarca Native] MonarcaLocalBridge register error:", e);
+    }
 }

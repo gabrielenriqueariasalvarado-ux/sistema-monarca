@@ -53,10 +53,88 @@ let unsubscribeAutoPCSnapshot = null;
 const CLIENT_INSTANCE_ID = 'CLI-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 let debounceSaveTimer = null;
 let ultimoTimestampGuardado = 0;
+let _ultimoSnapshotFirma = '';
+let _ultimoSnapshotRemotoMs = 0;
 let _cambiosPendientesNube = false;
 let _guardadoEnCurso = false;
 let _reintentarGuardadoAlTerminar = false;
 let _ultimoBackupRemotoTs = 0;
+let _reintentoCloudTimer = null;
+let _reintentoCloudIntento = 0;
+let _ultimoWakeRefreshMs = 0;
+let _cuotaAgotadaHastaMs = 0;
+
+function _esErrorCuotaFirestore(err) {
+    if (!err) return false;
+    var code = String(err.code || '').toLowerCase();
+    var msg = String(err.message || err || '').toLowerCase();
+    return code.indexOf('resource-exhausted') !== -1 || msg.indexOf('quota') !== -1 || msg.indexOf('429') !== -1;
+}
+
+function _limpiarReintentoGuardadoNube() {
+    if (_reintentoCloudTimer) {
+        clearTimeout(_reintentoCloudTimer);
+        _reintentoCloudTimer = null;
+    }
+}
+
+function _programarReintentoGuardadoNube(delayOverrideMs) {
+    _limpiarReintentoGuardadoNube();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    var delays = [5000, 15000, 45000, 120000];
+    var waitMs = typeof delayOverrideMs === 'number' && delayOverrideMs > 0
+        ? delayOverrideMs
+        : delays[Math.min(_reintentoCloudIntento, delays.length - 1)];
+    _reintentoCloudIntento++;
+    _reintentoCloudTimer = setTimeout(function() {
+        _reintentoCloudTimer = null;
+        if (_cambiosPendientesNube && window.MonarcaCloud && window.MonarcaCloud.conectado && !bloqueoEscrituraInicial) {
+            window.MonarcaCloud._ejecutarGuardadoNube();
+        }
+    }, waitMs);
+}
+
+function _limpiarMapaAutoPCPorTombstones(estado) {
+    if (!estado || !estado._eliminados || typeof window.AUTOPC_SOLICITUDES_MAP !== 'object' || !window.AUTOPC_SOLICITUDES_MAP) {
+        return;
+    }
+    var elim = Array.isArray(estado._eliminados.ideas) ? estado._eliminados.ideas : [];
+    for (var idx = 0; idx < elim.length; idx++) {
+        delete window.AUTOPC_SOLICITUDES_MAP[String(elim[idx])];
+    }
+}
+
+function _extraerContenidoComparableFirestore(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    try {
+        var copia = Object.assign({}, obj);
+        delete copia._ultimaActualizacion;
+        delete copia._fechaActualizacion;
+        delete copia._ultimoEditorClientId;
+        delete copia._migradoDesde;
+        delete copia._backupTimestamp;
+        delete copia._backupVersion;
+        return JSON.stringify(copia);
+    } catch (e) {
+        return '';
+    }
+}
+
+function _tocarSenalAutoPC(accion) {
+    try {
+        if (!db) return Promise.resolve(false);
+        var refSig = doc(db, FIRESTORE_COL_AUTOPC, '_signal');
+        var ahoraMs = Date.now();
+        return setDoc(refSig, {
+            docType: 'signal',
+            rev: ahoraMs,
+            action: String(accion || 'update'),
+            updatedAt: ahoraMs
+        }, { merge: true }).catch(function() { return false; });
+    } catch (e) {
+        return Promise.resolve(false);
+    }
+}
 
 // Bloqueo de arranque: IMPIDE que un dispositivo sobreescriba la nube
 // antes de descargar y fusionar los datos más recientes existentes en Firestore.
@@ -141,12 +219,12 @@ function guardarCopiaSeguridadLocal(datos, motivo) {
  */
 function deduplicarColeccionQuests(quests, tombstones) {
     if (!Array.isArray(quests)) return [];
-    var tombSet = new Set(Array.isArray(tombstones) ? tombstones : []);
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones.map(String) : []);
     var vistos = new Map();
     var resultado = [];
 
     quests.forEach(function(q) {
-        if (!q || !q.id || tombSet.has(q.id)) return;
+        if (!q || !q.id || tombSet.has(String(q.id))) return;
         var clave = (q.titulo || '').trim().toLowerCase();
         if (!clave) {
             resultado.push(q);
@@ -163,17 +241,22 @@ function deduplicarColeccionQuests(quests, tombstones) {
                 var idx = resultado.indexOf(existente);
                 if (idx !== -1) resultado[idx] = q;
                 vistos.set(clave, q);
-                if (tombSet) tombSet.add(existente.id);
+                if (tombSet && existente.id) tombSet.add(String(existente.id));
             } else {
-                if (tombSet) tombSet.add(q.id);
+                if (tombSet && q.id) tombSet.add(String(q.id));
             }
         }
     });
 
     // Registrar los IDs de duplicados purgados en tombstones para que no vuelvan desde la nube
     if (Array.isArray(tombstones) && tombSet) {
+        var existingTombStr = new Set(tombstones.map(String));
         tombSet.forEach(function(id) {
-            if (!tombstones.includes(id)) tombstones.push(id);
+            var idStr = String(id);
+            if (!existingTombStr.has(idStr)) {
+                tombstones.push(idStr);
+                existingTombStr.add(idStr);
+            }
         });
     }
 
@@ -221,13 +304,13 @@ function obtenerTimestampNumerico(item) {
  */
 function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
     if (!Array.isArray(lista)) return [];
-    var tombSet = new Set(Array.isArray(tombstones) ? tombstones : []);
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones.map(String) : []);
     var campo = campoNombre || 'nombre';
     var vistos = new Map();
     var resultado = [];
 
     lista.forEach(function(item) {
-        if (!item || !item.id || tombSet.has(item.id)) return;
+        if (!item || !item.id || tombSet.has(String(item.id))) return;
         // Respetar ítems duplicados confirmados intencionalmente por el usuario
         if (item.permitirDuplicadoNombre === true) {
             resultado.push(item);
@@ -252,16 +335,21 @@ function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
                 var idx = resultado.indexOf(existente);
                 if (idx !== -1) resultado[idx] = item;
                 vistos.set(valor, item);
-                if (tombSet) tombSet.add(existente.id);
+                if (tombSet && existente.id) tombSet.add(String(existente.id));
             } else {
-                if (tombSet) tombSet.add(item.id);
+                if (tombSet && item.id) tombSet.add(String(item.id));
             }
         }
     });
 
     if (Array.isArray(tombstones) && tombSet) {
+        var existingNameTomb = new Set(tombstones.map(String));
         tombSet.forEach(function(id) {
-            if (!tombstones.includes(id)) tombstones.push(id);
+            var idStr = String(id);
+            if (!existingNameTomb.has(idStr)) {
+                tombstones.push(idStr);
+                existingNameTomb.add(idStr);
+            }
         });
     }
 
@@ -274,13 +362,16 @@ function deduplicarColeccionPorNombre(lista, tombstones, campoNombre) {
  */
 function fusionarColeccionPorId(listaLocal, listaRemota, tombstones) {
     var resultadoMap = {};
-    var tombSet = new Set(Array.isArray(tombstones) ? tombstones : []);
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones.map(String) : []);
 
     // 1. Agregar elementos remotos (siempre que no hayan sido explícitamente eliminados)
     if (Array.isArray(listaRemota)) {
         listaRemota.forEach(function(item) {
-            if (item && item.id && !tombSet.has(item.id)) {
-                resultadoMap[item.id] = JSON.parse(JSON.stringify(item));
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                }
             }
         });
     }
@@ -288,17 +379,20 @@ function fusionarColeccionPorId(listaLocal, listaRemota, tombstones) {
     // 2. Fusionar elementos locales
     if (Array.isArray(listaLocal)) {
         listaLocal.forEach(function(item) {
-            if (item && item.id && !tombSet.has(item.id)) {
-                if (!resultadoMap[item.id]) {
-                    // Elemento nuevo local que la nube no tenía aún: CONSERVAR
-                    resultadoMap[item.id] = JSON.parse(JSON.stringify(item));
-                } else {
-                    // Elemento existe en ambos: quedarse con la versión más reciente según timestamp real
-                    var itemRemoto = resultadoMap[item.id];
-                    var tsLocal = obtenerTimestampNumerico(item);
-                    var tsRemoto = obtenerTimestampNumerico(itemRemoto);
-                    if (tsLocal > tsRemoto) {
-                        resultadoMap[item.id] = JSON.parse(JSON.stringify(item));
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    if (!resultadoMap[keyId]) {
+                        // Elemento nuevo local que la nube no tenía aún: CONSERVAR
+                        resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                    } else {
+                        // Elemento existe en ambos: quedarse con la versión más reciente según timestamp real
+                        var itemRemoto = resultadoMap[keyId];
+                        var tsLocal = obtenerTimestampNumerico(item);
+                        var tsRemoto = obtenerTimestampNumerico(itemRemoto);
+                        if (tsLocal > tsRemoto) {
+                            resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                        }
                     }
                 }
             }
@@ -605,12 +699,23 @@ function refrescarVistasTrasSync() {
 /**
  * Objeto global de gestión Cloud para la aplicación
  */
+let _initRetryTimer = null;
+
 window.MonarcaCloud = {
     conectado: false,
     enSincronizacion: false,
     modoOffline: !navigator.onLine,
     ultimoError: null,
     bloqueoEscrituraInicial: true,
+    _internals: {
+        fusionarColeccionPorId: fusionarColeccionPorId,
+        fusionarEstadosInteligente: fusionarEstadosInteligente,
+        deduplicarColeccionQuests: deduplicarColeccionQuests,
+        deduplicarColeccionPorNombre: deduplicarColeccionPorNombre,
+        getUltimoTimestampGuardado: function() { return ultimoTimestampGuardado; },
+        setUltimoTimestampGuardado: function(v) { ultimoTimestampGuardado = Number(v) || 0; },
+        setUltimoSnapshotFirma: function(v) { _ultimoSnapshotFirma = String(v || ''); }
+    },
 
     /**
      * Actualiza el badge visual en la interfaz gráfica
@@ -678,8 +783,9 @@ window.MonarcaCloud = {
             var estadoVivo = window.APP_STATE || stateFallback;
             if (!estadoVivo) return false;
 
-            var now = Date.now();
-            ultimoTimestampGuardado = Math.max(ultimoTimestampGuardado, now);
+            var now = Math.max(Date.now(), ultimoTimestampGuardado + 1);
+            ultimoTimestampGuardado = now;
+            _ultimoSnapshotFirma = String(now) + '|' + CLIENT_INSTANCE_ID;
             estadoVivo._ultimaActualizacion = now;
             estadoVivo._ultimoEditorClientId = CLIENT_INSTANCE_ID;
 
@@ -700,6 +806,9 @@ window.MonarcaCloud = {
             // Escribir datos principales primero para evitar ventana de pérdida al cerrar app
             await setDoc(docRef, datosAGuardar, { merge: true });
             exito = true;
+            _reintentoCloudIntento = 0;
+            _cuotaAgotadaHastaMs = 0;
+            _limpiarReintentoGuardadoNube();
 
             if (!_reintentarGuardadoAlTerminar && !debounceSaveTimer) {
                 _cambiosPendientesNube = false;
@@ -723,8 +832,13 @@ window.MonarcaCloud = {
             } else if (err.code === 'invalid-argument' || (err.message && /size|bytes|exceeds|maximum/i.test(err.message))) {
                 this.actualizarBadgeUI('error', 'Límite nube 1 MiB');
                 console.error("⚠️ El documento supera el límite de 1 MiB permitido por Firestore.");
+            } else if (_esErrorCuotaFirestore(err)) {
+                _cuotaAgotadaHastaMs = Date.now() + 60000;
+                this.actualizarBadgeUI('offline', 'Cuota nube · Local/Wi-Fi');
+                _programarReintentoGuardadoNube(60000);
             } else {
-                this.actualizarBadgeUI('offline', 'Respaldo Local Activo');
+                this.actualizarBadgeUI('offline', 'Respaldo Local Activo (reintentando)');
+                _programarReintentoGuardadoNube();
             }
         } finally {
             _guardadoEnCurso = false;
@@ -1070,6 +1184,7 @@ window.MonarcaCloud = {
         }
 
         await setDoc(refSolicitud, payload);
+        _tocarSenalAutoPC('enqueue');
         return payload;
     },
 
@@ -1108,6 +1223,7 @@ window.MonarcaCloud = {
         if (!db || !ideaId) return false;
         var refSolicitud = doc(db, FIRESTORE_COL_AUTOPC, String(ideaId));
         await deleteDoc(refSolicitud);
+        _tocarSenalAutoPC('cancel');
         return true;
     },
 
@@ -1175,6 +1291,10 @@ async function inicializarFirebase() {
         var snapInicial = null;
         try {
             snapInicial = await getDoc(docRef);
+            if (_initRetryTimer) {
+                clearTimeout(_initRetryTimer);
+                _initRetryTimer = null;
+            }
         } catch (fetchErr) {
             console.warn("Aviso al consultar documento en Firestore:", fetchErr);
             if (fetchErr.code === 'permission-denied') {
@@ -1184,9 +1304,20 @@ async function inicializarFirebase() {
                 window.MonarcaCloud.bloqueoEscrituraInicial = false;
                 return;
             }
-            // Fallo temporal de red: no asumir que la nube está vacía; mantener pendiente y reintentar al reconectar
+            // Fallo temporal o cuota 429: no asumir nube vacía; programar reconexión automática
             window.MonarcaCloud.conectado = false;
-            window.MonarcaCloud.actualizarBadgeUI('offline', 'Offline (pendiente nube)');
+            var esCuotaBoot = _esErrorCuotaFirestore(fetchErr);
+            window.MonarcaCloud.actualizarBadgeUI(
+                'offline',
+                esCuotaBoot ? 'Cuota nube 429 · Local/Wi-Fi' : 'Offline (reintentando nube)'
+            );
+            if (!_initRetryTimer && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+                var bootDelayMs = esCuotaBoot ? 60000 : 12000;
+                _initRetryTimer = setTimeout(function() {
+                    _initRetryTimer = null;
+                    if (!sincronizacionInicialCompletada) inicializarFirebase();
+                }, bootDelayMs);
+            }
             return;
         }
 
@@ -1254,23 +1385,39 @@ async function inicializarFirebase() {
                     if (typeof inicializarSistema === 'function') inicializarSistema(true);
                     if (typeof cargarInventario === 'function') cargarInventario();
                     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+                    _limpiarMapaAutoPCPorTombstones(window.APP_STATE);
                     refrescarVistasTrasSync();
                 }
             } finally {
                 window._isSyncingFromRemote = false;
             }
 
-            // Sincronizar el estado fusionado en la nube para que ambos dispositivos queden 100% al día
-            var tsGuardar = Math.max(estadoFusionado._ultimaActualizacion || 0, Date.now());
-            ultimoTimestampGuardado = tsGuardar;
-            estadoFusionado._ultimaActualizacion = tsGuardar;
-            estadoFusionado._ultimoEditorClientId = CLIENT_INSTANCE_ID;
-
+            // Sincronizar el estado fusionado SOLO si hubo cambios locales reales o divergencia con remoto
             var datosAGuardar = window.MonarcaCloud.sanitizarParaFirestore(estadoFusionado);
-            datosAGuardar._ultimaActualizacion = tsGuardar;
-            datosAGuardar._fechaActualizacion = new Date(tsGuardar).toISOString();
-            datosAGuardar._ultimoEditorClientId = CLIENT_INSTANCE_ID;
-            await setDoc(docRef, datosAGuardar, { merge: true });
+            var sigRemotaInicial = (typeof datosRemotos !== 'undefined' && datosRemotos)
+                ? _extraerContenidoComparableFirestore(window.MonarcaCloud.sanitizarParaFirestore(datosRemotos))
+                : '';
+            var sigLocalFusionada = _extraerContenidoComparableFirestore(datosAGuardar);
+            var remotoTsIni = Number(datosRemotos && datosRemotos._ultimaActualizacion) || 0;
+            var remotoEdIni = String((datosRemotos && datosRemotos._ultimoEditorClientId) || '');
+            _ultimoSnapshotRemotoMs = Date.now();
+
+            if (habiaPendienteLocal || _cambiosPendientesNube || !sigRemotaInicial || sigLocalFusionada !== sigRemotaInicial) {
+                var tsGuardar = Math.max(remotoTsIni + 1, Date.now(), ultimoTimestampGuardado + 1);
+                ultimoTimestampGuardado = tsGuardar;
+                _ultimoSnapshotFirma = String(tsGuardar) + '|' + CLIENT_INSTANCE_ID;
+                estadoFusionado._ultimaActualizacion = tsGuardar;
+                estadoFusionado._ultimoEditorClientId = CLIENT_INSTANCE_ID;
+                datosAGuardar._ultimaActualizacion = tsGuardar;
+                datosAGuardar._fechaActualizacion = new Date(tsGuardar).toISOString();
+                datosAGuardar._ultimoEditorClientId = CLIENT_INSTANCE_ID;
+                await setDoc(docRef, datosAGuardar, { merge: true });
+            } else {
+                ultimoTimestampGuardado = Math.max(ultimoTimestampGuardado, remotoTsIni);
+                _ultimoSnapshotFirma = String(remotoTsIni) + '|' + remotoEdIni;
+                estadoFusionado._ultimaActualizacion = ultimoTimestampGuardado;
+                estadoFusionado._ultimoEditorClientId = remotoEdIni;
+            }
 
             if (!_cambiosPendientesNube) {
                 try { localStorage.removeItem('sistema_monarca_sync_pendiente'); } catch (ig) {}
@@ -1306,97 +1453,140 @@ async function inicializarFirebase() {
             unsubscribeSnapshot();
         }
 
+        function _aplicarSnapshotRemotoEnVivo(data) {
+            if (!data || typeof data !== 'object') return false;
+            var remotoTs = Number(data._ultimaActualizacion) || 0;
+            var editorId = String(data._ultimoEditorClientId || '');
+            var firmaSnap = String(remotoTs) + '|' + editorId;
+
+            // Ignorar eco proveniente de este mismo cliente si no hay cambios más nuevos
+            if (editorId && editorId === CLIENT_INSTANCE_ID && remotoTs <= ultimoTimestampGuardado) {
+                return false;
+            }
+            if (firmaSnap && firmaSnap === _ultimoSnapshotFirma) {
+                return false;
+            }
+            // Aceptar cualquier actualización de otro cliente (aunque su reloj esté desfasado respecto al local)
+            var esOtroCliente = Boolean(editorId && editorId !== CLIENT_INSTANCE_ID);
+            if (!(remotoTs > ultimoTimestampGuardado || esOtroCliente || !_ultimoSnapshotFirma)) {
+                return false;
+            }
+
+            console.log("🔄 Actualización en tiempo real recibida desde Firestore.");
+            var conservarPendiente = _cambiosPendientesNube;
+            ultimoTimestampGuardado = Math.max(ultimoTimestampGuardado, remotoTs);
+            _ultimoSnapshotFirma = firmaSnap;
+            _ultimoSnapshotRemotoMs = Date.now();
+            window._isSyncingFromRemote = true;
+
+            try {
+                // Guardar copia preventiva antes de aplicar snapshot remoto
+                if (window.APP_STATE) {
+                    guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
+                }
+
+                // Smart Merge en caliente para no perder ediciones concurrentes locales
+                var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
+
+                delete fusionEnVivo._migradoDesde;
+                delete fusionEnVivo._backupTimestamp;
+                fusionEnVivo.v2_clean_defaults = true;
+                fusionEnVivo.v3_clean_rutinas = true;
+
+                if (typeof MonarcaDB !== 'undefined') {
+                    var vivoStr = JSON.stringify(fusionEnVivo);
+                    if (typeof MonarcaDB.safeSetRaw === 'function') {
+                        MonarcaDB.safeSetRaw('sistema_monarca_db_v1', vivoStr);
+                    } else {
+                        localStorage.setItem('sistema_monarca_db_v1', vivoStr);
+                    }
+                    window.APP_STATE = fusionEnVivo;
+
+                    if (typeof sanitizarQuestsDiarios === 'function') {
+                        sanitizarQuestsDiarios();
+                    }
+
+                    // Refrescar UI suavemente
+                    if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
+                        renderizarJugador(window.APP_STATE.jugador);
+                    }
+                    if (typeof cargarEstadoPersonal === 'function') {
+                        cargarEstadoPersonal();
+                    }
+                    if (typeof renderizarCalendario === 'function') {
+                        renderizarCalendario();
+                    }
+                    if (typeof renderizarAgendaPersonas === 'function') {
+                        renderizarAgendaPersonas();
+                    }
+                    if (typeof actualizarBadgeNotificaciones === 'function') {
+                        actualizarBadgeNotificaciones();
+                    }
+                    if (typeof programarAlarmasCalendarioNativas === 'function') {
+                        programarAlarmasCalendarioNativas();
+                    }
+                    if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
+                        renderizarMisiones(window.APP_STATE.misiones);
+                    }
+                    if (typeof renderizarQuestsDiarios === 'function') {
+                        renderizarQuestsDiarios();
+                    }
+                    if (typeof programarAlarmasNativasQuests === 'function') {
+                        programarAlarmasNativasQuests();
+                    }
+                    _limpiarMapaAutoPCPorTombstones(window.APP_STATE);
+                    refrescarVistasTrasSync();
+                }
+            } catch (e) {
+                console.error("Error aplicando snapshot remoto:", e);
+            } finally {
+                window._isSyncingFromRemote = false;
+            }
+
+            if (conservarPendiente) {
+                _cambiosPendientesNube = true;
+                if (!_reintentoCloudTimer && Date.now() >= _cuotaAgotadaHastaMs) {
+                    window.MonarcaCloud.guardarEnNube(window.APP_STATE);
+                }
+            } else {
+                window.MonarcaCloud.actualizarBadgeUI('synced');
+            }
+            return true;
+        }
+
+        window.MonarcaCloud._aplicarSnapshotRemotoEnVivo = _aplicarSnapshotRemotoEnVivo;
+        window.MonarcaCloud.refrescarEnPrimerPlano = async function(forzar) {
+            if (!db || !docRef || !window.MonarcaCloud.conectado || bloqueoEscrituraInicial) return false;
+            var ahora = Date.now();
+            if (!forzar && (ahora - _ultimoWakeRefreshMs < 10000 || ahora - _ultimoSnapshotRemotoMs < 10000)) {
+                return false;
+            }
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+            _ultimoWakeRefreshMs = ahora;
+            try {
+                var snap = await getDoc(docRef);
+                if (snap && snap.exists()) {
+                    _aplicarSnapshotRemotoEnVivo(snap.data());
+                }
+                if (_cambiosPendientesNube && !_guardadoEnCurso) {
+                    window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+                }
+                if (typeof window.procesarPendientesOfflineAutoPC === 'function') {
+                    window.procesarPendientesOfflineAutoPC();
+                }
+                return true;
+            } catch (errWake) {
+                return false;
+            }
+        };
+
         unsubscribeSnapshot = onSnapshot(docRef, function(docSnap) {
             if (!docSnap.exists()) return;
             // Ignorar confirmaciones locales pendientes para evitar ecos falsos
             if (docSnap.metadata && docSnap.metadata.hasPendingWrites) {
                 return;
             }
-
-            var data = docSnap.data();
-            var remotoTs = data._ultimaActualizacion || 0;
-
-            // Ignorar eco proveniente de este mismo cliente si no hay cambios más nuevos
-            if (data._ultimoEditorClientId === CLIENT_INSTANCE_ID && remotoTs <= ultimoTimestampGuardado) {
-                return;
-            }
-
-            if (remotoTs > ultimoTimestampGuardado) {
-                console.log("🔄 Actualización en tiempo real recibida desde Firestore.");
-                var conservarPendiente = _cambiosPendientesNube;
-                ultimoTimestampGuardado = remotoTs;
-                window._isSyncingFromRemote = true;
-
-                try {
-                    // Guardar copia preventiva antes de aplicar snapshot remoto
-                    if (window.APP_STATE) {
-                        guardarCopiaSeguridadLocal(window.APP_STATE, "Previo a actualización remota en vivo");
-                    }
-
-                    // Smart Merge en caliente para no perder ediciones concurrentes locales
-                    var fusionEnVivo = fusionarEstadosInteligente(window.APP_STATE, data);
-
-                    delete fusionEnVivo._migradoDesde;
-                    delete fusionEnVivo._backupTimestamp;
-                    fusionEnVivo.v2_clean_defaults = true;
-                    fusionEnVivo.v3_clean_rutinas = true;
-
-                    if (typeof MonarcaDB !== 'undefined') {
-                        var vivoStr = JSON.stringify(fusionEnVivo);
-                        if (typeof MonarcaDB.safeSetRaw === 'function') {
-                            MonarcaDB.safeSetRaw('sistema_monarca_db_v1', vivoStr);
-                        } else {
-                            localStorage.setItem('sistema_monarca_db_v1', vivoStr);
-                        }
-                        window.APP_STATE = fusionEnVivo;
-
-                        if (typeof sanitizarQuestsDiarios === 'function') {
-                            sanitizarQuestsDiarios();
-                        }
-
-                        // Refrescar UI suavemente
-                        if (typeof renderizarJugador === 'function' && window.APP_STATE.jugador) {
-                            renderizarJugador(window.APP_STATE.jugador);
-                        }
-                        if (typeof cargarEstadoPersonal === 'function') {
-                            cargarEstadoPersonal();
-                        }
-                        if (typeof renderizarCalendario === 'function') {
-                            renderizarCalendario();
-                        }
-                        if (typeof renderizarAgendaPersonas === 'function') {
-                            renderizarAgendaPersonas();
-                        }
-                        if (typeof actualizarBadgeNotificaciones === 'function') {
-                            actualizarBadgeNotificaciones();
-                        }
-                        if (typeof programarAlarmasCalendarioNativas === 'function') {
-                            programarAlarmasCalendarioNativas();
-                        }
-                        if (typeof renderizarMisiones === 'function' && window.APP_STATE.misiones) {
-                            renderizarMisiones(window.APP_STATE.misiones);
-                        }
-                        if (typeof renderizarQuestsDiarios === 'function') {
-                            renderizarQuestsDiarios();
-                        }
-                        if (typeof programarAlarmasNativasQuests === 'function') {
-                            programarAlarmasNativasQuests();
-                        }
-                        refrescarVistasTrasSync();
-                    }
-                } catch (e) {
-                    console.error("Error aplicando snapshot remoto:", e);
-                } finally {
-                    window._isSyncingFromRemote = false;
-                }
-
-                if (conservarPendiente) {
-                    _cambiosPendientesNube = true;
-                    window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
-                } else {
-                    window.MonarcaCloud.actualizarBadgeUI('synced');
-                }
-            }
+            _aplicarSnapshotRemotoEnVivo(docSnap.data());
         }, function(errorSnap) {
             console.warn("Aviso en el flujo en vivo de Firestore:", errorSnap);
             if (errorSnap.code === 'permission-denied') {
@@ -1420,10 +1610,19 @@ async function inicializarFirebase() {
 window.addEventListener('online', function() {
     console.log("🌐 Conexión de red restablecida. Reconectando Firestore...");
     window.MonarcaCloud.modoOffline = false;
+    _cuotaAgotadaHastaMs = 0;
+    _reintentoCloudIntento = 0;
     window.MonarcaCloud.actualizarBadgeUI('syncing', 'Reconectando nube...');
     if (window.MonarcaCloud.conectado && window.APP_STATE) {
         if (!bloqueoEscrituraInicial) {
-            window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+            if (_cambiosPendientesNube) {
+                window.MonarcaCloud.guardarEnNube(window.APP_STATE, true);
+            } else if (typeof window.MonarcaCloud.refrescarEnPrimerPlano === 'function') {
+                window.MonarcaCloud.refrescarEnPrimerPlano(true);
+            }
+        }
+        if (typeof window.procesarPendientesOfflineAutoPC === 'function') {
+            setTimeout(function() { window.procesarPendientesOfflineAutoPC(); }, 150);
         }
     } else {
         inicializarFirebase();
@@ -1437,8 +1636,26 @@ window.addEventListener('offline', function() {
 });
 
 document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'hidden' && window.MonarcaCloud) {
+    if (!window.MonarcaCloud) return;
+    if (document.visibilityState === 'hidden') {
         window.MonarcaCloud.flushGuardadoNube();
+    } else if (document.visibilityState === 'visible') {
+        if (!sincronizacionInicialCompletada && Date.now() - _ultimoWakeRefreshMs >= 10000) {
+            _ultimoWakeRefreshMs = Date.now();
+            inicializarFirebase();
+        } else if (typeof window.MonarcaCloud.refrescarEnPrimerPlano === 'function') {
+            window.MonarcaCloud.refrescarEnPrimerPlano(false);
+        }
+    }
+});
+
+window.addEventListener('focus', function() {
+    if (!window.MonarcaCloud) return;
+    if (!sincronizacionInicialCompletada && Date.now() - _ultimoWakeRefreshMs >= 10000) {
+        _ultimoWakeRefreshMs = Date.now();
+        inicializarFirebase();
+    } else if (typeof window.MonarcaCloud.refrescarEnPrimerPlano === 'function') {
+        window.MonarcaCloud.refrescarEnPrimerPlano(false);
     }
 });
 

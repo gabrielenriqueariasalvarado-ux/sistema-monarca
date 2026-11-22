@@ -1468,6 +1468,296 @@ function _mostrarModalCopiaManualAutoPC(jsonStr, count) {
     setTimeout(function() { try { ta.focus(); ta.select(); } catch (ig) {} }, 20);
 }
 
+var MONARCA_AUTOPC_LAN_URL_KEY = 'monarca_autopc_lan_url';
+
+function _esMovilOAPKAutoPC() {
+    try {
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+            return true;
+        }
+    } catch (e) {}
+    return typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+}
+
+function _obtenerPluginPuenteLocalAutoPC() {
+    try {
+        var p = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaLocalBridge;
+        if (p && typeof p.postToAutoPC === 'function' && typeof p.discoverAutoPC === 'function') {
+            return p;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function _normalizarUrlPuenteAutoPC(raw) {
+    var clean = String(raw || '').trim().replace(/\/+$/, '');
+    if (!clean) return '';
+    if (!/^https?:\/\//i.test(clean)) {
+        clean = 'http://' + clean;
+    }
+    if (/^https?:\/\/[^:/]+$/i.test(clean)) {
+        clean += ':47621';
+    }
+    return clean;
+}
+
+function _guardarUrlPuenteAutoPC(url) {
+    var norm = _normalizarUrlPuenteAutoPC(url);
+    if (!norm || norm.indexOf('127.0.0.1') !== -1 || norm.indexOf('localhost') !== -1) return;
+    try { localStorage.setItem(MONARCA_AUTOPC_LAN_URL_KEY, norm); } catch (ig) {}
+}
+
+function _obtenerCandidatosPuenteAutoPC(bridgeBaseUrl) {
+    var lista = [];
+    var vistos = {};
+    function agregar(val) {
+        var norm = _normalizarUrlPuenteAutoPC(val);
+        if (norm && !vistos[norm]) {
+            vistos[norm] = true;
+            lista.push(norm);
+        }
+    }
+    if (bridgeBaseUrl) agregar(bridgeBaseUrl);
+    if (window.MONARCA_AUTOPC_BRIDGE_URL) agregar(window.MONARCA_AUTOPC_BRIDGE_URL);
+    try {
+        var saved = localStorage.getItem(MONARCA_AUTOPC_LAN_URL_KEY);
+        if (saved) agregar(saved);
+    } catch (ig) {}
+    if (AUTOPC_TELEMETRIA_PC && Array.isArray(AUTOPC_TELEMETRIA_PC.lanBridgeUrls)) {
+        AUTOPC_TELEMETRIA_PC.lanBridgeUrls.forEach(agregar);
+    }
+    if (!_esMovilOAPKAutoPC()) {
+        agregar('http://127.0.0.1:47621');
+    }
+    return lista;
+}
+
+async function _fetchBridgeHttpDirect(baseUrl, jsonStr, timeoutMs) {
+    try {
+        var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+        var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, timeoutMs || 1500) : null;
+        var resp = await fetch(baseUrl + '/emily-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: jsonStr,
+            signal: ctrl ? ctrl.signal : undefined
+        });
+        if (timer) clearTimeout(timer);
+        if (resp && resp.ok) {
+            var resJson = await resp.json().catch(function() { return {}; });
+            if (resJson && resJson.ok) return true;
+        }
+    } catch (e) {}
+    return false;
+}
+
+async function _enviarViaPuenteDirectoAutoPC(jsonStr, bridgeBaseUrl) {
+    var plugin = _obtenerPluginPuenteLocalAutoPC();
+    var candidatos = _obtenerCandidatosPuenteAutoPC(bridgeBaseUrl);
+    var esMovil = _esMovilOAPKAutoPC();
+
+    if (plugin) {
+        for (var i = 0; i < candidatos.length; i++) {
+            try {
+                var rCand = await plugin.postToAutoPC({
+                    url: candidatos[i],
+                    payload: jsonStr,
+                    timeoutMs: 2200
+                });
+                if (rCand && rCand.ok) {
+                    _guardarUrlPuenteAutoPC(rCand.url || candidatos[i]);
+                    return { ok: true, mode: 'lan_native', url: rCand.url || candidatos[i] };
+                }
+            } catch (igCand) {}
+        }
+
+        try {
+            var disc = await plugin.discoverAutoPC({
+                port: 47622,
+                timeoutMs: 1400,
+                candidateUrls: candidatos
+            });
+            if (disc && disc.found) {
+                var urlsDisc = [];
+                if (disc.primaryUrl) urlsDisc.push(disc.primaryUrl);
+                if (Array.isArray(disc.urls)) {
+                    disc.urls.forEach(function(u) {
+                        if (u && urlsDisc.indexOf(u) === -1) urlsDisc.push(u);
+                    });
+                }
+                for (var j = 0; j < urlsDisc.length; j++) {
+                    var rDisc = await plugin.postToAutoPC({
+                        url: urlsDisc[j],
+                        payload: jsonStr,
+                        timeoutMs: 4500
+                    });
+                    if (rDisc && rDisc.ok) {
+                        _guardarUrlPuenteAutoPC(rDisc.url || urlsDisc[j]);
+                        return { ok: true, mode: 'lan_udp', url: rDisc.url || urlsDisc[j] };
+                    }
+                }
+            }
+        } catch (igDisc) {}
+
+        return { ok: false, mode: 'none' };
+    }
+
+    var pageIsHttps = typeof location !== 'undefined' && location.protocol === 'https:';
+    for (var k = 0; k < candidatos.length; k++) {
+        var candUrl = candidatos[k];
+        var esLoopback = candUrl.indexOf('127.0.0.1') !== -1 || candUrl.indexOf('localhost') !== -1;
+        if (esMovil && esLoopback) continue;
+        if (pageIsHttps && candUrl.indexOf('http://') === 0 && !esLoopback) {
+            continue;
+        }
+        var okHttp = await _fetchBridgeHttpDirect(candUrl, jsonStr, esLoopback ? 950 : 2200);
+        if (okHttp) {
+            if (!esLoopback) _guardarUrlPuenteAutoPC(candUrl);
+            return { ok: true, mode: esLoopback ? 'bridge' : 'bridge_remote', url: candUrl };
+        }
+    }
+
+    return { ok: false, mode: 'none' };
+}
+
+async function _subirLotePendienteNubeAutoPC(batchItems) {
+    var resumen = { uploaded: 0, alreadyInCloud: 0, quota429: false, failed: 0 };
+    if (!Array.isArray(batchItems) || batchItems.length === 0) return resumen;
+    if (!window.MonarcaCloud || typeof window.MonarcaCloud.enviarSolicitudAutoPC !== 'function') {
+        resumen.failed = batchItems.length;
+        return resumen;
+    }
+
+    var cambioLocal = false;
+    for (var idx = 0; idx < batchItems.length; idx++) {
+        var bItem = batchItems[idx];
+        var idea = (APP_STATE && Array.isArray(APP_STATE.ideas))
+            ? APP_STATE.ideas.find(function(i) { return i && String(i.id) === String(bItem.id); })
+            : null;
+        if (!idea || idea.hecha) continue;
+
+        var docRemoto = AUTOPC_SOLICITUDES_MAP[String(idea.id)];
+        if (!idea.autopcPendienteSubida && docRemoto && (docRemoto.status === 'pending' || docRemoto.status === 'running')) {
+            resumen.alreadyInCloud++;
+            continue;
+        }
+
+        try {
+            var promptLimpio = obtenerPromptParaAutoPC(idea);
+            if (idea.tieneImagen && idea.imagenId) {
+                await asegurarImagenIdeaEnNube(idea);
+            }
+            var payload = construirPayloadSolicitudAutoPC(idea, promptLimpio);
+            await window.MonarcaCloud.enviarSolicitudAutoPC(payload);
+            AUTOPC_SOLICITUDES_MAP[String(idea.id)] = Object.assign({
+                status: 'pending',
+                notifConfirmada: false,
+                updatedAt: Date.now()
+            }, payload);
+            idea.textoPrompt = promptLimpio;
+            idea.autopcStatus = 'pending';
+            idea.autopcPendienteSubida = false;
+            idea.imagenPendienteSubida = false;
+            cambioLocal = true;
+            resumen.uploaded++;
+        } catch (err) {
+            resumen.failed++;
+            if (_esErrorCuotaFirebaseAutoPC(err)) {
+                resumen.quota429 = true;
+                break;
+            }
+        }
+    }
+
+    if (cambioLocal) {
+        MonarcaDB.save(APP_STATE);
+        reRenderSiVistaIdeasActiva();
+    }
+    return resumen;
+}
+
+function _mostrarModalConfigIpYRespaldoAutoPC(jsonStr, cantidad, infoEstado) {
+    var existing = document.getElementById('modal-autopc-manual-copy');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'modal-autopc-manual-copy';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.78);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#0f172a;border:1px solid rgba(56,189,248,0.35);border-radius:16px;padding:18px;max-width:440px;width:100%;color:#f8fafc;box-shadow:0 20px 50px rgba(0,0,0,0.6);';
+
+    var h = document.createElement('h4');
+    h.style.cssText = 'margin:0 0 8px 0;font-size:15px;font-weight:800;color:#7dd3fc;';
+    h.textContent = '📡 Configurar conexión directa a Auto-PC (' + cantidad + ')';
+
+    var p = document.createElement('p');
+    p.style.cssText = 'margin:0 0 12px 0;font-size:12.5px;color:#cbd5e1;line-height:1.45;';
+    p.textContent = (infoEstado && infoEstado.quota429)
+        ? 'Firebase alcanzó su límite diario temporal (429) y no se detectó automáticamente tu PC en el Wi-Fi. Si estás en casa, escribe la IP LAN que muestra Auto-PC en Actividad/Logs (ej: 192.168.1.50) para enviar directo sin internet:'
+        : 'No se encontró tu PC automáticamente. Asegúrate de que Auto-PC esté abierto en tu computadora y escribe su IP Wi-Fi (ej: 192.168.1.50:47621):';
+
+    var savedVal = '';
+    try { savedVal = localStorage.getItem(MONARCA_AUTOPC_LAN_URL_KEY) || ''; } catch (ig) {}
+    if (!savedVal && AUTOPC_TELEMETRIA_PC && Array.isArray(AUTOPC_TELEMETRIA_PC.lanBridgeUrls) && AUTOPC_TELEMETRIA_PC.lanBridgeUrls[0]) {
+        savedVal = AUTOPC_TELEMETRIA_PC.lanBridgeUrls[0];
+    }
+
+    var inpIp = document.createElement('input');
+    inpIp.type = 'text';
+    inpIp.placeholder = 'Ej: 192.168.1.50:47621';
+    inpIp.value = savedVal;
+    inpIp.style.cssText = 'width:100%;box-sizing:border-box;background:#020617;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:10px;';
+
+    var row1 = document.createElement('div');
+    row1.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;flex-wrap:wrap;';
+
+    var btnProbar = document.createElement('button');
+    btnProbar.type = 'button';
+    btnProbar.textContent = '📡 Guardar y Reenviar a PC';
+    btnProbar.style.cssText = 'background:#0284c7;color:#ffffff;border:none;border-radius:10px;padding:9px 14px;font-weight:800;font-size:12.5px;cursor:pointer;flex:1;';
+    btnProbar.onclick = async function() {
+        var cand = _normalizarUrlPuenteAutoPC(inpIp.value);
+        if (!cand) return;
+        _guardarUrlPuenteAutoPC(cand);
+        overlay.remove();
+        await enviarColaPendienteAAutoPCLocal(cand);
+    };
+
+    var btnCerrar = document.createElement('button');
+    btnCerrar.type = 'button';
+    btnCerrar.textContent = 'Cerrar';
+    btnCerrar.style.cssText = 'background:#1e293b;color:#cbd5e1;border:none;border-radius:10px;padding:9px 14px;font-weight:700;font-size:12.5px;cursor:pointer;';
+    btnCerrar.onclick = function() { overlay.remove(); };
+
+    row1.appendChild(btnProbar);
+    row1.appendChild(btnCerrar);
+    card.appendChild(h);
+    card.appendChild(p);
+    card.appendChild(inpIp);
+    card.appendChild(row1);
+
+    if (jsonStr && jsonStr.length < 400000) {
+        var btnCopy = document.createElement('button');
+        btnCopy.type = 'button';
+        btnCopy.textContent = '📋 Copiar lote JSON manualmente';
+        btnCopy.style.cssText = 'width:100%;background:rgba(30,41,59,0.85);color:#94a3b8;border:1px solid rgba(148,163,184,0.22);border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;';
+        btnCopy.onclick = async function() {
+            var ok = _copiarTextoSincronoExec(jsonStr);
+            if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+                try { await navigator.clipboard.writeText(jsonStr); ok = true; } catch (ig) {}
+            }
+            if (ok && typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Lote JSON copiado', '📋');
+            }
+        };
+        card.appendChild(btnCopy);
+    }
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+}
+
 async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
     var prep = _construirLoteExportacionAutoPCSync();
     if (!prep.batch.items || prep.batch.items.length === 0) {
@@ -1477,12 +1767,18 @@ async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
         return { mode: 'empty', count: 0 };
     }
 
-    // Copiar en tick 0 (sin await previo) para no perder activación del clic en Chrome
+    var esMovil = _esMovilOAPKAutoPC();
     var jsonStr = JSON.stringify(prep.batch);
-    var asyncClipPromise = (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function')
-        ? navigator.clipboard.writeText(jsonStr).then(function() { return true; }).catch(function() { return false; })
-        : Promise.resolve(false);
-    var syncExecOk = _copiarTextoSincronoExec(jsonStr);
+    var asyncClipPromise = Promise.resolve(false);
+    var syncExecOk = false;
+
+    // En PC navegador copiamos en tick 0 para respaldo instantáneo con el portapapeles de Windows
+    if (!esMovil) {
+        asyncClipPromise = (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function')
+            ? navigator.clipboard.writeText(jsonStr).then(function() { return true; }).catch(function() { return false; })
+            : Promise.resolve(false);
+        syncExecOk = _copiarTextoSincronoExec(jsonStr);
+    }
 
     var btns = document.querySelectorAll('.btn-emily-export-pc');
     btns.forEach(function(b) {
@@ -1495,55 +1791,78 @@ async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
         var fullJson = JSON.stringify(fullBatch);
         if (fullJson !== jsonStr) {
             jsonStr = fullJson;
-            if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            if (!esMovil && typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
                 try { await navigator.clipboard.writeText(jsonStr); syncExecOk = true; } catch (ig) {}
             }
         }
         prep.batch = fullBatch;
     }
 
-    var copied = syncExecOk || (await asyncClipPromise);
+    var copied = esMovil ? false : (syncExecOk || (await asyncClipPromise));
 
-    var baseUrl = String(bridgeBaseUrl || window.MONARCA_AUTOPC_BRIDGE_URL || 'http://127.0.0.1:47621').replace(/\/+$/, '');
-    var bridgeOk = false;
-    try {
-        var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-        var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, 900) : null;
-        var resp = await fetch(baseUrl + '/emily-batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: jsonStr,
-            signal: ctrl ? ctrl.signal : undefined
-        });
-        if (timer) clearTimeout(timer);
-        if (resp && resp.ok) {
-            var resJson = await resp.json().catch(function() { return {}; });
-            if (resJson && resJson.ok) bridgeOk = true;
+    // 1. Intentar puente directo (127.0.0.1 en PC, o Wi-Fi LAN nativo UDP/HTTP en APK Android)
+    var bridgeRes = await _enviarViaPuenteDirectoAutoPC(jsonStr, bridgeBaseUrl);
+    if (bridgeRes.ok) {
+        var huboLimpiezaLocal = false;
+        if (APP_STATE && Array.isArray(APP_STATE.ideas)) {
+            prep.batch.items.forEach(function(bi) {
+                var idIdea = String(bi.id || '');
+                var ideaRef = APP_STATE.ideas.find(function(x) { return x && String(x.id) === idIdea; });
+                if (ideaRef && ideaRef.autopcPendienteSubida) {
+                    ideaRef.autopcPendienteSubida = false;
+                    huboLimpiezaLocal = true;
+                }
+            });
+            if (huboLimpiezaLocal) {
+                MonarcaDB.save(APP_STATE);
+                reRenderSiVistaIdeasActiva();
+            }
         }
-    } catch (igBridge) {
-        bridgeOk = false;
+        btns.forEach(function(b) {
+            b.textContent = '✅ Enviadas a Auto-PC';
+            setTimeout(function() {
+                if (b && b.dataset.origLabel) b.textContent = b.dataset.origLabel;
+            }, 2400);
+        });
+        if (typeof mostrarToastMonarca === 'function') {
+            var sufijo = (bridgeRes.mode === 'lan_native' || bridgeRes.mode === 'lan_udp') ? ' por Wi-Fi 🚀' : ' 🚀';
+            mostrarToastMonarca(
+                prep.batch.items.length === 1
+                    ? ('1 solicitud enviada directo a Auto-PC' + sufijo)
+                    : (prep.batch.items.length + ' solicitudes enviadas directo a Auto-PC' + sufijo),
+                '🤖'
+            );
+        }
+        return { mode: bridgeRes.mode, count: prep.batch.items.length, json: jsonStr, url: bridgeRes.url };
     }
 
+    // 2. Si está fuera de casa o en navegador móvil, enviar/reintentar activamente por Firebase Firestore
+    var cloudRes = await _subirLotePendienteNubeAutoPC(prep.batch.items);
+    if (cloudRes.uploaded > 0 || (cloudRes.alreadyInCloud > 0 && !cloudRes.quota429 && cloudRes.failed === 0)) {
+        btns.forEach(function(b) {
+            b.textContent = '☁️ Enviadas vía Nube';
+            setTimeout(function() {
+                if (b && b.dataset.origLabel) b.textContent = b.dataset.origLabel;
+            }, 2400);
+        });
+        if (typeof mostrarToastMonarca === 'function') {
+            var msgNube = cloudRes.uploaded > 0
+                ? (cloudRes.uploaded + ' solicitud(es) enviada(s) a la cola nube de Auto-PC 🚀')
+                : (cloudRes.alreadyInCloud + ' solicitud(es) ya sincronizadas en la cola nube de Auto-PC');
+            mostrarToastMonarca(msgNube, '☁️');
+        }
+        return { mode: 'cloud', count: prep.batch.items.length, cloud: cloudRes };
+    }
+
+    // 3. Fallback honesto si ni LAN ni Nube pudieron entregar en este momento
     btns.forEach(function(b) {
-        b.textContent = (bridgeOk || copied) ? '✅ Enviadas a Auto-PC' : (b.dataset.origLabel || '📤 Enviar a PC');
+        b.textContent = copied ? '✅ Copiadas en PC' : (b.dataset.origLabel || '📤 Enviar a PC');
         setTimeout(function() {
             if (b && b.dataset.origLabel) b.textContent = b.dataset.origLabel;
         }, 2400);
     });
 
-    if (bridgeOk) {
-        if (typeof mostrarToastMonarca === 'function') {
-            mostrarToastMonarca(
-                prep.batch.items.length === 1
-                    ? '1 solicitud enviada directo a Auto-PC 🚀'
-                    : (prep.batch.items.length + ' solicitudes enviadas directo a Auto-PC 🚀'),
-                '🤖'
-            );
-        }
-        return { mode: 'bridge', count: prep.batch.items.length, json: jsonStr };
-    }
-
-    if (copied) {
+    if (!esMovil && copied) {
         if (typeof mostrarToastMonarca === 'function') {
             mostrarToastMonarca(
                 '✅ ' + prep.batch.items.length + ' solicitudes listas · Auto-PC las cargará en 1s (o usa "Pegar lote")',
@@ -1551,6 +1870,11 @@ async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
             );
         }
         return { mode: 'clipboard', count: prep.batch.items.length, json: jsonStr };
+    }
+
+    if (esMovil) {
+        _mostrarModalConfigIpYRespaldoAutoPC(jsonStr, prep.batch.items.length, cloudRes);
+        return { mode: 'mobile_config', count: prep.batch.items.length, cloud: cloudRes };
     }
 
     _mostrarModalCopiaManualAutoPC(jsonStr, prep.batch.items.length);
@@ -1594,39 +1918,97 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
         reRenderVistaIdeasActual();
     }
 
+    var imgDataUrlLocal = '';
+    if (idea.tieneImagen && idea.imagenId) {
+        var imgKey = String(idea.imagenId);
+        if (IDEAS_IMAGENES_MEM_CACHE[imgKey]) {
+            imgDataUrlLocal = IDEAS_IMAGENES_MEM_CACHE[imgKey];
+        } else {
+            try {
+                var recImg = await leerImagenIndexedDB(imgKey);
+                if (recImg && recImg.dataUrl) {
+                    IDEAS_IMAGENES_MEM_CACHE[imgKey] = recImg.dataUrl;
+                    imgDataUrlLocal = recImg.dataUrl;
+                }
+            } catch (igImg) {}
+        }
+    }
+    var loteIndividualJson = JSON.stringify({
+        format: 'MONARCA_AUTOPC_BATCH_V1',
+        exportedAt: ahoraMs,
+        items: [{
+            id: String(idea.id),
+            text: promptLimpio,
+            subcategoria: String(idea.subcategoria || 'General'),
+            createdAt: Number(idea.timestamp) || ahoraMs,
+            hasImage: Boolean(idea.tieneImagen && idea.imagenId),
+            imageDocId: idea.imagenId ? String(idea.imagenId) : '',
+            imageName: String(idea.imagenNombre || 'captura.png'),
+            imageMime: String(idea.imagenMime || 'image/jpeg'),
+            imageDataUrl: imgDataUrlLocal
+        }]
+    });
+
+    // En segundo plano intentar entrega instantánea si está en el mismo Wi-Fi o PC local
+    var lanPromise = (_obtenerPluginPuenteLocalAutoPC() || !_esMovilOAPKAutoPC())
+        ? _enviarViaPuenteDirectoAutoPC(loteIndividualJson).catch(function() { return { ok: false }; })
+        : Promise.resolve({ ok: false });
+
     if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarSolicitudAutoPC === 'function') {
         try {
             if (idea.tieneImagen && idea.imagenId) {
                 await asegurarImagenIdeaEnNube(idea);
             }
             await window.MonarcaCloud.enviarSolicitudAutoPC(payloadSolicitud);
+            var lanOkNube = await lanPromise;
             idea.autopcPendienteSubida = false;
             idea.imagenPendienteSubida = false;
             MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
                 mostrarToastMonarca(
-                    idea.tieneImagen
-                        ? 'Solicitud + imagen enviadas a Auto-PC'
-                        : 'Solicitud enviada a la cola de Auto-PC',
+                    (lanOkNube && lanOkNube.ok)
+                        ? 'Solicitud enviada a Auto-PC (Wi-Fi + Nube) 🚀'
+                        : (idea.tieneImagen ? 'Solicitud + imagen enviadas a Auto-PC' : 'Solicitud enviada a la cola de Auto-PC'),
                     '🤖'
                 );
             }
             reRenderSiVistaIdeasActiva();
             return true;
         } catch (err) {
+            var lanRes = await lanPromise;
+            if (lanRes && lanRes.ok) {
+                idea.autopcPendienteSubida = false;
+                MonarcaDB.save(APP_STATE);
+                if (typeof mostrarToastMonarca === 'function') {
+                    mostrarToastMonarca('Solicitud enviada directo a Auto-PC por Wi-Fi 🚀', '🤖');
+                }
+                reRenderSiVistaIdeasActiva();
+                return true;
+            }
             console.warn('[Auto-PC] Subida diferida (sin conexión, iniciando nube o cuota 429):', err);
             idea.autopcPendienteSubida = true;
             MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
                 mostrarToastMonarca(
                     _esErrorCuotaFirebaseAutoPC(err)
-                        ? 'Cuota Firebase 429 · Guardada local (usa "📤 Enviar a PC")'
+                        ? 'Cuota nube 429 · Guardada local (pulsa "📤 Enviar a PC" en Wi-Fi)'
                         : 'Guardada · se enviará a Auto-PC al conectar',
                     _esErrorCuotaFirebaseAutoPC(err) ? '⚠️' : '⏳'
                 );
             }
             return false;
         }
+    }
+
+    var lanFallback = await lanPromise;
+    if (lanFallback && lanFallback.ok) {
+        idea.autopcPendienteSubida = false;
+        MonarcaDB.save(APP_STATE);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Solicitud enviada directo a Auto-PC por Wi-Fi 🚀', '🤖');
+        }
+        reRenderSiVistaIdeasActiva();
+        return true;
     }
 
     if (typeof mostrarToastMonarca === 'function') {

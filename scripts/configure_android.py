@@ -2423,7 +2423,281 @@ public class MonarcaMediaPlugin extends Plugin {
 
 
 # ------------------------------------------------------------------------------
-# 7. MainActivity.java: Registra MonarcaAlarm y MonarcaMedia
+# 6C. MonarcaLocalBridgePlugin.java: Autodescubrimiento UDP + POST HTTP LAN nativo
+# ------------------------------------------------------------------------------
+write_java('MonarcaLocalBridgePlugin.java', '''
+package com.monarca.app;
+
+import android.content.Context;
+import android.net.wifi.WifiManager;
+import com.getcapacitor.JSArray;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.HttpURLConnection;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+@CapacitorPlugin(name = "MonarcaLocalBridge")
+public class MonarcaLocalBridgePlugin extends Plugin {
+    private static final String DISCOVERY_TOKEN = "MONARCA_AUTOPC_DISCOVER_V1";
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+
+    private String readStreamUtf8(InputStream is) {
+        if (is == null) return "";
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private boolean checkStatusEndpoint(String baseUrl, int timeoutMs) {
+        HttpURLConnection conn = null;
+        try {
+            String clean = baseUrl.replaceAll("/+$", "");
+            URL url = new URL(clean + "/status");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(timeoutMs);
+            conn.setReadTimeout(timeoutMs);
+            conn.setUseCaches(false);
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                String body = readStreamUtf8(conn.getInputStream());
+                JSONObject json = new JSONObject(body);
+                return json.optBoolean("ok", false) && "Auto-PC".equals(json.optString("app", ""));
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+        return false;
+    }
+
+    private List<InetAddress> collectBroadcastAddresses() {
+        Set<String> seen = new LinkedHashSet<>();
+        List<InetAddress> targets = new ArrayList<>();
+        try {
+            List<NetworkInterface> ifaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface ni : ifaces) {
+                if (ni == null || !ni.isUp() || ni.isLoopback()) continue;
+                for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
+                    if (ia == null) continue;
+                    InetAddress bcast = ia.getBroadcast();
+                    if (bcast instanceof Inet4Address) {
+                        String host = bcast.getHostAddress();
+                        if (host != null && seen.add(host)) {
+                            targets.add(bcast);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (seen.add("255.255.255.255")) {
+                targets.add(InetAddress.getByName("255.255.255.255"));
+            }
+        } catch (Exception ignored) {}
+        return targets;
+    }
+
+    @PluginMethod
+    public void discoverAutoPC(PluginCall call) {
+        int udpPort = call.getInt("port", 47622);
+        int timeoutMs = call.getInt("timeoutMs", 1400);
+        JSArray candidates = call.getArray("candidateUrls");
+
+        executor.execute(() -> {
+            Set<String> foundUrls = new LinkedHashSet<>();
+            String primaryUrl = "";
+            String source = "none";
+
+            if (candidates != null) {
+                for (int i = 0; i < candidates.length(); i++) {
+                    String cand = candidates.optString(i, "").trim().replaceAll("/+$", "");
+                    if (cand.isEmpty()) continue;
+                    if (checkStatusEndpoint(cand, Math.min(750, Math.max(400, timeoutMs / 2)))) {
+                        foundUrls.add(cand);
+                        if (primaryUrl.isEmpty()) primaryUrl = cand;
+                        source = "candidate";
+                        break;
+                    }
+                }
+            }
+
+            if (primaryUrl.isEmpty()) {
+                WifiManager.MulticastLock mLock = null;
+                DatagramSocket socket = null;
+                try {
+                    WifiManager wm = (WifiManager) getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                    if (wm != null) {
+                        mLock = wm.createMulticastLock("MonarcaAutoPCDiscovery");
+                        mLock.setReferenceCounted(false);
+                        mLock.acquire();
+                    }
+                    socket = new DatagramSocket();
+                    socket.setBroadcast(true);
+                    byte[] probe = DISCOVERY_TOKEN.getBytes(StandardCharsets.UTF_8);
+                    for (InetAddress bcast : collectBroadcastAddresses()) {
+                        try {
+                            socket.send(new DatagramPacket(probe, probe.length, bcast, udpPort));
+                        } catch (Exception ignored) {}
+                    }
+                    long deadline = System.currentTimeMillis() + Math.max(500, timeoutMs);
+                    byte[] buf = new byte[4096];
+                    while (System.currentTimeMillis() < deadline) {
+                        int rem = (int) Math.max(80, deadline - System.currentTimeMillis());
+                        socket.setSoTimeout(rem);
+                        DatagramPacket pkt = new DatagramPacket(buf, buf.length);
+                        socket.receive(pkt);
+                        String raw = new String(pkt.getData(), 0, pkt.getLength(), StandardCharsets.UTF_8).trim();
+                        JSONObject reply = new JSONObject(raw);
+                        if (reply.optBoolean("ok", false) && "Auto-PC".equals(reply.optString("app", ""))) {
+                            int httpPort = reply.optInt("port", 47621);
+                            String replyPrimary = reply.optString("primaryUrl", "").trim().replaceAll("/+$", "");
+                            JSONArray arr = reply.optJSONArray("lanUrls");
+                            if (arr != null) {
+                                for (int j = 0; j < arr.length(); j++) {
+                                    String u = arr.optString(j, "").trim().replaceAll("/+$", "");
+                                    if (!u.isEmpty()) foundUrls.add(u);
+                                }
+                            }
+                            if (pkt.getAddress() != null && httpPort > 0) {
+                                String senderUrl = "http://" + pkt.getAddress().getHostAddress() + ":" + httpPort;
+                                foundUrls.add(senderUrl);
+                                if (replyPrimary.isEmpty()) replyPrimary = senderUrl;
+                            }
+                            if (!replyPrimary.isEmpty()) {
+                                primaryUrl = replyPrimary;
+                            } else if (!foundUrls.isEmpty()) {
+                                primaryUrl = foundUrls.iterator().next();
+                            }
+                            if (!primaryUrl.isEmpty()) {
+                                source = "udp";
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    if (socket != null) {
+                        try { socket.close(); } catch (Exception ignored) {}
+                    }
+                    if (mLock != null && mLock.isHeld()) {
+                        try { mLock.release(); } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            JSObject res = new JSObject();
+            res.put("found", !primaryUrl.isEmpty());
+            res.put("primaryUrl", primaryUrl);
+            res.put("source", source);
+            JSArray outArr = new JSArray();
+            for (String u : foundUrls) outArr.put(u);
+            res.put("urls", outArr);
+            call.resolve(res);
+        });
+    }
+
+    @PluginMethod
+    public void postToAutoPC(PluginCall call) {
+        String rawUrl = String.valueOf(call.getString("url", "")).trim();
+        String payload = call.getString("payload", "");
+        int timeoutMs = call.getInt("timeoutMs", 5000);
+
+        if (rawUrl.isEmpty() || payload == null || payload.isEmpty()) {
+            JSObject invalid = new JSObject();
+            invalid.put("ok", false);
+            invalid.put("status", 0);
+            invalid.put("error", "URL o payload vacío");
+            call.resolve(invalid);
+            return;
+        }
+
+        executor.execute(() -> {
+            HttpURLConnection conn = null;
+            String cleanBase = rawUrl.replaceAll("/+$", "");
+            String endpoint = cleanBase.endsWith("/emily-batch") ? cleanBase : (cleanBase + "/emily-batch");
+            try {
+                URL url = new URL(endpoint);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(Math.min(timeoutMs, 2500));
+                conn.setReadTimeout(timeoutMs);
+                conn.setUseCaches(false);
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+
+                byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
+                conn.setFixedLengthStreamingMode(bytes.length);
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(bytes);
+                    os.flush();
+                }
+
+                int status = conn.getResponseCode();
+                InputStream stream = (status >= 200 && status < 400) ? conn.getInputStream() : conn.getErrorStream();
+                String body = readStreamUtf8(stream);
+                boolean parsedOk = status >= 200 && status < 300;
+                if (parsedOk && !body.isEmpty()) {
+                    try {
+                        JSONObject json = new JSONObject(body);
+                        parsedOk = json.optBoolean("ok", true);
+                    } catch (Exception ignored) {}
+                }
+
+                JSObject res = new JSObject();
+                res.put("ok", parsedOk);
+                res.put("status", status);
+                res.put("body", body);
+                res.put("url", cleanBase);
+                call.resolve(res);
+            } catch (Exception e) {
+                JSObject errRes = new JSObject();
+                errRes.put("ok", false);
+                errRes.put("status", 0);
+                errRes.put("error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                errRes.put("url", cleanBase);
+                call.resolve(errRes);
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        });
+    }
+}
+''')
+
+
+# ------------------------------------------------------------------------------
+# 7. MainActivity.java: Registra MonarcaAlarm, MonarcaMedia y MonarcaLocalBridge
 # ------------------------------------------------------------------------------
 write_java('MainActivity.java', '''
 package com.monarca.app;
@@ -2439,6 +2713,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(MonarcaAlarmPlugin.class);
         registerPlugin(MonarcaMediaPlugin.class);
+        registerPlugin(MonarcaLocalBridgePlugin.class);
         super.onCreate(savedInstanceState);
         handleAlarmIntent(getIntent());
     }
@@ -2488,14 +2763,21 @@ public class MainActivity extends BridgeActivity {
 
 
 # ------------------------------------------------------------------------------
-# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Alarma e Ignorar batería)
+# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Wi-Fi LAN, Alarma)
 # ------------------------------------------------------------------------------
 manifest_path = 'android/app/src/main/AndroidManifest.xml'
 if os.path.exists(manifest_path):
     with open(manifest_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
+    if 'android:usesCleartextTraffic=' not in content:
+        content = content.replace('<application', '<application android:usesCleartextTraffic="true"', 1)
+
     required_permissions = [
+        'android.permission.INTERNET',
+        'android.permission.ACCESS_NETWORK_STATE',
+        'android.permission.ACCESS_WIFI_STATE',
+        'android.permission.CHANGE_WIFI_MULTICAST_STATE',
         'android.permission.SCHEDULE_EXACT_ALARM',
         'android.permission.USE_EXACT_ALARM',
         'android.permission.POST_NOTIFICATIONS',
@@ -2570,7 +2852,7 @@ if os.path.exists(manifest_path):
 
     with open(manifest_path, 'w', encoding='utf-8') as f:
         f.write(content)
-    print("AndroidManifest.xml actualizado con Service, Receivers, Permisos y AlarmAlertActivity")
+    print("AndroidManifest.xml actualizado con Service, Receivers, Permisos, Red LAN y AlarmAlertActivity")
 
 
 # ------------------------------------------------------------------------------

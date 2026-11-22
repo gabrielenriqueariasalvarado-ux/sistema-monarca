@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.96)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.97)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.96
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.97
             Esta versión nativa incluye:
+            - 🔄 **Sincronización en Tiempo Real y Envío Directo APK → Auto-PC (v10.97)**: Corrección de tombstones numéricos (`Number` vs `String`) y desfase de reloj para reflejar al instante eliminaciones y ediciones entre Laptop y Teléfono sin resucitar ítems, nuevo plugin nativo `MonarcaLocalBridge` (autodescubrimiento UDP `47622` + envío directo HTTP LAN por Wi-Fi sin gastar cuota Firebase), reintentos activos por nube cuando estás fuera de casa y refresco automático al volver a primer plano.
             - 📅 **Corrección de Colores Oscuros en Calendario & Agenda Táctica (v10.96)**: Eliminación de botones blancos heredados (`.btn-sync-light` en `Ver Cuadrícula Horaria`, `+ Recordatorio`, `+ Evento`, `+ Destacado` y `Cerrar & Reiniciar`) y borde blanco en el modal de transición de jornada.
             - 🚀 **Auto-PC Marcado por Defecto al Crear Idea (v10.95)**: La casilla **`Empezar a programar en Auto-PC al crear`** ahora viene activada por defecto en **Banco de Ideas** y **Asistente Rápido** cuando eliges **✨ Emily** (manteniéndose activa tras publicar, lista para desmarcarla solo cuando no la necesites).
             - 🎲 **Tema Oscuro Completo en Ruleta de Variabilidad (v10.94)**: Eliminación de bordes blancos (`#e5e7eb` / `#f3f4f6`), rueda vacía clara y divisores claros en banner, banco de opciones, lienzo y modal.

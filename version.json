@@ -1,5 +1,5 @@
 {
-  "version": "10.96",
+  "version": "10.97",
   "fecha": "2026-11-22",
-  "resumen": "Unificación a tema oscuro de los botones de acción (.btn-sync-light) y modal de transición de jornada en Calendario & Agenda Táctica."
+  "resumen": "Sincronización en tiempo real sin zombis ni descartes por reloj entre Laptop/APK, puente directo Wi-Fi LAN (UDP/HTTP nativo Android) + ahorro >90% de cuota Firebase y instancia única en Auto-PC."
 }
