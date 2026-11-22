@@ -1,5 +1,5 @@
 {
-  "version": "10.93",
+  "version": "10.94",
   "fecha": "2026-11-22",
-  "resumen": "Reorganización móvil de Gestión de Labores con pestañas limpias y cuadrícula 2x2, junto con corrección completa de colores oscuros en Directorio de Personas y Conocimiento."
+  "resumen": "Unificación completa del tema oscuro en Ruleta de Variabilidad Semanal (bordes, rueda, tarjetas de banco y modal) junto a las mejoras móviles de Labores y contraste de Personas/Conocimiento."
 }

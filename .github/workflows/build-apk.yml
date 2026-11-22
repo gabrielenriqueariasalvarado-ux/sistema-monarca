@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.93)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.94)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.93
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.94
             Esta versión nativa incluye:
+            - 🎲 **Tema Oscuro Completo en Ruleta de Variabilidad (v10.94)**: Eliminación de bordes blancos (`#e5e7eb` / `#f3f4f6`), rueda vacía clara y divisores claros en banner, banco de opciones, lienzo y modal.
             - 💼 **Labores reorganizado para móvil (v10.93)**: KPI grid simétrico `2×2`, pestañas segmentadas (**`Sub-Apps | Análisis | Historial`**), gráfica Chart.js con desglose por labor y filas de historial compactas.
             - 🌙 **Corrección de Contraste Oscuro en Personas, Conocimiento y Ruleta**: Eliminación de tarjetas blancas heredadas (`weekly-review-banner`, `knowledge-card`, píldoras de ubicación/estado y botones de acción) unificadas al tema oscuro Monarca.
             - 🤖 **Puente Directo & Lote Auto-PC anti-429 (v10.91)**: Nuevo botón **`📤 Enviar a PC`** en Programación & Nuevas Funciones para enviar solicitudes e imágenes directo a Auto-PC o copiarlas como lote JSON al instante si Firebase alcanza su límite diario 429.

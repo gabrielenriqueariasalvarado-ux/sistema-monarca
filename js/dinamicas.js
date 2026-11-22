@@ -1986,10 +1986,10 @@ function renderizarRuletaSemanal() {
         var fec = act.fechaGiro || "Hoy";
 
         contResultado.innerHTML = `
-        <div class="weekly-review-banner" style="border-left-color: #f8fafc;">
+        <div class="weekly-review-banner" style="border-left-color: #818cf8;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
                 <div>
-                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px;">Protocolo Anti-Monotonía</div>
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Protocolo Anti-Monotonía</div>
                     <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #f8fafc;">Selección Activa de Variabilidad</h3>
                 </div>
                 <button class="btn-system" onclick="girarRuletaCompleta()" style="font-size: 12.5px; padding: 7px 14px;">
@@ -1999,22 +1999,22 @@ function renderizarRuletaSemanal() {
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px;">
                 <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">🍲 Comida Elegida</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">🍲 Comida Elegida</div>
                     <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${com}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('comidas')">🔄 Girar Comida</button>
+                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('comidas')">🔄 Girar Comida</button>
                 </div>
                 <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">👔 Outfit del Día</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">👔 Outfit del Día</div>
                     <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${ves}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('vestimenta')">🔄 Girar Outfit</button>
+                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('vestimenta')">🔄 Girar Outfit</button>
                 </div>
                 <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase;">🎵 Música / Foco</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">🎵 Música / Foco</div>
                     <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${mus}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 3px 8px; margin-top: 4px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Música</button>
+                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Música</button>
                 </div>
             </div>
-            <div style="font-size: 11px; color: #9ca3af; margin-top: 10px; text-align: right;">Último giro: ${fec}</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 10px; text-align: right;">Último giro: ${fec}</div>
         </div>`;
     }
 
@@ -2026,7 +2026,7 @@ function renderizarRuletaSemanal() {
         var items = rs[CATEGORIA_RULETA_ACTIVA] || [];
         var htmlOps = `
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                 <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'comidas' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('comidas')">🍲 Comidas (${(rs.comidas||[]).length})</button>
                 <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'vestimenta' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('vestimenta')">👔 Vestimenta (${(rs.vestimenta||[]).length})</button>
                 <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'musica' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('musica')">🎵 Música (${(rs.musica||[]).length})</button>
@@ -2037,20 +2037,20 @@ function renderizarRuletaSemanal() {
 
         if (items.length === 0) {
             htmlOps += `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 10px;">
-                <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.16); border-radius: 10px;">
+                <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
                 <button class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar tu primera opción</button>
             </div>`;
         } else {
             items.forEach(function(item) {
                 var subtag = item.tipo || item.estilo || item.genero || 'Variabilidad';
                 htmlOps += `
-                <div style="background: #121725; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                    <div>
+                <div class="ruleta-option-item" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="min-width: 0;">
                         <strong style="font-size: 13px; color: #f8fafc; display: block;">${item.nombre}</strong>
-                        <span style="font-size: 11px; color: #6b7280;">${subtag}</span>
+                        <span style="font-size: 11px; color: #94a3b8;">${subtag}</span>
                     </div>
-                    <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
+                    <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; flex-shrink: 0;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">✕</button>
                 </div>`;
             });
         }
@@ -2087,13 +2087,13 @@ function dibujarRuletaEnCanvas() {
     if (items.length === 0) {
         ctx.beginPath();
         ctx.arc(cx, cy, radio, 0, 2 * Math.PI);
-        ctx.fillStyle = '#f9fafb';
+        ctx.fillStyle = '#121725';
         ctx.fill();
-        ctx.strokeStyle = '#e5e7eb';
+        ctx.strokeStyle = 'rgba(129, 140, 248, 0.35)';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = '#9ca3af';
+        ctx.fillStyle = '#94a3b8';
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -2105,7 +2105,7 @@ function dibujarRuletaEnCanvas() {
 
     ctx.clearRect(0, 0, width, height);
 
-    var colores = ['#111827', '#1f2937', '#374151', '#4b5563', '#6b7280', '#0f172a', '#1e293b', '#334155'];
+    var colores = ['#1e293b', '#312e81', '#0f172a', '#164e63', '#27272a', '#1e1b4b', '#334155', '#172554'];
 
     for (var i = 0; i < numSectores; i++) {
         var anguloInicio = ANGULO_ACTUAL_RULETA + i * arc;
@@ -2117,15 +2117,15 @@ function dibujarRuletaEnCanvas() {
         ctx.arc(cx, cy, radio, anguloInicio, anguloFin);
         ctx.lineTo(cx, cy);
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(226, 232, 240, 0.22)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(anguloInicio + arc / 2);
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
         var textoCorto = items[i].nombre.length > 20 ? items[i].nombre.substr(0, 18) + '...' : items[i].nombre;
         ctx.fillText(textoCorto, radio - 16, 4);
@@ -2134,15 +2134,15 @@ function dibujarRuletaEnCanvas() {
 
     ctx.beginPath();
     ctx.arc(cx, cy, 18, 0, 2 * Math.PI);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#0f131d';
     ctx.fill();
-    ctx.strokeStyle = '#111827';
+    ctx.strokeStyle = '#818cf8';
     ctx.lineWidth = 3;
     ctx.stroke();
 
     ctx.beginPath();
     ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
-    ctx.fillStyle = '#111827';
+    ctx.fillStyle = '#e2e8f0';
     ctx.fill();
 }
 
