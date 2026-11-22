@@ -1702,7 +1702,9 @@ function confirmarAlertaOkeyQuest(questId) {
     if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return;
     var q = APP_STATE.questsDiarios.find(function(item) { return item && String(item.id) === String(questId); });
     if (q) {
-        q.alertaOkeyAckAt = Math.max(Date.now(), (Number(q.ultimaActivacionTs || q.fechaActualizacion || 0) + 1));
+        var nowMs = Date.now();
+        q.alertaOkeyAckAt = Math.max(nowMs, (Number(q.ultimaActivacionTs || q.fechaActualizacion || 0) + 1));
+        q.fechaActualizacion = Math.max(nowMs, Number(q.fechaActualizacion || 0) + 1);
         if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     }
     if (typeof cerrarAlertaQuestActivada === 'function') {
@@ -1719,7 +1721,9 @@ function confirmarAlertaOkeyPenitenciaQuest(questId) {
     if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return;
     var q = APP_STATE.questsDiarios.find(function(item) { return item && String(item.id) === String(questId); });
     if (q) {
-        q.penitenciaOkeyAckAt = Math.max(Date.now(), (Number(q.ultimaPenitenciaTs || q.fechaActualizacion || 0) + 1));
+        var nowMs = Date.now();
+        q.penitenciaOkeyAckAt = Math.max(nowMs, (Number(q.ultimaPenitenciaTs || q.fechaActualizacion || 0) + 1));
+        q.fechaActualizacion = Math.max(nowMs, Number(q.fechaActualizacion || 0) + 1);
         if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     }
     if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {

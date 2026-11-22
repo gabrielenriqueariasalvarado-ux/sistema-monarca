@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.86)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.87)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.86
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.87
             Esta versión nativa incluye:
+            - 🔔 **Cero Reaparición de Notificaciones Ya Hechas o Confirmadas (v10.87)**:
+              - Corregida la pérdida de historial descartado (`notificacionesAutoPC`) durante la fusión inteligente en Firestore al sincronizar entre computadora y teléfono.
+              - Confirmar con **`✓ Okey`** / **`✓ Okey a todas`**, o marcar/eliminar una idea como **Hecha**, sella permanentemente la solicitud tanto localmente como en la nube (`notifConfirmada`) para que nunca se vuelva a acumular ni a recargar.
+              - Blindados también los sellos de actualización al confirmar alertas de **Quests** y avisos generales de sesión.
             - 🧍 **Estado Personal & Gráficas Radar Optimizadas en Móvil (v10.86)**:
               - Restaurada la silueta anatómica dual (**ANTERIOR · FRENTE** + **POSTERIOR · ESPALDA**) en móvil desde la carga inicial de **Estado Personal**, con encuadre ampliado, divisor central y cabeceras alineadas.
               - Gráficas radar de **Biometría Muscular** y **Telemetría Neural** rediseñadas con etiquetas multilínea sin recortes ni deformación del polígono, badges que no se parten y respaldo Canvas 2D nítido también en modo offline.

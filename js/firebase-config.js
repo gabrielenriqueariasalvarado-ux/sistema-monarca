@@ -10,6 +10,7 @@ import {
     doc, 
     getDoc, 
     setDoc, 
+    updateDoc,
     onSnapshot,
     collection,
     deleteDoc
@@ -184,7 +185,7 @@ function deduplicarColeccionQuests(quests, tombstones) {
  */
 function obtenerTimestampNumerico(item) {
     if (!item || typeof item !== 'object') return 0;
-    var candidates = [item.fechaActualizacion, item.timestamp, item.fechaCreacion];
+    var candidates = [item.fechaActualizacion, item.updatedAt, item.timestampHecha, item.timestamp, item.fechaCreacion];
     // 1. Priorizar valores numéricos válidos (ej. Date.now())
     for (var i = 0; i < candidates.length; i++) {
         var val = candidates[i];
@@ -318,23 +319,28 @@ function fusionarEstadosInteligente(local, remoto) {
 
     var fusion = JSON.parse(JSON.stringify(remoto));
 
-    // Tombstones exhaustivos de todas las entidades del sistema
+    // Tombstones exhaustivos de todas las entidades del sistema (con respaldo dinámico)
     var tombstones = {};
     var elL = (local && local._eliminados) ? local._eliminados : {};
     var elR = (remoto && remoto._eliminados) ? remoto._eliminados : {};
 
-    var allKeys = [
+    var baseKeys = [
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
-        'ideas', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
+        'ideas', 'notificacionesAutoPC', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario', 'cronogramaSemanal',
         'reproductorPlaylists',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
     ];
+    var allKeys = Array.from(new Set(baseKeys.concat(Object.keys(elL), Object.keys(elR))));
 
     allKeys.forEach(function(k) {
-        tombstones[k] = Array.from(new Set([...(elL[k] || []), ...(elR[k] || [])]));
+        var combined = [].concat(
+            Array.isArray(elL[k]) ? elL[k] : [],
+            Array.isArray(elR[k]) ? elR[k] : []
+        ).map(String);
+        tombstones[k] = Array.from(new Set(combined));
     });
     fusion._eliminados = tombstones;
 
@@ -370,11 +376,44 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas, tombstones.ideas);
     }
     if (Array.isArray(local.notificacionesAutoPC) || Array.isArray(remoto.notificacionesAutoPC)) {
-        fusion.notificacionesAutoPC = fusionarColeccionPorId(
+        var rawNotifs = fusionarColeccionPorId(
             local.notificacionesAutoPC || [],
             remoto.notificacionesAutoPC || [],
             tombstones.notificacionesAutoPC || []
         );
+        var ideasPorId = {};
+        if (Array.isArray(fusion.ideas)) {
+            fusion.ideas.forEach(function(ideaItem) {
+                if (ideaItem && ideaItem.id) ideasPorId[String(ideaItem.id)] = ideaItem;
+            });
+        }
+        var tombNotifsList = tombstones.notificacionesAutoPC || [];
+        var tombNotifsSet = new Set(tombNotifsList);
+        var tombNotifSolIds = new Set();
+        tombNotifsList.forEach(function(t) {
+            var baseSol = String(t || '').split('@')[0];
+            if (baseSol) tombNotifSolIds.add(baseSol);
+        });
+        var tombIdeasSet = new Set(tombstones.ideas || []);
+        var vistasNotifSol = {};
+        fusion.notificacionesAutoPC = rawNotifs.filter(function(n) {
+            if (!n || !n.id) return false;
+            var nid = String(n.id);
+            var solId = String(n.solicitudId || nid.split('@')[0] || '');
+            if (tombNotifsSet.has(nid) || (solId && (tombNotifsSet.has(solId) || tombNotifSolIds.has(solId)))) {
+                return false;
+            }
+            if (solId && tombIdeasSet.has(solId)) return false;
+            var ideaRef = solId ? ideasPorId[solId] : null;
+            if (ideaRef && (ideaRef.autopcNotifConfirmada === true || (ideaRef.hecha === true && !ideaRef.completadaPorAutoPC))) {
+                return false;
+            }
+            if (solId) {
+                if (vistasNotifSol[solId]) return false;
+                vistasNotifSol[solId] = true;
+            }
+            return true;
+        });
     }
 
     // 4. PERSONAS, GRUPOS Y AGENDA
@@ -516,6 +555,16 @@ function refrescarVistasTrasSync() {
             if (typeof renderizarEjercicios === 'function' && window.APP_STATE) renderizarEjercicios(window.APP_STATE.ejercicios);
             if (typeof renderizarPortalesRutinasEjercicios === 'function') renderizarPortalesRutinasEjercicios();
             if (typeof renderizarPortalesRutinas === 'function' && window.APP_STATE) renderizarPortalesRutinas(window.APP_STATE.rutinas);
+        }
+        if (typeof window.reRenderSiVistaIdeasActiva === 'function') {
+            window.reRenderSiVistaIdeasActiva();
+        }
+        if (typeof actualizarBadgeNotificaciones === 'function') {
+            actualizarBadgeNotificaciones();
+        }
+        var modalNotif = document.getElementById('modal-centro-notificaciones');
+        if (modalNotif && modalNotif.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+            renderizarCentroNotificaciones();
         }
         if (window.MonarcaPlayer && typeof window.MonarcaPlayer.sincronizarPlaylistsDesdeAppState === 'function') {
             window.MonarcaPlayer.sincronizarPlaylistsDesdeAppState();
@@ -981,6 +1030,7 @@ window.MonarcaCloud = {
             categoria: String((solicitud && solicitud.categoria) || '✨ Emily'),
             subcategoria: String((solicitud && solicitud.subcategoria) || 'General'),
             status: 'pending',
+            notifConfirmada: false,
             createdAt: Number(solicitud && solicitud.createdAt) || ahoraMs,
             updatedAt: ahoraMs
         };
@@ -993,6 +1043,34 @@ window.MonarcaCloud = {
 
         await setDoc(refSolicitud, payload);
         return payload;
+    },
+
+    /**
+     * Marca en Firestore `solicitudes_autopc` que las notificaciones ya fueron confirmadas / vistas
+     * para evitar que resuciten en otros dispositivos o limpiezas de caché local.
+     */
+    confirmarNotificacionesAutoPCNube: async function(solicitudIds) {
+        if (!db || !Array.isArray(solicitudIds) || solicitudIds.length === 0) return 0;
+        var unicos = Array.from(new Set(solicitudIds.map(function(id) { return String(id || '').trim(); }).filter(Boolean)));
+        if (unicos.length === 0) return 0;
+        var ahoraMs = Date.now();
+        var ok = 0;
+        await Promise.all(unicos.map(async function(ideaId) {
+            try {
+                var refSolicitud = doc(db, FIRESTORE_COL_AUTOPC, ideaId);
+                await updateDoc(refSolicitud, {
+                    notifConfirmada: true,
+                    notifConfirmadaAt: ahoraMs
+                });
+                ok++;
+            } catch (err) {
+                var msg = err ? String(err.message || '') : '';
+                if (!err || (err.code !== 'not-found' && msg.indexOf('No document to update') === -1)) {
+                    console.warn('[Auto-PC Notif Cloud Ack]', ideaId, err);
+                }
+            }
+        }));
+        return ok;
     },
 
     /**

@@ -224,6 +224,7 @@ const DEFAULT_STATE = {
         registrosLabores: [],
         calendario: [],
         cronogramaSemanal: [],
+        reproductorPlaylists: [],
         finanzas_ingresos: [],
         finanzas_gastos: [],
         finanzas_categoriasGastos: [],
@@ -1634,7 +1635,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.86';
+var MONARCA_APP_VERSION = '10.87';
 var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
@@ -2170,9 +2171,29 @@ function cancelarNotificacionTelefonoPorAlerta(alertId, idNumOpcional) {
     }
 }
 
+function _cargarGeneralesAckSession() {
+    try {
+        var raw = sessionStorage.getItem('monarca_general_alerts_ack');
+        return raw ? JSON.parse(raw) : {};
+    } catch(e) { return {}; }
+}
+
+function _marcarGeneralAckSession(id) {
+    if (!id) return;
+    try {
+        var m = _cargarGeneralesAckSession();
+        m[String(id)] = Date.now();
+        sessionStorage.setItem('monarca_general_alerts_ack', JSON.stringify(m));
+    } catch(e) {}
+}
+
 function registrarAlertaGeneralMonarca(opts) {
     if (!opts || !opts.titulo) return null;
     var baseId = String(opts.id || ('alerta-gen-' + (opts.tag || Date.now()))).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+    var ackMap = _cargarGeneralesAckSession();
+    if (ackMap[baseId] && !opts.forzarReapertura) {
+        return null;
+    }
     var safeId = baseId.replace(/'/g, "\\'");
     var ts = Number(opts.timestamp) || Date.now();
     var nueva = {
@@ -2211,6 +2232,7 @@ function registrarAlertaGeneralMonarca(opts) {
 function descartarAlertaGeneralMonarca(alertaId) {
     var key = String(alertaId || '').trim();
     if (!key) return;
+    _marcarGeneralAckSession(key);
     MONARCA_ALERTAS_GENERALES = MONARCA_ALERTAS_GENERALES.filter(function(a) { return a && a.id !== key; });
     cancelarNotificacionTelefonoPorAlerta(key);
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
@@ -2218,7 +2240,10 @@ function descartarAlertaGeneralMonarca(alertaId) {
 }
 
 function obtenerAlertasGeneralesActivas() {
-    return Array.isArray(MONARCA_ALERTAS_GENERALES) ? MONARCA_ALERTAS_GENERALES.slice() : [];
+    var ackMap = _cargarGeneralesAckSession();
+    return Array.isArray(MONARCA_ALERTAS_GENERALES)
+        ? MONARCA_ALERTAS_GENERALES.filter(function(a) { return a && a.id && !ackMap[String(a.id)]; })
+        : [];
 }
 
 function confirmarAlertaOkeySistema(metaOrId) {
@@ -2281,8 +2306,12 @@ function confirmarAlertaOkeySistema(metaOrId) {
 function confirmarTodasAlertasOkeySistema() {
     var alertas = obtenerAlertasSistemaMonarca().slice();
     if (alertas.length === 0) return;
+    var hayAutoPC = alertas.some(function(a) { return a && a.tipo === 'autopc'; });
+    if (hayAutoPC && typeof window.descartarTodasNotificacionesAutoPC === 'function') {
+        window.descartarTodasNotificacionesAutoPC();
+    }
     alertas.forEach(function(a) {
-        if (!a) return;
+        if (!a || (hayAutoPC && a.tipo === 'autopc')) return;
         confirmarAlertaOkeySistema(Object.assign({
             monarcaAlertId: a.id,
             monarcaAlertTipo: (a._phoneMeta && a._phoneMeta.monarcaAlertTipo) || a.tipo,

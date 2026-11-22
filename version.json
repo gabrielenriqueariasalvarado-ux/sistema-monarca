@@ -1,5 +1,5 @@
 {
-  "version": "10.86",
+  "version": "10.87",
   "fecha": "2026-11-22",
-  "resumen": "Corrección de vista dual Frente+Espalda en móvil para Estado Personal, gráficas radar limpias con respaldo offline, pestañas sin recortes y tarjetas adaptables."
+  "resumen": "Eliminación definitiva de reaparición de notificaciones ya confirmadas o hechas en Auto-PC, Ideas, Quests y Centro de Alertas al sincronizar PC y móvil."
 }
