@@ -984,6 +984,9 @@ function mostrarVistaCategoriasGrid() {
 
     contenedor.innerHTML = html;
     actualizarBadgesIdeas();
+    if (typeof _precargarImagenesAutoPCEnRAM === 'function') {
+        setTimeout(_precargarImagenesAutoPCEnRAM, 20);
+    }
 }
 
 function abrirDetalleCategoriaIdeas(catNombre) {
@@ -1019,6 +1022,10 @@ function abrirDetalleCategoriaIdeas(catNombre) {
         var st = obtenerEstadoAutoPCIdea(i);
         return st === 'pending' || st === 'running';
     }).length : 0;
+
+    if (esEmily && enColaPC > 0 && typeof _precargarImagenesAutoPCEnRAM === 'function') {
+        setTimeout(_precargarImagenesAutoPCEnRAM, 10);
+    }
 
     if (headerElem) {
         headerElem.innerHTML = `
@@ -1291,23 +1298,19 @@ function _esErrorCuotaFirebaseAutoPC(err) {
     );
 }
 
-async function _copiarTextoPortapapelesAutoPC(texto) {
-    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        try {
-            await navigator.clipboard.writeText(texto);
-            return true;
-        } catch (ig) {}
-    }
+function _copiarTextoSincronoExec(texto) {
     try {
         var ta = document.createElement('textarea');
         ta.value = texto;
         ta.setAttribute('readonly', '');
         ta.style.position = 'fixed';
         ta.style.top = '-9999px';
+        ta.style.left = '-9999px';
         ta.style.opacity = '0';
         document.body.appendChild(ta);
-        ta.focus();
+        ta.focus({ preventScroll: true });
         ta.select();
+        ta.setSelectionRange(0, texto.length);
         var ok = document.execCommand && document.execCommand('copy');
         document.body.removeChild(ta);
         return Boolean(ok);
@@ -1316,7 +1319,17 @@ async function _copiarTextoPortapapelesAutoPC(texto) {
     }
 }
 
-async function construirLoteExportacionAutoPC() {
+async function _copiarTextoPortapapelesAutoPC(texto) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+            await navigator.clipboard.writeText(texto);
+            return true;
+        } catch (ig) {}
+    }
+    return _copiarTextoSincronoExec(texto);
+}
+
+function _obtenerIdeasEnColaAutoPCOrdenadas() {
     var ideas = (typeof APP_STATE !== 'undefined' && APP_STATE && Array.isArray(APP_STATE.ideas))
         ? APP_STATE.ideas
         : [];
@@ -1328,8 +1341,13 @@ async function construirLoteExportacionAutoPC() {
     enCola.sort(function(a, b) {
         return (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0);
     });
+    return enCola;
+}
 
+function _construirLoteExportacionAutoPCSync() {
+    var enCola = _obtenerIdeasEnColaAutoPCOrdenadas();
     var items = [];
+    var faltantes = [];
     for (var idx = 0; idx < enCola.length; idx++) {
         var idea = enCola[idx];
         var imgDataUrl = '';
@@ -1338,14 +1356,7 @@ async function construirLoteExportacionAutoPC() {
             if (typeof IDEAS_IMAGENES_MEM_CACHE !== 'undefined' && IDEAS_IMAGENES_MEM_CACHE[imgKey]) {
                 imgDataUrl = IDEAS_IMAGENES_MEM_CACHE[imgKey];
             } else {
-                try {
-                    var recLocal = await leerImagenIndexedDB(imgKey);
-                    if (recLocal && recLocal.dataUrl) {
-                        imgDataUrl = recLocal.dataUrl;
-                        IDEAS_IMAGENES_RECORDS_MEM[imgKey] = recLocal;
-                        IDEAS_IMAGENES_MEM_CACHE[imgKey] = recLocal.dataUrl;
-                    }
-                } catch (ig) {}
+                faltantes.push(imgKey);
             }
         }
         items.push({
@@ -1360,29 +1371,144 @@ async function construirLoteExportacionAutoPC() {
             imageDataUrl: imgDataUrl
         });
     }
-
     return {
-        format: 'MONARCA_AUTOPC_BATCH_V1',
-        exportedAt: Date.now(),
-        items: items
+        batch: {
+            format: 'MONARCA_AUTOPC_BATCH_V1',
+            exportedAt: Date.now(),
+            items: items
+        },
+        faltantes: faltantes
     };
 }
 
+async function _precargarImagenesAutoPCEnRAM() {
+    var enCola = _obtenerIdeasEnColaAutoPCOrdenadas();
+    for (var idx = 0; idx < enCola.length; idx++) {
+        var idea = enCola[idx];
+        if (!idea.tieneImagen || !idea.imagenId) continue;
+        var imgKey = String(idea.imagenId);
+        if (IDEAS_IMAGENES_MEM_CACHE[imgKey]) continue;
+        try {
+            var recLocal = await leerImagenIndexedDB(imgKey);
+            if (recLocal && recLocal.dataUrl) {
+                IDEAS_IMAGENES_RECORDS_MEM[imgKey] = recLocal;
+                IDEAS_IMAGENES_MEM_CACHE[imgKey] = recLocal.dataUrl;
+            }
+        } catch (ig) {}
+    }
+}
+
+async function construirLoteExportacionAutoPC() {
+    await _precargarImagenesAutoPCEnRAM();
+    return _construirLoteExportacionAutoPCSync().batch;
+}
+
+function _mostrarModalCopiaManualAutoPC(jsonStr, count) {
+    var prev = document.getElementById('modal-copia-autopc-manual');
+    if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+
+    var overlay = document.createElement('div');
+    overlay.id = 'modal-copia-autopc-manual';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10450;background:rgba(4,7,15,0.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    var card = document.createElement('div');
+    card.style.cssText = 'width:100%;max-width:520px;background:#0f1423;border:1px solid rgba(56,189,248,0.45);border-radius:16px;padding:18px;color:#f8fafc;box-shadow:0 24px 60px rgba(0,0,0,0.65);';
+
+    var title = document.createElement('h4');
+    title.style.cssText = 'margin:0 0 6px 0;font-size:16px;font-weight:800;color:#7dd3fc;';
+    title.textContent = '🤖 Enviar ' + count + ' solicitud(es) a Auto-PC';
+
+    var desc = document.createElement('p');
+    desc.style.cssText = 'margin:0 0 10px 0;font-size:12.5px;color:#cbd5e1;line-height:1.45;';
+    desc.textContent = 'Pulsa "Copiar lote" debajo y Auto-PC lo detectará automáticamente (o pégalo en Pegar lote).';
+
+    var ta = document.createElement('textarea');
+    ta.readOnly = true;
+    ta.value = jsonStr;
+    ta.style.cssText = 'width:100%;height:96px;background:#080c17;color:#94a3b8;border:1px solid rgba(148,163,184,0.28);border-radius:10px;padding:8px;font-size:11px;font-family:monospace;resize:none;box-sizing:border-box;';
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:12px;';
+
+    var btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.textContent = 'Cerrar';
+    btnClose.style.cssText = 'padding:8px 14px;border-radius:9px;border:1px solid rgba(148,163,184,0.3);background:#1e293b;color:#e2e8f0;font-weight:700;cursor:pointer;';
+    btnClose.onclick = function() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    };
+
+    var btnCopy = document.createElement('button');
+    btnCopy.type = 'button';
+    btnCopy.textContent = '📋 Copiar lote ahora';
+    btnCopy.style.cssText = 'padding:8px 16px;border-radius:9px;border:1px solid rgba(56,189,248,0.6);background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;font-weight:800;cursor:pointer;';
+    btnCopy.onclick = async function() {
+        ta.focus();
+        ta.select();
+        var ok = _copiarTextoSincronoExec(jsonStr);
+        if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+            try { await navigator.clipboard.writeText(jsonStr); ok = true; } catch (ig) {}
+        }
+        if (ok) {
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('✅ Lote copiado · Auto-PC lo cargará al instante', '🤖');
+            }
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }
+    };
+
+    row.appendChild(btnClose);
+    row.appendChild(btnCopy);
+    card.appendChild(title);
+    card.appendChild(desc);
+    card.appendChild(ta);
+    card.appendChild(row);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    setTimeout(function() { try { ta.focus(); ta.select(); } catch (ig) {} }, 20);
+}
+
 async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
-    var batch = await construirLoteExportacionAutoPC();
-    if (!batch.items || batch.items.length === 0) {
+    var prep = _construirLoteExportacionAutoPCSync();
+    if (!prep.batch.items || prep.batch.items.length === 0) {
         if (typeof mostrarToastMonarca === 'function') {
             mostrarToastMonarca('No hay solicitudes pendientes en cola PC', '🤖');
         }
         return { mode: 'empty', count: 0 };
     }
 
-    var jsonStr = JSON.stringify(batch);
+    // Copiar en tick 0 (sin await previo) para no perder activación del clic en Chrome
+    var jsonStr = JSON.stringify(prep.batch);
+    var asyncClipPromise = (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function')
+        ? navigator.clipboard.writeText(jsonStr).then(function() { return true; }).catch(function() { return false; })
+        : Promise.resolve(false);
+    var syncExecOk = _copiarTextoSincronoExec(jsonStr);
+
+    var btns = document.querySelectorAll('.btn-emily-export-pc');
+    btns.forEach(function(b) {
+        if (!b.dataset.origLabel) b.dataset.origLabel = b.textContent;
+        b.textContent = '⏳ Enviando a Auto-PC...';
+    });
+
+    if (prep.faltantes && prep.faltantes.length > 0) {
+        var fullBatch = await construirLoteExportacionAutoPC();
+        var fullJson = JSON.stringify(fullBatch);
+        if (fullJson !== jsonStr) {
+            jsonStr = fullJson;
+            if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                try { await navigator.clipboard.writeText(jsonStr); syncExecOk = true; } catch (ig) {}
+            }
+        }
+        prep.batch = fullBatch;
+    }
+
+    var copied = syncExecOk || (await asyncClipPromise);
+
     var baseUrl = String(bridgeBaseUrl || window.MONARCA_AUTOPC_BRIDGE_URL || 'http://127.0.0.1:47621').replace(/\/+$/, '');
     var bridgeOk = false;
     try {
         var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-        var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, 1800) : null;
+        var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, 900) : null;
         var resp = await fetch(baseUrl + '/emily-batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1398,28 +1524,37 @@ async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
         bridgeOk = false;
     }
 
+    btns.forEach(function(b) {
+        b.textContent = (bridgeOk || copied) ? '✅ Enviadas a Auto-PC' : (b.dataset.origLabel || '📤 Enviar a PC');
+        setTimeout(function() {
+            if (b && b.dataset.origLabel) b.textContent = b.dataset.origLabel;
+        }, 2400);
+    });
+
     if (bridgeOk) {
         if (typeof mostrarToastMonarca === 'function') {
             mostrarToastMonarca(
-                batch.items.length === 1
+                prep.batch.items.length === 1
                     ? '1 solicitud enviada directo a Auto-PC 🚀'
-                    : (batch.items.length + ' solicitudes enviadas directo a Auto-PC 🚀'),
+                    : (prep.batch.items.length + ' solicitudes enviadas directo a Auto-PC 🚀'),
                 '🤖'
             );
         }
-        return { mode: 'bridge', count: batch.items.length, json: jsonStr };
+        return { mode: 'bridge', count: prep.batch.items.length, json: jsonStr };
     }
 
-    var copied = await _copiarTextoPortapapelesAutoPC(jsonStr);
-    if (typeof mostrarToastMonarca === 'function') {
-        mostrarToastMonarca(
-            copied
-                ? ('📋 ' + batch.items.length + ' solicitud(es) copiadas · Abre Auto-PC > "Pegar lote" y Ctrl+V')
-                : ('Usa "Pegar lote" en Auto-PC para importar las ' + batch.items.length + ' solicitudes'),
-            '📋'
-        );
+    if (copied) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(
+                '✅ ' + prep.batch.items.length + ' solicitudes listas · Auto-PC las cargará en 1s (o usa "Pegar lote")',
+                '🤖'
+            );
+        }
+        return { mode: 'clipboard', count: prep.batch.items.length, json: jsonStr };
     }
-    return { mode: copied ? 'clipboard' : 'manual', count: batch.items.length, json: jsonStr };
+
+    _mostrarModalCopiaManualAutoPC(jsonStr, prep.batch.items.length);
+    return { mode: 'manual', count: prep.batch.items.length, json: jsonStr };
 }
 
 window.enviarColaPendienteAAutoPCLocal = enviarColaPendienteAAutoPCLocal;

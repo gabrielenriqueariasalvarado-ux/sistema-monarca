@@ -1,5 +1,5 @@
 {
-  "version": "10.91",
+  "version": "10.92",
   "fecha": "2026-11-22",
-  "resumen": "Puente local directo y copia de lote para enviar solicitudes de Banco de Ideas a Auto-PC al instante aun con cuota Firebase 429 agotada."
+  "resumen": "Copiado instantáneo en el clic de Enviar a Auto-PC para carga automática en PC sin bloqueos de red local del navegador."
 }
