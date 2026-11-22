@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.77)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.78)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.77
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.78
             Esta versión nativa incluye:
+            - 🎧 **Auto-actualización automática en el Reproductor MP3 (v10.78)**:
+              - Eliminado el botón manual de actualizar/escanear lista en la biblioteca del reproductor.
+              - Cada vez que entras en el reproductor MP3 (o regresas a él desde SnapTube/descargas), escanea e indexa automáticamente tus canciones nuevas al instante sin interrumpir la canción actual.
             - 🔔 **Recordatorios rápidos desde el Asistente Monarca (v10.77)**:
               - Nuevo apartado **`🔔 Recordatorio`** junto a **`💰 Finanza`** y **`💡 Idea`** dentro de **Captura Rápida (`+`)**.
               - Incluye los mismos campos del **Calendario** (**Nombre del Recordatorio**, **Fecha**, **Hora Exacta (Alarma)**, **Vincular Persona** desde Personas y **Descripción / Nota**), sincronizándose de inmediato con Calendario, Centro de Alertas y alarmas nativas Android.

@@ -44,6 +44,10 @@
         rutinaConsecErrors: 0,
         _dbReady: false,
         _dbReadyPromise: null,
+        _initialScanDone: false,
+        _scanInFlight: null,
+        _scanRescanQueued: false,
+        _lastAutoScanTs: 0,
         _playSeqId: 0,
         _pendingSongForNewPlaylist: null,
         _modalAgregarModo: 'song',
@@ -391,7 +395,6 @@
     function actualizarControlesFuenteBiblioteca() {
         var bannerPerm = document.getElementById('player-permiso-banner');
         var btnAjustes = document.getElementById('btn-player-abrir-ajustes');
-        var btnReescan = document.getElementById('btn-player-reescanear');
         var btnCargarCarpeta = document.getElementById('btn-player-cargar-carpeta');
         var btnVaciar = document.getElementById('btn-player-vaciar-idb');
         var btnScope = document.getElementById('btn-player-scope-snaptube');
@@ -418,16 +421,14 @@
         if (plugin) {
             if (state.mediaPermiso === 'granted') {
                 if (bannerPerm) bannerPerm.style.display = 'none';
-                if (btnReescan) btnReescan.style.display = 'inline-flex';
                 if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'none';
                 if (descEl) {
                     descEl.textContent = (state.soloSnapTube && hasSnap)
-                        ? 'Mostrando automáticamente tus canciones de SnapTube sin duplicar almacenamiento.'
-                        : 'Sincronizado automáticamente con tus carpetas de música reales del teléfono.';
+                        ? 'Sincronizado automáticamente al entrar (solo SnapTube).'
+                        : 'Sincronizado automáticamente al entrar con tus carpetas de música del teléfono.';
                 }
             } else {
                 if (bannerPerm) bannerPerm.style.display = 'flex';
-                if (btnReescan) btnReescan.style.display = 'none';
                 if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'inline-flex';
                 if (btnAjustes) {
                     btnAjustes.style.display = (state.mediaPermiso === 'denied' || state.mediaPermiso === 'prompt-with-rationale') ? 'inline-flex' : 'none';
@@ -438,9 +439,23 @@
             }
         } else {
             if (bannerPerm) bannerPerm.style.display = 'none';
-            if (btnReescan) btnReescan.style.display = 'none';
             if (btnCargarCarpeta) btnCargarCarpeta.style.display = 'inline-flex';
         }
+    }
+
+    function sincronizarIndiceCancionActualEnLista() {
+        if (!state.cancionActual) return;
+        var lista = obtenerListaReproducibleActual();
+        var curId = state.cancionActual.id;
+        var curSig = state.cancionActual.sig;
+        var foundIdx = -1;
+        for (var i = 0; i < lista.length; i++) {
+            if (lista[i].id === curId || (curSig && lista[i].sig === curSig)) {
+                foundIdx = i;
+                break;
+            }
+        }
+        state.indiceActual = foundIdx;
     }
 
     // ----------------------------------------------------------------------
@@ -469,8 +484,10 @@
 
             state.canciones = combinadas;
             state._dbReady = true;
+            state._lastAutoScanTs = Date.now();
             cargarPlaylistsStorage();
             reconciliarPlaylistsConCanciones();
+            sincronizarIndiceCancionActualEnLista();
             notificarCambioPlaylistsYDefault();
             actualizarControlesFuenteBiblioteca();
             return combinadas;
@@ -486,6 +503,7 @@
             state.mediaPermisoChecked = true;
             state.mediaPermiso = (res && res.granted) ? 'granted' : 'denied';
             return cargarMetadatosCanciones().then(function() {
+                state._initialScanDone = true;
                 renderizarContenidoSegunSubtab();
                 actualizarUIPlayerCompleto();
                 if (res && res.granted) {
@@ -500,16 +518,65 @@
         });
     }
 
-    function reescanearBibliotecaNativa(mostrarToast) {
-        return cargarMetadatosCanciones().then(function(list) {
+    function reescanearBibliotecaNativa(modoToast) {
+        if (state._scanInFlight) {
+            state._scanRescanQueued = true;
+            return state._scanInFlight;
+        }
+
+        var estabaInicializado = !!state._initialScanDone;
+        var prevKeys = {};
+        if (estabaInicializado) {
+            obtenerCancionesActivasScope().forEach(function(c) {
+                if (!c) return;
+                if (c.id) prevKeys['id:' + c.id] = true;
+                if (c.sig) prevKeys['sig:' + c.sig] = true;
+            });
+        }
+
+        var prom = cargarMetadatosCanciones().then(function(list) {
+            state._initialScanDone = true;
             renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
-            if (mostrarToast) {
+            actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
+
+            if (modoToast === 'nuevas' && estabaInicializado) {
+                var nuevasCount = 0;
+                obtenerCancionesActivasScope().forEach(function(c) {
+                    if (!c) return;
+                    var yaExistia = (c.id && prevKeys['id:' + c.id]) || (c.sig && prevKeys['sig:' + c.sig]);
+                    if (!yaExistia) nuevasCount++;
+                });
+                if (nuevasCount > 0) {
+                    notificarPlayerToast(
+                        nuevasCount === 1
+                            ? '1 canción nueva añadida a tu lista'
+                            : (nuevasCount + ' canciones nuevas añadidas a tu lista'),
+                        '🎵'
+                    );
+                }
+            } else if (modoToast === true) {
                 var visCount = obtenerCancionesActivasScope().length;
-                notificarPlayerToast('Biblioteca actualizada: ' + visCount + ' pistas', '🔄');
+                notificarPlayerToast('Biblioteca actualizada: ' + visCount + ' pistas', '🎵');
             }
             return list;
+        }).finally(function() {
+            state._scanInFlight = null;
+            if (state._scanRescanQueued) {
+                state._scanRescanQueued = false;
+                reescanearBibliotecaNativa('nuevas');
+            }
         });
+
+        state._scanInFlight = prom;
+        return prom;
+    }
+
+    function sincronizarBibliotecaAlEntrar() {
+        renderizarContenidoSegunSubtab();
+        actualizarUIPlayerCompleto();
+        return reescanearBibliotecaNativa('nuevas');
     }
 
     function abrirAjustesAudioNativo() {
@@ -2439,7 +2506,7 @@
         if (nombres.length === 0) {
             cont.innerHTML = '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
                 '<h4 style="color:#f8fafc; margin:0 0 6px 0;">No hay carpetas disponibles</h4>' +
-                '<p style="font-size: 12px; color: #64748b; margin:0;">Re-escanea tu biblioteca o importa una carpeta manualmente.</p>' +
+                '<p style="font-size: 12px; color: #64748b; margin:0;">Descarga canciones en tu teléfono o importa una carpeta manualmente.</p>' +
             '</div>';
             return;
         }
@@ -3122,16 +3189,22 @@
     // ----------------------------------------------------------------------
     // 10. INICIALIZADOR GLOBAL
     // ----------------------------------------------------------------------
-    function verificarPermisoNativoAlVolver() {
+    function verificarPermisoNativoAlVolver(desdeRetornoApp) {
+        var enPlayer = (window.VISTA_ACTUAL === 'vista-reproductor');
         var plugin = obtenerPluginMonarcaMedia();
-        if (!plugin || typeof plugin.estadoPermisoAudio !== 'function') return;
+        if (!plugin || typeof plugin.estadoPermisoAudio !== 'function') {
+            if (desdeRetornoApp && enPlayer) {
+                reescanearBibliotecaNativa('nuevas');
+            }
+            return;
+        }
         plugin.estadoPermisoAudio().then(function(perm) {
             var nuevoEstado = (perm && perm.granted) ? 'granted' : ((perm && perm.state) || 'prompt');
             var cambio = (nuevoEstado === 'granted' && state.mediaPermiso !== 'granted');
             state.mediaPermiso = nuevoEstado;
             state.mediaPermisoChecked = true;
-            if (cambio) {
-                reescanearBibliotecaNativa(false);
+            if (cambio || (desdeRetornoApp && enPlayer)) {
+                reescanearBibliotecaNativa('nuevas');
             } else {
                 actualizarControlesFuenteBiblioteca();
             }
@@ -3153,6 +3226,7 @@
         }
 
         cargarMetadatosCanciones().then(function() {
+            state._initialScanDone = true;
             renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
@@ -3164,7 +3238,13 @@
 
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
-                verificarPermisoNativoAlVolver();
+                verificarPermisoNativoAlVolver(true);
+            }
+        });
+
+        window.addEventListener('focus', function() {
+            if (window.VISTA_ACTUAL === 'vista-reproductor' && (Date.now() - state._lastAutoScanTs) > 1200) {
+                verificarPermisoNativoAlVolver(true);
             }
         });
 
@@ -3222,14 +3302,13 @@
             window.MonarcaCloud.escucharTransferencias(alRecibirTransferenciasNube);
         }
 
-        // Hook en cambiarVista para sincronizar visibilidad del mini-reproductor y permisos nativos
+        // Hook en cambiarVista: sincronizar automáticamente canciones nuevas al entrar al reproductor MP3
         var origCambiarVista = window.cambiarVista;
         if (typeof origCambiarVista === 'function') {
             window.cambiarVista = function(vistaId, noPushState) {
                 origCambiarVista(vistaId, noPushState);
                 if (vistaId === 'vista-reproductor') {
-                    verificarPermisoNativoAlVolver();
-                    renderizarContenidoSegunSubtab();
+                    sincronizarBibliotecaAlEntrar();
                 }
                 actualizarMiniPlayer();
                 actualizarBarraAudioRutina();
@@ -3292,6 +3371,7 @@
         prepararUrlReproduccion: prepararUrlReproduccion,
         solicitarPermisoYScanNativo: solicitarPermisoYScanNativo,
         reescanearBibliotecaNativa: reescanearBibliotecaNativa,
+        sincronizarBibliotecaAlEntrar: sincronizarBibliotecaAlEntrar,
         abrirAjustesAudioNativo: abrirAjustesAudioNativo,
         sincronizarPlaylistsDesdeAppState: sincronizarPlaylistsDesdeAppState,
         toggleSoloSnapTube: toggleSoloSnapTube,

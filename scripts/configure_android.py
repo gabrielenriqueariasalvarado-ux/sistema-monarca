@@ -1748,8 +1748,10 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
@@ -1769,8 +1771,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(
     name = "MonarcaMedia",
@@ -1859,131 +1867,17 @@ public class MonarcaMediaPlugin extends Plugin {
         }
 
         getBridge().execute(() -> {
-            JSArray tracks = new JSArray();
             ContentResolver cr = getContext().getContentResolver();
             Uri collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-
-            boolean hasRelPath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
-            String[] projection = hasRelPath
-                ? new String[] {
-                    MediaStore.Audio.Media._ID,
-                    MediaStore.Audio.Media.TITLE,
-                    MediaStore.Audio.Media.ARTIST,
-                    MediaStore.Audio.Media.ALBUM,
-                    MediaStore.Audio.Media.ALBUM_ID,
-                    MediaStore.Audio.Media.DURATION,
-                    MediaStore.Audio.Media.SIZE,
-                    MediaStore.Audio.Media.DISPLAY_NAME,
-                    MediaStore.Audio.Media.MIME_TYPE,
-                    MediaStore.Audio.Media.DATE_ADDED,
-                    MediaStore.Audio.Media.RELATIVE_PATH,
-                    MediaStore.Audio.Media.DATA
-                }
-                : new String[] {
-                    MediaStore.Audio.Media._ID,
-                    MediaStore.Audio.Media.TITLE,
-                    MediaStore.Audio.Media.ARTIST,
-                    MediaStore.Audio.Media.ALBUM,
-                    MediaStore.Audio.Media.ALBUM_ID,
-                    MediaStore.Audio.Media.DURATION,
-                    MediaStore.Audio.Media.SIZE,
-                    MediaStore.Audio.Media.DISPLAY_NAME,
-                    MediaStore.Audio.Media.MIME_TYPE,
-                    MediaStore.Audio.Media.DATE_ADDED,
-                    MediaStore.Audio.Media.DATA
-                };
-
-            String selection = MediaStore.Audio.Media.SIZE + " > 20000 AND (" +
-                MediaStore.Audio.Media.IS_MUSIC + " != 0 OR " +
-                MediaStore.Audio.Media.MIME_TYPE + " LIKE 'audio/%')";
-            String sortOrder = MediaStore.Audio.Media.DATE_ADDED + " DESC";
-
-            Cursor cursor = null;
             try {
-                cursor = cr.query(collection, projection, selection, null, sortOrder);
-                if (cursor != null) {
-                    int colId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID);
-                    int colTitle = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
-                    int colArtist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
-                    int colAlbum = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
-                    int colAlbumId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID);
-                    int colDur = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
-                    int colSize = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE);
-                    int colName = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME);
-                    int colMime = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE);
-                    int colDate = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED);
-                    int colData = cursor.getColumnIndex(MediaStore.Audio.Media.DATA);
-                    int colRel = hasRelPath ? cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) : -1;
+                Set<String> indexedPaths = new HashSet<>();
+                JSArray tracks = readTracksFromMediaStore(cr, collection, indexedPaths);
 
-                    while (cursor.moveToNext()) {
-                        long mediaId = cursor.getLong(colId);
-                        long size = cursor.getLong(colSize);
-                        long dur = cursor.getLong(colDur);
-                        String displayName = safeStr(cursor.getString(colName));
-                        String mime = safeStr(cursor.getString(colMime));
-                        String dataPath = colData >= 0 ? safeStr(cursor.getString(colData)) : "";
-                        String relPath = colRel >= 0 ? safeStr(cursor.getString(colRel)) : "";
-
-                        // Excluir clips muy cortos (< 10 seg si trae duración), notas de voz, WhatsApp/Telegram y grabadoras
-                        if (dur > 0 && dur < 10000L) continue;
-                        String checkPathLower = (relPath + " " + dataPath + " " + displayName).toLowerCase(Locale.US);
-                        if (checkPathLower.contains("whatsapp") ||
-                            checkPathLower.contains("soundrecorder") ||
-                            checkPathLower.contains("sound_recorder") ||
-                            checkPathLower.contains("audiorecorder") ||
-                            checkPathLower.contains("voice_recorder") ||
-                            checkPathLower.contains("voicerecorder") ||
-                            checkPathLower.contains("/recordings/") ||
-                            checkPathLower.contains("/recorder/") ||
-                            checkPathLower.contains("telegram") ||
-                            checkPathLower.contains("/ringtones/") ||
-                            checkPathLower.contains("/notifications/") ||
-                            checkPathLower.contains("/alarms/") ||
-                            checkPathLower.contains("callrecording")) {
-                            continue;
-                        }
-
-                        if (!isAudioFileSupported(displayName, mime)) continue;
-
-                        String rawTitle = safeStr(cursor.getString(colTitle));
-                        String rawArtist = safeStr(cursor.getString(colArtist));
-                        String rawAlbum = safeStr(cursor.getString(colAlbum));
-                        long albumId = cursor.getLong(colAlbumId);
-                        long dateAddedSec = cursor.getLong(colDate);
-
-                        String baseNoExt = stripExtension(displayName);
-                        if (rawTitle.isEmpty() || "<unknown>".equalsIgnoreCase(rawTitle)) {
-                            rawTitle = baseNoExt;
-                        }
-                        if ("<unknown>".equalsIgnoreCase(rawArtist) || "unknown".equalsIgnoreCase(rawArtist)) {
-                            rawArtist = "";
-                        }
-                        if ("<unknown>".equalsIgnoreCase(rawAlbum) || "unknown".equalsIgnoreCase(rawAlbum)) {
-                            rawAlbum = "";
-                        }
-
-                        String carpeta = extractFolderName(relPath, dataPath);
-                        Uri itemUri = ContentUris.withAppendedId(collection, mediaId);
-
-                        JSObject obj = new JSObject();
-                        obj.put("id", "ms_" + mediaId);
-                        obj.put("mediaId", mediaId);
-                        obj.put("sig", buildStableSig(baseNoExt, size));
-                        obj.put("nombre", rawTitle);
-                        obj.put("artista", rawArtist);
-                        obj.put("album", rawAlbum);
-                        obj.put("albumId", albumId);
-                        obj.put("carpeta", carpeta);
-                        obj.put("tamano", size);
-                        obj.put("duracionMs", dur);
-                        obj.put("tipo", !mime.isEmpty() ? mime : "audio/mpeg");
-                        obj.put("archivo", displayName);
-                        obj.put("ruta", dataPath);
-                        obj.put("contentUri", itemUri.toString());
-                        obj.put("fecha", dateAddedSec > 0 ? dateAddedSec * 1000L : System.currentTimeMillis());
-                        tracks.put(obj);
-                    }
+                int newlyScanned = scanUnindexedAudioFilesIfAny(getContext(), indexedPaths);
+                if (newlyScanned > 0) {
+                    tracks = readTracksFromMediaStore(cr, collection, new HashSet<String>());
                 }
+
                 JSObject res = new JSObject();
                 res.put("granted", true);
                 res.put("canciones", tracks);
@@ -1991,12 +1885,208 @@ public class MonarcaMediaPlugin extends Plugin {
                 call.resolve(res);
             } catch (Exception e) {
                 call.reject("Error escaneando música MediaStore: " + e.getMessage());
-            } finally {
-                if (cursor != null) {
-                    try { cursor.close(); } catch (Exception ignored) {}
-                }
             }
         });
+    }
+
+    private JSArray readTracksFromMediaStore(ContentResolver cr, Uri collection, Set<String> indexedPaths) throws Exception {
+        JSArray tracks = new JSArray();
+        boolean hasRelPath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+        String[] projection = hasRelPath
+            ? new String[] {
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.MIME_TYPE,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.RELATIVE_PATH,
+                MediaStore.Audio.Media.DATA
+            }
+            : new String[] {
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.MIME_TYPE,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.DATA
+            };
+
+        String selection = MediaStore.Audio.Media.SIZE + " > 20000 AND (" +
+            MediaStore.Audio.Media.IS_MUSIC + " != 0 OR " +
+            MediaStore.Audio.Media.MIME_TYPE + " LIKE 'audio/%')";
+        String sortOrder = MediaStore.Audio.Media.DATE_ADDED + " DESC";
+
+        Cursor cursor = null;
+        try {
+            cursor = cr.query(collection, projection, selection, null, sortOrder);
+            if (cursor != null) {
+                int colId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID);
+                int colTitle = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
+                int colArtist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+                int colAlbum = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
+                int colAlbumId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID);
+                int colDur = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
+                int colSize = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE);
+                int colName = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME);
+                int colMime = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE);
+                int colDate = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED);
+                int colData = cursor.getColumnIndex(MediaStore.Audio.Media.DATA);
+                int colRel = hasRelPath ? cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) : -1;
+
+                while (cursor.moveToNext()) {
+                    long mediaId = cursor.getLong(colId);
+                    long size = cursor.getLong(colSize);
+                    long dur = cursor.getLong(colDur);
+                    String displayName = safeStr(cursor.getString(colName));
+                    String mime = safeStr(cursor.getString(colMime));
+                    String dataPath = colData >= 0 ? safeStr(cursor.getString(colData)) : "";
+                    String relPath = colRel >= 0 ? safeStr(cursor.getString(colRel)) : "";
+
+                    if (!dataPath.isEmpty() && indexedPaths != null) {
+                        indexedPaths.add(dataPath);
+                    }
+
+                    // Excluir clips muy cortos (< 10 seg si trae duración), notas de voz, WhatsApp/Telegram y grabadoras
+                    if (dur > 0 && dur < 10000L) continue;
+                    String checkPathLower = (relPath + " " + dataPath + " " + displayName).toLowerCase(Locale.US);
+                    if (checkPathLower.contains("whatsapp") ||
+                        checkPathLower.contains("soundrecorder") ||
+                        checkPathLower.contains("sound_recorder") ||
+                        checkPathLower.contains("audiorecorder") ||
+                        checkPathLower.contains("voice_recorder") ||
+                        checkPathLower.contains("voicerecorder") ||
+                        checkPathLower.contains("/recordings/") ||
+                        checkPathLower.contains("/recorder/") ||
+                        checkPathLower.contains("telegram") ||
+                        checkPathLower.contains("/ringtones/") ||
+                        checkPathLower.contains("/notifications/") ||
+                        checkPathLower.contains("/alarms/") ||
+                        checkPathLower.contains("callrecording")) {
+                        continue;
+                    }
+
+                    if (!isAudioFileSupported(displayName, mime)) continue;
+
+                    String rawTitle = safeStr(cursor.getString(colTitle));
+                    String rawArtist = safeStr(cursor.getString(colArtist));
+                    String rawAlbum = safeStr(cursor.getString(colAlbum));
+                    long albumId = cursor.getLong(colAlbumId);
+                    long dateAddedSec = cursor.getLong(colDate);
+
+                    String baseNoExt = stripExtension(displayName);
+                    if (rawTitle.isEmpty() || "<unknown>".equalsIgnoreCase(rawTitle)) {
+                        rawTitle = baseNoExt;
+                    }
+                    if ("<unknown>".equalsIgnoreCase(rawArtist) || "unknown".equalsIgnoreCase(rawArtist)) {
+                        rawArtist = "";
+                    }
+                    if ("<unknown>".equalsIgnoreCase(rawAlbum) || "unknown".equalsIgnoreCase(rawAlbum)) {
+                        rawAlbum = "";
+                    }
+
+                    String carpeta = extractFolderName(relPath, dataPath);
+                    Uri itemUri = ContentUris.withAppendedId(collection, mediaId);
+
+                    JSObject obj = new JSObject();
+                    obj.put("id", "ms_" + mediaId);
+                    obj.put("mediaId", mediaId);
+                    obj.put("sig", buildStableSig(baseNoExt, size));
+                    obj.put("nombre", rawTitle);
+                    obj.put("artista", rawArtist);
+                    obj.put("album", rawAlbum);
+                    obj.put("albumId", albumId);
+                    obj.put("carpeta", carpeta);
+                    obj.put("tamano", size);
+                    obj.put("duracionMs", dur);
+                    obj.put("tipo", !mime.isEmpty() ? mime : "audio/mpeg");
+                    obj.put("archivo", displayName);
+                    obj.put("ruta", dataPath);
+                    obj.put("contentUri", itemUri.toString());
+                    obj.put("fecha", dateAddedSec > 0 ? dateAddedSec * 1000L : System.currentTimeMillis());
+                    tracks.put(obj);
+                }
+            }
+        } finally {
+            if (cursor != null) {
+                try { cursor.close(); } catch (Exception ignored) {}
+            }
+        }
+        return tracks;
+    }
+
+    private int scanUnindexedAudioFilesIfAny(Context ctx, Set<String> indexedPaths) {
+        if (ctx == null) return 0;
+        try {
+            List<File> roots = new ArrayList<>();
+            @SuppressWarnings("deprecation")
+            File ext = Environment.getExternalStorageDirectory();
+            if (ext != null) {
+                roots.add(new File(ext, "SnapTube Audio"));
+                roots.add(new File(ext, "snaptube/download/SnapTube Audio"));
+                roots.add(new File(ext, "snaptube/download"));
+                roots.add(new File(ext, "SnapTube"));
+            }
+            File dirMusic = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC);
+            if (dirMusic != null) roots.add(dirMusic);
+            File dirDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            if (dirDownloads != null) roots.add(dirDownloads);
+
+            List<String> toScan = new ArrayList<>();
+            for (File root : roots) {
+                if (toScan.size() >= 40) break;
+                collectUnindexedAudioRecursive(root, 0, indexedPaths, toScan);
+            }
+            if (toScan.isEmpty()) return 0;
+
+            final CountDownLatch latch = new CountDownLatch(toScan.size());
+            MediaScannerConnection.scanFile(
+                ctx.getApplicationContext(),
+                toScan.toArray(new String[0]),
+                null,
+                (path, uri) -> latch.countDown()
+            );
+            latch.await(1500, TimeUnit.MILLISECONDS);
+            return toScan.size();
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private void collectUnindexedAudioRecursive(File dir, int depth, Set<String> indexedPaths, List<String> out) {
+        if (dir == null || depth > 2 || out.size() >= 40) return;
+        if (!dir.exists() || !dir.isDirectory() || dir.getName().startsWith(".")) return;
+        String lowerDir = dir.getName().toLowerCase(Locale.US);
+        if (lowerDir.contains("whatsapp") || lowerDir.contains("telegram") ||
+            lowerDir.contains("ringtones") || lowerDir.contains("notifications") ||
+            lowerDir.contains("alarms") || lowerDir.contains("recorder")) {
+            return;
+        }
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (out.size() >= 40) break;
+            if (child.isDirectory()) {
+                collectUnindexedAudioRecursive(child, depth + 1, indexedPaths, out);
+            } else if (child.isFile() && child.length() > 20000L) {
+                if (isAudioFileSupported(child.getName(), "")) {
+                    String abs = child.getAbsolutePath();
+                    if (indexedPaths == null || !indexedPaths.contains(abs)) {
+                        out.add(abs);
+                        if (indexedPaths != null) indexedPaths.add(abs);
+                    }
+                }
+            }
+        }
     }
 
     @PluginMethod

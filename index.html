@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.77">
+    <link rel="stylesheet" href="style.css?v=10.78">
 </head>
 <body>
 
@@ -4285,9 +4285,6 @@
                     <button type="button" id="btn-player-scope-snaptube" class="btn-lib-ghost active" style="display: none;" onclick="window.MonarcaPlayer.toggleSoloSnapTube()" title="Alternar entre solo carpeta SnapTube o todas tus carpetas de música">
                         Solo SnapTube ✓
                     </button>
-                    <button type="button" id="btn-player-reescanear" class="btn-lib-ghost" style="display: none;" onclick="window.MonarcaPlayer.reescanearBibliotecaNativa(true)" title="Buscar nuevas canciones guardadas en el teléfono">
-                        ↻ Escanear
-                    </button>
                     <button type="button" id="btn-player-cargar-mp3" class="btn-lib-ghost" onclick="document.getElementById('input-file-mp3-monarca').click()">
                         + Archivo
                     </button>
@@ -6708,26 +6705,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.77"></script>
-    <script src="js/perfil.js?v=10.77"></script>
-    <script src="js/progresion.js?v=10.77"></script>
-    <script src="js/estado-personal.js?v=10.77"></script>
-    <script src="js/finanzas.js?v=10.77"></script>
-    <script src="js/ideas.js?v=10.77"></script>
-    <script src="js/dinamicas.js?v=10.77"></script>
-    <script src="js/calendario.js?v=10.77"></script>
-    <script src="js/inventario.js?v=10.77"></script>
-    <script src="js/reproductor.js?v=10.77"></script>
-    <script src="js/jarvis-voz.js?v=10.77"></script>
+    <script src="js/core.js?v=10.78"></script>
+    <script src="js/perfil.js?v=10.78"></script>
+    <script src="js/progresion.js?v=10.78"></script>
+    <script src="js/estado-personal.js?v=10.78"></script>
+    <script src="js/finanzas.js?v=10.78"></script>
+    <script src="js/ideas.js?v=10.78"></script>
+    <script src="js/dinamicas.js?v=10.78"></script>
+    <script src="js/calendario.js?v=10.78"></script>
+    <script src="js/inventario.js?v=10.78"></script>
+    <script src="js/reproductor.js?v=10.78"></script>
+    <script src="js/jarvis-voz.js?v=10.78"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.77"></script>
+    <script type="module" src="js/firebase-config.js?v=10.78"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.77')
+                navigator.serviceWorker.register('sw.js?v=10.78')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
