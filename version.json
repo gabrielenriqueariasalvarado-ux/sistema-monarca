@@ -1,5 +1,5 @@
 {
-  "version": "10.95",
+  "version": "10.96",
   "fecha": "2026-11-22",
-  "resumen": "Opción 'Empezar a programar en Auto-PC al crear' activada por defecto en Banco de Ideas y Asistente Rápido para Emily (desmarcable manualmente cuando no sea necesaria)."
+  "resumen": "Unificación a tema oscuro de los botones de acción (.btn-sync-light) y modal de transición de jornada en Calendario & Agenda Táctica."
 }

@@ -648,7 +648,7 @@ function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
     var html = '<div class="card cal-detail-card">' +
         '<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">' +
             '<div>' +
-                '<span style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE DE JORNADA</span>' +
+                '<span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE DE JORNADA</span>' +
                 '<h3 style="margin: 2px 0 0 0; font-size: 17.5px; color: #f8fafc;">' + calEscHtml(fechaTextoCompleto) + '</h3>' +
             '</div>' +
             '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
