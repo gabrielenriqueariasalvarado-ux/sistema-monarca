@@ -1181,6 +1181,38 @@ function alCambiarCategoriaAsistenteIdea() {
     actualizarVisibilidadOpcionAutoPC(cat, 'box-opcion-autopc-asistente', 'chk-asistente-idea-programar-ahora');
 }
 
+function inicializarFormularioAsistenteRecordatorio(forzarReset) {
+    var inTit = document.getElementById('asistente-rec-titulo');
+    var inFecha = document.getElementById('asistente-rec-fecha');
+    var inHora = document.getElementById('asistente-rec-hora');
+    var inPersona = document.getElementById('asistente-rec-persona');
+    var inDesc = document.getElementById('asistente-rec-desc');
+
+    var base = new Date(Date.now() + 15 * 60000);
+    var fechaDefault = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0') + '-' + String(base.getDate()).padStart(2, '0');
+    var horaDefault = String(base.getHours()).padStart(2, '0') + ':' + String(base.getMinutes()).padStart(2, '0');
+
+    if (forzarReset) {
+        if (inTit) inTit.value = '';
+        if (inDesc) inDesc.value = '';
+        if (inFecha) inFecha.value = fechaDefault;
+        if (inHora) inHora.value = horaDefault;
+        if (inPersona) inPersona.value = '';
+    } else {
+        if (inFecha && !inFecha.value) inFecha.value = fechaDefault;
+        if (inHora && !inHora.value) inHora.value = horaDefault;
+    }
+
+    if (typeof refrescarSelectoresPersonasCalendario === 'function') {
+        refrescarSelectoresPersonasCalendario();
+    } else if (inPersona && !inPersona.options.length) {
+        var optEmpty = document.createElement('option');
+        optEmpty.value = '';
+        optEmpty.textContent = '-- Sin persona vinculada --';
+        inPersona.appendChild(optEmpty);
+    }
+}
+
 function abrirAsistenteRapido() {
     var m = document.getElementById('modal-asistente-rapido');
     if (m) {
@@ -1188,6 +1220,7 @@ function abrirAsistenteRapido() {
         poblarCategoriasAsistenteFinanza();
         alCambiarTipoAsistenteFinanza();
         alCambiarCategoriaAsistenteIdea();
+        inicializarFormularioAsistenteRecordatorio(false);
         cambiarTabAsistenteRapido(TAB_ASISTENTE_ACTIVO);
         setTimeout(function() {
             if (TAB_ASISTENTE_ACTIVO === 'finanza') {
@@ -1196,6 +1229,9 @@ function abrirAsistenteRapido() {
             } else if (TAB_ASISTENTE_ACTIVO === 'idea') {
                 var nom = document.getElementById('asistente-idea-nombre');
                 if (nom) nom.focus();
+            } else if (TAB_ASISTENTE_ACTIVO === 'recordatorio') {
+                var recTit = document.getElementById('asistente-rec-titulo');
+                if (recTit) recTit.focus();
             }
         }, 100);
     }
@@ -1224,7 +1260,7 @@ function cambiarTabAsistenteRapido(tab) {
         }
     });
 
-    ['finanza', 'idea', 'quest', 'mente'].forEach(function(t) {
+    ['finanza', 'idea', 'recordatorio', 'quest', 'mente'].forEach(function(t) {
         var sec = document.getElementById('asistente-sec-' + t);
         if (sec) sec.style.display = (t === tab) ? 'block' : 'none';
     });
@@ -1233,6 +1269,10 @@ function cambiarTabAsistenteRapido(tab) {
         alCambiarCategoriaAsistenteIdea();
         var nom = document.getElementById('asistente-idea-nombre');
         if (nom) setTimeout(function() { nom.focus(); }, 60);
+    } else if (tab === 'recordatorio') {
+        inicializarFormularioAsistenteRecordatorio(false);
+        var recTit = document.getElementById('asistente-rec-titulo');
+        if (recTit) setTimeout(function() { recTit.focus(); }, 60);
     }
 }
 
@@ -1268,6 +1308,76 @@ function guardarCapturaRapida() {
             "💡 Idea publicada en \"" + cat + "\" (+10 EXP)"
             + (resIdea.tieneImagen ? "\n🖼️ Imagen adjunta guardada." : "")
             + (resIdea.enviadaAutoPC ? "\n🤖 Enviada a la cola de Auto-PC." : ".")
+        );
+
+    } else if (tab === 'recordatorio') {
+        var inRecTit = document.getElementById('asistente-rec-titulo');
+        var inRecFecha = document.getElementById('asistente-rec-fecha');
+        var inRecHora = document.getElementById('asistente-rec-hora');
+        var inRecPersona = document.getElementById('asistente-rec-persona');
+        var inRecDesc = document.getElementById('asistente-rec-desc');
+
+        var recTit = inRecTit ? inRecTit.value.trim() : '';
+        var recFecha = inRecFecha ? inRecFecha.value : '';
+        var recHora = inRecHora ? inRecHora.value : '';
+        var recPersonaId = inRecPersona ? inRecPersona.value : '';
+        var recDesc = inRecDesc ? inRecDesc.value.trim() : '';
+
+        if (!recTit) {
+            alert('Ingresa el nombre del recordatorio.');
+            if (inRecTit) inRecTit.focus();
+            return;
+        }
+        if (!recFecha || !recHora) {
+            alert('Selecciona fecha y hora exacta para el recordatorio.');
+            if (!recFecha && inRecFecha) inRecFecha.focus();
+            else if (inRecHora) inRecHora.focus();
+            return;
+        }
+
+        var recGuardado = null;
+        if (typeof window.crearGuardarRecordatorioCalendario === 'function') {
+            recGuardado = window.crearGuardarRecordatorioCalendario({
+                titulo: recTit,
+                descripcion: recDesc,
+                fecha: recFecha,
+                hora: recHora,
+                personaId: recPersonaId
+            });
+        } else {
+            if (!APP_STATE.calendario) APP_STATE.calendario = [];
+            var tsRec = Date.now();
+            recGuardado = {
+                id: 'REC-' + tsRec + '-' + Math.random().toString(36).substr(2, 4),
+                tipo: 'recordatorio',
+                titulo: recTit,
+                descripcion: recDesc,
+                fecha: recFecha,
+                hora: recHora,
+                personaId: recPersonaId || '',
+                personaNombre: '',
+                completado: false,
+                fechaCompletada: null,
+                pospuestoHasta: null,
+                notificadoParaTs: null,
+                notificadoEn: null,
+                timestamp: tsRec,
+                fechaActualizacion: tsRec
+            };
+            APP_STATE.calendario.push(recGuardado);
+            if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+            if (typeof renderizarCalendario === 'function') renderizarCalendario();
+            if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+            if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
+            if (typeof verificarDisparadoresCalendario === 'function') verificarDisparadoresCalendario();
+        }
+
+        inicializarFormularioAsistenteRecordatorio(true);
+        cerrarAsistenteRapido();
+        alert(
+            '🔔 Recordatorio programado para ' + recFecha + ' a las ' + recHora
+            + (recGuardado && recGuardado.personaNombre ? '\n👤 Persona vinculada: ' + recGuardado.personaNombre : '')
+            + '\n📅 Guardado en tu Calendario.'
         );
 
     } else if (tab === 'quest') {
@@ -1521,7 +1631,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.76';
+var MONARCA_APP_VERSION = '10.77';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

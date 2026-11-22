@@ -1241,27 +1241,26 @@ function renderizarApartadoCronograma() {
 // MODAL UNIFICADO DE CREACIÓN Y EDICIÓN (4 APARTADOS + PERSONAS + GRUPOS)
 // ==========================================================================
 
-function refrescarSelectoresPersonasCalendario() {
+function generarHtmlOpcionesPersonasCalendario() {
     var personas = obtenerPersonasDisponibles();
-    var opcionesBase = '<option value="">— Ninguna persona vinculada —</option>' +
+    return '<option value="">— Ninguna persona vinculada —</option>' +
         personas.map(function(p) {
             var meta = p.ubicacionCategoria ? ' (' + p.ubicacionCategoria + ')' : '';
             return '<option value="' + calEscHtml(p.id) + '">' + calEscHtml(p.nombre + meta) + '</option>';
         }).join('');
+}
 
-    var selRec = document.getElementById('cal-rec-persona');
-    if (selRec) {
-        var valRec = selRec.value;
-        selRec.innerHTML = opcionesBase;
-        if (valRec) selRec.value = valRec;
-    }
+function refrescarSelectoresPersonasCalendario() {
+    var opcionesBase = generarHtmlOpcionesPersonasCalendario();
 
-    var selDest = document.getElementById('cal-dest-persona');
-    if (selDest) {
-        var valDest = selDest.value;
-        selDest.innerHTML = opcionesBase;
-        if (valDest) selDest.value = valDest;
-    }
+    ['cal-rec-persona', 'cal-dest-persona', 'asistente-rec-persona'].forEach(function(selectId) {
+        var sel = document.getElementById(selectId);
+        if (sel) {
+            var valPrev = sel.value;
+            sel.innerHTML = opcionesBase;
+            if (valPrev) sel.value = valPrev;
+        }
+    });
 
     renderizarMultiSelectorPersonasEvento();
 }
@@ -1590,6 +1589,84 @@ function cerrarModalNuevoEvento() {
     if (modal) modal.style.display = 'none';
 }
 
+/**
+ * Crea o actualiza un recordatorio de Calendario desde cualquier flujo (modal de Calendario o Captura Rápida)
+ * y sincroniza BD, vista, badges y alarmas nativas.
+ */
+function crearGuardarRecordatorioCalendario(opts) {
+    if (!opts) return null;
+    if (!APP_STATE.calendario) APP_STATE.calendario = [];
+
+    var titulo = String(opts.titulo || '').trim();
+    var desc = String(opts.descripcion || '').trim();
+    var fecha = String(opts.fecha || '').trim();
+    var hora = String(opts.hora || '').trim();
+    var personaId = String(opts.personaId || '').trim();
+    var editId = opts.editId ? String(opts.editId).trim() : '';
+    var ahora = Date.now();
+
+    if (!titulo || !fecha || !hora) return null;
+
+    var per = resolverPersonaPorId(personaId);
+    var fechaDate = parsearClaveFechaLocal(fecha);
+    if (fechaDate) {
+        CALENDARIO_ESTADO.anio = fechaDate.getFullYear();
+        CALENDARIO_ESTADO.mes = fechaDate.getMonth();
+        CALENDARIO_ESTADO.diaSeleccionado = fechaDate.getDate();
+    }
+
+    var recordatorioGuardado = null;
+    if (editId) {
+        var idx = APP_STATE.calendario.findIndex(function(c) { return String(c.id) === editId; });
+        if (idx !== -1) {
+            var ex = APP_STATE.calendario[idx];
+            var cambioHorario = (ex.fecha !== fecha || ex.hora !== hora);
+            recordatorioGuardado = Object.assign({}, ex, {
+                tipo: 'recordatorio',
+                titulo: titulo,
+                descripcion: desc,
+                fecha: fecha,
+                hora: hora,
+                personaId: personaId || '',
+                personaNombre: per ? per.nombre : '',
+                pospuestoHasta: cambioHorario ? null : (ex.pospuestoHasta || null),
+                notificadoParaTs: cambioHorario ? null : (ex.notificadoParaTs || null),
+                fechaActualizacion: ahora
+            });
+            APP_STATE.calendario[idx] = recordatorioGuardado;
+        }
+    } else {
+        recordatorioGuardado = {
+            id: 'REC-' + ahora + '-' + Math.random().toString(36).substr(2, 4),
+            tipo: 'recordatorio',
+            titulo: titulo,
+            descripcion: desc,
+            fecha: fecha,
+            hora: hora,
+            personaId: personaId || '',
+            personaNombre: per ? per.nombre : '',
+            completado: false,
+            fechaCompletada: null,
+            pospuestoHasta: null,
+            notificadoParaTs: null,
+            notificadoEn: null,
+            timestamp: ahora,
+            fechaActualizacion: ahora
+        };
+        APP_STATE.calendario.push(recordatorioGuardado);
+    }
+
+    if (!opts.omitirSideEffects) {
+        if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+        if (typeof renderizarCalendario === 'function') renderizarCalendario();
+        if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
+        if (typeof verificarDisparadoresCalendario === 'function') verificarDisparadoresCalendario();
+    }
+
+    return recordatorioGuardado;
+}
+
 function guardarNuevoEvento() {
     if (!APP_STATE.calendario) APP_STATE.calendario = [];
     if (!APP_STATE.cronogramaSemanal) APP_STATE.cronogramaSemanal = [];
@@ -1608,51 +1685,15 @@ function guardarNuevoEvento() {
         if (!titulo) { alert('Ingresa el nombre del recordatorio.'); return; }
         if (!fecha || !hora) { alert('Selecciona fecha y hora exacta para el recordatorio.'); return; }
 
-        var per = resolverPersonaPorId(personaId);
-        var fechaDate = parsearClaveFechaLocal(fecha);
-        if (fechaDate) {
-            CALENDARIO_ESTADO.anio = fechaDate.getFullYear();
-            CALENDARIO_ESTADO.mes = fechaDate.getMonth();
-            CALENDARIO_ESTADO.diaSeleccionado = fechaDate.getDate();
-        }
-
-        if (editId) {
-            var idx = APP_STATE.calendario.findIndex(function(c) { return String(c.id) === String(editId); });
-            if (idx !== -1) {
-                var ex = APP_STATE.calendario[idx];
-                var cambioHorario = (ex.fecha !== fecha || ex.hora !== hora);
-                APP_STATE.calendario[idx] = Object.assign({}, ex, {
-                    tipo: 'recordatorio',
-                    titulo: titulo,
-                    descripcion: desc,
-                    fecha: fecha,
-                    hora: hora,
-                    personaId: personaId || '',
-                    personaNombre: per ? per.nombre : '',
-                    pospuestoHasta: cambioHorario ? null : (ex.pospuestoHasta || null),
-                    notificadoParaTs: cambioHorario ? null : (ex.notificadoParaTs || null),
-                    fechaActualizacion: ahora
-                });
-            }
-        } else {
-            APP_STATE.calendario.push({
-                id: 'REC-' + ahora + '-' + Math.random().toString(36).substr(2, 4),
-                tipo: 'recordatorio',
-                titulo: titulo,
-                descripcion: desc,
-                fecha: fecha,
-                hora: hora,
-                personaId: personaId || '',
-                personaNombre: per ? per.nombre : '',
-                completado: false,
-                fechaCompletada: null,
-                pospuestoHasta: null,
-                notificadoParaTs: null,
-                notificadoEn: null,
-                timestamp: ahora,
-                fechaActualizacion: ahora
-            });
-        }
+        crearGuardarRecordatorioCalendario({
+            titulo: titulo,
+            descripcion: desc,
+            fecha: fecha,
+            hora: hora,
+            personaId: personaId,
+            editId: editId,
+            omitirSideEffects: true
+        });
     } else if (tipo === 'evento') {
         var evTitulo = document.getElementById('cal-ev-titulo').value.trim();
         var evDesc = document.getElementById('cal-ev-desc').value.trim();
@@ -2282,3 +2323,6 @@ function programarAlarmasCalendarioNativas() {
         }
     } catch(e) {}
 }
+
+window.crearGuardarRecordatorioCalendario = crearGuardarRecordatorioCalendario;
+window.refrescarSelectoresPersonasCalendario = refrescarSelectoresPersonasCalendario;

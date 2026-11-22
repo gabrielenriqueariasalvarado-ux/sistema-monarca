@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.76">
+    <link rel="stylesheet" href="style.css?v=10.77">
 </head>
 <body>
 
@@ -5071,13 +5071,16 @@
             </div>
 
             <div style="padding: 18px; overflow-y: auto; flex: 1; min-height: 0;">
-                <!-- Pestañas de categoría rápida (1.º Finanza, 2.º Idea) -->
+                <!-- Pestañas de categoría rápida (1.º Finanza, 2.º Idea, 3.º Recordatorio) -->
                 <div class="asistente-tabs-container">
                     <button type="button" class="btn-tab-asistente active" data-tab="finanza" onclick="cambiarTabAsistenteRapido('finanza')">
                         💰 Finanza
                     </button>
                     <button type="button" class="btn-tab-asistente" data-tab="idea" onclick="cambiarTabAsistenteRapido('idea')">
                         💡 Idea
+                    </button>
+                    <button type="button" class="btn-tab-asistente" data-tab="recordatorio" onclick="cambiarTabAsistenteRapido('recordatorio')">
+                        🔔 Recordatorio
                     </button>
                 </div>
 
@@ -5173,6 +5176,32 @@
                                 <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC.</small>
                             </span>
                         </label>
+                    </div>
+                </div>
+
+                <!-- 3. CAPTURA DE RECORDATORIO (ESPEJO DE CALENDARIO) -->
+                <div id="asistente-sec-recordatorio" style="display: none;">
+                    <div style="margin-bottom: 12px;">
+                        <label for="asistente-rec-titulo" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Nombre del Recordatorio:</label>
+                        <input type="text" id="asistente-rec-titulo" class="finanzas-input-clean" placeholder="Ej: Llamar al contador, Tomar vitaminas, Enviar factura..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px;">
+                    </div>
+                    <div class="asistente-rec-grid">
+                        <div style="min-width: 0;">
+                            <label for="asistente-rec-fecha" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Fecha:</label>
+                            <input type="date" id="asistente-rec-fecha" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 10px; width: 100%; min-width: 0; box-sizing: border-box; font-size: 13px; color-scheme: dark;">
+                        </div>
+                        <div style="min-width: 0;">
+                            <label for="asistente-rec-hora" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Hora Exacta (Alarma):</label>
+                            <input type="time" id="asistente-rec-hora" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 10px; width: 100%; min-width: 0; box-sizing: border-box; font-size: 13px; color-scheme: dark;">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label for="asistente-rec-persona" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Vincular Persona (Opcional · desde Personas):</label>
+                        <select id="asistente-rec-persona" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; font-size: 13px;"></select>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <label for="asistente-rec-desc" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Descripción / Nota:</label>
+                        <textarea id="asistente-rec-desc" class="finanzas-input-clean" rows="3" placeholder="Detalles importantes que aparecerán al sonar la alerta..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13.5px; resize: vertical;"></textarea>
                     </div>
                 </div>
             </div>
@@ -6679,26 +6708,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.76"></script>
-    <script src="js/perfil.js?v=10.76"></script>
-    <script src="js/progresion.js?v=10.76"></script>
-    <script src="js/estado-personal.js?v=10.76"></script>
-    <script src="js/finanzas.js?v=10.76"></script>
-    <script src="js/ideas.js?v=10.76"></script>
-    <script src="js/dinamicas.js?v=10.76"></script>
-    <script src="js/calendario.js?v=10.76"></script>
-    <script src="js/inventario.js?v=10.76"></script>
-    <script src="js/reproductor.js?v=10.76"></script>
-    <script src="js/jarvis-voz.js?v=10.76"></script>
+    <script src="js/core.js?v=10.77"></script>
+    <script src="js/perfil.js?v=10.77"></script>
+    <script src="js/progresion.js?v=10.77"></script>
+    <script src="js/estado-personal.js?v=10.77"></script>
+    <script src="js/finanzas.js?v=10.77"></script>
+    <script src="js/ideas.js?v=10.77"></script>
+    <script src="js/dinamicas.js?v=10.77"></script>
+    <script src="js/calendario.js?v=10.77"></script>
+    <script src="js/inventario.js?v=10.77"></script>
+    <script src="js/reproductor.js?v=10.77"></script>
+    <script src="js/jarvis-voz.js?v=10.77"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.76"></script>
+    <script type="module" src="js/firebase-config.js?v=10.77"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.76')
+                navigator.serviceWorker.register('sw.js?v=10.77')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

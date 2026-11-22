@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.76)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.77)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.76
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.77
             Esta versión nativa incluye:
+            - 🔔 **Recordatorios rápidos desde el Asistente Monarca (v10.77)**:
+              - Nuevo apartado **`🔔 Recordatorio`** junto a **`💰 Finanza`** y **`💡 Idea`** dentro de **Captura Rápida (`+`)**.
+              - Incluye los mismos campos del **Calendario** (**Nombre del Recordatorio**, **Fecha**, **Hora Exacta (Alarma)**, **Vincular Persona** desde Personas y **Descripción / Nota**), sincronizándose de inmediato con Calendario, Centro de Alertas y alarmas nativas Android.
             - 🖼️ **Adjuntar Fotos, Capturas e Imágenes en Ideas + Envío a Auto-PC (v10.76)**:
               - Opción de adjuntar una **foto tomada al momento (cámara)**, una **captura de pantalla**, **imagen de galería** o **pegar del portapapeles** tanto en **Banco de Ideas** como en **Captura Rápida** (`+` Asistente Monarca).
               - Si creas una idea en **`✨ Emily`** con imagen/captura y activas **Empezar a programar en Auto-PC**, tu PC adjuntará automáticamente la captura junto al texto dentro de **Antigravity**.

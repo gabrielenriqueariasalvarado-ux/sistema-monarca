@@ -5121,10 +5121,10 @@ body.modal-open {
 
 /* (Estilos de #btn-asistente-flotante y asistente rápido integrados en .monarca-bottom-hud) */
 
-/* Pestañas del Asistente Rápido (Finanza & Idea) */
+/* Pestañas del Asistente Rápido (Finanza, Idea & Recordatorio) */
 .asistente-tabs-container {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 16px;
     background: rgba(11, 14, 21, 0.85);
     padding: 5px;
@@ -5133,12 +5133,13 @@ body.modal-open {
 }
 
 .btn-tab-asistente {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 9px 10px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #94a3b8;
     cursor: pointer;
@@ -5146,7 +5147,7 @@ body.modal-open {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -5160,6 +5161,26 @@ body.modal-open {
     color: #ffffff !important;
     border: 1px solid rgba(56, 189, 248, 0.5) !important;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(56, 189, 248, 0.25) !important;
+}
+
+.asistente-rec-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 480px) {
+    .asistente-tabs-container {
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .btn-tab-asistente {
+        padding: 8px 6px;
+        font-size: 11.5px;
+        gap: 4px;
+    }
 }
 
 /* Botón de Acción Principal dentro del Asistente */
