@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.84)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.85)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.84
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.85
             Esta versión nativa incluye:
+            - 💪 **Catálogo de Ejercicios Limpio & Legible (v10.85)**:
+              - Eliminado el recorte con `...` en los nombres de ejercicios y las etiquetas partidas en dos líneas en **Arsenal Físico**; ahora muestran nombre completo, modalidad, series/reps, carga e implemento en chips claros.
+              - Barra horizontal deslizable de categorías musculares y cognitivas en móvil para aprovechar mucho mejor el espacio vertical.
             - 🏋️ **Tarjetas de Ejercicios Limpias & Organizadas en Rutinas (v10.84)**:
               - Rediseño visual sin cajas anidadas ni información repetida; el botón **`✓ Marcar Hecha`** y las etiquetas de fatiga se ajustan limpiamente en móvil sin recortarse.
               - Cabeceras con chips limpios (Serie 0 / Récord / Corporales / Pesos) y controles de series alineados.

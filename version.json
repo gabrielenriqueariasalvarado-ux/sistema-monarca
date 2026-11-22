@@ -1,5 +1,5 @@
 {
-  "version": "10.84",
+  "version": "10.85",
   "fecha": "2026-11-22",
-  "resumen": "Rediseño limpio y organizado de tarjetas de ejercicios en rutina activa, eliminando cajas anidadas, duplicación y recortes en móvil."
+  "resumen": "Rediseño limpio del Arsenal de Ejercicios sin nombres recortados ni badges deformados, con barra horizontal de filtros en móvil y detalles accesibles."
 }

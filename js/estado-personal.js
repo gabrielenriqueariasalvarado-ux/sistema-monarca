@@ -3737,34 +3737,46 @@ function generarCardEjercicioFisicoHtml(ej) {
     }
 
     var tipoBadge = (ej.tipo === 'calistenia')
-        ? '<span class="muscle-tag" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3);">🤸 Calistenia</span>'
+        ? '<span class="muscle-tag arsenal-type-chip arsenal-type-chip--cal">🤸 Calistenia</span>'
         : (ej.tipo === 'movilidad'
-            ? '<span class="muscle-tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">🥋 Movilidad</span>'
-            : '<span class="muscle-tag" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">🏋️ Gym</span>');
+            ? '<span class="muscle-tag arsenal-type-chip arsenal-type-chip--mov">🥋 Movilidad</span>'
+            : '<span class="muscle-tag arsenal-type-chip arsenal-type-chip--gym">🏋️ Gym</span>');
 
     var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
     var esTiempo = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+    var esSerieCeroCard = !!(ej.series === 0 || ej.esSerieCero);
     var repsDisplay = '';
+    var repsShort = '';
     if (esTiempo) {
         var tSeg = ej.tiempoSegundos || 60;
-        repsDisplay = (ej.series && ej.series > 1) 
-            ? `${ej.series} Series × ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico` 
+        repsDisplay = (ej.series && ej.series > 1)
+            ? `${ej.series} Series × ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico`
             : `1 Serie · ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico`;
+        repsShort = (ej.series && ej.series > 1) ? `${ej.series}×⏱️${tSeg}s` : `⏱️ ${tSeg}s`;
+    } else if (esSerieCeroCard) {
+        var recCard = ej.recordSerieCero || ej.ultimaSerieCeroReps || obtenerRepsPromedioEjercicio(ej);
+        repsDisplay = `🏆 Serie 0 · Modo Récord (${recCard} reps)`;
+        repsShort = `🏆 Serie 0 · ${recCard} reps`;
     } else {
-        repsDisplay = (ej.series && ej.series > 1) 
-            ? `${ej.series} Series × ${ej.repeticiones || '8-10 reps'}` 
-            : `1 Serie · ${ej.repeticiones || '8-10 reps'}`;
+        var repTxt = ej.repeticiones || '8-10 reps';
+        repsDisplay = (ej.series && ej.series > 1)
+            ? `${ej.series} Series × ${repTxt}`
+            : `1 Serie · ${repTxt}`;
+        repsShort = `${ej.series || 1}×${repTxt}`;
     }
-    
+
     // Obtener peso base del ejercicio (o pesoReferencia)
-    var pesoNum = (ej.peso != null && ej.peso !== '' && !isNaN(parseFloat(ej.peso))) 
-        ? parseFloat(ej.peso) 
-        : ((ej.pesoReferencia != null && ej.pesoReferencia !== '' && !isNaN(parseFloat(ej.pesoReferencia))) 
-            ? parseFloat(ej.pesoReferencia) 
+    var pesoNum = (ej.peso != null && ej.peso !== '' && !isNaN(parseFloat(ej.peso)))
+        ? parseFloat(ej.peso)
+        : ((ej.pesoReferencia != null && ej.pesoReferencia !== '' && !isNaN(parseFloat(ej.pesoReferencia)))
+            ? parseFloat(ej.pesoReferencia)
             : ((ej.tipo === 'calistenia' || ej.tipo === 'movilidad') ? null : 80));
     var unidadPeso = ej.unidadPeso || 'kg';
     var pesoBadgeHtml = (pesoNum != null && pesoNum > 0)
         ? `<span class="badge-exercise-peso">⚡ Base: ${pesoNum} ${unidadPeso}</span>`
+        : '';
+    var pesoShortHtml = (pesoNum != null && pesoNum > 0)
+        ? `<span class="arsenal-meta-pill arsenal-meta-pill--peso">⚖️ ${pesoNum} ${unidadPeso}</span>`
         : '';
 
     var mapaImplementos = {
@@ -3780,27 +3792,35 @@ function generarCardEjercicioFisicoHtml(ej) {
     var implementoBadgeHtml = impObj
         ? `<span class="badge-exercise-implemento">${impObj.icon} ${impObj.label}</span>`
         : '';
+    var implementoShortHtml = impObj
+        ? `<span class="arsenal-meta-pill">${impObj.icon} ${impObj.label}</span>`
+        : '';
 
     return `
-    <div class="exercise-card exercise-card-collapsible" id="card-ejercicio-${safeId}" style="transition: all 0.25s ease; border-radius: 14px; margin-bottom: 8px;">
-        <div class="exercise-card-header" onclick="toggleDesplegarEjercicio('${safeId}')" style="cursor: pointer; user-select: none; margin-bottom: 0; padding: 2px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-                ${tipoBadge}
-                <h3 class="exercise-card-name" style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ej.nombre}</h3>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                <div class="btn-toggle-acordeon" title="Desplegar detalles" style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); display: flex; align-items: center; justify-content: center; color: #38bdf8; transition: all 0.2s ease;">
-                    <span id="flecha-ejercicio-${safeId}" style="display: inline-block; font-size: 11px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); transform: rotate(0deg);">▼</span>
+    <div class="exercise-card exercise-card-collapsible" id="card-ejercicio-${safeId}">
+        <div class="exercise-card-header arsenal-card-header" onclick="toggleDesplegarEjercicio('${safeId}')">
+            <div class="arsenal-card-main">
+                <h3 class="exercise-card-name arsenal-card-title">${ej.nombre}</h3>
+                <div class="arsenal-card-chips">
+                    ${tipoBadge}
+                    <span class="arsenal-meta-pill">${repsShort}</span>
+                    ${pesoShortHtml}
+                    ${implementoShortHtml}
                 </div>
-                <button type="button" class="btn-edit-exercise-row" title="Editar ejercicio" onclick="abrirModalEditarEjercicio('${ej.id}'); event.stopPropagation();">✏️</button>
-                <button type="button" class="btn-delete-row" title="Eliminar ejercicio" onclick="eliminarEjercicio('${ej.id}'); event.stopPropagation();" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer; padding:4px 8px; border-radius:6px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">✕</button>
+            </div>
+            <div class="arsenal-card-actions">
+                <button type="button" class="btn-toggle-acordeon arsenal-action-btn" title="Desplegar detalles" aria-label="Ver detalles de ${ej.nombre}">
+                    <span id="flecha-ejercicio-${safeId}" class="arsenal-chevron">▼</span>
+                </button>
+                <button type="button" class="btn-edit-exercise-row arsenal-action-btn" title="Editar ejercicio" aria-label="Editar ${ej.nombre}" onclick="abrirModalEditarEjercicio('${ej.id}'); event.stopPropagation();">✏️</button>
+                <button type="button" class="btn-delete-row arsenal-action-btn arsenal-action-btn--delete" title="Eliminar ejercicio" aria-label="Eliminar ${ej.nombre}" onclick="eliminarEjercicio('${ej.id}'); event.stopPropagation();">✕</button>
             </div>
         </div>
 
         <!-- PANEL DESPLEGABLE: DESCRIPCIÓN Y DATOS COMPLETOS -->
-        <div id="detalles-ejercicio-${safeId}" class="exercise-card-details" style="display: none; margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.07); animation: fadeInDetails 0.2s ease;">
-            <p class="exercise-card-desc" style="margin: 0 0 12px 0; color: #94a3b8; font-size: 12.5px; line-height: 1.45;">${specsTexto}</p>
-            <div class="exercise-badges-row" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+        <div id="detalles-ejercicio-${safeId}" class="exercise-card-details" style="display: none;">
+            <p class="exercise-card-desc">${specsTexto}</p>
+            <div class="exercise-badges-row">
                 ${badgesZonasHtml}
                 ${implementoBadgeHtml}
                 ${pesoBadgeHtml}
@@ -8402,7 +8422,7 @@ function renderizarBancoEjerciciosCerebrales() {
             return;
         }
 
-        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">';
+        var html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px;">';
         filtrados.forEach(function(ec) {
             html += generarCardEjercicioCerebralHtml(ec);
         });
@@ -8438,7 +8458,7 @@ function renderizarBancoEjerciciosCerebrales() {
         if (itemsDeFacultad.length > 0) {
             itemsDeFacultad.forEach(function(ec) { asignados.add(ec.id || ec.nombre); });
             htmlAgrupado += `<div class="mental-group-title">${f.label} <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${itemsDeFacultad.length})</span></div>`;
-            htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 14px;">';
+            htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-bottom: 14px;">';
             itemsDeFacultad.forEach(function(ec) {
                 htmlAgrupado += generarCardEjercicioCerebralHtml(ec);
             });
@@ -8451,7 +8471,7 @@ function renderizarBancoEjerciciosCerebrales() {
     });
     if (restantes.length > 0) {
         htmlAgrupado += `<div class="mental-group-title">🔮 Otros Protocolos Cognitivos <span style="font-size:11px; color:#94a3b8; font-weight:600; margin-left:4px;">(${restantes.length})</span></div>`;
-        htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">';
+        htmlAgrupado += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px;">';
         restantes.forEach(function(ec) {
             htmlAgrupado += generarCardEjercicioCerebralHtml(ec);
         });

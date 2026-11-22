@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.84">
+    <link rel="stylesheet" href="style.css?v=10.85">
 </head>
 <body>
 
@@ -1101,7 +1101,7 @@
                 </div>
 
                 <!-- BARRA DE CATEGORÍAS COGNITIVAS (MÚSCULOS DE LA MENTE) -->
-                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div class="banco-subfiltros-scroll-wrapper" style="margin-bottom: 16px;">
                     <button class="btn-subfiltro-ej active" data-subfiltro-mental="todos" onclick="filtrarSubcategoriaMental('todos')">Todas</button>
                     <button class="btn-subfiltro-ej" data-subfiltro-mental="enfoque" onclick="filtrarSubcategoriaMental('enfoque')">🎯 Enfoque</button>
                     <button class="btn-subfiltro-ej" data-subfiltro-mental="inteligencia" onclick="filtrarSubcategoriaMental('inteligencia')">⚡ Lógica</button>
@@ -6772,26 +6772,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.84"></script>
-    <script src="js/perfil.js?v=10.84"></script>
-    <script src="js/progresion.js?v=10.84"></script>
-    <script src="js/estado-personal.js?v=10.84"></script>
-    <script src="js/finanzas.js?v=10.84"></script>
-    <script src="js/ideas.js?v=10.84"></script>
-    <script src="js/dinamicas.js?v=10.84"></script>
-    <script src="js/calendario.js?v=10.84"></script>
-    <script src="js/inventario.js?v=10.84"></script>
-    <script src="js/reproductor.js?v=10.84"></script>
-    <script src="js/jarvis-voz.js?v=10.84"></script>
+    <script src="js/core.js?v=10.85"></script>
+    <script src="js/perfil.js?v=10.85"></script>
+    <script src="js/progresion.js?v=10.85"></script>
+    <script src="js/estado-personal.js?v=10.85"></script>
+    <script src="js/finanzas.js?v=10.85"></script>
+    <script src="js/ideas.js?v=10.85"></script>
+    <script src="js/dinamicas.js?v=10.85"></script>
+    <script src="js/calendario.js?v=10.85"></script>
+    <script src="js/inventario.js?v=10.85"></script>
+    <script src="js/reproductor.js?v=10.85"></script>
+    <script src="js/jarvis-voz.js?v=10.85"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.84"></script>
+    <script type="module" src="js/firebase-config.js?v=10.85"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.84')
+                navigator.serviceWorker.register('sw.js?v=10.85')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
