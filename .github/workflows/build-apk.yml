@@ -71,10 +71,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.80)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.81)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.80
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.81
             Esta versión nativa incluye:
+            - 🎶 **Botón completo en Agregar Canciones a la Lista (v10.81)**:
+              - Corregido el recorte vertical del pie de modal (`✓ Guardar en Lista`) dentro del Reproductor MP3 en pantallas móviles cuando la lista tiene muchas canciones.
             - 🔔 **Notificaciones unificadas Centro de Alertas ↔ Teléfono con `✓ Okey` (v10.80)**:
               - Todas las notificaciones (Auto-PC, Recordatorios de Calendario, Eventos y Quests/Penitencias) aparecen sincronizadas tanto en **Centro de Alertas & Notificaciones** como en las **notificaciones nativas de tu teléfono**.
               - Nuevo botón **`✓ Okey`** tanto en las tarjetas del Centro de Alertas como en la notificación del teléfono (Android / PWA) para confirmar y limpiar ambos lados a la vez sin duplicados.

@@ -522,7 +522,7 @@ body.modal-open {
 }
 
 .modal-system-body,
-.modal-system-window > div:not(.modal-system-header) {
+.modal-system-window > div:not(.modal-system-header):not(.pl-modal-footer):not(.modal-system-footer) {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -13183,6 +13183,75 @@ body.modal-open {
 .modal-system-window.pl-modal-card .modal-system-header.pl-modal-header {
     background: rgba(56, 189, 248, 0.08) !important;
     border-bottom: 1px solid rgba(56, 189, 248, 0.2) !important;
+}
+
+#modal-pl-agregar-cuerpo {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+#modal-pl-agregar-footer,
+.modal-system-window > .pl-modal-footer {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+    min-height: auto !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pl-modal-footer-meta {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-right: auto;
+}
+
+.pl-modal-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.pl-modal-footer-actions > button {
+    max-width: 100%;
+}
+
+.pl-modal-footer > .btn-pl-action-add {
+    min-height: 36px;
+    padding: 7px 14px;
+    font-size: 12px;
+}
+
+@media (max-width: 520px) {
+    #modal-pl-agregar-footer {
+        padding: 12px 14px !important;
+        gap: 8px !important;
+    }
+    .pl-modal-footer-meta {
+        width: 100%;
+        margin-right: 0;
+        text-align: left;
+    }
+    .pl-modal-footer-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: stretch;
+    }
+    .pl-modal-footer-actions > button {
+        flex: 1 1 auto;
+        justify-content: center;
+        padding: 9px 12px !important;
+        white-space: normal;
+        text-align: center;
+    }
 }
 
 /* ==========================================================================

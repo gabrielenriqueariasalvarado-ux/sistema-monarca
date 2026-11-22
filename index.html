@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.80">
+    <link rel="stylesheet" href="style.css?v=10.81">
 </head>
 <body>
 
@@ -4657,7 +4657,7 @@
 
     <!-- MODAL AGREGAR CANCIONES A LISTA / ELEGIR LISTA PARA CANCIÓN -->
     <div id="modal-reproductor-agregar-playlist" class="modal-overlay" style="display: none; z-index: 10250;" onclick="if(event.target===this) window.MonarcaPlayer.cerrarModalAgregarPlaylist();">
-        <div class="modal-system-window pl-modal-card" style="max-width: 520px; width: 94%; max-height: 86vh; display: flex; flex-direction: column;">
+        <div class="modal-system-window pl-modal-card" style="max-width: 520px; width: 94%; max-height: 86vh; max-height: 86dvh; display: flex; flex-direction: column;">
             <div class="modal-system-header pl-modal-header">
                 <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
                     <span class="pl-modal-header-icon">➕</span>
@@ -4668,8 +4668,8 @@
                 </div>
                 <button type="button" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
-            <div id="modal-pl-agregar-cuerpo" style="padding: 16px 18px; overflow-y: auto; flex: 1;"></div>
-            <div id="modal-pl-agregar-footer" style="padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap;"></div>
+            <div id="modal-pl-agregar-cuerpo" style="padding: 16px 18px; overflow-y: auto; flex: 1 1 auto; min-height: 0;"></div>
+            <div id="modal-pl-agregar-footer" class="pl-modal-footer" style="padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0;"></div>
         </div>
     </div>
 
@@ -6706,26 +6706,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.80"></script>
-    <script src="js/perfil.js?v=10.80"></script>
-    <script src="js/progresion.js?v=10.80"></script>
-    <script src="js/estado-personal.js?v=10.80"></script>
-    <script src="js/finanzas.js?v=10.80"></script>
-    <script src="js/ideas.js?v=10.80"></script>
-    <script src="js/dinamicas.js?v=10.80"></script>
-    <script src="js/calendario.js?v=10.80"></script>
-    <script src="js/inventario.js?v=10.80"></script>
-    <script src="js/reproductor.js?v=10.80"></script>
-    <script src="js/jarvis-voz.js?v=10.80"></script>
+    <script src="js/core.js?v=10.81"></script>
+    <script src="js/perfil.js?v=10.81"></script>
+    <script src="js/progresion.js?v=10.81"></script>
+    <script src="js/estado-personal.js?v=10.81"></script>
+    <script src="js/finanzas.js?v=10.81"></script>
+    <script src="js/ideas.js?v=10.81"></script>
+    <script src="js/dinamicas.js?v=10.81"></script>
+    <script src="js/calendario.js?v=10.81"></script>
+    <script src="js/inventario.js?v=10.81"></script>
+    <script src="js/reproductor.js?v=10.81"></script>
+    <script src="js/jarvis-voz.js?v=10.81"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.80"></script>
+    <script type="module" src="js/firebase-config.js?v=10.81"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.80')
+                navigator.serviceWorker.register('sw.js?v=10.81')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

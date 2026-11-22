@@ -2869,9 +2869,11 @@
         if (footer) {
             var totalSel = selSet.size;
             footer.innerHTML =
-                '<span style="font-size: 12px; color: #94a3b8; font-weight: 700; margin-right: auto;">' + totalSel + (totalSel === 1 ? ' canción seleccionada' : ' canciones seleccionadas') + '</span>' +
-                '<button type="button" class="btn-back-system" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()">Cancelar</button>' +
-                '<button type="button" id="btn-pl-guardar-canciones" class="btn-system pl-modal-btn-primary" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.confirmarCancionesEnPlaylistModal()">✓ Guardar en Lista (' + totalSel + ')</button>';
+                '<span class="pl-modal-footer-meta">' + totalSel + (totalSel === 1 ? ' canción seleccionada' : ' canciones seleccionadas') + '</span>' +
+                '<div class="pl-modal-footer-actions">' +
+                    '<button type="button" class="btn-back-system" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.cerrarModalAgregarPlaylist()">Cancelar</button>' +
+                    '<button type="button" id="btn-pl-guardar-canciones" class="btn-system pl-modal-btn-primary" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.confirmarCancionesEnPlaylistModal()">✓ Guardar en Lista (' + totalSel + ')</button>' +
+                '</div>';
         }
     }
 
