@@ -1,5 +1,5 @@
 {
-  "version": "10.85",
+  "version": "10.86",
   "fecha": "2026-11-22",
-  "resumen": "Rediseño limpio del Arsenal de Ejercicios sin nombres recortados ni badges deformados, con barra horizontal de filtros en móvil y detalles accesibles."
+  "resumen": "Corrección de vista dual Frente+Espalda en móvil para Estado Personal, gráficas radar limpias con respaldo offline, pestañas sin recortes y tarjetas adaptables."
 }

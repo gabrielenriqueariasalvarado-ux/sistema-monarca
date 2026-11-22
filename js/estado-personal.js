@@ -674,17 +674,31 @@ function cerrarModalMecanicaNuevoDia() {
 // ==========================================================================
 
 function cargarEstadoPersonal() {
+    if (!window.SECCION_EP_ACTIVA) {
+        window.SECCION_EP_ACTIVA = 'desgaste';
+    }
+
     actualizarDesgasteDiarioAutomatico();
     renderizarGraficoGeneralAvatar();
     renderizarDesgloseCuerpoAnatomico();
     renderizarDesgloseMenteCognitiva();
-    actualizarGraficosRadarEstadoPersonal();
     iniciarMonitorMedianocheDiaria();
 
-    // Nutrición & Descanso
+    // Nutrición & Descanso (renderizan sus tarjetas sin sobrescribir la silueta si no están activas)
     if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
     if (typeof renderizarModuloNutricion === 'function') renderizarModuloNutricion();
     if (typeof renderizarModuloDescanso === 'function') renderizarModuloDescanso();
+
+    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA);
+    }
+
+    actualizarGraficosRadarEstadoPersonal();
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function() {
+            actualizarGraficosRadarEstadoPersonal();
+        });
+    }
 }
 
 function renderizarBarrasFatiga(f) {
@@ -765,9 +779,9 @@ function actualizarHudMusculo(key, subclave) {
 
     hudCont.innerHTML = `
     <div class="hud-muscle-card" style="border-left: 4px solid ${estiloInfo.stroke || '#38bdf8'}; background: #121725; border-radius: 12px; padding: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-        <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="hud-muscle-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
             <span class="hud-muscle-region" style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px; text-transform: uppercase;">${meta.region}</span>
-            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; background: ${estiloInfo.bg || '#0b0e15'}; color: ${estiloInfo.color || '#38bdf8'}; padding: 3px 8px; border-radius: 6px; border: 1px solid ${estiloInfo.border || 'rgba(56, 189, 248, 0.3)'};">${estiloInfo.label}</span>
+            <span class="subpart-card-status" style="font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; background: ${estiloInfo.bg || '#0b0e15'}; color: ${estiloInfo.color || '#38bdf8'}; padding: 3px 8px; border-radius: 6px; border: 1px solid ${estiloInfo.border || 'rgba(56, 189, 248, 0.3)'};">${estiloInfo.label}</span>
         </div>
         <h3 class="hud-muscle-title" style="margin: 6px 0 8px 0; font-size: 18px; font-weight: 800; color: #f8fafc;">${meta.icono} ${meta.nombre}</h3>
         <div class="hud-fatigue-big" style="font-size: 28px; font-weight: 800; color: #f8fafc; margin-bottom: 8px;">
@@ -859,10 +873,10 @@ function renderizarGraficoGeneralAvatar() {
         </div>
         <div class="general-breakdown-chips">
             <div class="breakdown-chip" style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #f8fafc;">
-                <span style="color: #10b981;">🦾 Cuerpo:</span> <strong style="color: #10b981;">${metricas.cuerpo}%</strong> <span style="font-size: 11px; color: #94a3b8;">· ${estadoCuerpo.label}</span>
+                <span style="color: #10b981;">🦾 Cuerpo:</span> <strong style="color: #10b981;">${metricas.cuerpo}%</strong> <span class="ep-breakdown-sub" style="font-size: 10.5px; color: #94a3b8;"><span class="ep-chip-sep">· </span>${estadoCuerpo.label}</span>
             </div>
             <div class="breakdown-chip" style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.3); color: #f8fafc;">
-                <span style="color: #38bdf8;">🧠 Mente:</span> <strong style="color: #38bdf8;">${metricas.mente}%</strong> <span style="font-size: 11px; color: #94a3b8;">· ${estadoMente.label}</span>
+                <span style="color: #38bdf8;">🧠 Mente:</span> <strong style="color: #38bdf8;">${metricas.mente}%</strong> <span class="ep-breakdown-sub" style="font-size: 10.5px; color: #94a3b8;"><span class="ep-chip-sep">· </span>${estadoMente.label}</span>
             </div>
         </div>
     </div>
@@ -870,42 +884,49 @@ function renderizarGraficoGeneralAvatar() {
     <!-- ==========================================================================
          VISTA A: SILUETA DUAL COMPLETA PARA DESGASTE (ANTERIOR FRENTE & POSTERIOR ESPALDA)
          ========================================================================== -->
-    <div id="avatar-vista-desgaste" class="card heatmap-dashboard-card" style="margin-bottom: 22px; padding: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-            <div>
-                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">📊 Carga & Fatiga Física Diaria</h3>
-                <p style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Esquema de desgaste actual por grupos musculares y estado metabólico del avatar.</p>
+    <div id="avatar-vista-desgaste" class="card heatmap-dashboard-card" style="margin-bottom: 22px;">
+        <div class="heatmap-header-row" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+            <div style="flex: 1 1 200px; min-width: 0;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">📊 Carga &amp; Fatiga Física Diaria</h3>
+                <p style="margin: 3px 0 0 0; font-size: 12px; color: #94a3b8;">Esquema frontal y dorsal por grupos musculares; toca cualquier zona para ver su detalle.</p>
             </div>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 130px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">CARGA PROMEDIO DE HOY</div>
+            <div class="heatmap-stat-cards" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <div class="heatmap-stat-box">
+                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">CARGA DE HOY</div>
                     <div style="font-size: 18px; font-weight: 800; color: #f8fafc; margin-top: 2px;">${metricas.cuerpo}%</div>
                 </div>
-                <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 7px 14px; min-width: 140px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">ÚLTIMO CIERRE DIARIO</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro local activo'}</div>
+                <div class="heatmap-stat-box">
+                    <div style="font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">ÚLTIMO CIERRE</div>
+                    <div style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px;">${(APP_STATE.desgasteDiario && APP_STATE.desgasteDiario.ultimoCierre) ? APP_STATE.desgasteDiario.ultimoCierre : 'Registro activo'}</div>
                 </div>
             </div>
         </div>
 
-        <div class="heatmap-layout" style="display: grid; grid-template-columns: minmax(280px, 440px) 1fr; gap: 20px; align-items: start;">
+        <div class="heatmap-layout heatmap-layout--dual">
             <!-- COLUMNA 1: SILUETA ANATÓMICA DUAL (FRENTE Y ESPALDA) -->
             <div class="body-diagram-box">
-                <div style="display: flex; justify-content: space-around; margin-bottom: 8px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">POSTERIOR (ESPALDA)</span>
+                <div class="body-dual-labels">
+                    <span class="body-side-pill"><span class="ep-side-full">ANTERIOR · FRENTE</span><span class="ep-side-compact">FRENTE</span></span>
+                    <span class="body-side-pill"><span class="ep-side-full">POSTERIOR · ESPALDA</span><span class="ep-side-compact">ESPALDA</span></span>
                 </div>
 
                 <div class="body-diagram-svg-container">
-                    <svg viewBox="0 0 440 330" class="body-silhouette-svg">
+                    <svg viewBox="52 10 336 306" class="body-silhouette-svg" aria-label="Silueta anatómica frontal y dorsal">
                         <defs>
                             <filter id="hud-glow-dual" x="-20%" y="-20%" width="140%" height="140%">
                                 <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#111827" flood-opacity="0.35"/>
                             </filter>
                         </defs>
 
-                        <!-- SILUETA FRONTAL (X: 110 centro) -->
-                        <g id="silueta-frontal">
+                        <!-- Separador sutil entre vista frontal y posterior -->
+                        <line x1="220" y1="16" x2="220" y2="306" stroke="rgba(148, 163, 184, 0.16)" stroke-width="1" stroke-dasharray="3,4" />
+
+                        <!-- SILUETA FRONTAL (X: 110 + 24 = 134 centro) -->
+                        <g id="silueta-frontal" transform="translate(24, 0)">
+                            <!-- Base anatómica de soporte (cuello y rodillas no interactivas) -->
+                            <path d="M102 58 L118 58 L121 74 L99 74 Z" fill="#0e1422" stroke="#1e293b" stroke-width="1" style="pointer-events: none;" />
+                            <ellipse cx="97" cy="247" rx="6" ry="5" fill="#0e1422" stroke="#1e293b" stroke-width="1" style="pointer-events: none;" />
+                            <ellipse cx="123" cy="247" rx="6" ry="5" fill="#0e1422" stroke="#1e293b" stroke-width="1" style="pointer-events: none;" />
                             <!-- Cabeza / Mente -->
                             <ellipse cx="110" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
                             
@@ -944,8 +965,11 @@ function renderizarGraficoGeneralAvatar() {
                             <path d="M130 250 C124 250 118 250 117 260 L119 306 C124 308 128 306 130 298 C132 286 134 270 130 250 Z" ${estilo('pantorrillas')} class="muscle-zone-path" data-muscle="pantorrillas" onclick="seleccionarMusculoHeatmap('pantorrillas')"></path>
                         </g>
 
-                        <!-- SILUETA DORSAL (X: 330 centro) -->
-                        <g id="silueta-dorsal">
+                        <!-- SILUETA DORSAL (X: 330 - 24 = 306 centro) -->
+                        <g id="silueta-dorsal" transform="translate(-24, 0)">
+                            <!-- Base anatómica de soporte dorsal (cuello, rodillas y eje espinal no interactivos) -->
+                            <path d="M322 56 L338 56 L341 64 L319 64 Z" fill="#0e1422" stroke="#1e293b" stroke-width="1" style="pointer-events: none;" />
+                            <line x1="330" y1="74" x2="330" y2="164" stroke="rgba(148, 163, 184, 0.2)" stroke-width="1.2" stroke-dasharray="2,2" style="pointer-events: none;" />
                             <!-- Cabeza / Mente (Dorsal) -->
                             <ellipse cx="330" cy="38" rx="18" ry="22" ${estilo('mente')} class="muscle-zone-path" data-muscle="mente" onclick="seleccionarMusculoHeatmap('mente')"></ellipse>
 
@@ -986,21 +1010,21 @@ function renderizarGraficoGeneralAvatar() {
                 </div>
 
                 <!-- LEYENDA DEL MAPA DE CALOR MINIMALISTA -->
-                <div class="heatmap-legend-box" style="margin-top: 12px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #151b2a; border: 1.5px solid #2d3748;"></span>
+                <div class="heatmap-legend-box" style="margin-top: 10px; display: flex; justify-content: center; gap: 8px 12px; flex-wrap: wrap;">
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: #151b2a; border: 1.5px solid #2d3748;"></span>
                         <span>0-15% Óptimo</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #0369a1; border: 1.5px solid #38bdf8;"></span>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: #0369a1; border: 1.5px solid #38bdf8;"></span>
                         <span>16-40% Leve</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b45309; border: 1.5px solid #f59e0b;"></span>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: #b45309; border: 1.5px solid #f59e0b;"></span>
                         <span>41-70% Media</span>
                     </div>
-                    <div class="legend-item" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #94a3b8;">
-                        <span class="legend-swatch" style="width: 13px; height: 13px; border-radius: 3px; display: inline-block; background: #b91c1c; border: 1.5px solid #ef4444;"></span>
+                    <div class="legend-item" style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8;">
+                        <span class="legend-swatch" style="width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: #b91c1c; border: 1.5px solid #ef4444;"></span>
                         <span>71-100% Alta</span>
                     </div>
                 </div>
@@ -1016,11 +1040,11 @@ function renderizarGraficoGeneralAvatar() {
     <!-- ==========================================================================
          VISTA B: SILUETA FRONTAL CON LLENADO VERTICAL DE PIES A CABEZA (AGUA & SUEÑO)
          ========================================================================== -->
-    <div id="avatar-vista-fluid" class="card heatmap-dashboard-card" style="display: none; margin-bottom: 22px; padding: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-            <div>
+    <div id="avatar-vista-fluid" class="card heatmap-dashboard-card" style="display: none; margin-bottom: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+            <div style="flex: 1 1 200px; min-width: 0;">
                 <h3 id="avatar-tank-title" style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">🦾 Bio-Monitor del Avatar · Cuerpo Completo</h3>
-                <p id="avatar-tank-desc" style="margin: 3px 0 0 0; font-size: 12px; color: #6b7280;">Silueta frontal interactiva: indicador vertical de nivel biológico de pies a cabeza.</p>
+                <p id="avatar-tank-desc" style="margin: 3px 0 0 0; font-size: 12px; color: #94a3b8;">Silueta frontal interactiva: indicador vertical de nivel biológico de pies a cabeza.</p>
             </div>
             <div>
                 <div id="avatar-tank-pill" style="display: inline-flex; align-items: center; gap: 8px; background: #0b0e15; border: 1.5px solid #38bdf8; border-radius: 12px; padding: 6px 14px; box-shadow: 0 0 14px rgba(56, 189, 248, 0.2); transition: all 0.4s ease;">
@@ -1033,12 +1057,12 @@ function renderizarGraficoGeneralAvatar() {
             </div>
         </div>
 
-        <div class="heatmap-layout" style="display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 20px; align-items: start;">
+        <div class="heatmap-layout">
             <!-- COLUMNA 1: SILUETA FRONTAL CON ESCALA MÉTRICA Y LLENADO VERTICAL -->
             <div class="body-diagram-box" style="display: flex; flex-direction: column; align-items: center; padding: 14px 10px;">
-                <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px; padding: 0 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; width: 100%; margin-bottom: 8px; padding: 0 4px;">
                     <span style="font-size: 11px; font-weight: 800; color: #f8fafc; letter-spacing: 0.5px;">ANTERIOR (FRENTE)</span>
-                    <span id="avatar-tank-mode-badge" style="font-size: 10px; font-weight: 800; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); padding: 1px 7px; border-radius: 6px;">TELEMETRÍA EN VIVO</span>
+                    <span id="avatar-tank-mode-badge" style="font-size: 10px; font-weight: 800; color: #38bdf8; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); padding: 1px 7px; border-radius: 6px; white-space: nowrap;">TELEMETRÍA EN VIVO</span>
                 </div>
 
                 <div class="body-diagram-svg-container" style="width: 100%; max-width: 240px; position: relative;">
@@ -1467,9 +1491,167 @@ function calcularDatosRadarMente() {
     };
 }
 
-function actualizarGraficosRadarEstadoPersonal() {
-    if (typeof Chart === 'undefined') return;
+function dibujarFallbackRadarEstadoPersonal(canvas, labels, valores, accentHex, fillRgba) {
+    if (!canvas || !canvas.getContext) return;
+    var parent = canvas.parentElement;
+    if (!parent || parent.clientWidth <= 40 || canvas.offsetParent === null) return;
 
+    var cssW = Math.max(220, Math.floor(parent.clientWidth));
+    var cssH = Math.max(180, Math.floor(parent.clientHeight || 235));
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    var n = labels.length;
+    if (!n) return;
+
+    var compact = cssW < 330;
+    var fontSize = compact ? 10 : 11;
+    var lineHeight = compact ? 12 : 13.5;
+    var labelPad = compact ? 9 : 12;
+    var radius = Math.max(44, Math.min(cssW * 0.28, cssH * 0.325));
+    var cx = cssW / 2;
+    var cy = (n === 5) ? (cssH * 0.515) : (cssH * 0.475);
+    var startAngle = -Math.PI / 2;
+
+    // Anillos concéntricos (25%, 50%, 75%, 100%)
+    [0.25, 0.5, 0.75, 1].forEach(function(step, idx) {
+        ctx.beginPath();
+        for (var i = 0; i < n; i++) {
+            var ang = startAngle + (Math.PI * 2 * i) / n;
+            var px = cx + Math.cos(ang) * radius * step;
+            var py = cy + Math.sin(ang) * radius * step;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = (idx === 3) ? 'rgba(148, 163, 184, 0.26)' : 'rgba(148, 163, 184, 0.13)';
+        ctx.lineWidth = (idx === 3) ? 1.2 : 1;
+        ctx.stroke();
+    });
+
+    // Radios axiales desde el centro
+    for (var i = 0; i < n; i++) {
+        var ang = startAngle + (Math.PI * 2 * i) / n;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(ang) * radius, cy + Math.sin(ang) * radius);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Marcas discretas de escala en eje superior
+    ctx.save();
+    ctx.font = '600 9px monospace';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('50', cx + 10, cy - radius * 0.5);
+    ctx.fillText('100', cx + 12, cy - radius + 6);
+    ctx.restore();
+
+    // Polígono de datos
+    var pts = [];
+    var hasNonZero = false;
+    for (var j = 0; j < n; j++) {
+        var val = Math.min(100, Math.max(0, Number(valores[j]) || 0));
+        if (val > 0) hasNonZero = true;
+        var r = (val / 100) * radius;
+        var a = startAngle + (Math.PI * 2 * j) / n;
+        pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+
+    if (hasNonZero) {
+        ctx.beginPath();
+        pts.forEach(function(p, idx) {
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = fillRgba;
+        ctx.fill();
+        ctx.strokeStyle = accentHex;
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        pts.forEach(function(p) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3.6, 0, Math.PI * 2);
+            ctx.fillStyle = accentHex;
+            ctx.fill();
+            ctx.lineWidth = 1.4;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+        });
+    } else {
+        // Indicador central limpio cuando todos los ejes están en 0%
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = fillRgba;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = accentHex;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.4;
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    // Etiquetas multilínea seguras sin recorte en bordes
+    ctx.font = '700 ' + fontSize + 'px "Plus Jakarta Sans", -apple-system, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+
+    for (var k = 0; k < n; k++) {
+        var angL = startAngle + (Math.PI * 2 * k) / n;
+        var cosA = Math.cos(angL);
+        var sinA = Math.sin(angL);
+        var lines = Array.isArray(labels[k]) ? labels[k] : [String(labels[k])];
+        var lx = cx + cosA * (radius + labelPad);
+        var ly = cy + sinA * (radius + labelPad);
+
+        var align = 'center';
+        if (cosA > 0.25) align = 'left';
+        else if (cosA < -0.25) align = 'right';
+        ctx.textAlign = align;
+
+        var maxLineW = 0;
+        lines.forEach(function(line) {
+            var w = ctx.measureText(line).width;
+            if (w > maxLineW) maxLineW = w;
+        });
+
+        // Evitar desbordamiento horizontal dentro del canvas
+        if (align === 'left' && lx + maxLineW > cssW - 6) lx = cssW - 6 - maxLineW;
+        if (align === 'right' && lx - maxLineW < 6) lx = 6 + maxLineW;
+        if (align === 'center') {
+            lx = Math.max(6 + maxLineW / 2, Math.min(cssW - 6 - maxLineW / 2, lx));
+        }
+
+        var blockH = lines.length * lineHeight;
+        var startY = ly;
+        if (sinA < -0.5) startY = ly - blockH + lineHeight * 0.5;
+        else if (sinA > 0.5) startY = ly + lineHeight * 0.35;
+        else startY = ly - (blockH - lineHeight) / 2;
+
+        startY = Math.max(10, Math.min(cssH - blockH + 4, startY));
+        ctx.textBaseline = 'middle';
+        lines.forEach(function(line, lIdx) {
+            ctx.fillText(line, lx, startY + lIdx * lineHeight);
+        });
+    }
+}
+
+function actualizarGraficosRadarEstadoPersonal() {
     var canvasCuerpo = document.getElementById('chart-radar-cuerpo');
     var canvasMente = document.getElementById('chart-radar-mente');
     if (!canvasCuerpo || !canvasMente) return;
@@ -1478,7 +1660,7 @@ function actualizarGraficosRadarEstadoPersonal() {
     var datosCuerpo = calcularDatosRadarCuerpo();
     var datosMente = calcularDatosRadarMente();
 
-    // Actualizar Badges
+    // Actualizar Badges siempre (incluso sin CDN de Chart.js)
     var badgeCuerpo = document.getElementById('badge-radar-cuerpo');
     if (badgeCuerpo) badgeCuerpo.textContent = metricas.cuerpo + '% Promedio';
     var badgeMente = document.getElementById('badge-radar-mente');
@@ -1508,25 +1690,80 @@ function actualizarGraficosRadarEstadoPersonal() {
         `;
     }
 
-    // Configuración base para Radar Dark
+    var labelsCuerpo = ['Pecho', 'Espalda', ['Brazos y', 'Hombros'], ['Core /', 'Núcleo'], 'Piernas', 'Articular'];
+    var valoresCuerpo = [
+        datosCuerpo.pecho,
+        datosCuerpo.espalda,
+        datosCuerpo.hombrosBrazos,
+        datosCuerpo.core,
+        datosCuerpo.piernas,
+        datosCuerpo.articular
+    ];
+
+    var labelsMente = ['Cognición', 'Creatividad', 'Disciplina', 'Psicología', ['Recuperación', 'SNC']];
+    var valoresMente = [
+        datosMente.cognicion,
+        datosMente.creatividad,
+        datosMente.disciplina,
+        datosMente.psicologia,
+        datosMente.recuperacion
+    ];
+
+    if (!window._epRadarResizeBound && typeof window !== 'undefined' && window.addEventListener) {
+        window._epRadarResizeBound = true;
+        var epResizeTimer = null;
+        window.addEventListener('resize', function() {
+            clearTimeout(epResizeTimer);
+            epResizeTimer = setTimeout(function() {
+                var vistaEp = document.getElementById('vista-estado-personal');
+                if (vistaEp && vistaEp.offsetParent !== null) {
+                    actualizarGraficosRadarEstadoPersonal();
+                }
+            }, 140);
+        });
+    }
+
+    // Fallback Canvas 2D nítido cuando Chart.js no está disponible (modo offline)
+    if (typeof Chart === 'undefined') {
+        dibujarFallbackRadarEstadoPersonal(canvasCuerpo, labelsCuerpo, valoresCuerpo, '#10b981', 'rgba(16, 185, 129, 0.24)');
+        dibujarFallbackRadarEstadoPersonal(canvasMente, labelsMente, valoresMente, '#38bdf8', 'rgba(56, 189, 248, 0.24)');
+        return;
+    }
+
+    // Evitar inicializar Chart.js sobre un lienzo oculto (0x0) antes de abrir Estado Personal
+    if (canvasCuerpo.offsetParent === null || !canvasCuerpo.parentElement || canvasCuerpo.parentElement.clientWidth <= 40) {
+        return;
+    }
+
+    var containerW = canvasCuerpo.parentElement.clientWidth;
+    var isCompact = containerW < 340;
+
+    // Configuración base para Radar Dark equilibrada en móvil y escritorio
     var radarOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+            padding: isCompact
+                ? { top: 4, right: 6, bottom: 4, left: 6 }
+                : { top: 8, right: 12, bottom: 8, left: 12 }
+        },
         scales: {
             r: {
-                angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
-                grid: { color: 'rgba(255, 255, 255, 0.07)' },
+                min: 0,
+                max: 100,
+                beginAtZero: true,
+                angleLines: { color: 'rgba(148, 163, 184, 0.16)', lineWidth: 1 },
+                grid: { color: 'rgba(148, 163, 184, 0.14)', lineWidth: 1 },
                 pointLabels: {
                     color: '#cbd5e1',
-                    font: { size: 11, weight: '700', family: "'Plus Jakarta Sans', sans-serif" }
+                    padding: isCompact ? 6 : 10,
+                    font: { size: isCompact ? 10 : 11, weight: '700', family: "'Plus Jakarta Sans', sans-serif" }
                 },
                 ticks: {
                     display: false,
                     stepSize: 25,
                     backdropColor: 'transparent'
-                },
-                suggestedMin: 0,
-                suggestedMax: 100
+                }
             }
         },
         plugins: {
@@ -1539,6 +1776,11 @@ function actualizarGraficosRadarEstadoPersonal() {
                 borderWidth: 1,
                 padding: 10,
                 callbacks: {
+                    title: function(items) {
+                        if (!items || !items.length) return '';
+                        var lbl = items[0].label;
+                        return Array.isArray(lbl) ? lbl.join(' ') : lbl;
+                    },
                     label: function(ctx) {
                         return ' ' + ctx.dataset.label + ': ' + ctx.raw + '%';
                     }
@@ -1548,23 +1790,21 @@ function actualizarGraficosRadarEstadoPersonal() {
     };
 
     // 1. Radar Cuerpo
-    var valoresCuerpo = [
-        datosCuerpo.pecho,
-        datosCuerpo.espalda,
-        datosCuerpo.hombrosBrazos,
-        datosCuerpo.core,
-        datosCuerpo.piernas,
-        datosCuerpo.articular
-    ];
-
+    if (CHART_RADAR_CUERPO && CHART_RADAR_CUERPO.width < 80) {
+        CHART_RADAR_CUERPO.destroy();
+        CHART_RADAR_CUERPO = null;
+    }
     if (CHART_RADAR_CUERPO) {
+        CHART_RADAR_CUERPO.data.labels = labelsCuerpo;
         CHART_RADAR_CUERPO.data.datasets[0].data = valoresCuerpo;
-        CHART_RADAR_CUERPO.update();
+        CHART_RADAR_CUERPO.options = radarOptions;
+        CHART_RADAR_CUERPO.resize();
+        CHART_RADAR_CUERPO.update('none');
     } else {
         CHART_RADAR_CUERPO = new Chart(canvasCuerpo, {
             type: 'radar',
             data: {
-                labels: ['Pecho', 'Espalda', 'Brazos/Hombros', 'Core/Núcleo', 'Piernas', 'Articular'],
+                labels: labelsCuerpo,
                 datasets: [{
                     label: 'Carga Muscular',
                     data: valoresCuerpo,
@@ -1583,22 +1823,21 @@ function actualizarGraficosRadarEstadoPersonal() {
     }
 
     // 2. Radar Mente
-    var valoresMente = [
-        datosMente.cognicion,
-        datosMente.creatividad,
-        datosMente.disciplina,
-        datosMente.psicologia,
-        datosMente.recuperacion
-    ];
-
+    if (CHART_RADAR_MENTE && CHART_RADAR_MENTE.width < 80) {
+        CHART_RADAR_MENTE.destroy();
+        CHART_RADAR_MENTE = null;
+    }
     if (CHART_RADAR_MENTE) {
+        CHART_RADAR_MENTE.data.labels = labelsMente;
         CHART_RADAR_MENTE.data.datasets[0].data = valoresMente;
-        CHART_RADAR_MENTE.update();
+        CHART_RADAR_MENTE.options = radarOptions;
+        CHART_RADAR_MENTE.resize();
+        CHART_RADAR_MENTE.update('none');
     } else {
         CHART_RADAR_MENTE = new Chart(canvasMente, {
             type: 'radar',
             data: {
-                labels: ['Cognición', 'Creatividad', 'Disciplina', 'Psicología', 'Recuperación SNC'],
+                labels: labelsMente,
                 datasets: [{
                     label: 'Carga Cognitiva',
                     data: valoresMente,
@@ -9430,6 +9669,11 @@ function cambiarSeccionEstadoPersonal(seccion) {
         if (tit) tit.textContent = "Estado Personal · Diagnóstico del Avatar";
         if (sub) sub.textContent = "Monitoreo analítico milimétrico: balance en tiempo real entre el desgaste físico y la carga mental.";
         actualizarGraficosRadarEstadoPersonal();
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(function() {
+                actualizarGraficosRadarEstadoPersonal();
+            });
+        }
     } else if (window.SECCION_EP_ACTIVA === 'nutricion') {
         if (tit) tit.textContent = "Nutrición & Hidratación · Combustible Biológico";
         if (sub) sub.textContent = "Control diario de ingesta de agua, registro de comidas y balance nutricional para el avatar.";
@@ -9472,9 +9716,9 @@ function renderizarModuloNutricion() {
     if (elBadgePct) elBadgePct.textContent = pct + '%';
     if (elBarra) elBarra.style.width = pct + '%';
 
-    // Actualizar el maniquí frontal
-    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
-        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA || 'nutricion');
+    // Actualizar el maniquí frontal solo si Nutrición es la pestaña activa
+    if (window.SECCION_EP_ACTIVA === 'nutricion' && typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar('nutricion');
     }
 
     // 2. Comidas del día
@@ -9790,8 +10034,8 @@ function renderizarModuloDescanso() {
     });
     contHistorial.innerHTML = hHtml;
 
-    if (typeof actualizarLlenadoSiluetaAvatar === 'function') {
-        actualizarLlenadoSiluetaAvatar(window.SECCION_EP_ACTIVA || 'descanso');
+    if (window.SECCION_EP_ACTIVA === 'descanso' && typeof actualizarLlenadoSiluetaAvatar === 'function') {
+        actualizarLlenadoSiluetaAvatar('descanso');
     }
 }
 

@@ -8288,6 +8288,14 @@ body.modal-open {
    ESTADO PERSONAL · DASHBOARD DE TELEMETRÍA GRÁFICA & FILAS COMPACTAS (v9.3)
    ========================================================================== */
 
+.ep-tab-short {
+    display: none;
+}
+
+.ep-tab-long {
+    display: inline;
+}
+
 .telemetry-tabs-bar {
     display: flex;
     gap: 8px;
@@ -8309,6 +8317,7 @@ body.modal-open {
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
     white-space: nowrap;
 }
@@ -8328,19 +8337,20 @@ body.modal-open {
 
 .telemetry-charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 16px;
 }
 
 .telemetry-chart-box {
     background: #121725;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    padding: 18px;
+    padding: 16px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .telemetry-chart-box:hover {
@@ -8351,8 +8361,37 @@ body.modal-open {
 .telemetry-chart-header {
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.telemetry-chart-title-wrap {
+    display: flex;
     align-items: center;
-    margin-bottom: 12px;
+    gap: 10px;
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.telemetry-chart-title-text {
+    min-width: 0;
+}
+
+.telemetry-chart-title-text h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.25;
+}
+
+.telemetry-chart-title-text p {
+    margin: 2px 0 0 0;
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.35;
 }
 
 .telemetry-chart-icon-box {
@@ -8370,10 +8409,28 @@ body.modal-open {
 .telemetry-chart-pill {
     font-size: 11px;
     font-weight: 800;
-    padding: 3px 10px;
+    padding: 4px 10px;
     border-radius: 9999px;
     border: 1px solid;
     font-family: monospace;
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.telemetry-chart-canvas-wrap {
+    position: relative;
+    height: 270px;
+    width: 100%;
+    margin: 6px 0;
+    overflow: hidden;
+}
+
+.telemetry-chart-canvas-wrap canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
 }
 
 .telemetry-chart-footer {
@@ -8388,7 +8445,7 @@ body.modal-open {
 .telemetry-chip-axis {
     background: #0b0e15;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 4px 9px;
     font-size: 11px;
     font-weight: 700;
@@ -8398,6 +8455,7 @@ body.modal-open {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    max-width: 100%;
 }
 
 .telemetry-chip-axis:hover {
@@ -8503,17 +8561,75 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
+    .ep-tab-short {
+        display: inline;
+    }
+    .ep-tab-long {
+        display: none;
+    }
+    .telemetry-tabs-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        overflow: visible;
+        padding-bottom: 0;
+        margin-bottom: 14px;
+    }
+    .btn-telemetry-tab {
+        width: 100%;
+        min-width: 0;
+        padding: 9px 6px;
+        font-size: 11.5px;
+        gap: 5px;
+        border-radius: 12px;
+    }
     .telemetry-charts-grid {
         grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .telemetry-chart-box {
+        padding: 14px 12px;
+    }
+    .telemetry-chart-title-text h3 {
+        font-size: 14px;
+    }
+    .telemetry-chart-canvas-wrap {
+        height: 236px;
+    }
+    .area-master-card {
+        padding: 14px 12px;
     }
     .telemetry-row-item {
         flex-wrap: wrap;
         gap: 8px;
+        padding: 10px 12px;
+    }
+    .telemetry-row-info {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+    .telemetry-row-meta {
+        min-width: 0;
+        flex-shrink: 0;
+        gap: 6px;
     }
     .telemetry-row-track {
         order: 3;
         width: 100%;
-        margin: 4px 0 0 0;
+        flex: 1 0 100%;
+        min-width: 0;
+        margin: 2px 0 0 0;
+    }
+}
+
+@media (max-width: 360px) {
+    .btn-telemetry-tab {
+        font-size: 11px;
+        padding: 8px 4px;
+        gap: 4px;
+    }
+    .telemetry-chart-canvas-wrap {
+        height: 222px;
     }
 }
 
@@ -10616,7 +10732,7 @@ body.modal-open {
 .ep-master-tabs-bar {
     display: flex;
     gap: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     overflow-x: auto;
     padding-bottom: 4px;
     -webkit-overflow-scrolling: touch;
@@ -10706,7 +10822,7 @@ body.modal-open {
 }
 
 /* ==========================================================================
-   SILUETA ANATÓMICA FRONTAL ÚNICA & LLENADO VERTICAL DE PIES A CABEZA (v10.43)
+   SILUETA ANATÓMICA DUAL + LLENADO VERTICAL RESPONSIVE (v10.86)
    ========================================================================== */
 .heatmap-layout {
     display: grid;
@@ -10715,10 +10831,54 @@ body.modal-open {
     align-items: start;
 }
 
-@media (max-width: 768px) {
-    .heatmap-layout {
+.heatmap-layout--dual {
+    grid-template-columns: minmax(300px, 430px) 1fr;
+}
+
+.heatmap-stat-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(125px, 1fr));
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.heatmap-stat-box {
+    background: #0b0e15;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 7px 12px;
+    min-width: 0;
+}
+
+.body-dual-labels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.ep-side-compact {
+    display: none;
+}
+
+.body-side-pill {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #e2e8f0;
+    letter-spacing: 0.4px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 4px 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+    .heatmap-layout,
+    .heatmap-layout--dual {
         grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        gap: 14px !important;
     }
 }
 
@@ -10728,6 +10888,99 @@ body.modal-open {
     border-radius: 18px !important;
     box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.65), 0 4px 20px rgba(0, 0, 0, 0.25) !important;
     position: relative;
+}
+
+@media (max-width: 640px) {
+    .ep-master-tabs-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        overflow: visible;
+        padding-bottom: 0;
+        margin-bottom: 14px;
+    }
+    .ep-master-tab {
+        min-width: 0;
+        width: 100%;
+        padding: 9px 6px;
+        font-size: 11.5px;
+        gap: 5px;
+    }
+    #vista-estado-personal .card {
+        padding: 14px 12px;
+    }
+    #vista-estado-personal .avatar-metrics-bar {
+        padding: 12px;
+        gap: 10px;
+    }
+    #vista-estado-personal .general-wear-metric {
+        gap: 10px;
+    }
+    #vista-estado-personal .general-wear-circle {
+        width: 48px;
+        height: 48px;
+        font-size: 15px;
+    }
+    #vista-estado-personal .general-breakdown-chips {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    #vista-estado-personal .breakdown-chip {
+        justify-content: center;
+        padding: 7px 8px;
+        font-size: 11px;
+        min-width: 0;
+        flex-wrap: wrap;
+        gap: 3px 5px;
+        text-align: center;
+    }
+    #vista-estado-personal .ep-chip-sep {
+        display: none;
+    }
+    #vista-estado-personal .ep-breakdown-sub {
+        flex: 1 0 100%;
+        display: block;
+        line-height: 1.2;
+    }
+    #vista-estado-personal .heatmap-stat-cards {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .body-diagram-box {
+        padding: 12px 8px !important;
+    }
+    .body-diagram-svg-container {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .ep-side-full {
+        display: none;
+    }
+    .ep-side-compact {
+        display: inline;
+    }
+    .body-side-pill {
+        font-size: 10.5px;
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 359px) {
+    .ep-master-tab {
+        font-size: 11px;
+        padding: 8px 4px;
+        gap: 4px;
+    }
+    .body-side-pill {
+        font-size: 10px;
+        padding: 4px 6px;
+    }
 }
 
 #avatar-fill-rect {

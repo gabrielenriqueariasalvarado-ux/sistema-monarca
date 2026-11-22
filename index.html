@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.85">
+    <link rel="stylesheet" href="style.css?v=10.86">
 </head>
 <body>
 
@@ -606,15 +606,21 @@
         </div>
 
         <!-- BARRA MAESTRA DE LOS 3 APARTADOS DE ESTADO PERSONAL -->
-        <div class="ep-master-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;">
+        <div class="ep-master-tabs-bar">
             <button type="button" class="ep-master-tab active" id="tab-ep-btn-desgaste" onclick="cambiarSeccionEstadoPersonal('desgaste')">
-                <span style="font-size: 16px;">⚡</span> Desgaste & Telemetría
+                <span class="ep-tab-ico">⚡</span>
+                <span class="ep-tab-long">Desgaste &amp; Telemetría</span>
+                <span class="ep-tab-short">Desgaste</span>
             </button>
             <button type="button" class="ep-master-tab" id="tab-ep-btn-nutricion" onclick="cambiarSeccionEstadoPersonal('nutricion')">
-                <span style="font-size: 16px;">🥗</span> Agua & Alimentación
+                <span class="ep-tab-ico">🥗</span>
+                <span class="ep-tab-long">Agua &amp; Alimentación</span>
+                <span class="ep-tab-short">Nutrición</span>
             </button>
             <button type="button" class="ep-master-tab" id="tab-ep-btn-descanso" onclick="cambiarSeccionEstadoPersonal('descanso')">
-                <span style="font-size: 16px;">🌙</span> Descanso & Sueño
+                <span class="ep-tab-ico">🌙</span>
+                <span class="ep-tab-long">Descanso &amp; Sueño</span>
+                <span class="ep-tab-short">Descanso</span>
             </button>
         </div>
 
@@ -626,15 +632,21 @@
         <!-- 1. APARTADO: DESGASTE FÍSICO & TELEMETRÍA (EXISTENTE) -->
         <div id="seccion-ep-desgaste" class="ep-seccion-panel active">
         <!-- BARRA DE PESTAÑAS DE TELEMETRÍA EJECUTIVA -->
-        <div class="telemetry-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 2px;">
+        <div class="telemetry-tabs-bar">
             <button type="button" class="btn-telemetry-tab active" id="tab-btn-telemetria-graficas" onclick="cambiarTabTelemetriaEstadoPersonal('graficas')">
-                <span>📊</span> Gráficas de Telemetría (Biometría)
+                <span class="ep-tab-ico">📊</span>
+                <span class="ep-tab-long">Gráficas de Telemetría (Biometría)</span>
+                <span class="ep-tab-short">Gráficas</span>
             </button>
             <button type="button" class="btn-telemetry-tab" id="tab-btn-telemetria-cuerpo" onclick="cambiarTabTelemetriaEstadoPersonal('cuerpo')">
-                <span>🦾</span> Detalle Cuerpo
+                <span class="ep-tab-ico">🦾</span>
+                <span class="ep-tab-long">Detalle Cuerpo</span>
+                <span class="ep-tab-short">Cuerpo</span>
             </button>
             <button type="button" class="btn-telemetry-tab" id="tab-btn-telemetria-mente" onclick="cambiarTabTelemetriaEstadoPersonal('mente')">
-                <span>🧠</span> Detalle Mente
+                <span class="ep-tab-ico">🧠</span>
+                <span class="ep-tab-long">Detalle Mente</span>
+                <span class="ep-tab-short">Mente</span>
             </button>
         </div>
 
@@ -644,16 +656,16 @@
                 <!-- GRÁFICA RADAR: CUERPO -->
                 <div class="telemetry-chart-box">
                     <div class="telemetry-chart-header">
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="telemetry-chart-title-wrap">
                             <div class="telemetry-chart-icon-box" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">🦾</div>
-                            <div>
-                                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Biometría Muscular · Cuerpo</h3>
-                                <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #94a3b8;">Balance de desgaste y carga por zonas corporales</p>
+                            <div class="telemetry-chart-title-text">
+                                <h3>Biometría Muscular · Cuerpo</h3>
+                                <p>Balance de desgaste y carga por zonas corporales</p>
                             </div>
                         </div>
                         <div id="badge-radar-cuerpo" class="telemetry-chart-pill" style="border-color: rgba(16, 185, 129, 0.3); color: #10b981; background: rgba(16, 185, 129, 0.12);">0% Promedio</div>
                     </div>
-                    <div style="position: relative; height: 280px; width: 100%; margin: 8px 0;">
+                    <div class="telemetry-chart-canvas-wrap">
                         <canvas id="chart-radar-cuerpo"></canvas>
                     </div>
                     <div class="telemetry-chart-footer" id="resumen-ejes-cuerpo">
@@ -664,16 +676,16 @@
                 <!-- GRÁFICA RADAR: MENTE -->
                 <div class="telemetry-chart-box">
                     <div class="telemetry-chart-header">
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="telemetry-chart-title-wrap">
                             <div class="telemetry-chart-icon-box" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8;">🧠</div>
-                            <div>
-                                <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Telemetría Neural · Mente</h3>
-                                <p style="margin: 2px 0 0 0; font-size: 11.5px; color: #94a3b8;">Carga cognitiva y fatiga del sistema nervioso central</p>
+                            <div class="telemetry-chart-title-text">
+                                <h3>Telemetría Neural · Mente</h3>
+                                <p>Carga cognitiva y fatiga del sistema nervioso central</p>
                             </div>
                         </div>
                         <div id="badge-radar-mente" class="telemetry-chart-pill" style="border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; background: rgba(56, 189, 248, 0.12);">0% Promedio</div>
                     </div>
-                    <div style="position: relative; height: 280px; width: 100%; margin: 8px 0;">
+                    <div class="telemetry-chart-canvas-wrap">
                         <canvas id="chart-radar-mente"></canvas>
                     </div>
                     <div class="telemetry-chart-footer" id="resumen-ejes-mente">
@@ -760,19 +772,19 @@
 
                 <!-- Botones de adición rápida de agua -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
-                    <button type="button" onclick="agregarAgua(250)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <button type="button" onclick="agregarAgua(250)" class="btn-agua-quick" style="flex: 1 1 82px; min-width: 0; padding: 9px 6px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                         🥛 +250 ml
                     </button>
-                    <button type="button" onclick="agregarAgua(500)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <button type="button" onclick="agregarAgua(500)" class="btn-agua-quick" style="flex: 1 1 82px; min-width: 0; padding: 9px 6px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                         🍶 +500 ml
                     </button>
-                    <button type="button" onclick="agregarAgua(750)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <button type="button" onclick="agregarAgua(750)" class="btn-agua-quick" style="flex: 1 1 82px; min-width: 0; padding: 9px 6px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                         💧 +750 ml
                     </button>
-                    <button type="button" onclick="agregarAgua(1000)" class="btn-agua-quick" style="flex: 1; min-width: 75px; padding: 9px 8px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <button type="button" onclick="agregarAgua(1000)" class="btn-agua-quick" style="flex: 1 1 92px; min-width: 0; padding: 9px 6px; border-radius: 10px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: #e0f2fe; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                         🚰 +1,000 ml
                     </button>
-                    <button type="button" onclick="agregarAgua(-250)" class="btn-agua-quick" title="Corregir o restar 250ml" style="padding: 9px 12px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: #fca5a5; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    <button type="button" onclick="agregarAgua(-250)" class="btn-agua-quick" title="Corregir o restar 250ml" style="flex: 0 1 auto; padding: 9px 12px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); color: #fca5a5; font-size: 12px; font-weight: 700; cursor: pointer;">
                         -250 ml
                     </button>
                 </div>
@@ -796,7 +808,7 @@
                 </div>
 
                 <!-- Resumen de Comidas de Hoy -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 92px), 1fr)); gap: 8px; margin-bottom: 14px;">
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px; text-align: center;">
                         <div id="txt-total-comidas-hoy" style="font-size: 18px; font-weight: 800; color: #f8fafc;">0</div>
                         <div style="font-size: 11px; color: #94a3b8;">Comidas Hoy</div>
@@ -6772,26 +6784,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.85"></script>
-    <script src="js/perfil.js?v=10.85"></script>
-    <script src="js/progresion.js?v=10.85"></script>
-    <script src="js/estado-personal.js?v=10.85"></script>
-    <script src="js/finanzas.js?v=10.85"></script>
-    <script src="js/ideas.js?v=10.85"></script>
-    <script src="js/dinamicas.js?v=10.85"></script>
-    <script src="js/calendario.js?v=10.85"></script>
-    <script src="js/inventario.js?v=10.85"></script>
-    <script src="js/reproductor.js?v=10.85"></script>
-    <script src="js/jarvis-voz.js?v=10.85"></script>
+    <script src="js/core.js?v=10.86"></script>
+    <script src="js/perfil.js?v=10.86"></script>
+    <script src="js/progresion.js?v=10.86"></script>
+    <script src="js/estado-personal.js?v=10.86"></script>
+    <script src="js/finanzas.js?v=10.86"></script>
+    <script src="js/ideas.js?v=10.86"></script>
+    <script src="js/dinamicas.js?v=10.86"></script>
+    <script src="js/calendario.js?v=10.86"></script>
+    <script src="js/inventario.js?v=10.86"></script>
+    <script src="js/reproductor.js?v=10.86"></script>
+    <script src="js/jarvis-voz.js?v=10.86"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.85"></script>
+    <script type="module" src="js/firebase-config.js?v=10.86"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.85')
+                navigator.serviceWorker.register('sw.js?v=10.86')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
