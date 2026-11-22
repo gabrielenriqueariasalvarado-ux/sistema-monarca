@@ -2726,7 +2726,7 @@ function renderizarConocimientos(filtro) {
     var html = '';
     filtrados.forEach(function(c) {
         var estadoBadge = c.revisadoEstaSemana ? 
-            `<span style="font-size: 11px; font-weight: 700; background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 9999px; border: 1px solid #a7f3d0;">✓ Repasado esta semana</span>` :
+            `<span style="font-size: 11px; font-weight: 700; background: rgba(16, 185, 129, 0.14); color: #34d399; padding: 3px 8px; border-radius: 9999px; border: 1px solid rgba(16, 185, 129, 0.35);">✓ Repasado esta semana</span>` :
             `<span style="font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 3px 8px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.08);">Pendiente de repaso</span>`;
 
         var btnRepaso = c.revisadoEstaSemana ?
@@ -2741,20 +2741,20 @@ function renderizarConocimientos(filtro) {
                     <h4 class="knowledge-title">${c.titulo}</h4>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
-                    <button onclick="eliminarConocimiento('${c.id}')" title="Eliminar técnica" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+                    <button onclick="eliminarConocimiento('${c.id}')" title="Eliminar técnica" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">🗑️</button>
                 </div>
             </div>
 
-            <div style="font-size: 11.5px; color: #6b7280; margin-bottom: 10px;">
+            <div style="font-size: 11.5px; color: #94a3b8; margin-bottom: 10px;">
                 <strong>Origen:</strong> ${c.actividadOrigen || 'Actividad práctica'} · <span style="font-weight: 600; color: #cbd5e1;">${c.nivelDominio || 'En Práctica'}</span>
             </div>
 
             <div class="knowledge-keypoints-box">
-                <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 4px;">Puntos Clave & Técnica:</div>
+                <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Puntos Clave & Técnica:</div>
                 <p style="margin: 0; font-size: 12.5px; color: #f8fafc; line-height: 1.45; white-space: pre-wrap;">${c.resumenPuntosClave}</p>
             </div>
 
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f3f4f6; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); flex-wrap: wrap; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                     ${estadoBadge}
                     <span style="font-size: 11px; color: #6b7280;">${c.semanasRepasadas || 0} sem. activas</span>

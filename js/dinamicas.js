@@ -39,7 +39,43 @@ const LABORES_OFICIALES = [
 var MES_LABORES_ACTUAL = null; // "YYYY-MM"
 var METRICA_LABORES_ACTIVA = 'horas'; // 'horas' | 'dinero' | 'jornada'
 var FILTRO_HISTORIAL_LABOR = 'TODAS';
+var SUBTAB_LABORES_ACTIVA = 'subapps'; // 'subapps' | 'analisis' | 'historial'
 var _CHART_LABORES_INSTANCE = null;
+
+function cambiarSubtabLabores(tab) {
+    if (tab !== 'subapps' && tab !== 'analisis' && tab !== 'historial') {
+        tab = 'subapps';
+    }
+    SUBTAB_LABORES_ACTIVA = tab;
+
+    var tabs = ['subapps', 'analisis', 'historial'];
+    tabs.forEach(function(t) {
+        var btn = document.getElementById('tab-btn-lab-' + t);
+        var panel = document.getElementById('labores-panel-' + t);
+        var activo = (t === tab);
+        if (btn) {
+            btn.classList.toggle('active', activo);
+            btn.setAttribute('aria-selected', activo ? 'true' : 'false');
+        }
+        if (panel) {
+            panel.style.display = activo ? 'block' : 'none';
+        }
+    });
+
+    if (tab === 'analisis') {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(function() {
+                renderizarGraficaLabores();
+            });
+        } else {
+            renderizarGraficaLabores();
+        }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.cambiarSubtabLabores = cambiarSubtabLabores;
+}
 
 function asegurarEstructuraLabores() {
     if (!APP_STATE) return;
@@ -163,6 +199,7 @@ function renderizarLabores() {
 
     var contEstadisticas = document.getElementById('contenedor-estadisticas-labores');
     var contCategorias = document.getElementById('contenedor-categorias-labores');
+    var badgeHist = document.getElementById('badge-lab-historial-count');
 
     var registros = APP_STATE.registrosLabores || [];
     var registrosMes = registros.filter(function(r) {
@@ -178,65 +215,60 @@ function renderizarLabores() {
     var totalSesionesMes = registrosMes.length;
     var promedioJornadaMes = totalSesionesMes > 0 ? (totalHorasMes / totalSesionesMes) : 0;
 
-    // 1. Selector de Mes y Tarjetas de Métricas Mensuales
+    if (badgeHist) {
+        badgeHist.textContent = String(totalSesionesMes);
+    }
+
+    // 1. Selector de Mes y Tarjetas 2x2 de Métricas Mensuales
     if (contEstadisticas) {
         contEstadisticas.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+        <div class="labores-month-bar">
             <div class="mes-selector-pill">
                 <button type="button" class="btn-mes-nav" onclick="cambiarMesLabores(-1)" title="Mes Anterior">◀</button>
                 <span>📅 ${formatearNombreMesLabor(MES_LABORES_ACTUAL)}</span>
                 <button type="button" class="btn-mes-nav" onclick="cambiarMesLabores(1)" title="Mes Siguiente">▶</button>
             </div>
-            <div style="font-size: 11.5px; color: #94a3b8;">
-                Mostrando métricas calculadas para este período
-            </div>
+            <div class="labores-month-hint">Resumen mensual del período</div>
         </div>
 
-        <div class="operatividad-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
-            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px;">Horas del Mes</span>
-                    <span style="font-size: 16px;">⏱️</span>
+        <div class="labores-metrics-grid">
+            <div class="labores-kpi-card">
+                <div class="labores-kpi-top">
+                    <span class="labores-kpi-label" style="color: #818cf8;">Horas Mes</span>
+                    <span>⏱️</span>
                 </div>
-                <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalHorasMes.toFixed(1)} <span style="font-size: 13px; color: #94a3b8; font-weight: 600;">hrs</span></div>
-                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Dedicación acumulada</div>
+                <div class="labores-kpi-value">${totalHorasMes.toFixed(1)} <span class="labores-kpi-unit">hrs</span></div>
             </div>
 
-            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px;">Dinero Generado</span>
-                    <span style="font-size: 16px;">💵</span>
+            <div class="labores-kpi-card">
+                <div class="labores-kpi-top">
+                    <span class="labores-kpi-label" style="color: #34d399;">Generado</span>
+                    <span>💵</span>
                 </div>
-                <div class="metric-num" style="color: #10b981; font-size: 24px; font-weight: 800;">$${totalDineroMes.toFixed(2)}</div>
-                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Honorarios de labores</div>
+                <div class="labores-kpi-value" style="color: #10b981;">$${totalDineroMes.toFixed(2)}</div>
             </div>
 
-            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Jornada Promedio</span>
-                    <span style="font-size: 16px;">⏳</span>
+            <div class="labores-kpi-card">
+                <div class="labores-kpi-top">
+                    <span class="labores-kpi-label" style="color: #38bdf8;">Promedio</span>
+                    <span>⏳</span>
                 </div>
-                <div class="metric-num" style="color: #38bdf8; font-size: 24px; font-weight: 800;">${promedioJornadaMes.toFixed(1)} <span style="font-size: 13px; color: #94a3b8; font-weight: 600;">hrs/ses</span></div>
-                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Duración media de sesión</div>
+                <div class="labores-kpi-value" style="color: #38bdf8;">${promedioJornadaMes.toFixed(1)} <span class="labores-kpi-unit">h/ses</span></div>
             </div>
 
-            <div class="metric-card-ideas" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); padding: 14px 16px; border-radius: 12px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.5px;">Sesiones del Mes</span>
-                    <span style="font-size: 16px;">🎯</span>
+            <div class="labores-kpi-card">
+                <div class="labores-kpi-top">
+                    <span class="labores-kpi-label" style="color: #f59e0b;">Sesiones</span>
+                    <span>🎯</span>
                 </div>
-                <div class="metric-num" style="color: #f8fafc; font-size: 24px; font-weight: 800;">${totalSesionesMes}</div>
-                <div class="metric-title" style="color: #64748b; font-size: 11.5px; margin-top: 4px;">Registros de actividad</div>
+                <div class="labores-kpi-value">${totalSesionesMes} <span class="labores-kpi-unit">reg.</span></div>
             </div>
         </div>`;
     }
 
-    // 2. Gráfica mensual
-    renderizarGraficaLabores();
-
-    // 3. Renderizar las 3 Sub-Apps de Labores Oficiales
+    // 2. Renderizar las 3 Sub-Apps de Labores Oficiales con resumen del mes
     if (contCategorias) {
-        var htmlCat = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">';
+        var htmlCat = '<div class="labores-subapps-grid">';
 
         LABORES_OFICIALES.forEach(function(lab) {
             var regsLabMes = registrosMes.filter(function(r) { return r.laborId === lab.id; });
@@ -247,24 +279,21 @@ function renderizarLabores() {
                 dLab += (Number(r.honorarios) || 0);
             });
             var sesionesLab = regsLabMes.length;
-            var jLab = sesionesLab > 0 ? (hLab / sesionesLab) : 0;
-            var pctHoras = totalHorasMes > 0 ? Math.round((hLab / totalHorasMes) * 100) : 0;
 
             htmlCat += `
             <div class="subapp-labor-card-clean" onclick="abrirSubAppLabor('${lab.id}')" style="border-top: 3px solid ${lab.color}; cursor: pointer;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px;">
-                    <div style="display: flex; align-items: center; gap: 14px;">
-                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 26px; border: 1px solid rgba(255,255,255,0.07);">
-                            ${lab.icono}
-                        </div>
-                        <div>
-                            <strong style="font-size: 16px; color: #f8fafc; display: block; letter-spacing: -0.2px;">${lab.nombre}</strong>
-                            <span class="subapp-badge" style="color: ${lab.color}; border-color: ${lab.color}44;">${lab.tagline || 'Sub-App Oficial'}</span>
+                <div class="labores-subapp-row">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                        <div class="labores-subapp-icon">${lab.icono}</div>
+                        <div style="min-width: 0;">
+                            <strong style="font-size: 15px; color: #f8fafc; display: block; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${lab.nombre}</strong>
+                            <div class="labores-subapp-meta">
+                                <span class="subapp-badge" style="color: ${lab.color}; border-color: ${lab.color}44;">${lab.tagline || 'Sub-App'}</span>
+                                <span class="labores-subapp-stat-pill">${hLab.toFixed(1)}h · ${sesionesLab} ses${dLab > 0 ? ' · $' + dLab.toFixed(0) : ''}</span>
+                            </div>
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 18px; color: #64748b;" class="subapp-arrow">➔</span>
-                    </div>
+                    <span style="font-size: 17px; color: #64748b; flex-shrink: 0;" class="subapp-arrow">➔</span>
                 </div>
             </div>`;
         });
@@ -273,7 +302,31 @@ function renderizarLabores() {
         contCategorias.innerHTML = htmlCat;
     }
 
-    // 4. Renderizar Historial de Sesiones con filtros
+    // 3. Desglose rápido para la pestaña Análisis
+    var contDesglose = document.getElementById('contenedor-desglose-labores');
+    if (contDesglose) {
+        var htmlDes = '';
+        LABORES_OFICIALES.forEach(function(lab) {
+            var regsLab = registrosMes.filter(function(r) { return r.laborId === lab.id; });
+            var hL = 0;
+            var dL = 0;
+            regsLab.forEach(function(r) {
+                hL += (Number(r.horas) || 0);
+                dL += (Number(r.honorarios) || 0);
+            });
+            var pct = totalHorasMes > 0 ? Math.round((hL / totalHorasMes) * 100) : 0;
+            htmlDes += `
+            <div class="labores-breakdown-chip" style="border-left: 3px solid ${lab.color};">
+                <span style="color: #e2e8f0; font-weight: 700;">${lab.icono} ${lab.nombre}</span>
+                <span style="color: #94a3b8; font-weight: 700;">${hL.toFixed(1)}h (${pct}%)${dL > 0 ? ' · $' + dL.toFixed(0) : ''}</span>
+            </div>`;
+        });
+        contDesglose.innerHTML = htmlDes;
+    }
+
+    // 4. Sincronizar pestaña activa, gráfica e historial
+    cambiarSubtabLabores(SUBTAB_LABORES_ACTIVA);
+    renderizarGraficaLabores();
     renderizarHistorialLabores();
 }
 
@@ -391,7 +444,7 @@ function renderizarGraficaLabores() {
                     },
                     ticks: {
                         color: '#f8fafc',
-                        font: { size: 12, weight: 'bold' }
+                        font: { size: 11.5, weight: 'bold' }
                     }
                 }
             }
@@ -428,15 +481,15 @@ function renderizarHistorialLabores() {
 
     if (filtrados.length === 0) {
         contRegistros.innerHTML = `
-        <div style="color: #64748b; text-align: center; padding: 24px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 12px;">
-            <span style="font-size: 26px; display: block; margin-bottom: 8px;">📋</span>
+        <div style="color: #94a3b8; text-align: center; padding: 24px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 12px;">
+            <span style="font-size: 24px; display: block; margin-bottom: 6px;">📋</span>
             No hay sesiones registradas en <strong>${formatearNombreMesLabor(MES_LABORES_ACTUAL)}</strong> para este filtro.<br>
-            <span style="font-size: 11.5px; color: #475569;">Pulsa "⚡ Registrar Sesión de Labor" para añadir tu jornada diaria.</span>
+            <span style="font-size: 11.5px; color: #64748b;">Pulsa "⚡ Registrar Sesión" para añadir tu jornada.</span>
         </div>`;
         return;
     }
 
-    var htmlReg = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+    var htmlReg = '<div class="labores-history-list">';
     filtrados.forEach(function(r) {
         var catInfo = LABORES_OFICIALES.find(function(c) { return c.id === r.laborId; }) || { nombre: "Labor", icono: "💼", color: "#6366f1" };
 
@@ -446,25 +499,21 @@ function renderizarHistorialLabores() {
         var montoHonorarios = Number(r.honorarios !== undefined ? r.honorarios : (r.ingresoCalculado || 0));
 
         htmlReg += `
-        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 4px solid ${catInfo.color}; border-radius: 12px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 220px;">
-                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; font-size: 18px; border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;">
-                    ${catInfo.icono}
-                </div>
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap;">
+        <div class="labores-history-row" style="border-left: 4px solid ${catInfo.color};">
+            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
+                <div class="labores-history-icon">${catInfo.icono}</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         <strong style="color: #f8fafc; font-size: 13.5px;">${catInfo.nombre}</strong>
-                        <span class="item-badge-pill" style="font-size: 11px; background: rgba(255, 255, 255, 0.05); color: #38bdf8; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.2);">
-                            ⏱️ ${txtHoras} hrs
-                        </span>
-                        ${montoHonorarios > 0 ? `<span class="item-badge-pill" style="font-size: 11px; background: rgba(16, 185, 129, 0.1); color: #34d399; font-weight: 800; border: 1px solid rgba(16, 185, 129, 0.25);">+$${montoHonorarios.toFixed(2)}</span>` : ''}
+                        <span class="item-badge-pill" style="font-size: 10.5px; background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-weight: 700; border: 1px solid rgba(56, 189, 248, 0.25);">⏱️ ${txtHoras}h</span>
+                        ${montoHonorarios > 0 ? `<span class="item-badge-pill" style="font-size: 10.5px; background: rgba(16, 185, 129, 0.12); color: #34d399; font-weight: 800; border: 1px solid rgba(16, 185, 129, 0.28);">+$${montoHonorarios.toFixed(2)}</span>` : ''}
                     </div>
-                    <p style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">${txtDesc}</p>
+                    <p class="labores-history-desc">${txtDesc}</p>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-                <span style="font-size: 12px; color: #64748b; font-weight: 600;">📅 ${r.fecha}</span>
-                <button onclick="eliminarRegistroLabor('${r.id}')" title="Eliminar sesión" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; border-radius: 6px; cursor: pointer; padding: 5px 8px; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+            <div class="labores-history-right">
+                <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">📅 ${r.fecha}</span>
+                <button onclick="eliminarRegistroLabor('${r.id}')" title="Eliminar sesión" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.22); color: #f87171; border-radius: 7px; cursor: pointer; padding: 4px 8px; font-size: 12px;">
                     🗑️
                 </button>
             </div>
@@ -1541,13 +1590,13 @@ function renderizarAgendaPersonas() {
         <div class="weekly-review-banner">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
                 <div>
-                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px;">Gestión de Relaciones & Contactos</div>
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Gestión de Relaciones &amp; Contactos</div>
                     <h3 style="margin: 2px 0 0 0; font-size: 16px; font-weight: 800; color: #f8fafc;">Directorio de Conversaciones Pendientes</h3>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span class="item-badge-pill" style="font-weight: 800; background: #111827; color: #ffffff;">${personas.length} Contactos</span>
-                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">${grupos.length} Grupos</span>
-                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${temasResueltos}/${totalTemas} Temas Tratados</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.28);">${personas.length} Contactos</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(129, 140, 248, 0.3);">${grupos.length} Grupos</span>
+                    <span class="item-badge-pill" style="font-weight: 800; background: rgba(255, 255, 255, 0.06); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.1);">${temasResueltos}/${totalTemas} Temas Tratados</span>
                 </div>
             </div>
             <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
@@ -1578,8 +1627,8 @@ function renderizarAgendaPersonas() {
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 12px;">
-            <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay personas registradas para este filtro.</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.14); border-radius: 12px;">
+            <p style="margin: 0; color: #94a3b8; font-size: 13.5px;">No hay personas registradas para este filtro.</p>
             <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevaPersona()">+ Agregar Contacto y Temas</button>
         </div>`;
         return;
@@ -1589,14 +1638,14 @@ function renderizarAgendaPersonas() {
     filtradas.forEach(function(p) {
         var temasHtml = (p.temasPendientes || []).map(function(t) {
             var checkState = t.hecho ? 'checked' : '';
-            var textStyle = t.hecho ? 'text-decoration: line-through; color: #9ca3af;' : 'color: #f8fafc;';
+            var textStyle = t.hecho ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc;';
             return `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed #f3f4f6;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.08);">
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; ${textStyle}">
-                    <input type="checkbox" ${checkState} onchange="toggleTemaPersona('${p.id}', '${t.id}')" style="cursor: pointer; width: 15px; height: 15px; accent-color: #f8fafc;">
+                    <input type="checkbox" ${checkState} onchange="toggleTemaPersona('${p.id}', '${t.id}')" style="cursor: pointer; width: 15px; height: 15px; accent-color: #6366f1;">
                     <span>${escHtmlPersona(t.texto)}</span>
                 </label>
-                <button onclick="eliminarTemaPersona('${p.id}', '${t.id}')" title="Quitar tema" style="background:none; border:none; color:#d1d5db; cursor:pointer; font-size:12px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#d1d5db'">✕</button>
+                <button onclick="eliminarTemaPersona('${p.id}', '${t.id}')" title="Quitar tema" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:12px;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">✕</button>
             </div>`;
         }).join('');
 
@@ -1607,48 +1656,49 @@ function renderizarAgendaPersonas() {
             return '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; background:rgba(255,255,255,0.06); border:1px solid ' + (g.color || '#6366f1') + '; color:#e2e8f0;">' + escHtmlPersona(g.icono || '👥') + ' ' + escHtmlPersona(g.nombre) + '</span>';
         }).join(' ');
 
-        var estadoColor = p.estado === 'Conversado' ? '#059669' : (p.estado === 'Agendado' ? '#2563eb' : '#4b5563');
-        var estadoBg = p.estado === 'Conversado' ? '#ecfdf5' : (p.estado === 'Agendado' ? '#eff6ff' : '#f3f4f6');
+        var estadoColor = p.estado === 'Conversado' ? '#34d399' : (p.estado === 'Agendado' ? '#7dd3fc' : '#cbd5e1');
+        var estadoBg = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.14)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(148, 163, 184, 0.14)');
+        var estadoBorder = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.35)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.32)' : 'rgba(148, 163, 184, 0.28)');
 
         html += `
         <div class="knowledge-card">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
                 <div>
-                    <span class="knowledge-area-tag" style="background: #111827; color: #ffffff;">${escHtmlPersona(p.ubicacionCategoria || '📍 Ubicación')}</span>
+                    <span class="knowledge-area-tag" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3);">${escHtmlPersona(p.ubicacionCategoria || '📍 Ubicación')}</span>
                     <h4 class="knowledge-title">${escHtmlPersona(p.nombre)}</h4>
-                    <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">${escHtmlPersona(p.rol || 'Contacto')}</span>
+                    <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">${escHtmlPersona(p.rol || 'Contacto')}</span>
                     ${gruposBadges ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${gruposBadges}</div>` : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
-                    <button onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+                    <button onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">🗑️</button>
                 </div>
             </div>
 
             <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; color: #cbd5e1;">
                 <strong>📍 Lugar Proyectado:</strong> ${escHtmlPersona(p.lugarProyectado || 'Por definir')}
-                ${p.fechaObjetivo ? ` · <span style="color: #6b7280;">📅 ${escHtmlPersona(p.fechaObjetivo)}</span>` : ''}
+                ${p.fechaObjetivo ? ` · <span style="color: #94a3b8;">📅 ${escHtmlPersona(p.fechaObjetivo)}</span>` : ''}
             </div>
 
             <div style="margin-bottom: 12px; flex-grow: 1;">
-                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b7280; margin-bottom: 6px;">
+                <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">
                     Temas a Tratar (${(p.temasPendientes || []).filter(function(t){ return !t.hecho; }).length} pendientes):
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 3px; max-height: 140px; overflow-y: auto;">
-                    ${temasHtml || '<span style="font-size: 12px; color: #9ca3af;">Sin temas anotados.</span>'}
+                    ${temasHtml || '<span style="font-size: 12px; color: #64748b;">Sin temas anotados.</span>'}
                 </div>
                 <div style="display: flex; gap: 6px; margin-top: 8px;">
-                    <input type="text" id="input-nuevo-tema-${p.id}" placeholder="+ Agregar tema..." class="finanzas-input-clean" style="padding: 5px 10px; font-size: 12px; width: 100%; border-radius: 8px;" onkeydown="if(event.key==='Enter'){agregarTemaDirecto('${p.id}');}">
-                    <button class="btn-sheet-action" style="padding: 4px 10px; font-size: 12px;" onclick="agregarTemaDirecto('${p.id}')">OK</button>
+                    <input type="text" id="input-nuevo-tema-${p.id}" placeholder="+ Agregar tema..." class="finanzas-input-clean" style="padding: 6px 10px; font-size: 12px; width: 100%; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc;" onkeydown="if(event.key==='Enter'){agregarTemaDirecto('${p.id}');}">
+                    <button class="btn-sheet-action" style="padding: 4px 12px; font-size: 12px;" onclick="agregarTemaDirecto('${p.id}')">OK</button>
                 </div>
             </div>
 
-            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px; flex-wrap: wrap; gap: 8px;">
-                <span class="item-badge-pill" style="background: ${estadoBg}; color: ${estadoColor}; font-weight: 700; font-size: 11px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
+                <span class="item-badge-pill" style="background: ${estadoBg}; color: ${estadoColor}; border: 1px solid ${estadoBorder}; font-weight: 700; font-size: 11px;">
                     ${escHtmlPersona(p.estado || 'Pendiente')}
                 </span>
                 <div style="display: flex; gap: 4px;">
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 8px;" onclick="cambiarEstadoPersona('${p.id}', 'Agendado')">📅 Agendar</button>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 8px; background: #ecfdf5; color: #059669; border-color: #a7f3d0;" onclick="cambiarEstadoPersona('${p.id}', 'Conversado')">✓ Conversado</button>
+                    <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="cambiarEstadoPersona('${p.id}', 'Agendado')">📅 Agendar</button>
+                    <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.38);" onclick="cambiarEstadoPersona('${p.id}', 'Conversado')">✓ Conversado</button>
                 </div>
             </div>
         </div>`;

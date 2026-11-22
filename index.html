@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.92">
+    <link rel="stylesheet" href="style.css?v=10.93">
 </head>
 <body>
 
@@ -3786,70 +3786,71 @@
             <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
         </button>
 
-        <div class="card" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                        💼
-                    </div>
-                    <div>
-                        <h2 style="margin: 0; font-size: 19px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Gestión de Labores & Oficios</h2>
-                        <span style="font-size: 12px; color: #6b7280;">Sub-Apps especializadas: Boom Solutions, Barbería y Personal Trainer.</span>
+        <div class="card labores-shell-card" style="margin-bottom: 20px;">
+            <div class="labores-hero-header">
+                <div class="labores-hero-title-group">
+                    <div class="labores-hero-icon">💼</div>
+                    <div style="min-width: 0;">
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Gestión de Labores &amp; Oficios</h2>
+                        <span style="font-size: 12px; color: #94a3b8; display: block; line-height: 1.35;">Boom Solutions · Barbería · Personal Trainer</span>
                     </div>
                 </div>
-                <div>
-                    <button class="btn-system" onclick="abrirModalRegistroJornada()" style="font-size: 13px; font-weight: 800; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; border: none; padding: 10px 18px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <span>⚡</span> Registrar Sesión de Labor
-                    </button>
-                </div>
+                <button class="btn-system labores-cta-btn" onclick="abrirModalRegistroJornada()">
+                    <span>⚡</span> Registrar Sesión
+                </button>
             </div>
 
-            <!-- SELECTOR DE MES Y TARJETAS KPIS MENSUALES -->
+            <!-- SELECTOR DE MES Y CUADRÍCULA 2x2 DE MÉTRICAS -->
             <div id="contenedor-estadisticas-labores"></div>
 
-            <!-- APARTADO ANALÍTICO Y GRÁFICA MENSUAL (CHART.JS) -->
-            <div class="card" style="background: #0f1422; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 16px; margin-bottom: 22px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
-                    <div>
-                        <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">📊 Análisis y Rendimiento Mensual</h3>
-                        <span style="font-size: 11.5px; color: #6b7280;">Comparativa de dedicación, dinero generado y tiempo de jornada entre labores.</span>
-                    </div>
-                    <!-- Pestañas de selector de métrica para la gráfica -->
-                    <div class="labores-chart-tabs" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button type="button" id="tab-lab-chart-horas" class="btn-tab-chart active" onclick="cambiarMetricaGraficaLabores('horas')">⏱️ Horas al Mes</button>
-                        <button type="button" id="tab-lab-chart-dinero" class="btn-tab-chart" onclick="cambiarMetricaGraficaLabores('dinero')">💰 Dinero al Mes ($)</button>
-                        <button type="button" id="tab-lab-chart-jornada" class="btn-tab-chart" onclick="cambiarMetricaGraficaLabores('jornada')">⏳ Tiempo de Jornada</button>
-                    </div>
-                </div>
-                <div style="position: relative; height: 260px; width: 100%;">
-                    <canvas id="chart-analisis-labores"></canvas>
-                </div>
+            <!-- BARRA SEGMENTADA DE NAVEGACIÓN INTERNA (MÓVIL & ESCRITORIO) -->
+            <div class="labores-subtabs" role="tablist" aria-label="Secciones de Labores">
+                <button type="button" id="tab-btn-lab-subapps" class="labores-subtab-btn active" role="tab" aria-selected="true" onclick="cambiarSubtabLabores('subapps')">
+                    <span>💼</span><span>Sub-Apps</span>
+                </button>
+                <button type="button" id="tab-btn-lab-analisis" class="labores-subtab-btn" role="tab" aria-selected="false" onclick="cambiarSubtabLabores('analisis')">
+                    <span>📊</span><span>Análisis</span>
+                </button>
+                <button type="button" id="tab-btn-lab-historial" class="labores-subtab-btn" role="tab" aria-selected="false" onclick="cambiarSubtabLabores('historial')">
+                    <span>📋</span><span>Historial</span><span id="badge-lab-historial-count" class="labores-subtab-count">0</span>
+                </button>
             </div>
 
-            <!-- DESGLOSE DE SUB-APPS OFICIALES -->
-            <div style="margin: 20px 0 10px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">Sub-Apps de Labores Activas</h3>
-                        <span style="font-size: 11.5px; color: #6b7280;">Módulos independientes con registro y métricas dedicadas</span>
-                    </div>
-                    <span style="font-size: 11px; font-weight: 800; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 3px 9px; border-radius: 6px; text-transform: uppercase;">
-                        3 Sub-Apps
-                    </span>
+            <!-- PANEL 1: SUB-APPS DE LABORES ACTIVAS -->
+            <div id="labores-panel-subapps" class="labores-subpanel">
+                <div class="labores-section-head">
+                    <h3 style="font-size: 14px; font-weight: 800; color: #f8fafc; margin: 0;">Sub-Apps Activas</h3>
+                    <span class="labores-section-pill">3 módulos</span>
                 </div>
                 <div id="contenedor-categorias-labores"></div>
             </div>
 
-            <!-- HISTORIAL DE SESIONES REGISTRADAS -->
-            <div style="margin-top: 26px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
-                    <div>
-                        <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">Registro Histórico de Sesiones Laborales</h3>
-                        <span style="font-size: 11.5px; color: #6b7280;">Jornadas diarias de trabajo registradas y sincronizadas con Finanzas</span>
+            <!-- PANEL 2: ANÁLISIS Y RENDIMIENTO MENSUAL -->
+            <div id="labores-panel-analisis" class="labores-subpanel" style="display: none;">
+                <div class="labores-analytics-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                        <div>
+                            <h3 style="font-size: 14.5px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">📊 Análisis Mensual</h3>
+                            <span style="font-size: 11.5px; color: #94a3b8;">Dedicación, ingresos y promedio por labor</span>
+                        </div>
+                        <div class="labores-chart-tabs">
+                            <button type="button" id="tab-lab-chart-horas" class="btn-tab-chart active" onclick="cambiarMetricaGraficaLabores('horas')">⏱️ Horas</button>
+                            <button type="button" id="tab-lab-chart-dinero" class="btn-tab-chart" onclick="cambiarMetricaGraficaLabores('dinero')">💰 Dinero</button>
+                            <button type="button" id="tab-lab-chart-jornada" class="btn-tab-chart" onclick="cambiarMetricaGraficaLabores('jornada')">⏳ Jornada</button>
+                        </div>
                     </div>
-                    <div id="filtro-labores-historial" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <!-- Se llena dinámicamente con pills de filtro -->
+                    <div style="position: relative; height: 225px; width: 100%;">
+                        <canvas id="chart-analisis-labores"></canvas>
                     </div>
+                    <div id="contenedor-desglose-labores" class="labores-breakdown-list"></div>
+                </div>
+            </div>
+
+            <!-- PANEL 3: HISTORIAL DE SESIONES REGISTRADAS -->
+            <div id="labores-panel-historial" class="labores-subpanel" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                    <h3 style="font-size: 14px; font-weight: 800; color: #f8fafc; margin: 0;">Sesiones Registradas</h3>
+                    <div id="filtro-labores-historial" class="labores-history-filters"></div>
                 </div>
                 <div id="contenedor-registros-labores"></div>
             </div>
@@ -3977,12 +3978,12 @@
         </button>
 
         <div class="card" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 26px;">👥</span>
                     <div>
-                        <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px;">Directorio de Personas & Conversaciones</h2>
-                        <span style="font-size: 12px; color: #6b7280;">Agenda temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás.</span>
+                        <h2 style="margin: 0; font-size: 18px; color: #f8fafc; letter-spacing: -0.2px;">Directorio de Personas &amp; Conversaciones</h2>
+                        <span style="font-size: 12px; color: #94a3b8;">Agenda temas a tratar con cada persona y planifica el lugar proyectado donde las encontrarás.</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -4002,7 +4003,7 @@
             <div id="contenedor-grupos-personas" style="margin: 14px 0 6px 0;"></div>
 
             <!-- FILTRO POR CATEGORÍA DE UBICACIÓN -->
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 16px 0; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+            <div class="personas-ubi-filters" style="display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 16px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px;">
                 <button class="btn-tab-ubi active" onclick="filtrarPersonasPorUbicacion('TODAS', this)">Todas las Ubicaciones</button>
                 <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('💈 Barbería', this)">💈 Barbería</button>
                 <button class="btn-tab-ubi" onclick="filtrarPersonasPorUbicacion('🏋️ Gimnasio', this)">🏋️ Gimnasio</button>
@@ -6819,26 +6820,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.92"></script>
-    <script src="js/perfil.js?v=10.92"></script>
-    <script src="js/progresion.js?v=10.92"></script>
-    <script src="js/estado-personal.js?v=10.92"></script>
-    <script src="js/finanzas.js?v=10.92"></script>
-    <script src="js/ideas.js?v=10.92"></script>
-    <script src="js/dinamicas.js?v=10.92"></script>
-    <script src="js/calendario.js?v=10.92"></script>
-    <script src="js/inventario.js?v=10.92"></script>
-    <script src="js/reproductor.js?v=10.92"></script>
-    <script src="js/jarvis-voz.js?v=10.92"></script>
+    <script src="js/core.js?v=10.93"></script>
+    <script src="js/perfil.js?v=10.93"></script>
+    <script src="js/progresion.js?v=10.93"></script>
+    <script src="js/estado-personal.js?v=10.93"></script>
+    <script src="js/finanzas.js?v=10.93"></script>
+    <script src="js/ideas.js?v=10.93"></script>
+    <script src="js/dinamicas.js?v=10.93"></script>
+    <script src="js/calendario.js?v=10.93"></script>
+    <script src="js/inventario.js?v=10.93"></script>
+    <script src="js/reproductor.js?v=10.93"></script>
+    <script src="js/jarvis-voz.js?v=10.93"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.92"></script>
+    <script type="module" src="js/firebase-config.js?v=10.93"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.92')
+                navigator.serviceWorker.register('sw.js?v=10.93')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
