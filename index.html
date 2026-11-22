@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.94">
+    <link rel="stylesheet" href="style.css?v=10.95">
 </head>
 <body>
 
@@ -3635,10 +3635,10 @@
 
                     <div id="box-opcion-autopc-idea" class="ideas-autopc-toggle-row">
                         <label class="ideas-autopc-check-label" for="chk-idea-programar-ahora">
-                            <input type="checkbox" id="chk-idea-programar-ahora">
+                            <input type="checkbox" id="chk-idea-programar-ahora" checked>
                             <span class="ideas-autopc-check-text">
                                 <strong>🚀 Empezar a programar en Auto-PC al crear</strong>
-                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC (con imagen si la adjuntaste).</small>
+                                <small>Marcado por defecto en Emily: al publicar, se enviará de inmediato a tu cola de Antigravity en la PC (desmárcalo si solo quieres guardarlo).</small>
                             </span>
                         </label>
                     </div>
@@ -5281,10 +5281,10 @@
                     </div>
                     <div id="box-opcion-autopc-asistente" class="ideas-autopc-toggle-row" style="margin-bottom: 16px;">
                         <label class="ideas-autopc-check-label" for="chk-asistente-idea-programar-ahora">
-                            <input type="checkbox" id="chk-asistente-idea-programar-ahora">
+                            <input type="checkbox" id="chk-asistente-idea-programar-ahora" checked>
                             <span class="ideas-autopc-check-text">
                                 <strong>🚀 Empezar a programar en Auto-PC al crear</strong>
-                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC.</small>
+                                <small>Marcado por defecto en Emily: al crear, se enviará de inmediato a tu cola de Antigravity en la PC (desmárcalo si solo quieres guardarlo).</small>
                             </span>
                         </label>
                     </div>
@@ -6820,26 +6820,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.94"></script>
-    <script src="js/perfil.js?v=10.94"></script>
-    <script src="js/progresion.js?v=10.94"></script>
-    <script src="js/estado-personal.js?v=10.94"></script>
-    <script src="js/finanzas.js?v=10.94"></script>
-    <script src="js/ideas.js?v=10.94"></script>
-    <script src="js/dinamicas.js?v=10.94"></script>
-    <script src="js/calendario.js?v=10.94"></script>
-    <script src="js/inventario.js?v=10.94"></script>
-    <script src="js/reproductor.js?v=10.94"></script>
-    <script src="js/jarvis-voz.js?v=10.94"></script>
+    <script src="js/core.js?v=10.95"></script>
+    <script src="js/perfil.js?v=10.95"></script>
+    <script src="js/progresion.js?v=10.95"></script>
+    <script src="js/estado-personal.js?v=10.95"></script>
+    <script src="js/finanzas.js?v=10.95"></script>
+    <script src="js/ideas.js?v=10.95"></script>
+    <script src="js/dinamicas.js?v=10.95"></script>
+    <script src="js/calendario.js?v=10.95"></script>
+    <script src="js/inventario.js?v=10.95"></script>
+    <script src="js/reproductor.js?v=10.95"></script>
+    <script src="js/jarvis-voz.js?v=10.95"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.94"></script>
+    <script type="module" src="js/firebase-config.js?v=10.95"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.94')
+                navigator.serviceWorker.register('sw.js?v=10.95')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

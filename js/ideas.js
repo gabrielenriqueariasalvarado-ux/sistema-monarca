@@ -832,8 +832,8 @@ function alCambiarCategoriaIdea() {
         if (boxAutoPC) {
             boxAutoPC.style.display = esEmily ? 'block' : 'none';
         }
-        if (!esEmily && chkAutoPC) {
-            chkAutoPC.checked = false;
+        if (chkAutoPC) {
+            chkAutoPC.checked = esEmily;
         }
     }
 }
@@ -1164,7 +1164,7 @@ function guardarNuevaIdea() {
 
     if (input) input.value = "";
     if (chkAutoPC) {
-        chkAutoPC.checked = false;
+        chkAutoPC.checked = esEmily;
     }
     limpiarImagenBorradorIdea('principal');
 

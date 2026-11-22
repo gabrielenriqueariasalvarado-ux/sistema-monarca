@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.94)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.95)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.94
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.95
             Esta versión nativa incluye:
+            - 🚀 **Auto-PC Marcado por Defecto al Crear Idea (v10.95)**: La casilla **`Empezar a programar en Auto-PC al crear`** ahora viene activada por defecto en **Banco de Ideas** y **Asistente Rápido** cuando eliges **✨ Emily** (manteniéndose activa tras publicar, lista para desmarcarla solo cuando no la necesites).
             - 🎲 **Tema Oscuro Completo en Ruleta de Variabilidad (v10.94)**: Eliminación de bordes blancos (`#e5e7eb` / `#f3f4f6`), rueda vacía clara y divisores claros en banner, banco de opciones, lienzo y modal.
             - 💼 **Labores reorganizado para móvil (v10.93)**: KPI grid simétrico `2×2`, pestañas segmentadas (**`Sub-Apps | Análisis | Historial`**), gráfica Chart.js con desglose por labor y filas de historial compactas.
             - 🌙 **Corrección de Contraste Oscuro en Personas, Conocimiento y Ruleta**: Eliminación de tarjetas blancas heredadas (`weekly-review-banner`, `knowledge-card`, píldoras de ubicación/estado y botones de acción) unificadas al tema oscuro Monarca.

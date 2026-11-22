@@ -1,5 +1,5 @@
 {
-  "version": "10.94",
+  "version": "10.95",
   "fecha": "2026-11-22",
-  "resumen": "Unificación completa del tema oscuro en Ruleta de Variabilidad Semanal (bordes, rueda, tarjetas de banco y modal) junto a las mejoras móviles de Labores y contraste de Personas/Conocimiento."
+  "resumen": "Opción 'Empezar a programar en Auto-PC al crear' activada por defecto en Banco de Ideas y Asistente Rápido para Emily (desmarcable manualmente cuando no sea necesaria)."
 }

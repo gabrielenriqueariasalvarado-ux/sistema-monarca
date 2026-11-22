@@ -1085,8 +1085,8 @@ function actualizarVisibilidadOpcionAutoPC(cat, boxId, chkId) {
     if (boxAutoPC) {
         boxAutoPC.style.display = esEmily ? 'block' : 'none';
     }
-    if (!esEmily && chkAutoPC) {
-        chkAutoPC.checked = false;
+    if (chkAutoPC) {
+        chkAutoPC.checked = esEmily;
     }
     return esEmily;
 }
@@ -1253,8 +1253,12 @@ function cerrarAsistenteRapido() {
     if (m) m.style.display = 'none';
     var box = document.getElementById('contenedor-freno-impulso-asistente');
     if (box) box.style.display = 'none';
-    var chkAutoPC = document.getElementById('chk-asistente-idea-programar-ahora');
-    if (chkAutoPC) chkAutoPC.checked = false;
+    var selCatAsis = document.getElementById('asistente-idea-cat');
+    actualizarVisibilidadOpcionAutoPC(
+        selCatAsis ? selCatAsis.value : '✨ Emily',
+        'box-opcion-autopc-asistente',
+        'chk-asistente-idea-programar-ahora'
+    );
     if (typeof limpiarImagenBorradorIdea === 'function') {
         limpiarImagenBorradorIdea('asistente');
     }
@@ -1309,7 +1313,7 @@ function guardarCapturaRapida() {
         var resIdea = registrarIdeaEnMonarca(texto, cat, subcat, programarAhora, imagenAdjunta);
 
         if (inNom) inNom.value = "";
-        if (chkAutoPC) chkAutoPC.checked = false;
+        actualizarVisibilidadOpcionAutoPC(cat, 'box-opcion-autopc-asistente', 'chk-asistente-idea-programar-ahora');
         if (typeof limpiarImagenBorradorIdea === 'function') {
             limpiarImagenBorradorIdea('asistente');
         }
@@ -1642,7 +1646,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.94';
+var MONARCA_APP_VERSION = '10.95';
 var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
