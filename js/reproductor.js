@@ -13,12 +13,14 @@
     var DEFAULT_RUTINA_PL_KEY = 'monarca_musica_rutina_playlist_default';
     var PLAYER_SCOPE_KEY = 'monarca_player_folder_scope';
     var PLAYER_KNOWN_SONGS_KEY = 'monarca_player_conocidas_v1';
+    var PLAY_STATS_KEY = 'monarca_player_play_stats_v1';
+    var PLAYER_MODES_KEY = 'monarca_player_modes_v1';
 
     var state = {
         db: null,
         canciones: [],        // Metadatos { id, sig, origen, nombre, artista, album, carpeta, tamano, tipo, fecha, ruta, contentUri, albumId }
         playlists: [],        // { id, nombre, fecha, fechaActualizacion, cancionIds: [], cancionSigs: [] }
-        subtabActual: 'todas',// 'todas' | 'carpetas' | 'playlists'
+        subtabActual: 'todas',// 'todas' | 'carpetas' | 'playlists' | 'top'
         soloSnapTube: (function() {
             try { return localStorage.getItem(PLAYER_SCOPE_KEY) !== 'all'; } catch (e) { return true; }
         })(),
@@ -31,10 +33,14 @@
         blobUrlActual: null,
         reproduciendo: false,
         shuffle: false,
+        modoInteligente: false,
         repeat: 'all',        // 'off' | 'all' | 'one'
         volumen: 1.0,
         busqueda: '',
         miniPlayerVisible: true,
+        playStats: {},        // statKey -> { key, sig, id, nombre, artista, count, lastPlayedAt, firstPlayedAt }
+        _playListenState: { seqId: 0, songId: null, lastTickTs: 0, elapsedSec: 0, counted: false, esPreview: false },
+        _smartVisitedIds: {}, // contextKey -> { songId: true }
         // Modo música continua para rutinas
         rutinaDefaultPlaylistId: null,
         rutinaModoActivo: false,
@@ -1229,10 +1235,230 @@
 
     function sincronizarPlaylistsDesdeAppState() {
         cargarPlaylistsStorage();
+        cargarPlayStatsStorage();
         reconciliarPlaylistsConCanciones();
         notificarCambioPlaylistsYDefault();
         renderizarContenidoSegunSubtab();
         actualizarBarraAudioRutina();
+    }
+
+    // ----------------------------------------------------------------------
+    // 3.5 HISTORIAL DE REPRODUCCIONES, TOP MÁS ESCUCHADAS Y MODO INTELIGENTE
+    // ----------------------------------------------------------------------
+    function _claveStatPrimaria(meta) {
+        if (!meta) return '';
+        if (meta.sig) return 'sig:' + String(meta.sig);
+        if (meta.archivo && meta.tamano) {
+            return 'file:' + String(meta.archivo).toLowerCase() + '__' + (Number(meta.tamano) || 0);
+        }
+        if (meta.id) return 'id:' + String(meta.id);
+        return '';
+    }
+
+    function _clavesStatCandidatas(meta) {
+        var keys = [];
+        if (!meta) return keys;
+        if (meta.sig) keys.push('sig:' + String(meta.sig));
+        if (meta.archivo && meta.tamano) {
+            keys.push('file:' + String(meta.archivo).toLowerCase() + '__' + (Number(meta.tamano) || 0));
+        }
+        if (meta.id) keys.push('id:' + String(meta.id));
+        return keys;
+    }
+
+    function cargarPlayStatsStorage() {
+        var merged = {};
+        function mergeMap(src) {
+            if (!src || typeof src !== 'object') return;
+            Object.keys(src).forEach(function(k) {
+                var s = src[k];
+                if (!s || typeof s !== 'object') return;
+                var prev = merged[k];
+                if (!prev) {
+                    merged[k] = {
+                        key: s.key || k,
+                        sig: s.sig || '',
+                        id: s.id || '',
+                        nombre: s.nombre || '',
+                        artista: s.artista || '',
+                        count: Number(s.count) || 0,
+                        lastPlayedAt: Number(s.lastPlayedAt) || 0,
+                        firstPlayedAt: Number(s.firstPlayedAt) || 0
+                    };
+                } else {
+                    prev.count = Math.max(prev.count, Number(s.count) || 0);
+                    prev.lastPlayedAt = Math.max(prev.lastPlayedAt, Number(s.lastPlayedAt) || 0);
+                    if (s.firstPlayedAt && (!prev.firstPlayedAt || s.firstPlayedAt < prev.firstPlayedAt)) {
+                        prev.firstPlayedAt = Number(s.firstPlayedAt);
+                    }
+                    if (!prev.nombre && s.nombre) prev.nombre = s.nombre;
+                    if (!prev.artista && s.artista) prev.artista = s.artista;
+                    if (!prev.sig && s.sig) prev.sig = s.sig;
+                    if (!prev.id && s.id) prev.id = s.id;
+                }
+            });
+        }
+        try {
+            var raw = localStorage.getItem(PLAY_STATS_KEY);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    mergeMap(parsed.tracks || parsed);
+                }
+            }
+        } catch (e) {}
+        if (typeof window.APP_STATE !== 'undefined' && window.APP_STATE && window.APP_STATE.reproductorPlayStats) {
+            mergeMap(window.APP_STATE.reproductorPlayStats);
+        }
+        state.playStats = merged;
+        return state.playStats;
+    }
+
+    function guardarPlayStatsStorage(omitirCloud) {
+        try {
+            localStorage.setItem(PLAY_STATS_KEY, JSON.stringify({
+                updatedAt: Date.now(),
+                tracks: state.playStats
+            }));
+        } catch (e) {}
+
+        if (!omitirCloud && typeof window.APP_STATE !== 'undefined' && window.APP_STATE) {
+            try {
+                window.APP_STATE.reproductorPlayStats = JSON.parse(JSON.stringify(state.playStats));
+                if (typeof window.MonarcaDB !== 'undefined' && typeof window.MonarcaDB.save === 'function') {
+                    window.MonarcaDB.save(window.APP_STATE);
+                }
+            } catch (e) {}
+        }
+    }
+
+    function obtenerStatCancion(meta) {
+        if (!meta) return null;
+        if (!state.playStats || typeof state.playStats !== 'object') state.playStats = {};
+        var cand = _clavesStatCandidatas(meta);
+        var encontrada = null;
+        var keyHallada = '';
+        for (var i = 0; i < cand.length; i++) {
+            if (state.playStats[cand[i]]) {
+                encontrada = state.playStats[cand[i]];
+                keyHallada = cand[i];
+                break;
+            }
+        }
+        if (encontrada && cand[0] && keyHallada && keyHallada !== cand[0]) {
+            state.playStats[cand[0]] = encontrada;
+            encontrada.key = cand[0];
+        }
+        return encontrada;
+    }
+
+    function obtenerReproduccionesCancion(meta) {
+        var st = obtenerStatCancion(meta);
+        return st ? (Number(st.count) || 0) : 0;
+    }
+
+    function registrarReproduccionCancion(meta, omitirRender) {
+        if (!meta) return 0;
+        var primaryKey = _claveStatPrimaria(meta);
+        if (!primaryKey) return 0;
+
+        var prev = obtenerStatCancion(meta);
+        var metaInfo = obtenerTituloLimpoYArtista(meta);
+        var ahora = Date.now();
+        var nuevoCount = (prev ? (Number(prev.count) || 0) : 0) + 1;
+
+        state.playStats[primaryKey] = {
+            key: primaryKey,
+            sig: meta.sig || (prev && prev.sig) || '',
+            id: meta.id || (prev && prev.id) || '',
+            nombre: (metaInfo && metaInfo.titulo) || meta.nombre || '',
+            artista: (metaInfo && metaInfo.artista && metaInfo.artista !== 'Artista desconocido') ? metaInfo.artista : (meta.artista || ''),
+            count: nuevoCount,
+            lastPlayedAt: ahora,
+            firstPlayedAt: (prev && prev.firstPlayedAt) ? prev.firstPlayedAt : ahora
+        };
+
+        guardarPlayStatsStorage(false);
+        sincronizarIndiceCancionActualEnLista();
+
+        if (!omitirRender) {
+            if (state.subtabActual === 'top' || (state.subtabActual === 'todas' && (state.playlistSeleccionada || state.modoInteligente))) {
+                renderizarContenidoSegunSubtab();
+            }
+        }
+        return nuevoCount;
+    }
+
+    function cargarModosReproductorStorage() {
+        try {
+            var raw = localStorage.getItem(PLAYER_MODES_KEY);
+            if (!raw) return;
+            var obj = JSON.parse(raw);
+            if (!obj || typeof obj !== 'object') return;
+            state.modoInteligente = !!obj.modoInteligente;
+            state.shuffle = state.modoInteligente ? false : !!obj.shuffle;
+            if (obj.repeat === 'all' || obj.repeat === 'one' || obj.repeat === 'off') {
+                state.repeat = obj.repeat;
+            }
+        } catch (e) {}
+    }
+
+    function guardarModosReproductorStorage() {
+        try {
+            localStorage.setItem(PLAYER_MODES_KEY, JSON.stringify({
+                shuffle: !!state.shuffle,
+                modoInteligente: !!state.modoInteligente,
+                repeat: state.repeat || 'all'
+            }));
+        } catch (e) {}
+    }
+
+    function _claveContextoActual() {
+        if (state.playlistSeleccionada) return 'pl:' + state.playlistSeleccionada;
+        if (state.subtabActual === 'top') return 'top';
+        if (state.carpetaSeleccionada) return 'folder:' + state.carpetaSeleccionada;
+        return 'all';
+    }
+
+    function compararCancionesPorTop(a, b, origIdxMap) {
+        var stA = obtenerStatCancion(a);
+        var stB = obtenerStatCancion(b);
+        var cA = stA ? (Number(stA.count) || 0) : 0;
+        var cB = stB ? (Number(stB.count) || 0) : 0;
+        if (cB !== cA) return cB - cA;
+
+        var lA = stA ? (Number(stA.lastPlayedAt) || 0) : 0;
+        var lB = stB ? (Number(stB.lastPlayedAt) || 0) : 0;
+        if (lB !== lA) return lB - lA;
+
+        if (origIdxMap && a && b && a.id && b.id) {
+            var iA = (typeof origIdxMap[a.id] === 'number') ? origIdxMap[a.id] : 999999;
+            var iB = (typeof origIdxMap[b.id] === 'number') ? origIdxMap[b.id] : 999999;
+            if (iA !== iB) return iA - iB;
+        }
+        return ((b && b.fecha) || 0) - ((a && a.fecha) || 0);
+    }
+
+    function ordenarListaPorTop(lista) {
+        if (!Array.isArray(lista) || lista.length <= 1) return (lista || []).slice();
+        var origIdxMap = {};
+        lista.forEach(function(item, idx) {
+            if (item && item.id) origIdxMap[item.id] = idx;
+        });
+        return lista.slice().sort(function(a, b) {
+            return compararCancionesPorTop(a, b, origIdxMap);
+        });
+    }
+
+    function obtenerTopCancionesLista(listaOpcional) {
+        if (Array.isArray(listaOpcional)) {
+            return ordenarListaPorTop(listaOpcional);
+        }
+        var activas = obtenerCancionesActivasScope();
+        var escuchadas = activas.filter(function(c) {
+            return obtenerReproduccionesCancion(c) > 0;
+        });
+        return ordenarListaPorTop(escuchadas);
     }
 
     function getPlaylistDefaultRutinaId() {
@@ -1444,6 +1670,8 @@
             abrirModalAgregarCancionesAPlaylist(plId);
             return;
         }
+        state._smartVisitedIds = state._smartVisitedIds || {};
+        delete state._smartVisitedIds['pl:' + plId];
         seleccionarPlaylist(plId);
         var lista = obtenerListaReproducibleActual();
         if (lista.length > 0) {
@@ -1451,6 +1679,46 @@
         } else {
             notificarPlayerToast('No se encontraron pistas disponibles para esta lista', '🎵');
         }
+    }
+
+    function reproducirPlaylistInteligente(plId) {
+        var pl = state.playlists.find(function(p) { return p.id === plId; });
+        if (!pl) return;
+        if (!pl.cancionIds || pl.cancionIds.length === 0) {
+            notificarPlayerToast('La lista "' + pl.nombre + '" está vacía. Añade canciones primero.', '🎶');
+            abrirModalAgregarCancionesAPlaylist(plId);
+            return;
+        }
+        state.modoInteligente = true;
+        state.shuffle = false;
+        state._smartVisitedIds = state._smartVisitedIds || {};
+        delete state._smartVisitedIds['pl:' + plId];
+        guardarModosReproductorStorage();
+        seleccionarPlaylist(plId);
+        actualizarControlesModo();
+        var lista = obtenerListaReproducibleActual();
+        if (lista.length > 0) {
+            reproducirIndice(0);
+            notificarPlayerToast('Modo Inteligente: reproduciendo Top de "' + pl.nombre + '"', '✨');
+        } else {
+            notificarPlayerToast('No se encontraron pistas disponibles para esta lista', '🎵');
+        }
+    }
+
+    function reproducirTopCanciones(songId) {
+        var topLista = obtenerTopCancionesLista();
+        if (topLista.length === 0) {
+            notificarPlayerToast('Aún no hay canciones reproducidas para tu Top', '🏆');
+            return;
+        }
+        if (state.subtabActual !== 'top') {
+            cambiarSubtab('top');
+        }
+        if (songId) {
+            reproducirPorId(songId);
+            return;
+        }
+        reproducirIndice(0);
     }
 
     function eliminarPlaylist(plId) {
@@ -1645,6 +1913,20 @@
         cancelarFadeAudio();
         var playSeq = ++state._playSeqId;
         state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
+        state._playListenState = {
+            seqId: playSeq,
+            songId: meta.id,
+            lastTickTs: Date.now(),
+            elapsedSec: 0,
+            counted: false,
+            esPreview: !!(opciones && opciones.esPreview)
+        };
+        if (state.modoInteligente && !state.rutinaModoActivo && meta.id && !(opciones && opciones.esPreview)) {
+            var ctxKey = _claveContextoActual();
+            if (!state._smartVisitedIds) state._smartVisitedIds = {};
+            if (!state._smartVisitedIds[ctxKey]) state._smartVisitedIds[ctxKey] = {};
+            state._smartVisitedIds[ctxKey][meta.id] = true;
+        }
         var fadeInMs = (opciones && typeof opciones.fadeInMs === 'number' && opciones.fadeInMs > 0) ? opciones.fadeInMs : 0;
         var seekToSec = (opciones && typeof opciones.seekToSec === 'number' && opciones.seekToSec > 0) ? opciones.seekToSec : 0;
 
@@ -1756,6 +2038,7 @@
         state.rutinaConsecErrors = 0;
         if (restaurarPreferencias && state.rutinaPrevConfig) {
             state.shuffle = !!state.rutinaPrevConfig.shuffle;
+            state.modoInteligente = !!state.rutinaPrevConfig.modoInteligente;
             state.repeat = state.rutinaPrevConfig.repeat || 'all';
         }
         state.rutinaPrevConfig = null;
@@ -1793,13 +2076,18 @@
 
     function obtenerListaReproducibleActual() {
         if (state.playlistSeleccionada) {
-            return obtenerCancionesDePlaylist(state.playlistSeleccionada);
+            var plTracks = obtenerCancionesDePlaylist(state.playlistSeleccionada);
+            return state.modoInteligente ? ordenarListaPorTop(plTracks) : plTracks;
+        }
+        if (state.subtabActual === 'top') {
+            return obtenerTopCancionesLista();
         }
         var base = obtenerCancionesActivasScope();
         if (state.carpetaSeleccionada) {
-            return base.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
+            var folderTracks = base.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
+            return state.modoInteligente ? ordenarListaPorTop(folderTracks) : folderTracks;
         }
-        return base;
+        return state.modoInteligente ? ordenarListaPorTop(base) : base;
     }
 
     function iniciarMusicaDeRutina(playlistIdOverride, nombreRutina) {
@@ -1839,6 +2127,7 @@
                     carpetaSeleccionada: state.carpetaSeleccionada,
                     soloSnapTube: !!state.soloSnapTube,
                     shuffle: !!state.shuffle,
+                    modoInteligente: !!state.modoInteligente,
                     repeat: state.repeat || 'all'
                 };
             }
@@ -1848,6 +2137,7 @@
             if (!state.rutinaPrevConfig) {
                 state.rutinaPrevConfig = {
                     shuffle: state.shuffle,
+                    modoInteligente: state.modoInteligente,
                     repeat: state.repeat
                 };
             }
@@ -1857,6 +2147,7 @@
             state.rutinaNombreActiva = nombreRutina || '';
             state.rutinaConsecErrors = 0;
             state.shuffle = true;
+            state.modoInteligente = false;
             state.repeat = 'all';
             actualizarControlesModo();
             actualizarBarraAudioRutina();
@@ -1931,6 +2222,7 @@
                 state.carpetaSeleccionada = snapshot.carpetaSeleccionada;
                 state.soloSnapTube = !!snapshot.soloSnapTube;
                 state.shuffle = !!snapshot.shuffle;
+                state.modoInteligente = !!snapshot.modoInteligente;
                 state.repeat = snapshot.repeat || 'all';
                 actualizarControlesModo();
 
@@ -2068,6 +2360,11 @@
         if (lista.length === 0) return;
 
         if (!esManual && state.repeat === 'one') {
+            if (state._playListenState) {
+                state._playListenState.counted = false;
+                state._playListenState.elapsedSec = 0;
+                state._playListenState.lastTickTs = Date.now();
+            }
             state.audio.currentTime = 0;
             state.audio.play().then(function() {
                 actualizarPositionStateMediaSession();
@@ -2075,8 +2372,35 @@
             return;
         }
 
-        var siguienteIdx;
-        if (state.shuffle && lista.length > 1) {
+        var siguienteIdx = -1;
+        if (state.modoInteligente) {
+            var ctxKey = _claveContextoActual();
+            if (!state._smartVisitedIds) state._smartVisitedIds = {};
+            var visitedMap = state._smartVisitedIds[ctxKey] || {};
+            if (state.cancionActual && state.cancionActual.id) {
+                visitedMap[state.cancionActual.id] = true;
+            }
+            state._smartVisitedIds[ctxKey] = visitedMap;
+
+            for (var i = 0; i < lista.length; i++) {
+                var cand = lista[i];
+                if (!cand || !cand.id) continue;
+                if (!visitedMap[cand.id] && (!state.cancionActual || cand.id !== state.cancionActual.id || lista.length === 1)) {
+                    siguienteIdx = i;
+                    break;
+                }
+            }
+
+            if (siguienteIdx === -1) {
+                if (state.repeat === 'off' && !esManual) {
+                    state._smartVisitedIds[ctxKey] = {};
+                    detenerReproductor();
+                    return;
+                }
+                state._smartVisitedIds[ctxKey] = {};
+                siguienteIdx = (lista.length > 1 && state.cancionActual && lista[0] && lista[0].id === state.cancionActual.id) ? 1 : 0;
+            }
+        } else if (state.shuffle && lista.length > 1) {
             do {
                 siguienteIdx = Math.floor(Math.random() * lista.length);
             } while (siguienteIdx === state.indiceActual);
@@ -2136,9 +2460,39 @@
         if (elVolTxt) elVolTxt.textContent = Math.round(num * 100) + '%';
     }
 
-    function toggleShuffle() {
-        state.shuffle = !state.shuffle;
+    function toggleShuffle(forzarVal) {
+        state.shuffle = (typeof forzarVal === 'boolean') ? forzarVal : !state.shuffle;
+        if (state.shuffle) {
+            state.modoInteligente = false;
+        }
+        state._smartVisitedIds = {};
+        guardarModosReproductorStorage();
+        sincronizarIndiceCancionActualEnLista();
         actualizarControlesModo();
+        if (state.subtabActual === 'todas' && state.playlistSeleccionada) {
+            renderizarContenidoSegunSubtab();
+        }
+    }
+
+    function toggleModoInteligente(forzarVal) {
+        var activar = (typeof forzarVal === 'boolean') ? forzarVal : !state.modoInteligente;
+        state.modoInteligente = activar;
+        if (activar) {
+            state.shuffle = false;
+            if (!state._smartVisitedIds) state._smartVisitedIds = {};
+            delete state._smartVisitedIds[_claveContextoActual()];
+        }
+        guardarModosReproductorStorage();
+        sincronizarIndiceCancionActualEnLista();
+        actualizarControlesModo();
+        if (state.subtabActual === 'todas' || state.subtabActual === 'top') {
+            renderizarContenidoSegunSubtab();
+        }
+        notificarPlayerToast(
+            activar ? 'Modo Inteligente ON: reproduciendo según tu Top más escuchadas' : 'Modo Inteligente desactivado',
+            activar ? '✨' : '🎵'
+        );
+        return state.modoInteligente;
     }
 
     function toggleRepeat() {
@@ -2149,21 +2503,36 @@
         } else {
             state.repeat = 'all';
         }
+        guardarModosReproductorStorage();
         actualizarControlesModo();
+        if (state.subtabActual === 'todas' && state.playlistSeleccionada) {
+            renderizarContenidoSegunSubtab();
+        }
     }
 
     var SVG_REPEAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>';
 
+    function _textoEstadoRepeat(rep) {
+        if (rep === 'one') return 'Repetir: 1';
+        if (rep === 'off') return 'Repetir: Off';
+        return 'Repetir: Todas';
+    }
+
     function actualizarControlesModo() {
         var btnShuf = document.getElementById('player-btn-shuffle');
         if (btnShuf) {
-            if (state.shuffle) {
-                btnShuf.classList.add('active');
-                btnShuf.title = 'Aleatorio: ACTIVADO';
-            } else {
-                btnShuf.classList.remove('active');
-                btnShuf.title = 'Aleatorio: DESACTIVADO';
-            }
+            btnShuf.classList.toggle('active', !!state.shuffle);
+            btnShuf.setAttribute('aria-pressed', state.shuffle ? 'true' : 'false');
+            btnShuf.title = state.shuffle ? 'Aleatorio: ACTIVADO' : 'Aleatorio: DESACTIVADO';
+        }
+
+        var btnSmart = document.getElementById('player-btn-smart');
+        if (btnSmart) {
+            btnSmart.classList.toggle('active', !!state.modoInteligente);
+            btnSmart.setAttribute('aria-pressed', state.modoInteligente ? 'true' : 'false');
+            btnSmart.title = state.modoInteligente
+                ? 'Modo Inteligente: ACTIVADO (reproduce según tu Top)'
+                : 'Modo Inteligente: DESACTIVADO (reproduce según tu Top más escuchadas)';
         }
 
         var btnRep = document.getElementById('player-btn-repeat');
@@ -2182,6 +2551,16 @@
                 btnRep.innerHTML = SVG_REPEAT + '<span class="repeat-mode-tag">Off</span>';
                 btnRep.title = 'Repetir: Desactivado';
             }
+        }
+
+        var plShuf = document.getElementById('pl-mode-btn-shuffle');
+        if (plShuf) plShuf.classList.toggle('active', !!state.shuffle);
+        var plSmart = document.getElementById('pl-mode-btn-smart');
+        if (plSmart) plSmart.classList.toggle('active', !!state.modoInteligente);
+        var plRep = document.getElementById('pl-mode-btn-repeat');
+        if (plRep) {
+            plRep.classList.toggle('active', state.repeat !== 'off');
+            plRep.textContent = '🔁 ' + _textoEstadoRepeat(state.repeat);
         }
     }
 
@@ -2477,6 +2856,20 @@
             var miniBar = document.getElementById('mini-player-fill');
             if (miniBar) miniBar.style.width = pct + '%';
 
+            // Registrar reproducción real cuando el usuario escucha >= 8s (o >=45% de clips cortos)
+            var ls = state._playListenState;
+            if (ls && !ls.counted && !ls.esPreview && ls.seqId === state._playSeqId && state.cancionActual && state.cancionActual.id === ls.songId && !state.audio.paused) {
+                var nowTs = Date.now();
+                var deltaSec = (ls.lastTickTs > 0) ? Math.min(1.5, Math.max(0, (nowTs - ls.lastTickTs) / 1000)) : 0;
+                ls.lastTickTs = nowTs;
+                ls.elapsedSec = (ls.elapsedSec || 0) + deltaSec;
+                var thresholdSec = (dur > 0 && dur < 16) ? Math.max(2.5, dur * 0.45) : 8;
+                if (ls.elapsedSec >= thresholdSec || (cur >= thresholdSec && ls.elapsedSec >= 2.5)) {
+                    ls.counted = true;
+                    registrarReproduccionCancion(state.cancionActual);
+                }
+            }
+
             var now = Date.now();
             var intervalMs = obtenerPluginMediaSession() ? 10000 : 4000;
             if (now - lastMediaSessionUpdate > intervalMs) {
@@ -2498,12 +2891,20 @@
         });
 
         state.audio.addEventListener('ended', function() {
+            var lsEnd = state._playListenState;
+            if (lsEnd && !lsEnd.counted && !lsEnd.esPreview && lsEnd.seqId === state._playSeqId && state.cancionActual && state.cancionActual.id === lsEnd.songId) {
+                lsEnd.counted = true;
+                registrarReproduccionCancion(state.cancionActual);
+            }
             siguienteCancion(false);
         });
 
         state.audio.addEventListener('play', function() {
             state.reproduciendo = true;
             state.rutinaConsecErrors = 0;
+            if (state._playListenState && state._playListenState.seqId === state._playSeqId) {
+                state._playListenState.lastTickTs = Date.now();
+            }
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
             actualizarBarraAudioRutina();
@@ -2662,7 +3063,7 @@
     // ----------------------------------------------------------------------
     function cambiarSubtab(tab) {
         state.subtabActual = tab || 'todas';
-        if (tab === 'todas') {
+        if (tab === 'todas' || tab === 'top') {
             state.carpetaSeleccionada = null;
             state.playlistSeleccionada = null;
         }
@@ -2676,6 +3077,7 @@
             }
         });
 
+        sincronizarIndiceCancionActualEnLista();
         renderizarContenidoSegunSubtab();
     }
 
@@ -2722,6 +3124,8 @@
             renderizarCarpetasView(cont);
         } else if (state.subtabActual === 'playlists') {
             renderizarPlaylistsView(cont);
+        } else if (state.subtabActual === 'top') {
+            renderizarTopCancionesView(cont);
         } else {
             renderizarTodasCancionesView(cont);
         }
@@ -2772,6 +3176,107 @@
         return pl.cancionIds.filter(function(id) { return map.has(id); }).length;
     }
 
+    function _etiquetaRankTop(pos) {
+        if (pos === 1) return '🥇 #1';
+        if (pos === 2) return '🥈 #2';
+        if (pos === 3) return '🥉 #3';
+        return '#' + pos;
+    }
+
+    function renderizarTopCancionesView(cont) {
+        var topLista = obtenerTopCancionesLista();
+        var q = (state.busqueda || '').toLowerCase().trim();
+        var totalReproducciones = 0;
+        topLista.forEach(function(c) { totalReproducciones += obtenerReproduccionesCancion(c); });
+        var maxPlays = topLista.length > 0 ? Math.max(1, obtenerReproduccionesCancion(topLista[0])) : 1;
+
+        var itemsConRank = topLista.map(function(c, idx) {
+            return { song: c, rank: idx + 1, plays: obtenerReproduccionesCancion(c) };
+        }).filter(function(entry) {
+            if (!q) return true;
+            var c = entry.song;
+            return (c.nombre || '').toLowerCase().indexOf(q) !== -1 ||
+                   (c.artista || '').toLowerCase().indexOf(q) !== -1 ||
+                   (c.carpeta || '').toLowerCase().indexOf(q) !== -1;
+        });
+
+        var headerHtml = '<div class="top-tracks-hero">' +
+            '<div class="top-tracks-hero-info">' +
+                '<div class="top-tracks-hero-title">🏆 Top Canciones Más Escuchadas</div>' +
+                '<div class="top-tracks-hero-sub">' +
+                    '<span class="pl-count-badge">' + topLista.length + ' ' + (topLista.length === 1 ? 'pista' : 'pistas') + '</span>' +
+                    '<span class="top-total-pill">🎧 ' + totalReproducciones + (totalReproducciones === 1 ? ' reproducción' : ' reproducciones') + '</span>' +
+                '</div>' +
+            '</div>' +
+            (topLista.length > 0
+                ? '<button type="button" id="btn-reproducir-top-canciones" class="btn-pl-action-smart is-hero" onclick="window.MonarcaPlayer.reproducirTopCanciones()">▶ Reproducir Top</button>'
+                : '') +
+        '</div>';
+
+        if (topLista.length === 0) {
+            cont.innerHTML = headerHtml + '<div class="pl-empty-card">' +
+                '<div class="pl-empty-icon">🏆</div>' +
+                '<h4>Tu Top canciones más escuchadas aún está vacío</h4>' +
+                '<p>Reproduce cualquier canción unos segundos (o complétala) y aparecerá aquí automáticamente ordenada por veces escuchadas.</p>' +
+                '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.cambiarSubtab(\'todas\')">Explorar Pistas</button>' +
+            '</div>';
+            return;
+        }
+
+        if (itemsConRank.length === 0) {
+            cont.innerHTML = headerHtml + '<div style="text-align: center; padding: 24px 16px; color: #94a3b8; font-size: 13px;">' +
+                'No hay canciones en tu Top que coincidan con esa búsqueda.' +
+            '</div>';
+            return;
+        }
+
+        var html = headerHtml + '<div class="top-tracks-list">';
+        itemsConRank.forEach(function(entry) {
+            var c = entry.song;
+            var rank = entry.rank;
+            var plays = entry.plays;
+            var pct = Math.max(8, Math.round((plays / maxPlays) * 100));
+            var esActual = (state.cancionActual && state.cancionActual.id === c.id);
+            var sonando = esActual && state.reproduciendo;
+            var metaTrack = obtenerTituloLimpoYArtista(c);
+            var cachedArt = state.artworkCache[c.id];
+            var tieneArtLista = !!(cachedArt && cachedArt !== 'none');
+            var rankClass = rank <= 3 ? (' is-rank-' + rank) : '';
+            var subLine = (metaTrack.artista && metaTrack.artista !== 'Artista desconocido')
+                ? metaTrack.artista
+                : (c.carpeta || 'Principal');
+
+            html += '<div class="song-list-item top-song-item' + (esActual ? ' active-song' : '') + '" data-song-id="' + escaparHTML(c.id) + '" data-top-rank="' + rank + '" onclick="window.MonarcaPlayer.reproducirTopCanciones(this.getAttribute(\'data-song-id\'))">' +
+                '<div class="top-song-left">' +
+                    '<div class="top-rank-badge' + rankClass + '">' + _etiquetaRankTop(rank) + '</div>' +
+                    '<div class="song-thumb-box ' + (esActual ? 'is-playing-item' : '') + '">' +
+                        '<img class="song-thumb-img" data-art-song="' + escaparHTML(c.id) + '" src="' + (tieneArtLista ? escaparHTML(cachedArt) : '') + '" alt="" style="display: ' + (tieneArtLista ? 'block' : 'none') + ';">' +
+                        '<span class="song-thumb-placeholder" style="display: ' + (tieneArtLista ? 'none' : 'flex') + ';">' +
+                            (sonando ? '<span class="mini-equalizer-bars"><span></span><span></span><span></span></span>' : (esActual ? '▶' : '🎵')) +
+                        '</span>' +
+                    '</div>' +
+                    '<div class="top-song-meta-col">' +
+                        '<div class="song-item-title ' + (esActual ? 'is-active-title' : '') + '">' + escaparHTML(metaTrack.titulo) + '</div>' +
+                        '<div class="song-item-meta">' +
+                            '<span class="song-meta-artist">' + escaparHTML(subLine) + '</span>' +
+                            '<span class="song-meta-dot">·</span>' +
+                            '<span class="top-plays-inline">🎧 ' + plays + (plays === 1 ? ' vez' : ' veces') + '</span>' +
+                        '</div>' +
+                        '<div class="top-progress-track"><div class="top-progress-fill' + rankClass + '" style="width: ' + pct + '%;"></div></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="song-row-actions top-song-actions" onclick="event.stopPropagation();">' +
+                    '<span class="top-plays-pill' + rankClass + '">' + plays + '</span>' +
+                    '<button type="button" class="btn-song-icon-ctrl" title="Añadir a lista de reproducción" onclick="window.MonarcaPlayer.abrirModalAgregarPlaylist(\'' + c.id + '\')">' + SVG_LIST_PLUS + '</button>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+
+        cont.innerHTML = html;
+        observarMiniaturasLista();
+    }
+
     function renderizarPlaylistsView(cont) {
         var defaultPlId = getPlaylistDefaultRutinaId();
         var html = '<div class="pl-view-toolbar">' +
@@ -2813,6 +3318,9 @@
                     '<button type="button" class="btn-pl-action-play" onclick="window.MonarcaPlayer.reproducirPlaylistDirecto(\'' + pl.id + '\')" title="Reproducir esta lista">' +
                         '▶ Reproducir' +
                     '</button>' +
+                    '<button type="button" class="btn-pl-action-smart" onclick="window.MonarcaPlayer.reproducirPlaylistInteligente(\'' + pl.id + '\')" title="Reproducir en Modo Inteligente según tus canciones más escuchadas">' +
+                        '✨ Inteligente' +
+                    '</button>' +
                     '<button type="button" class="btn-pl-action-add" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + pl.id + '\')" title="Agregar o quitar canciones de esta lista">' +
                         '➕ Canciones' +
                     '</button>' +
@@ -2847,17 +3355,33 @@
         } else if (state.playlistSeleccionada) {
             var plObj = state.playlists.find(function(p) { return p.id === state.playlistSeleccionada; });
             var esDefSel = (getPlaylistDefaultRutinaId() === state.playlistSeleccionada);
+            var subPlaylistTxt = state.modoInteligente
+                ? 'Modo Inteligente activo: ordenadas y sonando de la más escuchada (#1) a la menos escuchada.'
+                : (state.shuffle
+                    ? 'Modo Aleatorio activo dentro de esta playlist.'
+                    : 'Elige Aleatorio, Repetir o Modo Inteligente para reproducir según tu Top.');
+
             encabezadoFiltro = '<div class="pl-detail-banner">' +
-                '<div class="pl-detail-banner-left">' +
-                    '<div class="pl-detail-banner-title">' + escaparHTML(plObj ? plObj.nombre : 'Lista') + ' <span class="pl-count-badge">' + listaFiltrada.length + '</span></div>' +
-                    '<div class="pl-detail-banner-sub">Puedes reproducir, añadir pistas o quitar sin borrar tus archivos MP3.</div>' +
+                '<div class="pl-detail-top-row">' +
+                    '<div class="pl-detail-banner-left">' +
+                        '<div class="pl-detail-banner-title">' + escaparHTML(plObj ? plObj.nombre : 'Lista') + ' <span class="pl-count-badge">' + listaFiltrada.length + '</span></div>' +
+                        '<div class="pl-detail-banner-sub">' + subPlaylistTxt + '</div>' +
+                    '</div>' +
+                    '<div class="pl-detail-banner-actions">' +
+                        '<button type="button" class="btn-pl-action-add" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">+ Canciones</button>' +
+                        '<button type="button" class="btn-playlist-default-rutina' + (esDefSel ? ' active' : '') + '" onclick="window.MonarcaPlayer.togglePlaylistDefaultRutina(\'' + state.playlistSeleccionada + '\')" title="Elegir como playlist automática al iniciar rutinas">' +
+                            (esDefSel ? 'Rutinas ✓' : 'Rutinas') +
+                        '</button>' +
+                        '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.cambiarSubtab(\'playlists\')">← Listas</button>' +
+                    '</div>' +
                 '</div>' +
-                '<div class="pl-detail-banner-actions">' +
-                    '<button type="button" class="btn-pl-action-add" onclick="window.MonarcaPlayer.abrirModalAgregarCancionesAPlaylist(\'' + state.playlistSeleccionada + '\')">+ Canciones</button>' +
-                    '<button type="button" class="btn-playlist-default-rutina' + (esDefSel ? ' active' : '') + '" onclick="window.MonarcaPlayer.togglePlaylistDefaultRutina(\'' + state.playlistSeleccionada + '\')" title="Elegir como playlist automática al iniciar rutinas">' +
-                        (esDefSel ? 'Rutinas ✓' : 'Rutinas') +
-                    '</button>' +
-                    '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.cambiarSubtab(\'playlists\')">← Listas</button>' +
+                '<div class="pl-detail-modes-bar" role="group" aria-label="Modos de reproducción de la lista">' +
+                    '<button type="button" id="pl-mode-btn-shuffle" class="btn-pl-mode' + (state.shuffle ? ' active' : '') + '" onclick="window.MonarcaPlayer.toggleShuffle()">🔀 Aleatorio</button>' +
+                    '<button type="button" id="pl-mode-btn-smart" class="btn-pl-mode is-smart' + (state.modoInteligente ? ' active' : '') + '" onclick="window.MonarcaPlayer.toggleModoInteligente()">✨ Inteligente</button>' +
+                    '<button type="button" id="pl-mode-btn-repeat" class="btn-pl-mode' + (state.repeat !== 'off' ? ' active' : '') + '" onclick="window.MonarcaPlayer.toggleRepeat()">🔁 ' + _textoEstadoRepeat(state.repeat) + '</button>' +
+                    (listaFiltrada.length > 0
+                        ? '<button type="button" class="btn-pl-mode is-play-now" onclick="window.MonarcaPlayer.reproducirPlaylistInteligente(\'' + state.playlistSeleccionada + '\')">▶ Top Lista</button>'
+                        : '') +
                 '</div>' +
             '</div>';
         }
@@ -2902,6 +3426,7 @@
             var metaTrack = obtenerTituloLimpoYArtista(c);
             var cachedArt = state.artworkCache[c.id];
             var tieneArtLista = !!(cachedArt && cachedArt !== 'none');
+            var playsTrack = obtenerReproduccionesCancion(c);
 
             var accionDerecha = enVistaPlaylist
                 ? '<button type="button" class="btn-pl-remove-track" title="Quitar de esta lista (mantiene el MP3 en tu biblioteca)" onclick="window.MonarcaPlayer.quitarCancionDePlaylist(\'' + state.playlistSeleccionada + '\', \'' + c.id + '\')">Quitar</button>'
@@ -2915,13 +3440,18 @@
             var metaSubHtml = '';
             if (tieneArtistaConocido) {
                 metaSubHtml += '<span class="song-meta-artist">' + escaparHTML(metaTrack.artista) + '</span>';
-                if (!filtroSnapActivo) {
+                if (!filtroSnapActivo && !enVistaPlaylist) {
                     metaSubHtml += '<span class="song-meta-dot">·</span><span>' + escaparHTML(carpetaTxt) + '</span>';
                 }
                 metaSubHtml += '<span class="song-meta-dot">·</span><span>' + formatearTamano(c.tamano) + '</span>';
             } else {
                 metaSubHtml += '<span>' + escaparHTML(carpetaTxt) + '</span><span class="song-meta-dot">·</span><span>' + formatearTamano(c.tamano) + '</span>';
             }
+            var smartPillHtml = ((enVistaPlaylist && (state.modoInteligente || playsTrack > 0)) || (state.modoInteligente && playsTrack > 0))
+                ? ('<span class="song-play-count-pill' + (state.modoInteligente ? ' is-smart' : '') + '">' +
+                    (state.modoInteligente ? ('#' + (listIndex + 1) + ' · ') : '') + '🎧 ' + playsTrack +
+                   '</span>')
+                : '';
 
             html += '<div class="song-list-item ' + (esActual ? 'active-song' : '') + '" data-song-id="' + escaparHTML(c.id) + '" onclick="window.MonarcaPlayer.reproducirPorId(this.getAttribute(\'data-song-id\'))">' +
                 '<div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; overflow: hidden;">' +
@@ -2939,6 +3469,7 @@
                     '</div>' +
                 '</div>' +
                 '<div class="song-row-actions" onclick="event.stopPropagation();">' +
+                    smartPillHtml +
                     accionDerecha +
                 '</div>' +
             '</div>';
@@ -3475,7 +4006,10 @@
             pausarActual();
         } else {
             state._triagePreviewStarted = true;
-            reproducirPorId(song.id);
+            state.rutinaPreviaSnapshot = null;
+            state._rutinaTransicionandoSalida = false;
+            salirModoRutinaSilencioso(false);
+            reproducirMetaCancion(song, -1, { esPreview: true });
         }
         renderizarModalNuevaMusica();
     }
@@ -3953,15 +4487,22 @@
         }
 
         cargarPlaylistsStorage();
-        initAudioListeners();
-        initMediaSession();
+        cargarPlayStatsStorage();
+        cargarModosReproductorStorage();
+        if (!state._listenersBound) {
+            state._listenersBound = true;
+            initAudioListeners();
+            initMediaSession();
+        }
         actualizarControlesFuenteBiblioteca();
+        actualizarControlesModo();
         if (obtenerPluginMediaSession()) {
             obtenerArtworkDataUrl();
         }
 
         cargarMetadatosCanciones().then(function() {
             state._initialScanDone = true;
+            cargarPlayStatsStorage();
             renderizarContenidoSegunSubtab();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
@@ -4072,6 +4613,7 @@
         cambiarSeek: cambiarSeek,
         cambiarVolumen: cambiarVolumen,
         toggleShuffle: toggleShuffle,
+        toggleModoInteligente: toggleModoInteligente,
         toggleRepeat: toggleRepeat,
         eliminarCancion: eliminarCancion,
         vaciarBiblioteca: vaciarBiblioteca,
@@ -4092,6 +4634,12 @@
         quitarCancionDePlaylist: quitarCancionDePlaylist,
         agregarActualAPlaylist: agregarActualAPlaylist,
         reproducirPlaylistDirecto: reproducirPlaylistDirecto,
+        reproducirPlaylistInteligente: reproducirPlaylistInteligente,
+        reproducirTopCanciones: reproducirTopCanciones,
+        registrarReproduccionCancion: registrarReproduccionCancion,
+        obtenerReproduccionesCancion: obtenerReproduccionesCancion,
+        obtenerTopCancionesLista: obtenerTopCancionesLista,
+        cargarPlayStatsStorage: cargarPlayStatsStorage,
         eliminarPlaylist: eliminarPlaylist,
         abrirModalAgregarPlaylist: abrirModalAgregarPlaylist,
         abrirModalAgregarCancionesAPlaylist: abrirModalAgregarCancionesAPlaylist,

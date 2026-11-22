@@ -1,5 +1,5 @@
 {
-  "version": "10.89",
+  "version": "10.90",
   "fecha": "2026-11-22",
-  "resumen": "Detección automática de canciones nuevas al entrar al reproductor MP3 con ventana de alerta, sugerencia inteligente de playlist y guardado rápido en categorías."
+  "resumen": "Nuevo apartado Top Canciones Más Escuchadas en el reproductor MP3 y Modo Inteligente en playlists y controles para reproducir según tu ranking real de escucha."
 }

@@ -14316,18 +14316,19 @@ body.modal-open {
 @media (max-width: 600px) {
     .player-subtabs-bar {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px;
         overflow: visible;
     }
     .player-subtab-btn {
         min-width: 0;
-        padding: 7px 5px;
-        font-size: 11px;
-        white-space: normal;
-        line-height: 1.25;
+        padding: 7px 4px;
+        font-size: 10.5px;
+        white-space: nowrap;
+        flex-direction: column;
+        line-height: 1.2;
         text-align: center;
-        gap: 4px;
+        gap: 3px;
     }
     .pl-view-toolbar {
         padding: 9px 12px;
@@ -14391,6 +14392,346 @@ body.modal-open {
         width: 100%;
         justify-content: center;
         text-align: center;
+    }
+}
+
+/* ==========================================================================
+   v10.90 · BARRA DE MODOS (ALEATORIO / INTELIGENTE / REPETIR) Y TOP CANCIONES
+   ========================================================================== */
+
+.player-modes-bar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 6px 0 4px 0;
+}
+
+.player-modes-bar .player-btn-mode {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 6px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    gap: 5px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.player-modes-bar .player-btn-mode .mode-label,
+.player-modes-bar .player-btn-mode .repeat-mode-tag {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-modes-bar .player-btn-mode.is-smart.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.24), rgba(56, 189, 248, 0.2));
+    border-color: rgba(129, 140, 248, 0.58);
+    color: #e0f2fe;
+    box-shadow: 0 0 14px rgba(99, 102, 241, 0.25);
+}
+
+.pl-detail-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.pl-detail-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.pl-detail-modes-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-pl-mode {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    white-space: nowrap;
+}
+
+.btn-pl-mode:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+}
+
+.btn-pl-mode.active {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.48);
+    color: #e0f2fe;
+}
+
+.btn-pl-mode.is-smart.active,
+.btn-pl-action-smart {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.28), rgba(56, 189, 248, 0.22));
+    border: 1px solid rgba(129, 140, 248, 0.55);
+    color: #e0f2fe;
+}
+
+.btn-pl-action-smart {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    white-space: nowrap;
+}
+
+.btn-pl-action-smart:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.42), rgba(56, 189, 248, 0.34));
+    color: #ffffff;
+}
+
+.btn-pl-action-smart.is-hero {
+    padding: 8px 13px;
+    border-radius: 9999px;
+    font-size: 12px;
+}
+
+.btn-pl-mode.is-play-now {
+    margin-left: auto;
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+}
+
+.song-play-count-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+}
+
+.song-play-count-pill.is-smart {
+    background: rgba(99, 102, 241, 0.22);
+    border-color: rgba(129, 140, 248, 0.45);
+    color: #c7d2fe;
+}
+
+.top-tracks-hero {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.94));
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    border-radius: 13px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.top-tracks-hero-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.top-tracks-hero-title {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.top-tracks-hero-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.top-total-pill {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 9999px;
+    padding: 2px 8px;
+}
+
+.top-tracks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.top-song-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.top-song-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.top-rank-badge {
+    min-width: 34px;
+    height: 26px;
+    padding: 0 6px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.top-rank-badge.is-rank-1 {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.18);
+    border-color: rgba(245, 158, 11, 0.45);
+}
+
+.top-rank-badge.is-rank-2 {
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.2);
+    border-color: rgba(203, 213, 225, 0.4);
+}
+
+.top-rank-badge.is-rank-3 {
+    color: #fdba74;
+    background: rgba(234, 88, 12, 0.18);
+    border-color: rgba(251, 146, 60, 0.4);
+}
+
+.top-song-meta-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.top-plays-inline {
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.top-progress-track {
+    width: 100%;
+    height: 3px;
+    margin-top: 5px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+}
+
+.top-progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #6366f1, #38bdf8);
+}
+
+.top-progress-fill.is-rank-1 {
+    background: linear-gradient(90deg, #f59e0b, #fde047);
+}
+
+.top-progress-fill.is-rank-2 {
+    background: linear-gradient(90deg, #94a3b8, #e2e8f0);
+}
+
+.top-progress-fill.is-rank-3 {
+    background: linear-gradient(90deg, #ea580c, #fb923c);
+}
+
+.top-song-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.top-plays-pill {
+    min-width: 28px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    color: #c7d2fe;
+}
+
+.top-plays-pill.is-rank-1 {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #fde68a;
+}
+
+@media (max-width: 600px) {
+    .player-modes-bar {
+        gap: 6px;
+    }
+    .player-modes-bar .player-btn-mode {
+        flex-direction: column;
+        padding: 7px 4px;
+        font-size: 10.5px;
+        gap: 3px;
+    }
+    .pl-detail-modes-bar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+    .btn-pl-mode {
+        width: 100%;
+        padding: 7px 6px;
+        font-size: 11px;
+    }
+    .btn-pl-mode.is-play-now {
+        margin-left: 0;
+    }
+    .top-rank-badge {
+        min-width: 30px;
+        font-size: 10.5px;
+        padding: 0 5px;
     }
 }
 
@@ -15173,6 +15514,8 @@ body.modal-open {
 .song-meta-artist {
     color: #cbd5e1;
     font-weight: 500;
+    min-width: 0;
+    flex: 0 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
 }

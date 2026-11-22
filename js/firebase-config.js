@@ -516,6 +516,34 @@ function fusionarEstadosInteligente(local, remoto) {
     if (!fusion.rutinaPlaylistDefaultId && local.rutinaPlaylistDefaultId) {
         fusion.rutinaPlaylistDefaultId = local.rutinaPlaylistDefaultId;
     }
+    var statsL = (local && local.reproductorPlayStats && typeof local.reproductorPlayStats === 'object') ? local.reproductorPlayStats : {};
+    var statsR = (remoto && remoto.reproductorPlayStats && typeof remoto.reproductorPlayStats === 'object') ? remoto.reproductorPlayStats : {};
+    var statsMerged = JSON.parse(JSON.stringify(statsR));
+    Object.keys(statsL).forEach(function(k) {
+        var sl = statsL[k];
+        var sr = statsMerged[k];
+        if (!sl || typeof sl !== 'object') return;
+        if (!sr || typeof sr !== 'object') {
+            statsMerged[k] = JSON.parse(JSON.stringify(sl));
+            return;
+        }
+        statsMerged[k] = {
+            key: sr.key || sl.key || k,
+            sig: sr.sig || sl.sig || '',
+            id: sr.id || sl.id || '',
+            nombre: sr.nombre || sl.nombre || '',
+            artista: sr.artista || sl.artista || '',
+            count: Math.max(Number(sl.count) || 0, Number(sr.count) || 0),
+            lastPlayedAt: Math.max(Number(sl.lastPlayedAt) || 0, Number(sr.lastPlayedAt) || 0),
+            firstPlayedAt: (function() {
+                var a = Number(sl.firstPlayedAt) || 0;
+                var b = Number(sr.firstPlayedAt) || 0;
+                if (a > 0 && b > 0) return Math.min(a, b);
+                return a || b || 0;
+            })()
+        };
+    });
+    fusion.reproductorPlayStats = statsMerged;
 
     // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)
     if (local.jugador && fusion.jugador) {

@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.89)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.90)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.89
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.90
             Esta versión nativa incluye:
+            - 🏆 **Top Canciones Más Escuchadas & Modo Inteligente (v10.90)**: Nuevo apartado de Top de reproducciones en tiempo real y modo **Inteligente** en playlists y controles para reproducir tus canciones ordenadas de la más escuchada (#1) a la menos escuchada.
             - 🎵 **Detección de Música Nueva en Reproductor MP3 (v10.89)**: Al entrar al reproductor, detecta canciones recién añadidas o descargadas (SnapTube/MediaStore), muestra una alerta con sugerencias inteligentes de playlist (Entrenamiento, Salsa, Llaneras, etc.) y vuelve al reproductor normal al terminar.
             - 🏋️ **Series Desplegables con Flechita por Ejercicio (v10.88)**:
               - Cada tarjeta de ejercicio en la sesión de entrenamiento incorpora una flecha desplegable (`▾` / `▸`) y botón global **Desplegar todas / Contraer todas** para retraer o expandir a detalle sus series.
