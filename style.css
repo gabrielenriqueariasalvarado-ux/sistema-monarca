@@ -12204,39 +12204,92 @@ body.modal-open {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 10px;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.8));
-    border: 1px solid rgba(56, 189, 248, 0.32);
-    border-radius: 12px;
-    padding: 10px 14px;
+    gap: 10px 12px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(19, 30, 54, 0.88) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 14px;
+    padding: 11px 14px;
     margin-bottom: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .rutina-musica-live-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     min-width: 0;
-    flex: 1 1 210px;
+    flex: 1 1 200px;
 }
 
 .rutina-musica-live-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
     background: rgba(56, 189, 248, 0.14);
-    border: 1px solid rgba(56, 189, 248, 0.4);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    color: #38bdf8;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 15px;
     flex-shrink: 0;
+    transition: all 0.25s ease;
 }
 
 .rutina-musica-live-icon.playing {
     background: rgba(16, 185, 129, 0.18);
     border-color: rgba(16, 185, 129, 0.6);
-    animation: monarcaVinylSpin 5s linear infinite;
+    color: #34d399;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.28);
+}
+
+.rutina-musica-live-copy {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rutina-musica-eyebrow-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rutina-musica-status-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+.rutina-musica-status-badge.is-playing {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+}
+
+.rutina-musica-eyebrow-txt {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #7dd3fc;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.rutina-musica-live-playlist-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .rutina-musica-mode-pill {
@@ -12255,19 +12308,19 @@ body.modal-open {
 .rutina-musica-live-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .rutina-playlist-select-compact {
-    background: #0b0f19;
+    background: rgba(8, 12, 24, 0.92);
     color: #f8fafc;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 8px;
-    padding: 5px 8px;
-    font-size: 11.5px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 12px;
     font-weight: 700;
-    max-width: 170px;
+    max-width: 195px;
     cursor: pointer;
 }
 
@@ -12319,6 +12372,10 @@ body.modal-open {
     .rutina-playlist-select,
     .rutina-playlist-select-compact {
         max-width: 100%;
+        width: 100%;
+    }
+    .rutina-musica-live-actions {
+        width: 100%;
     }
     .rutina-musica-config-controls {
         width: 100%;

@@ -1,5 +1,5 @@
 {
-  "version": "10.82",
+  "version": "10.83",
   "fecha": "2026-11-22",
-  "resumen": "Reemplazo de métricas numéricas de Hábitos & Misiones por una gráfica visual dentro de un panel desplegable."
+  "resumen": "Tarjeta limpia de playlist en rutina sin botones repetidos, guardado por defecto al elegir lista, fade-in/out de volumen y reanudación suave de canción interrumpida."
 }

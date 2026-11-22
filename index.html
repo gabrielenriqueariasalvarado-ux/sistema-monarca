@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.82">
+    <link rel="stylesheet" href="style.css?v=10.83">
 </head>
 <body>
 
@@ -1152,27 +1152,26 @@
                 </button>
             </div>
 
-            <!-- MÚSICA DE LA RUTINA (REPRODUCCIÓN ALEATORIA CONTINUA) -->
+            <!-- PLAYLIST DE RUTINA (SIN BOTONES REDUNDANTES DEL REPRODUCTOR) -->
             <div id="rutina-musica-live-bar" class="rutina-musica-live-bar">
                 <div class="rutina-musica-live-left">
-                    <span id="rutina-musica-live-icon" class="rutina-musica-live-icon">🎵</span>
-                    <div style="min-width: 0; flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <span id="rutina-musica-live-playlist" style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.4px;">Música Automática de Rutina</span>
-                            <span id="rutina-musica-mode-pill" class="rutina-musica-mode-pill" style="display: none;">🔀 Aleatorio continuo</span>
+                    <span id="rutina-musica-live-icon" class="rutina-musica-live-icon" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                    </span>
+                    <div class="rutina-musica-live-copy">
+                        <div class="rutina-musica-eyebrow-row">
+                            <span id="rutina-musica-live-status" class="rutina-musica-status-badge">○ Lista</span>
+                            <span class="rutina-musica-eyebrow-txt">Playlist por defecto en rutinas</span>
                         </div>
-                        <div id="rutina-musica-live-track" style="font-size: 12.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            Sin playlist seleccionada para rutinas
+                        <div id="rutina-musica-live-playlist" class="rutina-musica-live-playlist-title">
+                            Sin playlist seleccionada
                         </div>
                     </div>
                 </div>
                 <div class="rutina-musica-live-actions">
-                    <select id="select-playlist-rutina-activa" class="finanzas-input-clean rutina-playlist-select-compact" onchange="alCambiarPlaylistEnRutinaActiva(this.value)" title="Cambiar playlist en vivo">
+                    <select id="select-playlist-rutina-activa" class="finanzas-input-clean rutina-playlist-select-compact" onchange="alCambiarPlaylistEnRutinaActiva(this.value)" title="Cambiar playlist y guardarla por defecto">
                         <option value="">🔇 Sin música</option>
                     </select>
-                    <button type="button" id="btn-rutina-musica-play" class="rutina-musica-ctrl-btn" onclick="togglePlayMusicaRutina()" title="Reproducir / Pausar">▶</button>
-                    <button type="button" id="btn-rutina-musica-next" class="rutina-musica-ctrl-btn" onclick="siguienteCancionMusicaRutina()" title="Siguiente aleatoria">⏭</button>
-                    <button type="button" id="btn-rutina-musica-stop" class="rutina-musica-ctrl-btn stop" onclick="detenerMusicaManualDesdeRutina()" title="Detener audio de rutina">⏹</button>
                 </div>
             </div>
 
@@ -4721,6 +4720,25 @@
         </div>
     </div>
 
+    <!-- MODAL RESUMEN NO BLOQUEANTE AL FINALIZAR RUTINA (PERMITE FADE DE AUDIO SUAVE) -->
+    <div id="modal-rutina-finalizada" class="modal-overlay" style="display: none;" onclick="if(event.target === this && typeof cerrarModalResumenFinalizacionRutina === 'function') cerrarModalResumenFinalizacionRutina();">
+        <div class="modal-system-window" style="max-width: 440px;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏆</span>
+                    <span id="modal-rutina-finalizada-titulo" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">SESIÓN COMPLETADA</span>
+                </div>
+                <button type="button" onclick="cerrarModalResumenFinalizacionRutina()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div id="modal-rutina-finalizada-mensaje" style="color: #e2e8f0; font-size: 13px; line-height: 1.55; white-space: pre-line; max-height: 55vh; overflow-y: auto; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(56, 189, 248, 0.16); border-radius: 12px; padding: 14px;"></div>
+                <button type="button" onclick="cerrarModalResumenFinalizacionRutina()" class="btn-primary" style="width: 100%; padding: 11px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;">
+                    ✓ Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL FLOTANTE DEL SISTEMA: FASE DE ESTIRAMIENTO Y CALENTAMIENTO PREVIO -->
     <div id="modal-estiramientos" class="modal-overlay" style="display: none;">
         <div class="modal-system-window">
@@ -6754,26 +6772,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.82"></script>
-    <script src="js/perfil.js?v=10.82"></script>
-    <script src="js/progresion.js?v=10.82"></script>
-    <script src="js/estado-personal.js?v=10.82"></script>
-    <script src="js/finanzas.js?v=10.82"></script>
-    <script src="js/ideas.js?v=10.82"></script>
-    <script src="js/dinamicas.js?v=10.82"></script>
-    <script src="js/calendario.js?v=10.82"></script>
-    <script src="js/inventario.js?v=10.82"></script>
-    <script src="js/reproductor.js?v=10.82"></script>
-    <script src="js/jarvis-voz.js?v=10.82"></script>
+    <script src="js/core.js?v=10.83"></script>
+    <script src="js/perfil.js?v=10.83"></script>
+    <script src="js/progresion.js?v=10.83"></script>
+    <script src="js/estado-personal.js?v=10.83"></script>
+    <script src="js/finanzas.js?v=10.83"></script>
+    <script src="js/ideas.js?v=10.83"></script>
+    <script src="js/dinamicas.js?v=10.83"></script>
+    <script src="js/calendario.js?v=10.83"></script>
+    <script src="js/inventario.js?v=10.83"></script>
+    <script src="js/reproductor.js?v=10.83"></script>
+    <script src="js/jarvis-voz.js?v=10.83"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.82"></script>
+    <script type="module" src="js/firebase-config.js?v=10.83"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.82')
+                navigator.serviceWorker.register('sw.js?v=10.83')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

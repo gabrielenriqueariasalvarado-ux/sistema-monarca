@@ -6041,6 +6041,10 @@ function actualizarGraficaFatigaSesion() {
         return 'rgba(56, 189, 248, 0.75)';
     });
 
+    if (typeof Chart === 'undefined') {
+        return;
+    }
+
     if (CHART_FATIGA_RUTINA_SESION) {
         CHART_FATIGA_RUTINA_SESION.data.labels = labels;
         CHART_FATIGA_RUTINA_SESION.data.datasets[0].data = valores;
@@ -6745,7 +6749,7 @@ function actualizarSelectoresPlaylistRutinas() {
     var selAct = document.getElementById('select-playlist-rutina-activa');
     if (selAct) {
         var valActPrev = selAct.value;
-        selAct.innerHTML = '<option value="">Sin música</option>' +
+        selAct.innerHTML = '<option value="">🔇 Sin música</option>' +
             construirOpcionesPlaylistsLimpio(playlists, canciones, cancionesMap);
         var pState = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getState === 'function')
             ? window.MonarcaPlayer.getState()
@@ -6853,14 +6857,28 @@ function alCambiarPlaylistDefaultRutina(plId) {
 
 function alCambiarPlaylistEnRutinaActiva(plId) {
     if (!window.MonarcaPlayer) return;
-    var nombreRut = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) ? RUTINA_ACTIVA.rutina.nombre : '';
+    var rutinaObj = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) ? RUTINA_ACTIVA.rutina : null;
+    var nombreRut = rutinaObj ? rutinaObj.nombre : '';
+
+    if (rutinaObj && rutinaObj.playlistId) {
+        rutinaObj.playlistId = '';
+        if (typeof MonarcaDB !== 'undefined' && typeof APP_STATE !== 'undefined' && APP_STATE) {
+            MonarcaDB.save(APP_STATE);
+        }
+    }
+
+    if (typeof window.MonarcaPlayer.setPlaylistDefaultRutina === 'function') {
+        window.MonarcaPlayer.setPlaylistDefaultRutina(plId || null);
+    }
+
     if (!plId) {
         window._rutinaAudioDetenidoManual = true;
         if (typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
-            window.MonarcaPlayer.detenerMusicaDeRutina(true);
+            window.MonarcaPlayer.detenerMusicaDeRutina(true, { restaurarPrevia: false, fadeOutMs: 1200 });
         }
         return;
     }
+
     window._rutinaAudioDetenidoManual = false;
     if (typeof window.MonarcaPlayer.iniciarMusicaDeRutina === 'function') {
         window.MonarcaPlayer.iniciarMusicaDeRutina(plId, nombreRut);
@@ -6897,6 +6915,26 @@ function detenerMusicaManualDesdeRutina() {
     }
 }
 
+function mostrarModalResumenFinalizacionRutina(titulo, mensaje) {
+    var modal = document.getElementById('modal-rutina-finalizada');
+    var elTit = document.getElementById('modal-rutina-finalizada-titulo');
+    var elMsg = document.getElementById('modal-rutina-finalizada-mensaje');
+    if (modal && elMsg) {
+        if (elTit) elTit.textContent = titulo || 'SESIÓN COMPLETADA';
+        elMsg.textContent = mensaje || 'Has completado tu rutina.';
+        modal.style.display = 'flex';
+        return;
+    }
+    alert(mensaje);
+}
+
+function cerrarModalResumenFinalizacionRutina() {
+    var modal = document.getElementById('modal-rutina-finalizada');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 if (typeof window !== 'undefined') {
     window.actualizarSelectoresPlaylistRutinas = actualizarSelectoresPlaylistRutinas;
     window.alCambiarPlaylistDefaultRutina = alCambiarPlaylistDefaultRutina;
@@ -6904,6 +6942,8 @@ if (typeof window !== 'undefined') {
     window.togglePlayMusicaRutina = togglePlayMusicaRutina;
     window.siguienteCancionMusicaRutina = siguienteCancionMusicaRutina;
     window.detenerMusicaManualDesdeRutina = detenerMusicaManualDesdeRutina;
+    window.mostrarModalResumenFinalizacionRutina = mostrarModalResumenFinalizacionRutina;
+    window.cerrarModalResumenFinalizacionRutina = cerrarModalResumenFinalizacionRutina;
 }
 
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
@@ -7125,8 +7165,8 @@ function ejecutarRutina(tipo) {
         window.MonarcaPlayer.detenerMusicaDeRutina(true);
     }
 
-    alert("¡Excelente trabajo! Has completado la " + nombre + " al 100% (+50 EXP y fatiga registrada).");
     cambiarVista('vista-ejercicios');
+    mostrarModalResumenFinalizacionRutina('RUTINA COMPLETADA', "¡Excelente trabajo! Has completado la " + nombre + " al 100% (+50 EXP y fatiga registrada).");
 }
 
 function ejecutarRutinaDinamica() {
@@ -7463,8 +7503,6 @@ function ejecutarRutinaDinamica() {
         msgAviso += "\n\n⚡ ¡Se ha marcado como completado tu Hábito/Misión diaria vinculada a esta rutina!";
     }
 
-    alert(msgAviso);
-
     if (typeof renderizarEjercicios === 'function' && APP_STATE.ejercicios) {
         renderizarEjercicios(APP_STATE.ejercicios);
     }
@@ -7474,6 +7512,7 @@ function ejecutarRutinaDinamica() {
     if (typeof cambiarCategoriaEjercicios === 'function') {
         cambiarCategoriaEjercicios('rutinas');
     }
+    mostrarModalResumenFinalizacionRutina('SESIÓN COMPLETADA', msgAviso);
 }
 
 function renderizarGym(registros) {

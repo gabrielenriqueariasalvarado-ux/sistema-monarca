@@ -42,6 +42,10 @@
         rutinaColaAleatoria: [],
         rutinaPrevConfig: null,
         rutinaConsecErrors: 0,
+        rutinaPreviaSnapshot: null,
+        _rutinaTransicionandoSalida: false,
+        _fadeIntervalId: null,
+        _fadeToken: 0,
         _dbReady: false,
         _dbReadyPromise: null,
         _initialScanDone: false,
@@ -775,7 +779,7 @@
             : '¿Estás seguro de que deseas vaciar toda la biblioteca de música cargada manualmente? Esta acción no se puede deshacer.';
         if (!confirm(msg)) return;
 
-        detenerMusicaDeRutina(true);
+        detenerMusicaDeRutina(true, { inmediato: true, restaurarPrevia: false });
         abrirDB().then(function(db) {
             var tx = db.transaction([STORE_NAME], 'readwrite');
             tx.objectStore(STORE_NAME).clear();
@@ -1533,11 +1537,108 @@
         return obtenerListaReproducibleActual();
     }
 
+    function clampVol01(v) {
+        var num = Number(v);
+        if (isNaN(num)) return 1;
+        if (num < 0) return 0;
+        if (num > 1) return 1;
+        return num;
+    }
+
+    function cancelarFadeAudio() {
+        state._fadeToken++;
+        if (state._fadeIntervalId) {
+            clearInterval(state._fadeIntervalId);
+            state._fadeIntervalId = null;
+        }
+    }
+
+    function hacerFadeVolumenAudio(desdeVol, hastaVol, duracionMs, onDone) {
+        cancelarFadeAudio();
+        var token = state._fadeToken;
+        var start = clampVol01(desdeVol);
+        var target = clampVol01(hastaVol);
+
+        if (state.audio) {
+            state.audio.volume = start;
+        }
+
+        if (!state.audio || !duracionMs || duracionMs <= 0 || Math.abs(target - start) < 0.004) {
+            if (state.audio) state.audio.volume = target;
+            if (typeof onDone === 'function') onDone(true);
+            return;
+        }
+
+        var t0 = Date.now();
+        state._fadeIntervalId = setInterval(function() {
+            if (token !== state._fadeToken || !state.audio) {
+                if (state._fadeIntervalId) {
+                    clearInterval(state._fadeIntervalId);
+                    state._fadeIntervalId = null;
+                }
+                return;
+            }
+            var elapsed = Date.now() - t0;
+            var progreso = Math.min(1, elapsed / duracionMs);
+            var actual = start + (target - start) * progreso;
+            state.audio.volume = clampVol01(actual);
+
+            if (progreso >= 1) {
+                clearInterval(state._fadeIntervalId);
+                state._fadeIntervalId = null;
+                state.audio.volume = target;
+                if (typeof onDone === 'function') onDone(true);
+            }
+        }, 40);
+    }
+
+    function aplicarSeekAlCargarAudio(targetSec, expectedSeq) {
+        var sec = Number(targetSec) || 0;
+        if (sec <= 0 || !state.audio) return;
+        var aplicado = false;
+
+        function limpiarListeners() {
+            if (!state.audio) return;
+            state.audio.removeEventListener('loadedmetadata', intentarSeek);
+            state.audio.removeEventListener('canplay', intentarSeek);
+            state.audio.removeEventListener('playing', intentarSeek);
+        }
+
+        function intentarSeek() {
+            if (aplicado || expectedSeq !== state._playSeqId || !state.audio) {
+                limpiarListeners();
+                return;
+            }
+            if (state.audio.readyState < 1) return;
+            try {
+                var dur = state.audio.duration;
+                var objetivo = (typeof dur === 'number' && isFinite(dur) && dur > 0.5)
+                    ? Math.min(sec, Math.max(0, dur - 0.35))
+                    : sec;
+                if (Math.abs((state.audio.currentTime || 0) - objetivo) > 0.45) {
+                    state.audio.currentTime = objetivo;
+                }
+                if (Math.abs((state.audio.currentTime || 0) - objetivo) <= 0.6 || state.audio.readyState >= 2) {
+                    aplicado = true;
+                    limpiarListeners();
+                }
+            } catch (e) {}
+        }
+
+        state.audio.addEventListener('loadedmetadata', intentarSeek);
+        state.audio.addEventListener('canplay', intentarSeek);
+        state.audio.addEventListener('playing', intentarSeek);
+        intentarSeek();
+    }
+
     function reproducirMetaCancion(meta, idxEnLista, opciones) {
         if (!meta) return Promise.resolve(false);
         solicitarPermisoNotifReproductorSiFalta();
+        cancelarFadeAudio();
         var playSeq = ++state._playSeqId;
         state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
+        var fadeInMs = (opciones && typeof opciones.fadeInMs === 'number' && opciones.fadeInMs > 0) ? opciones.fadeInMs : 0;
+        var seekToSec = (opciones && typeof opciones.seekToSec === 'number' && opciones.seekToSec > 0) ? opciones.seekToSec : 0;
 
         return prepararUrlReproduccion(meta).then(function(prep) {
             if (playSeq !== state._playSeqId) {
@@ -1559,8 +1660,12 @@
                 state.blobUrlActual = prep.src;
             }
             state.audio.src = prep.src;
-            state.audio.volume = state.volumen;
+            state.audio.volume = (fadeInMs > 0) ? 0 : clampVol01(state.volumen);
             state.cancionActual = meta;
+
+            if (seekToSec > 0) {
+                aplicarSeekAlCargarAudio(seekToSec, playSeq);
+            }
 
             // Actualizar UI de inmediato y cargar carátula real en paralelo
             actualizarUIPlayerCompleto();
@@ -1579,6 +1684,16 @@
                     if (playSeq !== state._playSeqId) return false;
                     state.reproduciendo = true;
                     state.rutinaConsecErrors = 0;
+
+                    if (seekToSec > 0 && state.audio.readyState >= 1 && Math.abs((state.audio.currentTime || 0) - seekToSec) > 0.6) {
+                        aplicarSeekAlCargarAudio(seekToSec, playSeq);
+                    }
+                    if (fadeInMs > 0) {
+                        hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
+                    } else {
+                        state.audio.volume = clampVol01(state.volumen);
+                    }
+
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
                     actualizarBarraAudioRutina();
@@ -1588,6 +1703,7 @@
                 }).catch(function(err) {
                     if (playSeq !== state._playSeqId) return false;
                     console.warn('[Reproductor] Autoplay prevenido o error:', err);
+                    state.audio.volume = clampVol01(state.volumen);
                     state.reproduciendo = false;
                     actualizarUIPlayerCompleto();
                     actualizarMiniPlayer();
@@ -1603,10 +1719,13 @@
                     return false;
                 });
             }
+            if (fadeInMs > 0) {
+                hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
+            }
             return true;
         }).catch(function(err) {
             if (playSeq !== state._playSeqId) return false;
-            console.warn('[Reproducor] Error abriendo audio:', err);
+            console.warn('[Reproductor] Error abriendo audio:', err);
             if (opciones && opciones.silencioso && state.rutinaModoActivo) {
                 var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
                 state.rutinaConsecErrors++;
@@ -1637,6 +1756,9 @@
     }
 
     function reproducirIndice(idx) {
+        state.rutinaPreviaSnapshot = null;
+        state._rutinaTransicionandoSalida = false;
+        cancelarFadeAudio();
         salirModoRutinaSilencioso(false);
         var listaActual = obtenerListaReproducibleActual();
         if (idx < 0 || idx >= listaActual.length) return;
@@ -1645,6 +1767,9 @@
 
     function reproducirPorId(songId) {
         if (!songId) return;
+        state.rutinaPreviaSnapshot = null;
+        state._rutinaTransicionandoSalida = false;
+        cancelarFadeAudio();
         salirModoRutinaSilencioso(false);
         var listaActual = obtenerListaReproducibleActual();
         var idx = listaActual.findIndex(function(c) { return c.id === songId; });
@@ -1670,6 +1795,7 @@
     }
 
     function iniciarMusicaDeRutina(playlistIdOverride, nombreRutina) {
+        state._rutinaTransicionandoSalida = false;
         var reqSeq = ++state._playSeqId;
 
         function ejecutarInicio() {
@@ -1695,6 +1821,22 @@
                 return Promise.resolve(false);
             }
 
+            // Capturar canción que estaba sonando antes de la rutina para reanudarla al finalizar
+            if (!state.rutinaModoActivo && !state.rutinaPreviaSnapshot && state.cancionActual && state.reproduciendo && state.audio && !state.audio.paused) {
+                state.rutinaPreviaSnapshot = {
+                    cancion: state.cancionActual,
+                    indiceActual: state.indiceActual,
+                    currentTime: Number(state.audio.currentTime) || 0,
+                    playlistSeleccionada: state.playlistSeleccionada,
+                    carpetaSeleccionada: state.carpetaSeleccionada,
+                    soloSnapTube: !!state.soloSnapTube,
+                    shuffle: !!state.shuffle,
+                    repeat: state.repeat || 'all'
+                };
+            }
+
+            var estabaSonandoAntes = !!(state.cancionActual && state.reproduciendo && state.audio && !state.audio.paused);
+
             if (!state.rutinaPrevConfig) {
                 state.rutinaPrevConfig = {
                     shuffle: state.shuffle,
@@ -1709,6 +1851,7 @@
             state.shuffle = true;
             state.repeat = 'all';
             actualizarControlesModo();
+            actualizarBarraAudioRutina();
 
             var evitarId = (state.cancionActual && tracks.length > 1) ? state.cancionActual.id : null;
             state.rutinaColaAleatoria = construirColaAleatoriaRutina(tracks, evitarId);
@@ -1716,7 +1859,24 @@
             var idx = tracks.findIndex(function(c) { return c.id === primerId; });
             if (idx === -1) idx = 0;
 
-            return reproducirMetaCancion(tracks[idx], idx, { silencioso: true });
+            function lanzarPrimeraPistaConFade() {
+                if (reqSeq !== state._playSeqId) return Promise.resolve(false);
+                return reproducirMetaCancion(tracks[idx], idx, { silencioso: true, fadeInMs: 2000 });
+            }
+
+            if (estabaSonandoAntes) {
+                return new Promise(function(resolve) {
+                    hacerFadeVolumenAudio(clampVol01(state.audio.volume), 0, 450, function(completado) {
+                        if (!completado || reqSeq !== state._playSeqId) {
+                            resolve(false);
+                            return;
+                        }
+                        Promise.resolve(lanzarPrimeraPistaConFade()).then(resolve);
+                    });
+                });
+            }
+
+            return lanzarPrimeraPistaConFade();
         }
 
         if (state._dbReady) {
@@ -1730,17 +1890,77 @@
         });
     }
 
-    function detenerMusicaDeRutina(omitirStopSiNoEsRutina) {
-        state._playSeqId++;
+    function detenerMusicaDeRutina(omitirStopSiNoEsRutina, opciones) {
+        var opts = opciones || {};
+        var inmediato = !!opts.inmediato;
+        var restaurarPrevia = (opts.restaurarPrevia !== false);
+        var fadeOutMs = (typeof opts.fadeOutMs === 'number') ? opts.fadeOutMs : 1500;
+        var fadeInRestoreMs = (typeof opts.fadeInRestoreMs === 'number') ? opts.fadeInRestoreMs : 1800;
+
+        var reqSeq = ++state._playSeqId;
         var estabaEnRutina = !!state.rutinaModoActivo;
+        var snapshot = (restaurarPrevia && state.rutinaPreviaSnapshot) ? state.rutinaPreviaSnapshot : null;
+        state.rutinaPreviaSnapshot = null;
+
         salirModoRutinaSilencioso(true);
-        if (estabaEnRutina || !omitirStopSiNoEsRutina) {
+
+        var debeDetenerORestaurar = estabaEnRutina || !omitirStopSiNoEsRutina || !!snapshot;
+        if (!debeDetenerORestaurar) {
+            actualizarBarraAudioRutina();
+            return Promise.resolve(false);
+        }
+
+        function restaurarOSilenciarDespuesDeFade() {
+            if (reqSeq !== state._playSeqId) {
+                state._rutinaTransicionandoSalida = false;
+                return false;
+            }
+            state._rutinaTransicionandoSalida = false;
+
+            if (snapshot && snapshot.cancion) {
+                var metaPrev = buscarCancionPorIdOSig(snapshot.cancion.id, snapshot.cancion.firma || generarFirmaCancion(snapshot.cancion)) || snapshot.cancion;
+                state.playlistSeleccionada = snapshot.playlistSeleccionada;
+                state.carpetaSeleccionada = snapshot.carpetaSeleccionada;
+                state.soloSnapTube = !!snapshot.soloSnapTube;
+                state.shuffle = !!snapshot.shuffle;
+                state.repeat = snapshot.repeat || 'all';
+                actualizarControlesModo();
+
+                var listaScope = obtenerListaReproducibleActual();
+                var idxRestaurar = listaScope.findIndex(function(c) { return c.id === metaPrev.id; });
+                return reproducirMetaCancion(metaPrev, idxRestaurar, {
+                    silencioso: true,
+                    fadeInMs: inmediato ? 0 : fadeInRestoreMs,
+                    seekToSec: snapshot.currentTime || 0
+                });
+            }
+
             if (estabaEnRutina || (state.cancionActual && !omitirStopSiNoEsRutina)) {
                 detenerReproductor();
             } else {
                 actualizarBarraAudioRutina();
             }
+            return true;
         }
+
+        var audioSonando = !!(state.cancionActual && state.reproduciendo && state.audio && !state.audio.paused);
+        if (inmediato || !audioSonando || fadeOutMs <= 0) {
+            cancelarFadeAudio();
+            return Promise.resolve(restaurarOSilenciarDespuesDeFade());
+        }
+
+        state._rutinaTransicionandoSalida = true;
+        actualizarBarraAudioRutina();
+        return new Promise(function(resolve) {
+            hacerFadeVolumenAudio(clampVol01(state.audio.volume), 0, fadeOutMs, function(completado) {
+                if (!completado || reqSeq !== state._playSeqId) {
+                    state._rutinaTransicionandoSalida = false;
+                    resolve(false);
+                    return;
+                }
+                Promise.resolve(restaurarOSilenciarDespuesDeFade()).then(resolve);
+            });
+        });
     }
 
     function reproducirActual() {
@@ -1761,6 +1981,10 @@
         }
 
         if (state.audio.paused) {
+            cancelarFadeAudio();
+            if (state.audio.volume < 0.01 && state.volumen > 0.01) {
+                state.audio.volume = clampVol01(state.volumen);
+            }
             state.audio.play().then(function() {
                 state.reproduciendo = true;
                 actualizarUIPlayerCompleto();
@@ -1796,10 +2020,13 @@
     }
 
     function detenerReproductor() {
+        cancelarFadeAudio();
+        state._rutinaTransicionandoSalida = false;
         state._playSeqId++;
         state.audio.pause();
         state.audio.removeAttribute('src');
         state.audio.load();
+        state.audio.volume = clampVol01(state.volumen);
         state.reproduciendo = false;
         if (state.blobUrlActual) {
             URL.revokeObjectURL(state.blobUrlActual);
@@ -1825,7 +2052,7 @@
             var nextId = siguienteIdEnColaRutina(tracksRut, evitar);
             var nextIdx = tracksRut.findIndex(function(c) { return c.id === nextId; });
             if (nextIdx === -1) nextIdx = 0;
-            reproducirMetaCancion(tracksRut[nextIdx], nextIdx, { silencioso: true });
+            reproducirMetaCancion(tracksRut[nextIdx], nextIdx, { silencioso: true, fadeInMs: esManual ? 0 : 900 });
             return;
         }
 
@@ -1890,6 +2117,7 @@
     }
 
     function cambiarVolumen(val) {
+        cancelarFadeAudio();
         var num = parseFloat(val);
         if (isNaN(num)) num = 1;
         if (num < 0) num = 0;
@@ -3031,53 +3259,52 @@
         if (!bar) return;
 
         var elPl = document.getElementById('rutina-musica-live-playlist');
-        var elPill = document.getElementById('rutina-musica-mode-pill');
-        var elTrack = document.getElementById('rutina-musica-live-track');
+        var elStatus = document.getElementById('rutina-musica-live-status');
         var elIcon = document.getElementById('rutina-musica-live-icon');
-        var btnPlay = document.getElementById('btn-rutina-musica-play');
-        var btnNext = document.getElementById('btn-rutina-musica-next');
-        var btnStop = document.getElementById('btn-rutina-musica-stop');
+        var selAct = document.getElementById('select-playlist-rutina-activa');
 
         var plActivaId = state.rutinaModoActivo ? state.rutinaPlaylistActivaId : getPlaylistDefaultRutinaId();
         var plObj = plActivaId ? state.playlists.find(function(p) { return p && p.id === plActivaId; }) : null;
         var tracksPl = plObj ? obtenerCancionesDePlaylist(plObj.id) : [];
 
-        if (elPl) {
-            elPl.textContent = plObj ? ('Playlist: ' + plObj.nombre) : 'Música Automática de Rutina';
-        }
-        if (elPill) {
-            elPill.style.display = (state.rutinaModoActivo && plObj && tracksPl.length > 0) ? 'inline-flex' : 'none';
+        var sonandoAhora = !!(state.reproduciendo && !state._rutinaTransicionandoSalida);
+        bar.classList.toggle('is-playing', sonandoAhora);
+
+        if (elIcon) {
+            elIcon.classList.toggle('playing', sonandoAhora);
         }
 
-        if (elTrack) {
-            if (state.rutinaModoActivo && state.cancionActual) {
-                elTrack.textContent = (state.reproduciendo ? '▶ ' : '⏸ (Toca ▶ para sonar) ') + state.cancionActual.nombre;
+        if (elStatus) {
+            elStatus.classList.toggle('is-playing', !!(state.rutinaModoActivo && sonandoAhora && plObj));
+            if (state._rutinaTransicionandoSalida) {
+                elStatus.textContent = '↘ Bajando...';
+            } else if (state.rutinaModoActivo && state.reproduciendo && plObj) {
+                elStatus.textContent = '● Sonando';
+            } else if (state.rutinaModoActivo && state.cancionActual && plObj) {
+                elStatus.textContent = '❚❚ En pausa';
             } else if (plObj && tracksPl.length === 0) {
-                elTrack.textContent = '⚠️ La playlist "' + plObj.nombre + '" no tiene canciones aún';
-            } else if (state.cancionActual) {
-                elTrack.textContent = (state.reproduciendo ? '▶ ' : '⏸ ') + state.cancionActual.nombre;
+                elStatus.textContent = '⚠ Vacía';
             } else if (plObj) {
-                elTrack.textContent = 'Lista "' + plObj.nombre + '" (' + tracksPl.length + ' canciones) lista';
+                elStatus.textContent = '○ Lista';
             } else {
-                elTrack.textContent = 'Sin playlist seleccionada para rutinas';
+                elStatus.textContent = '🔇 Silencio';
             }
         }
 
-        if (elIcon) {
-            elIcon.classList.toggle('playing', !!state.reproduciendo);
+        if (elPl) {
+            if (plObj) {
+                elPl.textContent = tracksPl.length > 0 ? plObj.nombre : (plObj.nombre + ' (sin canciones)');
+            } else {
+                elPl.textContent = 'Sin playlist seleccionada';
+            }
         }
 
-        if (btnPlay) {
-            btnPlay.textContent = state.reproduciendo ? '⏸' : '▶';
-            btnPlay.title = state.reproduciendo ? 'Pausar música' : 'Reproducir música';
-            btnPlay.disabled = (!state.cancionActual && tracksPl.length === 0);
-            btnPlay.classList.toggle('needs-tap', !!(state.rutinaModoActivo && state.cancionActual && !state.reproduciendo));
-        }
-        if (btnNext) {
-            btnNext.disabled = !(state.rutinaModoActivo && tracksPl.length > 0) && !state.cancionActual;
-        }
-        if (btnStop) {
-            btnStop.disabled = !(state.rutinaModoActivo || state.cancionActual);
+        if (selAct) {
+            var targetVal = plActivaId || '';
+            var existeOpt = Array.prototype.some.call(selAct.options, function(o) { return o.value === targetVal; });
+            if (existeOpt && selAct.value !== targetVal) {
+                selAct.value = targetVal;
+            }
         }
     }
 

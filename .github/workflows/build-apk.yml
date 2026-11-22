@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.82)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.83)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.82
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.83
             Esta versión nativa incluye:
+            - 🎧 **Audio & Playlist Inteligente en Rutinas (v10.83)**:
+              - Rediseño limpio de la tarjeta de playlist dentro de cada rutina (sin botones repetidos arriba, mostrando claramente la playlist activa).
+              - Cualquier playlist que escojas dentro de una rutina se guarda automáticamente **por defecto** para tus próximas sesiones.
+              - Transición progresiva (**fade-in** suave al iniciar la rutina y **fade-out** gradual al terminarla) y **reanudación suave** de la canción que estaba sonando antes si fue interrumpida por la rutina.
             - 📊 **Panel Desplegable con Gráfica en Hábitos & Misiones (v10.82)**:
               - Reemplazadas las cajas numéricas apiladas (`Completadas`, `En curso`, `Penitencias`) por una **gráfica visual interactiva** (anillo + barras proporcionales) dentro de un **panel desplegable** compacto para no estorbar la vista principal de misiones.
             - 🎶 **Botón completo en Agregar Canciones a la Lista (v10.81)**:
