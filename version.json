@@ -1,5 +1,5 @@
 {
-  "version": "10.88",
+  "version": "10.89",
   "fecha": "2026-11-22",
-  "resumen": "Flechita desplegable por ejercicio en sesiones de rutina para retraer y expandir el detalle de series con estado de progreso y persistencia en sesión."
+  "resumen": "Detección automática de canciones nuevas al entrar al reproductor MP3 con ventana de alerta, sugerencia inteligente de playlist y guardado rápido en categorías."
 }

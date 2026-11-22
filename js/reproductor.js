@@ -12,6 +12,7 @@
 
     var DEFAULT_RUTINA_PL_KEY = 'monarca_musica_rutina_playlist_default';
     var PLAYER_SCOPE_KEY = 'monarca_player_folder_scope';
+    var PLAYER_KNOWN_SONGS_KEY = 'monarca_player_conocidas_v1';
 
     var state = {
         db: null,
@@ -59,6 +60,14 @@
         _modalAgregarPlaylistId: null,
         _modalAgregarFiltro: '',
         _modalAgregarSeleccionIds: [],
+        // Alerta de clasificación automática para canciones nuevas al entrar al MP3
+        _triageCola: [],
+        _triageTotalInicial: 0,
+        _triageSeleccionPlIds: [],
+        _triageSugerencias: {},
+        _triageModalAbierto: false,
+        _triageCrearPendiente: false,
+        _triagePreviewStarted: false,
         // Soporte nativo MediaStore & portadas
         mediaPermiso: 'unknown', // 'granted' | 'denied' | 'prompt' | 'unknown'
         mediaPermisoChecked: false,
@@ -491,6 +500,7 @@
             state._lastAutoScanTs = Date.now();
             cargarPlaylistsStorage();
             reconciliarPlaylistsConCanciones();
+            evaluarNuevasCancionesParaTriage();
             sincronizarIndiceCancionActualEnLista();
             notificarCambioPlaylistsYDefault();
             actualizarControlesFuenteBiblioteca();
@@ -513,6 +523,9 @@
                 if (res && res.granted) {
                     var visCount = obtenerCancionesActivasScope().length;
                     notificarPlayerToast('Se detectaron ' + visCount + ' canciones listas', '🎧');
+                    if (window.VISTA_ACTUAL === 'vista-reproductor') {
+                        intentarAbrirModalNuevaMusica();
+                    }
                 }
                 return !!(res && res.granted);
             });
@@ -528,16 +541,6 @@
             return state._scanInFlight;
         }
 
-        var estabaInicializado = !!state._initialScanDone;
-        var prevKeys = {};
-        if (estabaInicializado) {
-            obtenerCancionesActivasScope().forEach(function(c) {
-                if (!c) return;
-                if (c.id) prevKeys['id:' + c.id] = true;
-                if (c.sig) prevKeys['sig:' + c.sig] = true;
-            });
-        }
-
         var prom = cargarMetadatosCanciones().then(function(list) {
             state._initialScanDone = true;
             renderizarContenidoSegunSubtab();
@@ -545,24 +548,14 @@
             actualizarMiniPlayer();
             actualizarBarraAudioRutina();
 
-            if (modoToast === 'nuevas' && estabaInicializado) {
-                var nuevasCount = 0;
-                obtenerCancionesActivasScope().forEach(function(c) {
-                    if (!c) return;
-                    var yaExistia = (c.id && prevKeys['id:' + c.id]) || (c.sig && prevKeys['sig:' + c.sig]);
-                    if (!yaExistia) nuevasCount++;
-                });
-                if (nuevasCount > 0) {
-                    notificarPlayerToast(
-                        nuevasCount === 1
-                            ? '1 canción nueva añadida a tu lista'
-                            : (nuevasCount + ' canciones nuevas añadidas a tu lista'),
-                        '🎵'
-                    );
-                }
+            if (modoToast === 'nuevas' && window.VISTA_ACTUAL === 'vista-reproductor' && state._triageCola.length > 0) {
+                intentarAbrirModalNuevaMusica();
             } else if (modoToast === true) {
                 var visCount = obtenerCancionesActivasScope().length;
                 notificarPlayerToast('Biblioteca actualizada: ' + visCount + ' pistas', '🎵');
+                if (window.VISTA_ACTUAL === 'vista-reproductor' && state._triageCola.length > 0) {
+                    intentarAbrirModalNuevaMusica();
+                }
             }
             return list;
         }).finally(function() {
@@ -580,7 +573,12 @@
     function sincronizarBibliotecaAlEntrar() {
         renderizarContenidoSegunSubtab();
         actualizarUIPlayerCompleto();
-        return reescanearBibliotecaNativa('nuevas');
+        return reescanearBibliotecaNativa('nuevas').then(function(list) {
+            if (window.VISTA_ACTUAL === 'vista-reproductor') {
+                intentarAbrirModalNuevaMusica();
+            }
+            return list;
+        });
     }
 
     function abrirAjustesAudioNativo() {
@@ -1324,6 +1322,7 @@
         var modal = document.getElementById('modal-reproductor-crear-playlist');
         if (modal) modal.style.display = 'none';
         state._pendingSongForNewPlaylist = null;
+        state._triageCrearPendiente = false;
     }
 
     function usarSugerenciaPlaylist(nombre) {
@@ -1362,6 +1361,7 @@
         }
 
         var pendingSong = state._pendingSongForNewPlaylist;
+        var vieneDeTriage = !!state._triageCrearPendiente;
         var ahora = Date.now();
         var initIds = pendingSong ? [pendingSong] : [];
         var nueva = {
@@ -1377,6 +1377,14 @@
         cerrarModalCrearPlaylist();
         renderizarContenidoSegunSubtab();
         notificarPlayerToast('Lista "' + nombre + '" creada' + (pendingSong ? ' y canción agregada' : ''), '🎶');
+
+        if (vieneDeTriage && state._triageModalAbierto) {
+            if (state._triageSeleccionPlIds.indexOf(nueva.id) === -1) {
+                state._triageSeleccionPlIds.push(nueva.id);
+            }
+            renderizarModalNuevaMusica();
+            return;
+        }
 
         if (pendingSong) {
             var modalAgr = document.getElementById('modal-reproductor-agregar-playlist');
@@ -3168,6 +3176,504 @@
     }
 
     // ----------------------------------------------------------------------
+    // 7B. DETECCIÓN DE MÚSICA NUEVA AL ENTRAR & CLASIFICACIÓN POR PLAYLIST
+    // ----------------------------------------------------------------------
+    var REGLAS_GENERO_PLAYLIST = [
+        {
+            plKeys: ['entren', 'gym', 'rutin', 'work', 'cardio', 'fit', 'motiv', 'bestia', 'power', 'fuerza', 'pesa'],
+            trackKeys: ['phonk', 'hardstyle', 'workout', 'gym', 'fitness', 'power', 'beast', 'motiv', 'remix', 'trap', 'rap', 'hip hop', 'hiphop', 'rock', 'metal', 'electronic', 'edm', 'eminem', 'linkin park', 'nf ', 'neffex', 'skillet']
+        },
+        {
+            plKeys: ['salsa', 'guaguanc', 'sonero', 'timba', 'tropical'],
+            trackKeys: ['salsa', 'ruben blades', 'hector lavoe', 'eddie santiago', 'oscar d', 'gilberto santa', 'marc anthony', 'frankie ruiz', 'maelo ruiz', 'willie colon', 'grupo niche', 'gran combo', 'guayacan', 'cheo feliciano', 'tito nieves', 'jerry rivera', 'victor manuelle', 'adolescentes']
+        },
+        {
+            plKeys: ['llaner', 'joropo', 'crioll', 'folkl', 'sabana'],
+            trackKeys: ['llaner', 'joropo', 'arpa', 'cuatro', 'reinaldo armas', 'luis silva', 'cholo valderrama', 'scarlett linares', 'jorge guerrero', 'armando martinez', 'reyna lucero', 'cristobal jimenez', 'vitico castillo', 'teodoro', 'francisco montoya', 'guillermo', 'enrique hidalgo', 'walter silva']
+        },
+        {
+            plKeys: ['bachat', 'romant'],
+            trackKeys: ['bachat', 'romeo santos', 'aventura', 'prince royce', 'juan luis guerra', 'frank reyes', 'zacar', 'kewin']
+        },
+        {
+            plKeys: ['mereng'],
+            trackKeys: ['mereng', 'eddy herrera', 'sergio vargas', 'elvis crespo', 'wilfrido', 'miriam cruz', 'los hermanos rosario', 'bony cepeda', 'fulanito']
+        },
+        {
+            plKeys: ['reggaet', 'urban', 'perreo'],
+            trackKeys: ['reggaet', 'bad bunny', 'feid', 'karol g', 'daddy yankee', 'j balvin', 'rauw alejandro', 'ozuna', 'anuel', 'myke towers', 'arcangel', 'plan b', 'wisin', 'yandel']
+        },
+        {
+            plKeys: ['enfoq', 'estudi', 'relax', 'lofi', 'chill', 'concentr'],
+            trackKeys: ['lofi', 'lo-fi', 'chill', 'ambient', 'focus', 'study', 'piano', 'medit', 'relax', 'binaural', 'instrumental']
+        }
+    ];
+
+    function normalizarTextoMusica(txt) {
+        var s = String(txt || '').toLowerCase();
+        try {
+            if (typeof s.normalize === 'function') {
+                s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            }
+        } catch (e) {}
+        return s.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function _cargarConocidasStorage() {
+        try {
+            var raw = localStorage.getItem(PLAYER_KNOWN_SONGS_KEY);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || !parsed.keys) return null;
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _guardarConocidasStorage(data) {
+        try {
+            localStorage.setItem(PLAYER_KNOWN_SONGS_KEY, JSON.stringify(data));
+        } catch (e) {}
+    }
+
+    function _keysDeCancion(meta) {
+        var keys = [];
+        if (!meta) return keys;
+        if (meta.id) keys.push('id:' + String(meta.id));
+        if (meta.sig) keys.push('sig:' + String(meta.sig));
+        if (meta.archivo && meta.tamano) {
+            keys.push('file:' + String(meta.archivo).toLowerCase() + '__' + (Number(meta.tamano) || 0));
+        }
+        return keys;
+    }
+
+    function esCancionConocida(meta, knownMap) {
+        if (!knownMap) return false;
+        var keys = _keysDeCancion(meta);
+        for (var i = 0; i < keys.length; i++) {
+            if (knownMap[keys[i]]) return true;
+        }
+        return false;
+    }
+
+    function marcarCancionesComoConocidas(cancionesList) {
+        var data = _cargarConocidasStorage() || { initialized: true, updatedAt: Date.now(), keys: {} };
+        data.initialized = true;
+        data.updatedAt = Date.now();
+        var ahora = Date.now();
+        (cancionesList || []).forEach(function(c) {
+            _keysDeCancion(c).forEach(function(k) {
+                if (!data.keys[k]) data.keys[k] = ahora;
+            });
+        });
+        _guardarConocidasStorage(data);
+        return data;
+    }
+
+    function estaCancionEnAlgunaPlaylist(song) {
+        if (!song || !Array.isArray(state.playlists)) return false;
+        return state.playlists.some(function(pl) {
+            if (!pl) return false;
+            if (Array.isArray(pl.cancionIds) && song.id && pl.cancionIds.indexOf(song.id) !== -1) return true;
+            if (Array.isArray(pl.cancionSigs) && song.sig) {
+                return pl.cancionSigs.some(function(s) { return s && (s.sig === song.sig || s.id === song.id); });
+            }
+            return false;
+        });
+    }
+
+    function evaluarNuevasCancionesParaTriage() {
+        var activas = obtenerCancionesActivasScope();
+        var stored = _cargarConocidasStorage();
+
+        if (!stored || !stored.initialized) {
+            if (state.nativoActivo || activas.length > 0) {
+                marcarCancionesComoConocidas(activas);
+            }
+            return state._triageCola;
+        }
+
+        var enColaMap = {};
+        state._triageCola.forEach(function(c) {
+            _keysDeCancion(c).forEach(function(k) { enColaMap[k] = true; });
+        });
+
+        var yaEnPlaylist = [];
+        var nuevasDetectadas = [];
+        activas.forEach(function(c) {
+            if (!c) return;
+            if (esCancionConocida(c, stored.keys)) return;
+            if (estaCancionEnAlgunaPlaylist(c)) {
+                yaEnPlaylist.push(c);
+                return;
+            }
+            if (esCancionConocida(c, enColaMap)) return;
+            nuevasDetectadas.push(c);
+        });
+
+        if (yaEnPlaylist.length > 0) {
+            marcarCancionesComoConocidas(yaEnPlaylist);
+        }
+
+        if (nuevasDetectadas.length > 0) {
+            // Priorizar más recientes primero
+            nuevasDetectadas.sort(function(a, b) { return (b.fecha || 0) - (a.fecha || 0); });
+            state._triageCola = state._triageCola.concat(nuevasDetectadas);
+            if (!state._triageModalAbierto) {
+                state._triageTotalInicial = state._triageCola.length;
+            }
+        }
+        return state._triageCola;
+    }
+
+    function clasificarPlaylistsParaCancionNueva(song) {
+        var playlists = Array.isArray(state.playlists) ? state.playlists.slice() : [];
+        var sugerencias = {};
+        if (!song || playlists.length === 0) {
+            return { orderedPlaylists: playlists, sugerencias: sugerencias, bestPlId: null };
+        }
+
+        var metaInfo = obtenerTituloLimpoYArtista(song);
+        var trackArtistNorm = normalizarTextoMusica(
+            (metaInfo.artista && metaInfo.artista !== 'Artista desconocido') ? metaInfo.artista : ''
+        );
+        var trackFullNorm = normalizarTextoMusica(
+            [song.nombre, song.artista, song.album, song.carpeta, metaInfo.titulo, metaInfo.artista].join(' ')
+        );
+
+        var songsById = {};
+        var songsBySig = {};
+        (state.canciones || []).forEach(function(c) {
+            if (!c) return;
+            if (c.id) songsById[c.id] = c;
+            if (c.sig) songsBySig[c.sig] = c;
+        });
+
+        playlists.forEach(function(pl) {
+            if (!pl || !pl.id) return;
+            var score = 0;
+            var motivo = '';
+            var plNameNorm = normalizarTextoMusica(pl.nombre || '');
+
+            // 1. Mismo artista que canciones ya guardadas en la playlist
+            if (trackArtistNorm && trackArtistNorm.length >= 3) {
+                var artistsInPl = {};
+                (pl.cancionIds || []).forEach(function(cid) {
+                    var found = songsById[cid];
+                    if (found) {
+                        var inf = obtenerTituloLimpoYArtista(found);
+                        var an = normalizarTextoMusica(inf.artista !== 'Artista desconocido' ? inf.artista : '');
+                        if (an.length >= 3) artistsInPl[an] = true;
+                    }
+                });
+                (pl.cancionSigs || []).forEach(function(cs) {
+                    var found = cs && (songsById[cs.id] || (cs.sig ? songsBySig[cs.sig] : null));
+                    if (found) {
+                        var inf = obtenerTituloLimpoYArtista(found);
+                        var an = normalizarTextoMusica(inf.artista !== 'Artista desconocido' ? inf.artista : '');
+                        if (an.length >= 3) artistsInPl[an] = true;
+                    }
+                });
+                var artKeys = Object.keys(artistsInPl);
+                for (var i = 0; i < artKeys.length; i++) {
+                    var ak = artKeys[i];
+                    if (ak === trackArtistNorm || trackArtistNorm.indexOf(ak) !== -1 || ak.indexOf(trackArtistNorm) !== -1) {
+                        score += 100;
+                        motivo = 'Artista frecuente aquí';
+                        break;
+                    }
+                }
+            }
+
+            // 2. Coincidencia de categoría/género (entrenamiento, salsa, llaneras, etc.)
+            for (var r = 0; r < REGLAS_GENERO_PLAYLIST.length; r++) {
+                var regla = REGLAS_GENERO_PLAYLIST[r];
+                var plMatches = regla.plKeys.some(function(pk) { return plNameNorm.indexOf(pk) !== -1; });
+                if (!plMatches) continue;
+                var trMatches = regla.trackKeys.some(function(tk) { return trackFullNorm.indexOf(tk) !== -1; });
+                if (trMatches) {
+                    score += 65;
+                    if (!motivo) motivo = 'Coincide con categoría';
+                    break;
+                }
+            }
+
+            // 3. Coincidencia directa por palabra clave del nombre de la playlist
+            var plWords = plNameNorm.split(' ').filter(function(w) { return w.length >= 3; });
+            if (plWords.some(function(w) { return trackFullNorm.indexOf(w) !== -1; })) {
+                score += 55;
+                if (!motivo) motivo = 'Coincide con título';
+            }
+
+            if (score > 0) {
+                sugerencias[pl.id] = { score: score, motivo: motivo };
+            }
+        });
+
+        playlists.sort(function(a, b) {
+            var sa = (a && a.id && sugerencias[a.id]) ? sugerencias[a.id].score : 0;
+            var sb = (b && b.id && sugerencias[b.id]) ? sugerencias[b.id].score : 0;
+            if (sb !== sa) return sb - sa;
+            return (a.nombre || '').localeCompare(b.nombre || '');
+        });
+
+        var bestPl = playlists.length > 0 && sugerencias[playlists[0].id] ? playlists[0].id : null;
+        return { orderedPlaylists: playlists, sugerencias: sugerencias, bestPlId: bestPl };
+    }
+
+    function prepararPasoActualTriage() {
+        if (!Array.isArray(state._triageCola) || state._triageCola.length === 0) return null;
+        var song = state._triageCola[0];
+        var cls = clasificarPlaylistsParaCancionNueva(song);
+        state._triageSugerencias = cls.sugerencias || {};
+        state._triageSeleccionPlIds = cls.bestPlId ? [cls.bestPlId] : [];
+        return { song: song, orderedPlaylists: cls.orderedPlaylists };
+    }
+
+    function intentarAbrirModalNuevaMusica() {
+        if (window.VISTA_ACTUAL !== 'vista-reproductor') return false;
+        if (!state._dbReady || state._triageModalAbierto) return false;
+        if (!Array.isArray(state._triageCola) || state._triageCola.length === 0) return false;
+
+        // Validar contra baseline actualizado por si cambió en paralelo
+        var stored = _cargarConocidasStorage();
+        var keys = (stored && stored.keys) ? stored.keys : {};
+        var activasMap = {};
+        obtenerCancionesActivasScope().forEach(function(c) {
+            if (c && c.id) activasMap[c.id] = c;
+        });
+        state._triageCola = state._triageCola.filter(function(c) {
+            return c && c.id && activasMap[c.id] && !esCancionConocida(c, keys) && !estaCancionEnAlgunaPlaylist(c);
+        });
+        if (state._triageCola.length === 0) return false;
+
+        state._triageModalAbierto = true;
+        state._triageTotalInicial = Math.max(state._triageTotalInicial || 0, state._triageCola.length);
+        prepararPasoActualTriage();
+        renderizarModalNuevaMusica();
+
+        var modal = document.getElementById('modal-reproductor-nueva-musica');
+        if (modal) modal.style.display = 'flex';
+        return true;
+    }
+
+    function togglePlaylistNuevaMusica(plId) {
+        var idx = state._triageSeleccionPlIds.indexOf(plId);
+        if (idx === -1) {
+            state._triageSeleccionPlIds.push(plId);
+        } else {
+            state._triageSeleccionPlIds.splice(idx, 1);
+        }
+        renderizarModalNuevaMusica();
+    }
+
+    function togglePreviewNuevaMusica() {
+        var song = state._triageCola[0];
+        if (!song) return;
+        if (state.cancionActual && state.cancionActual.id === song.id && state.reproduciendo) {
+            pausarActual();
+        } else {
+            state._triagePreviewStarted = true;
+            reproducirPorId(song.id);
+        }
+        renderizarModalNuevaMusica();
+    }
+
+    function abrirModalCrearPlaylistDesdeTriage() {
+        state._triageCrearPendiente = true;
+        abrirModalCrearPlaylist(null);
+    }
+
+    function renderizarModalNuevaMusica() {
+        var cuerpo = document.getElementById('modal-nueva-musica-cuerpo');
+        var footer = document.getElementById('modal-nueva-musica-footer');
+        var badge = document.getElementById('modal-nueva-musica-badge');
+        var sub = document.getElementById('modal-nueva-musica-subtitulo');
+        if (!cuerpo || !footer) return;
+
+        var totalPendientes = state._triageCola.length;
+        if (totalPendientes === 0) {
+            cerrarModalNuevaMusica(false);
+            return;
+        }
+
+        var song = state._triageCola[0];
+        var cls = clasificarPlaylistsParaCancionNueva(song);
+        var playlists = cls.orderedPlaylists;
+        var sugerencias = state._triageSugerencias || cls.sugerencias || {};
+        var totalInicial = Math.max(state._triageTotalInicial || totalPendientes, totalPendientes);
+        var pasoActual = (totalInicial - totalPendientes) + 1;
+
+        if (badge) {
+            if (totalInicial > 1) {
+                badge.textContent = pasoActual + ' de ' + totalInicial;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        var hasSuggested = !!(cls.bestPlId && sugerencias[cls.bestPlId]);
+        var bestPlObj = hasSuggested ? playlists.find(function(p) { return p.id === cls.bestPlId; }) : null;
+        if (sub) {
+            sub.textContent = bestPlObj
+                ? ('Sugerencia: "' + bestPlObj.nombre + '" · Puedes elegir una o más listas')
+                : 'Elige en qué categoría o playlist guardarla';
+        }
+
+        var metaInfo = obtenerTituloLimpoYArtista(song);
+        var coverUrl = (state.artworkCache[song.id] && state.artworkCache[song.id] !== 'none') ? state.artworkCache[song.id] : '';
+        var isPreviewPlaying = !!(state.cancionActual && state.cancionActual.id === song.id && state.reproduciendo);
+        var subTrack = [];
+        if (metaInfo.artista && metaInfo.artista !== 'Artista desconocido') subTrack.push(metaInfo.artista);
+        if (song.carpeta) subTrack.push(song.carpeta);
+        if (song.tamano) subTrack.push(formatearTamano(song.tamano));
+
+        var bodyHtml =
+            '<div class="triage-song-hero">' +
+                '<div class="triage-song-cover">' +
+                    '<img data-art-song="' + escaparHTML(song.id) + '" src="' + (coverUrl ? escaparHTML(coverUrl) : '') + '" alt="" style="display:' + (coverUrl ? 'block' : 'none') + ';">' +
+                    '<span class="song-thumb-placeholder" style="display:' + (coverUrl ? 'none' : 'flex') + ';">🎵</span>' +
+                '</div>' +
+                '<div class="triage-song-info">' +
+                    '<div class="triage-song-title">' + escaparHTML(metaInfo.titulo) + '</div>' +
+                    '<div class="triage-song-sub">' + escaparHTML(subTrack.join(' · ') || 'Pista MP3 nueva') + '</div>' +
+                '</div>' +
+                '<button type="button" class="triage-btn-preview' + (isPreviewPlaying ? ' is-playing' : '') + '" onclick="window.MonarcaPlayer.togglePreviewNuevaMusica()">' +
+                    (isPreviewPlaying ? '⏸ Pausar' : '▶ Escuchar') +
+                '</button>' +
+            '</div>';
+
+        if (!coverUrl) {
+            encolarCaratulaLazy(song);
+        }
+
+        if (playlists.length === 0) {
+            bodyHtml +=
+                '<div class="pl-empty-card" style="margin: 4px 0;">' +
+                    '<div class="pl-empty-icon">📋</div>' +
+                    '<h4>Aún no tienes playlists</h4>' +
+                    '<p>Crea tus categorías (ej. Entrenamiento, Salsa, Llaneras) para organizar tu música nueva.</p>' +
+                    '<button type="button" class="btn-pl-nueva-cta" onclick="window.MonarcaPlayer.abrirModalCrearPlaylistDesdeTriage()">+ Crear Primera Playlist</button>' +
+                '</div>';
+        } else {
+            var selSet = new Set(state._triageSeleccionPlIds || []);
+            bodyHtml +=
+                '<div class="triage-section-label">' +
+                    '<span>Selecciona playlist destino:</span>' +
+                    '<span style="font-size:10.5px; font-weight:600; color:#94a3b8; text-transform:none;">' + selSet.size + ' elegida(s)</span>' +
+                '</div>' +
+                '<div class="pl-picker-list">';
+
+            playlists.forEach(function(pl) {
+                var sel = selSet.has(pl.id);
+                var sug = sugerencias[pl.id];
+                var count = (pl.cancionIds || []).length;
+                bodyHtml +=
+                    '<button type="button" class="pl-picker-playlist-row' + (sel ? ' is-selected' : '') + (sug ? ' is-suggested' : '') + '" onclick="window.MonarcaPlayer.togglePlaylistNuevaMusica(\'' + pl.id + '\')">' +
+                        '<div class="pl-picker-row-left">' +
+                            '<span class="pl-picker-icon">' + (sel ? '✓' : '🎶') + '</span>' +
+                            '<div class="pl-picker-text">' +
+                                '<div class="pl-picker-name">' + escaparHTML(pl.nombre) +
+                                    (sug ? ('<span class="triage-suggest-pill">✦ Sugerida</span>') : '') +
+                                '</div>' +
+                                '<div class="pl-picker-sub">' + count + (count === 1 ? ' canción' : ' canciones') + (sug ? (' · ' + escaparHTML(sug.motivo)) : '') + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<span class="pl-picker-status' + (sel ? ' is-added' : '') + '">' + (sel ? 'Elegida ✓' : 'Elegir') + '</span>' +
+                    '</button>';
+            });
+            bodyHtml += '</div>';
+        }
+
+        cuerpo.innerHTML = bodyHtml;
+
+        var selCount = (state._triageSeleccionPlIds || []).length;
+        var hasMore = totalPendientes > 1;
+        footer.innerHTML =
+            '<button type="button" class="btn-pl-action-add" style="margin-right: auto;" onclick="window.MonarcaPlayer.abrirModalCrearPlaylistDesdeTriage()">+ Nueva lista</button>' +
+            (hasMore ? '<button type="button" class="btn-pl-back-pill" onclick="window.MonarcaPlayer.omitirTodasNuevasMusicas()">Omitir todas</button>' : '') +
+            '<button type="button" class="btn-back-system" style="margin-bottom: 0;" onclick="window.MonarcaPlayer.omitirNuevaMusicaActual()">Omitir</button>' +
+            (playlists.length > 0
+                ? '<button type="button" id="btn-confirmar-nueva-musica-triage" class="btn-system pl-modal-btn-primary" style="margin-bottom: 0;"' + (selCount === 0 ? ' disabled' : '') + ' onclick="window.MonarcaPlayer.confirmarNuevaMusicaPlaylist()">' +
+                    (hasMore ? ('✓ Guardar y siguiente (' + (totalPendientes - 1) + ')') : '✓ Guardar en Lista') +
+                  '</button>'
+                : '');
+    }
+
+    function _avanzarOCerrarTriage() {
+        if (state._triagePreviewStarted && state.reproduciendo) {
+            pausarActual();
+        }
+        state._triagePreviewStarted = false;
+        if (state._triageCola.length > 0) {
+            prepararPasoActualTriage();
+            renderizarModalNuevaMusica();
+        } else {
+            cerrarModalNuevaMusica(false);
+        }
+    }
+
+    function confirmarNuevaMusicaPlaylist() {
+        if (!Array.isArray(state._triageCola) || state._triageCola.length === 0) {
+            cerrarModalNuevaMusica(false);
+            return;
+        }
+        var selIds = (state._triageSeleccionPlIds || []).slice();
+        if (selIds.length === 0) {
+            notificarPlayerToast('Elige al menos una playlist o toca Omitir', '🎶');
+            return;
+        }
+        var song = state._triageCola[0];
+        var nombresAgregados = [];
+        selIds.forEach(function(plId) {
+            var pl = state.playlists.find(function(p) { return p && p.id === plId; });
+            if (pl) {
+                agregarCancionAPlaylist(plId, song.id, true);
+                nombresAgregados.push(pl.nombre);
+            }
+        });
+        marcarCancionesComoConocidas([song]);
+        state._triageCola.shift();
+        notificarPlayerToast('Agregada a ' + nombresAgregados.join(', '), '✓');
+        _avanzarOCerrarTriage();
+    }
+
+    function omitirNuevaMusicaActual() {
+        if (state._triageCola.length > 0) {
+            var song = state._triageCola.shift();
+            marcarCancionesComoConocidas([song]);
+        }
+        _avanzarOCerrarTriage();
+    }
+
+    function omitirTodasNuevasMusicas() {
+        if (state._triageCola.length > 0) {
+            marcarCancionesComoConocidas(state._triageCola);
+            state._triageCola = [];
+        }
+        cerrarModalNuevaMusica(false);
+    }
+
+    function cerrarModalNuevaMusica(omitirRestantes) {
+        if (omitirRestantes !== false && Array.isArray(state._triageCola) && state._triageCola.length > 0) {
+            marcarCancionesComoConocidas(state._triageCola);
+            state._triageCola = [];
+        }
+        if (state._triagePreviewStarted && state.reproduciendo) {
+            pausarActual();
+        }
+        state._triagePreviewStarted = false;
+        state._triageModalAbierto = false;
+        state._triageTotalInicial = 0;
+        state._triageSeleccionPlIds = [];
+        state._triageSugerencias = {};
+        var modal = document.getElementById('modal-reproductor-nueva-musica');
+        if (modal) modal.style.display = 'none';
+    }
+
+    // ----------------------------------------------------------------------
     // 8. RENDERIZADO DEL PLAYER HERO & MINI-REPRODUCTOR FLOTANTE
     // ----------------------------------------------------------------------
     var SVG_HEART_OUTLINE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
@@ -3461,6 +3967,9 @@
             actualizarMiniPlayer();
             actualizarBarraAudioRutina();
             actualizarControlesModo();
+            if (window.VISTA_ACTUAL === 'vista-reproductor' && state._triageCola.length > 0) {
+                intentarAbrirModalNuevaMusica();
+            }
         }).catch(function(e) {
             console.error('[Reproductor] Error cargando canciones iniciales:', e);
         });
@@ -3487,12 +3996,15 @@
                     if (loader) loader.style.display = 'block';
 
                     guardarCancionesFiles(files).then(function() {
+                        evaluarNuevasCancionesParaTriage();
                         renderizarContenidoSegunSubtab();
                         actualizarUIPlayerCompleto();
                         fileIn.value = '';
                         if (loader) loader.style.display = 'none';
                         notificarPlayerToast('Se importaron ' + files.length + (files.length === 1 ? ' canción' : ' canciones'), '🎵');
-                        if (!state.cancionActual && state.canciones.length > 0) {
+                        if (window.VISTA_ACTUAL === 'vista-reproductor' && state._triageCola.length > 0) {
+                            intentarAbrirModalNuevaMusica();
+                        } else if (!state.cancionActual && state.canciones.length > 0) {
                             reproducirIndice(0);
                         }
                     }).catch(function(err) {
@@ -3513,11 +4025,15 @@
                     if (loader) loader.style.display = 'block';
 
                     guardarCancionesFiles(files).then(function() {
+                        evaluarNuevasCancionesParaTriage();
                         renderizarContenidoSegunSubtab();
                         actualizarUIPlayerCompleto();
                         folderIn.value = '';
                         if (loader) loader.style.display = 'none';
                         notificarPlayerToast('Se cargaron ' + files.length + ' pistas organizadas por carpetas', '📂');
+                        if (window.VISTA_ACTUAL === 'vista-reproductor' && state._triageCola.length > 0) {
+                            intentarAbrirModalNuevaMusica();
+                        }
                     }).catch(function(err) {
                         notificarPlayerToast('Error cargando carpeta: ' + (err.message || err), '⚠️');
                         if (loader) loader.style.display = 'none';
@@ -3585,6 +4101,18 @@
         toggleSeleccionCancionEnModal: toggleSeleccionCancionEnModal,
         toggleTodasVisibleModalPlaylist: toggleTodasVisibleModalPlaylist,
         confirmarCancionesEnPlaylistModal: confirmarCancionesEnPlaylistModal,
+        evaluarNuevasCancionesParaTriage: evaluarNuevasCancionesParaTriage,
+        clasificarPlaylistsParaCancionNueva: clasificarPlaylistsParaCancionNueva,
+        intentarAbrirModalNuevaMusica: intentarAbrirModalNuevaMusica,
+        renderizarModalNuevaMusica: renderizarModalNuevaMusica,
+        togglePlaylistNuevaMusica: togglePlaylistNuevaMusica,
+        togglePreviewNuevaMusica: togglePreviewNuevaMusica,
+        confirmarNuevaMusicaPlaylist: confirmarNuevaMusicaPlaylist,
+        omitirNuevaMusicaActual: omitirNuevaMusicaActual,
+        omitirTodasNuevasMusicas: omitirTodasNuevasMusicas,
+        cerrarModalNuevaMusica: cerrarModalNuevaMusica,
+        abrirModalCrearPlaylistDesdeTriage: abrirModalCrearPlaylistDesdeTriage,
+        marcarCancionesComoConocidas: marcarCancionesComoConocidas,
         getPlaylists: getPlaylists,
         getPlaylistDefaultRutinaId: getPlaylistDefaultRutinaId,
         setPlaylistDefaultRutina: setPlaylistDefaultRutina,
