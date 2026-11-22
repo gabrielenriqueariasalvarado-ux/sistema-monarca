@@ -1,5 +1,5 @@
 {
-  "version": "10.99",
+  "version": "11.00",
   "fecha": "2026-11-22",
-  "resumen": "Rediseño limpio y luminoso de Personal Trainer (cabecera, métricas, pestañas en 1 línea y tarjetas), botón ⚙️ Settings destacado para configurar grupos musculares por día y generación aleatoria garantizada incluso en días de descanso."
+  "resumen": "Rutinas aleatorias conectadas directamente a Enfoques en Personal Trainer, soporte para 1, 2, 3 o más sesiones rodando simultáneamente con cronómetro independiente y vista detallada por rutina con atleta asignado, grupos musculares y checklist de ejercicios completados vs faltantes."
 }

@@ -137,6 +137,7 @@ const DEFAULT_STATE = {
     },
     subappTrainer: {
         timerActivo: null,
+        sesionesActivas: [],
         tiempoPromedioMetaMin: 60,
         alumnos: [],
         sesiones: [],
@@ -403,6 +404,7 @@ const MonarcaDB = {
             } else {
                 if (!Array.isArray(data.subappTrainer.alumnos)) data.subappTrainer.alumnos = [];
                 if (!Array.isArray(data.subappTrainer.sesiones)) data.subappTrainer.sesiones = [];
+                if (!Array.isArray(data.subappTrainer.sesionesActivas)) data.subappTrainer.sesionesActivas = [];
                 if (typeof data.subappTrainer.tiempoPromedioMetaMin !== 'number') data.subappTrainer.tiempoPromedioMetaMin = 60;
                 if (!Array.isArray(data.subappTrainer.rutinasEnfoques) || data.subappTrainer.rutinasEnfoques.length === 0) {
                     data.subappTrainer.rutinasEnfoques = JSON.parse(JSON.stringify(DEFAULT_STATE.subappTrainer.rutinasEnfoques));
@@ -1646,7 +1648,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.99';
+var MONARCA_APP_VERSION = '11.00';
 var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

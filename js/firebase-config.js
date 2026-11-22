@@ -425,7 +425,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'reproductorPlaylists',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
-        'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques'
+        'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques', 'subappTrainer_sesionesActivas'
     ];
     var allKeys = Array.from(new Set(baseKeys.concat(Object.keys(elL), Object.keys(elR))));
 
@@ -591,12 +591,21 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.subappBarberia.tiposCorte = fusionarColeccionPorId(barbL.tiposCorte || [], barbR.tiposCorte || [], tombstones.subappBarberia_tiposCorte || []);
     }
     if (local.subappTrainer || remoto.subappTrainer) {
-        var trainL = local.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [] };
-        var trainR = remoto.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [] };
+        var trainL = local.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [], sesionesActivas: [] };
+        var trainR = remoto.subappTrainer || { alumnos: [], sesiones: [], rutinasEnfoques: [], sesionesActivas: [] };
         fusion.subappTrainer = Object.assign({}, trainR, trainL);
         fusion.subappTrainer.alumnos = fusionarColeccionPorId(trainL.alumnos || [], trainR.alumnos || [], tombstones.subappTrainer_alumnos || []);
         fusion.subappTrainer.sesiones = fusionarColeccionPorId(trainL.sesiones || [], trainR.sesiones || [], tombstones.subappTrainer_sesiones || []);
         fusion.subappTrainer.rutinasEnfoques = fusionarColeccionPorId(trainL.rutinasEnfoques || [], trainR.rutinasEnfoques || [], tombstones.subappTrainer_enfoques || []);
+        fusion.subappTrainer.sesionesActivas = fusionarColeccionPorId(trainL.sesionesActivas || [], trainR.sesionesActivas || [], tombstones.subappTrainer_sesionesActivas || []);
+        if (fusion.subappTrainer.sesionesActivas.length > 0) {
+            fusion.subappTrainer.timerActivo = fusion.subappTrainer.sesionesActivas[0];
+        } else if (fusion.subappTrainer.timerActivo && fusion.subappTrainer.timerActivo.inicioTimestamp) {
+            var legId = fusion.subappTrainer.timerActivo.id || ('ACT-LEGACY-' + fusion.subappTrainer.timerActivo.inicioTimestamp);
+            if ((tombstones.subappTrainer_sesionesActivas || []).map(String).indexOf(String(legId)) !== -1) {
+                fusion.subappTrainer.timerActivo = null;
+            }
+        }
     }
 
     // 6.6 LISTAS DE REPRODUCCIÓN DE MÚSICA (SUPERVIVENCIA EN REINSTALACIÓN)

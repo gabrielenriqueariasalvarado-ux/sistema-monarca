@@ -3717,6 +3717,11 @@ var INTERVALO_TIMER_TRAINER = null;
 var ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
 var BUSQUEDA_ALUMNO_TRAINER = '';
 var BUSQUEDA_ENFOQUE_TRAINER = '';
+var FILTRO_ENFOQUE_TRAINER = 'todas'; // 'todas' | 'asignadas' | 'activas' | 'plantillas'
+var ENFOQUE_DETALLE_ABIERTO_ID = '';
+var SESION_ACTIVA_DETALLE_ID = '';
+var ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+var ENFOQUE_MODAL_INICIAR_ID = '';
 var FILTRO_HISTORIAL_TRAINER_ALUMNO = '';
 var MES_TRAINER_ACTUAL = (function() {
     var d = new Date();
@@ -3731,7 +3736,116 @@ function escapeHtmlTrainer(str) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(new RegExp('"', 'g'), '&quot;')
-        .replace(new RegExp("'", "g"), '&#39;');
+        .replace(new RegExp("'", 'g'), '&#39;');
+}
+
+function obtenerFechaHoyISOTrainer() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var dia = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (dia < 10 ? '0' + dia : dia);
+}
+
+function clonarEjerciciosConEstadoTrainer(lista, preservarChecks) {
+    if (!Array.isArray(lista)) return [];
+    return lista.map(function(ej) {
+        if (!ej || !ej.nombre) return null;
+        return {
+            id: ej.id || null,
+            nombre: String(ej.nombre),
+            series: ej.series || 4,
+            repeticiones: ej.repeticiones || '8-10 reps',
+            compuesto: !!ej.compuesto,
+            musculoPrincipal: ej.musculoPrincipal || (Array.isArray(ej.categorias) && ej.categorias[0]) || '',
+            categorias: Array.isArray(ej.categorias) ? ej.categorias.slice() : (ej.musculoPrincipal ? [ej.musculoPrincipal] : []),
+            completado: preservarChecks ? !!ej.completado : false,
+            completadoAt: (preservarChecks && ej.completado) ? (ej.completadoAt || Date.now()) : null
+        };
+    }).filter(Boolean);
+}
+
+function resolverEjerciciosDeEnfoqueTrainer(enfObj) {
+    if (!enfObj) return [];
+    if (Array.isArray(enfObj.ejercicios) && enfObj.ejercicios.length > 0) {
+        return enfObj.ejercicios;
+    }
+    var desc = String(enfObj.descripcion || '');
+    var match = desc.match(/ejercicios?\s*:\s*(.+)$/i);
+    if (!match || !match[1]) return [];
+
+    var catalogo = (typeof obtenerCatalogoEjerciciosParaAleatoria === 'function')
+        ? (obtenerCatalogoEjerciciosParaAleatoria().ejercicios || [])
+        : [];
+    var partes = match[1].split(',').map(function(p) { return p.trim().replace(/\.+$/, ''); }).filter(Boolean);
+    return partes.map(function(nom) {
+        var norm = nom.toLowerCase();
+        var encontrado = catalogo.find(function(c) {
+            return c && c.nombre && c.nombre.trim().toLowerCase() === norm;
+        }) || catalogo.find(function(c) {
+            return c && c.nombre && (c.nombre.trim().toLowerCase().indexOf(norm) !== -1 || norm.indexOf(c.nombre.trim().toLowerCase()) !== -1);
+        });
+        if (encontrado) {
+            return {
+                nombre: encontrado.nombre,
+                series: encontrado.series || 4,
+                repeticiones: encontrado.repeticiones || '8-10 reps',
+                compuesto: !!encontrado.compuesto,
+                musculoPrincipal: encontrado.musculoPrincipal || '',
+                categorias: Array.isArray(encontrado.categorias) ? encontrado.categorias.slice() : [],
+                completado: false,
+                completadoAt: null
+            };
+        }
+        return {
+            nombre: nom,
+            series: 4,
+            repeticiones: '10-12 reps',
+            compuesto: false,
+            musculoPrincipal: '',
+            categorias: [],
+            completado: false,
+            completadoAt: null
+        };
+    });
+}
+
+function resolverGruposDeEjerciciosTrainer(ejercicios, textoFallback) {
+    var vistos = {};
+    var res = [];
+    (ejercicios || []).forEach(function(ej) {
+        if (!ej) return;
+        var m = ej.musculoPrincipal;
+        if (m && !vistos[m]) {
+            vistos[m] = true;
+            res.push(m);
+        }
+    });
+    if (res.length === 0 && textoFallback) {
+        var txt = String(textoFallback).toLowerCase();
+        var mapa = [
+            ['pecho', 'Pecho'], ['espalda', 'Espalda'], ['hombro', 'Hombros'],
+            ['bíceps', 'Bíceps'], ['biceps', 'Bíceps'], ['tríceps', 'Tríceps'], ['triceps', 'Tríceps'],
+            ['cuádriceps', 'Cuádriceps'], ['cuadriceps', 'Cuádriceps'], ['pierna', 'Cuádriceps'],
+            ['isquio', 'Isquios'], ['glúteo', 'Glúteos'], ['gluteo', 'Glúteos'],
+            ['pantorrilla', 'Pantorrillas'], ['core', 'Core'], ['abdomen', 'Core']
+        ];
+        mapa.forEach(function(par) {
+            if (txt.indexOf(par[0]) !== -1 && !vistos[par[1]]) {
+                vistos[par[1]] = true;
+                res.push(par[1]);
+            }
+        });
+    }
+    return res;
+}
+
+function resolverGruposDeEnfoqueTrainer(enfObj) {
+    if (!enfObj) return [];
+    if (Array.isArray(enfObj.gruposUsados) && enfObj.gruposUsados.length > 0) {
+        return enfObj.gruposUsados.slice();
+    }
+    var ejs = resolverEjerciciosDeEnfoqueTrainer(enfObj);
+    return resolverGruposDeEjerciciosTrainer(ejs, (enfObj.nombre || '') + ' ' + (enfObj.descripcion || ''));
 }
 
 function asegurarEstructuraTrainer() {
@@ -3743,6 +3857,9 @@ function asegurarEstructuraTrainer() {
     }
     if (!Array.isArray(APP_STATE.subappTrainer.sesiones)) {
         APP_STATE.subappTrainer.sesiones = [];
+    }
+    if (!Array.isArray(APP_STATE.subappTrainer.sesionesActivas)) {
+        APP_STATE.subappTrainer.sesionesActivas = [];
     }
     if (typeof APP_STATE.subappTrainer.tiempoPromedioMetaMin !== 'number') {
         APP_STATE.subappTrainer.tiempoPromedioMetaMin = 60;
@@ -3763,6 +3880,97 @@ function asegurarEstructuraTrainer() {
     (APP_STATE.subappTrainer.alumnos || []).forEach(function(al) {
         if (!Array.isArray(al.rutinasAsignadas)) al.rutinasAsignadas = [];
     });
+
+    // Migrar timerActivo legado (v10.99 o anterior) hacia sesionesActivas sin perder la sesión en curso
+    if (APP_STATE.subappTrainer.sesionesActivas.length === 0 && APP_STATE.subappTrainer.timerActivo && APP_STATE.subappTrainer.timerActivo.inicioTimestamp) {
+        var leg = APP_STATE.subappTrainer.timerActivo;
+        var legId = leg.id || ('ACT-LEGACY-' + leg.inicioTimestamp);
+        var tombs = (APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.subappTrainer_sesionesActivas))
+            ? APP_STATE._eliminados.subappTrainer_sesionesActivas.map(String)
+            : [];
+        if (tombs.indexOf(String(legId)) === -1) {
+            var enfMatch = null;
+            if (leg.enfoqueId) {
+                enfMatch = APP_STATE.subappTrainer.rutinasEnfoques.find(function(e) { return e.id === leg.enfoqueId; });
+            }
+            if (!enfMatch && leg.enfoque) {
+                var eLow = leg.enfoque.toLowerCase().trim();
+                enfMatch = APP_STATE.subappTrainer.rutinasEnfoques.find(function(e) { return (e.nombre || '').toLowerCase().trim() === eLow; });
+            }
+            var legEjs = Array.isArray(leg.ejercicios) && leg.ejercicios.length > 0
+                ? clonarEjerciciosConEstadoTrainer(leg.ejercicios, true)
+                : clonarEjerciciosConEstadoTrainer(resolverEjerciciosDeEnfoqueTrainer(enfMatch), true);
+            var legGrupos = (Array.isArray(leg.gruposUsados) && leg.gruposUsados.length > 0)
+                ? leg.gruposUsados.slice()
+                : resolverGruposDeEnfoqueTrainer(enfMatch || { nombre: leg.enfoque, ejercicios: legEjs });
+            APP_STATE.subappTrainer.sesionesActivas.push({
+                id: legId,
+                inicioTimestamp: leg.inicioTimestamp,
+                updatedAt: leg.updatedAt || leg.inicioTimestamp,
+                alumnoId: leg.alumnoId || null,
+                alumnoNombre: leg.alumnoNombre || 'Alumno General',
+                enfoqueId: enfMatch ? enfMatch.id : (leg.enfoqueId || null),
+                enfoque: leg.enfoque || 'Entrenamiento Personalizado',
+                rutinaAsignadaId: leg.rutinaAsignadaId || (enfMatch ? enfMatch.rutinaAsignadaId : null) || null,
+                gruposUsados: legGrupos,
+                ejercicios: legEjs
+            });
+        }
+    }
+
+    APP_STATE.subappTrainer.timerActivo = APP_STATE.subappTrainer.sesionesActivas[0] || null;
+}
+
+function crearSesionActivaTrainer(opts) {
+    asegurarEstructuraTrainer();
+    var lista = APP_STATE.subappTrainer.sesionesActivas;
+    var alumnoId = opts.alumnoId || null;
+    var alumnoNombre = opts.alumnoNombre || 'Atleta';
+    var enfoqueId = opts.enfoqueId || null;
+    var enfoqueNombre = opts.enfoqueNombre || 'Entrenamiento Personalizado';
+
+    // Si el mismo atleta ya está rodando exactamente esta misma rutina, enfocamos esa sesión sin duplicar timer
+    var alKey = String(alumnoId || alumnoNombre).toLowerCase().trim();
+    var enfKey = String(enfoqueId || enfoqueNombre).toLowerCase().trim();
+    var existente = lista.find(function(s) {
+        var sAl = String(s.alumnoId || s.alumnoNombre || '').toLowerCase().trim();
+        var sEnf = String(s.enfoqueId || s.enfoque || '').toLowerCase().trim();
+        return sAl === alKey && sEnf === enfKey;
+    });
+    if (existente) {
+        SESION_ACTIVA_DETALLE_ID = existente.id;
+        ENFOQUE_DETALLE_ABIERTO_ID = existente.enfoqueId || '';
+        ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+        return existente;
+    }
+
+    var baseEnf = enfoqueId ? APP_STATE.subappTrainer.rutinasEnfoques.find(function(r) { return r.id === enfoqueId; }) : null;
+    var rawEjs = (Array.isArray(opts.ejercicios) && opts.ejercicios.length > 0)
+        ? opts.ejercicios
+        : resolverEjerciciosDeEnfoqueTrainer(baseEnf);
+    var grupos = (Array.isArray(opts.gruposUsados) && opts.gruposUsados.length > 0)
+        ? opts.gruposUsados.slice()
+        : (baseEnf ? resolverGruposDeEnfoqueTrainer(baseEnf) : resolverGruposDeEjerciciosTrainer(rawEjs, enfoqueNombre));
+
+    var nueva = {
+        id: 'ACT-' + Date.now() + '-' + Math.floor(Math.random() * 900 + 100),
+        inicioTimestamp: Date.now(),
+        updatedAt: Date.now(),
+        alumnoId: alumnoId,
+        alumnoNombre: alumnoNombre,
+        enfoqueId: enfoqueId,
+        enfoque: enfoqueNombre,
+        rutinaAsignadaId: opts.rutinaAsignadaId || (baseEnf ? baseEnf.rutinaAsignadaId : null) || null,
+        gruposUsados: grupos,
+        ejercicios: clonarEjerciciosConEstadoTrainer(rawEjs, false)
+    };
+
+    lista.unshift(nueva);
+    APP_STATE.subappTrainer.timerActivo = lista[0] || null;
+    SESION_ACTIVA_DETALLE_ID = nueva.id;
+    ENFOQUE_DETALLE_ABIERTO_ID = nueva.enfoqueId || '';
+    ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+    return nueva;
 }
 
 function cargarSubAppTrainer() {
@@ -3831,7 +4039,8 @@ function iniciarIntervaloTimerTrainer() {
         clearInterval(INTERVALO_TIMER_TRAINER);
         INTERVALO_TIMER_TRAINER = null;
     }
-    if (APP_STATE.subappTrainer && APP_STATE.subappTrainer.timerActivo) {
+    asegurarEstructuraTrainer();
+    if (APP_STATE.subappTrainer && Array.isArray(APP_STATE.subappTrainer.sesionesActivas) && APP_STATE.subappTrainer.sesionesActivas.length > 0) {
         INTERVALO_TIMER_TRAINER = setInterval(function() {
             actualizarDisplayTimerTrainerVivo();
         }, 1000);
@@ -3839,31 +4048,34 @@ function iniciarIntervaloTimerTrainer() {
 }
 
 function actualizarDisplayTimerTrainerVivo() {
-    var timer = APP_STATE.subappTrainer ? APP_STATE.subappTrainer.timerActivo : null;
-    if (!timer) return;
-
-    var elDisplay = document.getElementById('trainer-timer-clock-display');
-    var elBarra = document.getElementById('trainer-timer-progress-fill');
-    var elPorc = document.getElementById('trainer-timer-percent-text');
+    var trainer = APP_STATE.subappTrainer;
+    var activas = (trainer && Array.isArray(trainer.sesionesActivas)) ? trainer.sesionesActivas : [];
+    if (activas.length === 0) return;
 
     var ahora = Date.now();
-    var segsTranscurridos = Math.max(0, Math.floor((ahora - timer.inicioTimestamp) / 1000));
-    var textoReloj = formatearSegundosTrainer(segsTranscurridos);
+    var metaMin = (trainer && trainer.tiempoPromedioMetaMin) ? trainer.tiempoPromedioMetaMin : 60;
+    var metaSegs = metaMin * 60;
 
-    if (elDisplay) elDisplay.textContent = textoReloj;
+    activas.forEach(function(s) {
+        if (!s || !s.id) return;
+        var segs = Math.max(0, Math.floor((ahora - s.inicioTimestamp) / 1000));
+        var reloj = formatearSegundosTrainer(segs);
+        var porc = Math.min(100, Math.round((segs / metaSegs) * 100));
+        var pctTxt = Math.round(segs / 60) + ' / ' + metaMin + ' min (' + porc + '%)';
 
-    var metaSegs = (APP_STATE.subappTrainer.tiempoPromedioMetaMin || 60) * 60;
-    var porc = Math.min(100, Math.round((segsTranscurridos / metaSegs) * 100));
-
-    if (elBarra) {
-        elBarra.style.width = porc + '%';
-        if (porc >= 100) {
-            elBarra.style.background = 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
-        }
-    }
-    if (elPorc) {
-        elPorc.textContent = Math.round(segsTranscurridos / 60) + ' / 60 min (' + porc + '%)';
-    }
+        document.querySelectorAll('[data-trainer-clock-id="' + s.id + '"]').forEach(function(el) {
+            el.textContent = reloj;
+        });
+        document.querySelectorAll('[data-trainer-pct-id="' + s.id + '"]').forEach(function(el) {
+            el.textContent = pctTxt;
+        });
+        document.querySelectorAll('[data-trainer-bar-id="' + s.id + '"]').forEach(function(el) {
+            el.style.width = porc + '%';
+            if (porc >= 100) {
+                el.style.background = 'linear-gradient(90deg, #10b981 0%, #f59e0b 100%)';
+            }
+        });
+    });
 }
 
 function renderizarSubAppTrainer() {
@@ -3874,15 +4086,17 @@ function renderizarSubAppTrainer() {
     var alumnos = APP_STATE.subappTrainer.alumnos || [];
     var sesiones = APP_STATE.subappTrainer.sesiones || [];
     var rutinas = APP_STATE.subappTrainer.rutinasEnfoques || [];
-    var timerActivo = APP_STATE.subappTrainer.timerActivo;
+    var activas = APP_STATE.subappTrainer.sesionesActivas || [];
+    var metaMin = APP_STATE.subappTrainer.tiempoPromedioMetaMin || 60;
+    var metaSegs = metaMin * 60;
 
-    // Actualizar botón superior si hay sesión activa
+    // Botón superior siempre disponible para abrir una nueva sesión (soporte multi-atleta)
     var btnTop = document.getElementById('btn-iniciar-entrenamiento-top');
     if (btnTop) {
-        if (timerActivo) {
-            btnTop.innerHTML = '<span>🛑</span> Finalizar';
-            btnTop.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-            btnTop.onclick = function() { pararTimerEntrenamiento(); };
+        if (activas.length > 0) {
+            btnTop.innerHTML = '<span>➕</span> + Sesión (' + activas.length + ')';
+            btnTop.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            btnTop.onclick = function() { abrirModalIniciarEntrenamiento(); };
         } else {
             btnTop.innerHTML = '<span>🏋️‍♂️</span> Iniciar Sesión';
             btnTop.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
@@ -3913,52 +4127,106 @@ function renderizarSubAppTrainer() {
 
     var html = '';
 
-    // 1. BANNER TIMER ACTIVO
-    if (timerActivo) {
-        var segsAhora = Math.max(0, Math.floor((Date.now() - timerActivo.inicioTimestamp) / 1000));
+    // 1. BANNER DE RUTINAS RODANDO EN VIVO (solo fuera de Enfoques, pues Enfoques tiene su panel completo)
+    if (TAB_TRAINER_ACTIVA !== 'enfoques' && activas.length === 1) {
+        var s0 = activas[0];
+        var segsAhora = Math.max(0, Math.floor((Date.now() - s0.inicioTimestamp) / 1000));
         var relojInit = formatearSegundosTrainer(segsAhora);
-        var metaSegs = 60 * 60;
         var porcInit = Math.min(100, Math.round((segsAhora / metaSegs) * 100));
+        var ejs0 = Array.isArray(s0.ejercicios) ? s0.ejercicios : [];
+        var hechos0 = ejs0.filter(function(e) { return !!e.completado; }).length;
 
         html += `
         <div class="trainer-timer-banner-active">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid #34d399; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
                         🏋️‍♂️
                     </div>
                     <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 13.5px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">Entrenamiento en Curso (En Vivo)</span>
-                            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">ACTIVO</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 13px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px;">Entrenamiento en Curso</span>
+                            <span class="subapp-badge" style="color: #34d399; border-color: rgba(52, 211, 153, 0.45); background: rgba(16, 185, 129, 0.14);">EN VIVO</span>
+                            ${ejs0.length > 0 ? `<span class="subapp-badge" style="color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.12);">✅ ${hechos0}/${ejs0.length} ej.</span>` : ''}
                         </div>
                         <div style="font-size: 13px; color: #f8fafc; font-weight: 700; margin-top: 2px;">
-                            Alumno: <strong>${escapeHtmlTrainer(timerActivo.alumnoNombre || 'Alumno Express')}</strong> · Enfoque: <em>${escapeHtmlTrainer(timerActivo.enfoque || 'Rutina Personalizada')}</em>
+                            👤 <strong>${escapeHtmlTrainer(s0.alumnoNombre || 'Atleta')}</strong> · <em>${escapeHtmlTrainer(s0.enfoque || 'Rutina Personalizada')}</em>
                         </div>
                     </div>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button type="button" class="btn-back-system" onclick="descartarTimerEntrenamiento()" style="margin-bottom: 0; padding: 8px 14px; font-size: 11.5px; border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Descartar este timer">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="trainer-btn-secondary" onclick="seleccionarSesionActivaEnfoqueTrainer('${s0.id}')" style="padding: 8px 12px; font-size: 11.5px; color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4);">
+                        👁️ Ver Rutina
+                    </button>
+                    <button type="button" class="btn-back-system" onclick="descartarTimerEntrenamiento('${s0.id}')" style="margin-bottom: 0; padding: 8px 12px; font-size: 11.5px; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Descartar este timer">
                         ✕ Descartar
                     </button>
-                    <button type="button" class="btn-system" onclick="pararTimerEntrenamiento()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-size: 12.5px; font-weight: 800; padding: 10px 18px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
-                        🛑 FINALIZAR SESIÓN
+                    <button type="button" class="btn-system" onclick="pararTimerEntrenamiento('${s0.id}')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; font-size: 12px; font-weight: 800; padding: 9px 14px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                        🛑 FINALIZAR
                     </button>
                 </div>
             </div>
 
-            <div style="background: #07090e; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px;">
+            <div style="background: #0d1322; border: 1px solid rgba(52, 211, 153, 0.25); border-radius: 12px; padding: 10px 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
                     <div style="display: flex; align-items: baseline; gap: 8px;">
                         <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">Cronómetro:</span>
-                        <span id="trainer-timer-clock-display" style="font-size: 26px; font-weight: 800; color: #10b981; font-family: monospace; letter-spacing: 1px;">${relojInit}</span>
+                        <span id="trainer-timer-clock-display" data-trainer-clock-id="${s0.id}" style="font-size: 24px; font-weight: 800; color: #34d399; font-family: monospace; letter-spacing: 1px;">${relojInit}</span>
                     </div>
-                    <span id="trainer-timer-percent-text" style="font-size: 12px; font-weight: 700; color: #94a3b8;">${Math.round(segsAhora / 60)} / 60 min (${porcInit}%)</span>
+                    <span id="trainer-timer-percent-text" data-trainer-pct-id="${s0.id}" style="font-size: 12px; font-weight: 700; color: #cbd5e1;">${Math.round(segsAhora / 60)} / ${metaMin} min (${porcInit}%)</span>
                 </div>
                 <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
-                    <div id="trainer-timer-progress-fill" style="width: ${porcInit}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); transition: width 0.5s ease;"></div>
+                    <div id="trainer-timer-progress-fill" data-trainer-bar-id="${s0.id}" style="width: ${porcInit}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); transition: width 0.5s ease;"></div>
                 </div>
+            </div>
+        </div>
+        `;
+    } else if (TAB_TRAINER_ACTIVA !== 'enfoques' && activas.length > 1) {
+        html += `
+        <div class="trainer-timer-banner-active">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🏋️‍♂️</span>
+                    <span style="font-size: 13px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px;">
+                        ${activas.length} Rutinas Rodando Simultáneamente
+                    </span>
+                </div>
+                <button type="button" class="trainer-btn-secondary" onclick="setTabTrainer('enfoques')" style="padding: 6px 12px; font-size: 11.5px; color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4);">
+                    🎯 Gestionar en Enfoques →
+                </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${activas.map(function(s) {
+                    var segs = Math.max(0, Math.floor((Date.now() - s.inicioTimestamp) / 1000));
+                    var reloj = formatearSegundosTrainer(segs);
+                    var ejsS = Array.isArray(s.ejercicios) ? s.ejercicios : [];
+                    var hechosS = ejsS.filter(function(e) { return !!e.completado; }).length;
+                    return `
+                    <div style="background: #0d1322; border: 1px solid rgba(52, 211, 153, 0.28); border-radius: 11px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span>👤 ${escapeHtmlTrainer(s.alumnoNombre || 'Atleta')}</span>
+                                <span style="font-size: 11.5px; font-family: monospace; color: #34d399; background: rgba(16, 185, 129, 0.14); padding: 2px 7px; border-radius: 6px;" data-trainer-clock-id="${s.id}">${reloj}</span>
+                                ${ejsS.length > 0 ? `<span style="font-size: 11px; color: #7dd3fc;">✅ ${hechosS}/${ejsS.length}</span>` : ''}
+                            </div>
+                            <div style="font-size: 11.5px; color: #cbd5e1; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                🎯 ${escapeHtmlTrainer(s.enfoque || 'Rutina')}
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            <button type="button" class="trainer-btn-secondary" onclick="seleccionarSesionActivaEnfoqueTrainer('${s.id}')" style="padding: 6px 10px; font-size: 11px; color: #7dd3fc; border-color: rgba(56, 189, 248, 0.35);">
+                                👁️ Ver
+                            </button>
+                            <button type="button" class="trainer-btn-secondary" onclick="descartarTimerEntrenamiento('${s.id}')" style="padding: 6px 8px; font-size: 11px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.35);" title="Descartar">
+                                ✕
+                            </button>
+                            <button type="button" class="trainer-btn-primary" onclick="pararTimerEntrenamiento('${s.id}')" style="padding: 6px 10px; font-size: 11px;">
+                                🛑 Fin
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
             </div>
         </div>
         `;
@@ -4255,23 +4523,513 @@ function renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones) {
     return html;
 }
 
+function cambiarFiltroEnfoqueTrainer(filtro) {
+    FILTRO_ENFOQUE_TRAINER = filtro || 'todas';
+    renderizarSubAppTrainer();
+}
+
+function seleccionarSesionActivaEnfoqueTrainer(sesionId) {
+    asegurarEstructuraTrainer();
+    var ses = (APP_STATE.subappTrainer.sesionesActivas || []).find(function(s) { return s.id === sesionId; });
+    SESION_ACTIVA_DETALLE_ID = ses ? ses.id : '';
+    ENFOQUE_DETALLE_ABIERTO_ID = (ses && ses.enfoqueId) ? ses.enfoqueId : '';
+    ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+    TAB_TRAINER_ACTIVA = 'enfoques';
+    renderizarSubAppTrainer();
+}
+
+function seleccionarEnfoqueDetalleTrainer(enfoqueId) {
+    asegurarEstructuraTrainer();
+    var yaActivo = (ENFOQUE_DETALLE_ABIERTO_ID === enfoqueId && !ENFOQUE_DETALLE_CERRADO_MANUAL);
+    if (yaActivo) {
+        cerrarDetalleEnfoqueTrainer();
+        return;
+    }
+    ENFOQUE_DETALLE_ABIERTO_ID = enfoqueId || '';
+    ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+    // Si este enfoque tiene una sesión rodando para su alumno asignado, enfocar también esa sesión
+    var activas = APP_STATE.subappTrainer.sesionesActivas || [];
+    var sesMatch = activas.find(function(s) { return s.enfoqueId && s.enfoqueId === enfoqueId; });
+    SESION_ACTIVA_DETALLE_ID = sesMatch ? sesMatch.id : '';
+    TAB_TRAINER_ACTIVA = 'enfoques';
+    renderizarSubAppTrainer();
+}
+
+function cerrarDetalleEnfoqueTrainer() {
+    SESION_ACTIVA_DETALLE_ID = '';
+    ENFOQUE_DETALLE_ABIERTO_ID = '';
+    ENFOQUE_DETALLE_CERRADO_MANUAL = true;
+    renderizarSubAppTrainer();
+}
+
+function iniciarRutinaEnfoqueTrainer(enfoqueId) {
+    asegurarEstructuraTrainer();
+    var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === enfoqueId; });
+    if (!enf) return;
+
+    var nomAlumno = (enf.alumnoNombre || '').trim();
+    var tienePersonaEspecifica = !!(enf.alumnoId || (nomAlumno && nomAlumno !== 'Atleta' && nomAlumno !== 'Plantilla General' && nomAlumno !== 'Alumno General'));
+
+    if (!tienePersonaEspecifica) {
+        abrirModalIniciarEntrenamiento(null, enf.nombre, enf.id);
+        return;
+    }
+
+    var ejs = resolverEjerciciosDeEnfoqueTrainer(enf);
+    var grupos = resolverGruposDeEnfoqueTrainer(enf);
+    crearSesionActivaTrainer({
+        alumnoId: enf.alumnoId || null,
+        alumnoNombre: nomAlumno || 'Atleta',
+        enfoqueId: enf.id,
+        enfoqueNombre: enf.nombre,
+        rutinaAsignadaId: enf.rutinaAsignadaId || null,
+        gruposUsados: grupos,
+        ejercicios: ejs
+    });
+
+    MonarcaDB.save(APP_STATE);
+    iniciarIntervaloTimerTrainer();
+    TAB_TRAINER_ACTIVA = 'enfoques';
+    renderizarSubAppTrainer();
+}
+
+function iniciarTodasRutinasAsignadasTrainer() {
+    asegurarEstructuraTrainer();
+    var rutinas = APP_STATE.subappTrainer.rutinasEnfoques || [];
+    var iniciadas = 0;
+    rutinas.forEach(function(enf) {
+        var nomAlumno = (enf.alumnoNombre || '').trim();
+        var tienePersona = !!(enf.alumnoId || (nomAlumno && nomAlumno !== 'Atleta' && nomAlumno !== 'Plantilla General' && nomAlumno !== 'Alumno General'));
+        var esAsignada = (enf.origen === 'aleatoria' || tienePersona || (Array.isArray(enf.ejercicios) && enf.ejercicios.length > 0));
+        if (!esAsignada) return;
+        var ejs = resolverEjerciciosDeEnfoqueTrainer(enf);
+        var yaRodando = (APP_STATE.subappTrainer.sesionesActivas || []).some(function(s) {
+            return s.enfoqueId === enf.id;
+        });
+        if (!yaRodando) {
+            crearSesionActivaTrainer({
+                alumnoId: enf.alumnoId || null,
+                alumnoNombre: nomAlumno || 'Atleta',
+                enfoqueId: enf.id,
+                enfoqueNombre: enf.nombre,
+                rutinaAsignadaId: enf.rutinaAsignadaId || null,
+                gruposUsados: resolverGruposDeEnfoqueTrainer(enf),
+                ejercicios: ejs
+            });
+            iniciadas++;
+        }
+    });
+    if (iniciadas > 0) {
+        MonarcaDB.save(APP_STATE);
+        iniciarIntervaloTimerTrainer();
+    }
+    TAB_TRAINER_ACTIVA = 'enfoques';
+    renderizarSubAppTrainer();
+}
+
+function sincronizarProgresoRutinaEnfoqueYAlumno(enfoqueId, rutinaAsignadaId, alumnoId, ejerciciosActualizados) {
+    var ahora = Date.now();
+    if (enfoqueId) {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === enfoqueId; });
+        if (enf) {
+            enf.ejercicios = clonarEjerciciosConEstadoTrainer(ejerciciosActualizados, true);
+            enf.updatedAt = ahora;
+        }
+    }
+    if (alumnoId && rutinaAsignadaId) {
+        var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === alumnoId; });
+        if (al && Array.isArray(al.rutinasAsignadas)) {
+            var rAsig = al.rutinasAsignadas.find(function(x) { return x.id === rutinaAsignadaId; });
+            if (rAsig) {
+                rAsig.ejercicios = clonarEjerciciosConEstadoTrainer(ejerciciosActualizados, true);
+                rAsig.updatedAt = ahora;
+            }
+        }
+    }
+}
+
+function toggleEjercicioEnRutinaEnfoqueTrainer(targetType, targetId, ejIdx) {
+    asegurarEstructuraTrainer();
+    var ahora = Date.now();
+    if (targetType === 'sesion') {
+        var ses = (APP_STATE.subappTrainer.sesionesActivas || []).find(function(s) { return s.id === targetId; });
+        if (!ses) return;
+        if (!Array.isArray(ses.ejercicios) || ses.ejercicios.length === 0) {
+            var enfBase = ses.enfoqueId ? APP_STATE.subappTrainer.rutinasEnfoques.find(function(r) { return r.id === ses.enfoqueId; }) : null;
+            ses.ejercicios = clonarEjerciciosConEstadoTrainer(resolverEjerciciosDeEnfoqueTrainer(enfBase), false);
+        }
+        if (!ses.ejercicios[ejIdx]) return;
+        ses.ejercicios[ejIdx].completado = !ses.ejercicios[ejIdx].completado;
+        ses.ejercicios[ejIdx].completadoAt = ses.ejercicios[ejIdx].completado ? ahora : null;
+        ses.updatedAt = ahora;
+        APP_STATE.subappTrainer.timerActivo = APP_STATE.subappTrainer.sesionesActivas[0] || null;
+        // Sincronizar con el enfoque si comparte atleta o si solo hay una sesión activa sobre este enfoque
+        if (ses.enfoqueId) {
+            var enfMatch = APP_STATE.subappTrainer.rutinasEnfoques.find(function(r) { return r.id === ses.enfoqueId; });
+            var mismasSesSobreEnf = (APP_STATE.subappTrainer.sesionesActivas || []).filter(function(x) { return x.enfoqueId === ses.enfoqueId; });
+            if (enfMatch && (mismasSesSobreEnf.length <= 1 || enfMatch.alumnoId === ses.alumnoId)) {
+                sincronizarProgresoRutinaEnfoqueYAlumno(ses.enfoqueId, ses.rutinaAsignadaId, ses.alumnoId, ses.ejercicios);
+            }
+        }
+    } else if (targetType === 'enfoque') {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === targetId; });
+        if (!enf) return;
+        if (!Array.isArray(enf.ejercicios) || enf.ejercicios.length === 0) {
+            enf.ejercicios = clonarEjerciciosConEstadoTrainer(resolverEjerciciosDeEnfoqueTrainer(enf), false);
+        }
+        if (!enf.ejercicios[ejIdx]) return;
+        enf.ejercicios[ejIdx].completado = !enf.ejercicios[ejIdx].completado;
+        enf.ejercicios[ejIdx].completadoAt = enf.ejercicios[ejIdx].completado ? ahora : null;
+        enf.updatedAt = ahora;
+        sincronizarProgresoRutinaEnfoqueYAlumno(null, enf.rutinaAsignadaId, enf.alumnoId, enf.ejercicios);
+        // Si hay sesión activa del mismo atleta sobre este enfoque, mantenerla alineada
+        (APP_STATE.subappTrainer.sesionesActivas || []).forEach(function(s) {
+            if (s.enfoqueId === enf.id && (!enf.alumnoId || s.alumnoId === enf.alumnoId)) {
+                s.ejercicios = clonarEjerciciosConEstadoTrainer(enf.ejercicios, true);
+                s.updatedAt = ahora;
+            }
+        });
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function reiniciarEjerciciosEnRutinaEnfoqueTrainer(targetType, targetId) {
+    asegurarEstructuraTrainer();
+    var ahora = Date.now();
+    if (targetType === 'sesion') {
+        var ses = (APP_STATE.subappTrainer.sesionesActivas || []).find(function(s) { return s.id === targetId; });
+        if (!ses || !Array.isArray(ses.ejercicios)) return;
+        ses.ejercicios.forEach(function(ej) { ej.completado = false; ej.completadoAt = null; });
+        ses.updatedAt = ahora;
+        sincronizarProgresoRutinaEnfoqueYAlumno(ses.enfoqueId, ses.rutinaAsignadaId, ses.alumnoId, ses.ejercicios);
+    } else if (targetType === 'enfoque') {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) { return r.id === targetId; });
+        if (!enf) return;
+        if (!Array.isArray(enf.ejercicios) || enf.ejercicios.length === 0) {
+            enf.ejercicios = clonarEjerciciosConEstadoTrainer(resolverEjerciciosDeEnfoqueTrainer(enf), false);
+        } else {
+            enf.ejercicios.forEach(function(ej) { ej.completado = false; ej.completadoAt = null; });
+        }
+        enf.updatedAt = ahora;
+        sincronizarProgresoRutinaEnfoqueYAlumno(null, enf.rutinaAsignadaId, enf.alumnoId, enf.ejercicios);
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarSubAppTrainer();
+}
+
+function renderizarHtmlDetalleRutinaEnfoqueTrainer(activas, rutinas) {
+    var ses = null;
+    var enf = null;
+
+    if (SESION_ACTIVA_DETALLE_ID) {
+        ses = activas.find(function(s) { return s.id === SESION_ACTIVA_DETALLE_ID; }) || null;
+    }
+    if (!ses && ENFOQUE_DETALLE_ABIERTO_ID) {
+        enf = rutinas.find(function(r) { return r.id === ENFOQUE_DETALLE_ABIERTO_ID; }) || null;
+        if (enf) {
+            ses = activas.find(function(s) { return s.enfoqueId === enf.id; }) || null;
+        }
+    }
+    if (!ses && !enf && !ENFOQUE_DETALLE_CERRADO_MANUAL && activas.length > 0) {
+        ses = activas[0];
+        SESION_ACTIVA_DETALLE_ID = ses.id;
+        ENFOQUE_DETALLE_ABIERTO_ID = ses.enfoqueId || '';
+    }
+    if (!ses && !enf) return '';
+
+    var enfRef = enf || (ses && ses.enfoqueId ? rutinas.find(function(r) { return r.id === ses.enfoqueId; }) : null);
+    var targetType = ses ? 'sesion' : 'enfoque';
+    var targetId = ses ? ses.id : enf.id;
+    var titulo = ses ? (ses.enfoque || (enfRef ? enfRef.nombre : 'Rutina en Curso')) : enf.nombre;
+    var persona = ses ? (ses.alumnoNombre || 'Atleta') : (enf.alumnoNombre || 'Sin atleta asignado aún');
+    var fechaMeta = enfRef && (enfRef.diaSemana || enfRef.fechaAsignacion)
+        ? [enfRef.diaSemana, enfRef.fechaAsignacion].filter(Boolean).join(' · ')
+        : '';
+    var ejercicios = ses
+        ? (Array.isArray(ses.ejercicios) && ses.ejercicios.length > 0 ? ses.ejercicios : resolverEjerciciosDeEnfoqueTrainer(enfRef))
+        : resolverEjerciciosDeEnfoqueTrainer(enf);
+    var grupos = ses
+        ? ((Array.isArray(ses.gruposUsados) && ses.gruposUsados.length > 0) ? ses.gruposUsados : resolverGruposDeEjerciciosTrainer(ejercicios, titulo))
+        : resolverGruposDeEnfoqueTrainer(enf);
+
+    var pendientes = [];
+    var completados = [];
+    ejercicios.forEach(function(ej, idx) {
+        var entry = { ej: ej, idx: idx };
+        if (ej && ej.completado) completados.push(entry);
+        else pendientes.push(entry);
+    });
+    var totalEjs = ejercicios.length;
+    var pct = totalEjs > 0 ? Math.round((completados.length / totalEjs) * 100) : 0;
+
+    var segsSes = ses ? Math.max(0, Math.floor((Date.now() - ses.inicioTimestamp) / 1000)) : 0;
+    var relojSes = ses ? formatearSegundosTrainer(segsSes) : '';
+
+    var html = `
+    <div class="trainer-detalle-panel">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div style="min-width: 0; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                    ${ses ? `
+                        <span class="subapp-badge" style="color: #34d399; border-color: rgba(52, 211, 153, 0.5); background: rgba(16, 185, 129, 0.18);">🟢 RODANDO EN VIVO</span>
+                        <span style="font-size: 13px; font-weight: 800; font-family: monospace; color: #34d399; background: #0d1322; border: 1px solid rgba(52, 211, 153, 0.35); padding: 2px 8px; border-radius: 7px;" data-trainer-clock-id="${ses.id}">${relojSes}</span>
+                    ` : `
+                        <span class="subapp-badge" style="color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.14);">📋 DETALLE DE RUTINA</span>
+                    `}
+                    ${fechaMeta ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 700;">📅 ${escapeHtmlTrainer(fechaMeta)}</span>` : ''}
+                </div>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(titulo)}</h4>
+                <div style="font-size: 12.5px; color: #e2e8f0; margin-top: 3px; font-weight: 700;">
+                    👤 Trabajando con: <span style="color: #38bdf8;">${escapeHtmlTrainer(persona)}</span>
+                </div>
+            </div>
+            <button type="button" class="trainer-btn-secondary" onclick="cerrarDetalleEnfoqueTrainer()" style="padding: 6px 10px; font-size: 11.5px;" title="Ocultar detalle">
+                ✕ Ocultar
+            </button>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: #94a3b8; margin-bottom: 6px;">🧬 Grupos Musculares</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${grupos.length > 0
+                    ? grupos.map(function(g) { return '<span class="trainer-muscle-pill">⚡ ' + escapeHtmlTrainer(g) + '</span>'; }).join('')
+                    : '<span style="font-size: 12px; color: #94a3b8;">General / Funcional</span>'
+                }
+            </div>
+        </div>
+    `;
+
+    if (totalEjs > 0) {
+        html += `
+        <div style="background: #101728; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 11px 13px; margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">
+                    Progreso del Día: <span style="color: #34d399;">${completados.length}/${totalEjs} hechos</span> ·
+                    <span style="color: ${pendientes.length === 0 ? '#34d399' : '#fbbf24'};">${pendientes.length === 0 ? '🏆 ¡Culminada!' : 'Faltan ' + pendientes.length}</span>
+                </span>
+                <span style="font-size: 12px; font-weight: 800; color: #7dd3fc;">${pct}%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
+                <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #38bdf8 100%); transition: width 0.25s ease;"></div>
+            </div>
+        </div>
+        `;
+
+        html += `
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 11.5px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">
+                ⏳ Faltan para culminar (${pendientes.length})
+            </div>
+            ${pendientes.length === 0 ? `
+                <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 11px; padding: 12px; text-align: center; color: #6ee7b7; font-size: 12.5px; font-weight: 800;">
+                    🏆 ¡Todos los ejercicios de hoy han sido completados con ${escapeHtmlTrainer(persona)}!
+                </div>
+            ` : `
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                    ${pendientes.map(function(item) {
+                        var ej = item.ej;
+                        var tags = (Array.isArray(ej.categorias) && ej.categorias.length > 0) ? ej.categorias : (ej.musculoPrincipal ? [ej.musculoPrincipal] : []);
+                        return `
+                        <button type="button" class="trainer-ej-check-row" onclick="toggleEjercicioEnRutinaEnfoqueTrainer('${targetType}', '${targetId}', ${item.idx})">
+                            <span class="trainer-ej-checkbox" aria-hidden="true"></span>
+                            <span style="min-width: 0; flex: 1; text-align: left;">
+                                <span style="display: block; font-size: 13.5px; font-weight: 800; color: #ffffff;">${item.idx + 1}. ${escapeHtmlTrainer(ej.nombre)}</span>
+                                <span style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;">
+                                    <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escapeHtmlTrainer(ej.repeticiones || '8-10 reps')}</span>
+                                    ${tags.map(function(t) { return '<span style="font-size: 10px; font-weight: 700; color: #e2e8f0; background: #1e293b; border: 1px solid rgba(148, 163, 184, 0.22); padding: 1px 6px; border-radius: 5px;">' + escapeHtmlTrainer(t) + '</span>'; }).join('')}
+                                </span>
+                            </span>
+                            <span style="font-size: 11px; font-weight: 800; color: #34d399; flex-shrink: 0;">Hecho ✓</span>
+                        </button>`;
+                    }).join('')}
+                </div>
+            `}
+        </div>
+        `;
+
+        if (completados.length > 0) {
+            html += `
+            <div style="margin-bottom: 12px;">
+                <div style="font-size: 11.5px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">
+                    ✅ Completados (${completados.length})
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    ${completados.map(function(item) {
+                        var ej = item.ej;
+                        return `
+                        <button type="button" class="trainer-ej-check-row is-done" onclick="toggleEjercicioEnRutinaEnfoqueTrainer('${targetType}', '${targetId}', ${item.idx})">
+                            <span class="trainer-ej-checkbox is-checked" aria-hidden="true">✓</span>
+                            <span style="min-width: 0; flex: 1; text-align: left;">
+                                <span style="display: block; font-size: 13px; font-weight: 700; color: #a7f3d0; text-decoration: line-through;">${item.idx + 1}. ${escapeHtmlTrainer(ej.nombre)}</span>
+                                <span style="font-size: 11px; color: #94a3b8;">${ej.series || 4} × ${escapeHtmlTrainer(ej.repeticiones || '8-10 reps')}${ej.musculoPrincipal ? ' · ' + escapeHtmlTrainer(ej.musculoPrincipal) : ''}</span>
+                            </span>
+                            <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8; flex-shrink: 0;">Deshacer</span>
+                        </button>`;
+                    }).join('')}
+                </div>
+            </div>
+            `;
+        }
+    } else if (enfRef && enfRef.descripcion) {
+        html += `
+        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.5; background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;">
+            ${escapeHtmlTrainer(enfRef.descripcion)}
+        </div>
+        `;
+    }
+
+    html += `
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid rgba(148, 163, 184, 0.16); padding-top: 12px;">
+            ${ses ? `
+                <button type="button" class="trainer-btn-primary" onclick="pararTimerEntrenamiento('${ses.id}')" style="flex: 2; justify-content: center;">
+                    🛑 Finalizar Sesión (${escapeHtmlTrainer(persona)})
+                </button>
+                <button type="button" class="trainer-btn-secondary" onclick="descartarTimerEntrenamiento('${ses.id}')" style="color: #fca5a5; border-color: rgba(239, 68, 68, 0.35);">
+                    ✕ Descartar
+                </button>
+            ` : `
+                <button type="button" class="trainer-btn-primary" onclick="iniciarRutinaEnfoqueTrainer('${enf.id}')" style="flex: 2; justify-content: center;">
+                    🏋️‍♂️ Iniciar Rutina Ahora
+                </button>
+                <button type="button" class="trainer-btn-secondary" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(enf.nombre)}', '${enf.id}')">
+                    + 👥 Iniciar con Otro Atleta
+                </button>
+            `}
+            ${totalEjs > 0 ? `
+                <button type="button" class="trainer-btn-secondary" onclick="reiniciarEjerciciosEnRutinaEnfoqueTrainer('${targetType}', '${targetId}')" title="Desmarcar todos los ejercicios para reusar la rutina">
+                    🔄 Reiniciar Checks
+                </button>
+            ` : ''}
+        </div>
+    </div>
+    `;
+
+    return html;
+}
+
 function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
+    var activas = APP_STATE.subappTrainer.sesionesActivas || [];
     var query = (BUSQUEDA_ENFOQUE_TRAINER || '').toLowerCase().trim();
-    var filtrados = rutinas.filter(function(r) {
+
+    // Ordenar: primero activas / asignadas / creadas con ejercicios, luego plantillas base
+    var ordenadas = rutinas.slice().sort(function(a, b) {
+        var aAct = activas.some(function(s) { return s.enfoqueId === a.id || (s.enfoque || '').toLowerCase() === (a.nombre || '').toLowerCase(); }) ? 1 : 0;
+        var bAct = activas.some(function(s) { return s.enfoqueId === b.id || (s.enfoque || '').toLowerCase() === (b.nombre || '').toLowerCase(); }) ? 1 : 0;
+        if (aAct !== bAct) return bAct - aAct;
+        var aPers = (a.origen === 'aleatoria' || a.alumnoNombre || (Array.isArray(a.ejercicios) && a.ejercicios.length > 0)) ? 1 : 0;
+        var bPers = (b.origen === 'aleatoria' || b.alumnoNombre || (Array.isArray(b.ejercicios) && b.ejercicios.length > 0)) ? 1 : 0;
+        if (aPers !== bPers) return bPers - aPers;
+        return (b.updatedAt || b.timestamp || 0) - (a.updatedAt || a.timestamp || 0);
+    });
+
+    var countAsignadas = ordenadas.filter(function(r) {
+        return r.origen === 'aleatoria' || r.alumnoNombre || (Array.isArray(r.ejercicios) && r.ejercicios.length > 0);
+    }).length;
+    var countPlantillas = ordenadas.length - countAsignadas;
+
+    var filtrados = ordenadas.filter(function(r) {
+        var esPersonalizada = !!(r.origen === 'aleatoria' || r.alumnoNombre || (Array.isArray(r.ejercicios) && r.ejercicios.length > 0));
+        var estaActiva = activas.some(function(s) { return s.enfoqueId === r.id || (s.enfoque || '').toLowerCase() === (r.nombre || '').toLowerCase(); });
+        if (FILTRO_ENFOQUE_TRAINER === 'asignadas' && !esPersonalizada) return false;
+        if (FILTRO_ENFOQUE_TRAINER === 'activas' && !estaActiva) return false;
+        if (FILTRO_ENFOQUE_TRAINER === 'plantillas' && esPersonalizada) return false;
+
         if (!query) return true;
         var nom = (r.nombre || '').toLowerCase();
         var des = (r.descripcion || '').toLowerCase();
-        return nom.indexOf(query) !== -1 || des.indexOf(query) !== -1;
+        var alN = (r.alumnoNombre || '').toLowerCase();
+        var grps = resolverGruposDeEnfoqueTrainer(r).join(' ').toLowerCase();
+        return nom.indexOf(query) !== -1 || des.indexOf(query) !== -1 || alN.indexOf(query) !== -1 || grps.indexOf(query) !== -1;
     });
 
-    var html = `
-    <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="flex: 1; min-width: 210px;">
-            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ENFOQUE_TRAINER)}" placeholder="🔍 Buscar enfoque o rutina..." oninput="filtrarEnfoquesTrainer(this.value)" class="finanzas-input-clean" style="background: #151e34; border: 1px solid rgba(148, 163, 184, 0.24); color: #f8fafc; border-radius: 10px; padding: 10px 13px; width: 100%; box-sizing: border-box; font-size: 13px;">
+    var html = '';
+
+    // A) SECCIÓN DE RUTINAS RODANDO EN VIVO SIMULTÁNEAMENTE (1, 2, 3+)
+    if (activas.length > 0) {
+        html += `
+        <div class="trainer-panel-clean" style="margin-bottom: 14px; border-color: rgba(52, 211, 153, 0.35); background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, #141d31 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                <div style="font-size: 13px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px;">
+                    🟢 Rutinas Rodando Ahora (${activas.length}) — Toca una para ver ejercicios
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                ${activas.map(function(s) {
+                    var segs = Math.max(0, Math.floor((Date.now() - s.inicioTimestamp) / 1000));
+                    var reloj = formatearSegundosTrainer(segs);
+                    var enfRef = s.enfoqueId ? rutinas.find(function(x) { return x.id === s.enfoqueId; }) : null;
+                    var ejsS = (Array.isArray(s.ejercicios) && s.ejercicios.length > 0) ? s.ejercicios : resolverEjerciciosDeEnfoqueTrainer(enfRef);
+                    var hechosS = ejsS.filter(function(e) { return !!e.completado; }).length;
+                    var faltanS = Math.max(0, ejsS.length - hechosS);
+                    var gruposS = (Array.isArray(s.gruposUsados) && s.gruposUsados.length > 0) ? s.gruposUsados : resolverGruposDeEjerciciosTrainer(ejsS, s.enfoque);
+                    var isSel = (SESION_ACTIVA_DETALLE_ID === s.id);
+                    return `
+                    <div class="trainer-live-session-card ${isSel ? 'is-selected' : ''}" onclick="seleccionarSesionActivaEnfoqueTrainer('${s.id}')">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                            <div style="min-width: 0;">
+                                <div style="font-size: 11.5px; font-weight: 800; color: #38bdf8;">👤 ${escapeHtmlTrainer(s.alumnoNombre || 'Atleta')}</div>
+                                <div style="font-size: 13.5px; font-weight: 800; color: #ffffff; margin-top: 2px;">${escapeHtmlTrainer(s.enfoque || 'Rutina')}</div>
+                            </div>
+                            <span style="font-size: 13px; font-weight: 800; font-family: monospace; color: #34d399; background: #0d1322; border: 1px solid rgba(52, 211, 153, 0.4); padding: 3px 8px; border-radius: 7px; flex-shrink: 0;" data-trainer-clock-id="${s.id}">${reloj}</span>
+                        </div>
+                        ${gruposS.length > 0 ? `
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+                            ${gruposS.map(function(g) { return '<span class="trainer-muscle-pill">' + escapeHtmlTrainer(g) + '</span>'; }).join('')}
+                        </div>` : ''}
+                        <div style="font-size: 11.5px; color: #cbd5e1; margin-bottom: 8px; font-weight: 700;">
+                            ${ejsS.length > 0
+                                ? '✅ <span style="color:#34d399;">' + hechosS + '/' + ejsS.length + '</span> · <span style="color:' + (faltanS === 0 ? '#34d399' : '#fbbf24') + ';">' + (faltanS === 0 ? '¡Completa!' : 'Faltan ' + faltanS) + '</span>'
+                                : 'Sesión cronometrada en vivo'}
+                        </div>
+                        <div style="display: flex; gap: 6px; border-top: 1px solid rgba(148, 163, 184, 0.16); padding-top: 8px;" onclick="event.stopPropagation()">
+                            <button type="button" class="trainer-btn-secondary" onclick="seleccionarSesionActivaEnfoqueTrainer('${s.id}')" style="flex: 1; justify-content: center; font-size: 11px; padding: 6px 8px; color: #7dd3fc;">
+                                👁️ Detalle
+                            </button>
+                            <button type="button" class="trainer-btn-primary" onclick="pararTimerEntrenamiento('${s.id}')" style="flex: 1; justify-content: center; font-size: 11px; padding: 6px 8px;">
+                                🛑 Finalizar
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
         </div>
-        <button type="button" class="trainer-btn-primary" onclick="abrirModalEnfoqueTrainer()">
-            <span>➕</span> Nuevo Enfoque
-        </button>
+        `;
+    }
+
+    // B) PANEL DETALLADO DE RUTINA SELECCIONADA (Atleta, Grupos Musculares y Ejercicios Hechos vs Faltantes)
+    html += renderizarHtmlDetalleRutinaEnfoqueTrainer(activas, rutinas);
+
+    // C) BUSCADOR, FILTROS Y ACCIÓN MÚLTIPLE
+    var hayListasParaIniciar = ordenadas.some(function(r) {
+        var nomA = (r.alumnoNombre || '').trim();
+        var tieneP = !!(r.alumnoId || (nomA && nomA !== 'Atleta' && nomA !== 'Plantilla General' && nomA !== 'Alumno General'));
+        var noRodando = !activas.some(function(s) { return s.enfoqueId === r.id; });
+        return tieneP && noRodando;
+    });
+
+    html += `
+    <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="flex: 1; min-width: 200px;">
+            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ENFOQUE_TRAINER)}" placeholder="🔍 Buscar rutina, atleta o músculo..." oninput="filtrarEnfoquesTrainer(this.value)" class="finanzas-input-clean" style="background: #151e34; border: 1px solid rgba(148, 163, 184, 0.24); color: #f8fafc; border-radius: 10px; padding: 10px 13px; width: 100%; box-sizing: border-box; font-size: 13px;">
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${hayListasParaIniciar ? `
+                <button type="button" class="trainer-btn-secondary" onclick="iniciarTodasRutinasAsignadasTrainer()" style="border-color: rgba(52, 211, 153, 0.45); color: #6ee7b7;" title="Inicia todas las rutinas asignadas a alumnos al mismo tiempo">
+                    <span>⚡</span> Rodar Todas
+                </button>
+            ` : ''}
+            <button type="button" class="trainer-btn-primary" onclick="abrirModalEnfoqueTrainer()">
+                <span>➕</span> Nuevo Enfoque
+            </button>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
+        <button type="button" class="trainer-filter-pill ${FILTRO_ENFOQUE_TRAINER === 'todas' ? 'active' : ''}" onclick="cambiarFiltroEnfoqueTrainer('todas')">📋 Todas (${ordenadas.length})</button>
+        <button type="button" class="trainer-filter-pill ${FILTRO_ENFOQUE_TRAINER === 'asignadas' ? 'active' : ''}" onclick="cambiarFiltroEnfoqueTrainer('asignadas')">🔥 Aleatorias & Atletas (${countAsignadas})</button>
+        <button type="button" class="trainer-filter-pill ${FILTRO_ENFOQUE_TRAINER === 'activas' ? 'active' : ''}" onclick="cambiarFiltroEnfoqueTrainer('activas')">🟢 Rodando (${activas.length})</button>
+        <button type="button" class="trainer-filter-pill ${FILTRO_ENFOQUE_TRAINER === 'plantillas' ? 'active' : ''}" onclick="cambiarFiltroEnfoqueTrainer('plantillas')">🎯 Plantillas (${countPlantillas})</button>
     </div>
     `;
 
@@ -4279,10 +5037,10 @@ function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
         html += `
         <div class="trainer-panel-clean" style="border-style: dashed; padding: 34px 18px; text-align: center; color: #cbd5e1;">
             <div style="font-size: 34px; margin-bottom: 8px;">🎯</div>
-            <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">No hay rutinas o enfoques</div>
-            <div style="font-size: 12.5px; margin-bottom: 14px;">Crea enfoques como Pierna, Push, Pull o Fullbody para iniciar sesiones al instante.</div>
+            <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">No hay rutinas o enfoques aquí</div>
+            <div style="font-size: 12.5px; margin-bottom: 14px;">Genera una rutina en Rutina Aleatoria o crea un enfoque personalizado.</div>
             <button type="button" class="trainer-btn-primary" onclick="abrirModalEnfoqueTrainer()" style="margin: 0 auto;">
-                + Crear Primer Enfoque
+                + Crear Enfoque
             </button>
         </div>
         `;
@@ -4292,25 +5050,73 @@ function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
     html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 12px;">';
 
     filtrados.forEach(function(r) {
+        var ejsR = resolverEjerciciosDeEnfoqueTrainer(r);
+        var gruposR = resolverGruposDeEnfoqueTrainer(r);
+        var sesAsociadas = activas.filter(function(s) {
+            return s.enfoqueId === r.id || (!s.enfoqueId && (s.enfoque || '').toLowerCase().trim() === (r.nombre || '').toLowerCase().trim());
+        });
+        var estaRodando = sesAsociadas.length > 0;
+        var hechosR = ejsR.filter(function(e) { return !!e.completado; }).length;
+        var faltanR = Math.max(0, ejsR.length - hechosR);
+        var seleccionado = (ENFOQUE_DETALLE_ABIERTO_ID === r.id && !ENFOQUE_DETALLE_CERRADO_MANUAL);
+        var nomAlumno = (r.alumnoNombre || '').trim();
+        var tienePersona = !!(r.alumnoId || (nomAlumno && nomAlumno !== 'Atleta' && nomAlumno !== 'Plantilla General' && nomAlumno !== 'Alumno General'));
+        var yaRodandoMismoAtleta = estaRodando && (!tienePersona || sesAsociadas.some(function(s) {
+            return (r.alumnoId && s.alumnoId === r.alumnoId) || ((s.alumnoNombre || '').toLowerCase() === nomAlumno.toLowerCase());
+        }));
+
         html += `
-        <div class="trainer-enfoque-card">
+        <div class="trainer-enfoque-card ${seleccionado ? 'is-selected' : ''} ${estaRodando ? 'is-running' : ''}" onclick="seleccionarEnfoqueDetalleTrainer('${r.id}')" style="cursor: pointer;">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
-                    <div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                            ${estaRodando ? `<span style="font-size: 10px; font-weight: 800; color: #34d399; background: rgba(16, 185, 129, 0.16); border: 1px solid rgba(52, 211, 153, 0.45); padding: 2px 7px; border-radius: 6px;">🟢 RODANDO (${sesAsociadas.length})</span>` : ''}
+                            ${r.alumnoNombre ? `<span style="font-size: 10px; font-weight: 800; color: #7dd3fc; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); padding: 2px 7px; border-radius: 6px;">👤 ${escapeHtmlTrainer(r.alumnoNombre)}</span>` : ''}
+                        </div>
                         <div style="font-size: 14.5px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(r.nombre)}</div>
-                        <span style="font-size: 11px; color: #34d399; font-weight: 700;">⏱️ ${r.tiempoMin || 60} min</span>
+                        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; margin-top: 2px;">
+                            ⏱️ ${r.tiempoMin || 60} min${r.diaSemana ? ' · 📅 ' + escapeHtmlTrainer(r.diaSemana) : ''}
+                            ${ejsR.length > 0 ? ' · <strong style="color:#e2e8f0;">' + ejsR.length + ' ej.</strong>' : ''}
+                        </div>
                     </div>
-                    <span style="font-size: 16px; font-weight: 800; color: #34d399;">$${(parseFloat(r.precio) || 0).toFixed(2)}</span>
+                    <span style="font-size: 16px; font-weight: 800; color: #34d399; flex-shrink: 0;">$${(parseFloat(r.precio) || 0).toFixed(2)}</span>
                 </div>
 
-                <div style="font-size: 12px; color: #cbd5e1; line-height: 1.45; margin-bottom: 12px; background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 8px 10px;">
+                ${gruposR.length > 0 ? `
+                <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+                    ${gruposR.map(function(g) { return '<span class="trainer-muscle-pill">' + escapeHtmlTrainer(g) + '</span>'; }).join('')}
+                </div>` : ''}
+
+                ${ejsR.length > 0 ? `
+                <div style="background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; margin-bottom: 5px;">
+                        <span style="color: #34d399;">✅ ${hechosR}/${ejsR.length} hechos</span>
+                        <span style="color: ${faltanR === 0 ? '#34d399' : '#fbbf24'};">${faltanR === 0 ? 'Completa' : 'Faltan ' + faltanR}</span>
+                    </div>
+                    <div style="font-size: 11.5px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${ejsR.slice(0, 3).map(function(e) { return escapeHtmlTrainer(e.nombre); }).join(' · ')}${ejsR.length > 3 ? ' +' + (ejsR.length - 3) + ' más' : ''}
+                    </div>
+                </div>
+                ` : `
+                <div style="font-size: 12px; color: #cbd5e1; line-height: 1.45; margin-bottom: 10px; background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 8px 10px;">
                     ${escapeHtmlTrainer(r.descripcion || 'Sin descripción técnica registrada.')}
                 </div>
+                `}
             </div>
 
-            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(148, 163, 184, 0.14); padding-top: 10px;">
-                <button type="button" class="trainer-btn-primary" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(r.nombre)}')" style="flex: 2; justify-content: center; font-size: 11.5px; padding: 7px 10px;">
-                    🏋️‍♂️ Iniciar Rutina
+            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(148, 163, 184, 0.14); padding-top: 10px;" onclick="event.stopPropagation()">
+                ${yaRodandoMismoAtleta ? `
+                    <button type="button" class="trainer-btn-secondary" onclick="seleccionarSesionActivaEnfoqueTrainer('${sesAsociadas[0].id}')" style="flex: 2; justify-content: center; font-size: 11.5px; padding: 7px 10px; color: #34d399; border-color: rgba(52, 211, 153, 0.45);">
+                        👁️ Ver Rodando
+                    </button>
+                ` : `
+                    <button type="button" class="trainer-btn-primary" onclick="iniciarRutinaEnfoqueTrainer('${r.id}')" style="flex: 2; justify-content: center; font-size: 11.5px; padding: 7px 10px;">
+                        🏋️‍♂️ Iniciar Rutina
+                    </button>
+                `}
+                <button type="button" class="trainer-btn-secondary" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(r.nombre)}', '${r.id}')" style="font-size: 11.5px; padding: 7px 9px;" title="Iniciar esta rutina con otro atleta">
+                    👥+
                 </button>
                 <button type="button" class="trainer-btn-secondary" onclick="abrirModalEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; padding: 7px 9px;" title="Editar enfoque">
                     ✏️
@@ -4382,7 +5188,7 @@ function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
                         <span style="font-size: 11px; font-weight: 700; color: #34d399; margin-left: 4px;">${escapeHtmlTrainer(s.enfoque || 'Entrenamiento')}</span>
                     </div>
                     <div style="font-size: 11.5px; color: #cbd5e1;">
-                        📅 ${s.fecha} · ⏱️ ${s.duracionMinutos || 60} min
+                        📅 ${s.fecha} · ⏱️ ${s.duracionMinutos || 60} min${s.ejerciciosTotal > 0 ? ' · ✅ ' + (s.ejerciciosCompletados || 0) + '/' + s.ejerciciosTotal + ' ej.' : ''}
                     </div>
                 </div>
             </div>
@@ -4751,6 +5557,74 @@ function reRollearEjercicioTrainer(idx) {
     }
 }
 
+function registrarEnfoqueEstructuradoTrainer(opts) {
+    asegurarEstructuraTrainer();
+    var nombre = (opts.nombre || 'Rutina Personalizada').trim();
+    var ejs = clonarEjerciciosConEstadoTrainer(opts.ejercicios || [], !!opts.preservarChecks);
+    var grupos = (Array.isArray(opts.gruposUsados) && opts.gruposUsados.length > 0)
+        ? opts.gruposUsados.slice()
+        : resolverGruposDeEjerciciosTrainer(ejs, nombre);
+    var ahora = Date.now();
+    var fechaISO = opts.fechaISO || obtenerFechaHoyISOTrainer();
+    var fechaStr = opts.fechaAsignacion || new Date().toLocaleDateString('es-ES');
+    var diaSemana = opts.diaSemana || DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var descAuto = "Rutina estructurada de " + ejs.length + " ejercicios: " + ejs.map(function(e) { return e.nombre; }).join(', ');
+
+    var lista = APP_STATE.subappTrainer.rutinasEnfoques || [];
+    var existente = null;
+    if (opts.rutinaAsignadaId) {
+        existente = lista.find(function(e) { return e.rutinaAsignadaId && e.rutinaAsignadaId === opts.rutinaAsignadaId; });
+    }
+    if (!existente && opts.enfoqueId) {
+        existente = lista.find(function(e) { return e.id === opts.enfoqueId; });
+    }
+    if (!existente && opts.dedupeByNameAndAthlete) {
+        existente = lista.find(function(e) {
+            return (e.nombre || '').toLowerCase().trim() === nombre.toLowerCase() &&
+                String(e.alumnoId || '') === String(opts.alumnoId || '');
+        });
+    }
+
+    if (existente) {
+        existente.nombre = nombre;
+        existente.precio = opts.precio !== undefined ? opts.precio : (existente.precio || 15);
+        existente.tiempoMin = opts.tiempoMin || existente.tiempoMin || 60;
+        existente.descripcion = opts.descripcion || descAuto;
+        existente.origen = opts.origen || existente.origen || 'aleatoria';
+        existente.alumnoId = opts.alumnoId !== undefined ? opts.alumnoId : (existente.alumnoId || null);
+        existente.alumnoNombre = opts.alumnoNombre || existente.alumnoNombre || '';
+        existente.fechaAsignacion = fechaStr;
+        existente.fechaISO = fechaISO;
+        existente.diaSemana = diaSemana;
+        existente.gruposUsados = grupos;
+        if (opts.rutinaAsignadaId) existente.rutinaAsignadaId = opts.rutinaAsignadaId;
+        if (ejs.length > 0) existente.ejercicios = ejs;
+        existente.updatedAt = ahora;
+        return existente;
+    }
+
+    var nuevoEnfoque = {
+        id: "ENF-" + ahora + "-" + Math.floor(Math.random() * 900 + 100),
+        nombre: nombre,
+        precio: opts.precio !== undefined ? opts.precio : 15,
+        tiempoMin: opts.tiempoMin || 60,
+        descripcion: opts.descripcion || descAuto,
+        origen: opts.origen || 'aleatoria',
+        alumnoId: opts.alumnoId || null,
+        alumnoNombre: opts.alumnoNombre || '',
+        fechaAsignacion: fechaStr,
+        fechaISO: fechaISO,
+        diaSemana: diaSemana,
+        gruposUsados: grupos,
+        rutinaAsignadaId: opts.rutinaAsignadaId || null,
+        ejercicios: ejs,
+        timestamp: ahora,
+        updatedAt: ahora
+    };
+    APP_STATE.subappTrainer.rutinasEnfoques.unshift(nuevoEnfoque);
+    return nuevoEnfoque;
+}
+
 function asignarRutinaGeneradaAAlumnoTrainer() {
     if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
         alert("Primero genera una rutina de entrenamiento.");
@@ -4782,7 +5656,9 @@ function asignarRutinaGeneradaAAlumnoTrainer() {
         ALUMNO_RUTINA_TRAINER_SELECCIONADO = alumno.id;
     }
 
-    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
+    var hoyNombre = (RUTINA_TRAINER_META && RUTINA_TRAINER_META.diaNombre)
+        ? RUTINA_TRAINER_META.diaNombre
+        : DIAS_SEMANA_NOMBRES[obtenerDiaRutinaTrainerActivoIdx()];
     var d = new Date();
     var fechaStr = d.toLocaleDateString('es-ES');
     var nombreDefecto = "Rutina " + hoyNombre + " - " + alumno.nombre + " (" + fechaStr + ")";
@@ -4791,34 +5667,48 @@ function asignarRutinaGeneradaAAlumnoTrainer() {
 
     if (!Array.isArray(alumno.rutinasAsignadas)) alumno.rutinasAsignadas = [];
 
+    var grupos = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados.slice()
+        : resolverGruposDeEjerciciosTrainer(RUTINA_TRAINER_GENERADA, hoyNombre);
+
     var nuevaRutinaAsignada = {
         id: "RUT-ASIG-" + Date.now(),
         nombre: nombreFinal.trim(),
         fechaAsignacion: fechaStr,
+        fechaISO: obtenerFechaHoyISOTrainer(),
         timestamp: Date.now(),
+        updatedAt: Date.now(),
         diaSemana: hoyNombre,
-        ejercicios: JSON.parse(JSON.stringify(RUTINA_TRAINER_GENERADA))
+        gruposUsados: grupos,
+        ejercicios: clonarEjerciciosConEstadoTrainer(RUTINA_TRAINER_GENERADA, false)
     };
 
     alumno.rutinasAsignadas.unshift(nuevaRutinaAsignada);
 
-    // Opcionalmente agregar también a los enfoques del trainer
-    var enfExistente = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) {
-        return e.nombre.toLowerCase().trim() === nombreFinal.toLowerCase().trim();
+    var enfCreado = registrarEnfoqueEstructuradoTrainer({
+        nombre: nombreFinal.trim(),
+        precio: parseFloat(alumno.tarifaHabitual) || 15,
+        tiempoMin: 60,
+        origen: 'aleatoria',
+        alumnoId: alumno.id,
+        alumnoNombre: alumno.nombre,
+        fechaAsignacion: fechaStr,
+        fechaISO: nuevaRutinaAsignada.fechaISO,
+        diaSemana: hoyNombre,
+        gruposUsados: grupos,
+        rutinaAsignadaId: nuevaRutinaAsignada.id,
+        ejercicios: nuevaRutinaAsignada.ejercicios,
+        dedupeByNameAndAthlete: true
     });
-    if (!enfExistente) {
-        APP_STATE.subappTrainer.rutinasEnfoques.unshift({
-            id: "ENF-" + Date.now(),
-            nombre: nombreFinal.trim(),
-            precio: parseFloat(alumno.tarifaHabitual) || 15,
-            tiempoMin: 60,
-            descripcion: "Rutina estructurada para " + alumno.nombre + " (" + (nuevaRutinaAsignada.ejercicios.length) + " ejercicios)."
-        });
-    }
+
+    SESION_ACTIVA_DETALLE_ID = '';
+    ENFOQUE_DETALLE_ABIERTO_ID = enfCreado.id;
+    ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+    TAB_TRAINER_ACTIVA = 'enfoques';
 
     MonarcaDB.save(APP_STATE);
     renderizarSubAppTrainer();
-    alert("✓ ¡Rutina '" + nuevaRutinaAsignada.nombre + "' asignada exitosamente a " + alumno.nombre + "!\n\nPuedes verla en su ficha o iniciar un entrenamiento con ella.");
+    alert("✓ ¡Rutina '" + nuevaRutinaAsignada.nombre + "' asignada a " + alumno.nombre + " y agregada en Enfoques!\n\nPresiona '🏋️‍♂️ Iniciar Rutina' cuando desees ponerla a rodar.");
 }
 
 function iniciarEntrenamientoConRutinaTrainer() {
@@ -4836,20 +5726,66 @@ function iniciarEntrenamientoConRutinaTrainer() {
     }
 
     var alumnoNombre = alumno ? alumno.nombre : 'Atleta';
-    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
-    var enfoque = "Rutina " + hoyNombre + " (" + (RUTINA_TRAINER_GENERADA.length) + " ej.)";
+    var hoyNombre = (RUTINA_TRAINER_META && RUTINA_TRAINER_META.diaNombre)
+        ? RUTINA_TRAINER_META.diaNombre
+        : DIAS_SEMANA_NOMBRES[obtenerDiaRutinaTrainerActivoIdx()];
+    var fechaStr = new Date().toLocaleDateString('es-ES');
+    var fechaISO = obtenerFechaHoyISOTrainer();
+    var nombreRutina = alumno
+        ? ("Rutina " + hoyNombre + " · " + alumno.nombre + " (" + fechaStr + ")")
+        : ("Rutina " + hoyNombre + " (" + (RUTINA_TRAINER_GENERADA.length) + " ej.)");
+    var grupos = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados.slice()
+        : resolverGruposDeEjerciciosTrainer(RUTINA_TRAINER_GENERADA, hoyNombre);
+    var ejs = clonarEjerciciosConEstadoTrainer(RUTINA_TRAINER_GENERADA, false);
 
-    APP_STATE.subappTrainer.timerActivo = {
-        inicioTimestamp: Date.now(),
+    var rutinaAsigId = null;
+    if (alumno) {
+        if (!Array.isArray(alumno.rutinasAsignadas)) alumno.rutinasAsignadas = [];
+        rutinaAsigId = "RUT-ASIG-" + Date.now();
+        alumno.rutinasAsignadas.unshift({
+            id: rutinaAsigId,
+            nombre: nombreRutina,
+            fechaAsignacion: fechaStr,
+            fechaISO: fechaISO,
+            timestamp: Date.now(),
+            updatedAt: Date.now(),
+            diaSemana: hoyNombre,
+            gruposUsados: grupos,
+            ejercicios: clonarEjerciciosConEstadoTrainer(ejs, false)
+        });
+    }
+
+    var enfCreado = registrarEnfoqueEstructuradoTrainer({
+        nombre: nombreRutina,
+        precio: alumno && alumno.tarifaHabitual ? parseFloat(alumno.tarifaHabitual) : 15,
+        tiempoMin: 60,
+        origen: 'aleatoria',
         alumnoId: alumno ? alumno.id : null,
         alumnoNombre: alumnoNombre,
-        enfoque: enfoque
-    };
+        fechaAsignacion: fechaStr,
+        fechaISO: fechaISO,
+        diaSemana: hoyNombre,
+        gruposUsados: grupos,
+        rutinaAsignadaId: rutinaAsigId,
+        ejercicios: ejs,
+        dedupeByNameAndAthlete: true
+    });
+
+    crearSesionActivaTrainer({
+        alumnoId: alumno ? alumno.id : null,
+        alumnoNombre: alumnoNombre,
+        enfoqueId: enfCreado.id,
+        enfoqueNombre: enfCreado.nombre,
+        rutinaAsignadaId: rutinaAsigId,
+        gruposUsados: grupos,
+        ejercicios: ejs
+    });
 
     MonarcaDB.save(APP_STATE);
     iniciarIntervaloTimerTrainer();
-    setTabTrainer('calendario');
-    alert("🏋️‍♂️ Sesión de entrenamiento iniciada en vivo para " + alumnoNombre + " (" + enfoque + "). Cronómetro activo.");
+    setTabTrainer('enfoques');
+    alert("🏋️‍♂️ ¡Rutina iniciada en vivo para " + alumnoNombre + "!\nYa aparece rodando dentro de Enfoques junto con sus grupos musculares y ejercicios.");
 }
 
 function guardarRutinaTrainerComoEnfoque() {
@@ -4858,22 +5794,66 @@ function guardarRutinaTrainerComoEnfoque() {
         return;
     }
     asegurarEstructuraTrainer();
-    var hoyNombre = DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()];
-    var nombreDef = "Rutina " + hoyNombre + " (" + (PERFIL_TRAINER_ALEATORIA_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + ") - " + new Date().toLocaleDateString('es-ES');
+    var alumnos = APP_STATE.subappTrainer.alumnos || [];
+    var alumno = ALUMNO_RUTINA_TRAINER_SELECCIONADO
+        ? alumnos.find(function(a) { return a.id === ALUMNO_RUTINA_TRAINER_SELECCIONADO; })
+        : null;
+
+    var hoyNombre = (RUTINA_TRAINER_META && RUTINA_TRAINER_META.diaNombre)
+        ? RUTINA_TRAINER_META.diaNombre
+        : DIAS_SEMANA_NOMBRES[obtenerDiaRutinaTrainerActivoIdx()];
+    var fechaStr = new Date().toLocaleDateString('es-ES');
+    var nombreDef = alumno
+        ? ("Rutina " + hoyNombre + " - " + alumno.nombre + " (" + fechaStr + ")")
+        : ("Rutina " + hoyNombre + " (" + (PERFIL_TRAINER_ALEATORIA_ACTIVO === 'mujer' ? 'Mujer' : 'Hombre') + ") - " + fechaStr);
     var nombre = prompt("Nombre para guardar esta rutina en el catálogo de Enfoques del Trainer:", nombreDef);
     if (!nombre || !nombre.trim()) return;
 
-    var nuevoEnfoque = {
-        id: "ENF-" + Date.now(),
-        nombre: nombre.trim(),
-        precio: 15,
-        tiempoMin: 60,
-        descripcion: "Rutina estructurada de " + RUTINA_TRAINER_GENERADA.length + " ejercicios: " + RUTINA_TRAINER_GENERADA.map(function(e) { return e.nombre; }).join(', ')
-    };
+    var grupos = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados.slice()
+        : resolverGruposDeEjerciciosTrainer(RUTINA_TRAINER_GENERADA, hoyNombre);
+    var ejs = clonarEjerciciosConEstadoTrainer(RUTINA_TRAINER_GENERADA, false);
 
-    APP_STATE.subappTrainer.rutinasEnfoques.unshift(nuevoEnfoque);
+    var rutinaAsigId = null;
+    if (alumno) {
+        if (!Array.isArray(alumno.rutinasAsignadas)) alumno.rutinasAsignadas = [];
+        rutinaAsigId = "RUT-ASIG-" + Date.now();
+        alumno.rutinasAsignadas.unshift({
+            id: rutinaAsigId,
+            nombre: nombre.trim(),
+            fechaAsignacion: fechaStr,
+            fechaISO: obtenerFechaHoyISOTrainer(),
+            timestamp: Date.now(),
+            updatedAt: Date.now(),
+            diaSemana: hoyNombre,
+            gruposUsados: grupos,
+            ejercicios: clonarEjerciciosConEstadoTrainer(ejs, false)
+        });
+    }
+
+    var nuevoEnfoque = registrarEnfoqueEstructuradoTrainer({
+        nombre: nombre.trim(),
+        precio: alumno && alumno.tarifaHabitual ? parseFloat(alumno.tarifaHabitual) : 15,
+        tiempoMin: 60,
+        origen: 'aleatoria',
+        alumnoId: alumno ? alumno.id : null,
+        alumnoNombre: alumno ? alumno.nombre : '',
+        fechaAsignacion: fechaStr,
+        fechaISO: obtenerFechaHoyISOTrainer(),
+        diaSemana: hoyNombre,
+        gruposUsados: grupos,
+        rutinaAsignadaId: rutinaAsigId,
+        ejercicios: ejs,
+        dedupeByNameAndAthlete: true
+    });
+
+    SESION_ACTIVA_DETALLE_ID = '';
+    ENFOQUE_DETALLE_ABIERTO_ID = nuevoEnfoque.id;
+    ENFOQUE_DETALLE_CERRADO_MANUAL = false;
+    TAB_TRAINER_ACTIVA = 'enfoques';
+
     MonarcaDB.save(APP_STATE);
-    alert("✓ Rutina '" + nuevoEnfoque.nombre + "' agregada al catálogo de 'Rutinas & Enfoques' de Personal Trainer.");
+    alert("✓ Rutina '" + nuevoEnfoque.nombre + "' agregada al apartado de Enfoques.");
     renderizarSubAppTrainer();
 }
 
@@ -4885,16 +5865,41 @@ function iniciarEntrenamientoConRutinaAsignada(alumnoId, rIdx) {
     var r = al.rutinasAsignadas[rIdx];
     cerrarModalFichaAlumnoTrainer();
 
-    APP_STATE.subappTrainer.timerActivo = {
-        inicioTimestamp: Date.now(),
+    var ejs = Array.isArray(r.ejercicios) ? r.ejercicios : [];
+    var grupos = (Array.isArray(r.gruposUsados) && r.gruposUsados.length > 0)
+        ? r.gruposUsados.slice()
+        : resolverGruposDeEjerciciosTrainer(ejs, r.nombre);
+
+    var enf = registrarEnfoqueEstructuradoTrainer({
+        nombre: r.nombre,
+        precio: parseFloat(al.tarifaHabitual) || 15,
+        tiempoMin: 60,
+        origen: 'aleatoria',
         alumnoId: al.id,
         alumnoNombre: al.nombre,
-        enfoque: r.nombre
-    };
+        fechaAsignacion: r.fechaAsignacion || new Date().toLocaleDateString('es-ES'),
+        fechaISO: r.fechaISO || obtenerFechaHoyISOTrainer(),
+        diaSemana: r.diaSemana || DIAS_SEMANA_NOMBRES[obtenerDiaSemanaActualIdx()],
+        gruposUsados: grupos,
+        rutinaAsignadaId: r.id,
+        ejercicios: ejs,
+        preservarChecks: true,
+        dedupeByNameAndAthlete: true
+    });
+
+    crearSesionActivaTrainer({
+        alumnoId: al.id,
+        alumnoNombre: al.nombre,
+        enfoqueId: enf.id,
+        enfoqueNombre: enf.nombre,
+        rutinaAsignadaId: r.id,
+        gruposUsados: grupos,
+        ejercicios: ejs
+    });
 
     MonarcaDB.save(APP_STATE);
     iniciarIntervaloTimerTrainer();
-    renderizarSubAppTrainer();
+    setTabTrainer('enfoques');
     alert("🏋️‍♂️ Sesión de entrenamiento iniciada en vivo para " + al.nombre + " con la rutina '" + r.nombre + "'.");
 }
 
@@ -5052,7 +6057,7 @@ function renderizarChipsEnfoquesTrainer() {
         var html = '';
         rutinas.forEach(function(r) {
             var nomEsc = escapeHtmlTrainer(r.nombre);
-            html += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('iniciar', '${nomEsc}', ${r.precio || 15})">${nomEsc}</span>`;
+            html += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('iniciar', '${r.id}', ${r.precio || 15})">${nomEsc}</span>`;
         });
         contIniciar.innerHTML = html;
     }
@@ -5062,30 +6067,45 @@ function renderizarChipsEnfoquesTrainer() {
         var html2 = '';
         rutinas.forEach(function(r) {
             var nomEsc = escapeHtmlTrainer(r.nombre);
-            html2 += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('finalizar', '${nomEsc}', ${r.precio || 15})">${nomEsc}</span>`;
+            html2 += `<span class="chip-enfoque-select" onclick="seleccionarChipEnfoqueTrainer('finalizar', '${r.id}', ${r.precio || 15})">${nomEsc}</span>`;
         });
         contFin.innerHTML = html2;
     }
 }
 
-function seleccionarChipEnfoqueTrainer(modalContext, nombreEnfoque, precio) {
+function seleccionarChipEnfoqueTrainer(modalContext, enfoqueIdONombre, precio) {
+    var enfObj = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(r) {
+        return r.id === enfoqueIdONombre || r.nombre === enfoqueIdONombre;
+    });
+    var nombreReal = enfObj ? enfObj.nombre : enfoqueIdONombre;
+    var precioReal = enfObj && enfObj.precio !== undefined ? (parseFloat(enfObj.precio) || 0) : (parseFloat(precio) || 15);
+
     if (modalContext === 'iniciar') {
+        ENFOQUE_MODAL_INICIAR_ID = enfObj ? enfObj.id : '';
         var inEnf = document.getElementById('input-iniciar-entrenamiento-enfoque');
-        if (inEnf) inEnf.value = nombreEnfoque;
+        if (inEnf) inEnf.value = nombreReal;
     } else if (modalContext === 'finalizar') {
         var inEnfFin = document.getElementById('fin-entrenamiento-input-enfoque');
         var inCobro = document.getElementById('fin-entrenamiento-input-cobro');
-        if (inEnfFin) inEnfFin.value = nombreEnfoque;
+        if (inEnfFin) inEnfFin.value = nombreReal;
         if (inCobro && (!inCobro.value || parseFloat(inCobro.value) === 0)) {
-            inCobro.value = precio.toFixed(2);
+            inCobro.value = precioReal.toFixed(2);
         }
     }
 }
 
-function abrirModalIniciarEntrenamiento(alumnoIdPreseleccionado, enfoquePreseleccionado) {
+function abrirModalIniciarEntrenamiento(alumnoIdPreseleccionado, enfoquePreseleccionado, enfoqueIdPreseleccionado) {
     asegurarEstructuraTrainer();
     var modal = document.getElementById('modal-iniciar-entrenamiento-trainer');
     if (!modal) return;
+
+    ENFOQUE_MODAL_INICIAR_ID = enfoqueIdPreseleccionado || '';
+    if (!ENFOQUE_MODAL_INICIAR_ID && enfoquePreseleccionado) {
+        var enfFound = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) {
+            return (e.nombre || '').toLowerCase().trim() === String(enfoquePreseleccionado).toLowerCase().trim();
+        });
+        if (enfFound) ENFOQUE_MODAL_INICIAR_ID = enfFound.id;
+    }
 
     var sel = document.getElementById('select-iniciar-entrenamiento-alumno');
     var inEnfoque = document.getElementById('input-iniciar-entrenamiento-enfoque');
@@ -5130,6 +6150,7 @@ function abrirModalIniciarEntrenamiento(alumnoIdPreseleccionado, enfoquePreselec
 function cerrarModalIniciarEntrenamiento() {
     var modal = document.getElementById('modal-iniciar-entrenamiento-trainer');
     if (modal) modal.style.display = 'none';
+    ENFOQUE_MODAL_INICIAR_ID = '';
 }
 
 function alCambiarAlumnoEnIniciarEntrenamiento() {
@@ -5178,24 +6199,53 @@ function confirmarIniciarEntrenamiento() {
     var enfoque = inEnfoque ? inEnfoque.value.trim() : 'Entrenamiento Personalizado';
     if (!enfoque) enfoque = 'Entrenamiento Personalizado';
 
-    APP_STATE.subappTrainer.timerActivo = {
-        inicioTimestamp: Date.now(),
-        alumnoId: alumnoId,
+    var rutinas = APP_STATE.subappTrainer.rutinasEnfoques || [];
+    var enfMatched = ENFOQUE_MODAL_INICIAR_ID
+        ? rutinas.find(function(r) { return r.id === ENFOQUE_MODAL_INICIAR_ID; })
+        : null;
+    if (!enfMatched) {
+        var enfLow = enfoque.toLowerCase().trim();
+        enfMatched = rutinas.find(function(r) { return (r.nombre || '').toLowerCase().trim() === enfLow; }) || null;
+    }
+
+    var ejs = enfMatched ? resolverEjerciciosDeEnfoqueTrainer(enfMatched) : [];
+    var grupos = enfMatched ? resolverGruposDeEnfoqueTrainer(enfMatched) : resolverGruposDeEjerciciosTrainer([], enfoque);
+
+    crearSesionActivaTrainer({
+        alumnoId: alumnoId || null,
         alumnoNombre: alumnoNombre,
-        enfoque: enfoque
-    };
+        enfoqueId: enfMatched ? enfMatched.id : null,
+        enfoqueNombre: enfMatched ? enfMatched.nombre : enfoque,
+        rutinaAsignadaId: enfMatched ? (enfMatched.rutinaAsignadaId || null) : null,
+        gruposUsados: grupos,
+        ejercicios: ejs
+    });
 
     MonarcaDB.save(APP_STATE);
     cerrarModalIniciarEntrenamiento();
     iniciarIntervaloTimerTrainer();
+    TAB_TRAINER_ACTIVA = 'enfoques';
     renderizarSubAppTrainer();
 }
 
-function descartarTimerEntrenamiento() {
-    if (!confirm("¿Deseas descartar el cronómetro de la sesión en curso? Los datos no se guardarán.")) return;
+function descartarTimerEntrenamiento(sesionId) {
+    if (!confirm("¿Deseas descartar el cronómetro de esta sesión en curso? Los datos no se guardarán.")) return;
     asegurarEstructuraTrainer();
-    APP_STATE.subappTrainer.timerActivo = null;
-    if (INTERVALO_TIMER_TRAINER) {
+    var activas = APP_STATE.subappTrainer.sesionesActivas || [];
+    var target = sesionId
+        ? activas.find(function(s) { return s.id === sesionId; })
+        : activas[0];
+    var targetId = target ? target.id : sesionId;
+
+    if (targetId) {
+        registrarTombstone('subappTrainer_sesionesActivas', targetId);
+        APP_STATE.subappTrainer.sesionesActivas = activas.filter(function(s) { return s.id !== targetId; });
+    }
+    APP_STATE.subappTrainer.timerActivo = APP_STATE.subappTrainer.sesionesActivas[0] || null;
+    if (SESION_ACTIVA_DETALLE_ID === targetId) {
+        SESION_ACTIVA_DETALLE_ID = APP_STATE.subappTrainer.sesionesActivas[0] ? APP_STATE.subappTrainer.sesionesActivas[0].id : '';
+    }
+    if (APP_STATE.subappTrainer.sesionesActivas.length === 0 && INTERVALO_TIMER_TRAINER) {
         clearInterval(INTERVALO_TIMER_TRAINER);
         INTERVALO_TIMER_TRAINER = null;
     }
@@ -5203,9 +6253,12 @@ function descartarTimerEntrenamiento() {
     renderizarSubAppTrainer();
 }
 
-function pararTimerEntrenamiento() {
+function pararTimerEntrenamiento(sesionId) {
     asegurarEstructuraTrainer();
-    var timer = APP_STATE.subappTrainer.timerActivo;
+    var activas = APP_STATE.subappTrainer.sesionesActivas || [];
+    var timer = sesionId
+        ? activas.find(function(s) { return s.id === sesionId; })
+        : activas[0];
     if (!timer) return;
 
     var ahora = Date.now();
@@ -5213,11 +6266,15 @@ function pararTimerEntrenamiento() {
     var minutosTotales = Math.max(1, Math.round(segundosTotales / 60));
 
     ENTRENAMIENTO_TEMPORAL_FINALIZANDO = {
+        sesionActivaId: timer.id,
         segundos: segundosTotales,
         minutos: minutosTotales,
         alumnoId: timer.alumnoId,
         alumnoNombre: timer.alumnoNombre,
-        enfoque: timer.enfoque
+        enfoqueId: timer.enfoqueId || null,
+        enfoque: timer.enfoque,
+        rutinaAsignadaId: timer.rutinaAsignadaId || null,
+        ejercicios: Array.isArray(timer.ejercicios) ? clonarEjerciciosConEstadoTrainer(timer.ejercicios, true) : []
     };
 
     var modal = document.getElementById('modal-finalizar-entrenamiento-trainer');
@@ -5239,11 +6296,13 @@ function pararTimerEntrenamiento() {
     if (timer.alumnoId) {
         var al = (APP_STATE.subappTrainer.alumnos || []).find(function(a) { return a.id === timer.alumnoId; });
         if (al && al.tarifaHabitual) cobroSugerido = parseFloat(al.tarifaHabitual);
-    } else if (timer.enfoque) {
-        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) { return e.nombre.toLowerCase() === timer.enfoque.toLowerCase(); });
-        if (enf && enf.precio) cobroSugerido = parseFloat(enf.precio);
+    } else if (timer.enfoqueId || timer.enfoque) {
+        var enf = (APP_STATE.subappTrainer.rutinasEnfoques || []).find(function(e) {
+            return (timer.enfoqueId && e.id === timer.enfoqueId) || (e.nombre || '').toLowerCase() === (timer.enfoque || '').toLowerCase();
+        });
+        if (enf && enf.precio !== undefined) cobroSugerido = parseFloat(enf.precio);
     }
-    if (inCobro) inCobro.value = cobroSugerido.toFixed(2);
+    if (inCobro) inCobro.value = (isNaN(cobroSugerido) ? 15.00 : cobroSugerido).toFixed(2);
 
     renderizarChipsEnfoquesTrainer();
     modal.style.display = 'flex';
@@ -5313,6 +6372,11 @@ function guardarEntrenamientoFinalizado() {
         APP_STATE.subappTrainer.alumnos.push(nuevoAl);
     }
 
+    var ejsFin = Array.isArray(ENTRENAMIENTO_TEMPORAL_FINALIZANDO.ejercicios)
+        ? ENTRENAMIENTO_TEMPORAL_FINALIZANDO.ejercicios
+        : [];
+    var ejsHechosFin = ejsFin.filter(function(e) { return !!e.completado; }).length;
+
     var nuevoEntrenamiento = {
         id: 'ENT-' + Date.now(),
         fecha: fechaHoyStr,
@@ -5320,7 +6384,10 @@ function guardarEntrenamientoFinalizado() {
         alumnoId: alumnoId,
         alumnoNombre: alumnoNombre,
         enfoque: enfoque,
+        enfoqueId: ENTRENAMIENTO_TEMPORAL_FINALIZANDO.enfoqueId || null,
         duracionMinutos: duracionMinutos,
+        ejerciciosCompletados: ejsHechosFin,
+        ejerciciosTotal: ejsFin.length,
         cobro: cobro,
         registradoEnFinanzas: checkFin ? checkFin.checked : true
     };
@@ -5387,10 +6454,23 @@ function guardarEntrenamientoFinalizado() {
         otorgarExpJugador(expSesion, 'Sesión de Coaching Trainer: ' + alumnoNombre);
     }
 
-    // Limpiar estado del timer
-    APP_STATE.subappTrainer.timerActivo = null;
+    // Retirar únicamente la sesión finalizada (las demás sesiones simultáneas siguen rodando)
+    var finId = ENTRENAMIENTO_TEMPORAL_FINALIZANDO.sesionActivaId;
+    var activasRest = APP_STATE.subappTrainer.sesionesActivas || [];
+    if (finId) {
+        registrarTombstone('subappTrainer_sesionesActivas', finId);
+        activasRest = activasRest.filter(function(s) { return s.id !== finId; });
+    } else if (activasRest.length > 0) {
+        var popped = activasRest.shift();
+        if (popped && popped.id) registrarTombstone('subappTrainer_sesionesActivas', popped.id);
+    }
+    APP_STATE.subappTrainer.sesionesActivas = activasRest;
+    APP_STATE.subappTrainer.timerActivo = activasRest[0] || null;
+    if (SESION_ACTIVA_DETALLE_ID === finId) {
+        SESION_ACTIVA_DETALLE_ID = activasRest[0] ? activasRest[0].id : '';
+    }
     ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
-    if (INTERVALO_TIMER_TRAINER) {
+    if (activasRest.length === 0 && INTERVALO_TIMER_TRAINER) {
         clearInterval(INTERVALO_TIMER_TRAINER);
         INTERVALO_TIMER_TRAINER = null;
     }
