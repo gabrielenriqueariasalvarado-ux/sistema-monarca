@@ -2442,7 +2442,7 @@ function renderizarQuestsDiarios() {
         sanitizarQuestsDiarios();
         var qList = APP_STATE.questsDiarios || [];
 
-        // Actualizar métricas HUD
+        // Actualizar métricas HUD y panel gráfico desplegable
         var completadas = qList.filter(function(q) { return q.estado === 'completada'; }).length;
         var enCurso = qList.filter(function(q) { return q.temporizadorActivo || q.estado === 'en_progreso'; }).length;
         var penalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; }).length;
@@ -2454,6 +2454,10 @@ function renderizarQuestsDiarios() {
         if (mComp) mComp.innerText = completadas + " / " + qList.length;
         if (mCurso) mCurso.innerText = String(enCurso);
         if (mPen) mPen.innerText = String(penalizadas);
+
+        if (typeof actualizarResumenGraficoHabitosHud === 'function') {
+            actualizarResumenGraficoHabitosHud(qList);
+        }
 
         // Renderizar caja de alertas de penitencia activa
         if (contAlertas) {
@@ -3683,6 +3687,197 @@ var FILTRO_CHART_HABITOS = 'dia';
 var FILTRO_CHART_SKILLS = 'dia';
 var _CHART_HABITOS_INSTANCE = null;
 var _CHART_SKILLS_INSTANCE = null;
+var _CHART_HABITOS_ESTADO_INSTANCE = null;
+var _QD_PANEL_GRAFICA_ABIERTO = false;
+var _QD_ULTIMO_RESUMEN_HUD = { comp: 0, curso: 0, pend: 0, pen: 0, total: 0 };
+
+function obtenerConteosEstadoHabitosHud(qList) {
+    var lista = Array.isArray(qList) ? qList : [];
+    var total = lista.length;
+    var comp = 0;
+    var pen = 0;
+    var curso = 0;
+    lista.forEach(function(q) {
+        if (!q || typeof q !== 'object') return;
+        if (q.estado === 'completada') {
+            comp++;
+        } else if (q.estado === 'penalizada') {
+            pen++;
+        } else if (q.temporizadorActivo || q.estado === 'en_progreso') {
+            curso++;
+        }
+    });
+    var pend = Math.max(0, total - comp - pen - curso);
+    return { comp: comp, curso: curso, pend: pend, pen: pen, total: total };
+}
+
+function dibujarFallbackDoughnutHabitosCanvas(canvas, res) {
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    var rect = canvas.getBoundingClientRect();
+    var cssSize = Math.max(120, Math.round(rect.width || canvas.clientWidth || 160));
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssSize * dpr);
+    canvas.height = Math.round(cssSize * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssSize, cssSize);
+
+    var cx = cssSize / 2;
+    var cy = cssSize / 2;
+    var lineW = Math.max(14, Math.round(cssSize * 0.14));
+    var radius = (cssSize / 2) - (lineW / 2) - 4;
+
+    if (!res || res.total <= 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = lineW;
+        ctx.stroke();
+        return;
+    }
+
+    var segs = [
+        { val: res.comp, color: '#10b981' },
+        { val: res.curso, color: '#3b82f6' },
+        { val: res.pend, color: '#818cf8' },
+        { val: res.pen, color: '#ef4444' }
+    ].filter(function(s) { return s.val > 0; });
+
+    var startAngle = -Math.PI / 2;
+    segs.forEach(function(seg) {
+        var slice = (seg.val / res.total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, startAngle, startAngle + slice);
+        ctx.strokeStyle = seg.color;
+        ctx.lineWidth = lineW;
+        ctx.lineCap = 'butt';
+        ctx.stroke();
+        startAngle += slice;
+    });
+}
+
+function renderizarChartEstadoHabitosHud(res) {
+    var canvas = document.getElementById('chart-habitos-estado-hud');
+    if (!canvas) return;
+    var dataObj = res || _QD_ULTIMO_RESUMEN_HUD;
+
+    if (typeof Chart === 'undefined') {
+        dibujarFallbackDoughnutHabitosCanvas(canvas, dataObj);
+        return;
+    }
+
+    if (_CHART_HABITOS_ESTADO_INSTANCE) {
+        _CHART_HABITOS_ESTADO_INSTANCE.destroy();
+        _CHART_HABITOS_ESTADO_INSTANCE = null;
+    }
+
+    var sinDatos = !dataObj || dataObj.total <= 0;
+    var values = sinDatos ? [1] : [dataObj.comp, dataObj.curso, dataObj.pend, dataObj.pen];
+    var colors = sinDatos ? ['rgba(148, 163, 184, 0.2)'] : ['#10b981', '#3b82f6', '#818cf8', '#ef4444'];
+    var labels = sinDatos ? ['Sin misiones'] : ['Completadas', 'En curso', 'Pendientes / Pospuestas', 'Penitencias activas'];
+
+    var ctx = canvas.getContext('2d');
+    _CHART_HABITOS_ESTADO_INSTANCE = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderColor: '#0b1020',
+                borderWidth: sinDatos ? 0 : 2,
+                hoverOffset: sinDatos ? 0 : 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '68%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: !sinDatos,
+                    callbacks: {
+                        label: function(c) {
+                            var total = dataObj.total || 1;
+                            var pct = Math.round((c.raw / total) * 100);
+                            return ' ' + c.label + ': ' + c.raw + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function actualizarResumenGraficoHabitosHud(qList) {
+    var res = obtenerConteosEstadoHabitosHud(qList);
+    _QD_ULTIMO_RESUMEN_HUD = res;
+
+    var denom = res.total > 0 ? res.total : 1;
+    var pct = function(v) { return Math.round((v / denom) * 100); };
+
+    var mini = document.getElementById('qd-mini-barra-progreso');
+    if (mini) {
+        var segMap = {
+            comp: res.total > 0 ? pct(res.comp) : 0,
+            curso: res.total > 0 ? pct(res.curso) : 0,
+            pen: res.total > 0 ? pct(res.pen) : 0,
+            pend: res.total > 0 ? pct(res.pend) : 100
+        };
+        Object.keys(segMap).forEach(function(k) {
+            var el = mini.querySelector('.qd-seg-' + k);
+            if (el) el.style.width = segMap[k] + '%';
+        });
+    }
+
+    var elCentro = document.getElementById('qd-grafica-pct-centro');
+    if (elCentro) {
+        elCentro.textContent = (res.total > 0 ? pct(res.comp) : 0) + '%';
+    }
+
+    [
+        { key: 'comp', val: res.comp },
+        { key: 'curso', val: res.curso },
+        { key: 'pend', val: res.pend },
+        { key: 'pen', val: res.pen }
+    ].forEach(function(row) {
+        var lbl = document.getElementById('qd-leg-' + row.key + '-txt');
+        var bar = document.getElementById('qd-bar-' + row.key);
+        if (lbl) lbl.textContent = res.total > 0 ? (row.val + '/' + res.total) : '0';
+        if (bar) bar.style.width = (res.total > 0 ? pct(row.val) : 0) + '%';
+    });
+
+    if (_QD_PANEL_GRAFICA_ABIERTO) {
+        renderizarChartEstadoHabitosHud(res);
+    }
+}
+
+function togglePanelGraficaHabitos() {
+    _QD_PANEL_GRAFICA_ABIERTO = !_QD_PANEL_GRAFICA_ABIERTO;
+    var accordion = document.getElementById('qd-grafica-accordion');
+    var body = document.getElementById('panel-grafica-habitos-hud');
+    var btn = document.getElementById('btn-toggle-panel-grafica-habitos');
+    var txt = document.getElementById('qd-chart-toggle-txt');
+
+    if (accordion) accordion.classList.toggle('is-open', _QD_PANEL_GRAFICA_ABIERTO);
+    if (body) body.style.display = _QD_PANEL_GRAFICA_ABIERTO ? 'block' : 'none';
+    if (btn) btn.setAttribute('aria-expanded', _QD_PANEL_GRAFICA_ABIERTO ? 'true' : 'false');
+    if (txt) txt.textContent = _QD_PANEL_GRAFICA_ABIERTO ? 'Ocultar' : 'Ver panel';
+
+    if (_QD_PANEL_GRAFICA_ABIERTO) {
+        actualizarResumenGraficoHabitosHud((window.APP_STATE && APP_STATE.questsDiarios) || []);
+        setTimeout(function() {
+            renderizarChartEstadoHabitosHud(_QD_ULTIMO_RESUMEN_HUD);
+        }, 30);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.togglePanelGraficaHabitos = togglePanelGraficaHabitos;
+}
 
 function cambiarFiltroChartHabitos(filtro) {
     FILTRO_CHART_HABITOS = filtro;

@@ -1,5 +1,5 @@
 {
-  "version": "10.81",
+  "version": "10.82",
   "fecha": "2026-11-22",
-  "resumen": "Corrección visual del pie del modal Agregar Canciones a la Lista para que el botón Guardar en Lista nunca se recorte en móvil."
+  "resumen": "Reemplazo de métricas numéricas de Hábitos & Misiones por una gráfica visual dentro de un panel desplegable."
 }

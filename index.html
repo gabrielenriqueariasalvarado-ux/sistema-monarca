@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.81">
+    <link rel="stylesheet" href="style.css?v=10.82">
 </head>
 <body>
 
@@ -442,19 +442,67 @@
                     </div>
                 </div>
 
-                <!-- HUD DE DISCIPLINA -->
-                <div class="quest-daily-hud-grid">
-                    <div class="quest-hud-metric">
-                        <span class="hud-metric-label">COMPLETADAS / HECHAS</span>
-                        <div id="qd-metric-completadas" class="hud-metric-val" style="color: #10b981;">0 / 0</div>
-                    </div>
-                    <div class="quest-hud-metric">
-                        <span class="hud-metric-label">EN CURSO (CRONÓMETRO)</span>
-                        <div id="qd-metric-en-curso" class="hud-metric-val" style="color: #3b82f6;">0</div>
-                    </div>
-                    <div class="quest-hud-metric">
-                        <span class="hud-metric-label">PENITENCIAS ACTIVAS</span>
-                        <div id="qd-metric-penalizadas" class="hud-metric-val" style="color: #ef4444;">0</div>
+                <!-- PANEL DESPLEGABLE DE GRÁFICA DE PROGRESO (REEMPLAZA LOS NÚMEROS ATRAVESADOS) -->
+                <div class="qd-chart-accordion" id="qd-grafica-accordion">
+                    <button type="button" class="qd-chart-toggle-btn" id="btn-toggle-panel-grafica-habitos" onclick="togglePanelGraficaHabitos()" aria-expanded="false" aria-controls="panel-grafica-habitos-hud">
+                        <div class="qd-chart-toggle-left">
+                            <span class="qd-chart-toggle-ico">📊</span>
+                            <div class="qd-chart-toggle-copy">
+                                <span class="qd-chart-toggle-title">Gráfica de Disciplina Hoy</span>
+                                <div class="qd-mini-stacked-bar" id="qd-mini-barra-progreso" aria-hidden="true">
+                                    <span class="qd-seg-comp" style="width: 0%;"></span>
+                                    <span class="qd-seg-curso" style="width: 0%;"></span>
+                                    <span class="qd-seg-pen" style="width: 0%;"></span>
+                                    <span class="qd-seg-pend" style="width: 100%;"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="qd-chart-toggle-pill" id="qd-chart-toggle-pill">
+                            <span id="qd-chart-toggle-txt">Ver panel</span>
+                            <span class="qd-chart-chevron" id="qd-chart-chevron">▾</span>
+                        </span>
+                    </button>
+
+                    <div id="panel-grafica-habitos-hud" class="qd-chart-panel-body" style="display: none;">
+                        <div class="qd-chart-grid-layout">
+                            <div class="qd-chart-doughnut-wrap">
+                                <canvas id="chart-habitos-estado-hud"></canvas>
+                                <div class="qd-chart-center-overlay">
+                                    <span id="qd-grafica-pct-centro" class="qd-chart-pct-val">0%</span>
+                                    <span class="qd-chart-pct-sub">completado</span>
+                                </div>
+                            </div>
+                            <div class="qd-chart-legend-list" id="qd-grafica-leyenda">
+                                <div class="qd-legend-bar-item">
+                                    <div class="qd-legend-row-head">
+                                        <span class="qd-legend-label"><i class="qd-dot is-comp"></i> Completadas</span>
+                                        <span class="qd-legend-ratio" id="qd-leg-comp-txt">0</span>
+                                    </div>
+                                    <div class="qd-legend-bar-track"><div class="qd-legend-bar-fill is-comp" id="qd-bar-comp" style="width: 0%;"></div></div>
+                                </div>
+                                <div class="qd-legend-bar-item">
+                                    <div class="qd-legend-row-head">
+                                        <span class="qd-legend-label"><i class="qd-dot is-curso"></i> En curso (Cronómetro)</span>
+                                        <span class="qd-legend-ratio" id="qd-leg-curso-txt">0</span>
+                                    </div>
+                                    <div class="qd-legend-bar-track"><div class="qd-legend-bar-fill is-curso" id="qd-bar-curso" style="width: 0%;"></div></div>
+                                </div>
+                                <div class="qd-legend-bar-item">
+                                    <div class="qd-legend-row-head">
+                                        <span class="qd-legend-label"><i class="qd-dot is-pend"></i> Pendientes / Pospuestas</span>
+                                        <span class="qd-legend-ratio" id="qd-leg-pend-txt">0</span>
+                                    </div>
+                                    <div class="qd-legend-bar-track"><div class="qd-legend-bar-fill is-pend" id="qd-bar-pend" style="width: 0%;"></div></div>
+                                </div>
+                                <div class="qd-legend-bar-item">
+                                    <div class="qd-legend-row-head">
+                                        <span class="qd-legend-label"><i class="qd-dot is-pen"></i> Penitencias Activas</span>
+                                        <span class="qd-legend-ratio" id="qd-leg-pen-txt">0</span>
+                                    </div>
+                                    <div class="qd-legend-bar-track"><div class="qd-legend-bar-fill is-pen" id="qd-bar-pen" style="width: 0%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -6706,26 +6754,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.81"></script>
-    <script src="js/perfil.js?v=10.81"></script>
-    <script src="js/progresion.js?v=10.81"></script>
-    <script src="js/estado-personal.js?v=10.81"></script>
-    <script src="js/finanzas.js?v=10.81"></script>
-    <script src="js/ideas.js?v=10.81"></script>
-    <script src="js/dinamicas.js?v=10.81"></script>
-    <script src="js/calendario.js?v=10.81"></script>
-    <script src="js/inventario.js?v=10.81"></script>
-    <script src="js/reproductor.js?v=10.81"></script>
-    <script src="js/jarvis-voz.js?v=10.81"></script>
+    <script src="js/core.js?v=10.82"></script>
+    <script src="js/perfil.js?v=10.82"></script>
+    <script src="js/progresion.js?v=10.82"></script>
+    <script src="js/estado-personal.js?v=10.82"></script>
+    <script src="js/finanzas.js?v=10.82"></script>
+    <script src="js/ideas.js?v=10.82"></script>
+    <script src="js/dinamicas.js?v=10.82"></script>
+    <script src="js/calendario.js?v=10.82"></script>
+    <script src="js/inventario.js?v=10.82"></script>
+    <script src="js/reproductor.js?v=10.82"></script>
+    <script src="js/jarvis-voz.js?v=10.82"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.81"></script>
+    <script type="module" src="js/firebase-config.js?v=10.82"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.81')
+                navigator.serviceWorker.register('sw.js?v=10.82')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

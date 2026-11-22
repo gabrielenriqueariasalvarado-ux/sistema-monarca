@@ -4285,6 +4285,234 @@ body.modal-open {
    ESTILOS: QUESTS DIARIOS, RUTINA MATUTINA Y SISTEMA DE PENALIZACIONES
    ========================================================================== */
 
+/* Panel Desplegable de Gráfica de Disciplina (Quests Diarios) */
+.qd-chart-accordion {
+    margin-bottom: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    background: linear-gradient(160deg, rgba(15, 23, 42, 0.78) 0%, rgba(10, 15, 29, 0.92) 100%);
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.qd-chart-accordion.is-open {
+    border-color: rgba(56, 189, 248, 0.42);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.qd-chart-toggle-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+    text-align: left;
+    color: #f8fafc;
+}
+
+.qd-chart-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.qd-chart-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.qd-chart-toggle-ico {
+    font-size: 17px;
+    flex-shrink: 0;
+}
+
+.qd-chart-toggle-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.qd-chart-toggle-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.2;
+}
+
+.qd-mini-stacked-bar {
+    width: 100%;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    display: flex;
+}
+
+.qd-mini-stacked-bar > span {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.qd-seg-comp { background: #10b981; }
+.qd-seg-curso { background: #3b82f6; }
+.qd-seg-pen { background: #ef4444; }
+.qd-seg-pend { background: rgba(129, 140, 248, 0.45); }
+
+.qd-chart-toggle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #7dd3fc;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.qd-chart-chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.qd-chart-accordion.is-open .qd-chart-chevron {
+    transform: rotate(180deg);
+}
+
+.qd-chart-panel-body {
+    padding: 12px 14px 16px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(7, 11, 22, 0.48);
+}
+
+.qd-chart-grid-layout {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 16px;
+    align-items: center;
+}
+
+@media (max-width: 580px) {
+    .qd-chart-grid-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+}
+
+.qd-chart-doughnut-wrap {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin: 0 auto;
+}
+
+.qd-chart-doughnut-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+.qd-chart-center-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.qd-chart-pct-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.1;
+}
+
+.qd-chart-pct-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.qd-chart-legend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+}
+
+.qd-legend-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.qd-legend-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11.5px;
+}
+
+.qd-legend-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.qd-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.qd-dot.is-comp, .qd-legend-bar-fill.is-comp { background: #10b981; }
+.qd-dot.is-curso, .qd-legend-bar-fill.is-curso { background: #3b82f6; }
+.qd-dot.is-pend, .qd-legend-bar-fill.is-pend { background: #818cf8; }
+.qd-dot.is-pen, .qd-legend-bar-fill.is-pen { background: #ef4444; }
+
+.qd-legend-ratio {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.qd-legend-bar-track {
+    width: 100%;
+    height: 7px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+}
+
+.qd-legend-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.35s ease;
+}
+
 .quest-daily-hud-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
