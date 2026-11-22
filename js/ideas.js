@@ -704,8 +704,143 @@ function reRenderSiVistaIdeasActiva() {
     }
 }
 
+function registrarNotificacionSolicitudAutoPC(docRemoto, ideaAsociada) {
+    if (!APP_STATE) return false;
+    var solicitudId = String((docRemoto && (docRemoto.ideaId || docRemoto.id)) || (ideaAsociada && ideaAsociada.id) || '').trim();
+    if (!solicitudId) return false;
+
+    if (!Array.isArray(APP_STATE.notificacionesAutoPC)) APP_STATE.notificacionesAutoPC = [];
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.notificacionesAutoPC)) APP_STATE._eliminados.notificacionesAutoPC = [];
+
+    var tsKeyPart = Number(docRemoto && docRemoto.updatedAt) || Number(docRemoto && docRemoto.createdAt) || 'done';
+    var notifKey = String(solicitudId + '@' + tsKeyPart).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+
+    var yaActiva = APP_STATE.notificacionesAutoPC.some(function(n) { return n && String(n.id) === notifKey; });
+    var yaDescartada = APP_STATE._eliminados.notificacionesAutoPC.some(function(eid) { return String(eid) === notifKey; });
+    if (yaActiva || yaDescartada) return false;
+
+    var rawTexto = (docRemoto && docRemoto.text) || (ideaAsociada && (ideaAsociada.textoPrompt || ideaAsociada.texto)) || ('Solicitud #' + solicitudId);
+    var textoLimpio = obtenerTextoPromptLimpio(rawTexto);
+    var cat = String((docRemoto && docRemoto.categoria) || (ideaAsociada && ideaAsociada.categoria) || '🤖 Auto-PC Local');
+    var subcat = String((docRemoto && docRemoto.subcategoria) || (ideaAsociada && ideaAsociada.subcategoria) || 'Lista');
+    var tsNotif = Number(docRemoto && docRemoto.updatedAt) || Number(docRemoto && docRemoto.createdAt) || Date.now();
+
+    APP_STATE.notificacionesAutoPC.unshift({
+        id: notifKey,
+        solicitudId: solicitudId,
+        texto: textoLimpio,
+        categoria: cat,
+        subcategoria: subcat,
+        esDeEmily: Boolean(ideaAsociada || esCategoriaEmily(cat)),
+        timestamp: tsNotif,
+        fechaActualizacion: tsNotif
+    });
+    return true;
+}
+
+function obtenerAlertasAutoPCActivas() {
+    if (typeof APP_STATE === 'undefined' || !APP_STATE || !Array.isArray(APP_STATE.notificacionesAutoPC)) {
+        return [];
+    }
+    var eliminadas = (APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.notificacionesAutoPC))
+        ? APP_STATE._eliminados.notificacionesAutoPC.map(String)
+        : [];
+
+    return APP_STATE.notificacionesAutoPC
+        .filter(function(n) { return n && n.id && eliminadas.indexOf(String(n.id)) === -1; })
+        .map(function(n) {
+            var ts = Number(n.timestamp) || Date.now();
+            var d = new Date(ts);
+            var horaTxt = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            var fechaTxt = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+            var texto = String(n.texto || '').trim() || ('Solicitud #' + (n.solicitudId || ''));
+            var resumen = texto.length > 68 ? (texto.slice(0, 65) + '...') : texto;
+            var safeId = String(n.id).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+
+            var acciones = [
+                {
+                    tipo: 'primary',
+                    texto: '✓ Entendido',
+                    fn: "descartarNotificacionAutoPC('" + safeId + "')"
+                }
+            ];
+            if (n.esDeEmily) {
+                acciones.push({
+                    tipo: 'secondary',
+                    texto: '📈 Ver Hecha',
+                    fn: "cerrarCentroNotificaciones(); verSolicitudAutoPCEnOperatividad()"
+                });
+            }
+
+            return {
+                id: 'alerta-autopc-' + safeId,
+                autopcNotifId: String(n.id),
+                tipo: 'autopc',
+                icono: '🤖',
+                badge: 'Auto-PC · Lista',
+                color: '#10b981',
+                titulo: 'Solicitud ya fue añadida: "' + resumen + '"',
+                metaLinea: '🕒 ' + horaTxt + ' · ' + fechaTxt + ' · ' + (n.esDeEmily ? '✨ Emily → Hecha' : '💻 Cola local Auto-PC'),
+                descripcion: 'La solicitud "' + texto + '" terminó en tu Auto-PC y ya fue añadida correctamente.',
+                acciones: acciones,
+                _sortTs: ts
+            };
+        })
+        .sort(function(a, b) { return (b._sortTs || 0) - (a._sortTs || 0); });
+}
+
+function descartarNotificacionAutoPC(notifId) {
+    if (!APP_STATE) return;
+    var key = String(notifId || '').trim();
+    if (!key) return;
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('notificacionesAutoPC', key);
+    } else {
+        if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+        if (!Array.isArray(APP_STATE._eliminados.notificacionesAutoPC)) APP_STATE._eliminados.notificacionesAutoPC = [];
+        if (APP_STATE._eliminados.notificacionesAutoPC.indexOf(key) === -1) {
+            APP_STATE._eliminados.notificacionesAutoPC.push(key);
+        }
+    }
+    if (Array.isArray(APP_STATE.notificacionesAutoPC)) {
+        APP_STATE.notificacionesAutoPC = APP_STATE.notificacionesAutoPC.filter(function(n) {
+            return n && String(n.id) !== key;
+        });
+    }
+    MonarcaDB.save(APP_STATE);
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+function descartarTodasNotificacionesAutoPC() {
+    if (!APP_STATE || !Array.isArray(APP_STATE.notificacionesAutoPC) || APP_STATE.notificacionesAutoPC.length === 0) return;
+    APP_STATE.notificacionesAutoPC.forEach(function(n) {
+        if (n && n.id && typeof registrarTombstone === 'function') {
+            registrarTombstone('notificacionesAutoPC', String(n.id));
+        }
+    });
+    APP_STATE.notificacionesAutoPC = [];
+    MonarcaDB.save(APP_STATE);
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Alertas de Auto-PC limpiadas', '✅');
+    }
+}
+
+function verSolicitudAutoPCEnOperatividad() {
+    if (typeof cambiarVista === 'function') {
+        cambiarVista('vista-ideas');
+    }
+    if (typeof alternarSubvistaIdeas === 'function') {
+        alternarSubvistaIdeas('operatividad');
+    }
+}
+
 function procesarSnapshotAutoPCIdeas(lista) {
     var nuevoMapa = {};
+    var docsDone = [];
     if (Array.isArray(lista)) {
         lista.forEach(function(item) {
             if (!item) return;
@@ -713,16 +848,21 @@ function procesarSnapshotAutoPCIdeas(lista) {
             if (key) {
                 nuevoMapa[key] = item;
             }
+            if (String(item.status || '').toLowerCase() === 'done') {
+                docsDone.push(item);
+            }
         });
     }
     AUTOPC_SOLICITUDES_MAP = nuevoMapa;
 
-    if (!APP_STATE || !Array.isArray(APP_STATE.ideas)) {
-        return { completadasAhora: 0, huboCambioEstado: false };
+    if (!APP_STATE) {
+        return { completadasAhora: 0, huboCambioEstado: false, nuevasNotificaciones: 0 };
     }
+    if (!Array.isArray(APP_STATE.ideas)) APP_STATE.ideas = [];
 
     var completadasAhora = 0;
     var huboCambioEstado = false;
+    var nuevasNotificaciones = 0;
 
     APP_STATE.ideas.forEach(function(idea) {
         if (!idea) return;
@@ -757,6 +897,14 @@ function procesarSnapshotAutoPCIdeas(lista) {
         }
     });
 
+    docsDone.forEach(function(docRemoto) {
+        var solId = String(docRemoto.ideaId || docRemoto.id || '').trim();
+        var ideaAsociada = APP_STATE.ideas.find(function(i) { return i && String(i.id) === solId; }) || null;
+        if (registrarNotificacionSolicitudAutoPC(docRemoto, ideaAsociada)) {
+            nuevasNotificaciones++;
+        }
+    });
+
     if (completadasAhora > 0) {
         if (typeof sumarExp === 'function') {
             sumarExp(15 * completadasAhora);
@@ -770,12 +918,32 @@ function procesarSnapshotAutoPCIdeas(lista) {
                 '✅'
             );
         }
-    } else if (huboCambioEstado) {
+    } else if (nuevasNotificaciones > 0 || huboCambioEstado) {
         MonarcaDB.save(APP_STATE);
+        if (nuevasNotificaciones > 0 && typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(
+                nuevasNotificaciones === 1
+                    ? 'Auto-PC añadió 1 solicitud · 🔔 Revisar alertas'
+                    : ('Auto-PC añadió ' + nuevasNotificaciones + ' solicitudes · 🔔 Revisar alertas'),
+                '🤖'
+            );
+        }
+    }
+
+    if (nuevasNotificaciones > 0) {
+        if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        var modalNotif = document.getElementById('modal-centro-notificaciones');
+        if (modalNotif && modalNotif.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+            renderizarCentroNotificaciones();
+        }
     }
 
     reRenderSiVistaIdeasActiva();
-    return { completadasAhora: completadasAhora, huboCambioEstado: huboCambioEstado };
+    return {
+        completadasAhora: completadasAhora,
+        huboCambioEstado: huboCambioEstado,
+        nuevasNotificaciones: nuevasNotificaciones
+    };
 }
 
 if (typeof window !== 'undefined') {
@@ -783,6 +951,10 @@ if (typeof window !== 'undefined') {
     window.cancelarIdeaAutoPC = cancelarIdeaAutoPC;
     window.procesarPendientesOfflineAutoPC = procesarPendientesOfflineAutoPC;
     window.procesarSnapshotAutoPCIdeas = procesarSnapshotAutoPCIdeas;
+    window.obtenerAlertasAutoPCActivas = obtenerAlertasAutoPCActivas;
+    window.descartarNotificacionAutoPC = descartarNotificacionAutoPC;
+    window.descartarTodasNotificacionesAutoPC = descartarTodasNotificacionesAutoPC;
+    window.verSolicitudAutoPCEnOperatividad = verSolicitudAutoPCEnOperatividad;
     window.addEventListener('online', function() {
         procesarPendientesOfflineAutoPC();
     });

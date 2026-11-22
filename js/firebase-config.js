@@ -364,9 +364,16 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.habilidades = deduplicarColeccionPorNombre(habsMerged, tombstones.habilidades, 'nombre');
     }
 
-    // 3. IDEAS Y PENSAMIENTOS
+    // 3. IDEAS Y PENSAMIENTOS + NOTIFICACIONES AUTO-PC
     if (Array.isArray(local.ideas) || Array.isArray(remoto.ideas)) {
         fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas, tombstones.ideas);
+    }
+    if (Array.isArray(local.notificacionesAutoPC) || Array.isArray(remoto.notificacionesAutoPC)) {
+        fusion.notificacionesAutoPC = fusionarColeccionPorId(
+            local.notificacionesAutoPC || [],
+            remoto.notificacionesAutoPC || [],
+            tombstones.notificacionesAutoPC || []
+        );
     }
 
     // 4. PERSONAS, GRUPOS Y AGENDA

@@ -197,6 +197,7 @@ const DEFAULT_STATE = {
         planificacionCompras: []
     },
     ideas: [],
+    notificacionesAutoPC: [],
     calendario: [],
     cronogramaSemanal: [],
     inventario: {
@@ -212,6 +213,7 @@ const DEFAULT_STATE = {
         misiones: [],
         habilidades: [],
         ideas: [],
+        notificacionesAutoPC: [],
         agendaPersonas: [],
         gruposPersonas: [],
         ejercicios: [],
@@ -1482,7 +1484,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.74';
+var MONARCA_APP_VERSION = '10.75';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
@@ -1883,22 +1885,38 @@ function monarcaEscHtml(str) {
 }
 
 function obtenerAlertasSistemaMonarca() {
+    var alertasAutoPC = [];
+    if (typeof window.obtenerAlertasAutoPCActivas === 'function') {
+        try {
+            alertasAutoPC = window.obtenerAlertasAutoPCActivas() || [];
+        } catch(e) {
+            console.warn('[Notificaciones Auto-PC]', e);
+        }
+    }
+
+    var alertasCal = [];
     if (typeof window.obtenerAlertasCalendarioActivas === 'function') {
         try {
-            return window.obtenerAlertasCalendarioActivas() || [];
+            alertasCal = window.obtenerAlertasCalendarioActivas() || [];
         } catch(e) {
             console.warn('[Notificaciones Calendario]', e);
         }
     }
-    return [];
+
+    return alertasAutoPC.concat(alertasCal);
 }
 
 function renderizarCentroNotificaciones() {
     var cont = document.getElementById('contenedor-alertas-notificaciones');
     var txtResumen = document.getElementById('texto-resumen-alertas');
+    var btnLimpiarAutoPC = document.getElementById('btn-limpiar-notifs-autopc');
     if (!cont) return;
 
     var alertas = obtenerAlertasSistemaMonarca();
+    var countAutoPC = alertas.filter(function(a) { return a && a.tipo === 'autopc'; }).length;
+    if (btnLimpiarAutoPC) {
+        btnLimpiarAutoPC.style.display = countAutoPC >= 2 ? 'inline-flex' : 'none';
+    }
     if (txtResumen) {
         txtResumen.textContent = alertas.length + (alertas.length === 1 ? ' notificación activa' : ' notificaciones activas');
     }
@@ -1908,7 +1926,7 @@ function renderizarCentroNotificaciones() {
         html += '<div style="text-align: center; padding: 28px 16px; color: #94a3b8;">' +
             '<div style="font-size: 32px; margin-bottom: 8px;">✨</div>' +
             '<div style="font-weight: 700; font-size: 14px; color: #f8fafc; margin-bottom: 4px;">Todo al día</div>' +
-            '<div style="font-size: 12px;">No tienes recordatorios pendientes ni avisos de eventos activos.</div>' +
+            '<div style="font-size: 12px;">No tienes recordatorios pendientes ni avisos activos.</div>' +
             '</div>';
     } else {
         alertas.forEach(function(a) {
