@@ -82,6 +82,50 @@ var ESTADO_IDEAS = {
     inicializado: false
 };
 
+var AUTOPC_SOLICITUDES_MAP = {};
+
+function esCategoriaEmily(cat) {
+    return Boolean(cat && String(cat).toLowerCase().includes('emily'));
+}
+
+function escapeHtmlIdea(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function obtenerTextoPromptLimpio(texto) {
+    var raw = String(texto || '').trim();
+    var limpio = raw.replace(/\s*\([0-9]+\/[0-9]+\)\s*$/, '').trim();
+    return limpio || raw;
+}
+
+function obtenerPromptParaAutoPC(idea) {
+    if (!idea) return '';
+    var savedPrompt = String(idea.textoPrompt || '').trim();
+    if (savedPrompt) return savedPrompt;
+    return obtenerTextoPromptLimpio(idea.texto || '');
+}
+
+function obtenerEstadoAutoPCIdea(idea) {
+    if (!idea) return null;
+    var remoto = AUTOPC_SOLICITUDES_MAP[String(idea.id)];
+    if (remoto && remoto.status) {
+        return String(remoto.status).toLowerCase();
+    }
+    if (idea.autopcStatus) {
+        return String(idea.autopcStatus).toLowerCase();
+    }
+    if (idea.autopcPendienteSubida) {
+        return 'pending';
+    }
+    return null;
+}
+
 function inicializarBancoDeIdeas() {
     if (ESTADO_IDEAS.inicializado) return;
 
@@ -111,8 +155,9 @@ function alCambiarCategoriaIdea() {
     if (!catSelect || !subcatSelect) return;
 
     var cat = catSelect.value;
+    var esEmily = esCategoriaEmily(cat);
     var info = ESTRUCTURA_BANCO_IDEAS[cat];
-    if (!info && cat.includes('Emily')) {
+    if (!info && esEmily) {
         info = ESTRUCTURA_BANCO_IDEAS["✨ Emily"];
     }
 
@@ -124,6 +169,15 @@ function alCambiarCategoriaIdea() {
             opt.innerText = sub;
             subcatSelect.appendChild(opt);
         });
+    }
+
+    var boxAutoPC = document.getElementById('box-opcion-autopc-idea');
+    var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
+    if (boxAutoPC) {
+        boxAutoPC.style.display = esEmily ? 'block' : 'none';
+    }
+    if (!esEmily && chkAutoPC) {
+        chkAutoPC.checked = false;
     }
 }
 
@@ -235,10 +289,16 @@ function mostrarVistaCategoriasGrid() {
     Object.keys(ESTRUCTURA_BANCO_IDEAS).forEach(function(catNombre) {
         var info = ESTRUCTURA_BANCO_IDEAS[catNombre];
         var pendientesCat = ideas.filter(function(i) {
-            return !i.hecha && (i.categoria === catNombre || (catNombre.includes('Emily') && i.categoria && i.categoria.includes('Emily')));
+            return !i.hecha && (i.categoria === catNombre || (esCategoriaEmily(catNombre) && esCategoriaEmily(i.categoria)));
         }).length;
 
-        var esEmily = catNombre.toLowerCase().includes('emily');
+        var esEmily = esCategoriaEmily(catNombre);
+        var enColaPC = esEmily ? ideas.filter(function(i) {
+            if (!i || i.hecha || !esCategoriaEmily(i.categoria)) return false;
+            var st = obtenerEstadoAutoPCIdea(i);
+            return st === 'pending' || st === 'running';
+        }).length : 0;
+
         var cardClass = esEmily ? 'category-card category-card-emily' : 'category-card';
         var tituloLimpio = catNombre.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
         if (!tituloLimpio) tituloLimpio = catNombre;
@@ -256,7 +316,7 @@ function mostrarVistaCategoriasGrid() {
                 </div>
             </div>
             <div class="category-card-footer">
-                <span class="category-card-count"><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}</span>
+                <span class="category-card-count"><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}${enColaPC > 0 ? ` <span class="category-card-autopc-pill">🤖 ${enColaPC} Auto-PC</span>` : ''}</span>
                 <span class="category-card-explore">Explorar ›</span>
             </div>
         </div>`;
@@ -345,24 +405,43 @@ function abrirDetalleCategoriaIdeas(catNombre) {
             html += `<p style="font-size: 12.5px; color: #64748b; padding: 10px 12px; font-style: italic; margin: 0;">- No hay ideas pendientes en esta subcategoría.</p>`;
         } else {
             subIdeas.forEach(function(idea) {
+                var idAttr = escapeHtmlIdea(String(idea.id));
+                var ideaEsEmily = esCategoriaEmily(idea.categoria || catNombre);
+                var autopcEstado = ideaEsEmily ? obtenerEstadoAutoPCIdea(idea) : null;
+                var autopcBadgeHtml = '';
+                var autopcBtnHtml = '';
+
+                if (ideaEsEmily) {
+                    if (autopcEstado === 'running') {
+                        autopcBadgeHtml = `<span class="idea-autopc-badge is-running">⚙️ Programando en PC</span>`;
+                    } else if (autopcEstado === 'pending') {
+                        autopcBadgeHtml = `<span class="idea-autopc-badge is-pending">⏳ En cola PC</span>`;
+                        autopcBtnHtml = `<button class="btn-idea-autopc-cancel" onclick="cancelarIdeaAutoPC('${idAttr}')" title="Quitar de la cola de Auto-PC">✕ Quitar cola</button>`;
+                    } else {
+                        autopcBtnHtml = `<button class="btn-idea-autopc" onclick="enviarIdeaAAutoPC('${idAttr}')" title="Enviar a Auto-PC para programar en Antigravity">🚀 Programar</button>`;
+                    }
+                }
+
                 html += `
-                <div class="idea-clean-item" id="idea-card-${idea.id}">
+                <div class="idea-clean-item" id="idea-card-${idAttr}">
                     <div class="idea-item-left">
                         <span class="idea-dash">•</span>
                         <div class="idea-item-content">
-                            <span class="idea-text-line">${idea.texto}</span>
-                            ${idea.fecha ? `
+                            <span class="idea-text-line">${escapeHtmlIdea(idea.texto)}</span>
+                            ${(idea.fecha || autopcBadgeHtml) ? `
                                 <div class="idea-meta-badges">
-                                    <span style="font-size: 11px; color: #64748b; font-weight: 600;">🗓️ ${idea.fecha}</span>
+                                    ${idea.fecha ? `<span style="font-size: 11px; color: #64748b; font-weight: 600;">🗓️ ${escapeHtmlIdea(idea.fecha)}</span>` : ''}
+                                    ${autopcBadgeHtml}
                                 </div>
                             ` : ''}
                         </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <button class="idea-btn-check" onclick="marcarIdeaHechaUI(${idea.id})" title="Marcar como realizada y mover a Operatividad">
+                    <div class="idea-actions-group">
+                        ${autopcBtnHtml}
+                        <button class="idea-btn-check" onclick="marcarIdeaHechaUI('${idAttr}')" title="Marcar como realizada y mover a Operatividad">
                             <span>✓</span> Hecha
                         </button>
-                        <button class="btn-delete-row" onclick="eliminarIdea(${idea.id})" title="Eliminar idea">✕</button>
+                        <button class="btn-delete-row" onclick="eliminarIdea('${idAttr}')" title="Eliminar idea">✕</button>
                     </div>
                 </div>`;
             });
@@ -394,9 +473,15 @@ function guardarNuevaIdea() {
         return;
     }
 
-    var texto = input.value.trim();
+    var textoOriginal = input.value.trim();
+    var texto = textoOriginal;
+    var promptLimpio = obtenerTextoPromptLimpio(textoOriginal);
     var cat = catSelect ? catSelect.value : "✨ Emily";
     var subcat = subcatSelect ? subcatSelect.value : "General";
+
+    var esEmily = esCategoriaEmily(cat);
+    var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
+    var programarAhora = Boolean(esEmily && chkAutoPC && chkAutoPC.checked);
 
     // Formatear fecha actual (ejemplo: 28/09)
     var ahora = new Date();
@@ -410,25 +495,47 @@ function guardarNuevaIdea() {
 
     if (!APP_STATE.ideas) APP_STATE.ideas = [];
 
+    var nuevaId = Date.now();
     APP_STATE.ideas.unshift({
-        id: Date.now(),
+        id: nuevaId,
         texto: texto,
+        textoPrompt: promptLimpio,
         categoria: cat,
         subcategoria: subcat,
         fecha: fechaCorta,
-        timestamp: Date.now(),
-        hecha: false
+        timestamp: nuevaId,
+        hecha: false,
+        autopcStatus: programarAhora ? 'pending' : null,
+        autopcPendienteSubida: programarAhora
     });
 
     input.value = "";
+    if (chkAutoPC) {
+        chkAutoPC.checked = false;
+    }
+
     MonarcaDB.save(APP_STATE);
     sumarExp(10);
 
+    if (programarAhora) {
+        enviarIdeaAAutoPC(nuevaId, true);
+    }
+
     // Si estábamos en detalle de esa misma categoría, actualizarlo directamente; si no, mostrar cuadrícula
-    if (ESTADO_IDEAS.subvistaActual === 'detalle' && (ESTADO_IDEAS.categoriaSeleccionada === cat || (cat.includes('Emily') && ESTADO_IDEAS.categoriaSeleccionada && ESTADO_IDEAS.categoriaSeleccionada.includes('Emily')))) {
+    if (ESTADO_IDEAS.subvistaActual === 'detalle' && (ESTADO_IDEAS.categoriaSeleccionada === cat || (esEmily && esCategoriaEmily(ESTADO_IDEAS.categoriaSeleccionada)))) {
         abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
     } else {
         mostrarVistaCategoriasGrid();
+    }
+}
+
+function cancelarColaRemotaSiExiste(ideaId) {
+    var key = String(ideaId);
+    delete AUTOPC_SOLICITUDES_MAP[key];
+    if (window.MonarcaCloud && typeof window.MonarcaCloud.cancelarSolicitudAutoPC === 'function') {
+        window.MonarcaCloud.cancelarSolicitudAutoPC(key).catch(function(err) {
+            console.warn('[Auto-PC] No se pudo cancelar solicitud remota:', err);
+        });
     }
 }
 
@@ -442,7 +549,17 @@ function marcarIdeaHechaUI(id) {
             if (encontrada.hecha) {
                 encontrada.timestampHecha = Date.now();
                 encontrada.fechaHecha = new Date().toLocaleDateString('es-ES');
+                if (encontrada.autopcStatus === 'pending' || encontrada.autopcPendienteSubida) {
+                    encontrada.autopcPendienteSubida = false;
+                    encontrada.autopcStatus = null;
+                    cancelarColaRemotaSiExiste(encontrada.id);
+                }
                 sumarExp(15);
+            } else if (encontrada.autopcStatus || encontrada.completadaPorAutoPC) {
+                encontrada.autopcStatus = null;
+                encontrada.autopcPendienteSubida = false;
+                encontrada.completadaPorAutoPC = false;
+                cancelarColaRemotaSiExiste(encontrada.id);
             }
             break;
         }
@@ -451,6 +568,32 @@ function marcarIdeaHechaUI(id) {
     MonarcaDB.save(APP_STATE);
 
     // Re-renderizar la vista activa para que la idea completada se mueva de inmediato a Operatividad
+    reRenderVistaIdeasActual();
+}
+
+function eliminarIdea(id) {
+    if (!confirm("¿Eliminar esta idea?")) return;
+    if (!APP_STATE.ideas) return;
+    var encontrada = APP_STATE.ideas.find(function(i) { return String(i.id) === String(id); });
+    var tombstoneId = encontrada ? encontrada.id : id;
+
+    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
+    if (!Array.isArray(APP_STATE._eliminados.ideas)) APP_STATE._eliminados.ideas = [];
+    if (!APP_STATE._eliminados.ideas.some(function(eid) { return String(eid) === String(tombstoneId); })) {
+        APP_STATE._eliminados.ideas.push(tombstoneId);
+    }
+
+    if (encontrada && (encontrada.autopcStatus === 'pending' || encontrada.autopcStatus === 'running' || encontrada.autopcPendienteSubida)) {
+        cancelarColaRemotaSiExiste(encontrada.id);
+    }
+
+    APP_STATE.ideas = APP_STATE.ideas.filter(function(i) { return String(i.id) !== String(id); });
+    MonarcaDB.save(APP_STATE);
+
+    reRenderVistaIdeasActual();
+}
+
+function reRenderVistaIdeasActual() {
     if (ESTADO_IDEAS.subvistaActual === 'detalle') {
         abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
     } else if (ESTADO_IDEAS.subvistaActual === 'operatividad') {
@@ -460,24 +603,218 @@ function marcarIdeaHechaUI(id) {
     }
 }
 
-function eliminarIdea(id) {
-    if (!confirm("¿Eliminar esta idea?")) return;
-    if (!APP_STATE.ideas) return;
-    if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
-    if (!Array.isArray(APP_STATE._eliminados.ideas)) APP_STATE._eliminados.ideas = [];
-    if (!APP_STATE._eliminados.ideas.includes(id)) {
-        APP_STATE._eliminados.ideas.push(id);
-    }
-    APP_STATE.ideas = APP_STATE.ideas.filter(function(i) { return String(i.id) !== String(id); });
-    MonarcaDB.save(APP_STATE);
+async function enviarIdeaAAutoPC(id, desdeCreacion) {
+    if (!APP_STATE.ideas) return false;
+    var idea = APP_STATE.ideas.find(function(i) { return String(i.id) === String(id); });
+    if (!idea || idea.hecha) return false;
 
-    if (ESTADO_IDEAS.subvistaActual === 'detalle') {
-        abrirDetalleCategoriaIdeas(ESTADO_IDEAS.categoriaSeleccionada);
-    } else if (ESTADO_IDEAS.subvistaActual === 'operatividad') {
-        mostrarVistaOperatividad();
-    } else {
-        mostrarVistaCategoriasGrid();
+    var promptLimpio = obtenerPromptParaAutoPC(idea);
+    idea.textoPrompt = promptLimpio;
+    idea.autopcStatus = 'pending';
+    idea.autopcPendienteSubida = true;
+    AUTOPC_SOLICITUDES_MAP[String(idea.id)] = {
+        ideaId: String(idea.id),
+        text: promptLimpio,
+        categoria: idea.categoria || '✨ Emily',
+        subcategoria: idea.subcategoria || 'General',
+        status: 'pending',
+        createdAt: Number(idea.timestamp) || Date.now(),
+        updatedAt: Date.now()
+    };
+
+    MonarcaDB.save(APP_STATE);
+    if (!desdeCreacion) {
+        reRenderVistaIdeasActual();
     }
+
+    if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarSolicitudAutoPC === 'function') {
+        try {
+            await window.MonarcaCloud.enviarSolicitudAutoPC({
+                ideaId: String(idea.id),
+                text: promptLimpio,
+                categoria: idea.categoria || '✨ Emily',
+                subcategoria: idea.subcategoria || 'General',
+                createdAt: Number(idea.timestamp) || Date.now()
+            });
+            idea.autopcPendienteSubida = false;
+            MonarcaDB.save(APP_STATE);
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Solicitud enviada a la cola de Auto-PC', '🤖');
+            }
+            reRenderSiVistaIdeasActiva();
+            return true;
+        } catch (err) {
+            console.warn('[Auto-PC] Subida diferida (sin conexión o iniciando nube):', err);
+            idea.autopcPendienteSubida = true;
+            MonarcaDB.save(APP_STATE);
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Guardada · se enviará a Auto-PC al conectar', '⏳');
+            }
+            return false;
+        }
+    }
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Guardada · se enviará a Auto-PC al conectar', '⏳');
+    }
+    return false;
+}
+
+async function cancelarIdeaAutoPC(id) {
+    if (!APP_STATE.ideas) return false;
+    var idea = APP_STATE.ideas.find(function(i) { return String(i.id) === String(id); });
+    if (idea) {
+        idea.autopcStatus = null;
+        idea.autopcPendienteSubida = false;
+    }
+    delete AUTOPC_SOLICITUDES_MAP[String(id)];
+    MonarcaDB.save(APP_STATE);
+    reRenderVistaIdeasActual();
+
+    if (window.MonarcaCloud && typeof window.MonarcaCloud.cancelarSolicitudAutoPC === 'function') {
+        try {
+            await window.MonarcaCloud.cancelarSolicitudAutoPC(String(id));
+        } catch (err) {
+            console.warn('[Auto-PC] Error al quitar de Firestore:', err);
+        }
+    }
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Solicitud quitada de la cola de Auto-PC', '🛑');
+    }
+    return true;
+}
+
+async function procesarPendientesOfflineAutoPC() {
+    if (!APP_STATE || !Array.isArray(APP_STATE.ideas)) return 0;
+    if (!window.MonarcaCloud || typeof window.MonarcaCloud.enviarSolicitudAutoPC !== 'function') return 0;
+
+    var pendientes = APP_STATE.ideas.filter(function(i) {
+        return i && !i.hecha && i.autopcPendienteSubida === true;
+    });
+    if (pendientes.length === 0) return 0;
+
+    var enviadas = 0;
+    for (var k = 0; k < pendientes.length; k++) {
+        var idea = pendientes[k];
+        var promptLimpio = obtenerPromptParaAutoPC(idea);
+        try {
+            await window.MonarcaCloud.enviarSolicitudAutoPC({
+                ideaId: String(idea.id),
+                text: promptLimpio,
+                categoria: idea.categoria || '✨ Emily',
+                subcategoria: idea.subcategoria || 'General',
+                createdAt: Number(idea.timestamp) || Date.now()
+            });
+            idea.textoPrompt = promptLimpio;
+            idea.autopcStatus = 'pending';
+            idea.autopcPendienteSubida = false;
+            enviadas++;
+        } catch (err) {
+            console.warn('[Auto-PC] Reintento pendiente fallido para idea ' + idea.id + ':', err);
+        }
+    }
+
+    if (enviadas > 0) {
+        MonarcaDB.save(APP_STATE);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(enviadas === 1 ? '1 idea pendiente enviada a Auto-PC' : (enviadas + ' ideas pendientes enviadas a Auto-PC'), '🤖');
+        }
+        reRenderSiVistaIdeasActiva();
+    }
+    return enviadas;
+}
+
+function reRenderSiVistaIdeasActiva() {
+    var vistaIdeasEl = document.getElementById('vista-ideas');
+    if (vistaIdeasEl && vistaIdeasEl.classList.contains('active') && ESTADO_IDEAS.inicializado) {
+        renderizarBancoIdeas(APP_STATE.ideas);
+    } else {
+        actualizarBadgesIdeas();
+    }
+}
+
+function procesarSnapshotAutoPCIdeas(lista) {
+    var nuevoMapa = {};
+    if (Array.isArray(lista)) {
+        lista.forEach(function(item) {
+            if (!item) return;
+            var key = String(item.ideaId || item.id || '').trim();
+            if (key) {
+                nuevoMapa[key] = item;
+            }
+        });
+    }
+    AUTOPC_SOLICITUDES_MAP = nuevoMapa;
+
+    if (!APP_STATE || !Array.isArray(APP_STATE.ideas)) {
+        return { completadasAhora: 0, huboCambioEstado: false };
+    }
+
+    var completadasAhora = 0;
+    var huboCambioEstado = false;
+
+    APP_STATE.ideas.forEach(function(idea) {
+        if (!idea) return;
+        var docRemoto = AUTOPC_SOLICITUDES_MAP[String(idea.id)];
+        if (docRemoto) {
+            var statusRemoto = String(docRemoto.status || 'pending').toLowerCase();
+            if (statusRemoto === 'done') {
+                if (idea.autopcStatus !== 'done' || idea.autopcPendienteSubida) {
+                    huboCambioEstado = true;
+                }
+                idea.autopcStatus = 'done';
+                idea.autopcPendienteSubida = false;
+                if (!idea.hecha) {
+                    idea.hecha = true;
+                    idea.timestampHecha = Number(docRemoto.updatedAt) || Date.now();
+                    idea.fechaHecha = new Date(idea.timestampHecha).toLocaleDateString('es-ES');
+                    idea.completadaPorAutoPC = true;
+                    completadasAhora++;
+                }
+            } else if (statusRemoto === 'running' || statusRemoto === 'pending') {
+                if (!idea.hecha) {
+                    if (idea.autopcStatus !== statusRemoto || idea.autopcPendienteSubida) {
+                        huboCambioEstado = true;
+                    }
+                    idea.autopcStatus = statusRemoto;
+                    idea.autopcPendienteSubida = false;
+                }
+            }
+        } else if (!idea.hecha && !idea.autopcPendienteSubida && idea.autopcStatus && idea.autopcStatus !== 'done') {
+            idea.autopcStatus = null;
+            huboCambioEstado = true;
+        }
+    });
+
+    if (completadasAhora > 0) {
+        if (typeof sumarExp === 'function') {
+            sumarExp(15 * completadasAhora);
+        }
+        MonarcaDB.save(APP_STATE);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(
+                completadasAhora === 1
+                    ? 'Auto-PC completó 1 idea (+15 EXP)'
+                    : ('Auto-PC completó ' + completadasAhora + ' ideas (+' + (15 * completadasAhora) + ' EXP)'),
+                '✅'
+            );
+        }
+    } else if (huboCambioEstado) {
+        MonarcaDB.save(APP_STATE);
+    }
+
+    reRenderSiVistaIdeasActiva();
+    return { completadasAhora: completadasAhora, huboCambioEstado: huboCambioEstado };
+}
+
+if (typeof window !== 'undefined') {
+    window.enviarIdeaAAutoPC = enviarIdeaAAutoPC;
+    window.cancelarIdeaAutoPC = cancelarIdeaAutoPC;
+    window.procesarPendientesOfflineAutoPC = procesarPendientesOfflineAutoPC;
+    window.procesarSnapshotAutoPCIdeas = procesarSnapshotAutoPCIdeas;
+    window.addEventListener('online', function() {
+        procesarPendientesOfflineAutoPC();
+    });
 }
 
 // --------------------------------------------------------------------------
@@ -619,25 +956,27 @@ function renderizarListaOperatividad(ejecutadas) {
 
     var html = '';
     ejecutadas.forEach(function(i) {
+        var idAttr = escapeHtmlIdea(String(i.id));
         var catLimpia = (i.categoria || 'Idea').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
         html += `
         <div class="idea-clean-item is-done">
             <div class="idea-item-left">
                 <span class="idea-dash" style="color: #10b981 !important;">✓</span>
                 <div class="idea-item-content">
-                    <span class="idea-text-line" style="text-decoration: line-through; color: #64748b;">${i.texto}</span>
+                    <span class="idea-text-line" style="text-decoration: line-through; color: #64748b;">${escapeHtmlIdea(i.texto)}</span>
                     <div class="idea-meta-badges">
-                        <span class="idea-category-badge">${catLimpia}</span>
-                        ${i.subcategoria ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">• ${i.subcategoria}</span>` : ''}
+                        <span class="idea-category-badge">${escapeHtmlIdea(catLimpia)}</span>
+                        ${i.subcategoria ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">• ${escapeHtmlIdea(i.subcategoria)}</span>` : ''}
                         <span style="font-size: 10.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 8px; border-radius: 9999px;">✓ Ejecutada</span>
+                        ${i.completadaPorAutoPC ? '<span class="idea-autopc-badge is-done">🤖 Auto-PC</span>' : ''}
                     </div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <button class="idea-btn-check checked" onclick="marcarIdeaHechaUI(${i.id})" title="Desmarcar y devolver a pendientes">
+            <div class="idea-actions-group">
+                <button class="idea-btn-check checked" onclick="marcarIdeaHechaUI('${idAttr}')" title="Desmarcar y devolver a pendientes">
                     Desmarcar ↩
                 </button>
-                <button class="btn-delete-row" onclick="eliminarIdea(${i.id})">✕</button>
+                <button class="btn-delete-row" onclick="eliminarIdea('${idAttr}')">✕</button>
             </div>
         </div>`;
     });

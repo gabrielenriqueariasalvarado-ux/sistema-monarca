@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.72">
+    <link rel="stylesheet" href="style.css?v=10.73">
 </head>
 <body>
 
@@ -53,7 +53,7 @@
         </div>
     </header>
 
-    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.72) -->
+    <!-- VISTA 0: HOME (PANTALLA DE INICIO PRINCIPAL v10.73) -->
     <div id="vista-home" class="tab-content active">
         <div class="home-hero-card">
             <div class="home-hero-top">
@@ -3546,6 +3546,16 @@
                         </div>
                     </div>
 
+                    <div id="box-opcion-autopc-idea" class="ideas-autopc-toggle-row">
+                        <label class="ideas-autopc-check-label" for="chk-idea-programar-ahora">
+                            <input type="checkbox" id="chk-idea-programar-ahora">
+                            <span class="ideas-autopc-check-text">
+                                <strong>🚀 Empezar a programar en Auto-PC al crear</strong>
+                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC.</small>
+                            </span>
+                        </label>
+                    </div>
+
                     <div style="display: flex; align-items: center; justify-content: flex-end; margin-top: 6px;">
                         <button class="btn-system" onclick="guardarNuevaIdea()" id="btn-publicar-idea" style="min-width: 170px; padding: 11px 24px; font-size: 13.5px; border-radius: 12px; font-weight: 700;">
                             ⚡ Publicar Idea
@@ -6579,26 +6589,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.72"></script>
-    <script src="js/perfil.js?v=10.72"></script>
-    <script src="js/progresion.js?v=10.72"></script>
-    <script src="js/estado-personal.js?v=10.72"></script>
-    <script src="js/finanzas.js?v=10.72"></script>
-    <script src="js/ideas.js?v=10.72"></script>
-    <script src="js/dinamicas.js?v=10.72"></script>
-    <script src="js/calendario.js?v=10.72"></script>
-    <script src="js/inventario.js?v=10.72"></script>
-    <script src="js/reproductor.js?v=10.72"></script>
-    <script src="js/jarvis-voz.js?v=10.72"></script>
+    <script src="js/core.js?v=10.73"></script>
+    <script src="js/perfil.js?v=10.73"></script>
+    <script src="js/progresion.js?v=10.73"></script>
+    <script src="js/estado-personal.js?v=10.73"></script>
+    <script src="js/finanzas.js?v=10.73"></script>
+    <script src="js/ideas.js?v=10.73"></script>
+    <script src="js/dinamicas.js?v=10.73"></script>
+    <script src="js/calendario.js?v=10.73"></script>
+    <script src="js/inventario.js?v=10.73"></script>
+    <script src="js/reproductor.js?v=10.73"></script>
+    <script src="js/jarvis-voz.js?v=10.73"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.72"></script>
+    <script type="module" src="js/firebase-config.js?v=10.73"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.72')
+                navigator.serviceWorker.register('sw.js?v=10.73')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

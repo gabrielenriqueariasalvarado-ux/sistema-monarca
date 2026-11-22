@@ -16582,3 +16582,199 @@ body.modal-open {
         width: 100%;
     }
 }
+
+/* ==========================================================================
+   BANCO DE IDEAS ✨ EMILY · INTEGRACIÓN AUTO-PC (v10.73)
+   ========================================================================== */
+.ideas-autopc-toggle-row {
+    margin-top: 2px;
+}
+
+.ideas-autopc-check-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.ideas-autopc-check-label:hover {
+    background: rgba(56, 189, 248, 0.13);
+    border-color: rgba(56, 189, 248, 0.45);
+}
+
+.ideas-autopc-check-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0 0;
+    accent-color: #38bdf8;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ideas-autopc-check-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ideas-autopc-check-text strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e0f2fe;
+    line-height: 1.3;
+}
+
+.ideas-autopc-check-text small {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+.idea-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.idea-autopc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.idea-autopc-badge.is-pending {
+    background: rgba(56, 189, 248, 0.14);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.idea-autopc-badge.is-running {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.42);
+}
+
+.idea-autopc-badge.is-done {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.btn-idea-autopc {
+    background: rgba(56, 189, 248, 0.14) !important;
+    border: 1px solid rgba(56, 189, 248, 0.38) !important;
+    color: #7dd3fc !important;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.btn-idea-autopc:hover {
+    background: rgba(56, 189, 248, 0.24) !important;
+    border-color: #38bdf8 !important;
+    color: #ffffff !important;
+}
+
+.btn-idea-autopc-cancel {
+    background: rgba(245, 158, 11, 0.12) !important;
+    border: 1px solid rgba(245, 158, 11, 0.36) !important;
+    color: #fcd34d !important;
+    padding: 6px 11px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.btn-idea-autopc-cancel:hover {
+    background: rgba(239, 68, 68, 0.18) !important;
+    border-color: rgba(248, 113, 113, 0.55) !important;
+    color: #fca5a5 !important;
+}
+
+.category-card-autopc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.12);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+@media (max-width: 640px) {
+    #monarca-toast-global {
+        max-width: calc(100vw - 28px) !important;
+        white-space: normal !important;
+        text-align: center;
+        line-height: 1.3;
+    }
+
+    .ideas-inputs-row > div {
+        min-width: 0;
+    }
+
+    .ideas-nav-buttons-container {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .btn-ideas-tab {
+        padding: 10px 6px;
+        font-size: 11px;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .idea-clean-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .idea-actions-group {
+        width: 100%;
+        justify-content: flex-end;
+        gap: 6px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-idea-autopc,
+    .btn-idea-autopc-cancel,
+    .idea-btn-check {
+        min-height: 34px;
+        padding: 5px 10px;
+        font-size: 11.5px;
+    }
+}
+

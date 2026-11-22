@@ -1,0 +1,18 @@
+# Herramienta local exclusiva de Windows PC (no se sube a GitHub ni al APK)
+Auto-PC/
+auto-pc/
+
+# Entornos virtuales, caches de Python y tests locales
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Artefactos generados por Capacitor / npm (generados en GitHub Actions)
+node_modules/
+www/
+android/
+*.apk

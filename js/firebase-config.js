@@ -37,6 +37,7 @@ const FIRESTORE_COLECCION = "sistema_monarca";
 const FIRESTORE_DOCUMENTO = "datos_principales";
 const FIRESTORE_DOC_BACKUP = "backup_seguridad";
 const FIRESTORE_COL_TRANSFERENCIAS = "transferencias_musica";
+const FIRESTORE_COL_AUTOPC = "solicitudes_autopc";
 
 // Referencias de Firebase
 let app = null;
@@ -45,6 +46,7 @@ let storage = null;
 let docRef = null;
 let docBackupRef = null;
 let unsubscribeSnapshot = null;
+let unsubscribeAutoPCSnapshot = null;
 
 const CLIENT_INSTANCE_ID = 'CLI-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 let debounceSaveTimer = null;
@@ -903,7 +905,73 @@ window.MonarcaCloud = {
         }, function(err) {
             console.warn("[Transferencias Snapshot]", err);
         });
+    },
+
+    /**
+     * Envia o actualiza una solicitud de programacion de ✨ Emily hacia Auto-PC
+     */
+    enviarSolicitudAutoPC: async function(solicitud) {
+        if (!db) throw new Error('Firebase Firestore no inicializado');
+        var ideaId = String((solicitud && solicitud.ideaId) || '');
+        if (!ideaId) throw new Error('ideaId requerido para Auto-PC');
+
+        var refSolicitud = doc(db, FIRESTORE_COL_AUTOPC, ideaId);
+        var ahoraMs = Date.now();
+        var payload = {
+            ideaId: ideaId,
+            text: String((solicitud && solicitud.text) || '').trim(),
+            categoria: String((solicitud && solicitud.categoria) || '✨ Emily'),
+            subcategoria: String((solicitud && solicitud.subcategoria) || 'General'),
+            status: 'pending',
+            createdAt: Number(solicitud && solicitud.createdAt) || ahoraMs,
+            updatedAt: ahoraMs
+        };
+
+        await setDoc(refSolicitud, payload);
+        return payload;
+    },
+
+    /**
+     * Cancela y elimina de la cola remota de Auto-PC una idea pendiente
+     */
+    cancelarSolicitudAutoPC: async function(ideaId) {
+        if (!db || !ideaId) return false;
+        var refSolicitud = doc(db, FIRESTORE_COL_AUTOPC, String(ideaId));
+        await deleteDoc(refSolicitud);
+        return true;
+    },
+
+    /**
+     * Escucha en tiempo real los estados (pending/running/done) publicados por Auto-PC
+     */
+    escucharSolicitudesAutoPC: function(callback) {
+        if (!db) return function(){};
+        var colRef = collection(db, FIRESTORE_COL_AUTOPC);
+        return onSnapshot(colRef, function(snap) {
+            var lista = [];
+            snap.forEach(function(d) {
+                lista.push(d.data());
+            });
+            if (typeof callback === 'function') callback(lista);
+        }, function(err) {
+            console.warn("[Auto-PC Snapshot]", err);
+        });
     }
+};
+
+window.iniciarListenerSolicitudesAutoPC = function() {
+    if (unsubscribeAutoPCSnapshot) {
+        try { unsubscribeAutoPCSnapshot(); } catch(ig) {}
+        unsubscribeAutoPCSnapshot = null;
+    }
+    if (!window.MonarcaCloud || typeof window.MonarcaCloud.escucharSolicitudesAutoPC !== 'function') {
+        return;
+    }
+    unsubscribeAutoPCSnapshot = window.MonarcaCloud.escucharSolicitudesAutoPC(function(lista) {
+        if (typeof window.procesarSnapshotAutoPCIdeas === 'function') {
+            window.procesarSnapshotAutoPCIdeas(lista);
+        }
+    });
 };
 
 /**
@@ -1057,6 +1125,13 @@ async function inicializarFirebase() {
         }
 
         // 2. Escuchar cambios en tiempo real desde Firestore (Multi-dispositivo en vivo)
+        if (typeof window.iniciarListenerSolicitudesAutoPC === 'function') {
+            window.iniciarListenerSolicitudesAutoPC();
+        }
+        if (typeof window.procesarPendientesOfflineAutoPC === 'function') {
+            setTimeout(function() { window.procesarPendientesOfflineAutoPC(); }, 80);
+        }
+
         if (unsubscribeSnapshot) {
             unsubscribeSnapshot();
         }

@@ -1437,7 +1437,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.72';
+var MONARCA_APP_VERSION = '10.73';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
