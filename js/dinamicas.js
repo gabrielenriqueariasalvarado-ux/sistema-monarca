@@ -3711,6 +3711,8 @@ var SUBVISTA_TRAINER_ALEATORIA = 'generador'; // 'generador' | 'settings'
 var ALUMNO_RUTINA_TRAINER_SELECCIONADO = '';
 var PERFIL_TRAINER_ALEATORIA_ACTIVO = 'hombre'; // 'hombre' | 'mujer'
 var RUTINA_TRAINER_GENERADA = null;
+var RUTINA_TRAINER_META = null;
+var DIA_TRAINER_ALEATORIA_SELECCIONADO = null; // null = hoy (0..6 = Lun..Dom)
 var INTERVALO_TIMER_TRAINER = null;
 var ENTRENAMIENTO_TEMPORAL_FINALIZANDO = null;
 var BUSQUEDA_ALUMNO_TRAINER = '';
@@ -3878,11 +3880,11 @@ function renderizarSubAppTrainer() {
     var btnTop = document.getElementById('btn-iniciar-entrenamiento-top');
     if (btnTop) {
         if (timerActivo) {
-            btnTop.innerHTML = '<span>🛑</span> Finalizar Sesión';
+            btnTop.innerHTML = '<span>🛑</span> Finalizar';
             btnTop.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
             btnTop.onclick = function() { pararTimerEntrenamiento(); };
         } else {
-            btnTop.innerHTML = '<span>🏋️‍♂️</span> Iniciar Entrenamiento';
+            btnTop.innerHTML = '<span>🏋️‍♂️</span> Iniciar Sesión';
             btnTop.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
             btnTop.onclick = function() { abrirModalIniciarEntrenamiento(); };
         }
@@ -3962,65 +3964,58 @@ function renderizarSubAppTrainer() {
         `;
     }
 
-    // 2. SELECTOR DE MES Y MÉTRICAS CLAVE
+    // 2. SELECTOR DE MES + ACCESO CALENDARIO UNIFICADO + MÉTRICAS CLAVE
     html += `
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 10px 14px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
+    <div class="trainer-toolbar-strip">
+        <div style="display: flex; align-items: center; gap: 6px;">
             <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesTrainer(-1)" title="Mes Anterior">◀</button>
-            <span style="font-size: 14px; font-weight: 800; color: #f8fafc; min-width: 150px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">${nombreMesStr}</span>
+            <span style="font-size: 13px; font-weight: 800; color: #f8fafc; min-width: 126px; text-align: center; text-transform: uppercase; letter-spacing: 0.4px;">${nombreMesStr}</span>
             <button type="button" class="btn-subapp-mes-nav" onclick="cambiarMesTrainer(1)" title="Mes Siguiente">▶</button>
         </div>
-        <div style="font-size: 11.5px; color: #94a3b8;">
-            Gimnasio & Coaching · Total histórico: <strong style="color: #10b981;">${sesiones.length} sesiones</strong>
-        </div>
+        <button type="button" class="trainer-btn-secondary" style="font-size: 11.5px; padding: 6px 11px;" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario('${MES_TRAINER_ACTUAL}-01', 'mes', 'labores')" title="Las sesiones se muestran en Mi Calendario">
+            📅 Calendario (${sesiones.length}) →
+        </button>
     </div>
 
     <!-- TARJETAS DE MÉTRICAS DEL MES -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px;">
-        <div style="background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10b981; margin-bottom: 4px;">💵 Recaudado</div>
-            <div style="font-size: 20px; font-weight: 800; color: #10b981;">$${totalGananciasMes.toFixed(2)}</div>
-            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">en sesiones del mes</div>
+    <div class="trainer-kpi-grid">
+        <div class="trainer-kpi-card" style="border-top: 2px solid #10b981;">
+            <div class="trainer-kpi-label" style="color: #34d399;">💵 Recaudado</div>
+            <div class="trainer-kpi-val" style="color: #34d399;">$${totalGananciasMes.toFixed(2)}</div>
+            <div class="trainer-kpi-sub">este mes</div>
         </div>
 
-        <div style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">🏋️‍♂️ Entrenamientos</div>
-            <div style="font-size: 20px; font-weight: 800; color: #38bdf8;">${sesionesMes.length}</div>
-            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">sesiones guiadas</div>
+        <div class="trainer-kpi-card" style="border-top: 2px solid #38bdf8;">
+            <div class="trainer-kpi-label" style="color: #38bdf8;">🏋️‍♂️ Sesiones</div>
+            <div class="trainer-kpi-val" style="color: #7dd3fc;">${sesionesMes.length}</div>
+            <div class="trainer-kpi-sub">guiadas</div>
         </div>
 
-        <div style="background: #0b0e15; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #f59e0b; margin-bottom: 4px;">⏱️ Tiempo</div>
-            <div style="font-size: 20px; font-weight: 800; color: #f59e0b;">${totalHorasMes}h</div>
-            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">${totalMinutosMes} min en piso</div>
+        <div class="trainer-kpi-card" style="border-top: 2px solid #f59e0b;">
+            <div class="trainer-kpi-label" style="color: #fbbf24;">⏱️ Tiempo</div>
+            <div class="trainer-kpi-val" style="color: #fcd34d;">${totalHorasMes}h</div>
+            <div class="trainer-kpi-sub">${totalMinutosMes} min</div>
         </div>
 
-        <div style="background: #0b0e15; border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #c084fc; margin-bottom: 4px;">👥 Alumnos</div>
-            <div style="font-size: 20px; font-weight: 800; color: #c084fc;">${alumnosUnicosCount}</div>
-            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">activos este mes</div>
+        <div class="trainer-kpi-card" style="border-top: 2px solid #c084fc;">
+            <div class="trainer-kpi-label" style="color: #c084fc;">👥 Alumnos</div>
+            <div class="trainer-kpi-val" style="color: #e9d5ff;">${alumnosUnicosCount}</div>
+            <div class="trainer-kpi-sub">activos</div>
         </div>
     </div>
     `;
 
-    // 3. BARRA DE SUB-TABS (ALUMNOS / ENFOQUES / ALEATORIA / HISTORIAL) + PUENTE A CALENDARIO
+    // 3. BARRA DE SUB-TABS SEGMENTADA EN UNA SOLA LÍNEA
     html += `
-    <div class="subapp-cal-bridge-banner">
-        <span>📅 Tus sesiones y programación horaria de Trainer ahora viven en <strong>Mi Calendario</strong>.</span>
-        <button type="button" class="btn-sync-action btn-sync-light" style="font-size: 11.5px; padding: 6px 12px; flex-shrink: 0;" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario('${MES_TRAINER_ACTUAL}-01', 'mes', 'labores')">
-            📅 Ver Sesiones en Calendario →
-        </button>
-    </div>
-
-    <div style="display: flex; gap: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow-x: auto;">
+    <div class="trainer-segmented-tabs">
         <button type="button" class="trainer-subtab-btn ${(TAB_TRAINER_ACTIVA !== 'enfoques' && TAB_TRAINER_ACTIVA !== 'aleatoria' && TAB_TRAINER_ACTIVA !== 'historial') ? 'active' : ''}" onclick="setTabTrainer('alumnos')">
-            <span>👥</span> Catálogo de Alumnos (${alumnos.length})
+            <span>👥</span> Alumnos (${alumnos.length})
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'enfoques' ? 'active' : ''}" onclick="setTabTrainer('enfoques')">
-            <span>🎯</span> Rutinas & Enfoques (${rutinas.length})
+            <span>🎯</span> Enfoques (${rutinas.length})
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'aleatoria' ? 'active' : ''}" onclick="setTabTrainer('aleatoria')">
-            <span>🎲</span> Rutina Aleatoria (Atletas)
+            <span>🎲</span> Rutina Aleatoria
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'historial' ? 'active' : ''}" onclick="setTabTrainer('historial')">
             <span>📋</span> Historial (${sesiones.length})
@@ -4160,23 +4155,23 @@ function renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones) {
     });
 
     var html = `
-    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="flex: 1; min-width: 250px;">
-            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ALUMNO_TRAINER)}" placeholder="🔍 Buscar alumno por nombre, objetivo, género o teléfono..." oninput="filtrarAlumnosTrainer(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+    <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="flex: 1; min-width: 210px;">
+            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ALUMNO_TRAINER)}" placeholder="🔍 Buscar alumno..." oninput="filtrarAlumnosTrainer(this.value)" class="finanzas-input-clean" style="background: #151e34; border: 1px solid rgba(148, 163, 184, 0.24); color: #f8fafc; border-radius: 10px; padding: 10px 13px; width: 100%; box-sizing: border-box; font-size: 13px;">
         </div>
-        <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-            <span>➕</span> + Registrar Alumno
+        <button type="button" class="trainer-btn-primary" onclick="abrirModalAlumnoTrainer()">
+            <span>➕</span> Registrar Alumno
         </button>
     </div>
     `;
 
     if (filtrados.length === 0) {
         html += `
-        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
-            <div style="font-size: 36px; margin-bottom: 10px;">🏋️‍♂️</div>
-            <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No se encontraron alumnos</div>
-            <div style="font-size: 12.5px;">Registra un alumno para gestionar su ficha biométrica (edad, género, altura, peso, fecha de ingreso) e historial de entrenamientos.</div>
-            <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="margin-top: 14px; font-size: 12px; background: #10b981; color: #000; border: none; padding: 8px 16px; font-weight: 800; border-radius: 8px; cursor: pointer;">
+        <div class="trainer-panel-clean" style="border-style: dashed; padding: 34px 18px; text-align: center; color: #cbd5e1;">
+            <div style="font-size: 34px; margin-bottom: 8px;">🏋️‍♂️</div>
+            <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">Aún no hay alumnos registrados</div>
+            <div style="font-size: 12.5px; color: #cbd5e1; max-width: 380px; margin: 0 auto 14px auto;">Registra tus alumnos para llevar su ficha biométrica, rutinas asignadas y cobros por sesión.</div>
+            <button type="button" class="trainer-btn-primary" onclick="abrirModalAlumnoTrainer()" style="margin: 0 auto;">
                 + Agregar Primer Alumno
             </button>
         </div>
@@ -4184,7 +4179,7 @@ function renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones) {
         return html;
     }
 
-    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px;">';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(275px, 1fr)); gap: 12px;">';
 
     filtrados.forEach(function(al) {
         var sesAlumno = sesiones.filter(function(s) {
@@ -4203,52 +4198,52 @@ function renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones) {
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="trainer-avatar-initials">${escapeHtmlTrainer(iniciales)}</div>
                     <div>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(al.nombre)}</div>
-                            <span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.07); color: #94a3b8; padding: 2px 5px; border-radius: 4px;">${badgeGenero}</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <div style="font-size: 14.5px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(al.nombre)}</div>
+                            <span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.16); color: #e2e8f0; padding: 2px 6px; border-radius: 5px;">${badgeGenero}</span>
                         </div>
-                        <div style="font-size: 11px; color: #94a3b8;">${al.telefono ? '📞 ' + escapeHtmlTrainer(al.telefono) : 'Sin teléfono'}</div>
+                        <div style="font-size: 11.5px; color: #cbd5e1;">${al.telefono ? '📞 ' + escapeHtmlTrainer(al.telefono) : 'Sin teléfono'}</div>
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-size: 14px; font-weight: 800; color: #10b981;">$${(parseFloat(al.tarifaHabitual) || 0).toFixed(2)}</div>
-                    <div style="font-size: 9.5px; color: #64748b;">tarifa / sesión</div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #34d399;">$${(parseFloat(al.tarifaHabitual) || 0).toFixed(2)}</div>
+                    <div style="font-size: 10px; color: #94a3b8;">por sesión</div>
                 </div>
             </div>
 
             <!-- FICHA BIOMÉTRICA RESUMIDA -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px; margin-bottom: 10px; text-align: center;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 8px; margin-bottom: 10px; text-align: center;">
                 <div>
-                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Edad</div>
-                    <div style="font-size: 12px; font-weight: 800; color: #f8fafc;">${al.edad ? al.edad + ' años' : '—'}</div>
+                    <div style="font-size: 9.5px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Edad</div>
+                    <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">${al.edad ? al.edad + ' años' : '—'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Altura</div>
-                    <div style="font-size: 12px; font-weight: 800; color: #f8fafc;">${al.altura ? al.altura + ' cm' : '—'}</div>
+                    <div style="font-size: 9.5px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Altura</div>
+                    <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">${al.altura ? al.altura + ' cm' : '—'}</div>
                 </div>
                 <div>
-                    <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase;">Peso</div>
-                    <div style="font-size: 12px; font-weight: 800; color: #10b981;">${al.peso ? al.peso + ' kg' : '—'}</div>
+                    <div style="font-size: 9.5px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Peso</div>
+                    <div style="font-size: 12.5px; font-weight: 800; color: #34d399;">${al.peso ? al.peso + ' kg' : '—'}</div>
                 </div>
             </div>
 
-            <div style="font-size: 11.5px; color: #cbd5e1; margin-bottom: 12px; line-height: 1.4;">
-                <div>🎯 <strong>Objetivo:</strong> <span style="color: #38bdf8;">${escapeHtmlTrainer(al.objetivo || 'Salud & Acondicionamiento')}</span></div>
-                <div style="margin-top: 2px;">📅 <strong>Antigüedad:</strong> <span style="color: #f59e0b; font-weight: 700;">${escapeHtmlTrainer(antiguedadTexto)}</span></div>
-                <div style="margin-top: 2px; color: #94a3b8; font-size: 11px;">🏋️‍♂️ <strong>Entrenamientos:</strong> ${sesAlumno.length} sesiones · Total: $${totalRecaudado.toFixed(0)}</div>
+            <div style="font-size: 12px; color: #e2e8f0; margin-bottom: 12px; line-height: 1.45;">
+                <div>🎯 <strong>Objetivo:</strong> <span style="color: #7dd3fc; font-weight: 700;">${escapeHtmlTrainer(al.objetivo || 'Salud & Acondicionamiento')}</span></div>
+                <div style="margin-top: 2px;">📅 <strong>Antigüedad:</strong> <span style="color: #fcd34d; font-weight: 700;">${escapeHtmlTrainer(antiguedadTexto)}</span></div>
+                <div style="margin-top: 2px; color: #cbd5e1; font-size: 11.5px;">🏋️‍♂️ <strong>Sesiones:</strong> ${sesAlumno.length} · Total: <strong style="color:#34d399;">$${totalRecaudado.toFixed(0)}</strong></div>
             </div>
 
-            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px;">
-                <button type="button" class="btn-system" onclick="abrirModalIniciarEntrenamiento('${al.id}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(148, 163, 184, 0.14); padding-top: 10px;">
+                <button type="button" class="trainer-btn-primary" onclick="abrirModalIniciarEntrenamiento('${al.id}')" style="flex: 2; justify-content: center; font-size: 11.5px; padding: 7px 10px;">
                     🏋️‍♂️ Iniciar Sesión
                 </button>
-                <button type="button" class="btn-back-system" onclick="verFichaAlumnoTrainer('${al.id}')" style="flex: 1; justify-content: center; font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Ver ficha biométrica e historial">
+                <button type="button" class="trainer-btn-secondary" onclick="verFichaAlumnoTrainer('${al.id}')" style="flex: 1; justify-content: center; font-size: 11.5px; padding: 7px 9px;" title="Ver ficha biométrica e historial">
                     📋 Ficha
                 </button>
-                <button type="button" class="btn-back-system" onclick="abrirModalAlumnoTrainer('${al.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Editar alumno">
+                <button type="button" class="trainer-btn-secondary" onclick="abrirModalAlumnoTrainer('${al.id}')" style="font-size: 11.5px; padding: 7px 9px;" title="Editar alumno">
                     ✏️
                 </button>
-                <button type="button" class="btn-back-system" onclick="eliminarAlumnoTrainer('${al.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar alumno">
+                <button type="button" class="trainer-btn-secondary" onclick="eliminarAlumnoTrainer('${al.id}')" style="font-size: 11.5px; padding: 7px 9px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.35);" title="Eliminar alumno">
                     🗑️
                 </button>
             </div>
@@ -4270,23 +4265,23 @@ function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
     });
 
     var html = `
-    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="flex: 1; min-width: 250px;">
-            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ENFOQUE_TRAINER)}" placeholder="🔍 Buscar enfoque o rutina por nombre o ejercicios..." oninput="filtrarEnfoquesTrainer(this.value)" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+    <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="flex: 1; min-width: 210px;">
+            <input type="text" value="${escapeHtmlTrainer(BUSQUEDA_ENFOQUE_TRAINER)}" placeholder="🔍 Buscar enfoque o rutina..." oninput="filtrarEnfoquesTrainer(this.value)" class="finanzas-input-clean" style="background: #151e34; border: 1px solid rgba(148, 163, 184, 0.24); color: #f8fafc; border-radius: 10px; padding: 10px 13px; width: 100%; box-sizing: border-box; font-size: 13px;">
         </div>
-        <button type="button" class="btn-system" onclick="abrirModalEnfoqueTrainer()" style="font-size: 12.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
-            <span>➕</span> + Nuevo Enfoque / Rutina
+        <button type="button" class="trainer-btn-primary" onclick="abrirModalEnfoqueTrainer()">
+            <span>➕</span> Nuevo Enfoque
         </button>
     </div>
     `;
 
     if (filtrados.length === 0) {
         html += `
-        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
-            <div style="font-size: 36px; margin-bottom: 10px;">🎯</div>
-            <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">No se encontraron rutinas</div>
-            <div style="font-size: 12.5px;">Agrega enfoques musculares (Pierna, Push, Pull, Fullbody) para auto-completar los entrenamientos.</div>
-            <button type="button" class="btn-system" onclick="abrirModalEnfoqueTrainer()" style="margin-top: 14px; font-size: 12px; background: #10b981; color: #000; border: none; padding: 8px 16px; font-weight: 800; border-radius: 8px; cursor: pointer;">
+        <div class="trainer-panel-clean" style="border-style: dashed; padding: 34px 18px; text-align: center; color: #cbd5e1;">
+            <div style="font-size: 34px; margin-bottom: 8px;">🎯</div>
+            <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">No hay rutinas o enfoques</div>
+            <div style="font-size: 12.5px; margin-bottom: 14px;">Crea enfoques como Pierna, Push, Pull o Fullbody para iniciar sesiones al instante.</div>
+            <button type="button" class="trainer-btn-primary" onclick="abrirModalEnfoqueTrainer()" style="margin: 0 auto;">
                 + Crear Primer Enfoque
             </button>
         </div>
@@ -4294,35 +4289,33 @@ function renderizarHtmlCatalogoEnfoquesTrainer(rutinas) {
         return html;
     }
 
-    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">';
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 12px;">';
 
     filtrados.forEach(function(r) {
         html += `
         <div class="trainer-enfoque-card">
             <div>
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px;">
                     <div>
-                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(r.nombre)}</div>
-                        <span style="font-size: 11px; color: #10b981; font-weight: 700;">⏱️ ${r.tiempoMin || 60} min estimados</span>
+                        <div style="font-size: 14.5px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(r.nombre)}</div>
+                        <span style="font-size: 11px; color: #34d399; font-weight: 700;">⏱️ ${r.tiempoMin || 60} min</span>
                     </div>
-                    <div style="text-align: right;">
-                        <span style="font-size: 16px; font-weight: 800; color: #10b981;">$${(parseFloat(r.precio) || 0).toFixed(2)}</span>
-                    </div>
+                    <span style="font-size: 16px; font-weight: 800; color: #34d399;">$${(parseFloat(r.precio) || 0).toFixed(2)}</span>
                 </div>
 
-                <div style="font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 14px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 10px;">
+                <div style="font-size: 12px; color: #cbd5e1; line-height: 1.45; margin-bottom: 12px; background: #101728; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; padding: 8px 10px;">
                     ${escapeHtmlTrainer(r.descripcion || 'Sin descripción técnica registrada.')}
                 </div>
             </div>
 
-            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px;">
-                <button type="button" class="btn-system" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(r.nombre)}')" style="flex: 2; justify-content: center; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 7px 10px; border-radius: 8px; cursor: pointer;">
+            <div style="display: flex; gap: 6px; border-top: 1px solid rgba(148, 163, 184, 0.14); padding-top: 10px;">
+                <button type="button" class="trainer-btn-primary" onclick="abrirModalIniciarEntrenamiento(null, '${escapeHtmlTrainer(r.nombre)}')" style="flex: 2; justify-content: center; font-size: 11.5px; padding: 7px 10px;">
                     🏋️‍♂️ Iniciar Rutina
                 </button>
-                <button type="button" class="btn-back-system" onclick="abrirModalEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer;" title="Editar enfoque">
+                <button type="button" class="trainer-btn-secondary" onclick="abrirModalEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; padding: 7px 9px;" title="Editar enfoque">
                     ✏️
                 </button>
-                <button type="button" class="btn-back-system" onclick="eliminarEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; margin-bottom: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar enfoque">
+                <button type="button" class="trainer-btn-secondary" onclick="eliminarEnfoqueTrainer('${r.id}')" style="font-size: 11.5px; padding: 7px 9px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.35);" title="Eliminar enfoque">
                     🗑️
                 </button>
             </div>
@@ -4342,11 +4335,11 @@ function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
     });
 
     var html = `
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;">
-            <label style="font-size: 12px; color: #94a3b8; font-weight: 700;">Filtrar por Alumno:</label>
-            <select class="finanzas-input-clean" onchange="filtrarHistorialTrainerPorAlumno(this.value)" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 8px; padding: 6px 12px; font-size: 12.5px;">
-                <option value="">Todos los Alumnos (${sesiones.length})</option>
+            <label style="font-size: 12px; color: #cbd5e1; font-weight: 700;">Alumno:</label>
+            <select class="finanzas-input-clean" onchange="filtrarHistorialTrainerPorAlumno(this.value)" style="background: #151e34; border: 1px solid rgba(148, 163, 184, 0.24); color: #f8fafc; border-radius: 9px; padding: 7px 11px; font-size: 12.5px;">
+                <option value="">Todos (${sesiones.length})</option>
     `;
 
     alumnos.forEach(function(al) {
@@ -4357,18 +4350,18 @@ function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
     html += `
             </select>
         </div>
-        <div style="font-size: 12px; color: #94a3b8;">
-            Mostrando: <strong style="color: #10b981;">${filtradas.length}</strong> de ${sesiones.length} sesiones
+        <div style="font-size: 12px; color: #cbd5e1;">
+            Mostrando <strong style="color: #34d399;">${filtradas.length}</strong> de ${sesiones.length}
         </div>
     </div>
     `;
 
     if (filtradas.length === 0) {
         html += `
-        <div style="background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 40px 20px; text-align: center; color: #94a3b8;">
+        <div class="trainer-panel-clean" style="border-style: dashed; padding: 34px 18px; text-align: center; color: #cbd5e1;">
             <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
-            <div style="font-size: 14px; font-weight: 700; color: #f8fafc;">No hay entrenamientos en este historial</div>
-            <div style="font-size: 12px; margin-top: 4px;">Usa el botón "Iniciar Entrenamiento" para registrar una sesión en vivo.</div>
+            <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">Sin sesiones registradas</div>
+            <div style="font-size: 12px; margin-top: 4px; color: #cbd5e1;">Usa "Iniciar Sesión" para cronometrar y registrar tu entrenamiento.</div>
         </div>
         `;
         return html;
@@ -4378,28 +4371,28 @@ function renderizarHtmlHistorialEntrenamientosTrainer(sesiones, alumnos) {
 
     filtradas.forEach(function(s) {
         html += `
-        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+        <div style="background: #162036; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 13px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.45); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
                     🏋️‍♂️
                 </div>
                 <div>
-                    <div style="font-size: 13.5px; font-weight: 800; color: #f8fafc;">
+                    <div style="font-size: 13.5px; font-weight: 800; color: #ffffff;">
                         ${escapeHtmlTrainer(s.alumnoNombre || 'Alumno')} 
-                        <span style="font-size: 11px; font-weight: 600; color: #10b981; margin-left: 6px;">${escapeHtmlTrainer(s.enfoque || 'Entrenamiento')}</span>
+                        <span style="font-size: 11px; font-weight: 700; color: #34d399; margin-left: 4px;">${escapeHtmlTrainer(s.enfoque || 'Entrenamiento')}</span>
                     </div>
-                    <div style="font-size: 11px; color: #94a3b8;">
+                    <div style="font-size: 11.5px; color: #cbd5e1;">
                         📅 ${s.fecha} · ⏱️ ${s.duracionMinutos || 60} min
                     </div>
                 </div>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
                 <div style="text-align: right;">
-                    <div style="font-size: 15px; font-weight: 800; color: #10b981;">+$${(parseFloat(s.cobro) || 0).toFixed(2)}</div>
-                    <div style="font-size: 9.5px; color: #64748b;">cobrado</div>
+                    <div style="font-size: 15px; font-weight: 800; color: #34d399;">+$${(parseFloat(s.cobro) || 0).toFixed(2)}</div>
+                    <div style="font-size: 10px; color: #94a3b8;">cobrado</div>
                 </div>
-                <button type="button" class="btn-back-system" onclick="eliminarEntrenamientoTrainer('${s.id}')" style="margin-bottom: 0; padding: 6px 10px; font-size: 11px; color: #f87171; border-color: rgba(239, 68, 68, 0.3);" title="Eliminar registro">
+                <button type="button" class="trainer-btn-secondary" onclick="eliminarEntrenamientoTrainer('${s.id}')" style="padding: 6px 9px; font-size: 11px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.35);" title="Eliminar registro">
                     🗑️
                 </button>
             </div>
@@ -4420,6 +4413,20 @@ function filtrarHistorialTrainerPorAlumno(alumnoId) {
 // SUB-APP TRAINER: GENERADOR DE RUTINA ALEATORIA & ASIGNADOR A ATLETAS
 // ==========================================================================
 
+function obtenerDiaRutinaTrainerActivoIdx() {
+    if (typeof DIA_TRAINER_ALEATORIA_SELECCIONADO === 'number' && DIA_TRAINER_ALEATORIA_SELECCIONADO >= 0 && DIA_TRAINER_ALEATORIA_SELECCIONADO <= 6) {
+        return DIA_TRAINER_ALEATORIA_SELECCIONADO;
+    }
+    return obtenerDiaSemanaActualIdx();
+}
+
+function cambiarDiaRutinaTrainer(diaIdx) {
+    DIA_TRAINER_ALEATORIA_SELECCIONADO = diaIdx;
+    RUTINA_TRAINER_GENERADA = null;
+    RUTINA_TRAINER_META = null;
+    renderizarSubAppTrainer();
+}
+
 function renderizarHtmlRutinaAleatoriaTrainer() {
     asegurarEstructuraTrainer();
     var alumnos = APP_STATE.subappTrainer.alumnos || [];
@@ -4435,43 +4442,57 @@ function renderizarHtmlRutinaAleatoriaTrainer() {
 
     var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
     var split = obtenerSplitSemanalActual(perfil);
-    var diaIdx = obtenerDiaSemanaActualIdx();
+    var diaHoyIdx = obtenerDiaSemanaActualIdx();
+    var diaIdx = obtenerDiaRutinaTrainerActivoIdx();
     var diaConfig = split[diaIdx] || { dia: DIAS_SEMANA_NOMBRES[diaIdx], descanso: false, grupos: [] };
     var nombreDia = DIAS_SEMANA_NOMBRES[diaIdx];
+    var esHoyDia = (diaIdx === diaHoyIdx);
     var esDescanso = !!diaConfig.descanso;
     var grupos = diaConfig.grupos || [];
 
+    var metaCoincideDia = RUTINA_TRAINER_META && RUTINA_TRAINER_META.diaIdx === diaIdx;
+    var gruposMostrados = (metaCoincideDia && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados
+        : grupos;
+    var fueSorteoDescanso = !!(metaCoincideDia && RUTINA_TRAINER_META.fueSorteoDescanso);
+
+    var dayChipsHtml = split.map(function(dItem, idx) {
+        var corto = (dItem.dia || DIAS_SEMANA_NOMBRES[idx] || '').slice(0, 3);
+        var sel = idx === diaIdx;
+        var rest = !!dItem.descanso;
+        var cnt = Array.isArray(dItem.grupos) ? dItem.grupos.length : 0;
+        return `<button type="button" class="trainer-day-chip ${sel ? 'is-selected' : ''} ${rest ? 'is-rest-chip' : ''}" onclick="cambiarDiaRutinaTrainer(${idx})" title="${dItem.dia}${idx === diaHoyIdx ? ' (Hoy)' : ''}">
+            <span>${corto}${idx === diaHoyIdx ? ' ★' : ''}</span>
+            <span class="trainer-day-chip-dot">${rest ? '🏖️' : (cnt + ' grp')}</span>
+        </button>`;
+    }).join('');
+
     var html = `
-    <div style="background: #0d121f; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
-        <!-- CABECERA DEL GENERADOR DE RUTINAS PARA ATLETAS -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
-            <div>
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <span style="font-size: 20px;">🎲</span>
-                    <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">
-                        Generador de Rutina Aleatoria para Atletas
-                    </h3>
-                    <span class="subapp-badge" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); font-size: 10px;">
-                        COACHING & ASIGNACIÓN
-                    </span>
+    <div class="trainer-panel-clean" style="margin-bottom: 16px;">
+        <!-- CABECERA LIMPIA CON BOTÓN DE SETTINGS DESTACADO -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+            <div style="min-width: 180px; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 19px;">🎲</span>
+                    <h3 style="margin: 0; font-size: 16.5px; font-weight: 800; color: #f8fafc;">Generador de Rutina Aleatoria</h3>
                 </div>
-                <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
-                    Genera y asigna rutinas diarias optimizadas con ejercicios multiarticulares y accesorios del Banco Físico para tus atletas.
+                <p style="margin: 3px 0 0 0; font-size: 12px; color: #cbd5e1;">
+                    Crea rutinas aleatorias según tus grupos musculares de cada día (incluso en descanso).
                 </p>
             </div>
-            <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('settings')" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 8px 14px;">
-                <span>⚙️</span> Configurar Split Semanal
+            <button type="button" id="btn-trainer-aleatoria-settings" class="trainer-btn-settings" onclick="mostrarSubvistaTrainerAleatoria('settings')">
+                <span>⚙️</span> Settings
             </button>
         </div>
 
-        <!-- SELECTOR DE ATLETA Y PERFIL BIOMÉTRICO -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 18px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 14px 16px;">
+        <!-- SELECTOR DE ATLETA Y PERFIL -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; background: #182238; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 13px; padding: 12px 14px;">
             <div>
-                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #10b981; margin-bottom: 6px;">
-                    👤 Atleta / Alumno Destinatario:
+                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: #34d399; margin-bottom: 6px;">
+                    👤 Atleta / Destinatario
                 </label>
-                <select id="trainer-rutina-alumno-select" class="finanzas-input-clean" onchange="alCambiarAlumnoRutinaTrainer(this.value)" style="width: 100%; box-sizing: border-box; background: #0b0e15; border: 1px solid rgba(16, 185, 129, 0.3); color: #f8fafc; border-radius: 10px; padding: 10px 12px; font-size: 13px;">
-                    <option value="">-- Sin atleta asignado (Plantilla General) --</option>
+                <select id="trainer-rutina-alumno-select" class="finanzas-input-clean" onchange="alCambiarAlumnoRutinaTrainer(this.value)" style="width: 100%; box-sizing: border-box; background: #101728; border: 1px solid rgba(52, 211, 153, 0.38); color: #f8fafc; border-radius: 10px; padding: 9px 11px; font-size: 12.5px;">
+                    <option value="">-- Plantilla General / Libre --</option>
                     ${alumnos.map(function(al) {
                         var sel = (ALUMNO_RUTINA_TRAINER_SELECCIONADO === al.id) ? 'selected' : '';
                         var gIcon = al.genero === 'Femenino' ? '👩' : '👨';
@@ -4481,88 +4502,86 @@ function renderizarHtmlRutinaAleatoriaTrainer() {
             </div>
 
             <div>
-                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 6px;">
-                    🧬 Perfil Fisiológico / Split:
+                <label style="display: block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: #cbd5e1; margin-bottom: 6px;">
+                    🧬 Perfil / Split
                 </label>
-                <div class="toggle-perfil-split-box" style="margin-top: 2px;">
-                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'hombre' ? 'active' : ''}" onclick="cambiarPerfilRutinaTrainer('hombre')">
+                <div class="toggle-perfil-split-box" style="width: 100%; justify-content: stretch;">
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'hombre' ? 'active' : ''}" style="flex: 1; justify-content: center;" onclick="cambiarPerfilRutinaTrainer('hombre')">
                         👨 Hombre
                     </button>
-                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'mujer' ? 'active' : ''}" onclick="cambiarPerfilRutinaTrainer('mujer')">
+                    <button type="button" class="btn-toggle-perfil-split ${perfil === 'mujer' ? 'active' : ''}" style="flex: 1; justify-content: center;" onclick="cambiarPerfilRutinaTrainer('mujer')">
                         👩 Mujer
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- RESUMEN BIOMÉTRICO SI HAY ALUMNO SELECCIONADO -->
+        <!-- RESUMEN DE ALUMNO SELECCIONADO -->
         ${alumnoActivo ? `
-        <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="trainer-avatar-initials" style="width: 40px; height: 40px; font-size: 15px;">
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="trainer-avatar-initials" style="width: 38px; height: 38px; font-size: 14px;">
                     ${escapeHtmlTrainer(alumnoActivo.nombre ? alumnoActivo.nombre.slice(0, 2).toUpperCase() : 'AL')}
                 </div>
                 <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 14.5px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(alumnoActivo.nombre)}</span>
-                        <span style="font-size: 10.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.12); padding: 2px 7px; border-radius: 6px;">${escapeHtmlTrainer(alumnoActivo.genero || 'Atleta')}</span>
-                    </div>
-                    <div style="font-size: 11.5px; color: #94a3b8;">
-                        🎯 Objetivo: <strong style="color: #38bdf8;">${escapeHtmlTrainer(alumnoActivo.objetivo || 'Fitness')}</strong>
+                    <div style="font-size: 14px; font-weight: 800; color: #f8fafc;">${escapeHtmlTrainer(alumnoActivo.nombre)}</div>
+                    <div style="font-size: 11.5px; color: #cbd5e1;">
+                        🎯 <strong style="color: #7dd3fc;">${escapeHtmlTrainer(alumnoActivo.objetivo || 'Fitness')}</strong>
                         ${alumnoActivo.peso ? ` · ⚖️ ${alumnoActivo.peso} kg` : ''}
-                        ${alumnoActivo.altura ? ` · 📏 ${alumnoActivo.altura} cm` : ''}
                     </div>
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <button type="button" class="btn-back-system" onclick="verFichaAlumnoTrainer('${alumnoActivo.id}')" style="margin-bottom: 0; padding: 6px 12px; font-size: 11.5px;">
-                    📋 Ver Ficha
-                </button>
-            </div>
+            <button type="button" class="trainer-btn-secondary" onclick="verFichaAlumnoTrainer('${alumnoActivo.id}')" style="padding: 6px 11px; font-size: 11.5px;">
+                📋 Ver Ficha
+            </button>
         </div>
         ` : ''}
 
-        <!-- BANNER DE HOY Y GRUPOS PROGRAMADOS -->
-        <div class="generator-banner-today" style="margin-bottom: 18px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 8px; border-radius: 6px;">
-                            ${perfil === 'mujer' ? '👩 Perfil Mujer' : '👨 Perfil Hombre'}
-                        </span>
-                        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">· Detección de Calendario</span>
-                    </div>
-                    <h3 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 17px; font-weight: 800;">
-                        📅 Hoy es <span style="color: #38bdf8;">${nombreDia}</span>
-                    </h3>
-                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
-                        ${esDescanso
-                            ? '<span style="display: inline-block; padding: 4px 12px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.3); color: #cbd5e1; border-radius: 9999px; font-size: 12px; font-weight: 700;">🏖️ Día de Descanso Programado en el Split</span>'
-                            : (grupos.length > 0
-                                ? grupos.map(function(g) {
-                                    return `<span style="display: inline-block; padding: 4px 10px; background: rgba(37, 99, 235, 0.2); border: 1px solid rgba(37, 99, 235, 0.4); color: #93c5fd; border-radius: 9999px; font-size: 11.5px; font-weight: 700; margin-right: 6px; margin-top: 4px;">⚡ ${g}</span>`;
-                                }).join('')
-                                : '<span style="color: #94a3b8; font-size: 12px;">Sin grupos programados hoy en el split.</span>')}
-                    </div>
+        <!-- BANNER DEL DÍA Y SELECTOR RÁPIDO LUN-DOM -->
+        <div class="generator-banner-today">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: #7dd3fc; background: rgba(56, 189, 248, 0.16); border: 1px solid rgba(56, 189, 248, 0.35); padding: 2px 8px; border-radius: 6px;">
+                        ${perfil === 'mujer' ? '👩 Mujer' : '👨 Hombre'}
+                    </span>
+                    <span style="font-size: 16.5px; font-weight: 800; color: #ffffff;">
+                        📅 ${nombreDia}${esHoyDia ? ' <span style="color:#34d399; font-size:12.5px;">(Hoy)</span>' : ''}
+                    </span>
                 </div>
-                <div>
-                    <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('settings')" style="font-size: 11.5px; padding: 6px 12px;">
-                        ⚙️ Cambiar Split
-                    </button>
-                </div>
+                <span style="font-size: 11px; font-weight: 700; color: ${esDescanso ? '#fcd34d' : '#6ee7b7'}; background: ${esDescanso ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)'}; border: 1px solid ${esDescanso ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.35)'}; padding: 3px 9px; border-radius: 9999px;">
+                    ${esDescanso ? '🏖️ Descanso · Sorteo Activo' : '💪 Día de Entrenamiento'}
+                </span>
+            </div>
+
+            <div class="trainer-day-pills-bar">${dayChipsHtml}</div>
+
+            <div style="margin-top: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                ${esDescanso && !fueSorteoDescanso ? `
+                    <span style="font-size: 12px; color: #e2e8f0; line-height: 1.4;">
+                        Hoy es descanso programado, pero si pides rutina se elegirán <strong>grupos musculares al azar</strong> de tu configuración de Settings.
+                    </span>
+                ` : ''}
+                ${fueSorteoDescanso ? `
+                    <span style="font-size: 11.5px; font-weight: 800; color: #fcd34d; margin-right: 4px;">🎲 Grupos sorteados:</span>
+                ` : ''}
+                ${(gruposMostrados && gruposMostrados.length > 0 && (!esDescanso || fueSorteoDescanso))
+                    ? gruposMostrados.map(function(g) {
+                        return `<span style="display: inline-flex; align-items: center; padding: 4px 10px; background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(52, 211, 153, 0.45); color: #ecfdf5; border-radius: 9999px; font-size: 11.5px; font-weight: 700;">⚡ ${g}</span>`;
+                    }).join('')
+                    : (!esDescanso ? `<span style="color: #fcd34d; font-size: 12px;">Sin grupos fijos este día: se sortearán al azar de Settings al generar.</span>` : '')}
             </div>
         </div>
 
         <!-- BOTÓN GENERAR -->
-        <div style="text-align: center; margin-bottom: 22px;">
-            <button type="button" class="btn-system" onclick="generarRutinaAleatoriaTrainer()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 15px; padding: 14px 30px; border-radius: 12px; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35); border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
-                <span>⚡</span> Generar Rutina de Hoy ${alumnoActivo ? ('para ' + escapeHtmlTrainer(alumnoActivo.nombre)) : 'para Atleta'}
+        <div style="margin-bottom: 18px;">
+            <button type="button" id="btn-trainer-generar-rutina" class="btn-system" onclick="generarRutinaAleatoriaTrainer()" style="width: 100%; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 14.5px; padding: 13px 20px; border-radius: 12px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35); border: 1px solid rgba(52, 211, 153, 0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span>⚡</span> ${esDescanso ? 'Generar Rutina Aleatoria (Elegir Grupos al Azar)' : 'Generar Rutina de ' + nombreDia} ${alumnoActivo ? ('· ' + escapeHtmlTrainer(alumnoActivo.nombre)) : ''}
             </button>
         </div>
 
         <!-- CONTENEDOR DE LA RUTINA GENERADA -->
         <div id="trainer-rutina-generada-box">
-            ${renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos)}
+            ${renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, gruposMostrados)}
         </div>
     </div>
     `;
@@ -4572,78 +4591,67 @@ function renderizarHtmlRutinaAleatoriaTrainer() {
 
 function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
     if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
-        var ejerciciosBanco = (typeof obtenerBancoUsuarioEjercicios === 'function') ? obtenerBancoUsuarioEjercicios() : [];
-        if (!ejerciciosBanco || ejerciciosBanco.length === 0) {
-            return `
-            <div style="text-align: center; padding: 36px 20px; background: #07090e; border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 16px;">
-                <span style="font-size: 34px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
-                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Tu Banco Físico está vacío</h4>
-                <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
-                    El generador selecciona ejercicios registrados en tu Banco Físico para estructurar la sesión del atleta.
-                </p>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 10px 18px; font-size: 13px;">
-                        📥 Cargar Banco Recomendado (30+ Ejercicios)
-                    </button>
-                </div>
-            </div>`;
-        }
-
         return `
-        <div style="text-align: center; padding: 40px 20px; background: #07090e; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 16px;">
-            <span style="font-size: 36px; display: block; margin-bottom: 8px;">🎲</span>
-            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Generador de Rutinas para Atletas</h4>
-            <p style="color: #94a3b8; font-size: 13px; max-width: 460px; margin: 0 auto;">
-                Selecciona un atleta y pulsa el botón superior para estructurar su sesión de hoy. Se seleccionarán entre 4 y 6 ejercicios óptimos priorizando multiarticulares y accesorios.
+        <div style="text-align: center; padding: 28px 18px; background: #182238; border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 14px;">
+            <span style="font-size: 32px; display: block; margin-bottom: 8px;">🎲</span>
+            <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 15.5px; font-weight: 800;">Listo para generar tu rutina</h4>
+            <p style="color: #cbd5e1; font-size: 12.5px; max-width: 440px; margin: 0 auto 14px auto; line-height: 1.5;">
+                Pulsa el botón verde para elegir entre 4 y 6 ejercicios aleatorios balanceados según los grupos musculares configurados en <strong>⚙️ Settings</strong>.
             </p>
+            <button type="button" class="trainer-btn-secondary" onclick="mostrarSubvistaTrainerAleatoria('settings')" style="margin: 0 auto;">
+                ⚙️ Configurar Grupos por Día
+            </button>
         </div>`;
     }
 
+    var metaTitulo = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? (' · ' + RUTINA_TRAINER_META.gruposUsados.join(', '))
+        : '';
+
     var html = `
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
         <div>
             <h4 style="margin: 0; color: #f8fafc; font-size: 15px; font-weight: 800;">
-                🔥 Sesión Estructurada ${alumnoActivo ? ('para ' + escapeHtmlTrainer(alumnoActivo.nombre)) : 'para Atleta'} (${RUTINA_TRAINER_GENERADA.length} Ejercicios)
+                🔥 Sesión Generada (${RUTINA_TRAINER_GENERADA.length} Ejercicios${escapeHtmlTrainer(metaTitulo)})
             </h4>
-            <span style="font-size: 12px; color: #94a3b8;">Revisa y ajusta los ejercicios. Puedes re-rollear individualmente cualquiera que requiera variante.</span>
+            <span style="font-size: 12px; color: #cbd5e1;">Puedes cambiar cualquier ejercicio individualmente con 🔄 Re-roll.</span>
         </div>
-        <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaTrainer()" style="font-size: 11.5px;">
-            🔄 Regenerar Todo
+        <button type="button" class="trainer-btn-secondary" onclick="generarRutinaAleatoriaTrainer()" style="font-size: 12px; padding: 6px 12px;">
+            🔄 Regenerar
         </button>
     </div>
 
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
     `;
 
     RUTINA_TRAINER_GENERADA.forEach(function(ej, idx) {
         var esComp = !!ej.compuesto;
-        var badgeComp = esComp 
-            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL / COMPUESTO</span>`
-            : `<span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
-        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).map(function(c) {
-            return `<span style="font-size: 10.5px; background: #07090e; border: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">${c}</span>`;
+        var badgeComp = esComp
+            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>`
+            : `<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.32); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
+        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
+            return `<span style="font-size: 10.5px; font-weight: 700; background: #101728; border: 1px solid rgba(148, 163, 184, 0.22); color: #e2e8f0; padding: 2px 7px; border-radius: 5px;">${c}</span>`;
         }).join(' ');
 
         html += `
-        <div class="random-exercise-card" style="background: #07090e; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #10b981; flex-shrink: 0;">
+        <div class="random-exercise-card">
+            <div style="display: flex; align-items: flex-start; gap: 11px; flex: 1; min-width: 0;">
+                <div style="width: 30px; height: 30px; border-radius: 8px; background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(52, 211, 153, 0.45); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #34d399; flex-shrink: 0;">
                     ${idx + 1}
                 </div>
-                <div style="flex: 1;">
+                <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
-                        <h4 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc;">${escapeHtmlTrainer(ej.nombre)}</h4>
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(ej.nombre)}</h4>
                         ${badgeComp}
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
                         <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${ej.repeticiones || '10-12 reps'}</span>
-                        <span style="color: #64748b; font-size: 12px;">·</span>
                         ${muscleBadges}
                     </div>
                 </div>
             </div>
-            <div>
-                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioTrainer(${idx})" title="Cambiar por otro ejercicio del mismo grupo">
+            <div style="flex-shrink: 0;">
+                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioTrainer(${idx})" title="Cambiar por otra variante aleatoria">
                     <span>🔄</span> Re-roll
                 </button>
             </div>
@@ -4655,15 +4663,15 @@ function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
     </div>
 
     <!-- BOTONES DE ACCIÓN PARA EL ATLETA -->
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-        <button type="button" class="btn-system" onclick="asignarRutinaGeneradaAAlumnoTrainer()" style="flex: 2; min-width: 220px; padding: 14px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 14px; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+        <button type="button" class="btn-system" onclick="asignarRutinaGeneradaAAlumnoTrainer()" style="flex: 2; min-width: 190px; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
             <span>📋</span> Asignar a Alumno
         </button>
-        <button type="button" class="btn-system" onclick="iniciarEntrenamientoConRutinaTrainer()" style="flex: 1.5; min-width: 200px; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; font-weight: 800; font-size: 14px; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);">
-            <span>🏋️‍♂️</span> Iniciar Sesión con Alumno
+        <button type="button" class="btn-system" onclick="iniciarEntrenamientoConRutinaTrainer()" style="flex: 1.5; min-width: 170px; padding: 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);">
+            <span>🏋️‍♂️</span> Iniciar Sesión
         </button>
-        <button type="button" class="btn-subfiltro-ej" onclick="guardarRutinaTrainerComoEnfoque()" style="padding: 14px 20px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-            <span>💾</span> Guardar como Enfoque
+        <button type="button" class="trainer-btn-secondary" onclick="guardarRutinaTrainerComoEnfoque()" style="padding: 12px 16px; font-weight: 700; font-size: 13px;">
+            <span>💾</span> Guardar Enfoque
         </button>
     </div>
     `;
@@ -4680,12 +4688,16 @@ function alCambiarAlumnoRutinaTrainer(alumnoId) {
             PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_TRAINER_ALEATORIA_ACTIVO;
         }
     }
+    RUTINA_TRAINER_GENERADA = null;
+    RUTINA_TRAINER_META = null;
     renderizarSubAppTrainer();
 }
 
 function cambiarPerfilRutinaTrainer(perfil) {
     PERFIL_TRAINER_ALEATORIA_ACTIVO = perfil || 'hombre';
     PERFIL_SETTINGS_SPLIT_ACTIVO = PERFIL_TRAINER_ALEATORIA_ACTIVO;
+    RUTINA_TRAINER_GENERADA = null;
+    RUTINA_TRAINER_META = null;
     renderizarSubAppTrainer();
 }
 
@@ -4697,118 +4709,45 @@ function mostrarSubvistaTrainerAleatoria(sub) {
 function generarRutinaAleatoriaTrainer() {
     var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
     var split = obtenerSplitSemanalActual(perfil);
-    var diaIdx = obtenerDiaSemanaActualIdx();
-    var diaConfig = split[diaIdx];
+    var diaIdx = obtenerDiaRutinaTrainerActivoIdx();
+    var resolucion = resolverGruposObjetivoParaDiaAleatoria(split, diaIdx);
+    var gruposObjetivo = resolucion.grupos;
 
-    if (diaConfig && diaConfig.descanso) {
-        if (!confirm("Hoy " + DIAS_SEMANA_NOMBRES[diaIdx] + " es DÍA DE DESCANSO programado en el split semanal.\n\n¿Deseas estructurar una rutina activa de todos modos para este atleta?")) {
-            return;
-        }
-    }
-
-    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
-        ? diaConfig.grupos
-        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
-
-    var todos = obtenerBancoUsuarioEjercicios();
-
-    if (!todos || todos.length === 0) {
+    var resultado = construirRutinaAleatoriaPorGrupos(gruposObjetivo, 6);
+    if (!resultado.seleccionados || resultado.seleccionados.length === 0) {
         RUTINA_TRAINER_GENERADA = null;
-        alert("El Banco Físico aún no tiene ejercicios registrados. Puedes importar los recomendados o crear tus propios ejercicios.");
+        RUTINA_TRAINER_META = null;
+        alert("No se encontraron ejercicios disponibles para los grupos (" + gruposObjetivo.join(', ') + ").");
         renderizarSubAppTrainer();
         return;
     }
 
-    function coincideConGrupos(ej, grupos) {
-        var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
-            return (c || '').toLowerCase().trim();
-        });
-        return grupos.some(function(g) {
-            var gLow = (g || '').toLowerCase().trim();
-            return categorias.some(function(c) {
-                return c.includes(gLow) || gLow.includes(c);
-            });
-        });
-    }
-
-    var candidatos = todos.filter(function(ej) {
-        return coincideConGrupos(ej, gruposObjetivo);
-    });
-
-    if (!candidatos || candidatos.length === 0) {
-        RUTINA_TRAINER_GENERADA = null;
-        alert("No se encontraron ejercicios en tu Banco Físico que coincidan con los grupos de hoy (" + gruposObjetivo.join(', ') + ").");
-        renderizarSubAppTrainer();
-        return;
-    }
-
-    var compuestos = shuffleArray(candidatos.filter(function(e) { return !!e.compuesto; }));
-    var accesorios = shuffleArray(candidatos.filter(function(e) { return !e.compuesto; }));
-
-    var seleccionados = [];
-    var nombresUsados = {};
-
-    function agregar(ej) {
-        if (!ej) return false;
-        var key = ej.nombre.toLowerCase().trim();
-        if (nombresUsados[key]) return false;
-        nombresUsados[key] = true;
-        seleccionados.push(JSON.parse(JSON.stringify(ej)));
-        return true;
-    }
-
-    if (candidatos.length <= 4) {
-        candidatos.forEach(function(ej) { agregar(ej); });
-    } else {
-        var metaComp = Math.min(compuestos.length, Math.floor(Math.random() * 2) + 2);
-        for (var i = 0; i < compuestos.length && seleccionados.length < metaComp; i++) {
-            agregar(compuestos[i]);
-        }
-        var metaTotal = Math.min(6, candidatos.length);
-        for (var j = 0; j < accesorios.length && seleccionados.length < metaTotal; j++) {
-            agregar(accesorios[j]);
-        }
-        for (var k = 0; k < compuestos.length && seleccionados.length < metaTotal; k++) {
-            agregar(compuestos[k]);
-        }
-    }
-
-    RUTINA_TRAINER_GENERADA = seleccionados;
+    RUTINA_TRAINER_META = {
+        diaIdx: diaIdx,
+        diaNombre: resolucion.diaNombre,
+        gruposUsados: gruposObjetivo,
+        fueSorteoDescanso: resolucion.fueSorteoDescanso
+    };
+    RUTINA_TRAINER_GENERADA = resultado.seleccionados;
     renderizarSubAppTrainer();
 }
 
 function reRollearEjercicioTrainer(idx) {
     if (!RUTINA_TRAINER_GENERADA || !RUTINA_TRAINER_GENERADA[idx]) return;
 
-    var actual = RUTINA_TRAINER_GENERADA[idx];
     var perfil = PERFIL_TRAINER_ALEATORIA_ACTIVO || 'hombre';
     var split = obtenerSplitSemanalActual(perfil);
-    var diaIdx = obtenerDiaSemanaActualIdx();
-    var diaConfig = split[diaIdx];
-    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
-        ? diaConfig.grupos
-        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
+    var diaIdx = (RUTINA_TRAINER_META && typeof RUTINA_TRAINER_META.diaIdx === 'number') ? RUTINA_TRAINER_META.diaIdx : obtenerDiaRutinaTrainerActivoIdx();
+    var gruposObjetivo = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados
+        : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
 
-    var todos = shuffleArray(obtenerBancoUsuarioEjercicios());
-    var nombresActuales = RUTINA_TRAINER_GENERADA.map(function(e) { return e.nombre.toLowerCase().trim(); });
-
-    var grupoActual = actual.musculoPrincipal || (actual.categorias && actual.categorias[0]) || '';
-    var sustituto = todos.find(function(e) {
-        var nKey = e.nombre.toLowerCase().trim();
-        if (nombresActuales.includes(nKey)) return false;
-        var cat = (e.categorias || []).concat([e.musculoPrincipal || '']).map(function(c) { return (c || '').toLowerCase().trim(); });
-        var matchMismo = grupoActual && cat.some(function(c) { return c.includes(grupoActual.toLowerCase().trim()); });
-        var matchDia = gruposObjetivo.some(function(g) {
-            return cat.some(function(c) { return c.includes(g.toLowerCase().trim()); });
-        });
-        return matchMismo || matchDia;
-    });
-
+    var sustituto = elegirSustitutoEjercicioAleatorio(RUTINA_TRAINER_GENERADA, idx, gruposObjetivo);
     if (sustituto) {
-        RUTINA_TRAINER_GENERADA[idx] = JSON.parse(JSON.stringify(sustituto));
+        RUTINA_TRAINER_GENERADA[idx] = sustituto;
         renderizarSubAppTrainer();
     } else {
-        alert("No tienes otros ejercicios en tu Banco Físico para este grupo muscular.");
+        alert("No hay más variantes disponibles para este grupo muscular.");
     }
 }
 
@@ -4985,13 +4924,12 @@ function renderizarHtmlSettingsSplitTrainer() {
     var diaActualIdx = obtenerDiaSemanaActualIdx();
 
     var html = `
-    <div style="background: #0d121f; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-            <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaTrainerAleatoria('generador')" style="display: inline-flex; align-items: center; gap: 6px;">
-                <span>◀</span> Volver al Generador
+    <div class="trainer-panel-clean" style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+            <button type="button" class="trainer-btn-secondary" onclick="mostrarSubvistaTrainerAleatoria('generador')">
+                <span>◀</span> Volver a Rutina
             </button>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Editando Plano:</span>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <div class="toggle-perfil-split-box">
                     <button type="button" class="btn-toggle-perfil-split ${perfil === 'hombre' ? 'active' : ''}" onclick="cambiarPerfilSettingsSplitTrainer('hombre')">
                         👨 Hombre
@@ -5000,15 +4938,17 @@ function renderizarHtmlSettingsSplitTrainer() {
                         👩 Mujer
                     </button>
                 </div>
+                <button type="button" class="trainer-btn-secondary" onclick="restablecerSplitDefaultTrainer()" title="Restablecer grupos predeterminados" style="padding: 7px 11px;">
+                    🔄 Restablecer
+                </button>
             </div>
-            <button type="button" class="btn-subfiltro-ej" onclick="restablecerSplitDefaultTrainer()" style="color: #cbd5e1;" title="Restablecer valores predeterminados para este perfil">
-                🔄 Valores por Defecto
-            </button>
         </div>
 
-        <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #f8fafc; font-weight: 800;">⚙️ Configuración del Split Semanal de Atletas (Lunes a Domingo)</h3>
-            <p style="margin: 0; font-size: 12px; color: #94a3b8;">Asigna los grupos musculares objetivo de cada día o márcalo como día de descanso para el perfil seleccionado. Estos ajustes se guardan automáticamente y rigen el generador aleatorio de rutinas.</p>
+        <div style="background: #182238; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 14px; padding: 13px 16px; margin-bottom: 14px;">
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: #f8fafc; font-weight: 800;">⚙️ Settings · Grupos Musculares por Día</h3>
+            <p style="margin: 0; font-size: 12px; color: #cbd5e1; line-height: 1.45;">
+                Selecciona los músculos que entrenas cada día. Si pides una rutina en un día marcado como <strong>Descanso</strong>, se elegirán grupos musculares al azar entre los configurados aquí.
+            </p>
         </div>
 
         <!-- Grilla interactiva semanal Lunes-Domingo -->
@@ -5021,27 +4961,28 @@ function renderizarHtmlSettingsSplitTrainer() {
         var grupos = item.grupos || [];
 
         var chipsHtml = GRUPOS_MUSCULARES_SPLIT.map(function(m) {
-            var activo = grupos.includes(m);
+            var activo = !esDescanso && grupos.includes(m);
             return `<span class="split-muscle-chip ${activo ? 'active' : ''}" onclick="toggleMusculoDiaSplitTrainer(${idx}, '${m}')">${m}</span>`;
         }).join('');
 
         html += `
         <div class="split-day-card ${esHoy ? 'today' : ''} ${esDescanso ? 'is-rest' : ''}">
             <div class="split-day-header">
-                <div>
-                    <strong style="color: #f8fafc; font-size: 14px;">${item.dia}</strong>
-                    ${esHoy ? '<span style="font-size: 10px; font-weight: 800; background: #38bdf8; color: #080a0f; padding: 1px 6px; border-radius: 4px; margin-left: 6px;">HOY</span>' : ''}
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <strong style="color: #ffffff; font-size: 14.5px;">${item.dia}</strong>
+                    ${esHoy ? '<span style="font-size: 10px; font-weight: 800; background: #38bdf8; color: #080a0f; padding: 1px 6px; border-radius: 5px;">HOY</span>' : ''}
+                    ${!esDescanso ? `<span style="font-size: 10px; font-weight: 800; background: rgba(16, 185, 129, 0.16); color: #6ee7b7; padding: 1px 6px; border-radius: 5px;">${grupos.length} grp</span>` : ''}
                 </div>
-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: #94a3b8; user-select: none;">
-                    <input type="checkbox" ${esDescanso ? 'checked' : ''} onchange="toggleDescansoDiaSplitTrainer(${idx})" style="cursor: pointer;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: ${esDescanso ? '#fcd34d' : '#cbd5e1'}; user-select: none;">
+                    <input type="checkbox" ${esDescanso ? 'checked' : ''} onchange="toggleDescansoDiaSplitTrainer(${idx})" style="cursor: pointer; accent-color: #f59e0b; width: 15px; height: 15px;">
                     <span>Descanso</span>
                 </label>
             </div>
             <div>
-                <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
-                    ${esDescanso ? 'Día Libre (Sin entrenamiento programado)' : 'Grupos Musculares Objetivo:'}
+                <span style="font-size: 11px; color: ${esDescanso ? '#fcd34d' : '#7dd3fc'}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 7px;">
+                    ${esDescanso ? '🏖️ Día de Descanso (Toca un músculo para activarlo o sortea al generar):' : '💪 Grupos Musculares:'}
                 </span>
-                <div class="split-chips-container" style="${esDescanso ? 'opacity: 0.4; pointer-events: none;' : ''}">
+                <div class="split-chips-container">
                     ${chipsHtml}
                 </div>
             </div>
@@ -5067,6 +5008,8 @@ function toggleDescansoDiaSplitTrainer(diaIdx) {
     if (!split[diaIdx]) return;
     split[diaIdx].descanso = !split[diaIdx].descanso;
     guardarSplitSemanalActual(perfil, split);
+    RUTINA_TRAINER_GENERADA = null;
+    RUTINA_TRAINER_META = null;
     renderizarSubAppTrainer();
 }
 
@@ -5085,6 +5028,8 @@ function toggleMusculoDiaSplitTrainer(diaIdx, musculo) {
         split[diaIdx].grupos.push(musculo);
     }
     guardarSplitSemanalActual(perfil, split);
+    RUTINA_TRAINER_GENERADA = null;
+    RUTINA_TRAINER_META = null;
     renderizarSubAppTrainer();
 }
 

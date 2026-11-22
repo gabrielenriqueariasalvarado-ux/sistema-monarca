@@ -9377,10 +9377,10 @@ function renderizarSettingsSplitSemanal() {
                 </label>
             </div>
             <div>
-                <span style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
-                    ${esDescanso ? 'Día Libre (Sin entrenamiento programado)' : 'Grupos Musculares Objetivo:'}
+                <span style="font-size: 11px; color: ${esDescanso ? '#fcd34d' : '#7dd3fc'}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 6px;">
+                    ${esDescanso ? '🏖️ Descanso (Toca un músculo para activar o sortea al generar):' : '💪 Grupos Musculares:'}
                 </span>
-                <div class="split-chips-container" style="${esDescanso ? 'opacity: 0.4; pointer-events: none;' : ''}">
+                <div class="split-chips-container">
                     ${chipsHtml}
                 </div>
             </div>
@@ -9481,168 +9481,240 @@ function shuffleArray(arr) {
     return a;
 }
 
-function generarRutinaAleatoriaHoy() {
-    var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
-    var diaIdx = obtenerDiaSemanaActualIdx();
-    var diaConfig = split[diaIdx];
+var RUTINA_ALEATORIA_META = null;
 
-    if (diaConfig && diaConfig.descanso) {
-        if (!confirm("Hoy " + DIAS_SEMANA_NOMBRES[diaIdx] + " es tu DÍA DE DESCANSO programado según tu split semanal.\n\n¿Deseas generar una rutina activa de todos modos?")) {
-            return;
-        }
-    }
-
-    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
-        ? diaConfig.grupos
-        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
-
-    var contRutina = document.getElementById('contenedor-rutina-aleatoria-generada');
-    var todos = obtenerBancoUsuarioEjercicios();
-
-    // Caso 1: El Banco Físico está totalmente vacío
-    if (!todos || todos.length === 0) {
-        RUTINA_ALEATORIA_GENERADA = null;
-        if (contRutina) {
-            contRutina.innerHTML = `
-            <div style="background: #121725; border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 16px; padding: 36px 20px; text-align: center;">
-                <span style="font-size: 36px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
-                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">Tu Banco Físico no tiene ejercicios aún</h4>
-                <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
-                    Para generar tu rutina aleatoria, primero debes agregar tus ejercicios en el Banco Físico o puedes importar el banco base recomendado.
-                </p>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <button type="button" class="btn-system" onclick="abrirModalNuevoEjercicio('${gruposObjetivo[0] || 'Pecho'}')" style="padding: 10px 18px; font-size: 13px;">
-                        ➕ Crear Ejercicio en Banco Físico
-                    </button>
-                    <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 10px 18px; font-size: 13px;">
-                        📥 Cargar Recomendados
-                    </button>
-                </div>
-            </div>`;
-        }
-        return;
-    }
-
-    // Normalizador de búsqueda de texto de músculos
-    function coincideConGrupos(ej, grupos) {
-        var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
-            return (c || '').toLowerCase().trim();
-        });
-        return grupos.some(function(g) {
-            var gLow = (g || '').toLowerCase().trim();
-            return categorias.some(function(c) {
-                return c.includes(gLow) || gLow.includes(c);
-            });
-        });
-    }
-
-    var candidatos = todos.filter(function(ej) {
-        return coincideConGrupos(ej, gruposObjetivo);
+function obtenerCatalogoEjerciciosParaAleatoria() {
+    var usuarioEj = obtenerBancoUsuarioEjercicios();
+    var lista = usuarioEj.map(function(e) {
+        return Object.assign({}, e, { _fuenteCatalogo: 'usuario' });
+    });
+    var nombresSet = {};
+    lista.forEach(function(e) {
+        nombresSet[(e.nombre || '').toLowerCase().trim()] = true;
     });
 
-    // Caso 2: El usuario tiene ejercicios en su banco, pero NINGUNO coincide con los grupos de hoy
-    if (!candidatos || candidatos.length === 0) {
-        RUTINA_ALEATORIA_GENERADA = null;
-        if (contRutina) {
-            var listaGruposTexto = gruposObjetivo.join(', ');
-            contRutina.innerHTML = `
-            <div style="background: #121725; border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 16px; padding: 36px 20px; text-align: center;">
-                <span style="font-size: 36px; display: block; margin-bottom: 8px;">⚠️</span>
-                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes ejercicios para los grupos de hoy</h4>
-                <p style="color: #94a3b8; font-size: 13px; max-width: 460px; margin: 0 auto 16px auto;">
-                    Tu Split Semanal indica para hoy: <strong style="color: #38bdf8;">${listaGruposTexto}</strong>, pero en tu Banco Físico no hay ejercicios creados para estos grupos musculares.
-                </p>
-                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <button type="button" class="btn-system" onclick="abrirModalNuevoEjercicio('${gruposObjetivo[0] || 'Pecho'}')" style="padding: 10px 18px; font-size: 13px;">
-                        ➕ Crear Ejercicio de ${gruposObjetivo[0] || 'Fuerza'}
-                    </button>
-                    <button type="button" class="btn-subfiltro-ej" onclick="importarBancoRecomendadoAlBancoFisico()" style="padding: 10px 18px; font-size: 13px;">
-                        📥 Cargar Recomendados
-                    </button>
-                </div>
-            </div>`;
+    var maestro = (typeof BANCO_MAESTRO_EJERCICIOS !== 'undefined' && Array.isArray(BANCO_MAESTRO_EJERCICIOS))
+        ? BANCO_MAESTRO_EJERCICIOS
+        : [];
+    var usoMaestro = false;
+
+    maestro.forEach(function(m) {
+        var key = (m.nombre || '').toLowerCase().trim();
+        if (!nombresSet[key]) {
+            nombresSet[key] = true;
+            lista.push(Object.assign({}, m, { _fuenteCatalogo: 'maestro' }));
+            if (usuarioEj.length === 0) usoMaestro = true;
         }
-        return;
+    });
+
+    return {
+        ejercicios: lista,
+        usuarioCount: usuarioEj.length,
+        usandoRespaldoMaestro: usoMaestro
+    };
+}
+
+function resolverGruposObjetivoParaDiaAleatoria(split, diaIdx) {
+    var listaSplit = Array.isArray(split) ? split : [];
+    var diaConfig = listaSplit[diaIdx] || { dia: DIAS_SEMANA_NOMBRES[diaIdx] || 'Hoy', descanso: false, grupos: [] };
+    var esDescanso = !!diaConfig.descanso;
+    var gruposDia = Array.isArray(diaConfig.grupos) ? diaConfig.grupos.filter(Boolean) : [];
+
+    // Pool de grupos musculares configurados por el usuario en todo su Split Semanal
+    var poolConfigurado = [];
+    var vistos = {};
+    listaSplit.forEach(function(d) {
+        if (!d || d.descanso || !Array.isArray(d.grupos)) return;
+        d.grupos.forEach(function(g) {
+            if (g && !vistos[g]) {
+                vistos[g] = true;
+                poolConfigurado.push(g);
+            }
+        });
+    });
+
+    var poolFallback = (poolConfigurado.length > 0)
+        ? poolConfigurado
+        : (Array.isArray(GRUPOS_MUSCULARES_SPLIT) ? GRUPOS_MUSCULARES_SPLIT.slice() : ['Pecho', 'Espalda', 'Hombros', 'Core']);
+
+    if (esDescanso || gruposDia.length === 0) {
+        // En día de descanso (o sin grupos asignados), elegir 2-3 grupos aleatorios del pool configurado
+        var mezclados = shuffleArray(poolFallback);
+        var cantidad = mezclados.length <= 2 ? mezclados.length : (Math.random() < 0.45 ? 2 : 3);
+        return {
+            grupos: mezclados.slice(0, cantidad),
+            esDescanso: esDescanso,
+            fueSorteoDescanso: true,
+            diaNombre: diaConfig.dia || DIAS_SEMANA_NOMBRES[diaIdx] || 'Hoy'
+        };
     }
 
-    // Caso 3: Sí hay ejercicios reales para los grupos del día
-    // Dividir en compuestos y accesorios
-    var compuestos = candidatos.filter(function(e) { return !!e.compuesto; });
-    var accesorios = candidatos.filter(function(e) { return !e.compuesto; });
+    return {
+        grupos: gruposDia,
+        esDescanso: false,
+        fueSorteoDescanso: false,
+        diaNombre: diaConfig.dia || DIAS_SEMANA_NOMBRES[diaIdx] || 'Hoy'
+    };
+}
 
-    compuestos = shuffleArray(compuestos);
-    accesorios = shuffleArray(accesorios);
+function coincideEjercicioConGruposSplit(ej, grupos) {
+    if (!ej || !Array.isArray(grupos) || grupos.length === 0) return false;
+    var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
+        return (c || '').toLowerCase().trim();
+    }).filter(Boolean);
+    return grupos.some(function(g) {
+        var gLow = (g || '').toLowerCase().trim();
+        return categorias.some(function(c) {
+            return c.includes(gLow) || gLow.includes(c);
+        });
+    });
+}
+
+function construirRutinaAleatoriaPorGrupos(gruposObjetivo, maxEjercicios) {
+    var catalogo = obtenerCatalogoEjerciciosParaAleatoria();
+    var metaMax = maxEjercicios || 6;
+
+    // Priorizar ejercicios propios del usuario sobre el catálogo maestro cuando existan ambos
+    var candidatosUsuario = catalogo.ejercicios.filter(function(ej) {
+        return ej._fuenteCatalogo === 'usuario' && coincideEjercicioConGruposSplit(ej, gruposObjetivo);
+    });
+    var candidatosMaestro = catalogo.ejercicios.filter(function(ej) {
+        return ej._fuenteCatalogo !== 'usuario' && coincideEjercicioConGruposSplit(ej, gruposObjetivo);
+    });
+    var candidatos = (candidatosUsuario.length >= 4)
+        ? candidatosUsuario
+        : candidatosUsuario.concat(candidatosMaestro);
+
+    if (!candidatos || candidatos.length === 0) {
+        return { seleccionados: [], candidatosCount: 0, catalogo: catalogo };
+    }
+
+    var compuestos = shuffleArray(candidatos.filter(function(e) { return !!e.compuesto; }));
+    var accesorios = shuffleArray(candidatos.filter(function(e) { return !e.compuesto; }));
+    var todosMezclados = compuestos.concat(accesorios);
 
     var seleccionados = [];
     var nombresUsados = {};
 
     function agregar(ej) {
-        if (!ej) return false;
-        var key = ej.nombre.toLowerCase().trim();
-        if (nombresUsados[key]) return false;
+        if (!ej || seleccionados.length >= metaMax) return false;
+        var key = (ej.nombre || '').toLowerCase().trim();
+        if (!key || nombresUsados[key]) return false;
         nombresUsados[key] = true;
         seleccionados.push(JSON.parse(JSON.stringify(ej)));
         return true;
     }
 
-    // Si tiene pocos (ej: 1, 2 o 3), toma los que tiene sin forzar ejercicios falsos
-    if (candidatos.length <= 4) {
-        candidatos.forEach(function(ej) {
-            agregar(ej);
-        });
-    } else {
-        // Tomar hasta 2 o 3 compuestos
-        var metaComp = Math.min(compuestos.length, Math.floor(Math.random() * 2) + 2);
-        for (var i = 0; i < compuestos.length && seleccionados.length < metaComp; i++) {
-            agregar(compuestos[i]);
+    // Paso 1: Garantizar al menos 1 ejercicio aleatorio de CADA grupo muscular elegido
+    var gruposMezclados = shuffleArray(gruposObjetivo);
+    gruposMezclados.forEach(function(g) {
+        var porGrupoComp = compuestos.filter(function(e) { return coincideEjercicioConGruposSplit(e, [g]); });
+        var porGrupoAcc = accesorios.filter(function(e) { return coincideEjercicioConGruposSplit(e, [g]); });
+        var poolGrupo = porGrupoComp.length > 0 ? porGrupoComp.concat(porGrupoAcc) : porGrupoAcc;
+        for (var i = 0; i < poolGrupo.length; i++) {
+            if (agregar(poolGrupo[i])) break;
         }
-        // Rellenar con accesorios hasta un máximo de 6
-        var metaTotal = Math.min(6, candidatos.length);
-        for (var j = 0; j < accesorios.length && seleccionados.length < metaTotal; j++) {
-            agregar(accesorios[j]);
-        }
-        // Si aún hay espacio y quedaron compuestos, agregarlos
-        for (var k = 0; k < compuestos.length && seleccionados.length < metaTotal; k++) {
-            agregar(compuestos[k]);
-        }
+    });
+
+    // Paso 2: Completar hasta 5-6 ejercicios priorizando compuestos y variedad de accesorios
+    var objetivoTotal = Math.min(metaMax, candidatos.length, (gruposObjetivo.length <= 1 ? 5 : 6));
+    var metaComp = Math.min(compuestos.length, Math.max(2, Math.min(3, objetivosMinComp(objetivoTotal))));
+    function objetivosMinComp(tot) { return tot >= 5 ? 3 : 2; }
+
+    var compActuales = seleccionados.filter(function(e) { return !!e.compuesto; }).length;
+    for (var i = 0; i < compuestos.length && seleccionados.length < objetivoTotal && compActuales < metaComp; i++) {
+        if (agregar(compuestos[i])) compActuales++;
+    }
+    for (var j = 0; j < accesorios.length && seleccionados.length < objetivoTotal; j++) {
+        agregar(accesorios[j]);
+    }
+    for (var k = 0; k < todosMezclados.length && seleccionados.length < objetivoTotal; k++) {
+        agregar(todosMezclados[k]);
     }
 
-    RUTINA_ALEATORIA_GENERADA = seleccionados;
+    return {
+        seleccionados: seleccionados,
+        candidatosCount: candidatos.length,
+        catalogo: catalogo
+    };
+}
+
+function generarRutinaAleatoriaHoy() {
+    var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
+    var diaIdx = obtenerDiaSemanaActualIdx();
+    var resolucion = resolverGruposObjetivoParaDiaAleatoria(split, diaIdx);
+    var gruposObjetivo = resolucion.grupos;
+
+    var res = construirRutinaAleatoriaPorGrupos(gruposObjetivo, 6);
+    var contRutina = document.getElementById('contenedor-rutina-aleatoria-generada');
+
+    if (!res.seleccionados || res.seleccionados.length === 0) {
+        RUTINA_ALEATORIA_GENERADA = null;
+        RUTINA_ALEATORIA_META = null;
+        if (contRutina) {
+            contRutina.innerHTML = `
+            <div style="background: #121725; border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 16px; padding: 36px 20px; text-align: center;">
+                <span style="font-size: 36px; display: block; margin-bottom: 8px;">🏋️‍♂️</span>
+                <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No hay ejercicios disponibles</h4>
+                <p style="color: #94a3b8; font-size: 13px; max-width: 440px; margin: 0 auto 16px auto;">
+                    Agrega ejercicios para <strong style="color: #38bdf8;">${gruposObjetivo.join(', ')}</strong> en tu Banco Físico.
+                </p>
+            </div>`;
+        }
+        return;
+    }
+
+    RUTINA_ALEATORIA_META = {
+        diaIdx: diaIdx,
+        diaNombre: resolucion.diaNombre,
+        gruposUsados: gruposObjetivo,
+        fueSorteoDescanso: resolucion.fueSorteoDescanso
+    };
+    RUTINA_ALEATORIA_GENERADA = res.seleccionados;
     renderizarModuloRutinaAleatoria();
+}
+
+function elegirSustitutoEjercicioAleatorio(rutinaActual, idx, gruposObjetivo) {
+    if (!Array.isArray(rutinaActual) || !rutinaActual[idx]) return null;
+    var actual = rutinaActual[idx];
+    var objetivos = (Array.isArray(gruposObjetivo) && gruposObjetivo.length > 0) ? gruposObjetivo : GRUPOS_MUSCULARES_SPLIT;
+    var catalogo = obtenerCatalogoEjerciciosParaAleatoria();
+    var todos = shuffleArray(catalogo.ejercicios);
+    var nombresActuales = rutinaActual.map(function(e) { return (e.nombre || '').toLowerCase().trim(); });
+
+    // Priorizar el grupo objetivo del split que representa el ejercicio actual (evita salirse del split configurado)
+    var grupoActualEnSplit = objetivos.find(function(g) {
+        return coincideEjercicioConGruposSplit(actual, [g]);
+    }) || '';
+
+    var sustituto = (grupoActualEnSplit ? todos.find(function(e) {
+        var nKey = (e.nombre || '').toLowerCase().trim();
+        if (nombresActuales.includes(nKey)) return false;
+        return coincideEjercicioConGruposSplit(e, [grupoActualEnSplit]) && coincideEjercicioConGruposSplit(e, objetivos);
+    }) : null) || todos.find(function(e) {
+        var nKey = (e.nombre || '').toLowerCase().trim();
+        if (nombresActuales.includes(nKey)) return false;
+        return coincideEjercicioConGruposSplit(e, objetivos);
+    });
+
+    return sustituto ? JSON.parse(JSON.stringify(sustituto)) : null;
 }
 
 function reRollearEjercicioAleatorio(idx) {
     if (!RUTINA_ALEATORIA_GENERADA || !RUTINA_ALEATORIA_GENERADA[idx]) return;
 
-    var actual = RUTINA_ALEATORIA_GENERADA[idx];
     var split = obtenerSplitSemanalActual(PERFIL_RUTINA_ALEATORIA_ACTIVO);
-    var diaIdx = obtenerDiaSemanaActualIdx();
-    var diaConfig = split[diaIdx];
-    var gruposObjetivo = (diaConfig && diaConfig.grupos && diaConfig.grupos.length > 0)
-        ? diaConfig.grupos
-        : ['Pecho', 'Espalda', 'Hombros', 'Core'];
+    var diaIdx = (RUTINA_ALEATORIA_META && typeof RUTINA_ALEATORIA_META.diaIdx === 'number') ? RUTINA_ALEATORIA_META.diaIdx : obtenerDiaSemanaActualIdx();
+    var gruposObjetivo = (RUTINA_ALEATORIA_META && Array.isArray(RUTINA_ALEATORIA_META.gruposUsados) && RUTINA_ALEATORIA_META.gruposUsados.length > 0)
+        ? RUTINA_ALEATORIA_META.gruposUsados
+        : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
 
-    var todos = shuffleArray(obtenerBancoUsuarioEjercicios());
-    var nombresActuales = RUTINA_ALEATORIA_GENERADA.map(function(e) { return e.nombre.toLowerCase().trim(); });
-
-    // Buscar sustituto exclusivo en el banco del usuario que coincida con el grupo
-    var grupoActual = actual.musculoPrincipal || (actual.categorias && actual.categorias[0]) || '';
-    var sustituto = todos.find(function(e) {
-        var nKey = e.nombre.toLowerCase().trim();
-        if (nombresActuales.includes(nKey)) return false;
-        var cat = (e.categorias || []).concat([e.musculoPrincipal || '']).map(function(c) { return (c || '').toLowerCase().trim(); });
-        var matchMismo = grupoActual && cat.some(function(c) { return c.includes(grupoActual.toLowerCase().trim()); });
-        var matchDia = gruposObjetivo.some(function(g) {
-            return cat.some(function(c) { return c.includes(g.toLowerCase().trim()); });
-        });
-        return matchMismo || matchDia;
-    });
-
+    var sustituto = elegirSustitutoEjercicioAleatorio(RUTINA_ALEATORIA_GENERADA, idx, gruposObjetivo);
     if (sustituto) {
-        RUTINA_ALEATORIA_GENERADA[idx] = JSON.parse(JSON.stringify(sustituto));
+        RUTINA_ALEATORIA_GENERADA[idx] = sustituto;
         renderizarModuloRutinaAleatoria();
     } else {
-        alert("No tienes otros ejercicios en tu Banco Físico para este grupo muscular. Puedes agregar nuevos ejercicios desde el Banco Físico.");
+        alert("No hay más variantes distintas para este grupo muscular en el catálogo.");
     }
 }
 

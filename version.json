@@ -1,5 +1,5 @@
 {
-  "version": "10.98",
+  "version": "10.99",
   "fecha": "2026-11-22",
-  "resumen": "Unificación total de Labores (Boom Solutions, Barbería, Trainer), Quests Diarios Programadas, Personas y Finanzas dentro de la app central de Calendario con filtros por capa, eliminación de cuadrículas duplicadas y fix de desbordamiento móvil."
+  "resumen": "Rediseño limpio y luminoso de Personal Trainer (cabecera, métricas, pestañas en 1 línea y tarjetas), botón ⚙️ Settings destacado para configurar grupos musculares por día y generación aleatoria garantizada incluso en días de descanso."
 }

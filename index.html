@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.98">
+    <link rel="stylesheet" href="style.css?v=10.99">
 </head>
 <body>
 
@@ -3939,34 +3939,32 @@
             <span style="font-size: 16px;">◀</span> VOLVER A LABORES
         </button>
 
-        <div class="card" style="margin-bottom: 20px; border-top: 3px solid #10b981;">
+        <div class="card trainer-shell-card" style="margin-bottom: 20px;">
             <!-- CABECERA DE SUB-APP PERSONAL TRAINER -->
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; font-size: 26px;">
-                        🏋️‍♂️
-                    </div>
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.2px;">Personal Trainer</h2>
-                            <span class="subapp-badge" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">FITNESS & SALUD</span>
+            <div class="trainer-hero-header">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 220px;">
+                    <div class="trainer-hero-icon">🏋️‍♂️</div>
+                    <div style="min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #f8fafc; letter-spacing: -0.25px;">Personal Trainer</h2>
+                            <span class="subapp-badge trainer-hero-badge">COACHING & SALUD</span>
                         </div>
-                        <span style="font-size: 12px; color: #94a3b8;">Entrenamiento personalizado y coaching físico · Timer de sesión en vivo · Catálogo de alumnos con ficha biométrica</span>
+                        <span style="font-size: 12px; color: #cbd5e1; display: block; margin-top: 2px;">Sesiones en vivo, alumnos y generador aleatorio</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="trainer-header-actions">
-                    <button type="button" class="btn-system" onclick="abrirModalAlumnoTrainer()" style="font-size: 12px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <span>👤</span> + Nuevo Alumno
+                <div class="trainer-hero-actions" id="trainer-header-actions">
+                    <button type="button" class="trainer-btn-secondary" onclick="abrirModalAlumnoTrainer()">
+                        <span>👤</span> + Alumno
                     </button>
-                    <button type="button" class="btn-system" id="btn-iniciar-entrenamiento-top" onclick="abrirModalIniciarEntrenamiento()" style="font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <span>🏋️‍♂️</span> Iniciar Entrenamiento
+                    <button type="button" class="trainer-btn-primary" id="btn-iniciar-entrenamiento-top" onclick="abrirModalIniciarEntrenamiento()">
+                        <span>🏋️‍♂️</span> Iniciar Sesión
                     </button>
                 </div>
             </div>
 
             <!-- CONTENEDOR REACTIVO DINÁMICO DE PERSONAL TRAINER -->
             <div id="subapp-trainer-content">
-                <!-- Se inyecta dinámicamente: banner timer, métricas del mes, tabs (calendario / alumnos / enfoques / historial) -->
+                <!-- Se inyecta dinámicamente: banner timer, métricas del mes, tabs (alumnos / enfoques / aleatoria / historial) -->
             </div>
         </div>
     </div>
@@ -6839,26 +6837,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.98"></script>
-    <script src="js/perfil.js?v=10.98"></script>
-    <script src="js/progresion.js?v=10.98"></script>
-    <script src="js/estado-personal.js?v=10.98"></script>
-    <script src="js/finanzas.js?v=10.98"></script>
-    <script src="js/ideas.js?v=10.98"></script>
-    <script src="js/dinamicas.js?v=10.98"></script>
-    <script src="js/calendario.js?v=10.98"></script>
-    <script src="js/inventario.js?v=10.98"></script>
-    <script src="js/reproductor.js?v=10.98"></script>
-    <script src="js/jarvis-voz.js?v=10.98"></script>
+    <script src="js/core.js?v=10.99"></script>
+    <script src="js/perfil.js?v=10.99"></script>
+    <script src="js/progresion.js?v=10.99"></script>
+    <script src="js/estado-personal.js?v=10.99"></script>
+    <script src="js/finanzas.js?v=10.99"></script>
+    <script src="js/ideas.js?v=10.99"></script>
+    <script src="js/dinamicas.js?v=10.99"></script>
+    <script src="js/calendario.js?v=10.99"></script>
+    <script src="js/inventario.js?v=10.99"></script>
+    <script src="js/reproductor.js?v=10.99"></script>
+    <script src="js/jarvis-voz.js?v=10.99"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.98"></script>
+    <script type="module" src="js/firebase-config.js?v=10.99"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.98')
+                navigator.serviceWorker.register('sw.js?v=10.99')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
