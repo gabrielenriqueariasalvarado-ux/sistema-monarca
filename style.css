@@ -18415,6 +18415,35 @@ body.modal-open {
     border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
+.btn-emily-export-pc {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(14, 165, 233, 0.22));
+    color: #e0f2fe;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-emily-export-pc:hover {
+    filter: brightness(1.15);
+    border-color: rgba(125, 211, 252, 0.75);
+    transform: translateY(-1px);
+}
+
+.btn-emily-export-pc-lg {
+    font-size: 12.5px;
+    padding: 8px 14px;
+    border-radius: 10px;
+}
+
 @media (max-width: 640px) {
     #monarca-toast-global {
         max-width: calc(100vw - 28px) !important;

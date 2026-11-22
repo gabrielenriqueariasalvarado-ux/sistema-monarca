@@ -1,5 +1,5 @@
 {
-  "version": "10.90",
+  "version": "10.91",
   "fecha": "2026-11-22",
-  "resumen": "Nuevo apartado Top Canciones Más Escuchadas en el reproductor MP3 y Modo Inteligente en playlists y controles para reproducir según tu ranking real de escucha."
+  "resumen": "Puente local directo y copia de lote para enviar solicitudes de Banco de Ideas a Auto-PC al instante aun con cuota Firebase 429 agotada."
 }

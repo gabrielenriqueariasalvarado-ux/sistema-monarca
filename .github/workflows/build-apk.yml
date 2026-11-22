@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.90)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.91)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.90
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.91
             Esta versión nativa incluye:
+            - 🤖 **Puente Directo & Lote Auto-PC anti-429 (v10.91)**: Nuevo botón **`📤 Enviar a PC`** en Programación & Nuevas Funciones para enviar solicitudes e imágenes directo a Auto-PC (`127.0.0.1:47621`) o copiarlas como lote JSON al instante si Firebase alcanza su límite diario 429.
             - 🏆 **Top Canciones Más Escuchadas & Modo Inteligente (v10.90)**: Nuevo apartado de Top de reproducciones en tiempo real y modo **Inteligente** en playlists y controles para reproducir tus canciones ordenadas de la más escuchada (#1) a la menos escuchada.
             - 🎵 **Detección de Música Nueva en Reproductor MP3 (v10.89)**: Al entrar al reproductor, detecta canciones recién añadidas o descargadas (SnapTube/MediaStore), muestra una alerta con sugerencias inteligentes de playlist (Entrenamiento, Salsa, Llaneras, etc.) y vuelve al reproductor normal al terminar.
             - 🏋️ **Series Desplegables con Flechita por Ejercicio (v10.88)**:

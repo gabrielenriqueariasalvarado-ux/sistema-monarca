@@ -974,7 +974,10 @@ function mostrarVistaCategoriasGrid() {
             </div>
             <div class="category-card-footer">
                 <span class="category-card-count"><strong>${pendientesCat}</strong> ${pendientesCat === 1 ? 'pendiente' : 'pendientes'}${enColaPC > 0 ? ` <span class="category-card-autopc-pill">🤖 ${enColaPC} Auto-PC</span>` : ''}</span>
-                <span class="category-card-explore">Explorar ›</span>
+                <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    ${esEmily && enColaPC > 0 ? `<button type="button" class="btn-emily-export-pc" onclick="event.stopPropagation(); enviarColaPendienteAAutoPCLocal();" title="Enviar cola directa a Auto-PC o copiar lote para Pegar lote">📤 Enviar a PC</button>` : ''}
+                    <span class="category-card-explore">Explorar ›</span>
+                </div>
             </div>
         </div>`;
     });
@@ -1009,7 +1012,13 @@ function abrirDetalleCategoriaIdeas(catNombre) {
 
     var tituloLimpio = catNombre.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
     if (!tituloLimpio) tituloLimpio = catNombre;
-    var esEmily = catNombre.toLowerCase().includes('emily');
+    var esEmily = esCategoriaEmily(catNombre);
+    var ideas = APP_STATE.ideas || [];
+    var enColaPC = esEmily ? ideas.filter(function(i) {
+        if (!i || i.hecha || !esCategoriaEmily(i.categoria)) return false;
+        var st = obtenerEstadoAutoPCIdea(i);
+        return st === 'pending' || st === 'running';
+    }).length : 0;
 
     if (headerElem) {
         headerElem.innerHTML = `
@@ -1028,6 +1037,7 @@ function abrirDetalleCategoriaIdeas(catNombre) {
                         </p>
                     </div>
                 </div>
+                ${esEmily && enColaPC > 0 ? `<button type="button" class="btn-emily-export-pc btn-emily-export-pc-lg" onclick="enviarColaPendienteAAutoPCLocal();" title="Enviar directo a Auto-PC o copiar lote para Pegar lote">📤 Enviar ${enColaPC} a Auto-PC</button>` : ''}
             </div>`;
     }
 
@@ -1269,6 +1279,151 @@ function construirPayloadSolicitudAutoPC(idea, promptLimpio) {
     return payload;
 }
 
+function _esErrorCuotaFirebaseAutoPC(err) {
+    if (!err) return false;
+    var code = String(err.code || '').toLowerCase();
+    var msg = String(err.message || err || '').toLowerCase();
+    return (
+        code.indexOf('resource-exhausted') !== -1 ||
+        msg.indexOf('resource-exhausted') !== -1 ||
+        msg.indexOf('quota exceeded') !== -1 ||
+        msg.indexOf('429') !== -1
+    );
+}
+
+async function _copiarTextoPortapapelesAutoPC(texto) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+            await navigator.clipboard.writeText(texto);
+            return true;
+        } catch (ig) {}
+    }
+    try {
+        var ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = document.execCommand && document.execCommand('copy');
+        document.body.removeChild(ta);
+        return Boolean(ok);
+    } catch (e) {
+        return false;
+    }
+}
+
+async function construirLoteExportacionAutoPC() {
+    var ideas = (typeof APP_STATE !== 'undefined' && APP_STATE && Array.isArray(APP_STATE.ideas))
+        ? APP_STATE.ideas
+        : [];
+    var enCola = ideas.filter(function(i) {
+        if (!i || i.hecha || !esCategoriaEmily(i.categoria)) return false;
+        var st = obtenerEstadoAutoPCIdea(i);
+        return st === 'pending' || st === 'running';
+    });
+    enCola.sort(function(a, b) {
+        return (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0);
+    });
+
+    var items = [];
+    for (var idx = 0; idx < enCola.length; idx++) {
+        var idea = enCola[idx];
+        var imgDataUrl = '';
+        if (idea.tieneImagen && idea.imagenId) {
+            var imgKey = String(idea.imagenId);
+            if (typeof IDEAS_IMAGENES_MEM_CACHE !== 'undefined' && IDEAS_IMAGENES_MEM_CACHE[imgKey]) {
+                imgDataUrl = IDEAS_IMAGENES_MEM_CACHE[imgKey];
+            } else {
+                try {
+                    var recLocal = await leerImagenIndexedDB(imgKey);
+                    if (recLocal && recLocal.dataUrl) {
+                        imgDataUrl = recLocal.dataUrl;
+                        IDEAS_IMAGENES_RECORDS_MEM[imgKey] = recLocal;
+                        IDEAS_IMAGENES_MEM_CACHE[imgKey] = recLocal.dataUrl;
+                    }
+                } catch (ig) {}
+            }
+        }
+        items.push({
+            id: String(idea.id),
+            text: obtenerPromptParaAutoPC(idea),
+            subcategoria: String(idea.subcategoria || 'General'),
+            createdAt: Number(idea.timestamp) || Date.now(),
+            hasImage: Boolean(idea.tieneImagen && idea.imagenId),
+            imageDocId: idea.imagenId ? String(idea.imagenId) : '',
+            imageName: String(idea.imagenNombre || 'captura.png'),
+            imageMime: String(idea.imagenMime || 'image/jpeg'),
+            imageDataUrl: imgDataUrl
+        });
+    }
+
+    return {
+        format: 'MONARCA_AUTOPC_BATCH_V1',
+        exportedAt: Date.now(),
+        items: items
+    };
+}
+
+async function enviarColaPendienteAAutoPCLocal(bridgeBaseUrl) {
+    var batch = await construirLoteExportacionAutoPC();
+    if (!batch.items || batch.items.length === 0) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('No hay solicitudes pendientes en cola PC', '🤖');
+        }
+        return { mode: 'empty', count: 0 };
+    }
+
+    var jsonStr = JSON.stringify(batch);
+    var baseUrl = String(bridgeBaseUrl || window.MONARCA_AUTOPC_BRIDGE_URL || 'http://127.0.0.1:47621').replace(/\/+$/, '');
+    var bridgeOk = false;
+    try {
+        var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+        var timer = ctrl ? setTimeout(function() { ctrl.abort(); }, 1800) : null;
+        var resp = await fetch(baseUrl + '/emily-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: jsonStr,
+            signal: ctrl ? ctrl.signal : undefined
+        });
+        if (timer) clearTimeout(timer);
+        if (resp && resp.ok) {
+            var resJson = await resp.json().catch(function() { return {}; });
+            if (resJson && resJson.ok) bridgeOk = true;
+        }
+    } catch (igBridge) {
+        bridgeOk = false;
+    }
+
+    if (bridgeOk) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(
+                batch.items.length === 1
+                    ? '1 solicitud enviada directo a Auto-PC 🚀'
+                    : (batch.items.length + ' solicitudes enviadas directo a Auto-PC 🚀'),
+                '🤖'
+            );
+        }
+        return { mode: 'bridge', count: batch.items.length, json: jsonStr };
+    }
+
+    var copied = await _copiarTextoPortapapelesAutoPC(jsonStr);
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(
+            copied
+                ? ('📋 ' + batch.items.length + ' solicitud(es) copiadas · Abre Auto-PC > "Pegar lote" y Ctrl+V')
+                : ('Usa "Pegar lote" en Auto-PC para importar las ' + batch.items.length + ' solicitudes'),
+            '📋'
+        );
+    }
+    return { mode: copied ? 'clipboard' : 'manual', count: batch.items.length, json: jsonStr };
+}
+
+window.enviarColaPendienteAAutoPCLocal = enviarColaPendienteAAutoPCLocal;
+
 async function enviarIdeaAAutoPC(id, desdeCreacion) {
     if (!APP_STATE.ideas) return false;
     var idea = APP_STATE.ideas.find(function(i) { return String(i.id) === String(id); });
@@ -1324,11 +1479,16 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
             reRenderSiVistaIdeasActiva();
             return true;
         } catch (err) {
-            console.warn('[Auto-PC] Subida diferida (sin conexión o iniciando nube):', err);
+            console.warn('[Auto-PC] Subida diferida (sin conexión, iniciando nube o cuota 429):', err);
             idea.autopcPendienteSubida = true;
             MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
-                mostrarToastMonarca('Guardada · se enviará a Auto-PC al conectar', '⏳');
+                mostrarToastMonarca(
+                    _esErrorCuotaFirebaseAutoPC(err)
+                        ? 'Cuota Firebase 429 · Guardada local (usa "📤 Enviar a PC")'
+                        : 'Guardada · se enviará a Auto-PC al conectar',
+                    _esErrorCuotaFirebaseAutoPC(err) ? '⚠️' : '⏳'
+                );
             }
             return false;
         }
@@ -1373,6 +1533,7 @@ async function procesarPendientesOfflineAutoPC() {
     });
 
     var enviadas = 0;
+    var cuotaAgotada = false;
     for (var k = 0; k < pendientes.length; k++) {
         var idea = pendientes[k];
         var promptLimpio = obtenerPromptParaAutoPC(idea);
@@ -1388,11 +1549,15 @@ async function procesarPendientesOfflineAutoPC() {
             enviadas++;
         } catch (err) {
             console.warn('[Auto-PC] Reintento pendiente fallido para idea ' + idea.id + ':', err);
+            if (_esErrorCuotaFirebaseAutoPC(err)) {
+                cuotaAgotada = true;
+                break;
+            }
         }
     }
 
     // Subir también imágenes pendientes de otras categorías que se hubieran creado sin conexión
-    var imagenesPendientes = APP_STATE.ideas.filter(function(i) {
+    var imagenesPendientes = cuotaAgotada ? [] : APP_STATE.ideas.filter(function(i) {
         return i && i.tieneImagen && i.imagenId && i.imagenPendienteSubida === true && !i.autopcPendienteSubida;
     });
     var imgsSubidas = 0;
@@ -1402,6 +1567,7 @@ async function procesarPendientesOfflineAutoPC() {
             imgsSubidas++;
         } catch (errImg) {
             console.warn('[Ideas Imagen] Reintento diferido fallido:', errImg);
+            if (_esErrorCuotaFirebaseAutoPC(errImg)) break;
         }
     }
 
