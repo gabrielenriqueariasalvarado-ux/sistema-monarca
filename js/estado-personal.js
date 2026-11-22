@@ -5805,12 +5805,11 @@ function actualizarBadgeFatigaSerie(ejIdx, serieNum, data) {
 
         var textoDetalle = '';
         if (partes.length > 0) {
-            textoDetalle = ' (' + partes.join(' · ') + ')';
+            textoDetalle = ' · ' + partes.join(' · ');
         } else if (data.esSerieCero || data.pesoBase === 0) {
-            var recTxt = (ejActual && ejActual.recordSerieCero) ? (' · 🏆 Récord: ' + ejActual.recordSerieCero + ' reps') : '';
-            textoDetalle = ' (Corporal × ' + data.repsProm + ' reps base' + recTxt + ')';
+            textoDetalle = ' · Base corporal: ' + data.repsProm + ' reps';
         } else {
-            textoDetalle = ' (' + data.pesoBase + ' ' + uPeso + ' × ' + data.repsProm + ' reps base)';
+            textoDetalle = ' · Base: ' + data.pesoBase + ' ' + uPeso + ' × ' + data.repsProm + ' reps';
         }
 
         badge.innerText = pct + '% fatiga' + textoDetalle;
@@ -5857,6 +5856,7 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         if (e.preventDefault) e.preventDefault();
     }
     var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + serieNum);
+    var wrapper = document.getElementById('wrapper-ej-' + ejIdx + '-s-' + serieNum);
     var row = document.getElementById('row-ej-' + ejIdx + '-s-' + serieNum);
     var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + serieNum);
     var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + serieNum);
@@ -5874,8 +5874,10 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
     var data = calcularFactorSerie(ejIdx, serieNum);
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
     var uPeso = (ejActual && ejActual.unidadPeso) ? ejActual.unidadPeso : 'kg';
+    var esSerieCeroEj = !!(ejActual && !ejActual.esMental && (ejActual.series === 0 || ejActual.esSerieCero));
 
     if (chk.checked) {
+        if (wrapper) wrapper.classList.add('checked-active');
         if (row) row.classList.add('checked-active');
         if (ind) ind.classList.add('checked');
         if (panelReps) panelReps.style.display = 'none';
@@ -5889,7 +5891,8 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
                 var lastreTxt = data.pesoReal > 0 ? (' · Lastre: ' + data.pesoReal + ' ' + uPeso) : '';
                 targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
             } else {
-                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+                var cargaHechaTxt = data.pesoReal > 0 ? (data.pesoReal + ' ' + uPeso) : 'Corporal';
+                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + cargaHechaTxt + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
             }
         }
         emitirTonoAudio(880, 0.12, 'sine');
@@ -5897,6 +5900,7 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         // Iniciar cronómetro de descanso automáticamente
         iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60);
     } else {
+        if (wrapper) wrapper.classList.remove('checked-active');
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
         if (panelReps) panelReps.style.display = 'flex';
@@ -5907,11 +5911,17 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         }
         if (targetEl && ejActual) {
             var esTiempoEj = (ejActual.modalidadEsfuerzo === 'tiempo') || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0);
-            var repsStr = esTiempoEj 
-                ? ('⏱️ Objetivo: ' + (ejActual.tiempoSegundos || 60) + 's (' + formatearTiempoMMSS(ejActual.tiempoSegundos || 60) + ')') 
-                : (ejActual.repeticiones || '8-10 reps');
             var pesoVal = (!ejActual.esMental && ejActual.peso) ? parseFloat(ejActual.peso) : null;
-            targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '');
+            if (esSerieCeroEj) {
+                var baseCero = ejActual.ultimaSerieCeroReps || ejActual.recordSerieCero || obtenerRepsPromedioEjercicio(ejActual);
+                targetEl.innerText = 'Objetivo: superar ' + baseCero + ' reps' + (pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : '');
+            } else if (esTiempoEj) {
+                var segsBase = ejActual.tiempoSegundos || 60;
+                targetEl.innerText = '⏱️ Objetivo: ' + segsBase + 's (' + formatearTiempoMMSS(segsBase) + ')';
+            } else {
+                var repsStr = ejActual.repeticiones || '8-10 reps';
+                targetEl.innerText = repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '');
+            }
         }
     }
 
@@ -6336,28 +6346,36 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             ? ('⏱️ ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ') isométrico') 
             : (ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps'));
 
-        var subtituloEj = '';
+        var headerChips = '';
         if (esM) {
-            subtituloEj = '1 sesión × ' + repsStr;
+            headerChips = '<span class="exercise-meta-chip">🧠 Enfoque</span><span>1 sesión × ' + repsStr + '</span>';
         } else if (esSerieCero) {
             var recReps = ej.recordSerieCero || repsProm || 0;
             var ultReps = ej.ultimaSerieCeroReps || repsProm || 0;
-            subtituloEj = '🏆 Serie 0 · Modo Récord × ' + repsStr + (pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : ' · 🤸 Corporal') + ' · Base previa: ' + ultReps + ' reps (🏆 Récord: ' + recReps + ' reps)';
+            headerChips =
+                '<span class="exercise-meta-chip exercise-meta-chip--cero">Serie 0 · Modo Récord</span>' +
+                '<span class="exercise-meta-chip exercise-meta-chip--record">🏆 Récord: ' + recReps + ' reps</span>' +
+                '<span>' + (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + ultReps + ' reps</span>';
         } else {
-            subtituloEj = numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + repsStr + (pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : '') + impLabel + ' · Base: ' + (esTiempoEj ? (tiempoBase + 's') : (repsProm + ' reps')) + (muscleList ? (' · ' + muscleList) : '');
+            var impTxt = impObj ? (impObj.icon + ' ' + impObj.label) : '';
+            headerChips =
+                '<span class="exercise-meta-chip">' + numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + (esTiempoEj ? (tiempoBase + 's') : repsStr) + '</span>' +
+                (pesoVal ? '<span class="exercise-meta-chip">⚖️ ' + pesoVal + ' ' + uPeso + '</span>' : '') +
+                (impTxt ? '<span>' + impTxt + '</span>' : '') +
+                (muscleList ? '<span>· ' + muscleList + '</span>' : '');
         }
 
         html += `
-        <div class="routine-exercise-session-card" id="card-ej-${ejIdx}" style="${esM ? 'border-left: 3px solid #6366f1;' : (esSerieCero ? 'border-left: 3px solid #c084fc;' : '')}">
+        <div class="routine-exercise-session-card${esM ? ' is-mental' : (esSerieCero ? ' is-serie-cero' : '')}" id="card-ej-${ejIdx}">
             <div class="exercise-session-header">
-                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
-                    <span class="exercise-session-number" style="${esSerieCero ? 'background: rgba(168, 85, 247, 0.25); color: #e879f9; border: 1px solid rgba(192, 132, 252, 0.4);' : ''}">${esSerieCero ? '0' : (visualIndex++)}</span>
+                <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; flex: 1;">
+                    <span class="exercise-session-number${esSerieCero ? ' is-cero' : ''}">${esSerieCero ? '0' : (visualIndex++)}</span>
                     <div style="min-width: 0; flex: 1;">
-                        <div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; line-height: 1.3; word-break: break-word;">
-                            ${esSerieCero ? '🏆 ' : ''}${icono} ${ej.nombre}
+                        <div class="exercise-session-title">
+                            ${esM ? '🧠 ' : ''}${ej.nombre}
                         </div>
-                        <div style="font-size: 11.5px; color: ${esSerieCero ? '#d8b4fe' : '#94a3b8'}; margin-top: 2px; line-height: 1.35; word-break: break-word;">
-                            ${subtituloEj}
+                        <div class="exercise-session-sub">
+                            ${headerChips}
                         </div>
                     </div>
                 </div>
@@ -6400,9 +6418,9 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                 <div class="series-dropset-mini-strip">
                     <div style="font-weight: 800; color: #fbbf24; margin-bottom: 5px; font-size: 11px; display: flex; align-items: center; gap: 5px;">
                         <span>⚡</span>
-                        <span>Plan Dropset al Fallo (Bajar peso en 4 etapas):</span>
+                        <span>Plan Dropset al Fallo (4 etapas):</span>
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; font-size: 11px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; font-size: 11px;">
                         <div style="background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 2px solid #38bdf8;">
                             <strong style="color:#38bdf8;">1ª:</strong> ${p1} ${uPeso} <div style="color:#94a3b8; font-size:10px;">${d1}</div>
                         </div>
@@ -6421,28 +6439,34 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
 
             var badgeFatigaTxt = '';
             if (esSerieCero || pesoInicialSerie === 0) {
-                var recT = ej.recordSerieCero ? (' · 🏆 Récord: ' + ej.recordSerieCero + ' reps') : '';
-                badgeFatigaTxt = '100% fatiga (Corporal × ' + repsInicialesSerie + ' reps base' + recT + ')';
+                badgeFatigaTxt = '100% fatiga · Base corporal: ' + repsInicialesSerie + ' reps';
             } else {
-                badgeFatigaTxt = '100% fatiga (' + pesoInicialSerie + ' ' + uPeso + ' × ' + repsProm + ' reps base)';
+                badgeFatigaTxt = '100% fatiga · Base: ' + pesoInicialSerie + ' ' + uPeso + ' × ' + repsProm + ' reps';
             }
 
+            var tieneControlPeso = (!esSerieCero && pesoInicialSerie > 0) || (esSerieCero && pesoInicialSerie > 0);
+            var labelSerie = esM ? 'SESIÓN COMPLETA' : (esSerieCero ? 'SERIE 0 · SUPERAR RÉCORD' : (esFallo ? ('SERIE ' + s + ' · FINAL AL FALLO') : ('SERIE ' + s)));
+            var targetSerie = esSerieCero
+                ? ('Objetivo: superar ' + repsInicialesSerie + ' reps' + (pesoInicialSerie > 0 ? (' · ' + pesoInicialSerie + ' ' + uPeso) : ''))
+                : (esTiempoEj ? ('⏱️ Meta: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : (repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '')));
+            var metaAccionSerie = esFallo ? '<span class="series-badge-dropset">🔥 Dropset</span>' : (!esSerieCero && !esM ? '<span class="series-tag-muted">+Descanso</span>' : '');
+
             html += `
-            <div class="series-item-wrapper" id="wrapper-ej-${ejIdx}-s-${s}" style="margin-bottom: 8px;">
+            <div class="series-item-wrapper${esSerieCero ? ' series-item-wrapper--cero' : ''}${esFallo ? ' series-item-wrapper--fallo' : ''}" id="wrapper-ej-${ejIdx}-s-${s}">
                 <div class="series-check-row${esFallo ? ' series-al-fallo' : ''}${esSerieCero ? ' series-serie-cero' : ''}" id="row-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
-                    <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
-                    <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; min-width: 0;">
-                        <div style="min-width: 0; flex: 1;">
-                            <span class="series-label${esSerieCero ? ' series-label-cero' : ''}">${esM ? 'SESIÓN COMPLETA' : (esSerieCero ? '🏆 SERIE 0 · SUPERAR RÉCORD' : (esFallo ? ('SERIE ' + s + ' (FINAL)') : ('SERIE ' + s)))}</span>
-                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${esSerieCero ? ('🎯 Marca previa: ' + repsInicialesSerie + ' reps · 🏆 Récord: ' + (ej.recordSerieCero || repsInicialesSerie) + ' reps') : (esTiempoEj ? ('⏱️ Objetivo: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : ''))}</span>
+                    <div class="series-row-left">
+                        <div class="series-checkbox-indicator" id="ind-ej-${ejIdx}-s-${s}">✓</div>
+                        <input type="checkbox" class="check-rutina-din" id="check-ej-${ejIdx}-s-${s}" style="display:none;" onchange="actualizarProgresoRutinaDinamica()">
+                        <div class="series-row-copy">
+                            <span class="series-label${esSerieCero ? ' series-label-cero' : ''}">${labelSerie}</span>
+                            <span class="series-target" id="target-ej-${ejIdx}-s-${s}">${targetSerie}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                            ${esSerieCero ? `<span class="series-badge-cero">🏆 RÉCORD: ${ej.recordSerieCero || repsInicialesSerie} REPS</span>` : (esFallo ? '<span class="series-badge-dropset">🔥 AL FALLO · DROPSET 4 ETAPAS</span>' : '<span style="font-size: 11px; color: #64748b; font-weight: 600;">+Descanso auto</span>')}
-                            <button type="button" class="btn-check-serie-hecha" id="btn-check-action-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
-                                <span>✓</span> Marcar Hecha
-                            </button>
-                        </div>
+                    </div>
+                    <div class="series-row-actions">
+                        ${metaAccionSerie}
+                        <button type="button" class="btn-check-serie-hecha" id="btn-check-action-ej-${ejIdx}-s-${s}" onclick="toggleCheckSerie(event, ${ejIdx}, ${s})">
+                            <span>✓</span> Marcar Hecha
+                        </button>
                     </div>
                 </div>
 
@@ -6464,60 +6488,68 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
 
                     <!-- AJUSTE DE SEGUNDOS REALIZADOS O LASTRE -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 8px; width: 100%; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.08);">
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">⏱️ Segs:</span>
-                            <div class="stepper-pill-box">
-                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -5, event)">−5s</button>
-                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${tiempoBase}" min="1" max="3600" oninput="cambiarTiempoSerieManual(${ejIdx}, ${s})" onclick="event.stopPropagation()">
-                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 5, event)">+5s</button>
+                    <div class="series-dual-controls-wrap" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.08);">
+                        <div class="series-control-item${!pesoVal ? ' series-control-item--full' : ''}">
+                            <span class="series-control-label" style="color: #38bdf8;">⏱️ Segundos</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="stepper-pill-box">
+                                    <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -5, event)">−5s</button>
+                                    <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${tiempoBase}" min="1" max="3600" oninput="cambiarTiempoSerieManual(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                    <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 5, event)">+5s</button>
+                                </div>
+                                <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">seg</span>
                             </div>
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">seg</span>
                         </div>
 
                         ${pesoVal ? `
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Lastre:</span>
-                            <div class="stepper-pill-box">
-                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
-                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
-                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                        <div class="series-control-item">
+                            <span class="series-control-label" style="color: #fbbf24;">⚡ Lastre</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="stepper-pill-box">
+                                    <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
+                                    <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoVal}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                    <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                                </div>
+                                <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
                             </div>
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
                         </div>` : `<input type="hidden" id="input-peso-ej-${ejIdx}-s-${s}" value="0">`}
                     </div>
 
-                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="margin-top: 6px; font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px; width: 100%; box-sizing: border-box;">
-                        100% fatiga (Meta base: ${tiempoBase}s)
+                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="margin-top: 6px; font-size: 11px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3);">
+                        100% fatiga · Meta base: ${tiempoBase}s
                     </div>
                 </div>` : `
                 <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
-                    <div class="series-dual-controls-wrap" style="${esSerieCero || pesoInicialSerie === 0 ? 'justify-content: flex-start; gap: 12px;' : ''}">
-                        ${(!esSerieCero && pesoInicialSerie > 0) || (esSerieCero && pesoInicialSerie > 0) ? `
+                    <div class="series-dual-controls-wrap">
+                        ${tieneControlPeso ? `
                         <!-- AJUSTE DE PESO REAL (KG O LB) -->
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 11px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">⚡ Carga:</span>
-                            <div class="stepper-pill-box">
-                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
-                                <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoInicialSerie}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
-                                <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                        <div class="series-control-item">
+                            <span class="series-control-label" style="color: #fbbf24;">⚖️ Carga</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="stepper-pill-box">
+                                    <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, -2.5, event)">−</button>
+                                    <input type="number" class="input-peso-realizado" id="input-peso-ej-${ejIdx}-s-${s}" value="${pesoInicialSerie}" step="2.5" min="0" max="1000" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                    <button type="button" class="btn-kg-step" onclick="cambiarPesoSerie(${ejIdx}, ${s}, 2.5, event)">+</button>
+                                </div>
+                                <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
                             </div>
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${uPeso}</span>
                         </div>` : `<input type="hidden" id="input-peso-ej-${ejIdx}-s-${s}" value="0">`}
 
                         <!-- AJUSTE DE REPETICIONES -->
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">${esSerieCero ? '🏆 Reps Hechas:' : '🎯 Reps:'}</span>
-                            <div class="stepper-pill-box">
-                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
-                                <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsInicialesSerie}" min="1" max="999" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
-                                <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
+                        <div class="series-control-item${!tieneControlPeso ? ' series-control-item--full' : ''}">
+                            <span class="series-control-label" style="color: #38bdf8;">${esSerieCero ? '🏆 Reps' : '🎯 Reps'}</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div class="stepper-pill-box">
+                                    <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, -1, event)">−</button>
+                                    <input type="number" class="input-reps-realizadas" id="input-reps-ej-${ejIdx}-s-${s}" value="${repsInicialesSerie}" min="1" max="999" oninput="alCambiarCargaSerie(${ejIdx}, ${s})" onclick="event.stopPropagation()">
+                                    <button type="button" class="btn-rep-step" onclick="cambiarRepsSerie(${ejIdx}, ${s}, 1, event)">+</button>
+                                </div>
+                                <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">reps</span>
                             </div>
-                            <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">reps</span>
                         </div>
                     </div>
 
-                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 6px;">
+                    <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="font-size: 11px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3);">
                         ${badgeFatigaTxt}
                     </div>
                 </div>`) : ''}
@@ -6619,6 +6651,7 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
                 var ejIdx = item.ejIdx;
                 var s = item.s;
                 var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+                var wrapper = document.getElementById('wrapper-ej-' + ejIdx + '-s-' + s);
                 var row = document.getElementById('row-ej-' + ejIdx + '-s-' + s);
                 var ind = document.getElementById('ind-ej-' + ejIdx + '-s-' + s);
                 var btnAction = document.getElementById('btn-check-action-ej-' + ejIdx + '-s-' + s);
@@ -6633,6 +6666,7 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
 
                 if (chk && item.checked) {
                     chk.checked = true;
+                    if (wrapper) wrapper.classList.add('checked-active');
                     if (row) row.classList.add('checked-active');
                     if (ind) ind.classList.add('checked');
                     if (panelReps) panelReps.style.display = 'none';
@@ -6649,7 +6683,8 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
                             var lastreTxt = data.pesoReal > 0 ? (' · Lastre: ' + data.pesoReal + ' ' + uPeso) : '';
                             targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
                         } else {
-                            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.pesoReal + ' ' + uPeso + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+                            var cargaHechaTxt = data.pesoReal > 0 ? (data.pesoReal + ' ' + uPeso) : 'Corporal';
+                            targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + cargaHechaTxt + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
                         }
                     }
                 }

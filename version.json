@@ -1,5 +1,5 @@
 {
-  "version": "10.83",
+  "version": "10.84",
   "fecha": "2026-11-22",
-  "resumen": "Tarjeta limpia de playlist en rutina sin botones repetidos, guardado por defecto al elegir lista, fade-in/out de volumen y reanudación suave de canción interrumpida."
+  "resumen": "Rediseño limpio y organizado de tarjetas de ejercicios en rutina activa, eliminando cajas anidadas, duplicación y recortes en móvil."
 }
