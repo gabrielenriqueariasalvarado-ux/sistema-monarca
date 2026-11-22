@@ -71,12 +71,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.73)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.74)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.73
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.74
             Esta versión nativa incluye:
-            - 🤖 **Conexión en vivo Ideas `✨ Emily` ↔ Auto-PC (v10.73)**:
-              - Al crear o ver ideas en **`✨ Emily`**, decide si enviarlas de una vez (o luego) a la cola de **Auto-PC** (`Work Antigravity`), observa en tiempo real cuando entran en programación y deja que se marquen automáticamente como **`✓ Hecha`** (+15 EXP) al terminar en tu computadora.
+            - 🤖 **Conexión en vivo Ideas `✨ Emily` ↔ Auto-PC (v10.73–v10.74)**:
+              - Al crear o ver ideas en **`✨ Emily`** (tanto desde **Banco de Ideas** como desde el botón **`+` Asistente Rápido**), decide si enviarlas de una vez (o luego) a la cola de **Auto-PC** (`Work Antigravity`), observa en tiempo real cuando entran en programación y deja que se marquen automáticamente como **`✓ Hecha`** (+15 EXP) al terminar en tu computadora.
             - 🔍 **Detector de Actualizaciones en Home (v10.72)**:
               - Compara automáticamente la versión instalada en tu teléfono contra la última versión publicada en GitHub (APK / Web), detallando si estás al día o si tienes cambios nuevos pendientes por descargar con botón directo.
             - 🏠 **Apartado Home como pantalla inicial (v10.70–v10.71)**:

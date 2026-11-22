@@ -171,13 +171,17 @@ function alCambiarCategoriaIdea() {
         });
     }
 
-    var boxAutoPC = document.getElementById('box-opcion-autopc-idea');
-    var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
-    if (boxAutoPC) {
-        boxAutoPC.style.display = esEmily ? 'block' : 'none';
-    }
-    if (!esEmily && chkAutoPC) {
-        chkAutoPC.checked = false;
+    if (typeof actualizarVisibilidadOpcionAutoPC === 'function') {
+        actualizarVisibilidadOpcionAutoPC(cat, 'box-opcion-autopc-idea', 'chk-idea-programar-ahora');
+    } else {
+        var boxAutoPC = document.getElementById('box-opcion-autopc-idea');
+        var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
+        if (boxAutoPC) {
+            boxAutoPC.style.display = esEmily ? 'block' : 'none';
+        }
+        if (!esEmily && chkAutoPC) {
+            chkAutoPC.checked = false;
+        }
     }
 }
 
@@ -474,8 +478,6 @@ function guardarNuevaIdea() {
     }
 
     var textoOriginal = input.value.trim();
-    var texto = textoOriginal;
-    var promptLimpio = obtenerTextoPromptLimpio(textoOriginal);
     var cat = catSelect ? catSelect.value : "✨ Emily";
     var subcat = subcatSelect ? subcatSelect.value : "General";
 
@@ -483,42 +485,11 @@ function guardarNuevaIdea() {
     var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
     var programarAhora = Boolean(esEmily && chkAutoPC && chkAutoPC.checked);
 
-    // Formatear fecha actual (ejemplo: 28/09)
-    var ahora = new Date();
-    var dd = String(ahora.getDate()).padStart(2, '0');
-    var mm = String(ahora.getMonth() + 1).padStart(2, '0');
-    var fechaCorta = dd + "/" + mm;
-
-    if (!texto.endsWith(fechaCorta) && !texto.includes('(' + fechaCorta + ')')) {
-        texto += " (" + fechaCorta + ")";
-    }
-
-    if (!APP_STATE.ideas) APP_STATE.ideas = [];
-
-    var nuevaId = Date.now();
-    APP_STATE.ideas.unshift({
-        id: nuevaId,
-        texto: texto,
-        textoPrompt: promptLimpio,
-        categoria: cat,
-        subcategoria: subcat,
-        fecha: fechaCorta,
-        timestamp: nuevaId,
-        hecha: false,
-        autopcStatus: programarAhora ? 'pending' : null,
-        autopcPendienteSubida: programarAhora
-    });
+    registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora);
 
     input.value = "";
     if (chkAutoPC) {
         chkAutoPC.checked = false;
-    }
-
-    MonarcaDB.save(APP_STATE);
-    sumarExp(10);
-
-    if (programarAhora) {
-        enviarIdeaAAutoPC(nuevaId, true);
     }
 
     // Si estábamos en detalle de esa misma categoría, actualizarlo directamente; si no, mostrar cuadrícula

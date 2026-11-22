@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.73">
+    <link rel="stylesheet" href="style.css?v=10.74">
 </head>
 <body>
 
@@ -5104,11 +5104,20 @@
                             <option value="✅ Tareas Operativas">✅ Tareas Operativas</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 16px;">
+                    <div style="margin-bottom: 12px;">
                         <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; display: block;">Subcategoría:</label>
                         <select id="asistente-idea-subcat" class="finanzas-input-clean" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
                             <!-- Se llena dinámicamente igual que en Banco de Ideas -->
                         </select>
+                    </div>
+                    <div id="box-opcion-autopc-asistente" class="ideas-autopc-toggle-row" style="margin-bottom: 16px;">
+                        <label class="ideas-autopc-check-label" for="chk-asistente-idea-programar-ahora">
+                            <input type="checkbox" id="chk-asistente-idea-programar-ahora">
+                            <span class="ideas-autopc-check-text">
+                                <strong>🚀 Empezar a programar en Auto-PC al crear</strong>
+                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC.</small>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
@@ -6589,26 +6598,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.73"></script>
-    <script src="js/perfil.js?v=10.73"></script>
-    <script src="js/progresion.js?v=10.73"></script>
-    <script src="js/estado-personal.js?v=10.73"></script>
-    <script src="js/finanzas.js?v=10.73"></script>
-    <script src="js/ideas.js?v=10.73"></script>
-    <script src="js/dinamicas.js?v=10.73"></script>
-    <script src="js/calendario.js?v=10.73"></script>
-    <script src="js/inventario.js?v=10.73"></script>
-    <script src="js/reproductor.js?v=10.73"></script>
-    <script src="js/jarvis-voz.js?v=10.73"></script>
+    <script src="js/core.js?v=10.74"></script>
+    <script src="js/perfil.js?v=10.74"></script>
+    <script src="js/progresion.js?v=10.74"></script>
+    <script src="js/estado-personal.js?v=10.74"></script>
+    <script src="js/finanzas.js?v=10.74"></script>
+    <script src="js/ideas.js?v=10.74"></script>
+    <script src="js/dinamicas.js?v=10.74"></script>
+    <script src="js/calendario.js?v=10.74"></script>
+    <script src="js/inventario.js?v=10.74"></script>
+    <script src="js/reproductor.js?v=10.74"></script>
+    <script src="js/jarvis-voz.js?v=10.74"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.73"></script>
+    <script type="module" src="js/firebase-config.js?v=10.74"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.73')
+                navigator.serviceWorker.register('sw.js?v=10.74')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

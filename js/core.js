@@ -1065,6 +1065,64 @@ function alCambiarCategoriaAsistenteFinanza() {
     }
 }
 
+function actualizarVisibilidadOpcionAutoPC(cat, boxId, chkId) {
+    var esEmily = Boolean(cat && String(cat).toLowerCase().indexOf('emily') !== -1);
+    var boxAutoPC = document.getElementById(boxId);
+    var chkAutoPC = document.getElementById(chkId);
+    if (boxAutoPC) {
+        boxAutoPC.style.display = esEmily ? 'block' : 'none';
+    }
+    if (!esEmily && chkAutoPC) {
+        chkAutoPC.checked = false;
+    }
+    return esEmily;
+}
+
+function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora) {
+    var promptLimpio = (typeof obtenerTextoPromptLimpio === 'function')
+        ? obtenerTextoPromptLimpio(textoOriginal)
+        : String(textoOriginal || '').trim().replace(/\s*\([0-9]+\/[0-9]+\)\s*$/, '').trim();
+    if (!promptLimpio) promptLimpio = String(textoOriginal || '').trim();
+
+    var texto = String(textoOriginal || '').trim();
+    var esEmily = Boolean(cat && String(cat).toLowerCase().indexOf('emily') !== -1);
+    var enviarPC = Boolean(esEmily && programarAhora);
+
+    var ahora = new Date();
+    var dd = String(ahora.getDate()).padStart(2, '0');
+    var mm = String(ahora.getMonth() + 1).padStart(2, '0');
+    var fechaCorta = dd + "/" + mm;
+
+    if (!texto.endsWith(fechaCorta) && texto.indexOf('(' + fechaCorta + ')') === -1) {
+        texto += " (" + fechaCorta + ")";
+    }
+
+    if (!APP_STATE.ideas) APP_STATE.ideas = [];
+    var nuevaId = Date.now();
+    APP_STATE.ideas.unshift({
+        id: nuevaId,
+        texto: texto,
+        textoPrompt: promptLimpio,
+        categoria: cat,
+        subcategoria: subcat,
+        fecha: fechaCorta,
+        timestamp: nuevaId,
+        fechaActualizacion: nuevaId,
+        hecha: false,
+        autopcStatus: enviarPC ? 'pending' : null,
+        autopcPendienteSubida: enviarPC
+    });
+
+    MonarcaDB.save(APP_STATE);
+    sumarExp(10);
+
+    if (enviarPC && typeof window.enviarIdeaAAutoPC === 'function') {
+        window.enviarIdeaAAutoPC(nuevaId, true);
+    }
+
+    return { id: nuevaId, enviadaAutoPC: enviarPC };
+}
+
 function alCambiarCategoriaAsistenteIdea() {
     var catSelect = document.getElementById('asistente-idea-cat');
     var subcatSelect = document.getElementById('asistente-idea-subcat');
@@ -1093,6 +1151,8 @@ function alCambiarCategoriaAsistenteIdea() {
     if (actualSub && subs.indexOf(actualSub) !== -1) {
         subcatSelect.value = actualSub;
     }
+
+    actualizarVisibilidadOpcionAutoPC(cat, 'box-opcion-autopc-asistente', 'chk-asistente-idea-programar-ahora');
 }
 
 function abrirAsistenteRapido() {
@@ -1120,6 +1180,8 @@ function cerrarAsistenteRapido() {
     if (m) m.style.display = 'none';
     var box = document.getElementById('contenedor-freno-impulso-asistente');
     if (box) box.style.display = 'none';
+    var chkAutoPC = document.getElementById('chk-asistente-idea-programar-ahora');
+    if (chkAutoPC) chkAutoPC.checked = false;
 }
 
 function cambiarTabAsistenteRapido(tab) {
@@ -1153,38 +1215,21 @@ function guardarCapturaRapida() {
         var inNom = document.getElementById('asistente-idea-nombre');
         var inCat = document.getElementById('asistente-idea-cat');
         var inSub = document.getElementById('asistente-idea-subcat');
+        var chkAutoPC = document.getElementById('chk-asistente-idea-programar-ahora');
         var texto = inNom ? inNom.value.trim() : "";
         var cat = inCat ? inCat.value : "✨ Emily";
         var subcat = inSub ? inSub.value : "General";
+        var programarAhora = Boolean(chkAutoPC && chkAutoPC.checked);
 
         if (!texto) { alert("Escribe el contenido de tu idea."); if (inNom) inNom.focus(); return; }
 
-        var ahora = new Date();
-        var dd = String(ahora.getDate()).padStart(2, '0');
-        var mm = String(ahora.getMonth() + 1).padStart(2, '0');
-        var fechaCorta = dd + "/" + mm;
-        if (!texto.endsWith(fechaCorta) && texto.indexOf('(' + fechaCorta + ')') === -1) {
-            texto += " (" + fechaCorta + ")";
-        }
+        var resIdea = registrarIdeaEnMonarca(texto, cat, subcat, programarAhora);
 
-        if (!APP_STATE.ideas) APP_STATE.ideas = [];
-        var nowIdea = Date.now();
-        APP_STATE.ideas.unshift({
-            id: nowIdea,
-            texto: texto,
-            categoria: cat,
-            subcategoria: subcat,
-            fecha: fechaCorta,
-            timestamp: nowIdea,
-            fechaActualizacion: nowIdea,
-            hecha: false
-        });
-        sumarExp(10);
-        MonarcaDB.save(APP_STATE);
         if (inNom) inNom.value = "";
+        if (chkAutoPC) chkAutoPC.checked = false;
         cerrarAsistenteRapido();
         if (typeof renderizarBancoIdeas === 'function') renderizarBancoIdeas(APP_STATE.ideas);
-        alert("💡 Idea publicada en \"" + cat + "\" (+10 EXP).");
+        alert("💡 Idea publicada en \"" + cat + "\" (+10 EXP)" + (resIdea.enviadaAutoPC ? "\n🤖 Enviada a la cola de Auto-PC." : "."));
 
     } else if (tab === 'quest') {
         var inTit = document.getElementById('asistente-quest-titulo');
@@ -1437,7 +1482,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.73';
+var MONARCA_APP_VERSION = '10.74';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
