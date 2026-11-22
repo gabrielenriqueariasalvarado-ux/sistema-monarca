@@ -16778,3 +16778,214 @@ body.modal-open {
     }
 }
 
+/* --- Adjuntos de Imagen / Captura en Ideas & Captura Rápida (v10.76) --- */
+.idea-attach-box {
+    background: #080b12;
+    border: 1px dashed rgba(99, 102, 241, 0.38);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.idea-attach-box.is-dragover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.idea-attach-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.idea-attach-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.idea-attach-hint {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.idea-attach-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-idea-attach {
+    flex: 1 1 auto;
+    min-height: 38px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.1);
+    color: #e0f2fe;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.btn-idea-attach:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    color: #ffffff;
+}
+
+.btn-idea-attach-subtle {
+    flex: 0 1 auto;
+    border-color: rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+}
+
+.btn-idea-attach-subtle:hover {
+    border-color: rgba(148, 163, 184, 0.55);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.idea-attach-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #0f1423;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+.idea-attach-preview-thumb {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: #05070c;
+}
+
+.idea-attach-preview-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.idea-attach-preview-info strong {
+    font-size: 12px;
+    color: #f8fafc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.idea-attach-preview-info small {
+    font-size: 11px;
+    color: #38bdf8;
+}
+
+.btn-idea-attach-remove {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-idea-attach-remove:hover {
+    background: rgba(239, 68, 68, 0.24);
+    color: #ffffff;
+}
+
+.idea-card-media-row {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-idea-card-thumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 4px;
+    background: rgba(15, 20, 35, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 10px;
+    color: #bae6fd;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-idea-card-thumb:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.14);
+    color: #ffffff;
+}
+
+.idea-card-thumb-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    object-fit: cover;
+    background: #0b0f1a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.idea-card-thumb-img[src=""] {
+    display: none;
+}
+
+.idea-attach-box-compact {
+    padding: 8px 10px;
+    gap: 6px;
+}
+
+.idea-attach-box-compact .btn-idea-attach {
+    min-height: 34px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+}
+
+@media (max-width: 640px) {
+    .idea-attach-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .idea-attach-actions .btn-idea-attach-subtle {
+        grid-column: 1 / -1;
+    }
+}
+
+
+

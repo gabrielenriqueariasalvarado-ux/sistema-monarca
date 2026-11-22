@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.75)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.76)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.75
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.76
             Esta versión nativa incluye:
+            - 🖼️ **Adjuntar Fotos, Capturas e Imágenes en Ideas + Envío a Auto-PC (v10.76)**:
+              - Opción de adjuntar una **foto tomada al momento (cámara)**, una **captura de pantalla**, **imagen de galería** o **pegar del portapapeles** tanto en **Banco de Ideas** como en **Captura Rápida** (`+` Asistente Monarca).
+              - Si creas una idea en **`✨ Emily`** con imagen/captura y activas **Empezar a programar en Auto-PC**, tu PC adjuntará automáticamente la captura junto al texto dentro de **Antigravity**.
             - 🔔 **Alertas en Centro de Notificaciones al completar Auto-PC (v10.75)**:
               - Cada vez que una solicitud termina (`LISTA`) en tu **Auto-PC**, aparece una notificación dedicada en **🔔 Centro de Alertas & Notificaciones** confirmando que la solicitud ya fue añadida (compatible con todas tus solicitudes y con limpieza individual o grupal).
             - 🤖 **Conexión en vivo Ideas `✨ Emily` ↔ Auto-PC (v10.73–v10.74)**:

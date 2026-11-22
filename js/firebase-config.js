@@ -38,6 +38,7 @@ const FIRESTORE_DOCUMENTO = "datos_principales";
 const FIRESTORE_DOC_BACKUP = "backup_seguridad";
 const FIRESTORE_COL_TRANSFERENCIAS = "transferencias_musica";
 const FIRESTORE_COL_AUTOPC = "solicitudes_autopc";
+const FIRESTORE_COL_IDEAS_IMAGENES = "ideas_imagenes";
 
 // Referencias de Firebase
 let app = null;
@@ -915,6 +916,56 @@ window.MonarcaCloud = {
     },
 
     /**
+     * Sube o actualiza la imagen/captura comprimida de una idea en la colección dedicada `ideas_imagenes`
+     */
+    subirImagenIdea: async function(registro) {
+        if (!db) throw new Error('Firebase Firestore no inicializado');
+        if (!registro || !registro.id || !registro.dataUrl) {
+            throw new Error('Datos de imagen incompletos');
+        }
+        var docId = String(registro.id);
+        var dataUrl = String(registro.dataUrl);
+        if (dataUrl.length > 920000) {
+            throw new Error('La imagen comprimida excede el límite seguro por documento');
+        }
+        var ahoraMs = Date.now();
+        var refImg = doc(db, FIRESTORE_COL_IDEAS_IMAGENES, docId);
+        var payload = {
+            id: docId,
+            ideaId: String(registro.ideaId || ''),
+            dataUrl: dataUrl,
+            mimeType: String(registro.mimeType || 'image/jpeg'),
+            fileName: String(registro.fileName || 'imagen.jpg'),
+            width: Number(registro.width) || 0,
+            height: Number(registro.height) || 0,
+            sizeBytes: Number(registro.sizeBytes) || dataUrl.length,
+            updatedAt: Number(registro.updatedAt) || ahoraMs
+        };
+        await setDoc(refImg, payload);
+        return payload;
+    },
+
+    /**
+     * Descarga bajo demanda la imagen/captura de una idea desde `ideas_imagenes`
+     */
+    obtenerImagenIdea: async function(imagenId) {
+        if (!db || !imagenId) return null;
+        var refImg = doc(db, FIRESTORE_COL_IDEAS_IMAGENES, String(imagenId));
+        var snap = await getDoc(refImg);
+        return snap.exists() ? snap.data() : null;
+    },
+
+    /**
+     * Elimina el documento remoto de una imagen adjunta al borrar definitivamente su idea
+     */
+    eliminarImagenIdea: async function(imagenId) {
+        if (!db || !imagenId) return false;
+        var refImg = doc(db, FIRESTORE_COL_IDEAS_IMAGENES, String(imagenId));
+        await deleteDoc(refImg);
+        return true;
+    },
+
+    /**
      * Envia o actualiza una solicitud de programacion de ✨ Emily hacia Auto-PC
      */
     enviarSolicitudAutoPC: async function(solicitud) {
@@ -933,6 +984,12 @@ window.MonarcaCloud = {
             createdAt: Number(solicitud && solicitud.createdAt) || ahoraMs,
             updatedAt: ahoraMs
         };
+        if (solicitud && solicitud.hasImage && solicitud.imageDocId) {
+            payload.hasImage = true;
+            payload.imageDocId = String(solicitud.imageDocId);
+            payload.imageName = String(solicitud.imageName || 'captura.png');
+            payload.imageMime = String(solicitud.imageMime || 'image/jpeg');
+        }
 
         await setDoc(refSolicitud, payload);
         return payload;

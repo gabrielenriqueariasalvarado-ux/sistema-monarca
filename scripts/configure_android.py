@@ -2418,6 +2418,8 @@ if os.path.exists(manifest_path):
         'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
         'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
         'android.permission.READ_MEDIA_AUDIO',
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.CAMERA',
     ]
 
     perms_to_add = []
@@ -2427,6 +2429,9 @@ if os.path.exists(manifest_path):
 
     if 'android.permission.READ_EXTERNAL_STORAGE' not in content:
         perms_to_add.append('    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />')
+
+    if 'android.hardware.camera' not in content:
+        perms_to_add.append('    <uses-feature android:name="android.hardware.camera" android:required="false" />')
 
     if perms_to_add:
         content = content.replace('</manifest>', '\n'.join(perms_to_add) + '\n</manifest>')

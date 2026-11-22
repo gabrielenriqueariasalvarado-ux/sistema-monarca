@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.75">
+    <link rel="stylesheet" href="style.css?v=10.76">
 </head>
 <body>
 
@@ -3546,12 +3546,40 @@
                         </div>
                     </div>
 
+                    <div id="box-adjunto-imagen-idea" class="idea-attach-box">
+                        <div class="idea-attach-header">
+                            <span class="idea-attach-label">🖼️ Imagen / Captura (Opcional)</span>
+                            <span class="idea-attach-hint">Foto al momento, galería o Ctrl+V</span>
+                        </div>
+                        <div class="idea-attach-actions">
+                            <button type="button" class="btn-idea-attach" onclick="seleccionarImagenIdea('principal', 'camera')">
+                                📷 Tomar Foto
+                            </button>
+                            <button type="button" class="btn-idea-attach" onclick="seleccionarImagenIdea('principal', 'gallery')">
+                                🖼️ Galería / Captura
+                            </button>
+                            <button type="button" class="btn-idea-attach btn-idea-attach-subtle" onclick="pegarImagenDesdePortapapelesIdea('principal')" title="Pegar captura del portapapeles">
+                                📋 Pegar
+                            </button>
+                        </div>
+                        <input type="file" id="idea-img-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="manejarArchivoImagenIdea('principal', this)">
+                        <input type="file" id="idea-img-gallery-input" accept="image/*" style="display: none;" onchange="manejarArchivoImagenIdea('principal', this)">
+                        <div id="idea-img-preview-wrap" class="idea-attach-preview" style="display: none;">
+                            <img id="idea-img-preview-thumb" src="" alt="Vista previa de imagen adjunta" class="idea-attach-preview-thumb">
+                            <div class="idea-attach-preview-info">
+                                <strong id="idea-img-preview-name">captura.png</strong>
+                                <small id="idea-img-preview-meta">Lista para adjuntar</small>
+                            </div>
+                            <button type="button" class="btn-idea-attach-remove" onclick="limpiarImagenBorradorIdea('principal')" title="Quitar imagen adjunta">✕</button>
+                        </div>
+                    </div>
+
                     <div id="box-opcion-autopc-idea" class="ideas-autopc-toggle-row">
                         <label class="ideas-autopc-check-label" for="chk-idea-programar-ahora">
                             <input type="checkbox" id="chk-idea-programar-ahora">
                             <span class="ideas-autopc-check-text">
                                 <strong>🚀 Empezar a programar en Auto-PC al crear</strong>
-                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC.</small>
+                                <small>Opcional: si lo activas, se enviará de inmediato a tu cola de Antigravity en la PC (con imagen si la adjuntaste).</small>
                             </span>
                         </label>
                     </div>
@@ -5033,8 +5061,8 @@
 
     <!-- MODAL: VENTANA FLOTANTE DE ASISTENCIA RÁPIDA -->
     <div id="modal-asistente-rapido" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window" style="max-width: 480px;">
-            <div class="modal-system-header">
+        <div class="modal-system-window" style="max-width: 480px; max-height: 92vh; max-height: 92dvh; display: flex; flex-direction: column;">
+            <div class="modal-system-header" style="flex-shrink: 0;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">⚡</span>
                     <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">ASISTENTE MONARCA · CAPTURA RÁPIDA</span>
@@ -5042,7 +5070,7 @@
                 <button onclick="cerrarAsistenteRapido()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
 
-            <div style="padding: 18px;">
+            <div style="padding: 18px; overflow-y: auto; flex: 1; min-height: 0;">
                 <!-- Pestañas de categoría rápida (1.º Finanza, 2.º Idea) -->
                 <div class="asistente-tabs-container">
                     <button type="button" class="btn-tab-asistente active" data-tab="finanza" onclick="cambiarTabAsistenteRapido('finanza')">
@@ -5110,6 +5138,33 @@
                             <!-- Se llena dinámicamente igual que en Banco de Ideas -->
                         </select>
                     </div>
+                    <div id="box-adjunto-imagen-asistente" class="idea-attach-box idea-attach-box-compact" style="margin-bottom: 12px;">
+                        <div class="idea-attach-header">
+                            <span class="idea-attach-label">🖼️ Imagen / Captura (Opcional)</span>
+                            <span class="idea-attach-hint">Foto, galería o Ctrl+V</span>
+                        </div>
+                        <div class="idea-attach-actions">
+                            <button type="button" class="btn-idea-attach" onclick="seleccionarImagenIdea('asistente', 'camera')">
+                                📷 Tomar Foto
+                            </button>
+                            <button type="button" class="btn-idea-attach" onclick="seleccionarImagenIdea('asistente', 'gallery')">
+                                🖼️ Galería / Captura
+                            </button>
+                            <button type="button" class="btn-idea-attach btn-idea-attach-subtle" onclick="pegarImagenDesdePortapapelesIdea('asistente')" title="Pegar captura del portapapeles">
+                                📋 Pegar
+                            </button>
+                        </div>
+                        <input type="file" id="asistente-idea-img-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="manejarArchivoImagenIdea('asistente', this)">
+                        <input type="file" id="asistente-idea-img-gallery-input" accept="image/*" style="display: none;" onchange="manejarArchivoImagenIdea('asistente', this)">
+                        <div id="asistente-idea-img-preview-wrap" class="idea-attach-preview" style="display: none;">
+                            <img id="asistente-idea-img-preview-thumb" src="" alt="Vista previa de imagen adjunta" class="idea-attach-preview-thumb">
+                            <div class="idea-attach-preview-info">
+                                <strong id="asistente-idea-img-preview-name">captura.png</strong>
+                                <small id="asistente-idea-img-preview-meta">Lista para adjuntar</small>
+                            </div>
+                            <button type="button" class="btn-idea-attach-remove" onclick="limpiarImagenBorradorIdea('asistente')" title="Quitar imagen adjunta">✕</button>
+                        </div>
+                    </div>
                     <div id="box-opcion-autopc-asistente" class="ideas-autopc-toggle-row" style="margin-bottom: 16px;">
                         <label class="ideas-autopc-check-label" for="chk-asistente-idea-programar-ahora">
                             <input type="checkbox" id="chk-asistente-idea-programar-ahora">
@@ -5120,15 +5175,15 @@
                         </label>
                     </div>
                 </div>
+            </div>
 
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarAsistenteRapido()">
-                        Cancelar
-                    </button>
-                    <button class="btn-system btn-guardar-asistente" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCapturaRapida()">
-                        ⚡ Guardar al Instante
-                    </button>
-                </div>
+            <div style="display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(15, 19, 31, 0.96); flex-shrink: 0;">
+                <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarAsistenteRapido()">
+                    Cancelar
+                </button>
+                <button class="btn-system btn-guardar-asistente" style="flex: 2; justify-content: center; margin-bottom: 0;" onclick="guardarCapturaRapida()">
+                    ⚡ Guardar al Instante
+                </button>
             </div>
         </div>
     </div>
@@ -6510,6 +6565,29 @@
         </div>
     </div>
 
+    <!-- MODAL VISOR DE IMAGEN / CAPTURA DE IDEA -->
+    <div id="modal-visor-imagen-idea" class="modal-overlay" style="display: none; z-index: 10050;" onclick="if(event.target === this) cerrarVisorImagenIdea()">
+        <div class="modal-card" style="max-width: 680px; width: 94%; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.35); background: #0b1020; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);">
+            <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.02);">
+                <div style="min-width: 0; flex: 1;">
+                    <h3 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #f8fafc;">🖼️ Imagen Adjunta de Idea</h3>
+                    <p id="visor-imagen-idea-titulo" style="margin: 2px 0 0 0; font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></p>
+                </div>
+                <button type="button" onclick="cerrarVisorImagenIdea()" class="btn-icon" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; cursor: pointer;">✕</button>
+            </div>
+            <div style="padding: 16px; flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; background: #05070c;">
+                <img id="visor-imagen-idea-img" src="" alt="Captura adjunta de la idea" style="max-width: 100%; max-height: 66vh; max-height: 66dvh; border-radius: 10px; object-fit: contain; border: 1px solid rgba(255, 255, 255, 0.08);">
+            </div>
+            <div style="padding: 12px 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(255, 255, 255, 0.02);">
+                <span id="visor-imagen-idea-meta" style="font-size: 11px; color: #94a3b8;">Cargando...</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" onclick="descargarImagenVisorIdea()" class="btn-idea-attach" style="flex: 0 0 auto; min-height: 34px; padding: 6px 12px;">⬇ Descargar</button>
+                    <button type="button" onclick="cerrarVisorImagenIdea()" class="btn-system" style="font-size: 12px; padding: 7px 16px; background: #1e293b; color: #ffffff; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); cursor: pointer;">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MINI-REPRODUCTOR FLOTANTE PERSISTENTE (OFFLINE BEATS) -->
     <div id="monarca-mini-player" class="monarca-mini-player" style="display: none;" onclick="window.MonarcaPlayer.expandirReproductorCompleto()">
         <div class="mini-player-progress-bar">
@@ -6601,26 +6679,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.75"></script>
-    <script src="js/perfil.js?v=10.75"></script>
-    <script src="js/progresion.js?v=10.75"></script>
-    <script src="js/estado-personal.js?v=10.75"></script>
-    <script src="js/finanzas.js?v=10.75"></script>
-    <script src="js/ideas.js?v=10.75"></script>
-    <script src="js/dinamicas.js?v=10.75"></script>
-    <script src="js/calendario.js?v=10.75"></script>
-    <script src="js/inventario.js?v=10.75"></script>
-    <script src="js/reproductor.js?v=10.75"></script>
-    <script src="js/jarvis-voz.js?v=10.75"></script>
+    <script src="js/core.js?v=10.76"></script>
+    <script src="js/perfil.js?v=10.76"></script>
+    <script src="js/progresion.js?v=10.76"></script>
+    <script src="js/estado-personal.js?v=10.76"></script>
+    <script src="js/finanzas.js?v=10.76"></script>
+    <script src="js/ideas.js?v=10.76"></script>
+    <script src="js/dinamicas.js?v=10.76"></script>
+    <script src="js/calendario.js?v=10.76"></script>
+    <script src="js/inventario.js?v=10.76"></script>
+    <script src="js/reproductor.js?v=10.76"></script>
+    <script src="js/jarvis-voz.js?v=10.76"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.75"></script>
+    <script type="module" src="js/firebase-config.js?v=10.76"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.75')
+                navigator.serviceWorker.register('sw.js?v=10.76')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

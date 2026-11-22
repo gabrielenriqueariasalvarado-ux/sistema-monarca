@@ -1080,13 +1080,19 @@ function actualizarVisibilidadOpcionAutoPC(cat, boxId, chkId) {
     return esEmily;
 }
 
-function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora) {
+function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora, imagenAdjunta) {
     var promptLimpio = (typeof obtenerTextoPromptLimpio === 'function')
         ? obtenerTextoPromptLimpio(textoOriginal)
         : String(textoOriginal || '').trim().replace(/\s*\([0-9]+\/[0-9]+\)\s*$/, '').trim();
-    if (!promptLimpio) promptLimpio = String(textoOriginal || '').trim();
+    var tieneImg = Boolean(imagenAdjunta && imagenAdjunta.dataUrl);
+    if (!promptLimpio) {
+        promptLimpio = tieneImg ? 'Revisar imagen / captura adjunta' : String(textoOriginal || '').trim();
+    }
 
     var texto = String(textoOriginal || '').trim();
+    if (!texto && tieneImg) {
+        texto = '🖼️ Imagen / captura adjunta';
+    }
     var esEmily = Boolean(cat && String(cat).toLowerCase().indexOf('emily') !== -1);
     var enviarPC = Boolean(esEmily && programarAhora);
 
@@ -1101,7 +1107,9 @@ function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora) {
 
     if (!APP_STATE.ideas) APP_STATE.ideas = [];
     var nuevaId = Date.now();
-    APP_STATE.ideas.unshift({
+    var imagenId = tieneImg ? ('IMG-' + nuevaId) : null;
+
+    var nuevaIdeaObj = {
         id: nuevaId,
         texto: texto,
         textoPrompt: promptLimpio,
@@ -1113,7 +1121,23 @@ function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora) {
         hecha: false,
         autopcStatus: enviarPC ? 'pending' : null,
         autopcPendienteSubida: enviarPC
-    });
+    };
+
+    if (tieneImg && imagenId) {
+        nuevaIdeaObj.tieneImagen = true;
+        nuevaIdeaObj.imagenId = imagenId;
+        nuevaIdeaObj.imagenNombre = String(imagenAdjunta.fileName || 'captura.png');
+        nuevaIdeaObj.imagenMime = String(imagenAdjunta.mimeType || 'image/jpeg');
+        nuevaIdeaObj.imagenWidth = Number(imagenAdjunta.width) || 0;
+        nuevaIdeaObj.imagenHeight = Number(imagenAdjunta.height) || 0;
+        nuevaIdeaObj.imagenPendienteSubida = true;
+    }
+
+    APP_STATE.ideas.unshift(nuevaIdeaObj);
+
+    if (tieneImg && imagenId && typeof guardarImagenIdeaAdjunta === 'function') {
+        guardarImagenIdeaAdjunta(nuevaIdeaObj, imagenAdjunta, !enviarPC);
+    }
 
     MonarcaDB.save(APP_STATE);
     sumarExp(10);
@@ -1122,7 +1146,7 @@ function registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora) {
         window.enviarIdeaAAutoPC(nuevaId, true);
     }
 
-    return { id: nuevaId, enviadaAutoPC: enviarPC };
+    return { id: nuevaId, enviadaAutoPC: enviarPC, tieneImagen: tieneImg, imagenId: imagenId };
 }
 
 function alCambiarCategoriaAsistenteIdea() {
@@ -1184,6 +1208,9 @@ function cerrarAsistenteRapido() {
     if (box) box.style.display = 'none';
     var chkAutoPC = document.getElementById('chk-asistente-idea-programar-ahora');
     if (chkAutoPC) chkAutoPC.checked = false;
+    if (typeof limpiarImagenBorradorIdea === 'function') {
+        limpiarImagenBorradorIdea('asistente');
+    }
 }
 
 function cambiarTabAsistenteRapido(tab) {
@@ -1222,16 +1249,26 @@ function guardarCapturaRapida() {
         var cat = inCat ? inCat.value : "✨ Emily";
         var subcat = inSub ? inSub.value : "General";
         var programarAhora = Boolean(chkAutoPC && chkAutoPC.checked);
+        var imagenAdjunta = (typeof obtenerImagenBorradorIdea === 'function')
+            ? obtenerImagenBorradorIdea('asistente')
+            : null;
 
-        if (!texto) { alert("Escribe el contenido de tu idea."); if (inNom) inNom.focus(); return; }
+        if (!texto && !imagenAdjunta) { alert("Escribe el contenido de tu idea o adjunta una imagen."); if (inNom) inNom.focus(); return; }
 
-        var resIdea = registrarIdeaEnMonarca(texto, cat, subcat, programarAhora);
+        var resIdea = registrarIdeaEnMonarca(texto, cat, subcat, programarAhora, imagenAdjunta);
 
         if (inNom) inNom.value = "";
         if (chkAutoPC) chkAutoPC.checked = false;
+        if (typeof limpiarImagenBorradorIdea === 'function') {
+            limpiarImagenBorradorIdea('asistente');
+        }
         cerrarAsistenteRapido();
         if (typeof renderizarBancoIdeas === 'function') renderizarBancoIdeas(APP_STATE.ideas);
-        alert("💡 Idea publicada en \"" + cat + "\" (+10 EXP)" + (resIdea.enviadaAutoPC ? "\n🤖 Enviada a la cola de Auto-PC." : "."));
+        alert(
+            "💡 Idea publicada en \"" + cat + "\" (+10 EXP)"
+            + (resIdea.tieneImagen ? "\n🖼️ Imagen adjunta guardada." : "")
+            + (resIdea.enviadaAutoPC ? "\n🤖 Enviada a la cola de Auto-PC." : ".")
+        );
 
     } else if (tab === 'quest') {
         var inTit = document.getElementById('asistente-quest-titulo');
@@ -1484,7 +1521,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.75';
+var MONARCA_APP_VERSION = '10.76';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

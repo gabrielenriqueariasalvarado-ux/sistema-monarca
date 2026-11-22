@@ -126,6 +126,655 @@ function obtenerEstadoAutoPCIdea(idea) {
     return null;
 }
 
+// ==========================================================================
+// 🖼️ GESTIÓN DE IMÁGENES / CAPTURAS EN IDEAS (Cámara, Galería, Portapapeles)
+// ==========================================================================
+
+var IDEAS_IMG_DB_NAME = 'monarca_ideas_media_v1';
+var IDEAS_IMG_STORE = 'imagenes';
+var IDEAS_IMAGENES_MEM_CACHE = {};
+var IDEAS_IMAGENES_RECORDS_MEM = {};
+var IDEAS_IMAGENES_FETCHING = {};
+var IDEAS_IMAGEN_BORRADORES = { principal: null, asistente: null };
+var IDEAS_VISOR_ACTUAL = null;
+var IDEAS_ADJUNTOS_VINCULADOS = { principal: false, asistente: false };
+
+var IDEAS_CONTEXT_ELEMENT_MAP = {
+    principal: {
+        cameraInputId: 'idea-img-camera-input',
+        galleryInputId: 'idea-img-gallery-input',
+        previewWrapId: 'idea-img-preview-wrap',
+        previewThumbId: 'idea-img-preview-thumb',
+        previewNameId: 'idea-img-preview-name',
+        previewMetaId: 'idea-img-preview-meta',
+        textInputId: 'input-nueva-idea',
+        dropBoxId: 'box-adjunto-imagen-idea'
+    },
+    asistente: {
+        cameraInputId: 'asistente-idea-img-camera-input',
+        galleryInputId: 'asistente-idea-img-gallery-input',
+        previewWrapId: 'asistente-idea-img-preview-wrap',
+        previewThumbId: 'asistente-idea-img-preview-thumb',
+        previewNameId: 'asistente-idea-img-preview-name',
+        previewMetaId: 'asistente-idea-img-preview-meta',
+        textInputId: 'asistente-idea-nombre',
+        dropBoxId: 'box-adjunto-imagen-asistente'
+    }
+};
+
+function abrirIndexedDBIdeasMedia() {
+    return new Promise(function(resolve) {
+        if (typeof indexedDB === 'undefined') {
+            resolve(null);
+            return;
+        }
+        try {
+            var req = indexedDB.open(IDEAS_IMG_DB_NAME, 1);
+            req.onupgradeneeded = function(e) {
+                var db = e.target.result;
+                if (!db.objectStoreNames.contains(IDEAS_IMG_STORE)) {
+                    db.createObjectStore(IDEAS_IMG_STORE, { keyPath: 'id' });
+                }
+            };
+            req.onsuccess = function(e) { resolve(e.target.result); };
+            req.onerror = function() { resolve(null); };
+        } catch (err) {
+            resolve(null);
+        }
+    });
+}
+
+async function guardarImagenIndexedDB(record) {
+    if (!record || !record.id) return false;
+    try {
+        var db = await abrirIndexedDBIdeasMedia();
+        if (!db) return false;
+        return await new Promise(function(resolve) {
+            try {
+                var tx = db.transaction([IDEAS_IMG_STORE], 'readwrite');
+                var store = tx.objectStore(IDEAS_IMG_STORE);
+                store.put(record);
+                tx.oncomplete = function() { resolve(true); };
+                tx.onerror = function() { resolve(false); };
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    } catch (e) {
+        return false;
+    }
+}
+
+async function leerImagenIndexedDB(imagenId) {
+    if (!imagenId) return null;
+    try {
+        var db = await abrirIndexedDBIdeasMedia();
+        if (!db) return null;
+        return await new Promise(function(resolve) {
+            try {
+                var tx = db.transaction([IDEAS_IMG_STORE], 'readonly');
+                var req = tx.objectStore(IDEAS_IMG_STORE).get(String(imagenId));
+                req.onsuccess = function(e) { resolve(e.target.result || null); };
+                req.onerror = function() { resolve(null); };
+            } catch (e) {
+                resolve(null);
+            }
+        });
+    } catch (e) {
+        return null;
+    }
+}
+
+async function eliminarImagenIndexedDB(imagenId) {
+    if (!imagenId) return false;
+    try {
+        var db = await abrirIndexedDBIdeasMedia();
+        if (!db) return false;
+        return await new Promise(function(resolve) {
+            try {
+                var tx = db.transaction([IDEAS_IMG_STORE], 'readwrite');
+                tx.objectStore(IDEAS_IMG_STORE).delete(String(imagenId));
+                tx.oncomplete = function() { resolve(true); };
+                tx.onerror = function() { resolve(false); };
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    } catch (e) {
+        return false;
+    }
+}
+
+function formatearTamanoImagen(bytes) {
+    var n = Number(bytes) || 0;
+    if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+}
+
+function leerFileComoDataUrlFallback(blob) {
+    return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(String((e && e.target && e.target.result) || '')); };
+        reader.onerror = function() { reject(new Error('No se pudo leer el archivo de imagen.')); };
+        reader.readAsDataURL(blob);
+    });
+}
+
+function cargarElementoImagenDesdeBlob(blob) {
+    return new Promise(function(resolve, reject) {
+        var objectUrl = null;
+        try {
+            if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+                objectUrl = URL.createObjectURL(blob);
+            }
+        } catch (ig) {}
+
+        var img = new Image();
+        img.onload = function() {
+            if (objectUrl) {
+                try { URL.revokeObjectURL(objectUrl); } catch (ig) {}
+            }
+            resolve(img);
+        };
+        img.onerror = function() {
+            if (objectUrl) {
+                try { URL.revokeObjectURL(objectUrl); } catch (ig) {}
+            }
+            leerFileComoDataUrlFallback(blob).then(function(srcUrl) {
+                var fallbackImg = new Image();
+                fallbackImg.onload = function() { resolve(fallbackImg); };
+                fallbackImg.onerror = function() { reject(new Error('Formato de imagen no compatible.')); };
+                fallbackImg.src = srcUrl;
+            }).catch(reject);
+        };
+        if (objectUrl) {
+            img.src = objectUrl;
+        } else {
+            leerFileComoDataUrlFallback(blob).then(function(srcUrl) {
+                img.src = srcUrl;
+            }).catch(reject);
+        }
+    });
+}
+
+async function comprimirImagenParaIdea(fileOrBlob, fallbackName) {
+    if (!fileOrBlob) throw new Error('Archivo vacío');
+    var rawName = (fileOrBlob.name || fallbackName || ('captura_' + Date.now() + '.png')).trim();
+    var srcMime = String(fileOrBlob.type || '').toLowerCase();
+    var img = await cargarElementoImagenDesdeBlob(fileOrBlob);
+    var origW = img.naturalWidth || img.width || 1024;
+    var origH = img.naturalHeight || img.height || 1024;
+
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas no disponible para procesar imagen');
+
+    function renderToDataUrl(maxDim, mime, quality) {
+        var scale = Math.min(1, maxDim / Math.max(origW, origH));
+        var w = Math.max(1, Math.round(origW * scale));
+        var h = Math.max(1, Math.round(origH * scale));
+        canvas.width = w;
+        canvas.height = h;
+        if (mime === 'image/jpeg') {
+            ctx.fillStyle = '#0b0f1a';
+            ctx.fillRect(0, 0, w, h);
+        } else {
+            ctx.clearRect(0, 0, w, h);
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        var url = (typeof quality === 'number') ? canvas.toDataURL(mime, quality) : canvas.toDataURL(mime);
+        return { dataUrl: url, width: w, height: h };
+    }
+
+    var MAX_SAFE_CHARS = 680000;
+    var elegido = null;
+
+    // Si es captura PNG limpia, intentar mantener nitidez PNG cuando sea liviana
+    if (srcMime === 'image/png') {
+        var pngTry = renderToDataUrl(1600, 'image/png');
+        if (pngTry.dataUrl && pngTry.dataUrl.length <= 460000) {
+            elegido = {
+                dataUrl: pngTry.dataUrl,
+                mimeType: 'image/png',
+                width: pngTry.width,
+                height: pngTry.height
+            };
+        }
+    }
+
+    if (!elegido) {
+        var soportaWebp = false;
+        try {
+            var testCanvas = document.createElement('canvas');
+            testCanvas.width = 2;
+            testCanvas.height = 2;
+            soportaWebp = testCanvas.toDataURL('image/webp', 0.8).indexOf('data:image/webp') === 0;
+        } catch (ig) {}
+
+        var mimePreferido = soportaWebp ? 'image/webp' : 'image/jpeg';
+        var pasos = [
+            { dim: 1600, q: 0.86 },
+            { dim: 1440, q: 0.76 },
+            { dim: 1200, q: 0.68 },
+            { dim: 960, q: 0.58 },
+            { dim: 760, q: 0.50 }
+        ];
+        for (var i = 0; i < pasos.length; i++) {
+            var intento = renderToDataUrl(pasos[i].dim, mimePreferido, pasos[i].q);
+            elegido = {
+                dataUrl: intento.dataUrl,
+                mimeType: (intento.dataUrl.indexOf('data:image/webp') === 0) ? 'image/webp' : 'image/jpeg',
+                width: intento.width,
+                height: intento.height
+            };
+            if (intento.dataUrl.length <= MAX_SAFE_CHARS) {
+                break;
+            }
+        }
+    }
+
+    var ext = elegido.mimeType === 'image/png' ? 'png' : (elegido.mimeType === 'image/webp' ? 'webp' : 'jpg');
+    var baseName = rawName.replace(/\.[a-zA-Z0-9]{1,5}$/, '') || ('captura_' + Date.now());
+    var cleanFileName = baseName + '.' + ext;
+    var approxBytes = Math.round((elegido.dataUrl.length - elegido.dataUrl.indexOf(',') - 1) * 0.75);
+
+    return {
+        dataUrl: elegido.dataUrl,
+        mimeType: elegido.mimeType,
+        fileName: cleanFileName,
+        width: elegido.width,
+        height: elegido.height,
+        sizeBytes: Math.max(0, approxBytes)
+    };
+}
+
+function renderizarPreviewBorradorIdea(ctxKey) {
+    var map = IDEAS_CONTEXT_ELEMENT_MAP[ctxKey];
+    if (!map) return;
+    var wrap = document.getElementById(map.previewWrapId);
+    var thumb = document.getElementById(map.previewThumbId);
+    var nameEl = document.getElementById(map.previewNameId);
+    var metaEl = document.getElementById(map.previewMetaId);
+    if (!wrap) return;
+
+    var borrador = IDEAS_IMAGEN_BORRADORES[ctxKey];
+    if (!borrador || !borrador.dataUrl) {
+        wrap.style.display = 'none';
+        if (thumb) thumb.src = '';
+        return;
+    }
+
+    if (thumb) thumb.src = borrador.dataUrl;
+    if (nameEl) nameEl.innerText = borrador.fileName || 'imagen.jpg';
+    if (metaEl) {
+        metaEl.innerText = (borrador.width && borrador.height ? (borrador.width + '×' + borrador.height + ' · ') : '')
+            + formatearTamanoImagen(borrador.sizeBytes);
+    }
+    wrap.style.display = 'flex';
+}
+
+function limpiarImagenBorradorIdea(ctxKey) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    IDEAS_IMAGEN_BORRADORES[clave] = null;
+    var map = IDEAS_CONTEXT_ELEMENT_MAP[clave];
+    if (map) {
+        var cam = document.getElementById(map.cameraInputId);
+        var gal = document.getElementById(map.galleryInputId);
+        if (cam) cam.value = '';
+        if (gal) gal.value = '';
+    }
+    renderizarPreviewBorradorIdea(clave);
+}
+
+function obtenerImagenBorradorIdea(ctxKey) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    return IDEAS_IMAGEN_BORRADORES[clave] || null;
+}
+
+function seleccionarImagenIdea(ctxKey, modo) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    var map = IDEAS_CONTEXT_ELEMENT_MAP[clave];
+    if (!map) return;
+    var inputId = (modo === 'camera') ? map.cameraInputId : map.galleryInputId;
+    var inputEl = document.getElementById(inputId);
+    if (!inputEl) return;
+    inputEl.value = '';
+    inputEl.click();
+}
+
+async function procesarArchivoImagenBorrador(ctxKey, fileOrBlob, origenEtiqueta) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    try {
+        var procesada = await comprimirImagenParaIdea(fileOrBlob);
+        IDEAS_IMAGEN_BORRADORES[clave] = procesada;
+        renderizarPreviewBorradorIdea(clave);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(origenEtiqueta || 'Imagen lista para adjuntar', '🖼️');
+        }
+        return procesada;
+    } catch (err) {
+        console.warn('[Ideas Imagen] Error procesando imagen:', err);
+        alert('No se pudo procesar la imagen seleccionada. Prueba con otra foto o captura.');
+        return null;
+    }
+}
+
+function manejarArchivoImagenIdea(ctxKey, inputEl) {
+    if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
+    var archivo = inputEl.files[0];
+    procesarArchivoImagenBorrador(ctxKey, archivo, 'Imagen adjunta lista').finally(function() {
+        try { inputEl.value = ''; } catch (ig) {}
+    });
+}
+
+async function pegarImagenDesdePortapapelesIdea(ctxKey) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    if (navigator.clipboard && typeof navigator.clipboard.read === 'function') {
+        try {
+            var clipItems = await navigator.clipboard.read();
+            for (var i = 0; i < clipItems.length; i++) {
+                var types = clipItems[i].types || [];
+                var imgType = types.find(function(t) { return t.indexOf('image/') === 0; });
+                if (imgType) {
+                    var blob = await clipItems[i].getType(imgType);
+                    if (blob) {
+                        await procesarArchivoImagenBorrador(clave, blob, 'Captura pegada del portapapeles');
+                        return true;
+                    }
+                }
+            }
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('No hay imagen en el portapapeles; elige Galería o Foto', '📋');
+            }
+            return false;
+        } catch (err) {
+            console.warn('[Ideas Portapapeles] Permiso o API no disponible:', err);
+        }
+    }
+    var map = IDEAS_CONTEXT_ELEMENT_MAP[clave];
+    var txtEl = map ? document.getElementById(map.textInputId) : null;
+    if (txtEl) txtEl.focus();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Presiona Ctrl+V en el campo o usa Galería / Captura', '📋');
+    }
+    return false;
+}
+
+function vincularEventosAdjuntoImagen(ctxKey) {
+    var clave = (ctxKey === 'asistente') ? 'asistente' : 'principal';
+    if (IDEAS_ADJUNTOS_VINCULADOS[clave]) return;
+    var map = IDEAS_CONTEXT_ELEMENT_MAP[clave];
+    if (!map) return;
+
+    var textEl = document.getElementById(map.textInputId);
+    var dropBox = document.getElementById(map.dropBoxId);
+    if (!textEl && !dropBox) return;
+    IDEAS_ADJUNTOS_VINCULADOS[clave] = true;
+
+    function onPasteHandler(e) {
+        var cd = e && e.clipboardData;
+        if (!cd || !cd.items) return;
+        for (var i = 0; i < cd.items.length; i++) {
+            var item = cd.items[i];
+            if (item && item.type && item.type.indexOf('image/') === 0) {
+                var blob = item.getAsFile();
+                if (blob) {
+                    e.preventDefault();
+                    procesarArchivoImagenBorrador(clave, blob, 'Captura pegada con Ctrl+V');
+                    return;
+                }
+            }
+        }
+    }
+
+    if (textEl) textEl.addEventListener('paste', onPasteHandler);
+    if (dropBox) {
+        dropBox.addEventListener('paste', onPasteHandler);
+        dropBox.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropBox.classList.add('is-dragover');
+        });
+        dropBox.addEventListener('dragleave', function() {
+            dropBox.classList.remove('is-dragover');
+        });
+        dropBox.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropBox.classList.remove('is-dragover');
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files[0] && String(files[0].type || '').indexOf('image/') === 0) {
+                procesarArchivoImagenBorrador(clave, files[0], 'Imagen adjunta al soltar');
+            }
+        });
+    }
+}
+
+function guardarImagenIdeaAdjunta(ideaObj, imagenAdjunta, subirEnSegundoPlano) {
+    if (!ideaObj || !ideaObj.imagenId || !imagenAdjunta || !imagenAdjunta.dataUrl) {
+        return Promise.resolve(null);
+    }
+    var imagenId = String(ideaObj.imagenId);
+    var record = {
+        id: imagenId,
+        ideaId: String(ideaObj.id),
+        dataUrl: imagenAdjunta.dataUrl,
+        mimeType: imagenAdjunta.mimeType || 'image/jpeg',
+        fileName: imagenAdjunta.fileName || 'captura.png',
+        width: Number(imagenAdjunta.width) || 0,
+        height: Number(imagenAdjunta.height) || 0,
+        sizeBytes: Number(imagenAdjunta.sizeBytes) || imagenAdjunta.dataUrl.length,
+        updatedAt: Date.now(),
+        synced: false
+    };
+    IDEAS_IMAGENES_MEM_CACHE[imagenId] = record.dataUrl;
+    IDEAS_IMAGENES_RECORDS_MEM[imagenId] = record;
+
+    var pLocal = guardarImagenIndexedDB(record);
+    if (subirEnSegundoPlano && window.MonarcaCloud && typeof window.MonarcaCloud.subirImagenIdea === 'function') {
+        pLocal.then(function() {
+            return window.MonarcaCloud.subirImagenIdea(record);
+        }).then(function() {
+            record.synced = true;
+            guardarImagenIndexedDB(record);
+            if (ideaObj) {
+                ideaObj.imagenPendienteSubida = false;
+                if (typeof MonarcaDB !== 'undefined' && typeof APP_STATE !== 'undefined') {
+                    MonarcaDB.save(APP_STATE, false);
+                }
+            }
+        }).catch(function(err) {
+            console.warn('[Ideas Imagen] Subida diferida en segundo plano:', err);
+        });
+    }
+    return pLocal.then(function() { return record; });
+}
+
+async function asegurarImagenIdeaEnNube(idea) {
+    if (!idea || !idea.tieneImagen || !idea.imagenId) return true;
+    var imagenId = String(idea.imagenId);
+    if (!window.MonarcaCloud || typeof window.MonarcaCloud.subirImagenIdea !== 'function') {
+        throw new Error('Firebase Cloud no disponible');
+    }
+
+    var record = IDEAS_IMAGENES_RECORDS_MEM[imagenId] || null;
+    if (!record || !record.dataUrl) {
+        record = await leerImagenIndexedDB(imagenId);
+        if (record && record.dataUrl) {
+            IDEAS_IMAGENES_RECORDS_MEM[imagenId] = record;
+            IDEAS_IMAGENES_MEM_CACHE[imagenId] = record.dataUrl;
+        }
+    }
+
+    if (record && record.dataUrl) {
+        await window.MonarcaCloud.subirImagenIdea(record);
+        record.synced = true;
+        await guardarImagenIndexedDB(record);
+        idea.imagenPendienteSubida = false;
+        return true;
+    }
+
+    // Si se programó desde otro dispositivo distinto al que la creó, validar que ya exista en la nube
+    if (typeof window.MonarcaCloud.obtenerImagenIdea === 'function') {
+        var remoto = await window.MonarcaCloud.obtenerImagenIdea(imagenId);
+        if (remoto && remoto.dataUrl) {
+            IDEAS_IMAGENES_RECORDS_MEM[imagenId] = Object.assign({ synced: true }, remoto);
+            IDEAS_IMAGENES_MEM_CACHE[imagenId] = remoto.dataUrl;
+            await guardarImagenIndexedDB(IDEAS_IMAGENES_RECORDS_MEM[imagenId]);
+            idea.imagenPendienteSubida = false;
+            return true;
+        }
+    }
+    throw new Error('No se encontró la imagen local ni en la nube para ' + imagenId);
+}
+
+async function cargarImagenIdeaDataUrl(imagenId) {
+    if (!imagenId) return null;
+    var key = String(imagenId);
+    if (IDEAS_IMAGENES_MEM_CACHE[key]) {
+        return IDEAS_IMAGENES_MEM_CACHE[key];
+    }
+    if (IDEAS_IMAGENES_FETCHING[key]) {
+        return IDEAS_IMAGENES_FETCHING[key];
+    }
+
+    IDEAS_IMAGENES_FETCHING[key] = (async function() {
+        try {
+            var localRec = await leerImagenIndexedDB(key);
+            if (localRec && localRec.dataUrl) {
+                IDEAS_IMAGENES_RECORDS_MEM[key] = localRec;
+                IDEAS_IMAGENES_MEM_CACHE[key] = localRec.dataUrl;
+                return localRec.dataUrl;
+            }
+            if (window.MonarcaCloud && typeof window.MonarcaCloud.obtenerImagenIdea === 'function') {
+                var remoto = await window.MonarcaCloud.obtenerImagenIdea(key);
+                if (remoto && remoto.dataUrl) {
+                    var cacheRec = Object.assign({ synced: true }, remoto);
+                    IDEAS_IMAGENES_RECORDS_MEM[key] = cacheRec;
+                    IDEAS_IMAGENES_MEM_CACHE[key] = remoto.dataUrl;
+                    guardarImagenIndexedDB(cacheRec);
+                    return remoto.dataUrl;
+                }
+            }
+            return null;
+        } catch (err) {
+            console.warn('[Ideas Imagen] Error cargando imagen ' + key + ':', err);
+            return null;
+        } finally {
+            delete IDEAS_IMAGENES_FETCHING[key];
+        }
+    })();
+
+    return IDEAS_IMAGENES_FETCHING[key];
+}
+
+function hidratarImagenesIdeasEnDOM() {
+    var imgs = document.querySelectorAll('img[data-idea-img-id]');
+    imgs.forEach(function(imgEl) {
+        var imgId = imgEl.getAttribute('data-idea-img-id');
+        if (!imgId) return;
+        var cached = IDEAS_IMAGENES_MEM_CACHE[imgId];
+        if (cached) {
+            if (imgEl.getAttribute('src') !== cached) imgEl.src = cached;
+            return;
+        }
+        cargarImagenIdeaDataUrl(imgId).then(function(url) {
+            if (!url) return;
+            var actual = document.querySelectorAll('img[data-idea-img-id="' + imgId.replace(/"/g, '\\"') + '"]');
+            actual.forEach(function(el) {
+                el.src = url;
+            });
+        });
+    });
+}
+
+function renderizarMiniaturaImagenIdeaHtml(idea) {
+    if (!idea || !idea.tieneImagen || !idea.imagenId) return '';
+    var imgIdEsc = escapeHtmlIdea(String(idea.imagenId));
+    var ideaIdEsc = escapeHtmlIdea(String(idea.id));
+    var cached = IDEAS_IMAGENES_MEM_CACHE[String(idea.imagenId)] || '';
+    var safeSrc = cached ? escapeHtmlIdea(cached) : '';
+    return `
+        <div class="idea-card-media-row">
+            <button type="button" class="btn-idea-card-thumb" onclick="abrirVisorImagenIdea('${ideaIdEsc}', '${imgIdEsc}')" title="Ver imagen / captura adjunta">
+                <img class="idea-card-thumb-img" data-idea-img-id="${imgIdEsc}" src="${safeSrc}" alt="Miniatura adjunta">
+                <span>🖼️ Ver imagen adjunta</span>
+            </button>
+        </div>
+    `;
+}
+
+async function abrirVisorImagenIdea(ideaId, imagenId) {
+    var modal = document.getElementById('modal-visor-imagen-idea');
+    var imgEl = document.getElementById('visor-imagen-idea-img');
+    var titEl = document.getElementById('visor-imagen-idea-titulo');
+    var metaEl = document.getElementById('visor-imagen-idea-meta');
+    if (!modal || !imgEl) return;
+
+    var idea = (APP_STATE && Array.isArray(APP_STATE.ideas))
+        ? APP_STATE.ideas.find(function(i) { return String(i.id) === String(ideaId); })
+        : null;
+
+    var titulo = idea ? obtenerPromptParaAutoPC(idea) : 'Captura de Idea';
+    if (titEl) titEl.innerText = titulo;
+    if (metaEl) metaEl.innerText = 'Cargando imagen...';
+    imgEl.src = IDEAS_IMAGENES_MEM_CACHE[String(imagenId)] || '';
+    IDEAS_VISOR_ACTUAL = {
+        imagenId: String(imagenId),
+        fileName: (idea && idea.imagenNombre) ? idea.imagenNombre : 'captura-idea.png',
+        dataUrl: imgEl.src || ''
+    };
+    modal.style.display = 'flex';
+
+    var dataUrl = await cargarImagenIdeaDataUrl(imagenId);
+    if (!IDEAS_VISOR_ACTUAL || IDEAS_VISOR_ACTUAL.imagenId !== String(imagenId)) return;
+    if (dataUrl) {
+        imgEl.src = dataUrl;
+        IDEAS_VISOR_ACTUAL.dataUrl = dataUrl;
+        var rec = IDEAS_IMAGENES_RECORDS_MEM[String(imagenId)];
+        var dims = (idea && idea.imagenWidth && idea.imagenHeight)
+            ? (idea.imagenWidth + '×' + idea.imagenHeight)
+            : (rec && rec.width && rec.height ? (rec.width + '×' + rec.height) : '');
+        var sz = rec && rec.sizeBytes ? formatearTamanoImagen(rec.sizeBytes) : formatearTamanoImagen(Math.round(dataUrl.length * 0.75));
+        if (metaEl) metaEl.innerText = (IDEAS_VISOR_ACTUAL.fileName || 'imagen') + (dims ? (' · ' + dims) : '') + ' · ' + sz;
+    } else if (metaEl) {
+        metaEl.innerText = 'No se pudo cargar la imagen (sin conexión o eliminada).';
+    }
+}
+
+function cerrarVisorImagenIdea() {
+    var modal = document.getElementById('modal-visor-imagen-idea');
+    var imgEl = document.getElementById('visor-imagen-idea-img');
+    if (modal) modal.style.display = 'none';
+    if (imgEl) imgEl.src = '';
+    IDEAS_VISOR_ACTUAL = null;
+}
+
+function descargarImagenVisorIdea() {
+    if (!IDEAS_VISOR_ACTUAL || !IDEAS_VISOR_ACTUAL.dataUrl) {
+        alert('La imagen aún se está cargando.');
+        return;
+    }
+    var a = document.createElement('a');
+    a.href = IDEAS_VISOR_ACTUAL.dataUrl;
+    a.download = IDEAS_VISOR_ACTUAL.fileName || 'captura-idea.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+function eliminarImagenIdeaCompleta(imagenId) {
+    if (!imagenId) return;
+    var key = String(imagenId);
+    delete IDEAS_IMAGENES_MEM_CACHE[key];
+    delete IDEAS_IMAGENES_RECORDS_MEM[key];
+    eliminarImagenIndexedDB(key);
+    if (window.MonarcaCloud && typeof window.MonarcaCloud.eliminarImagenIdea === 'function') {
+        window.MonarcaCloud.eliminarImagenIdea(key).catch(function(err) {
+            console.warn('[Ideas Imagen] No se pudo borrar imagen remota:', err);
+        });
+    }
+}
+
 function inicializarBancoDeIdeas() {
     if (ESTADO_IDEAS.inicializado) return;
 
@@ -144,6 +793,9 @@ function inicializarBancoDeIdeas() {
             }
         });
     }
+
+    vincularEventosAdjuntoImagen('principal');
+    vincularEventosAdjuntoImagen('asistente');
 
     ESTADO_IDEAS.inicializado = true;
     renderizarBancoIdeas(APP_STATE.ideas);
@@ -426,12 +1078,15 @@ function abrirDetalleCategoriaIdeas(catNombre) {
                     }
                 }
 
+                var imgHtml = renderizarMiniaturaImagenIdeaHtml(idea);
+
                 html += `
                 <div class="idea-clean-item" id="idea-card-${idAttr}">
                     <div class="idea-item-left">
                         <span class="idea-dash">•</span>
                         <div class="idea-item-content">
                             <span class="idea-text-line">${escapeHtmlIdea(idea.texto)}</span>
+                            ${imgHtml}
                             ${(idea.fecha || autopcBadgeHtml) ? `
                                 <div class="idea-meta-badges">
                                     ${idea.fecha ? `<span style="font-size: 11px; color: #64748b; font-weight: 600;">🗓️ ${escapeHtmlIdea(idea.fecha)}</span>` : ''}
@@ -455,6 +1110,7 @@ function abrirDetalleCategoriaIdeas(catNombre) {
     });
 
     listCont.innerHTML = html;
+    hidratarImagenesIdeasEnDOM();
     actualizarBadgesIdeas();
 }
 
@@ -470,14 +1126,15 @@ function guardarNuevaIdea() {
     var input = document.getElementById('input-nueva-idea');
     var catSelect = document.getElementById('select-categoria-idea');
     var subcatSelect = document.getElementById('select-subcategoria-idea');
+    var imagenAdjunta = obtenerImagenBorradorIdea('principal');
+    var textoOriginal = input ? input.value.trim() : "";
 
-    if (!input || !input.value.trim()) {
-        alert("Escribe el contenido de tu idea.");
+    if (!textoOriginal && !imagenAdjunta) {
+        alert("Escribe el contenido de tu idea o adjunta una imagen.");
         if (input) input.focus();
         return;
     }
 
-    var textoOriginal = input.value.trim();
     var cat = catSelect ? catSelect.value : "✨ Emily";
     var subcat = subcatSelect ? subcatSelect.value : "General";
 
@@ -485,12 +1142,13 @@ function guardarNuevaIdea() {
     var chkAutoPC = document.getElementById('chk-idea-programar-ahora');
     var programarAhora = Boolean(esEmily && chkAutoPC && chkAutoPC.checked);
 
-    registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora);
+    registrarIdeaEnMonarca(textoOriginal, cat, subcat, programarAhora, imagenAdjunta);
 
-    input.value = "";
+    if (input) input.value = "";
     if (chkAutoPC) {
         chkAutoPC.checked = false;
     }
+    limpiarImagenBorradorIdea('principal');
 
     // Si estábamos en detalle de esa misma categoría, actualizarlo directamente; si no, mostrar cuadrícula
     if (ESTADO_IDEAS.subvistaActual === 'detalle' && (ESTADO_IDEAS.categoriaSeleccionada === cat || (esEmily && esCategoriaEmily(ESTADO_IDEAS.categoriaSeleccionada)))) {
@@ -557,6 +1215,9 @@ function eliminarIdea(id) {
     if (encontrada && (encontrada.autopcStatus === 'pending' || encontrada.autopcStatus === 'running' || encontrada.autopcPendienteSubida)) {
         cancelarColaRemotaSiExiste(encontrada.id);
     }
+    if (encontrada && encontrada.imagenId) {
+        eliminarImagenIdeaCompleta(encontrada.imagenId);
+    }
 
     APP_STATE.ideas = APP_STATE.ideas.filter(function(i) { return String(i.id) !== String(id); });
     MonarcaDB.save(APP_STATE);
@@ -574,6 +1235,23 @@ function reRenderVistaIdeasActual() {
     }
 }
 
+function construirPayloadSolicitudAutoPC(idea, promptLimpio) {
+    var payload = {
+        ideaId: String(idea.id),
+        text: promptLimpio,
+        categoria: idea.categoria || '✨ Emily',
+        subcategoria: idea.subcategoria || 'General',
+        createdAt: Number(idea.timestamp) || Date.now()
+    };
+    if (idea.tieneImagen && idea.imagenId) {
+        payload.hasImage = true;
+        payload.imageDocId = String(idea.imagenId);
+        payload.imageName = String(idea.imagenNombre || 'captura.png');
+        payload.imageMime = String(idea.imagenMime || 'image/jpeg');
+    }
+    return payload;
+}
+
 async function enviarIdeaAAutoPC(id, desdeCreacion) {
     if (!APP_STATE.ideas) return false;
     var idea = APP_STATE.ideas.find(function(i) { return String(i.id) === String(id); });
@@ -583,15 +1261,11 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
     idea.textoPrompt = promptLimpio;
     idea.autopcStatus = 'pending';
     idea.autopcPendienteSubida = true;
-    AUTOPC_SOLICITUDES_MAP[String(idea.id)] = {
-        ideaId: String(idea.id),
-        text: promptLimpio,
-        categoria: idea.categoria || '✨ Emily',
-        subcategoria: idea.subcategoria || 'General',
+    var payloadSolicitud = construirPayloadSolicitudAutoPC(idea, promptLimpio);
+    AUTOPC_SOLICITUDES_MAP[String(idea.id)] = Object.assign({
         status: 'pending',
-        createdAt: Number(idea.timestamp) || Date.now(),
         updatedAt: Date.now()
-    };
+    }, payloadSolicitud);
 
     MonarcaDB.save(APP_STATE);
     if (!desdeCreacion) {
@@ -600,17 +1274,20 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
 
     if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarSolicitudAutoPC === 'function') {
         try {
-            await window.MonarcaCloud.enviarSolicitudAutoPC({
-                ideaId: String(idea.id),
-                text: promptLimpio,
-                categoria: idea.categoria || '✨ Emily',
-                subcategoria: idea.subcategoria || 'General',
-                createdAt: Number(idea.timestamp) || Date.now()
-            });
+            if (idea.tieneImagen && idea.imagenId) {
+                await asegurarImagenIdeaEnNube(idea);
+            }
+            await window.MonarcaCloud.enviarSolicitudAutoPC(payloadSolicitud);
             idea.autopcPendienteSubida = false;
+            idea.imagenPendienteSubida = false;
             MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
-                mostrarToastMonarca('Solicitud enviada a la cola de Auto-PC', '🤖');
+                mostrarToastMonarca(
+                    idea.tieneImagen
+                        ? 'Solicitud + imagen enviadas a Auto-PC'
+                        : 'Solicitud enviada a la cola de Auto-PC',
+                    '🤖'
+                );
             }
             reRenderSiVistaIdeasActiva();
             return true;
@@ -662,32 +1339,43 @@ async function procesarPendientesOfflineAutoPC() {
     var pendientes = APP_STATE.ideas.filter(function(i) {
         return i && !i.hecha && i.autopcPendienteSubida === true;
     });
-    if (pendientes.length === 0) return 0;
 
     var enviadas = 0;
     for (var k = 0; k < pendientes.length; k++) {
         var idea = pendientes[k];
         var promptLimpio = obtenerPromptParaAutoPC(idea);
         try {
-            await window.MonarcaCloud.enviarSolicitudAutoPC({
-                ideaId: String(idea.id),
-                text: promptLimpio,
-                categoria: idea.categoria || '✨ Emily',
-                subcategoria: idea.subcategoria || 'General',
-                createdAt: Number(idea.timestamp) || Date.now()
-            });
+            if (idea.tieneImagen && idea.imagenId) {
+                await asegurarImagenIdeaEnNube(idea);
+            }
+            await window.MonarcaCloud.enviarSolicitudAutoPC(construirPayloadSolicitudAutoPC(idea, promptLimpio));
             idea.textoPrompt = promptLimpio;
             idea.autopcStatus = 'pending';
             idea.autopcPendienteSubida = false;
+            idea.imagenPendienteSubida = false;
             enviadas++;
         } catch (err) {
             console.warn('[Auto-PC] Reintento pendiente fallido para idea ' + idea.id + ':', err);
         }
     }
 
-    if (enviadas > 0) {
+    // Subir también imágenes pendientes de otras categorías que se hubieran creado sin conexión
+    var imagenesPendientes = APP_STATE.ideas.filter(function(i) {
+        return i && i.tieneImagen && i.imagenId && i.imagenPendienteSubida === true && !i.autopcPendienteSubida;
+    });
+    var imgsSubidas = 0;
+    for (var m = 0; m < imagenesPendientes.length; m++) {
+        try {
+            await asegurarImagenIdeaEnNube(imagenesPendientes[m]);
+            imgsSubidas++;
+        } catch (errImg) {
+            console.warn('[Ideas Imagen] Reintento diferido fallido:', errImg);
+        }
+    }
+
+    if (enviadas > 0 || imgsSubidas > 0) {
         MonarcaDB.save(APP_STATE);
-        if (typeof mostrarToastMonarca === 'function') {
+        if (enviadas > 0 && typeof mostrarToastMonarca === 'function') {
             mostrarToastMonarca(enviadas === 1 ? '1 idea pendiente enviada a Auto-PC' : (enviadas + ' ideas pendientes enviadas a Auto-PC'), '🤖');
         }
         reRenderSiVistaIdeasActiva();
@@ -955,9 +1643,32 @@ if (typeof window !== 'undefined') {
     window.descartarNotificacionAutoPC = descartarNotificacionAutoPC;
     window.descartarTodasNotificacionesAutoPC = descartarTodasNotificacionesAutoPC;
     window.verSolicitudAutoPCEnOperatividad = verSolicitudAutoPCEnOperatividad;
+    window.seleccionarImagenIdea = seleccionarImagenIdea;
+    window.manejarArchivoImagenIdea = manejarArchivoImagenIdea;
+    window.pegarImagenDesdePortapapelesIdea = pegarImagenDesdePortapapelesIdea;
+    window.limpiarImagenBorradorIdea = limpiarImagenBorradorIdea;
+    window.obtenerImagenBorradorIdea = obtenerImagenBorradorIdea;
+    window.guardarImagenIdeaAdjunta = guardarImagenIdeaAdjunta;
+    window.abrirVisorImagenIdea = abrirVisorImagenIdea;
+    window.cerrarVisorImagenIdea = cerrarVisorImagenIdea;
+    window.descargarImagenVisorIdea = descargarImagenVisorIdea;
     window.addEventListener('online', function() {
         procesarPendientesOfflineAutoPC();
     });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && IDEAS_VISOR_ACTUAL) {
+            cerrarVisorImagenIdea();
+        }
+    });
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            vincularEventosAdjuntoImagen('principal');
+            vincularEventosAdjuntoImagen('asistente');
+        });
+    } else {
+        vincularEventosAdjuntoImagen('principal');
+        vincularEventosAdjuntoImagen('asistente');
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -1101,12 +1812,14 @@ function renderizarListaOperatividad(ejecutadas) {
     ejecutadas.forEach(function(i) {
         var idAttr = escapeHtmlIdea(String(i.id));
         var catLimpia = (i.categoria || 'Idea').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
+        var imgOpHtml = renderizarMiniaturaImagenIdeaHtml(i);
         html += `
         <div class="idea-clean-item is-done">
             <div class="idea-item-left">
                 <span class="idea-dash" style="color: #10b981 !important;">✓</span>
                 <div class="idea-item-content">
                     <span class="idea-text-line" style="text-decoration: line-through; color: #64748b;">${escapeHtmlIdea(i.texto)}</span>
+                    ${imgOpHtml}
                     <div class="idea-meta-badges">
                         <span class="idea-category-badge">${escapeHtmlIdea(catLimpia)}</span>
                         ${i.subcategoria ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">• ${escapeHtmlIdea(i.subcategoria)}</span>` : ''}
@@ -1125,6 +1838,7 @@ function renderizarListaOperatividad(ejecutadas) {
     });
 
     cont.innerHTML = html;
+    hidratarImagenesIdeasEnDOM();
 }
 
 function inicializarHojaIdeasDesdeUI() {
