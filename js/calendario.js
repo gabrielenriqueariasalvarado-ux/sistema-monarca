@@ -11,6 +11,7 @@ var CALENDARIO_ESTADO = {
     mes: new Date().getMonth(),
     diaSeleccionado: new Date().getDate(),
     seccionActiva: 'mes', // 'mes' | 'semana' | 'recordatorios' | 'eventos' | 'destacados' | 'cronograma'
+    filtroCapa: 'todas', // 'todas' | 'personal' | 'labores' | 'finanzas' | 'quests'
     filtroRecordatorios: 'pendientes',
     filtroEventos: 'proximos',
     modalTipo: 'recordatorio',
@@ -20,6 +21,31 @@ var CALENDARIO_ESTADO = {
     personaIdsSeleccionadosModal: [],
     grupoIdsSeleccionadosModal: []
 };
+
+var CAL_LABORES_META_FALLBACK = {
+    'LAB-BOOM': { id: 'LAB-BOOM', nombre: 'Boom Solutions', icono: '🚀', color: '#6366f1' },
+    'LAB-BARBER': { id: 'LAB-BARBER', nombre: 'Barbería', icono: '💈', color: '#10b981' },
+    'LAB-TRAINER': { id: 'LAB-TRAINER', nombre: 'Personal Trainer', icono: '🏋️', color: '#f59e0b' }
+};
+
+function normalizarMetaLaborCalendario(laborId) {
+    if (!laborId) return null;
+    if (typeof LABORES_OFICIALES !== 'undefined' && Array.isArray(LABORES_OFICIALES)) {
+        var found = LABORES_OFICIALES.find(function(l) { return l.id === laborId; });
+        if (found) return { id: found.id, nombre: found.nombre, icono: found.icono || '💼', color: found.color || '#6366f1' };
+    }
+    return CAL_LABORES_META_FALLBACK[laborId] || null;
+}
+
+function capaCalendarioVisible(capa) {
+    var activa = CALENDARIO_ESTADO.filtroCapa || 'todas';
+    return activa === 'todas' || activa === capa;
+}
+
+function cambiarFiltroCapaCalendario(capa) {
+    CALENDARIO_ESTADO.filtroCapa = capa || 'todas';
+    renderizarCalendario();
+}
 
 var MESES_NOMBRES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -181,6 +207,7 @@ function normalizarItemCalendario(item) {
         copy.personaIds = Array.isArray(copy.personaIds) ? copy.personaIds : [];
         copy.grupoIds = Array.isArray(copy.grupoIds) ? copy.grupoIds : [];
     }
+    copy.laborId = copy.laborId ? String(copy.laborId) : '';
     return copy;
 }
 
@@ -410,12 +437,196 @@ function irAHoyCalendario() {
     renderizarCalendario();
 }
 
-function irAFechaEnCalendario(fechaStr, seccionOpcional) {
+// ==========================================================================
+// EXTRACTORES UNIFICADOS (LABORES, QUESTS DIARIOS, PERSONAS, FINANZAS)
+// ==========================================================================
+
+function obtenerInfoBoomParaDiaCal(fechaStr, mesCacheBoom) {
+    if (!fechaStr || fechaStr.length < 10) return null;
+    var mesClave = fechaStr.slice(0, 7);
+    var estadoMes = (mesCacheBoom && mesCacheBoom[mesClave])
+        ? mesCacheBoom[mesClave]
+        : (typeof obtenerEstadoMesBoomParaCalendario === 'function' ? obtenerEstadoMesBoomParaCalendario(mesClave) : null);
+    if (!estadoMes || !estadoMes.planMes) {
+        var bm = window.APP_STATE && APP_STATE.subappBoom;
+        if (bm && bm.planificaciones && bm.planificaciones[mesClave]) {
+            estadoMes = { planMes: bm.planificaciones[mesClave], config: bm.config || {} };
+        }
+    }
+    if (!estadoMes || !estadoMes.planMes) return null;
+    if (mesCacheBoom) mesCacheBoom[mesClave] = estadoMes;
+
+    var planMes = estadoMes.planMes;
+    var cfg = estadoMes.config || {};
+    var diaInfo = (planMes.dias && planMes.dias[fechaStr]) ? planMes.dias[fechaStr] : null;
+
+    var diaNum = parseInt(fechaStr.slice(8, 10), 10);
+    var totalDiasMes = new Date(parseInt(fechaStr.slice(0, 4), 10), parseInt(fechaStr.slice(5, 7), 10), 0).getDate();
+    var diaPagoQ2 = Math.min(30, totalDiasMes);
+    var pagoBoom = null;
+    var cobrados = planMes.pagosCobrados || {};
+    if (diaNum === 3) {
+        pagoBoom = { tipo: 'bono3', titulo: 'Bono Mensual Boom', monto: Number(cfg.bonoDia3) || 40, cobrado: !!cobrados.bono3 };
+    } else if (diaNum === 15) {
+        pagoBoom = { tipo: 'quincena1', titulo: 'Sueldo Quincena 1 Boom', monto: Number(cfg.sueldoQuincena1) || 205, cobrado: !!cobrados.quincena1 };
+    } else if (diaNum === diaPagoQ2) {
+        pagoBoom = { tipo: 'quincena2', titulo: 'Sueldo Quincena 2 Boom', monto: Number(cfg.sueldoQuincena2) || 205, cobrado: !!cobrados.quincena2 };
+    }
+
+    return {
+        mesClave: mesClave,
+        diaInfo: diaInfo,
+        pagoBoom: pagoBoom
+    };
+}
+
+function obtenerCortesYSesionesDiaCal(fechaStr) {
+    var cortes = [];
+    var sesiones = [];
+    var registrosExtra = [];
+    var st = window.APP_STATE || {};
+
+    if (st.subappBarberia && Array.isArray(st.subappBarberia.cortes)) {
+        cortes = st.subappBarberia.cortes.filter(function(c) {
+            return String(c.fecha || '').slice(0, 10) === fechaStr;
+        });
+    }
+    if (st.subappTrainer && Array.isArray(st.subappTrainer.sesiones)) {
+        sesiones = st.subappTrainer.sesiones.filter(function(s) {
+            return String(s.fecha || '').slice(0, 10) === fechaStr;
+        });
+    }
+    if (Array.isArray(st.registrosLabores)) {
+        var idBoomDia = 'REG-BOOM-' + fechaStr;
+        registrosExtra = st.registrosLabores.filter(function(r) {
+            return String(r.fecha || '').slice(0, 10) === fechaStr && r.id !== idBoomDia;
+        });
+    }
+
+    return {
+        cortes: cortes,
+        sesiones: sesiones,
+        registrosExtra: registrosExtra
+    };
+}
+
+function obtenerQuestsProgramadasParaFecha(fechaStr, hoyClave) {
+    var quests = (window.APP_STATE && Array.isArray(APP_STATE.questsDiarios)) ? APP_STATE.questsDiarios : [];
+    var esHoy = (fechaStr === hoyClave);
+    var result = [];
+    quests.forEach(function(q) {
+        if (!q || q.tipoTiempo !== 'programada' || !q.horaActivacion) return;
+        var mHora = String(q.horaActivacion).trim().slice(0, 5);
+        if (!/^\d{2}:\d{2}$/.test(mHora)) return;
+        var completadoEnFecha = false;
+        if (q.estado === 'completada') {
+            if (q.ultimaActivacionFecha === fechaStr) completadoEnFecha = true;
+            else if (esHoy && (!q.ultimaActivacionFecha || q.ultimaActivacionFecha === hoyClave)) completadoEnFecha = true;
+        }
+        result.push({
+            id: q.id,
+            titulo: q.titulo || 'Quest Diaria',
+            hora: mHora,
+            atributo: q.atributo || 'FUE',
+            xp: Number(q.xp) || 0,
+            completado: completadoEnFecha,
+            pendienteActiva: q.estado === 'pendiente'
+        });
+    });
+    result.sort(function(a, b) {
+        return a.hora.localeCompare(b.hora) || a.titulo.localeCompare(b.titulo);
+    });
+    return result;
+}
+
+function obtenerPersonasAgendadasParaFecha(fechaStr) {
+    var personas = obtenerPersonasDisponibles();
+    return personas.filter(function(p) {
+        return String(p.fechaObjetivo || '').slice(0, 10) === fechaStr;
+    });
+}
+
+function construirFinanzasMesCacheCal(anio, mes) {
+    if (typeof resolverOcurrenciasFinanzasMes === 'function' && window.APP_STATE && APP_STATE.finanzas) {
+        return resolverOcurrenciasFinanzasMes(APP_STATE.finanzas, anio, mes);
+    }
+    return null;
+}
+
+function obtenerFinanzasUnificadasParaDia(anio, mes, diaSel, fechaStr, cacheMesOpt) {
+    var entradas = [];
+    var fin = window.APP_STATE && APP_STATE.finanzas;
+    var cache = cacheMesOpt || construirFinanzasMesCacheCal(anio, mes);
+
+    if (cache && cache.diasMap && cache.diasMap[fechaStr]) {
+        var bucket = cache.diasMap[fechaStr];
+        (bucket.cobros || []).forEach(function(c) {
+            entradas.push({
+                clase: 'cobro',
+                tipo: c.categoriaTxt || 'Cobro',
+                titulo: c.titulo,
+                monto: Number(c.monto) || 0,
+                completado: !!c.completado,
+                vencida: !!c.vencida,
+                icon: c.icono || '💰'
+            });
+        });
+        (bucket.pagos || []).forEach(function(p) {
+            entradas.push({
+                clase: 'pago',
+                tipo: p.categoriaTxt || (p.origen === 'deuda_cuota' ? 'Cuota Deuda' : 'Pago'),
+                titulo: p.titulo,
+                monto: Number(p.monto) || 0,
+                completado: !!p.completado,
+                vencida: !!p.vencida,
+                icon: p.icono || '💳'
+            });
+        });
+    } else if (fin) {
+        (fin.ingresos || []).forEach(function(i) {
+            if (Number(i.dia) === diaSel) {
+                entradas.push({ clase: 'cobro', tipo: 'Ingreso', titulo: i.fuente || i.descripcion || 'Ingreso', monto: Number(i.monto) || 0, completado: !!i.cobrado, icon: '💰' });
+            }
+        });
+        (fin.gastos || []).forEach(function(g) {
+            if (Number(g.dia) === diaSel) {
+                entradas.push({ clase: 'pago', tipo: 'Gasto', titulo: g.concepto || 'Gasto', monto: Number(g.monto) || 0, completado: !!g.pagado, icon: '💸' });
+            }
+        });
+        (fin.deudas || []).forEach(function(deu) {
+            if (Number(deu.dia) === diaSel) {
+                entradas.push({ clase: 'pago', tipo: 'Deuda', titulo: 'Vencimiento: ' + deu.nombre, monto: Number(deu.montoCuota || deu.montoTotal) || 0, completado: !!deu.pagada, icon: '💳' });
+            }
+        });
+    }
+
+    if (fin && Array.isArray(fin.planificacionCompras)) {
+        fin.planificacionCompras.forEach(function(comp) {
+            if (String(comp.fechaLimite || '').slice(0, 10) === fechaStr) {
+                entradas.push({
+                    clase: 'compra',
+                    tipo: 'Meta Compra',
+                    titulo: comp.titulo || 'Compra Planeada',
+                    monto: Number(comp.montoTotal || comp.precioTotal || comp.montoEstimado) || 0,
+                    completado: !!comp.comprado,
+                    icon: comp.icono || '🛒'
+                });
+            }
+        });
+    }
+
+    return entradas;
+}
+
+function irAFechaEnCalendario(fechaStr, seccionOpcional, capaOpcional) {
     var f = parsearClaveFechaLocal(fechaStr);
     if (f) {
         CALENDARIO_ESTADO.anio = f.getFullYear();
         CALENDARIO_ESTADO.mes = f.getMonth();
         CALENDARIO_ESTADO.diaSeleccionado = f.getDate();
+    }
+    if (capaOpcional) {
+        CALENDARIO_ESTADO.filtroCapa = capaOpcional;
     }
     if (seccionOpcional) {
         CALENDARIO_ESTADO.seccionActiva = seccionOpcional;
@@ -453,6 +664,7 @@ function renderizarCalendario() {
     var croCount = APP_STATE.cronogramaSemanal.length;
 
     var sec = CALENDARIO_ESTADO.seccionActiva || 'mes';
+    var capa = CALENDARIO_ESTADO.filtroCapa || 'todas';
     var claveSel = formatearClaveFecha(CALENDARIO_ESTADO.anio, CALENDARIO_ESTADO.mes, CALENDARIO_ESTADO.diaSeleccionado);
 
     var html = '<div class="card cal-shell-card" style="margin-bottom: 18px;">' +
@@ -460,8 +672,8 @@ function renderizarCalendario() {
             '<div style="display:flex; align-items:center; gap:12px;">' +
                 '<div class="cal-hero-icon">📅</div>' +
                 '<div>' +
-                    '<h2 style="margin:0; font-size:19px; font-weight:800; color:#f8fafc; letter-spacing:-0.3px;">Calendario & Agenda Táctica</h2>' +
-                    '<p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">Recordatorios con alerta exacta, Eventos con Personas/Grupos, Días Destacados y Cronograma Semanal.</p>' +
+                    '<h2 style="margin:0; font-size:19px; font-weight:800; color:#f8fafc; letter-spacing:-0.3px;">Calendario & Agenda Unificada</h2>' +
+                    '<p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">Recordatorios, Eventos, Labores (Boom, Barbería, Trainer), Quests Diarios, Personas y Finanzas en un solo lugar.</p>' +
                 '</div>' +
             '</div>' +
             '<button type="button" class="btn-system" style="padding: 9px 16px; margin: 0; font-size: 13px;" onclick="abrirModalNuevoEvento(\'' + claveSel + '\')">+ Programar en Calendario</button>' +
@@ -475,6 +687,17 @@ function renderizarCalendario() {
             '<button type="button" class="cal-section-tab ' + (sec === 'destacados' ? 'active' : '') + '" onclick="cambiarSeccionCalendario(\'destacados\')">⭐ Días Destacados' + (destCount > 0 ? '<span class="cal-tab-count">' + destCount + '</span>' : '') + '</button>' +
             '<button type="button" class="cal-section-tab ' + (sec === 'cronograma' ? 'active' : '') + '" onclick="cambiarSeccionCalendario(\'cronograma\')">🕒 Cronograma' + (croCount > 0 ? '<span class="cal-tab-count">' + croCount + '</span>' : '') + '</button>' +
         '</div>' +
+
+        ((sec === 'mes' || sec === 'semana') ? (
+        '<div class="cal-layer-filters" role="group" aria-label="Filtrar capas del calendario">' +
+            '<span class="cal-layer-label">Capas:</span>' +
+            '<button type="button" class="cal-layer-pill ' + (capa === 'todas' ? 'active' : '') + '" onclick="cambiarFiltroCapaCalendario(\'todas\')">🌐 Todas</button>' +
+            '<button type="button" class="cal-layer-pill ' + (capa === 'personal' ? 'active' : '') + '" onclick="cambiarFiltroCapaCalendario(\'personal\')">👤 Personal & Rutina</button>' +
+            '<button type="button" class="cal-layer-pill ' + (capa === 'labores' ? 'active' : '') + '" onclick="cambiarFiltroCapaCalendario(\'labores\')">💼 Labores</button>' +
+            '<button type="button" class="cal-layer-pill ' + (capa === 'quests' ? 'active' : '') + '" onclick="cambiarFiltroCapaCalendario(\'quests\')">⚔️ Quests</button>' +
+            '<button type="button" class="cal-layer-pill ' + (capa === 'finanzas' ? 'active' : '') + '" onclick="cambiarFiltroCapaCalendario(\'finanzas\')">💰 Finanzas</button>' +
+        '</div>'
+        ) : '') +
     '</div>';
 
     if (sec === 'mes') {
@@ -511,6 +734,14 @@ function renderizarVistaMesCalendario(claveFechaSel, hoyClave) {
     var anio = CALENDARIO_ESTADO.anio;
     var mes = CALENDARIO_ESTADO.mes;
     var diaSel = CALENDARIO_ESTADO.diaSeleccionado;
+    var capa = CALENDARIO_ESTADO.filtroCapa || 'todas';
+    var mostrarPersonal = capaCalendarioVisible('personal');
+    var mostrarLabores = capaCalendarioVisible('labores');
+    var mostrarQuests = capaCalendarioVisible('quests');
+    var mostrarFinanzas = capaCalendarioVisible('finanzas');
+
+    var finMesCache = construirFinanzasMesCacheCal(anio, mes);
+    var boomMesCache = {};
 
     var primerDiaMes = new Date(anio, mes, 1);
     var totalDiasMes = new Date(anio, mes + 1, 0).getDate();
@@ -547,11 +778,33 @@ function renderizarVistaMesCalendario(claveFechaSel, hoyClave) {
         var esHoy = (claveFecha === hoyClave);
         var esSeleccionado = (d === diaSel);
 
-        var destacadosDia = obtenerDestacadosParaFecha(claveFecha);
-        var recordatoriosDia = obtenerRecordatoriosParaFecha(claveFecha);
-        var eventosDia = obtenerEventosParaFecha(claveFecha);
+        var destacadosDia = mostrarPersonal ? obtenerDestacadosParaFecha(claveFecha) : [];
+        var rawRecDia = obtenerRecordatoriosParaFecha(claveFecha);
+        var rawEvDia = obtenerEventosParaFecha(claveFecha);
+        var recordatoriosDia = (capa === 'labores')
+            ? rawRecDia.filter(function(r) { return !!r.laborId; })
+            : (mostrarPersonal ? rawRecDia : []);
+        var eventosDia = (capa === 'labores')
+            ? rawEvDia.filter(function(e) { return !!e.laborId; })
+            : (mostrarPersonal ? rawEvDia : []);
+
         var diaIdx = obtenerIndiceDiaSemana(claveFecha);
-        var rutinaDiaCount = obtenerCronogramaParaDiaSemana(diaIdx).length;
+        var rutinaDiaCount = mostrarPersonal ? obtenerCronogramaParaDiaSemana(diaIdx).length : 0;
+
+        var boomInfo = (mostrarLabores || mostrarFinanzas) ? obtenerInfoBoomParaDiaCal(claveFecha, boomMesCache) : null;
+        var csDia = mostrarLabores ? obtenerCortesYSesionesDiaCal(claveFecha) : { cortes: [], sesiones: [], registrosExtra: [] };
+        var questsDia = mostrarQuests ? obtenerQuestsProgramadasParaFecha(claveFecha, hoyClave) : [];
+        var personasDia = mostrarPersonal ? obtenerPersonasAgendadasParaFecha(claveFecha) : [];
+        var finanzasDia = mostrarFinanzas ? obtenerFinanzasUnificadasParaDia(anio, mes, d, claveFecha, finMesCache) : [];
+
+        var hasLaborDot = mostrarLabores && (
+            (boomInfo && boomInfo.diaInfo && boomInfo.diaInfo.tipo !== 'domingo_libre') ||
+            csDia.cortes.length > 0 ||
+            csDia.sesiones.length > 0 ||
+            csDia.registrosExtra.length > 0 ||
+            (capa === 'labores' && (eventosDia.length > 0 || recordatoriosDia.length > 0))
+        );
+        var hasFinanceDot = mostrarFinanzas && (finanzasDia.length > 0 || !!(boomInfo && boomInfo.pagoBoom));
 
         var regDia = (APP_STATE.registroDiarioCalendario && APP_STATE.registroDiarioCalendario[claveFecha]) ? APP_STATE.registroDiarioCalendario[claveFecha] : null;
         if (!regDia && esHoy && typeof calcularMetricasPurasSinActualizar === 'function') {
@@ -563,13 +816,6 @@ function renderizarVistaMesCalendario(claveFechaSel, hoyClave) {
         else if (pctGeneral >= 35) badgeClass = 'badge-medio';
         else if (pctGeneral > 0) badgeClass = 'badge-leve';
 
-        var tieneFinanzas = false;
-        if (APP_STATE.finanzas) {
-            if (APP_STATE.finanzas.ingresos && APP_STATE.finanzas.ingresos.some(function(i) { return Number(i.dia) === d; })) tieneFinanzas = true;
-            if (APP_STATE.finanzas.gastos && APP_STATE.finanzas.gastos.some(function(g) { return Number(g.dia) === d; })) tieneFinanzas = true;
-            if (APP_STATE.finanzas.deudas && APP_STATE.finanzas.deudas.some(function(deu) { return Number(deu.dia) === d; })) tieneFinanzas = true;
-        }
-
         var classes = 'calendar-day-cell';
         if (esHoy) classes += ' is-today';
         if (esSeleccionado) classes += ' is-selected';
@@ -580,16 +826,35 @@ function renderizarVistaMesCalendario(claveFechaSel, hoyClave) {
             ? '<div class="cal-cell-dest-pill" title="' + calEscHtml(destacadosDia[0].titulo) + '">⭐ ' + calEscHtml(destacadosDia[0].titulo) + '</div>'
             : '';
 
+        var laborMini = '';
+        if (mostrarLabores) {
+            if (boomInfo && boomInfo.diaInfo && boomInfo.diaInfo.tipo !== 'domingo_libre') {
+                var bd = boomInfo.diaInfo;
+                if (bd.cumplido) laborMini = '<div class="cal-cell-labor-tag is-done" title="Boom Solutions: Jornada 8h cumplida">✓ 8h</div>';
+                else if (bd.tipo === 'sabado_libre') laborMini = '<div class="cal-cell-labor-tag is-free" title="Boom Solutions: Sábado libre">🏖️ Lib</div>';
+                else if (bd.tipo === 'sabado_trabajo') laborMini = '<div class="cal-cell-labor-tag is-sab" title="Boom Solutions: Sábado de trabajo 8h">⚡ 8h</div>';
+                else laborMini = '<div class="cal-cell-labor-tag is-work" title="Boom Solutions: Turno 8:00–16:30">💼 8h</div>';
+            } else if (csDia.cortes.length > 0) {
+                laborMini = '<div class="cal-cell-labor-tag is-barber" title="Barbería: ' + csDia.cortes.length + ' corte(s)">💈 ×' + csDia.cortes.length + '</div>';
+            } else if (csDia.sesiones.length > 0) {
+                laborMini = '<div class="cal-cell-labor-tag is-trainer" title="Trainer: ' + csDia.sesiones.length + ' sesión(es)">🏋️ ×' + csDia.sesiones.length + '</div>';
+            }
+        }
+
         html += '<div class="' + classes + '" onclick="seleccionarDiaCalendario(' + d + ')">' +
             '<span class="calendar-day-num">' + d + '</span>' +
             '<span class="calendar-wear-badge ' + badgeClass + '">' + pctGeneral + '%</span>' +
             destMini +
+            laborMini +
             '<div class="calendar-dots-container">' +
                 (eventosDia.length > 0 ? '<span class="calendar-dot dot-event" title="' + eventosDia.length + ' evento(s)"></span>' : '') +
                 (recPend > 0 ? '<span class="calendar-dot dot-reminder" title="' + recPend + ' recordatorio(s) pendiente(s)"></span>' : '') +
                 (destacadosDia.length > 0 ? '<span class="calendar-dot dot-destacado" title="Día destacado"></span>' : '') +
                 (rutinaDiaCount > 0 ? '<span class="calendar-dot dot-routine" title="' + rutinaDiaCount + ' bloque(s) de rutina semanal"></span>' : '') +
-                (tieneFinanzas ? '<span class="calendar-dot dot-finance" title="Movimiento financiero"></span>' : '') +
+                (hasLaborDot ? '<span class="calendar-dot dot-labor" title="Labores / Jornada"></span>' : '') +
+                (questsDia.length > 0 ? '<span class="calendar-dot dot-quest" title="' + questsDia.length + ' Quest(s) programada(s)"></span>' : '') +
+                (personasDia.length > 0 ? '<span class="calendar-dot dot-persona" title="' + personasDia.length + ' Persona(s) agendada(s)"></span>' : '') +
+                (hasFinanceDot ? '<span class="calendar-dot dot-finance" title="Movimiento financiero"></span>' : '') +
             '</div>' +
         '</div>';
     }
@@ -608,27 +873,44 @@ function renderizarVistaMesCalendario(claveFechaSel, hoyClave) {
         '<div class="calendar-legend-bar">' +
             '<div class="calendar-legend-item"><span class="calendar-dot dot-event"></span><span>Eventos</span></div>' +
             '<div class="calendar-legend-item"><span class="calendar-dot dot-reminder"></span><span>Recordatorios</span></div>' +
-            '<div class="calendar-legend-item"><span class="calendar-dot dot-destacado"></span><span>Día Destacado</span></div>' +
-            '<div class="calendar-legend-item"><span class="calendar-dot dot-routine"></span><span>Rutina Semanal</span></div>' +
+            '<div class="calendar-legend-item"><span class="calendar-dot dot-destacado"></span><span>Destacados</span></div>' +
+            '<div class="calendar-legend-item"><span class="calendar-dot dot-routine"></span><span>Rutina</span></div>' +
+            '<div class="calendar-legend-item"><span class="calendar-dot dot-labor"></span><span>Labores</span></div>' +
+            '<div class="calendar-legend-item"><span class="calendar-dot dot-quest"></span><span>Quests</span></div>' +
+            '<div class="calendar-legend-item"><span class="calendar-dot dot-persona"></span><span>Personas</span></div>' +
             '<div class="calendar-legend-item"><span class="calendar-dot dot-finance"></span><span>Finanzas</span></div>' +
         '</div>' +
     '</div>';
 
-    html += renderizarPanelDetalleDia(claveFechaSel, hoyClave);
+    html += renderizarPanelDetalleDia(claveFechaSel, hoyClave, finMesCache, boomMesCache);
     return html;
 }
 
-function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
+function renderizarPanelDetalleDia(claveFechaSel, hoyClave, finMesCacheOpt, boomMesCacheOpt) {
     var fechaObj = parsearClaveFechaLocal(claveFechaSel) || new Date();
     var diaSel = fechaObj.getDate();
+    var anioSel = fechaObj.getFullYear();
+    var mesSel = fechaObj.getMonth();
     var diaIdx = (fechaObj.getDay() + 6) % 7;
-    var fechaTextoCompleto = DIAS_SEMANA_NOMBRES[diaIdx] + ", " + diaSel + " de " + MESES_NOMBRES[fechaObj.getMonth()] + " de " + fechaObj.getFullYear();
+    var fechaTextoCompleto = DIAS_SEMANA_NOMBRES[diaIdx] + ", " + diaSel + " de " + MESES_NOMBRES[mesSel] + " de " + anioSel;
     var esHoySel = (claveFechaSel === hoyClave);
 
-    var destacadosDia = obtenerDestacadosParaFecha(claveFechaSel);
-    var recordatoriosDia = obtenerRecordatoriosParaFecha(claveFechaSel);
-    var eventosDia = obtenerEventosParaFecha(claveFechaSel);
-    var cronogramaDia = obtenerCronogramaParaDiaSemana(diaIdx);
+    var capa = CALENDARIO_ESTADO.filtroCapa || 'todas';
+    var mostrarPersonal = capaCalendarioVisible('personal');
+    var mostrarLabores = capaCalendarioVisible('labores');
+    var mostrarQuests = capaCalendarioVisible('quests');
+    var mostrarFinanzas = capaCalendarioVisible('finanzas');
+
+    var destacadosDia = mostrarPersonal ? obtenerDestacadosParaFecha(claveFechaSel) : [];
+    var rawRecDia = obtenerRecordatoriosParaFecha(claveFechaSel);
+    var rawEvDia = obtenerEventosParaFecha(claveFechaSel);
+    var recordatoriosDia = (capa === 'labores')
+        ? rawRecDia.filter(function(r) { return !!r.laborId; })
+        : (mostrarPersonal ? rawRecDia : []);
+    var eventosDia = (capa === 'labores')
+        ? rawEvDia.filter(function(e) { return !!e.laborId; })
+        : (mostrarPersonal ? rawEvDia : []);
+    var cronogramaDia = mostrarPersonal ? obtenerCronogramaParaDiaSemana(diaIdx) : [];
 
     // Detectar qué bloques de rutina semanal tienen superposición con Eventos en esta fecha exacta
     var cronogramaConEstado = cronogramaDia.map(function(b) {
@@ -645,10 +927,16 @@ function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
         return { bloque: b, desplazadoPor: desplazadoPor };
     });
 
+    var boomInfo = (mostrarLabores || mostrarFinanzas) ? obtenerInfoBoomParaDiaCal(claveFechaSel, boomMesCacheOpt) : null;
+    var csDia = mostrarLabores ? obtenerCortesYSesionesDiaCal(claveFechaSel) : { cortes: [], sesiones: [], registrosExtra: [] };
+    var questsDia = mostrarQuests ? obtenerQuestsProgramadasParaFecha(claveFechaSel, hoyClave) : [];
+    var personasDia = mostrarPersonal ? obtenerPersonasAgendadasParaFecha(claveFechaSel) : [];
+    var finanzasDia = mostrarFinanzas ? obtenerFinanzasUnificadasParaDia(anioSel, mesSel, diaSel, claveFechaSel, finMesCacheOpt) : [];
+
     var html = '<div class="card cal-detail-card">' +
         '<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">' +
             '<div>' +
-                '<span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE DE JORNADA</span>' +
+                '<span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">DETALLE UNIFICADO DE JORNADA</span>' +
                 '<h3 style="margin: 2px 0 0 0; font-size: 17.5px; color: #f8fafc;">' + calEscHtml(fechaTextoCompleto) + '</h3>' +
             '</div>' +
             '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
@@ -684,34 +972,38 @@ function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
     }
 
     // 2. RECORDATORIOS DEL DÍA
-    html += '<div class="cal-day-section-block">' +
-        '<div class="cal-day-section-title"><span>🔔 Recordatorios del Día (' + recordatoriosDia.length + ')</span></div>';
-    if (recordatoriosDia.length > 0) {
-        html += '<div class="calendar-events-container" style="margin-top:8px;">';
-        recordatoriosDia.forEach(function(rec) {
-            html += renderizarTarjetaRecordatorio(rec, true);
-        });
+    if (mostrarPersonal || recordatoriosDia.length > 0) {
+        html += '<div class="cal-day-section-block">' +
+            '<div class="cal-day-section-title"><span>🔔 Recordatorios del Día (' + recordatoriosDia.length + ')</span></div>';
+        if (recordatoriosDia.length > 0) {
+            html += '<div class="calendar-events-container" style="margin-top:8px;">';
+            recordatoriosDia.forEach(function(rec) {
+                html += renderizarTarjetaRecordatorio(rec, true);
+            });
+            html += '</div>';
+        } else {
+            html += '<div class="cal-empty-mini">Sin recordatorios' + (capa === 'labores' ? ' vinculados a Labores' : '') + ' en esta fecha.</div>';
+        }
         html += '</div>';
-    } else {
-        html += '<div class="cal-empty-mini">Sin recordatorios en esta fecha.</div>';
     }
-    html += '</div>';
 
     // 3. EVENTOS PROGRAMADOS DEL DÍA
-    html += '<div class="cal-day-section-block">' +
-        '<div class="cal-day-section-title"><span>📆 Eventos Programados (' + eventosDia.length + ')</span></div>';
-    if (eventosDia.length > 0) {
-        html += '<div class="calendar-events-container" style="margin-top:8px;">';
-        eventosDia.forEach(function(ev) {
-            html += renderizarTarjetaEvento(ev, eventosDia);
-        });
+    if (mostrarPersonal || eventosDia.length > 0) {
+        html += '<div class="cal-day-section-block">' +
+            '<div class="cal-day-section-title"><span>📆 Eventos Programados (' + eventosDia.length + ')</span></div>';
+        if (eventosDia.length > 0) {
+            html += '<div class="calendar-events-container" style="margin-top:8px;">';
+            eventosDia.forEach(function(ev) {
+                html += renderizarTarjetaEvento(ev, eventosDia);
+            });
+            html += '</div>';
+        } else {
+            html += '<div class="cal-empty-mini">Sin eventos programados' + (capa === 'labores' ? ' vinculados a Labores' : '') + ' en esta fecha.</div>';
+        }
         html += '</div>';
-    } else {
-        html += '<div class="cal-empty-mini">Sin eventos programados en esta fecha.</div>';
     }
-    html += '</div>';
 
-    // 4. CRONOGRAMA SEMANAL APLICADO A ESTE DÍA (CON PRIORIDAD VISUAL PARA EVENTOS)
+    // 4. CRONOGRAMA SEMANAL APLICADO A ESTE DÍA
     if (cronogramaConEstado.length > 0) {
         html += '<div class="cal-day-section-block">' +
             '<div class="cal-day-section-title"><span>🕒 Cronograma Base (' + DIAS_SEMANA_NOMBRES[diaIdx] + ')</span></div>' +
@@ -735,56 +1027,222 @@ function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
         html += '</div></div>';
     }
 
-    // 5. MÉTRICAS DEL AVATAR Y FINANZAS DEL DÍA (SISTEMA EXISTENTE PRESERVADO EN TEMA OSCURO)
-    var regSel = (APP_STATE.registroDiarioCalendario && APP_STATE.registroDiarioCalendario[claveFechaSel]) ? APP_STATE.registroDiarioCalendario[claveFechaSel] : null;
-    if (!regSel && esHoySel && typeof calcularMetricasPurasSinActualizar === 'function') {
-        regSel = calcularMetricasPurasSinActualizar();
-    }
-    var generalVal = regSel ? (Math.round(Number(regSel.general)) || 0) : 0;
-    var cuerpoVal = regSel ? (Math.round(Number(regSel.cuerpo)) || 0) : 0;
-    var menteVal = regSel ? (Math.round(Number(regSel.mente)) || 0) : 0;
-    var estadoJornada = esHoySel ? "⚡ Jornada en curso (Hoy)" : (regSel ? "✓ Jornada archivada" : "Sin registro");
-
-    html += '<div class="calendar-day-metrics-card" style="margin-top: 16px;">' +
-        '<div class="metrics-card-header">' +
-            '<div>' +
-                '<span class="metrics-card-label">BALANCE DEL AVATAR · DESGASTE Y RENDIMIENTO</span>' +
-                '<div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">' +
-                    (esHoySel ? 'Monitoreo dinámico del día de hoy. Se archiva a medianoche.' : 'Registro final alcanzado al término de esta jornada.') +
+    // 5. LABORES & JORNADAS DEL DÍA (BOOM SOLUTIONS, BARBERÍA, TRAINER)
+    if (mostrarLabores) {
+        var boomDia = boomInfo ? boomInfo.diaInfo : null;
+        var mesClaveSel = claveFechaSel.slice(0, 7);
+        html += '<div class="cal-day-section-block">' +
+            '<div class="cal-day-section-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">' +
+                '<span>💼 Labores & Jornadas</span>' +
+                '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+                    '<button type="button" class="cal-mini-link-btn" onclick="abrirModalNuevoEvento(\'' + claveFechaSel + '\', \'evento\', null, \'09:00\', \'LAB-BARBER\')">+ Cita Barbería</button>' +
+                    '<button type="button" class="cal-mini-link-btn" onclick="abrirModalNuevoEvento(\'' + claveFechaSel + '\', \'evento\', null, \'09:00\', \'LAB-TRAINER\')">+ Sesión Trainer</button>' +
                 '</div>' +
             '</div>' +
-            '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
-                '<span class="metrics-card-status">' + estadoJornada + '</span>' +
-                (esHoySel ? '<button type="button" class="btn-sync-action btn-sync-light" onclick="reiniciarJornadaDiariaManual()" style="font-size: 11px; padding: 5px 10px;">🔄 Cerrar & Reiniciar (0%)</button>' : '') +
-            '</div>' +
-        '</div>' +
-        '<div class="metrics-card-grid">' +
-            '<div class="metric-box"><span class="metric-label">Desgaste General</span><span class="metric-val">' + generalVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + generalVal + '%;"></div></div></div>' +
-            '<div class="metric-box"><span class="metric-label">Carga Física</span><span class="metric-val">' + cuerpoVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + cuerpoVal + '%;"></div></div></div>' +
-            '<div class="metric-box"><span class="metric-label">Carga Neural</span><span class="metric-val">' + menteVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + menteVal + '%;"></div></div></div>' +
-        '</div>' +
-    '</div>';
+            '<div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">';
 
-    var finanzasDia = [];
-    if (APP_STATE.finanzas) {
-        (APP_STATE.finanzas.ingresos || []).forEach(function(i) {
-            if (Number(i.dia) === diaSel) finanzasDia.push({ tipo: 'Ingreso', texto: i.fuente + ' (+$' + i.monto + ')', icon: '💰' });
-        });
-        (APP_STATE.finanzas.gastos || []).forEach(function(g) {
-            if (Number(g.dia) === diaSel) finanzasDia.push({ tipo: 'Gasto', texto: g.concepto + ' ($' + g.monto + ') · ' + (g.categoria || ''), icon: '💸' });
-        });
-        (APP_STATE.finanzas.deudas || []).forEach(function(deu) {
-            if (Number(deu.dia) === diaSel) finanzasDia.push({ tipo: 'Deuda', texto: 'Vencimiento: ' + deu.nombre + ' ($' + deu.montoTotal + ')', icon: '💳' });
-        });
+        if (boomDia) {
+            var esDescansoBoom = (boomDia.tipo === 'domingo_libre' || boomDia.tipo === 'sabado_libre');
+            var labelBoom = 'Jornada Laboral Boom Solutions · 8:00 AM – 4:30 PM (8.0 hrs)';
+            var pillBoomTxt = '💼 8.0h Programada';
+            var pillBoomBg = 'rgba(99,102,241,0.18)';
+            var pillBoomCol = '#a5b4fc';
+            if (boomDia.tipo === 'sabado_libre') {
+                labelBoom = 'Sábado Libre Asignado (Boom Solutions)';
+                pillBoomTxt = '🏖️ Sábado Libre';
+                pillBoomBg = 'rgba(16,185,129,0.18)';
+                pillBoomCol = '#6ee7b7';
+            } else if (boomDia.tipo === 'domingo_libre') {
+                labelBoom = 'Domingo de Descanso (Boom Solutions)';
+                pillBoomTxt = '🌴 Descanso';
+                pillBoomBg = 'rgba(100,116,139,0.18)';
+                pillBoomCol = '#cbd5e1';
+            } else if (boomDia.tipo === 'sabado_trabajo') {
+                labelBoom = 'Sábado de Trabajo Boom Solutions · 8:00 AM – 4:30 PM (8.0 hrs)';
+                pillBoomTxt = boomDia.cumplido ? '✓ Sábado 8.0h Cumplido' : '⚡ Sábado Laboral';
+                pillBoomBg = boomDia.cumplido ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.18)';
+                pillBoomCol = boomDia.cumplido ? '#34d399' : '#fcd34d';
+            } else if (boomDia.cumplido) {
+                pillBoomTxt = '✓ 8.0h Cumplida (+80 EXP)';
+                pillBoomBg = 'rgba(16,185,129,0.22)';
+                pillBoomCol = '#34d399';
+            }
+
+            html += '<div class="cal-labor-day-card" style="border-left: 3px solid ' + (boomDia.cumplido ? '#10b981' : (boomDia.tipo === 'sabado_trabajo' ? '#f59e0b' : '#6366f1')) + ';">' +
+                '<div style="flex:1; min-width:0;">' +
+                    '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">' +
+                        '<span class="cal-pill-badge" style="background:' + pillBoomBg + '; color:' + pillBoomCol + ';">🚀 ' + pillBoomTxt + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:13.5px; font-weight:700; color:#f8fafc;">' + labelBoom + '</div>' +
+                '</div>' +
+                '<div style="display:flex; gap:6px; flex-wrap:wrap; flex-shrink:0;">' +
+                    (!esDescansoBoom ? '<button type="button" class="cal-btn-complete-mini" style="' + (boomDia.cumplido ? 'background:rgba(16,185,129,0.25); color:#6ee7b7;' : 'background:rgba(99,102,241,0.22); border-color:rgba(129,140,248,0.45); color:#c7d2fe;') + '" onclick="if(typeof toggleCumplidoDiaBoomDesdeCalendario===\'function\') toggleCumplidoDiaBoomDesdeCalendario(\'' + claveFechaSel + '\')">' + (boomDia.cumplido ? '✓ Cumplida (Revertir)' : '✓ Marcar 8.0h') + '</button>' : '') +
+                    '<button type="button" class="cal-icon-btn" onclick="if(typeof abrirConfigSabadosBoomDesdeCalendario===\'function\') abrirConfigSabadosBoomDesdeCalendario(\'' + mesClaveSel + '\')" title="Ajustar Sábados Libres y Sueldos Boom">⚙️</button>' +
+                '</div>' +
+            '</div>';
+        }
+
+        if (csDia.cortes.length > 0) {
+            csDia.cortes.forEach(function(c) {
+                var durC = Number(c.duracionMinutos) || 0;
+                var cobroC = Number(c.cobro) || 0;
+                html += '<div class="cal-labor-day-card" style="border-left: 3px solid #10b981;">' +
+                    '<div style="flex:1; min-width:0;">' +
+                        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:3px;">' +
+                            '<span class="cal-pill-badge" style="background:rgba(16,185,129,0.18); color:#6ee7b7;">💈 Barbería</span>' +
+                            (durC > 0 ? '<span class="cal-pill-badge" style="background:rgba(255,255,255,0.06); color:#cbd5e1;">⏱️ ' + durC + ' min</span>' : '') +
+                            (cobroC > 0 ? '<span class="cal-pill-badge" style="background:rgba(16,185,129,0.14); color:#34d399;">$' + cobroC.toFixed(2) + '</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:13.5px; font-weight:700; color:#f8fafc;">' + calEscHtml(c.clienteNombre || 'Cliente') + (c.estiloNombre ? ' · ' + calEscHtml(c.estiloNombre) : '') + '</div>' +
+                    '</div>' +
+                    '<button type="button" class="cal-mini-link-btn" onclick="if(typeof abrirSubAppLabor===\'function\') abrirSubAppLabor(\'LAB-BARBER\')">Abrir 💈</button>' +
+                '</div>';
+            });
+        }
+
+        if (csDia.sesiones.length > 0) {
+            csDia.sesiones.forEach(function(s) {
+                var durS = Number(s.duracionMinutos) || 0;
+                var cobroS = Number(s.cobro) || 0;
+                html += '<div class="cal-labor-day-card" style="border-left: 3px solid #f59e0b;">' +
+                    '<div style="flex:1; min-width:0;">' +
+                        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:3px;">' +
+                            '<span class="cal-pill-badge" style="background:rgba(245,158,11,0.18); color:#fcd34d;">🏋️ Personal Trainer</span>' +
+                            (durS > 0 ? '<span class="cal-pill-badge" style="background:rgba(255,255,255,0.06); color:#cbd5e1;">⏱️ ' + durS + ' min</span>' : '') +
+                            (cobroS > 0 ? '<span class="cal-pill-badge" style="background:rgba(16,185,129,0.14); color:#34d399;">$' + cobroS.toFixed(2) + '</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:13.5px; font-weight:700; color:#f8fafc;">' + calEscHtml(s.alumnoNombre || 'Alumno') + (s.enfoqueNombre ? ' · ' + calEscHtml(s.enfoqueNombre) : '') + '</div>' +
+                    '</div>' +
+                    '<button type="button" class="cal-mini-link-btn" onclick="if(typeof abrirSubAppLabor===\'function\') abrirSubAppLabor(\'LAB-TRAINER\')">Abrir 🏋️</button>' +
+                '</div>';
+            });
+        }
+
+        if (csDia.registrosExtra.length > 0) {
+            csDia.registrosExtra.forEach(function(regL) {
+                var metaLab = normalizarMetaLaborCalendario(regL.laborId);
+                html += '<div class="cal-labor-day-card" style="border-left: 3px solid ' + (metaLab ? metaLab.color : '#818cf8') + ';">' +
+                    '<div style="flex:1; min-width:0;">' +
+                        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:3px;">' +
+                            '<span class="cal-pill-badge" style="background:rgba(129,140,248,0.18); color:#c7d2fe;">' + (metaLab ? metaLab.icono + ' ' + calEscHtml(metaLab.nombre) : '💼 Registro Labor') + '</span>' +
+                            (Number(regL.horas) > 0 ? '<span class="cal-pill-badge" style="background:rgba(255,255,255,0.06); color:#cbd5e1;">⏱️ ' + Number(regL.horas).toFixed(1) + 'h</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:13px; font-weight:600; color:#e2e8f0;">' + calEscHtml(regL.descripcion || regL.notas || 'Actividad laboral registrada') + '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+
+        html += '</div></div>';
     }
-    if (finanzasDia.length > 0) {
-        html += '<div style="margin-top: 14px;">' +
-            '<span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">SISTEMA FINANCIERO · DÍA ' + diaSel + '</span>' +
-            '<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">';
+
+    // 6. QUESTS DIARIOS PROGRAMADAS POR HORA
+    if (mostrarQuests && questsDia.length > 0) {
+        html += '<div class="cal-day-section-block">' +
+            '<div class="cal-day-section-title" style="display:flex; justify-content:space-between; align-items:center;">' +
+                '<span>⚔️ Quests Diarios Programadas (' + questsDia.length + ')</span>' +
+                '<button type="button" class="cal-mini-link-btn" onclick="if(typeof cambiarVista===\'function\') cambiarVista(\'vista-quests-diarios\')">Ir a Quests →</button>' +
+            '</div>' +
+            '<div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">';
+        questsDia.forEach(function(q) {
+            html += '<div class="cal-unified-row ' + (q.completado ? 'is-completed' : '') + '" style="border-left: 3px solid #2dd4bf;">' +
+                '<div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">' +
+                    '<span style="font-size:12px; font-weight:800; color:#5eead4; flex-shrink:0;">🕒 ' + calEscHtml(q.hora) + '</span>' +
+                    '<span style="font-size:13px; font-weight:700; color:#f8fafc; overflow:hidden; text-overflow:ellipsis;">' + calEscHtml(q.titulo) + '</span>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">' +
+                    (q.xp > 0 ? '<span class="cal-pill-badge" style="background:rgba(45,212,191,0.16); color:#5eead4;">+' + q.xp + ' XP</span>' : '') +
+                    '<span class="calendar-event-cat-badge">' + (q.completado ? '✓ Hecho' : 'Programada') + '</span>' +
+                '</div>' +
+            '</div>';
+        });
+        html += '</div></div>';
+    }
+
+    // 7. PERSONAS AGENDADAS EN ESTA FECHA
+    if (mostrarPersonal && personasDia.length > 0) {
+        html += '<div class="cal-day-section-block">' +
+            '<div class="cal-day-section-title" style="display:flex; justify-content:space-between; align-items:center;">' +
+                '<span>👥 Personas con Fecha Objetivo (' + personasDia.length + ')</span>' +
+                '<button type="button" class="cal-mini-link-btn" onclick="if(typeof cambiarVista===\'function\') cambiarVista(\'vista-personas\')">Ver Personas →</button>' +
+            '</div>' +
+            '<div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">';
+        personasDia.forEach(function(p) {
+            html += '<div class="cal-unified-row" style="border-left: 3px solid #f472b6;">' +
+                '<div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">' +
+                    '<span>👤</span>' +
+                    '<div style="min-width:0;">' +
+                        '<div style="font-size:13px; font-weight:700; color:#f8fafc;">' + calEscHtml(p.nombre) + '</div>' +
+                        '<div style="font-size:11px; color:#94a3b8;">' + calEscHtml(p.rol || 'Contacto') + (p.ubicacionCategoria ? ' · 📍 ' + calEscHtml(p.ubicacionCategoria) : '') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<span class="cal-pill-badge" style="background:rgba(244,114,182,0.18); color:#f9a8d4;">' + calEscHtml(p.estado || 'Agendado') + '</span>' +
+            '</div>';
+        });
+        html += '</div></div>';
+    }
+
+    // 8. MÉTRICAS DEL AVATAR (DESGASTE Y RENDIMIENTO)
+    if (mostrarPersonal) {
+        var regSel = (APP_STATE.registroDiarioCalendario && APP_STATE.registroDiarioCalendario[claveFechaSel]) ? APP_STATE.registroDiarioCalendario[claveFechaSel] : null;
+        if (!regSel && esHoySel && typeof calcularMetricasPurasSinActualizar === 'function') {
+            regSel = calcularMetricasPurasSinActualizar();
+        }
+        var generalVal = regSel ? (Math.round(Number(regSel.general)) || 0) : 0;
+        var cuerpoVal = regSel ? (Math.round(Number(regSel.cuerpo)) || 0) : 0;
+        var menteVal = regSel ? (Math.round(Number(regSel.mente)) || 0) : 0;
+        var estadoJornada = esHoySel ? "⚡ Jornada en curso (Hoy)" : (regSel ? "✓ Jornada archivada" : "Sin registro");
+
+        html += '<div class="calendar-day-metrics-card" style="margin-top: 16px;">' +
+            '<div class="metrics-card-header">' +
+                '<div>' +
+                    '<span class="metrics-card-label">BALANCE DEL AVATAR · DESGASTE Y RENDIMIENTO</span>' +
+                    '<div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">' +
+                        (esHoySel ? 'Monitoreo dinámico del día de hoy. Se archiva a medianoche.' : 'Registro final alcanzado al término de esta jornada.') +
+                    '</div>' +
+                '</div>' +
+                '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                    '<span class="metrics-card-status">' + estadoJornada + '</span>' +
+                    (esHoySel ? '<button type="button" class="btn-sync-action btn-sync-light" onclick="reiniciarJornadaDiariaManual()" style="font-size: 11px; padding: 5px 10px;">🔄 Cerrar & Reiniciar (0%)</button>' : '') +
+                '</div>' +
+            '</div>' +
+            '<div class="metrics-card-grid">' +
+                '<div class="metric-box"><span class="metric-label">Desgaste General</span><span class="metric-val">' + generalVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + generalVal + '%;"></div></div></div>' +
+                '<div class="metric-box"><span class="metric-label">Carga Física</span><span class="metric-val">' + cuerpoVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + cuerpoVal + '%;"></div></div></div>' +
+                '<div class="metric-box"><span class="metric-label">Carga Neural</span><span class="metric-val">' + menteVal + '%</span><div class="metric-bar-bg"><div class="metric-bar-fill" style="width: ' + menteVal + '%;"></div></div></div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // 9. FINANZAS UNIFICADAS DEL DÍA + PAGOS DE BOOM
+    var pagoBoomDia = (mostrarFinanzas || mostrarLabores) && boomInfo ? boomInfo.pagoBoom : null;
+    if (mostrarFinanzas && (finanzasDia.length > 0 || pagoBoomDia)) {
+        html += '<div style="margin-top: 16px;">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+                '<span style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">💰 SISTEMA FINANCIERO & COBROS · DÍA ' + diaSel + '</span>' +
+                '<button type="button" class="cal-mini-link-btn" onclick="if(typeof cambiarVista===\'function\') cambiarVista(\'vista-finanzas\')">Ir a Finanzas →</button>' +
+            '</div>' +
+            '<div style="display: flex; flex-direction: column; gap: 6px;">';
+
+        if (pagoBoomDia) {
+            html += '<div class="calendar-system-activity-item" style="border-left: 3px solid ' + (pagoBoomDia.cobrado ? '#10b981' : '#f59e0b') + '; border-style: solid;">' +
+                '<div style="display: flex; align-items: center; gap: 8px;"><span>🚀</span><span>' + calEscHtml(pagoBoomDia.titulo) + ' (+$' + pagoBoomDia.monto.toFixed(2) + ')</span></div>' +
+                '<div style="display:flex; align-items:center; gap:6px;">' +
+                    '<span class="cal-pill-badge" style="background:' + (pagoBoomDia.cobrado ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)') + '; color:' + (pagoBoomDia.cobrado ? '#34d399' : '#fbbf24') + ';">' + (pagoBoomDia.cobrado ? '✓ COBRADO' : '⏳ PENDIENTE') + '</span>' +
+                    '<button type="button" class="cal-mini-link-btn" onclick="if(typeof abrirSubAppLabor===\'function\') abrirSubAppLabor(\'LAB-BOOM\')">Boom →</button>' +
+                '</div>' +
+            '</div>';
+        }
+
         finanzasDia.forEach(function(item) {
+            var sign = item.clase === 'cobro' ? '+$' : (item.clase === 'pago' ? '-$' : '$');
+            var colFin = item.clase === 'cobro' ? '#34d399' : (item.clase === 'pago' ? '#f87171' : '#fbbf24');
             html += '<div class="calendar-system-activity-item">' +
-                '<div style="display: flex; align-items: center; gap: 8px;"><span>' + item.icon + '</span><span>' + calEscHtml(item.texto) + '</span></div>' +
-                '<span class="calendar-event-cat-badge">' + calEscHtml(item.tipo) + '</span>' +
+                '<div style="display: flex; align-items: center; gap: 8px; min-width:0; flex:1;"><span>' + item.icon + '</span><span style="overflow:hidden; text-overflow:ellipsis;">' + calEscHtml(item.titulo) + ' (<strong style="color:' + colFin + ';">' + sign + item.monto.toFixed(2) + '</strong>)</span></div>' +
+                '<div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">' +
+                    (item.completado ? '<span class="cal-pill-badge" style="background:rgba(16,185,129,0.18); color:#34d399;">✓</span>' : (item.vencida ? '<span class="cal-pill-badge" style="background:rgba(239,68,68,0.2); color:#fca5a5;">Vencida</span>' : '')) +
+                    '<span class="calendar-event-cat-badge">' + calEscHtml(item.tipo) + '</span>' +
+                '</div>' +
             '</div>';
         });
         html += '</div></div>';
@@ -800,6 +1258,7 @@ function renderizarPanelDetalleDia(claveFechaSel, hoyClave) {
 
 function renderizarTarjetaRecordatorio(rec, compacto) {
     var per = resolverPersonaPorId(rec.personaId, rec.personaNombre);
+    var labMetaR = normalizarMetaLaborCalendario(rec.laborId);
     var ahora = Date.now();
     var targetMs = obtenerFechaHoraMs(rec.fecha, rec.hora);
     var dueMs = (rec.pospuestoHasta && rec.pospuestoHasta > targetMs) ? rec.pospuestoHasta : targetMs;
@@ -811,6 +1270,7 @@ function renderizarTarjetaRecordatorio(rec, compacto) {
             '<div style="flex:1; min-width:0;">' +
                 '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">' +
                     '<span class="cal-pill-badge" style="background:rgba(245,158,11,0.16); color:#fbbf24;">🔔 Recordatorio</span>' +
+                    (labMetaR ? '<span class="cal-pill-badge" style="background:' + labMetaR.color + '22; color:#e2e8f0; border:1px solid ' + labMetaR.color + '44;">' + labMetaR.icono + ' ' + calEscHtml(labMetaR.nombre) + '</span>' : '') +
                     '<span style="font-size:12px; font-weight:700; color:#e2e8f0;">🕒 ' + calEscHtml(rec.hora || '--:--') + (compacto ? '' : ' · ' + formatearFechaLegibleCorta(rec.fecha)) + '</span>' +
                     (vencido ? '<span class="cal-pill-badge" style="background:rgba(239,68,68,0.22); color:#fca5a5;">EN HORA / ACTIVO</span>' : '') +
                     (rec.completado ? '<span class="cal-pill-badge" style="background:rgba(16,185,129,0.2); color:#34d399;">✓ Completado</span>' : '') +
@@ -830,6 +1290,7 @@ function renderizarTarjetaRecordatorio(rec, compacto) {
 
 function renderizarTarjetaEvento(ev, eventosMismoDia) {
     var col = ev.color || '#38bdf8';
+    var labMetaE = normalizarMetaLaborCalendario(ev.laborId);
     var horarioTexto = ev.horaInicio
         ? ('🕒 ' + calEscHtml(ev.horaInicio) + (ev.horaFin ? ' – ' + calEscHtml(ev.horaFin) + (ev.cruzaMedianoche ? ' (+1d)' : '') : ''))
         : '🕒 Todo el día';
@@ -853,6 +1314,7 @@ function renderizarTarjetaEvento(ev, eventosMismoDia) {
             '<div style="flex:1; min-width:0;">' +
                 '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">' +
                     '<span class="cal-pill-badge" style="background:' + col + '26; color:#e0f2fe;">📆 Evento</span>' +
+                    (labMetaE ? '<span class="cal-pill-badge" style="background:' + labMetaE.color + '22; color:#e2e8f0; border:1px solid ' + labMetaE.color + '44;">' + labMetaE.icono + ' ' + calEscHtml(labMetaE.nombre) + '</span>' : '') +
                     '<span style="font-size:12px; font-weight:700; color:#e2e8f0;">' + horarioTexto + calEscHtml(durText) + '</span>' +
                     (ev.avisoPrevioMin > 0 ? '<span class="cal-pill-badge" style="background:rgba(255,255,255,0.06); color:#cbd5e1;">🔔 ' + ev.avisoPrevioMin + 'm antes</span>' : '') +
                     (solapados.length > 0 ? '<span class="cal-pill-badge" style="background:rgba(239,68,68,0.22); color:#fca5a5;">⚠️ Solapa con: ' + calEscHtml(solapados[0]) + '</span>' : '') +
@@ -882,6 +1344,12 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
         ' – ' +
         (domObj ? domObj.getDate() + ' ' + MESES_NOMBRES[domObj.getMonth()].slice(0, 3) + ' ' + domObj.getFullYear() : domingoClave);
 
+    var capa = CALENDARIO_ESTADO.filtroCapa || 'todas';
+    var mostrarPersonal = capaCalendarioVisible('personal');
+    var mostrarLabores = capaCalendarioVisible('labores');
+    var mostrarQuests = capaCalendarioVisible('quests');
+    var boomMesCache = {};
+
     var HOUR_HEIGHT = 56; // px por hora -> 24 * 56 = 1344px total
 
     var html = '<div class="card cal-weekly-card">' +
@@ -894,7 +1362,8 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
             '</div>' +
             '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">' +
                 '<span class="cal-pill-badge" style="background:rgba(56,189,248,0.16); color:#7dd3fc;">📆 Evento (Prioridad)</span>' +
-                '<span class="cal-pill-badge" style="background:rgba(99,102,241,0.18); color:#c7d2fe;">🕒 Rutina Semanal</span>' +
+                '<span class="cal-pill-badge" style="background:rgba(99,102,241,0.18); color:#c7d2fe;">💼 Turno / Rutina</span>' +
+                '<span class="cal-pill-badge" style="background:rgba(45,212,191,0.16); color:#5eead4;">⚔️ Quests</span>' +
                 '<button type="button" class="btn-sync-action btn-sync-light" onclick="abrirModalNuevoEvento(null, \'cronograma\')" style="font-size:12px;">+ Bloque Rutina</button>' +
             '</div>' +
         '</div>' +
@@ -904,15 +1373,35 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
                 '<div class="cal-weekly-corner">Hora</div>';
 
     var diasSemanaFechas = [];
+    var weekDataByDay = [];
     for (var i = 0; i < 7; i++) {
         var fStr = sumarDiasAFechaStr(lunesClave, i);
         diasSemanaFechas.push(fStr);
         var fDate = parsearClaveFechaLocal(fStr);
         var esHoy = (fStr === hoyClave);
-        var dests = obtenerDestacadosParaFecha(fStr);
+        var dests = mostrarPersonal ? obtenerDestacadosParaFecha(fStr) : [];
         var destBanner = dests.map(function(dt) {
             return '<div class="cal-week-dest-chip" style="border-color:' + (dt.color || '#f59e0b') + '; background:' + (dt.color || '#f59e0b') + '26;" onclick="irAFechaEnCalendario(\'' + fStr + '\', \'mes\')" title="' + calEscHtml(dt.titulo) + '">⭐ ' + calEscHtml(dt.titulo) + '</div>';
         }).join('');
+
+        var boomDayData = mostrarLabores ? obtenerInfoBoomParaDiaCal(fStr, boomMesCache) : null;
+        var csDayData = mostrarLabores ? obtenerCortesYSesionesDiaCal(fStr) : { cortes: [], sesiones: [], registrosExtra: [] };
+        weekDataByDay.push({ boom: boomDayData, cs: csDayData });
+
+        var laborChip = '';
+        if (mostrarLabores) {
+            var chips = [];
+            if (boomDayData && boomDayData.diaInfo) {
+                var bdi = boomDayData.diaInfo;
+                if (bdi.tipo === 'sabado_libre') chips.push('🏖️ Sáb Libre');
+                else if (bdi.tipo !== 'domingo_libre') chips.push(bdi.cumplido ? '✓ Boom 8h' : '💼 Boom 8h');
+            }
+            if (csDayData.cortes.length > 0) chips.push('💈 ×' + csDayData.cortes.length);
+            if (csDayData.sesiones.length > 0) chips.push('🏋️ ×' + csDayData.sesiones.length);
+            if (chips.length > 0) {
+                laborChip = '<div class="cal-week-dest-chip" style="border-color:#6366f1; background:rgba(99,102,241,0.18); color:#c7d2fe;" onclick="irAFechaEnCalendario(\'' + fStr + '\', \'mes\', \'labores\')" title="Ver labores de este día">' + calEscHtml(chips.join(' · ')) + '</div>';
+            }
+        }
 
         html += '<div class="cal-weekly-day-head ' + (esHoy ? 'is-today' : '') + '">' +
             '<div class="cal-weekly-day-label" onclick="irAFechaEnCalendario(\'' + fStr + '\', \'mes\')" title="Ver detalle del día">' +
@@ -920,6 +1409,7 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
                 '<strong class="cal-weekly-day-num">' + (fDate ? fDate.getDate() : '') + '</strong>' +
             '</div>' +
             destBanner +
+            laborChip +
         '</div>';
     }
 
@@ -937,9 +1427,17 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
     // Columnas Lun-Dom con bloques horarios absolutos
     diasSemanaFechas.forEach(function(fStr, diaIdx) {
         var esHoyCol = (fStr === hoyClave);
-        var eventosDia = obtenerEventosParaFecha(fStr);
-        var rutinasDia = obtenerCronogramaParaDiaSemana(diaIdx);
-        var recordatoriosDia = obtenerRecordatoriosParaFecha(fStr);
+        var rawEv = obtenerEventosParaFecha(fStr);
+        var rawRec = obtenerRecordatoriosParaFecha(fStr);
+        var eventosDia = (capa === 'labores')
+            ? rawEv.filter(function(e) { return !!e.laborId; })
+            : (mostrarPersonal ? rawEv : []);
+        var recordatoriosDia = (capa === 'labores')
+            ? rawRec.filter(function(r) { return !!r.laborId; })
+            : (mostrarPersonal ? rawRec : []);
+        var rutinasDia = mostrarPersonal ? obtenerCronogramaParaDiaSemana(diaIdx) : [];
+        var questsDia = mostrarQuests ? obtenerQuestsProgramadasParaFecha(fStr, hoyClave) : [];
+        var boomDiaInfo = weekDataByDay[diaIdx] && weekDataByDay[diaIdx].boom ? weekDataByDay[diaIdx].boom.diaInfo : null;
 
         html += '<div class="cal-weekly-day-col ' + (esHoyCol ? 'is-today' : '') + '" style="height:' + (24 * HOUR_HEIGHT) + 'px;">';
 
@@ -947,6 +1445,26 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
         for (var hr = 0; hr < 24; hr++) {
             var hrStr = (hr < 10 ? '0' : '') + hr + ':00';
             html += '<div class="cal-weekly-slot-line" style="top:' + (hr * HOUR_HEIGHT) + 'px; height:' + HOUR_HEIGHT + 'px;" onclick="abrirModalNuevoEvento(\'' + fStr + '\', \'evento\', null, \'' + hrStr + '\')" title="Tocar para programar a las ' + hrStr + '"></div>';
+        }
+
+        // 0. Bloque de turno laboral Boom Solutions (08:00 - 16:30 = 480..990 min)
+        var tieneTurnoBoom = !!(mostrarLabores && boomDiaInfo && (boomDiaInfo.tipo === 'laborable' || boomDiaInfo.tipo === 'sabado_trabajo'));
+        if (tieneTurnoBoom) {
+            var bStart = 480;
+            var bEnd = 990;
+            var bTopPx = (bStart / 60) * HOUR_HEIGHT;
+            var bHeightPx = ((bEnd - bStart) / 60) * HOUR_HEIGHT - 2;
+            var evSobreBoom = eventosDia.some(function(ev) {
+                return typeof ev._startMin === 'number' && typeof ev._endMinRaw === 'number' && intervalosSolapan(bStart, bEnd, ev._startMin, ev._endMinRaw);
+            });
+            var colBoom = boomDiaInfo.cumplido ? '#10b981' : (boomDiaInfo.tipo === 'sabado_trabajo' ? '#f59e0b' : '#6366f1');
+            html += '<div class="cal-week-block is-labor ' + (evSobreBoom ? 'is-overridden' : '') + '" ' +
+                'style="top:' + bTopPx + 'px; height:' + bHeightPx + 'px; border-left: 3px solid ' + colBoom + '; background:' + colBoom + '1c;" ' +
+                'onclick="event.stopPropagation(); irAFechaEnCalendario(\'' + fStr + '\', \'mes\', \'labores\')" ' +
+                'title="Boom Solutions 08:00–16:30 (' + (boomDiaInfo.cumplido ? 'Cumplida' : 'Pendiente') + ') · Toca para marcar o ver detalle">' +
+                '<div class="cal-week-block-time">08:00–16:30</div>' +
+                '<div class="cal-week-block-title">🚀 Boom Solutions ' + (boomDiaInfo.cumplido ? '(✓ 8h)' : '(8.0h)') + '</div>' +
+            '</div>';
         }
 
         // 1. Pintar bloques del Cronograma Semanal Base
@@ -973,7 +1491,7 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
             '</div>';
         });
 
-        // 2. Pintar Eventos con PRIORIDAD VISUAL en primer plano (y desplazamiento lateral si solapa con rutina u otro evento)
+        // 2. Pintar Eventos con PRIORIDAD VISUAL en primer plano (y desplazamiento lateral si solapa con rutina/turno/evento)
         eventosDia.forEach(function(ev, idxEv) {
             if (typeof ev._startMin !== 'number' || typeof ev._endMinRaw !== 'number') return;
             var clampedEnd = Math.min(1440, ev._endMinRaw);
@@ -987,11 +1505,12 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
                 var rEnd = parseHoraAMinutos(b.horaFin);
                 return rStart !== null && rEnd !== null && intervalosSolapan(ev._startMin, clampedEnd, rStart, rEnd);
             });
+            var tocaBoom = tieneTurnoBoom && intervalosSolapan(ev._startMin, clampedEnd, 480, 990);
             var chocaOtroEvento = eventosDia.some(function(o, oIdx) {
                 return oIdx < idxEv && typeof o._startMin === 'number' && typeof o._endMinRaw === 'number' && intervalosSolapan(ev._startMin, clampedEnd, o._startMin, o._endMinRaw);
             });
 
-            var leftPct = chocaOtroEvento ? '14%' : (tocaRutina ? '8%' : '3%');
+            var leftPct = chocaOtroEvento ? '14%' : ((tocaRutina || tocaBoom) ? '8%' : '3%');
             var rightPct = '3%';
 
             html += '<div class="cal-week-block is-event ' + (tocaRutina ? 'has-priority' : '') + ' ' + (ev.completado ? 'is-completed' : '') + '" ' +
@@ -1016,6 +1535,19 @@ function renderizarVistaSemanaCalendario(claveFechaSel, hoyClave) {
                 'onclick="event.stopPropagation(); abrirModalNuevoEvento(\'' + fStr + '\', \'recordatorio\', \'' + calEscHtml(rec.id) + '\')" ' +
                 'title="Recordatorio ' + calEscHtml(rec.hora) + ': ' + calEscHtml(rec.titulo) + '">' +
                 '🔔 ' + calEscHtml(rec.hora) + ' · ' + calEscHtml(rec.titulo) +
+            '</div>';
+        });
+
+        // 4. Pintar Quests Diarios Programadas como pines exactos
+        questsDia.forEach(function(q) {
+            var qMin = parseHoraAMinutos(q.hora);
+            if (qMin === null) return;
+            var topPx = (qMin / 60) * HOUR_HEIGHT;
+            html += '<div class="cal-week-quest-pin ' + (q.completado ? 'is-completed' : '') + '" ' +
+                'style="top:' + topPx + 'px;" ' +
+                'onclick="event.stopPropagation(); if(typeof cambiarVista===\'function\') cambiarVista(\'vista-quests-diarios\')" ' +
+                'title="Quest Programada ' + calEscHtml(q.hora) + ': ' + calEscHtml(q.titulo) + '">' +
+                '⚔️ ' + calEscHtml(q.hora) + ' · ' + calEscHtml(q.titulo) +
             '</div>';
         });
 
@@ -1450,12 +1982,13 @@ function recalcularFinEventoYConflictos() {
     }
 }
 
-function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredefinida) {
+function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredefinida, laborPredefinida) {
     var modal = document.getElementById('modal-nuevo-evento');
     if (!modal) return;
 
     var fechaBase = fechaPredefinida || formatearClaveFecha(CALENDARIO_ESTADO.anio, CALENDARIO_ESTADO.mes, CALENDARIO_ESTADO.diaSeleccionado);
     var horaDefault = horaPredefinida || '09:00';
+    var laborDefault = laborPredefinida ? String(laborPredefinida) : '';
     var editInput = document.getElementById('cal-modal-edit-id');
     if (editInput) editInput.value = editId ? String(editId) : '';
 
@@ -1473,6 +2006,8 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
     document.getElementById('cal-rec-desc').value = '';
     document.getElementById('cal-rec-fecha').value = fechaBase;
     document.getElementById('cal-rec-hora').value = horaDefault;
+    var elRecLab = document.getElementById('cal-rec-labor');
+    if (elRecLab) elRecLab.value = laborDefault;
 
     // Limpiar campos Evento
     document.getElementById('cal-ev-titulo').value = '';
@@ -1483,6 +2018,8 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
     document.getElementById('cal-ev-duracion-unit').value = 'min';
     document.getElementById('cal-ev-aviso').value = '15';
     document.getElementById('cal-ev-color').value = '#38bdf8';
+    var elEvLab = document.getElementById('cal-ev-labor');
+    if (elEvLab) elEvLab.value = laborDefault;
 
     // Limpiar campos Destacado
     document.getElementById('cal-dest-titulo').value = '';
@@ -1538,6 +2075,7 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
                     document.getElementById('cal-rec-desc').value = item.descripcion || '';
                     document.getElementById('cal-rec-fecha').value = item.fecha || fechaBase;
                     document.getElementById('cal-rec-hora').value = item.hora || horaDefault;
+                    if (elRecLab) elRecLab.value = item.laborId || '';
                 } else if (item.tipo === 'evento') {
                     document.getElementById('cal-ev-titulo').value = item.titulo || '';
                     document.getElementById('cal-ev-desc').value = item.descripcion || '';
@@ -1553,6 +2091,7 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
                     }
                     document.getElementById('cal-ev-aviso').value = String(typeof item.avisoPrevioMin === 'number' ? item.avisoPrevioMin : 15);
                     document.getElementById('cal-ev-color').value = item.color || '#38bdf8';
+                    if (elEvLab) elEvLab.value = item.laborId || '';
                     CALENDARIO_ESTADO.personaIdsSeleccionadosModal = (item.personaIds || []).map(String);
                     CALENDARIO_ESTADO.grupoIdsSeleccionadosModal = (item.grupoIds || []).map(String);
                 } else if (item.tipo === 'destacado') {
@@ -1602,6 +2141,7 @@ function crearGuardarRecordatorioCalendario(opts) {
     var fecha = String(opts.fecha || '').trim();
     var hora = String(opts.hora || '').trim();
     var personaId = String(opts.personaId || '').trim();
+    var laborId = String(opts.laborId || '').trim();
     var editId = opts.editId ? String(opts.editId).trim() : '';
     var ahora = Date.now();
 
@@ -1629,6 +2169,7 @@ function crearGuardarRecordatorioCalendario(opts) {
                 hora: hora,
                 personaId: personaId || '',
                 personaNombre: per ? per.nombre : '',
+                laborId: laborId,
                 pospuestoHasta: cambioHorario ? null : (ex.pospuestoHasta || null),
                 notificadoParaTs: cambioHorario ? null : (ex.notificadoParaTs || null),
                 fechaActualizacion: ahora
@@ -1645,6 +2186,7 @@ function crearGuardarRecordatorioCalendario(opts) {
             hora: hora,
             personaId: personaId || '',
             personaNombre: per ? per.nombre : '',
+            laborId: laborId,
             completado: false,
             fechaCompletada: null,
             pospuestoHasta: null,
@@ -1681,6 +2223,8 @@ function guardarNuevoEvento() {
         var fecha = document.getElementById('cal-rec-fecha').value;
         var hora = document.getElementById('cal-rec-hora').value;
         var personaId = document.getElementById('cal-rec-persona').value;
+        var recLaborEl = document.getElementById('cal-rec-labor');
+        var recLaborId = recLaborEl ? recLaborEl.value : '';
 
         if (!titulo) { alert('Ingresa el nombre del recordatorio.'); return; }
         if (!fecha || !hora) { alert('Selecciona fecha y hora exacta para el recordatorio.'); return; }
@@ -1691,6 +2235,7 @@ function guardarNuevoEvento() {
             fecha: fecha,
             hora: hora,
             personaId: personaId,
+            laborId: recLaborId,
             editId: editId,
             omitirSideEffects: true
         });
@@ -1703,6 +2248,8 @@ function guardarNuevoEvento() {
         var evDurUnit = document.getElementById('cal-ev-duracion-unit').value;
         var evAviso = parseInt(document.getElementById('cal-ev-aviso').value, 10) || 0;
         var evColor = document.getElementById('cal-ev-color').value || '#38bdf8';
+        var evLaborEl = document.getElementById('cal-ev-labor');
+        var evLaborId = evLaborEl ? evLaborEl.value : '';
 
         if (!evTitulo) { alert('Ingresa el nombre del evento.'); return; }
         if (!evFecha || !evInicio) { alert('Selecciona la fecha y hora de inicio del evento.'); return; }
@@ -1751,6 +2298,7 @@ function guardarNuevoEvento() {
                     avisoDisparadoParaTs: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio || oldEv.avisoPrevioMin !== evAviso) ? null : oldEv.avisoDisparadoParaTs,
                     avisoDescartado: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio) ? false : !!oldEv.avisoDescartado,
                     color: evColor,
+                    laborId: evLaborId,
                     fechaActualizacion: ahora
                 });
             }
@@ -1773,6 +2321,7 @@ function guardarNuevoEvento() {
                 avisoDisparadoEn: null,
                 avisoDescartado: false,
                 color: evColor,
+                laborId: evLaborId,
                 completado: false,
                 timestamp: ahora,
                 fechaActualizacion: ahora

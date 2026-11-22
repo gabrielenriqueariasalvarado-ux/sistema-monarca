@@ -228,7 +228,9 @@ function renderizarLabores() {
                 <span>📅 ${formatearNombreMesLabor(MES_LABORES_ACTUAL)}</span>
                 <button type="button" class="btn-mes-nav" onclick="cambiarMesLabores(1)" title="Mes Siguiente">▶</button>
             </div>
-            <div class="labores-month-hint">Resumen mensual del período</div>
+            <button type="button" class="btn-sync-action btn-sync-light" style="font-size: 11.5px; padding: 6px 12px;" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario(MES_LABORES_ACTUAL + '-01', 'mes', 'labores')">
+                📅 Agenda en Calendario →
+            </button>
         </div>
 
         <div class="labores-metrics-grid">
@@ -1038,91 +1040,32 @@ function renderizarSubAppBoom() {
         </div>
     </div>
 
-    <!-- CALENDARIO DE PLANIFICACIÓN MENSUAL (SEMANAS Y SÁBADOS) -->
-    <div class="boom-calendar-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
-            <div>
-                <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 2px 0;">📅 Planificación de Semanas Laborales</h3>
-                <span style="font-size: 11.5px; color: #6b7280;">Toca cualquier día laborable para marcar tu jornada de <strong>8.0 horas cumplida</strong> (se suma automáticamente a tu cuenta).</span>
-            </div>
-            <div style="display: flex; gap: 8px; font-size: 11px; color: #94a3b8; align-items: center; flex-wrap: wrap;">
-                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #6366f1;"></span> Laborable (8h)</span>
-                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span> Sábado Libre (Ajustes)</span>
-                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #f59e0b;"></span> Sábado Trabajo</span>
-            </div>
-        </div>
-
-        <div class="boom-weekdays-row">
-            <div class="boom-weekday-label">Lun</div>
-            <div class="boom-weekday-label">Mar</div>
-            <div class="boom-weekday-label">Mié</div>
-            <div class="boom-weekday-label">Jue</div>
-            <div class="boom-weekday-label">Vie</div>
-            <div class="boom-weekday-label" style="color: #fbbf24;">Sáb</div>
-            <div class="boom-weekday-label" style="color: #94a3b8;">Dom</div>
-        </div>
-
-        <div class="boom-days-grid">
+    <!-- PLANIFICACIÓN UNIFICADA EN CALENDARIO PRINCIPAL -->
     `;
 
-    var primerDiaObj = new Date(anio, mes - 1, 1);
-    var diaSemanaPrimerDia = primerDiaObj.getDay();
-    var paddingInicio = (diaSemanaPrimerDia === 0) ? 6 : (diaSemanaPrimerDia - 1);
-
-    for (var p = 0; p < paddingInicio; p++) {
-        html += `<div class="boom-day-cell day-fuera-mes"></div>`;
-    }
-
-    for (var diaI = 1; diaI <= diasEnMes; diaI++) {
-        var fechaDia = MES_BOOM_ACTUAL + '-' + String(diaI).padStart(2, '0');
-        var dInfo = planMes.dias[fechaDia] || { tipo: 'laborable', horas: 8.0, cumplido: false };
-
-        var cellClass = 'day-laborable';
-        var badgeText = '8.0h';
-        var badgeClass = 'badge-dia-labor';
-        var onclickHandler = `toggleCumplidoDiaBoom('${fechaDia}')`;
-        var titleAttr = 'Toca para marcar o desmarcar tu jornada de 8.0 horas';
-
-        if (dInfo.tipo === 'domingo_libre') {
-            cellClass = 'day-domingo';
-            badgeText = 'Libre';
-            badgeClass = 'badge-dom-libre';
-            onclickHandler = '';
-            titleAttr = 'Domingo de descanso';
-        } else if (dInfo.tipo === 'sabado_libre') {
-            cellClass = 'day-sabado-libre';
-            badgeText = '🏖️ Libre';
-            badgeClass = 'badge-sab-libre';
-            onclickHandler = '';
-            titleAttr = 'Sábado libre de descanso (configurado en ajustes de la app)';
-        } else if (dInfo.tipo === 'sabado_trabajo') {
-            cellClass = 'day-sabado-trabajo';
-            badgeText = '8.0h';
-            badgeClass = 'badge-sab-trabajo';
-            onclickHandler = `toggleCumplidoDiaBoom('${fechaDia}')`;
-            titleAttr = 'Sábado de trabajo: toca para registrar tu jornada de 8.0 horas cumplida';
-        }
-
-        if (dInfo.cumplido) {
-            cellClass += ' day-cumplido';
-        }
-
-        html += `
-        <div class="boom-day-cell ${cellClass}" onclick="${onclickHandler}" title="${titleAttr}">
-            <div class="boom-day-header">
-                <span class="boom-day-number">${diaI}</span>
-                <span class="boom-day-badge ${badgeClass}">${badgeText}</span>
-            </div>
-            <div class="boom-day-footer">
-                <span>${dInfo.tipo === 'sabado_libre' ? 'Descanso' : (dInfo.tipo === 'domingo_libre' ? 'Descanso' : '8am-4:30pm')}</span>
-                ${(dInfo.tipo !== 'domingo_libre' && dInfo.tipo !== 'sabado_libre') ? `
-                    <span class="badge-cumplido-check">${dInfo.cumplido ? '✓' : '○'}</span>
-                ` : ''}
-            </div>
-        </div>`;
-    }
+    var hoyBoomDt = new Date();
+    var hoyBoomStr = hoyBoomDt.getFullYear() + '-' + String(hoyBoomDt.getMonth() + 1).padStart(2, '0') + '-' + String(hoyBoomDt.getDate()).padStart(2, '0');
+    var infoHoyBoom = (hoyBoomStr.slice(0, 7) === MES_BOOM_ACTUAL && planMes.dias) ? planMes.dias[hoyBoomStr] : null;
+    var puedeMarcarHoyBoom = !!(infoHoyBoom && infoHoyBoom.tipo !== 'domingo_libre' && infoHoyBoom.tipo !== 'sabado_libre');
 
     html += `
+    <div class="boom-unified-cal-bridge">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+            <div style="min-width: 220px; max-width: 100%; flex: 1 1 240px;">
+                <h3 style="font-size: 15px; font-weight: 800; color: #f8fafc; margin: 0 0 4px 0;">📅 Jornadas & Sábados en Calendario Unificado</h3>
+                <p style="font-size: 12px; color: #94a3b8; margin: 0; line-height: 1.45;">
+                    Para mantener todos tus horarios en un solo lugar, tu calendario de Boom (<strong>${totalDiasCumplidos}/${totalDiasLaborales}</strong> jornadas cumplidas, <strong>${totalSabadosLibres}</strong> sábados libres) ahora vive dentro de <strong>Mi Calendario</strong>.
+                </p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; max-width: 100%;">
+                ${puedeMarcarHoyBoom ? `
+                <button type="button" class="btn-system" onclick="toggleCumplidoDiaBoom('${hoyBoomStr}')" style="margin: 0; padding: 8px 14px; font-size: 12px; background: ${infoHoyBoom.cumplido ? 'rgba(16, 185, 129, 0.2)' : 'linear-gradient(135deg, #4f46e5, #6366f1)'}; color: ${infoHoyBoom.cumplido ? '#34d399' : '#ffffff'}; border: 1px solid ${infoHoyBoom.cumplido ? 'rgba(16, 185, 129, 0.4)' : 'rgba(129, 140, 248, 0.5)'};">
+                    ${infoHoyBoom.cumplido ? '✓ Hoy Cumplida 8.0h (Revertir)' : '✓ Marcar Hoy 8.0h'}
+                </button>` : ''}
+                <button type="button" class="btn-sync-action btn-sync-light" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario('${MES_BOOM_ACTUAL}-01', 'mes', 'labores')" style="font-size: 12px; padding: 8px 14px; white-space: normal; text-align: center;">
+                    📅 Ver / Marcar Días en Mi Calendario →
+                </button>
+            </div>
         </div>
     </div>
     `;
@@ -1130,9 +1073,62 @@ function renderizarSubAppBoom() {
     cont.innerHTML = html;
 }
 
-function toggleCumplidoDiaBoom(fechaStr) {
+function asegurarBaseBoomParaCalendario() {
+    if (!window.APP_STATE) window.APP_STATE = {};
+    if (!APP_STATE.subappBoom) {
+        APP_STATE.subappBoom = {
+            config: {
+                bonoDia3: 40,
+                sueldoQuincena1: 205,
+                sueldoQuincena2: 205,
+                horasJornadaNormal: 8.0,
+                horasJornadaSabado: 8.0
+            },
+            planificaciones: {}
+        };
+    }
+    if (!APP_STATE.subappBoom.config) {
+        APP_STATE.subappBoom.config = {
+            bonoDia3: 40,
+            sueldoQuincena1: 205,
+            sueldoQuincena2: 205,
+            horasJornadaNormal: 8.0,
+            horasJornadaSabado: 8.0
+        };
+    }
+    if (!APP_STATE.subappBoom.planificaciones) APP_STATE.subappBoom.planificaciones = {};
+}
+
+function obtenerEstadoMesBoomParaCalendario(mesClave) {
+    asegurarBaseBoomParaCalendario();
+    generarPlanificacionMesBoomSiNoExiste(mesClave);
+    return {
+        planMes: APP_STATE.subappBoom.planificaciones[mesClave],
+        config: APP_STATE.subappBoom.config
+    };
+}
+
+function abrirConfigSabadosBoomDesdeCalendario(mesClave) {
+    if (mesClave && /^\d{4}-\d{2}$/.test(mesClave)) {
+        MES_BOOM_ACTUAL = mesClave;
+    }
     asegurarEstructuraBoom();
-    var planMes = APP_STATE.subappBoom.planificaciones[MES_BOOM_ACTUAL];
+    abrirModalConfigBoom();
+}
+
+function abrirCobroBoomDesdeCalendario(mesClave, tipoPago) {
+    if (mesClave && /^\d{4}-\d{2}$/.test(mesClave)) {
+        MES_BOOM_ACTUAL = mesClave;
+    }
+    asegurarEstructuraBoom();
+    abrirModalCobroBoom(tipoPago);
+}
+
+function toggleCumplidoDiaBoomDesdeCalendario(fechaStr) {
+    if (!fechaStr || fechaStr.length < 7) return;
+    var mesClave = fechaStr.slice(0, 7);
+    var estadoMes = obtenerEstadoMesBoomParaCalendario(mesClave);
+    var planMes = estadoMes.planMes;
     if (!planMes || !planMes.dias || !planMes.dias[fechaStr]) return;
 
     var actual = planMes.dias[fechaStr];
@@ -1170,8 +1166,13 @@ function toggleCumplidoDiaBoom(fechaStr) {
     }
 
     MonarcaDB.save(APP_STATE);
-    renderizarSubAppBoom();
+    if (document.getElementById('subapp-boom-content')) renderizarSubAppBoom();
     if (typeof renderizarLabores === 'function') renderizarLabores();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
+}
+
+function toggleCumplidoDiaBoom(fechaStr) {
+    toggleCumplidoDiaBoomDesdeCalendario(fechaStr);
 }
 
 function abrirModalCobroBoom(tipoPago) {
@@ -1468,6 +1469,7 @@ function guardarConfigBoom() {
     cerrarModalConfigBoom();
     renderizarSubAppBoom();
     if (typeof renderizarLabores === 'function') renderizarLabores();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
     alert("🚀 Sueldos y sábados libres de Boom Solutions guardados exitosamente.");
 }
 
@@ -2303,7 +2305,7 @@ function eliminarOpcionRuleta(categoria, id) {
 // ==========================================================================
 
 var MES_BARBERIA_ACTUAL = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-var TAB_BARBERIA_ACTIVA = 'calendario'; // 'calendario' | 'clientes' | 'historial' | 'tipos-corte'
+var TAB_BARBERIA_ACTIVA = 'clientes'; // 'clientes' | 'tipos-corte' | 'historial'
 var INTERVALO_TIMER_BARBERIA = null;
 var CORTE_TEMPORAL_FINALIZANDO = null;
 var BUSQUEDA_CLIENTE_BARBERIA = '';
@@ -2562,11 +2564,15 @@ function renderizarSubAppBarberia() {
     </div>
 
     <!-- TABS DE NAVEGACIÓN INTERNA -->
-    <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 18px; gap: 4px; overflow-x: auto;">
-        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'calendario' ? 'active' : ''}" onclick="setTabBarberia('calendario')">
-            <span>📅</span> Calendario de Jornadas
+    <div class="subapp-cal-bridge-banner">
+        <span>📅 Tus jornadas y citas de Barbería se muestran unificadas en <strong>Mi Calendario</strong>.</span>
+        <button type="button" class="btn-sync-action btn-sync-light" style="font-size: 11.5px; padding: 6px 12px; flex-shrink: 0;" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario('${MES_BARBERIA_ACTUAL}-01', 'mes', 'labores')">
+            📅 Ver Jornadas en Calendario →
         </button>
-        <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'clientes' ? 'active' : ''}" onclick="setTabBarberia('clientes')">
+    </div>
+
+    <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 18px; gap: 4px; overflow-x: auto;">
+        <button type="button" class="barber-subtab-btn ${(TAB_BARBERIA_ACTIVA !== 'tipos-corte' && TAB_BARBERIA_ACTIVA !== 'historial') ? 'active' : ''}" onclick="setTabBarberia('clientes')">
             <span>👥</span> Catálogo de Clientes (${clientes.length})
         </button>
         <button type="button" class="barber-subtab-btn ${TAB_BARBERIA_ACTIVA === 'tipos-corte' ? 'active' : ''}" onclick="setTabBarberia('tipos-corte')">
@@ -2580,8 +2586,9 @@ function renderizarSubAppBarberia() {
 
     // 3. RENDERIZADO DEL CONTENIDO DE LA TAB ACTIVA
     if (TAB_BARBERIA_ACTIVA === 'calendario') {
-        html += renderizarHtmlCalendarioBarberia(MES_BARBERIA_ACTUAL, cortes);
-    } else if (TAB_BARBERIA_ACTIVA === 'clientes') {
+        TAB_BARBERIA_ACTIVA = 'clientes';
+    }
+    if (TAB_BARBERIA_ACTIVA === 'clientes') {
         html += renderizarHtmlCatalogoClientesBarberia(clientes, cortes);
     } else if (TAB_BARBERIA_ACTIVA === 'tipos-corte') {
         html += renderizarHtmlCatalogoTiposCorteBarberia(tiposCorte, cortes);
@@ -3147,6 +3154,7 @@ function guardarCorteFinalizado() {
     MonarcaDB.save(APP_STATE);
     cerrarModalFinalizarCorte();
     renderizarSubAppBarberia();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
 
     alert("💈 ¡Corte registrado con éxito!\n- Duración: " + duracionMinutos + " min (" + horasCorte + " hrs sumadas a la labor)\n- Cobro: $" + cobro.toFixed(2) + "\n- Cliente: " + clienteNom);
 }
@@ -3158,6 +3166,7 @@ function eliminarCorteBarberia(corteId) {
     APP_STATE.subappBarberia.cortes = APP_STATE.subappBarberia.cortes.filter(function(c) { return c.id !== corteId; });
     MonarcaDB.save(APP_STATE);
     renderizarSubAppBarberia();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
 }
 
 // --------------------------------------------------------------------------
@@ -3697,7 +3706,7 @@ function filtrarTiposCorteBarberia(query) {
    SUB-APP OFICIAL: PERSONAL TRAINER (COACHING FÍSICO, ALUMNOS & ENTRENAMIENTOS)
    ========================================================================== */
 
-var TAB_TRAINER_ACTIVA = 'calendario'; // 'calendario' | 'alumnos' | 'enfoques' | 'aleatoria' | 'historial'
+var TAB_TRAINER_ACTIVA = 'alumnos'; // 'alumnos' | 'enfoques' | 'aleatoria' | 'historial'
 var SUBVISTA_TRAINER_ALEATORIA = 'generador'; // 'generador' | 'settings'
 var ALUMNO_RUTINA_TRAINER_SELECCIONADO = '';
 var PERFIL_TRAINER_ALEATORIA_ACTIVO = 'hombre'; // 'hombre' | 'mujer'
@@ -3994,13 +4003,17 @@ function renderizarSubAppTrainer() {
     </div>
     `;
 
-    // 3. BARRA DE SUB-TABS (CALENDARIO / ALUMNOS / ENFOQUES / ALEATORIA / HISTORIAL)
+    // 3. BARRA DE SUB-TABS (ALUMNOS / ENFOQUES / ALEATORIA / HISTORIAL) + PUENTE A CALENDARIO
     html += `
-    <div style="display: flex; gap: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow-x: auto;">
-        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'calendario' ? 'active' : ''}" onclick="setTabTrainer('calendario')">
-            <span>📅</span> Calendario Mensual
+    <div class="subapp-cal-bridge-banner">
+        <span>📅 Tus sesiones y programación horaria de Trainer ahora viven en <strong>Mi Calendario</strong>.</span>
+        <button type="button" class="btn-sync-action btn-sync-light" style="font-size: 11.5px; padding: 6px 12px; flex-shrink: 0;" onclick="if(typeof irAFechaEnCalendario==='function') irAFechaEnCalendario('${MES_TRAINER_ACTUAL}-01', 'mes', 'labores')">
+            📅 Ver Sesiones en Calendario →
         </button>
-        <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'alumnos' ? 'active' : ''}" onclick="setTabTrainer('alumnos')">
+    </div>
+
+    <div style="display: flex; gap: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 20px; overflow-x: auto;">
+        <button type="button" class="trainer-subtab-btn ${(TAB_TRAINER_ACTIVA !== 'enfoques' && TAB_TRAINER_ACTIVA !== 'aleatoria' && TAB_TRAINER_ACTIVA !== 'historial') ? 'active' : ''}" onclick="setTabTrainer('alumnos')">
             <span>👥</span> Catálogo de Alumnos (${alumnos.length})
         </button>
         <button type="button" class="trainer-subtab-btn ${TAB_TRAINER_ACTIVA === 'enfoques' ? 'active' : ''}" onclick="setTabTrainer('enfoques')">
@@ -4017,8 +4030,9 @@ function renderizarSubAppTrainer() {
 
     // 4. CONTENIDO DEL TAB SELECCIONADO
     if (TAB_TRAINER_ACTIVA === 'calendario') {
-        html += renderizarHtmlCalendarioTrainer(anio, mes, sesiones);
-    } else if (TAB_TRAINER_ACTIVA === 'alumnos') {
+        TAB_TRAINER_ACTIVA = 'alumnos';
+    }
+    if (TAB_TRAINER_ACTIVA === 'alumnos') {
         html += renderizarHtmlCatalogoAlumnosTrainer(alumnos, sesiones);
     } else if (TAB_TRAINER_ACTIVA === 'enfoques') {
         html += renderizarHtmlCatalogoEnfoquesTrainer(rutinas);
@@ -5439,6 +5453,7 @@ function guardarEntrenamientoFinalizado() {
     MonarcaDB.save(APP_STATE);
     cerrarModalFinalizarEntrenamiento();
     renderizarSubAppTrainer();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
     alert("🏋️‍♂️ ¡Entrenamiento guardado con éxito! Se sumaron " + duracionMinutos + " min a tu jornada de Personal Trainer.");
 }
 
@@ -5449,6 +5464,7 @@ function eliminarEntrenamientoTrainer(entrenamientoId) {
     APP_STATE.subappTrainer.sesiones = APP_STATE.subappTrainer.sesiones.filter(function(s) { return s.id !== entrenamientoId; });
     MonarcaDB.save(APP_STATE);
     renderizarSubAppTrainer();
+    if (typeof renderizarCalendario === 'function') renderizarCalendario();
 }
 
 function abrirModalAlumnoTrainer(alumnoId) {

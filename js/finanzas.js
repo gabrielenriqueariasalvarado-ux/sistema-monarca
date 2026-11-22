@@ -3825,7 +3825,11 @@ function renderizarCalendarioFinanzas() {
               '<span class="fin-cal-kpi-sub">Sin pagos este mes</span>' +
           '</div>';
 
-    var html = '<div class="fin-cal-summary-grid">' +
+    var html = '<div class="fin-cal-unified-banner">' +
+        '<span>📅 Tus movimientos de Finanzas también aparecen sincronizados en tu <strong>Calendario Principal</strong>.</span>' +
+        '<button type="button" class="btn-sync-action btn-sync-light" style="font-size: 11.5px; padding: 6px 12px; flex-shrink: 0;" onclick="if(typeof irAFechaEnCalendario===\'function\') irAFechaEnCalendario(\'' + selISO + '\', \'mes\', \'finanzas\')">Abrir en Calendario Unificado →</button>' +
+    '</div>' +
+    '<div class="fin-cal-summary-grid">' +
         '<div class="fin-cal-kpi-card" style="border-top: 2px solid #34d399;">' +
             '<span class="fin-cal-kpi-label">💰 Cobros de ' + escaparHTML(nombreMesCap.split(' ')[0]) + '</span>' +
             '<span class="fin-cal-kpi-val" style="color: #34d399;">+$' + data.totalCobrosMes.toFixed(2) + '</span>' +

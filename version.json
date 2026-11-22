@@ -1,5 +1,5 @@
 {
-  "version": "10.97",
+  "version": "10.98",
   "fecha": "2026-11-22",
-  "resumen": "Sincronización en tiempo real sin zombis ni descartes por reloj entre Laptop/APK, puente directo Wi-Fi LAN (UDP/HTTP nativo Android) + ahorro >90% de cuota Firebase y instancia única en Auto-PC."
+  "resumen": "Unificación total de Labores (Boom Solutions, Barbería, Trainer), Quests Diarios Programadas, Personas y Finanzas dentro de la app central de Calendario con filtros por capa, eliminación de cuadrículas duplicadas y fix de desbordamiento móvil."
 }

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=10.97">
+    <link rel="stylesheet" href="style.css?v=10.98">
 </head>
 <body>
 
@@ -4464,6 +4464,15 @@
                         <label>Vincular Persona (Opcional · desde Personas):</label>
                         <select id="cal-rec-persona" class="modal-input"></select>
                     </div>
+                    <div class="modal-form-group">
+                        <label>Categoría / Labor (Opcional):</label>
+                        <select id="cal-rec-labor" class="modal-input">
+                            <option value="">📌 Personal / General</option>
+                            <option value="LAB-BOOM">🚀 Boom Solutions</option>
+                            <option value="LAB-BARBER">💈 Barbería</option>
+                            <option value="LAB-TRAINER">🏋️ Personal Trainer</option>
+                        </select>
+                    </div>
                     <div class="modal-form-group" style="margin-bottom: 0;">
                         <label>Descripción / Nota:</label>
                         <textarea id="cal-rec-desc" class="modal-input" rows="3" placeholder="Detalles importantes que aparecerán al sonar la alerta..."></textarea>
@@ -4525,6 +4534,16 @@
                                 <option value="#ef4444">🔥 Carmesí</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div class="modal-form-group">
+                        <label>Categoría / Labor (Opcional):</label>
+                        <select id="cal-ev-labor" class="modal-input">
+                            <option value="">📆 Evento Personal / General</option>
+                            <option value="LAB-BOOM">🚀 Boom Solutions</option>
+                            <option value="LAB-BARBER">💈 Cita / Trabajo Barbería</option>
+                            <option value="LAB-TRAINER">🏋️ Sesión Personal Trainer</option>
+                        </select>
                     </div>
 
                     <div id="cal-ev-conflicto-alerta" style="display: none; margin-bottom: 12px;"></div>
@@ -6820,26 +6839,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=10.97"></script>
-    <script src="js/perfil.js?v=10.97"></script>
-    <script src="js/progresion.js?v=10.97"></script>
-    <script src="js/estado-personal.js?v=10.97"></script>
-    <script src="js/finanzas.js?v=10.97"></script>
-    <script src="js/ideas.js?v=10.97"></script>
-    <script src="js/dinamicas.js?v=10.97"></script>
-    <script src="js/calendario.js?v=10.97"></script>
-    <script src="js/inventario.js?v=10.97"></script>
-    <script src="js/reproductor.js?v=10.97"></script>
-    <script src="js/jarvis-voz.js?v=10.97"></script>
+    <script src="js/core.js?v=10.98"></script>
+    <script src="js/perfil.js?v=10.98"></script>
+    <script src="js/progresion.js?v=10.98"></script>
+    <script src="js/estado-personal.js?v=10.98"></script>
+    <script src="js/finanzas.js?v=10.98"></script>
+    <script src="js/ideas.js?v=10.98"></script>
+    <script src="js/dinamicas.js?v=10.98"></script>
+    <script src="js/calendario.js?v=10.98"></script>
+    <script src="js/inventario.js?v=10.98"></script>
+    <script src="js/reproductor.js?v=10.98"></script>
+    <script src="js/jarvis-voz.js?v=10.98"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=10.97"></script>
+    <script type="module" src="js/firebase-config.js?v=10.98"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=10.97')
+                navigator.serviceWorker.register('sw.js?v=10.98')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
