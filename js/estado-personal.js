@@ -6534,6 +6534,19 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         </div>`;
     }
 
+    if (validos.length > 0) {
+        html += `
+        <div class="routine-series-toolbar">
+            <div class="routine-series-toolbar-copy">
+                <span class="routine-series-toolbar-title">Ejercicios de la sesión (${validos.length})</span>
+                <span class="routine-series-toolbar-hint">Toca la flecha de cada ejercicio para desplegar o contraer sus series</span>
+            </div>
+            <button type="button" class="btn-toggle-all-series" id="btn-toggle-todas-series-rutina" onclick="toggleTodasSeriesEjercicios()">
+                ▾ Desplegar todas
+            </button>
+        </div>`;
+    }
+
     var visualIndex = 1;
     ejercicios.forEach(function(ej, ejIdx) {
         var esM = !!ej.esMental;
@@ -6605,19 +6618,23 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             ? ('⏱️ ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ') isométrico') 
             : (ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps'));
 
+        var progressChipHtml = '<span class="exercise-meta-chip exercise-meta-chip--progress" id="prog-chip-ej-' + ejIdx + '">0/' + numSeries + (esM ? ' sesión' : (numSeries === 1 ? ' hecha' : ' series')) + '</span>';
+
         var headerChips = '';
         if (esM) {
-            headerChips = '<span class="exercise-meta-chip">🧠 Enfoque</span><span>1 sesión × ' + repsStr + '</span>';
+            headerChips = progressChipHtml + '<span class="exercise-meta-chip">🧠 Enfoque</span><span>1 sesión × ' + repsStr + '</span>';
         } else if (esSerieCero) {
             var recReps = ej.recordSerieCero || repsProm || 0;
             var ultReps = ej.ultimaSerieCeroReps || repsProm || 0;
             headerChips =
+                progressChipHtml +
                 '<span class="exercise-meta-chip exercise-meta-chip--cero">Serie 0 · Modo Récord</span>' +
                 '<span class="exercise-meta-chip exercise-meta-chip--record">🏆 Récord: ' + recReps + ' reps</span>' +
                 '<span>' + (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + ultReps + ' reps</span>';
         } else {
             var impTxt = impObj ? (impObj.icon + ' ' + impObj.label) : '';
             headerChips =
+                progressChipHtml +
                 '<span class="exercise-meta-chip">' + numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + (esTiempoEj ? (tiempoBase + 's') : repsStr) + '</span>' +
                 (pesoVal ? '<span class="exercise-meta-chip">⚖️ ' + pesoVal + ' ' + uPeso + '</span>' : '') +
                 (impTxt ? '<span>' + impTxt + '</span>' : '') +
@@ -6625,9 +6642,9 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         }
 
         html += `
-        <div class="routine-exercise-session-card${esM ? ' is-mental' : (esSerieCero ? ' is-serie-cero' : '')}" id="card-ej-${ejIdx}">
+        <div class="routine-exercise-session-card is-collapsed${esM ? ' is-mental' : (esSerieCero ? ' is-serie-cero' : '')}" id="card-ej-${ejIdx}" data-ej-idx="${ejIdx}">
             <div class="exercise-session-header">
-                <div style="display: flex; align-items: flex-start; gap: 10px; min-width: 0; flex: 1;">
+                <div class="exercise-session-header-main" onclick="toggleSeriesEjercicio(${ejIdx}, event)" title="Toca para ver u ocultar las series">
                     <span class="exercise-session-number${esSerieCero ? ' is-cero' : ''}">${esSerieCero ? '0' : (visualIndex++)}</span>
                     <div style="min-width: 0; flex: 1;">
                         <div class="exercise-session-title">
@@ -6638,11 +6655,20 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                         </div>
                     </div>
                 </div>
-                <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones técnicas">
-                    Detalle
-                </button>
+                <div class="exercise-header-actions">
+                    <button type="button" class="btn-clean-detail" onclick="alVerDetalleEjercicio(event, '${ejJson}')" title="Ver especificaciones técnicas">
+                        Detalle
+                    </button>
+                    <button type="button" class="btn-toggle-series-ej" id="btn-toggle-series-ej-${ejIdx}" aria-expanded="false" aria-controls="series-wrap-ej-${ejIdx}" onclick="toggleSeriesEjercicio(${ejIdx}, event)" title="Desplegar o retraer series">
+                        <svg class="chevron-series-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <div class="exercise-series-list">`;
+            <div class="exercise-series-collapse-wrap" id="series-wrap-ej-${ejIdx}">
+                <div class="exercise-series-collapse-inner" id="series-inner-ej-${ejIdx}" inert>
+                    <div class="exercise-series-list" id="series-list-ej-${ejIdx}">`;
 
         for (var s = 1; s <= numSeries; s++) {
             var esFallo = (!esM && ej.alFallo && s === numSeries && !esSerieCero);
@@ -6818,11 +6844,86 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         }
 
         html += `
+                    </div>
+                </div>
             </div>
         </div>`;
     });
 
     return html;
+}
+
+function setSeriesCardExpandedState(ejIdx, expanded) {
+    var card = document.getElementById('card-ej-' + ejIdx);
+    var btn = document.getElementById('btn-toggle-series-ej-' + ejIdx);
+    var inner = document.getElementById('series-inner-ej-' + ejIdx);
+    if (!card || card.classList.contains('routine-exercise-deleted-card')) return;
+
+    if (expanded) {
+        card.classList.remove('is-collapsed');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        if (inner) inner.removeAttribute('inert');
+    } else {
+        card.classList.add('is-collapsed');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        if (inner) inner.setAttribute('inert', '');
+    }
+}
+
+function actualizarBotonToggleTodasSeriesRutina() {
+    var btnAll = document.getElementById('btn-toggle-todas-series-rutina');
+    if (!btnAll) return;
+    var cards = document.querySelectorAll('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]');
+    if (!cards.length) return;
+    var collapsedCount = 0;
+    cards.forEach(function(c) {
+        if (c.classList.contains('is-collapsed')) collapsedCount++;
+    });
+    if (collapsedCount > 0) {
+        btnAll.innerHTML = '▾ Desplegar todas';
+    } else {
+        btnAll.innerHTML = '▴ Contraer todas';
+    }
+}
+
+function toggleSeriesEjercicio(ejIdx, e) {
+    if (e) {
+        e.stopPropagation();
+        if (e.preventDefault) e.preventDefault();
+    }
+    var card = document.getElementById('card-ej-' + ejIdx);
+    if (!card || card.classList.contains('routine-exercise-deleted-card')) return;
+
+    var expandir = card.classList.contains('is-collapsed');
+    setSeriesCardExpandedState(ejIdx, expandir);
+    actualizarBotonToggleTodasSeriesRutina();
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') {
+        guardarEstadoSesionActivaEnStorage();
+    }
+}
+
+function toggleTodasSeriesEjercicios() {
+    var cards = document.querySelectorAll('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]');
+    if (!cards.length) return;
+    var hayColapsada = false;
+    cards.forEach(function(c) {
+        if (c.classList.contains('is-collapsed')) hayColapsada = true;
+    });
+    cards.forEach(function(c) {
+        var idx = parseInt(c.getAttribute('data-ej-idx'), 10);
+        if (!isNaN(idx)) {
+            setSeriesCardExpandedState(idx, hayColapsada);
+        }
+    });
+    actualizarBotonToggleTodasSeriesRutina();
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') {
+        guardarEstadoSesionActivaEnStorage();
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.toggleSeriesEjercicio = toggleSeriesEjercicio;
+    window.toggleTodasSeriesEjercicios = toggleTodasSeriesEjercicios;
 }
 
 // ==========================================================================
@@ -6837,9 +6938,14 @@ function guardarEstadoSesionActivaEnStorage() {
         var rutina = RUTINA_ACTIVA.rutina;
         var rId = rutina.id || rutina.codigo || String(RUTINA_ACTIVA.idx);
         var seriesData = [];
+        var expandedEjIndices = [];
 
         if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
             rutina.ejercicios.forEach(function(ej, ejIdx) {
+                var cardEl = document.getElementById('card-ej-' + ejIdx);
+                if (cardEl && !cardEl.classList.contains('is-collapsed') && !cardEl.classList.contains('routine-exercise-deleted-card')) {
+                    expandedEjIndices.push(ejIdx);
+                }
                 var esM = !!ej.esMental;
                 var esSerieCero = (ej.series === 0 || ej.esSerieCero);
                 var numSeries = esM ? 1 : (esSerieCero ? 1 : Math.max(1, parseInt(ej.series) || 3));
@@ -6877,6 +6983,7 @@ function guardarEstadoSesionActivaEnStorage() {
             rutinaIdx: RUTINA_ACTIVA.idx,
             timestampGuardado: Date.now(),
             seriesData: seriesData,
+            expandedEjIndices: expandedEjIndices,
             historialFactores: HISTORIAL_FACTOR_SERIES || {},
             descanso: descansoData
         };
@@ -6948,6 +7055,13 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
                     }
                 }
             });
+        }
+
+        if (Array.isArray(sesion.expandedEjIndices)) {
+            sesion.expandedEjIndices.forEach(function(ejIdx) {
+                setSeriesCardExpandedState(ejIdx, true);
+            });
+            actualizarBotonToggleTodasSeriesRutina();
         }
 
         // Restaurar descanso si aún tiene tiempo corriendo
@@ -7358,6 +7472,25 @@ function actualizarProgresoRutinaDinamica() {
             btnReg.classList.remove('btn-ready-pulse');
         }
     }
+
+    var cards = document.querySelectorAll('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]');
+    cards.forEach(function(card) {
+        var idx = card.getAttribute('data-ej-idx');
+        var ejChecks = card.querySelectorAll('.check-rutina-din');
+        var ejTotal = ejChecks.length;
+        var ejDone = 0;
+        ejChecks.forEach(function(c) { if (c.checked) ejDone++; });
+        var allDone = ejTotal > 0 && ejDone === ejTotal;
+        card.classList.toggle('is-all-done', allDone);
+        var chip = document.getElementById('prog-chip-ej-' + idx);
+        if (chip) {
+            chip.classList.toggle('is-done', allDone);
+            var suf = card.classList.contains('is-mental')
+                ? ' sesión'
+                : (ejTotal === 1 ? (allDone ? ' hecha' : ' serie') : (allDone ? ' listas' : ' series'));
+            chip.textContent = (allDone ? '✓ ' : '') + ejDone + '/' + ejTotal + suf;
+        }
+    });
 }
 
 function actualizarProgresoRutina(checkClass, barraId, textoId, btnId) {

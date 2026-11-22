@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.87)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.88)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.87
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.88
             Esta versión nativa incluye:
+            - 🏋️ **Series Desplegables con Flechita por Ejercicio (v10.88)**:
+              - Cada tarjeta de ejercicio en la sesión de entrenamiento incorpora una flecha desplegable (`▾` / `▸`) y botón global **Desplegar todas / Contraer todas** para retraer o expandir a detalle sus series.
+              - Chip en vivo de progreso por ejercicio (`0/3 series`, `✓ 1/1 hecha`), compatibilidad intacta con `Detalle` y persistencia automática en la sesión activa.
             - 🔔 **Cero Reaparición de Notificaciones Ya Hechas o Confirmadas (v10.87)**:
               - Corregida la pérdida de historial descartado (`notificacionesAutoPC`) durante la fusión inteligente en Firestore al sincronizar entre computadora y teléfono.
               - Confirmar con **`✓ Okey`** / **`✓ Okey a todas`**, o marcar/eliminar una idea como **Hecha**, sella permanentemente la solicitud tanto localmente como en la nube (`notifConfirmada`) para que nunca se vuelva a acumular ni a recargar.

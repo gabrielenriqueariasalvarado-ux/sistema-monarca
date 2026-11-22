@@ -1,5 +1,5 @@
 {
-  "version": "10.87",
+  "version": "10.88",
   "fecha": "2026-11-22",
-  "resumen": "Eliminación definitiva de reaparición de notificaciones ya confirmadas o hechas en Auto-PC, Ideas, Quests y Centro de Alertas al sincronizar PC y móvil."
+  "resumen": "Flechita desplegable por ejercicio en sesiones de rutina para retraer y expandir el detalle de series con estado de progreso y persistencia en sesión."
 }
