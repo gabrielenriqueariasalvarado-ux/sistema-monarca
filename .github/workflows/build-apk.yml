@@ -71,10 +71,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.78)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.79)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.78
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.79
             Esta versión nativa incluye:
+            - 🤖 **Monitoreo en vivo de Auto-PC dentro de Perfil (v10.79)**:
+              - Nuevo recuadro de estado en **Perfil** que muestra en tiempo real si **Auto-PC** está trabajando en tu proyecto, el latido de la PC, la solicitud en curso con cronómetro, conteos de cola (`En curso`, `En cola`, `Listas`) y alertas si está en pausa, sin ventana de Antigravity o posiblemente trabado.
             - 🎧 **Auto-actualización automática en el Reproductor MP3 (v10.78)**:
               - Eliminado el botón manual de actualizar/escanear lista en la biblioteca del reproductor.
               - Cada vez que entras en el reproductor MP3 (o regresas a él desde SnapTube/descargas), escanea e indexa automáticamente tus canciones nuevas al instante sin interrumpir la canción actual.

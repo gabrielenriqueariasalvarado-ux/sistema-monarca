@@ -83,6 +83,7 @@ var ESTADO_IDEAS = {
 };
 
 var AUTOPC_SOLICITUDES_MAP = {};
+var AUTOPC_TELEMETRIA_PC = null;
 
 function esCategoriaEmily(cat) {
     return Boolean(cat && String(cat).toLowerCase().includes('emily'));
@@ -1529,10 +1530,16 @@ function verSolicitudAutoPCEnOperatividad() {
 function procesarSnapshotAutoPCIdeas(lista) {
     var nuevoMapa = {};
     var docsDone = [];
+    var nuevaTelemetria = null;
     if (Array.isArray(lista)) {
         lista.forEach(function(item) {
             if (!item) return;
             var key = String(item.ideaId || item.id || '').trim();
+            var docType = String(item.docType || '').toLowerCase();
+            if (docType === 'telemetry' || key === '_estado_pc' || key.indexOf('_') === 0) {
+                nuevaTelemetria = Object.assign({}, item);
+                return;
+            }
             if (key) {
                 nuevoMapa[key] = item;
             }
@@ -1542,6 +1549,9 @@ function procesarSnapshotAutoPCIdeas(lista) {
         });
     }
     AUTOPC_SOLICITUDES_MAP = nuevoMapa;
+    if (nuevaTelemetria) {
+        AUTOPC_TELEMETRIA_PC = nuevaTelemetria;
+    }
 
     if (!APP_STATE) {
         return { completadasAhora: 0, huboCambioEstado: false, nuevasNotificaciones: 0 };
@@ -1627,10 +1637,297 @@ function procesarSnapshotAutoPCIdeas(lista) {
     }
 
     reRenderSiVistaIdeasActiva();
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
     return {
         completadasAhora: completadasAhora,
         huboCambioEstado: huboCambioEstado,
         nuevasNotificaciones: nuevasNotificaciones
+    };
+}
+
+function formatearDuracionCortaAutoPC(ms) {
+    var seg = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    if (seg < 60) return seg + 's';
+    var min = Math.floor(seg / 60);
+    var remS = seg % 60;
+    if (min < 60) return min + 'm' + (remS > 0 ? (' ' + remS + 's') : '');
+    var hrs = Math.floor(min / 60);
+    return hrs + 'h ' + (min % 60) + 'm';
+}
+
+function obtenerEstadoTelemetryAutoPC() {
+    return AUTOPC_TELEMETRIA_PC ? Object.assign({}, AUTOPC_TELEMETRIA_PC) : null;
+}
+
+function obtenerResumenMonitoreoAutoPC() {
+    var now = Date.now();
+    var tel = AUTOPC_TELEMETRIA_PC || null;
+    var porId = {};
+    var ideas = (typeof APP_STATE !== 'undefined' && APP_STATE && Array.isArray(APP_STATE.ideas))
+        ? APP_STATE.ideas
+        : [];
+
+    ideas.forEach(function(idea) {
+        if (!idea || !idea.id) return;
+        porId[String(idea.id)] = idea;
+    });
+
+    var runningItems = [];
+    var pendingItems = [];
+    var doneItems = [];
+    var vistos = {};
+    var offlinePending = 0;
+
+    Object.keys(AUTOPC_SOLICITUDES_MAP || {}).forEach(function(key) {
+        var docRemoto = AUTOPC_SOLICITUDES_MAP[key];
+        if (!docRemoto) return;
+        var st = String(docRemoto.status || 'pending').toLowerCase();
+        var ideaLocal = porId[key] || null;
+        var texto = String(docRemoto.text || (ideaLocal && (ideaLocal.textoPrompt || ideaLocal.texto)) || '').trim() || 'Solicitud Auto-PC';
+        var tsUpdated = Number(docRemoto.updatedAt || docRemoto.createdAt) || 0;
+        var tsCreated = Number(docRemoto.createdAt || docRemoto.updatedAt) || tsUpdated;
+        var itemObj = {
+            id: key,
+            texto: texto,
+            status: st,
+            updatedAt: tsUpdated,
+            createdAt: tsCreated,
+            ageMs: tsUpdated > 0 ? Math.max(0, now - tsUpdated) : null
+        };
+        vistos[key] = true;
+        if (st === 'running') runningItems.push(itemObj);
+        else if (st === 'pending') pendingItems.push(itemObj);
+        else if (st === 'done') doneItems.push(itemObj);
+    });
+
+    ideas.forEach(function(idea) {
+        if (!idea || !idea.id) return;
+        var key = String(idea.id);
+        if (vistos[key]) return;
+        var stLocal = (!idea.hecha && (idea.autopcPendienteSubida || idea.autopcStatus))
+            ? (idea.autopcPendienteSubida ? 'offline' : String(idea.autopcStatus).toLowerCase())
+            : (idea.completadaPorAutoPC ? 'done' : null);
+        if (!stLocal) return;
+        var textoLocal = String(idea.textoPrompt || idea.texto || '').trim() || 'Solicitud Auto-PC';
+        var ts = Number(idea.timestampHecha || idea.timestamp) || 0;
+        var obj = {
+            id: key,
+            texto: textoLocal,
+            status: stLocal,
+            updatedAt: ts,
+            createdAt: Number(idea.timestamp) || ts,
+            ageMs: ts > 0 ? Math.max(0, now - ts) : null
+        };
+        if (stLocal === 'running') runningItems.push(obj);
+        else if (stLocal === 'pending' || stLocal === 'offline') {
+            if (stLocal === 'offline') offlinePending++;
+            pendingItems.push(obj);
+        } else if (stLocal === 'done') {
+            doneItems.push(obj);
+        }
+    });
+
+    runningItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    pendingItems.sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+    doneItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+
+    var heartbeatAt = (tel && Number(tel.heartbeatAt) > 0) ? Number(tel.heartbeatAt) : 0;
+    var heartbeatAgeMs = heartbeatAt > 0 ? Math.max(0, now - heartbeatAt) : null;
+    var proyecto = (tel && tel.projectTitle) ? String(tel.projectTitle).trim() : '';
+    var detailTel = (tel && tel.detail) ? String(tel.detail).trim() : '';
+    var busyTel = (tel && tel.busyReason) ? String(tel.busyReason).trim() : '';
+    var agVisible = (tel && typeof tel.antigravityVisible === 'boolean') ? tel.antigravityVisible : null;
+    var engState = (tel && tel.engineState) ? String(tel.engineState).toUpperCase() : '';
+    var phaseTel = (tel && tel.phase) ? String(tel.phase).toUpperCase() : '';
+
+    var countRunning = runningItems.length;
+    var countPending = pendingItems.length;
+    var countDone = doneItems.length;
+    if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= 45000) {
+        countRunning = Math.max(countRunning, Number(tel.runningCount) || 0);
+        countPending = Math.max(countPending, Number(tel.pendingCount) || 0);
+        countDone = Math.max(countDone, Number(tel.doneCount) || 0);
+    }
+
+    var primaryRunning = runningItems[0] || null;
+    if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && heartbeatAgeMs !== null && heartbeatAgeMs <= 60000) {
+        var phTs = Number(tel.phaseChangedAt || tel.heartbeatAt) || now;
+        primaryRunning = {
+            id: String(tel.activeSourceId || 'pc-active'),
+            texto: String(tel.activeText),
+            status: 'running',
+            updatedAt: phTs,
+            createdAt: phTs,
+            ageMs: Math.max(0, now - phTs)
+        };
+    }
+
+    var primaryCandidate = primaryRunning || pendingItems[0] || null;
+    var enCursoBaseTs = primaryRunning
+        ? (Number(primaryRunning.updatedAt || primaryRunning.createdAt) || 0)
+        : ((tel && Number(tel.phaseChangedAt)) ? Number(tel.phaseChangedAt) : 0);
+    var enCursoAgeMs = enCursoBaseTs > 0 ? Math.max(0, now - enCursoBaseTs) : 0;
+
+    var nivel = 'idle';
+    var badgeTexto = 'Sin actividad reciente';
+    var resumenTexto = 'No hay solicitudes en cola ni actividad pendiente en Auto-PC.';
+    var alertaStuck = '';
+
+    if (tel && engState === 'OFFLINE') {
+        nivel = countPending > 0 || countRunning > 0 ? 'warning' : 'offline';
+        badgeTexto = 'Auto-PC cerrado';
+        resumenTexto = (countPending > 0 || countRunning > 0)
+            ? ('Auto-PC se cerró con ' + (countPending + countRunning) + ' solicitud(es) pendiente(s).')
+            : 'Auto-PC se cerró correctamente en tu computadora.';
+        if (countPending > 0 || countRunning > 0) {
+            alertaStuck = 'El programa Auto-PC fue cerrado en la PC; ábrelo para continuar la cola.';
+        }
+    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= 35000) {
+        if (engState === 'ERROR') {
+            nivel = 'stalled';
+            badgeTexto = 'Error en Auto-PC';
+            resumenTexto = detailTel || 'El motor de Auto-PC reportó un error.';
+            alertaStuck = 'Revisa la ventana de Auto-PC en tu computadora para ver el detalle del error.';
+        } else if (engState === 'PAUSED') {
+            nivel = 'paused';
+            badgeTexto = 'En pausa';
+            resumenTexto = countPending > 0
+                ? ('Motor en pausa con ' + countPending + ' solicitud(es) en espera.')
+                : 'Auto-PC está conectado pero en pausa.';
+            if (countPending > 0) {
+                alertaStuck = 'Auto-PC está en pausa; reanúdalo para procesar la cola pendiente.';
+            }
+        } else if (engState === 'IDLE' || engState === 'STOPPED') {
+            if (countPending > 0 || countRunning > 0) {
+                nivel = 'warning';
+                badgeTexto = 'Detenido con cola';
+                resumenTexto = 'Auto-PC está detenido aunque quedan solicitudes por procesar.';
+                alertaStuck = 'Pulsa Iniciar en Auto-PC para retomar las solicitudes pendientes.';
+            } else {
+                nivel = 'idle';
+                badgeTexto = 'Listo en PC';
+                resumenTexto = detailTel || 'Auto-PC en espera; listo para iniciar al recibir nuevas ideas.';
+            }
+        } else if (engState === 'RUNNING') {
+            if (detailTel.indexOf('cubriendo la ventana') !== -1 || detailTel.indexOf('Caja de texto cubierta') !== -1) {
+                nivel = 'warning';
+                badgeTexto = 'Ventana cubierta';
+                resumenTexto = detailTel;
+                alertaStuck = 'La ventana de Auto-PC tapa el chat objetivo; usa Mini HUD o muévela a un lado.';
+            } else if (agVisible === false && (countRunning > 0 || countPending > 0)) {
+                nivel = 'warning';
+                badgeTexto = 'Sin Antigravity';
+                resumenTexto = detailTel || 'Auto-PC no detecta la ventana de Antigravity.';
+                alertaStuck = 'Abre o deja visible Antigravity con el proyecto en tu PC.';
+            } else if ((countRunning > 0 || phaseTel === 'WAITING_RESPONSE' || phaseTel === 'WAIT_CURRENT') && enCursoAgeMs > 600000) {
+                nivel = 'stalled';
+                badgeTexto = 'Posible traba (>10m)';
+                resumenTexto = detailTel || ('Lleva ' + formatearDuracionCortaAutoPC(enCursoAgeMs) + ' en la misma solicitud.');
+                alertaStuck = 'La solicitud supera 10 minutos activa; verifica si Antigravity terminó o se quedó esperando.';
+            } else if (countRunning > 0 || busyTel || phaseTel === 'WAITING_RESPONSE' || phaseTel === 'WAIT_CURRENT' || phaseTel === 'READY_TO_SEND') {
+                nivel = 'working';
+                badgeTexto = 'Trabajando en proyecto';
+                resumenTexto = detailTel || (busyTel ? ('Antigravity activo (' + busyTel + ')') : 'Ejecutando solicitud actual en Antigravity...');
+            } else {
+                nivel = 'idle';
+                badgeTexto = 'Activo y vigilando';
+                resumenTexto = detailTel || 'Vigilando botón Submit y escuchando nuevas ideas desde Emily.';
+            }
+        }
+    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs > 35000) {
+        if (countRunning > 0 || countPending > 0) {
+            nivel = 'stalled';
+            badgeTexto = 'Posible traba · Sin latido';
+            resumenTexto = 'Sin señal de Auto-PC desde hace ' + formatearDuracionCortaAutoPC(heartbeatAgeMs) + '.';
+            alertaStuck = 'No llega latido reciente desde tu PC; revisa si Auto-PC se congeló, la PC se suspendió o perdió internet.';
+        } else {
+            nivel = 'offline';
+            badgeTexto = 'Sin señal reciente';
+            resumenTexto = 'Última conexión de Auto-PC hace ' + formatearDuracionCortaAutoPC(heartbeatAgeMs) + '.';
+        }
+    } else {
+        if (countRunning > 0) {
+            if (enCursoAgeMs > 600000) {
+                nivel = 'stalled';
+                badgeTexto = 'Posible traba (>10m)';
+                resumenTexto = 'Lleva ' + formatearDuracionCortaAutoPC(enCursoAgeMs) + ' en estado Programando en PC.';
+                alertaStuck = 'Más de 10 minutos sin pasar a Lista; verifica Auto-PC en tu computadora.';
+            } else {
+                nivel = 'working';
+                badgeTexto = 'Programando en PC';
+                resumenTexto = 'Auto-PC tomó la solicitud y la está ejecutando en tu computadora.';
+            }
+        } else if (countPending > 0) {
+            var waitBase = Number(pendingItems[0].createdAt || pendingItems[0].updatedAt) || now;
+            var waitMs = Math.max(0, now - waitBase);
+            if (offlinePending > 0 && offlinePending === countPending) {
+                nivel = 'warning';
+                badgeTexto = 'Pendiente de subir';
+                resumenTexto = 'Guardado localmente; se enviará en cuanto regrese la conexión a la nube.';
+            } else if (waitMs > 180000) {
+                nivel = 'warning';
+                badgeTexto = 'Pendiente sin tomar';
+                resumenTexto = 'En cola hace ' + formatearDuracionCortaAutoPC(waitMs) + ' sin latido de Auto-PC.';
+                alertaStuck = 'Auto-PC aún no toma la solicitud; revisa que el programa esté abierto y conectado.';
+            } else {
+                nivel = 'pending';
+                badgeTexto = 'En cola para PC';
+                resumenTexto = 'Esperando a que Auto-PC inicie la solicitud pendiente.';
+            }
+        } else if (countDone > 0) {
+            nivel = 'idle';
+            badgeTexto = 'Cola al día';
+            resumenTexto = 'Todas las solicitudes recientes ya pasaron a Lista.';
+        }
+    }
+
+    var solicitudActual = null;
+    if (primaryCandidate) {
+        solicitudActual = {
+            id: primaryCandidate.id,
+            texto: primaryCandidate.texto,
+            status: primaryCandidate.status,
+            elapsedMs: primaryRunning ? enCursoAgeMs : (primaryCandidate.ageMs || 0)
+        };
+    } else if (tel && tel.activeText && (nivel === 'working' || nivel === 'stalled' || nivel === 'warning')) {
+        solicitudActual = {
+            id: String(tel.activeSourceId || 'pc'),
+            texto: String(tel.activeText),
+            status: countRunning > 0 ? 'running' : 'pending',
+            elapsedMs: enCursoAgeMs
+        };
+    }
+
+    var recientes = [];
+    runningItems.slice(0, 1).forEach(function(it) { recientes.push(it); });
+    pendingItems.slice(0, 2).forEach(function(it) {
+        if (recientes.length < 3) recientes.push(it);
+    });
+    doneItems.slice(0, 2).forEach(function(it) {
+        if (recientes.length < 3) recientes.push(it);
+    });
+
+    return {
+        nivel: nivel,
+        badgeTexto: badgeTexto,
+        resumenTexto: resumenTexto,
+        proyecto: proyecto,
+        antigravityVisible: agVisible,
+        heartbeatAgeMs: heartbeatAgeMs,
+        enCursoAgeMs: enCursoAgeMs,
+        cola: {
+            running: countRunning,
+            pending: countPending,
+            offlinePending: offlinePending,
+            done: countDone,
+            totalActive: countRunning + countPending
+        },
+        solicitudActual: solicitudActual,
+        recientes: recientes,
+        alertaStuck: alertaStuck,
+        detalleMotor: detailTel
     };
 }
 
@@ -1639,6 +1936,9 @@ if (typeof window !== 'undefined') {
     window.cancelarIdeaAutoPC = cancelarIdeaAutoPC;
     window.procesarPendientesOfflineAutoPC = procesarPendientesOfflineAutoPC;
     window.procesarSnapshotAutoPCIdeas = procesarSnapshotAutoPCIdeas;
+    window.obtenerEstadoTelemetryAutoPC = obtenerEstadoTelemetryAutoPC;
+    window.obtenerResumenMonitoreoAutoPC = obtenerResumenMonitoreoAutoPC;
+    window.formatearDuracionCortaAutoPC = formatearDuracionCortaAutoPC;
     window.obtenerAlertasAutoPCActivas = obtenerAlertasAutoPCActivas;
     window.descartarNotificacionAutoPC = descartarNotificacionAutoPC;
     window.descartarTodasNotificacionesAutoPC = descartarTodasNotificacionesAutoPC;

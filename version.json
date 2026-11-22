@@ -1,5 +1,5 @@
 {
-  "version": "10.78",
+  "version": "10.79",
   "fecha": "2026-11-21",
-  "resumen": "Reproductor MP3 sin botón manual de actualizar y con auto-refresco inmediato al ingresar para detectar canciones recién descargadas."
+  "resumen": "Recuadro de monitoreo en vivo de Auto-PC en Perfil con estado del proyecto, latido, solicitud en curso y detección de bloqueos."
 }

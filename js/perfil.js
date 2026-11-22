@@ -3,8 +3,188 @@
  * Estadísticas de Jugador, Sincronización Multi-Dispositivo (Laptop ↔ Teléfono) y Respaldos.
  */
 
+var PERFIL_MONITOR_TIMER = null;
+
 function cargarPerfil() {
     renderizarPerfil(APP_STATE.perfil);
+}
+
+function escapeHtmlPerfil(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatearTiempoMonitorPerfil(ms) {
+    if (typeof window.formatearDuracionCortaAutoPC === 'function') {
+        return window.formatearDuracionCortaAutoPC(ms);
+    }
+    var seg = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    if (seg < 60) return seg + 's';
+    var min = Math.floor(seg / 60);
+    var remS = seg % 60;
+    if (min < 60) return min + 'm ' + (remS > 0 ? remS + 's' : '');
+    var hrs = Math.floor(min / 60);
+    return hrs + 'h ' + (min % 60) + 'm';
+}
+
+function detenerTimerMonitorAutoPCPerfil() {
+    if (PERFIL_MONITOR_TIMER) {
+        clearInterval(PERFIL_MONITOR_TIMER);
+        PERFIL_MONITOR_TIMER = null;
+    }
+}
+
+function iniciarTimerMonitorAutoPCPerfil() {
+    detenerTimerMonitorAutoPCPerfil();
+    PERFIL_MONITOR_TIMER = setInterval(function() {
+        if (window.VISTA_ACTUAL === 'vista-perfil') {
+            actualizarTarjetaMonitorAutoPCPerfil();
+        } else {
+            detenerTimerMonitorAutoPCPerfil();
+        }
+    }, 3000);
+}
+
+function obtenerTextoEstadoFilaMonitor(st) {
+    if (st === 'running') return { icon: '⚙️', label: 'En curso', cls: 'is-running' };
+    if (st === 'pending') return { icon: '⏳', label: 'En cola', cls: 'is-pending' };
+    if (st === 'offline') return { icon: '📶', label: 'Por subir', cls: 'is-offline' };
+    return { icon: '✅', label: 'Lista', cls: 'is-done' };
+}
+
+function renderizarContenidoMonitorAutoPCPerfil() {
+    var resumen = (typeof window.obtenerResumenMonitoreoAutoPC === 'function')
+        ? window.obtenerResumenMonitoreoAutoPC()
+        : {
+            nivel: 'idle',
+            badgeTexto: 'Sin datos de Auto-PC',
+            resumenTexto: 'Conecta Auto-PC para monitorear solicitudes en tiempo real.',
+            proyecto: '',
+            antigravityVisible: null,
+            heartbeatAgeMs: null,
+            enCursoAgeMs: 0,
+            cola: { running: 0, pending: 0, offlinePending: 0, done: 0, totalActive: 0 },
+            solicitudActual: null,
+            recientes: [],
+            alertaStuck: ''
+        };
+
+    var hbTxt = (resumen.heartbeatAgeMs !== null && resumen.heartbeatAgeMs !== undefined)
+        ? ('Latido hace ' + formatearTiempoMonitorPerfil(resumen.heartbeatAgeMs))
+        : 'Sin latido directo aún';
+
+    var proyectoChip = resumen.proyecto
+        ? `<span class="perfil-autopc-chip">💻 ${escapeHtmlPerfil(resumen.proyecto)}</span>`
+        : '';
+
+    var agChip = '';
+    if (resumen.antigravityVisible === true) {
+        agChip = `<span class="perfil-autopc-chip is-ok">Antigravity activo</span>`;
+    } else if (resumen.antigravityVisible === false && resumen.nivel !== 'offline') {
+        agChip = `<span class="perfil-autopc-chip is-warn">Sin ventana Antigravity</span>`;
+    }
+
+    var alertaHtml = resumen.alertaStuck
+        ? `<div class="perfil-autopc-alert"><span>⚠️</span><span>${escapeHtmlPerfil(resumen.alertaStuck)}</span></div>`
+        : '';
+
+    var actualHtml = '';
+    if (resumen.solicitudActual) {
+        var tiempoAct = resumen.solicitudActual.elapsedMs > 0
+            ? `<span class="perfil-autopc-timer">⏱️ ${formatearTiempoMonitorPerfil(resumen.solicitudActual.elapsedMs)}</span>`
+            : '';
+        var tagEstadoAct = resumen.solicitudActual.status === 'running' ? 'TRABAJANDO AHORA' : 'SIGUIENTE EN COLA';
+        actualHtml = `
+        <div class="perfil-autopc-current">
+            <div class="perfil-autopc-current-top">
+                <span class="perfil-autopc-current-label">${tagEstadoAct}</span>
+                ${tiempoAct}
+            </div>
+            <div class="perfil-autopc-current-text">${escapeHtmlPerfil(resumen.solicitudActual.texto)}</div>
+            <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
+        </div>`;
+    } else {
+        actualHtml = `
+        <div class="perfil-autopc-current is-empty">
+            <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
+        </div>`;
+    }
+
+    var recientesHtml = '';
+    if (resumen.recientes && resumen.recientes.length > 0) {
+        recientesHtml = `<div class="perfil-autopc-list">` +
+            resumen.recientes.map(function(item) {
+                var meta = obtenerTextoEstadoFilaMonitor(item.status);
+                var tiempoItem = item.ageMs !== null && item.ageMs !== undefined
+                    ? formatearTiempoMonitorPerfil(item.ageMs)
+                    : '';
+                return `
+                <div class="perfil-autopc-row">
+                    <span class="perfil-autopc-row-badge ${meta.cls}">${meta.icon} ${meta.label}</span>
+                    <span class="perfil-autopc-row-text">${escapeHtmlPerfil(item.texto)}</span>
+                    ${tiempoItem ? `<span class="perfil-autopc-row-time">${tiempoItem}</span>` : ''}
+                </div>`;
+            }).join('') +
+        `</div>`;
+    }
+
+    var offlineNote = (resumen.cola && resumen.cola.offlinePending > 0)
+        ? ` · ${resumen.cola.offlinePending} offline`
+        : '';
+
+    return `
+        <div class="perfil-autopc-header">
+            <div class="perfil-autopc-title-wrap">
+                <div class="perfil-autopc-title-row">
+                    <span class="perfil-autopc-dot nivel-${escapeHtmlPerfil(resumen.nivel)}"></span>
+                    <h3 style="margin: 0; font-size: 14.5px; color: #f8fafc;">🤖 Monitoreo Auto-PC</h3>
+                </div>
+                <span class="perfil-autopc-hb">${escapeHtmlPerfil(hbTxt)}</span>
+            </div>
+            <span class="perfil-autopc-status-pill nivel-${escapeHtmlPerfil(resumen.nivel)}">${escapeHtmlPerfil(resumen.badgeTexto)}</span>
+        </div>
+
+        ${(proyectoChip || agChip) ? `<div class="perfil-autopc-chips">${proyectoChip}${agChip}</div>` : ''}
+        ${alertaHtml}
+        ${actualHtml}
+
+        <div class="perfil-autopc-kpis">
+            <div class="perfil-autopc-kpi">
+                <span class="perfil-autopc-kpi-val">${Number(resumen.cola.running) || 0}</span>
+                <span class="perfil-autopc-kpi-lbl">⚙️ En curso</span>
+            </div>
+            <div class="perfil-autopc-kpi">
+                <span class="perfil-autopc-kpi-val">${Number(resumen.cola.pending) || 0}</span>
+                <span class="perfil-autopc-kpi-lbl">⏳ En cola${escapeHtmlPerfil(offlineNote)}</span>
+            </div>
+            <div class="perfil-autopc-kpi">
+                <span class="perfil-autopc-kpi-val">${Number(resumen.cola.done) || 0}</span>
+                <span class="perfil-autopc-kpi-lbl">✅ Listas</span>
+            </div>
+        </div>
+
+        ${recientesHtml}
+
+        <div class="perfil-autopc-footer">
+            <button type="button" class="btn-perfil-autopc-link" onclick="cambiarVista('vista-ideas'); if(typeof abrirDetalleCategoriaIdeas === 'function') abrirDetalleCategoriaIdeas('✨ Emily');">
+                💡 Ver cola en Ideas
+            </button>
+            <button type="button" class="btn-perfil-autopc-link is-secondary" onclick="if(typeof abrirCentroNotificaciones === 'function') abrirCentroNotificaciones();">
+                🔔 Alertas
+            </button>
+        </div>
+    `;
+}
+
+function actualizarTarjetaMonitorAutoPCPerfil() {
+    var card = document.getElementById('perfil-autopc-monitor-card');
+    if (!card) return;
+    card.innerHTML = renderizarContenidoMonitorAutoPCPerfil();
 }
 
 function renderizarPerfil(perfil) {
@@ -27,8 +207,13 @@ function renderizarPerfil(perfil) {
             </tbody>
         </table>
     </div>
+
+    <!-- 2. MONITOREO EN VIVO DE AUTO-PC -->
+    <div id="perfil-autopc-monitor-card" class="perfil-autopc-card">
+        ${renderizarContenidoMonitorAutoPCPerfil()}
+    </div>
     
-    <!-- 2. CENTRO DE SINCRONIZACIÓN MULTI-DISPOSITIVO -->
+    <!-- 3. CENTRO DE SINCRONIZACIÓN MULTI-DISPOSITIVO -->
     <div class="sync-hub-card">
         <div class="sync-hub-header">
             <div>
@@ -112,6 +297,7 @@ function renderizarPerfil(perfil) {
 
     var cont = document.getElementById('contenedor-perfil');
     if (cont) cont.innerHTML = html;
+    iniciarTimerMonitorAutoPCPerfil();
 }
 
 // --- FUNCIONES DEL CENTRO DE SINCRONIZACIÓN ---

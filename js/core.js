@@ -753,6 +753,9 @@ function cambiarVista(vistaId, noPushState) {
     if (vistaId !== 'vista-home' && typeof detenerRelojHome === 'function') {
         detenerRelojHome();
     }
+    if (vistaId !== 'vista-perfil' && typeof detenerTimerMonitorAutoPCPerfil === 'function') {
+        detenerTimerMonitorAutoPCPerfil();
+    }
 
     switch(vistaId) {
         case 'vista-home':
@@ -1631,7 +1634,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.78';
+var MONARCA_APP_VERSION = '10.79';
 var MONARCA_APP_VERSION_FECHA = '2026-11-21';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
