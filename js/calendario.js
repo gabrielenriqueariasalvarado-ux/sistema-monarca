@@ -1916,8 +1916,14 @@ function toggleCompletarEventoCalendario(id) {
         cerrarPopupRecordatorioActual(true);
     }
 
+    if (item.completado && typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-rec-' + id);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-ev-' + id);
+    }
+
     renderizarCalendario();
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
     var modalNotif = document.getElementById('modal-centro-notificaciones');
     if (modalNotif && modalNotif.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
         renderizarCentroNotificaciones();
@@ -1933,6 +1939,10 @@ function eliminarEventoCalendario(id) {
     APP_STATE.calendario = APP_STATE.calendario.filter(function(item) {
         return String(item.id) !== String(id);
     });
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-rec-' + id);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-ev-' + id);
+    }
     if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     renderizarCalendario();
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
@@ -1980,7 +1990,8 @@ function verificarDisparadoresCalendario() {
             var targetMs = obtenerFechaHoraMs(item.fecha, item.hora);
             if (!isNaN(targetMs)) {
                 var dueMs = (item.pospuestoHasta && item.pospuestoHasta > targetMs) ? item.pospuestoHasta : targetMs;
-                if (ahora >= dueMs && (!item.notificadoParaTs || item.notificadoParaTs < dueMs)) {
+                var yaOkey = item.avisoOkeyDueMs && Number(item.avisoOkeyDueMs) >= dueMs;
+                if (ahora >= dueMs && !yaOkey && (!item.notificadoParaTs || item.notificadoParaTs < dueMs)) {
                     item.notificadoParaTs = dueMs;
                     item.notificadoEn = ahora;
                     item.fechaActualizacion = ahora;
@@ -2003,9 +2014,6 @@ function verificarDisparadoresCalendario() {
                 item.fechaActualizacion = ahora;
                 huboCambios = true;
                 reproducirSonidoCalendario('tono_zen');
-                if (typeof emitirNotificacionQuest === 'function') {
-                    emitirNotificacionQuest('📆 Próximo evento: ' + item.titulo, 'Inicia a las ' + hIni + (item.descripcion ? ' · ' + item.descripcion : ''), false, 'cal-ev-' + item.id);
-                }
                 if (typeof mostrarToastMonarca === 'function') {
                     mostrarToastMonarca('Evento próximo (' + hIni + '): ' + item.titulo, '📆');
                 }
@@ -2029,11 +2037,6 @@ function verificarDisparadoresCalendario() {
         nuevosRecordatoriosDisparados.forEach(function(rec) {
             if (CALENDARIO_ESTADO.alertaCola.indexOf(String(rec.id)) === -1 && String(CALENDARIO_ESTADO.alertaActivaId) !== String(rec.id)) {
                 CALENDARIO_ESTADO.alertaCola.push(String(rec.id));
-            }
-            var per = resolverPersonaPorId(rec.personaId, rec.personaNombre);
-            var cuerpo = (rec.hora || '') + (per ? ' · 👤 ' + per.nombre : '') + (rec.descripcion ? ' — ' + rec.descripcion : '');
-            if (typeof emitirNotificacionQuest === 'function') {
-                emitirNotificacionQuest('🔔 Recordatorio: ' + rec.titulo, cuerpo || 'Recordatorio de Calendario', true, 'cal-rec-' + rec.id);
             }
         });
         mostrarSiguientePopupRecordatorio();
@@ -2153,6 +2156,9 @@ function posponerRecordatorioDesdePopup(minutos) {
         if (rec) {
             rec.pospuestoHasta = Date.now() + mins * 60000;
             rec.fechaActualizacion = Date.now();
+            if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+                window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-rec-' + id);
+            }
             if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
                 mostrarToastMonarca('Recordatorio pospuesto ' + mins + ' min', '⏰');
@@ -2190,11 +2196,12 @@ function obtenerAlertasCalendarioActivas() {
         var item = normalizarItemCalendario(raw);
         if (!item) return;
 
-        // 1. Recordatorios cuya hora exacta ya llegó y no han sido completados
+        // 1. Recordatorios cuya hora exacta ya llegó y no han sido confirmados ni completados
         if (item.tipo === 'recordatorio' && !item.completado && item.fecha && item.hora) {
             var targetMs = obtenerFechaHoraMs(item.fecha, item.hora);
             var dueMs = (item.pospuestoHasta && item.pospuestoHasta > targetMs) ? item.pospuestoHasta : targetMs;
-            if (!isNaN(dueMs) && ahora >= dueMs) {
+            var yaOkey = item.avisoOkeyDueMs && Number(item.avisoOkeyDueMs) >= dueMs;
+            if (!isNaN(dueMs) && ahora >= dueMs && !yaOkey) {
                 var per = resolverPersonaPorId(item.personaId, item.personaNombre);
                 var safeId = String(item.id).replace(/'/g, "\\'");
                 var safeFecha = String(item.fecha).replace(/'/g, "\\'");
@@ -2209,10 +2216,18 @@ function obtenerAlertasCalendarioActivas() {
                     metaLinea: '🕒 ' + item.hora + ' · ' + formatearFechaLegibleCorta(item.fecha) + (per ? ' · 👤 ' + per.nombre : ''),
                     descripcion: item.descripcion || '',
                     acciones: [
-                        { tipo: 'primary', texto: '✓ Marcar Completado', fn: "completarRecordatorioDesdeNotificacion('" + safeId + "')" },
+                        { tipo: 'primary', texto: '✓ Okey', fn: "confirmarOkeyRecordatorioCalendario('" + safeId + "', " + dueMs + ")" },
+                        { tipo: 'secondary', texto: '✓ Completar', fn: "completarRecordatorioDesdeNotificacion('" + safeId + "')" },
                         { tipo: 'secondary', texto: '📅 Ver', fn: "cerrarCentroNotificaciones(); irAFechaEnCalendario('" + safeFecha + "', 'mes')" }
                     ],
-                    _sortTs: dueMs
+                    _sortTs: dueMs,
+                    _dispatchKey: 'alerta-cal-rec-' + item.id + '@' + dueMs,
+                    _phoneMeta: {
+                        monarcaAlertId: 'alerta-cal-rec-' + item.id,
+                        monarcaAlertTipo: 'cal-rec',
+                        calId: String(item.id),
+                        dueMs: dueMs
+                    }
                 });
             }
         }
@@ -2239,10 +2254,17 @@ function obtenerAlertasCalendarioActivas() {
                     metaLinea: '🕒 ' + item.horaInicio + (item.horaFin ? '–' + item.horaFin : '') + ' · ' + formatearFechaLegibleCorta(item.fecha) + vincTexto,
                     descripcion: item.descripcion || '',
                     acciones: [
-                        { tipo: 'secondary', texto: '✓ Entendido', fn: "descartarAvisoEventoCalendario('" + safeEvId + "')" },
+                        { tipo: 'primary', texto: '✓ Okey', fn: "descartarAvisoEventoCalendario('" + safeEvId + "')" },
                         { tipo: 'secondary', texto: '📅 Ver', fn: "cerrarCentroNotificaciones(); irAFechaEnCalendario('" + safeEvFecha + "', 'mes')" }
                     ],
-                    _sortTs: startMs
+                    _sortTs: startMs,
+                    _dispatchKey: 'alerta-cal-ev-' + item.id + '@' + alertMs,
+                    _phoneMeta: {
+                        monarcaAlertId: 'alerta-cal-ev-' + item.id,
+                        monarcaAlertTipo: 'cal-ev',
+                        calId: String(item.id),
+                        alertMs: alertMs
+                    }
                 });
             }
         }
@@ -2276,8 +2298,35 @@ function obtenerProximosRecordatoriosHoy() {
     });
 }
 
+function confirmarOkeyRecordatorioCalendario(id, dueMsOpcional) {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.calendario)) return;
+    var rec = APP_STATE.calendario.find(function(c) { return c && String(c.id) === String(id); });
+    if (rec) {
+        var targetMs = obtenerFechaHoraMs(rec.fecha, rec.hora);
+        var dueMs = (rec.pospuestoHasta && rec.pospuestoHasta > targetMs) ? rec.pospuestoHasta : targetMs;
+        var ackMs = Number(dueMsOpcional) || dueMs || Date.now();
+        rec.avisoOkeyDueMs = Math.max(Number(rec.avisoOkeyDueMs) || 0, ackMs);
+        rec.fechaActualizacion = Date.now();
+        if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+    }
+    if (CALENDARIO_ESTADO.alertaActivaId && String(CALENDARIO_ESTADO.alertaActivaId) === String(id)) {
+        cerrarPopupRecordatorioActual(true);
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-rec-' + id);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Recordatorio confirmado con ✓ Okey', '✅');
+    }
+}
+
 function completarRecordatorioDesdeNotificacion(id) {
     toggleCompletarEventoCalendario(id);
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-rec-' + id);
+    }
     if (typeof mostrarToastMonarca === 'function') {
         mostrarToastMonarca('Recordatorio completado', '✅');
     }
@@ -2291,6 +2340,9 @@ function descartarAvisoEventoCalendario(id) {
         ev.fechaActualizacion = Date.now();
         if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-ev-' + id);
+    }
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
 }
@@ -2303,26 +2355,91 @@ function programarAlarmasCalendarioNativas() {
 
         var ahora = Date.now();
         var notifs = [];
-        APP_STATE.calendario.forEach(function(item, idx) {
-            if (!item || item.tipo !== 'recordatorio' || item.completado || !item.fecha || !item.hora) return;
-            var targetMs = obtenerFechaHoraMs(item.fecha, item.hora);
-            var dueMs = (item.pospuestoHasta && item.pospuestoHasta > targetMs) ? item.pospuestoHasta : targetMs;
-            if (!isNaN(dueMs) && dueMs > ahora + 3000) {
-                var per = resolverPersonaPorId(item.personaId, item.personaNombre);
-                notifs.push({
-                    id: 70000 + (idx % 10000),
-                    title: '🔔 ' + (item.titulo || 'Recordatorio'),
-                    body: (item.hora || '') + (per ? ' · 👤 ' + per.nombre : '') + (item.descripcion ? ' — ' + item.descripcion : ''),
-                    schedule: { at: new Date(dueMs), allowWhileIdle: true },
-                    autoCancel: true
-                });
+        var futurasMeta = [];
+
+        APP_STATE.calendario.forEach(function(raw) {
+            var item = normalizarItemCalendario(raw);
+            if (!item || item.completado) return;
+
+            if (item.tipo === 'recordatorio' && item.fecha && item.hora) {
+                var targetMs = obtenerFechaHoraMs(item.fecha, item.hora);
+                var dueMs = (item.pospuestoHasta && item.pospuestoHasta > targetMs) ? item.pospuestoHasta : targetMs;
+                var yaOkey = item.avisoOkeyDueMs && Number(item.avisoOkeyDueMs) >= dueMs;
+                if (!isNaN(dueMs) && dueMs > ahora + 3000 && !yaOkey) {
+                    var per = resolverPersonaPorId(item.personaId, item.personaNombre);
+                    var alertRecId = 'alerta-cal-rec-' + item.id;
+                    var numRecId = (typeof window.obtenerIdNumericoNotifMonarca === 'function')
+                        ? window.obtenerIdNumericoNotifMonarca(alertRecId)
+                        : (70000 + Math.abs(String(item.id).split('').reduce(function(acc, ch) { return ((acc * 31) + ch.charCodeAt(0)) % 10000; }, 0)));
+                    var dispatchRecKey = alertRecId + '@' + dueMs;
+
+                    notifs.push({
+                        id: numRecId,
+                        title: '🔔 ' + (item.titulo || 'Recordatorio'),
+                        body: ((item.hora || '') + (per ? ' · 👤 ' + per.nombre : '') + (item.descripcion ? ' — ' + item.descripcion : '')).trim() || 'Recordatorio Monarca · Pulsa ✓ Okey',
+                        schedule: { at: new Date(dueMs), allowWhileIdle: true },
+                        channelId: 'monarca_alerts_channel',
+                        actionTypeId: 'MONARCA_ALERT_OKEY',
+                        autoCancel: true,
+                        extra: {
+                            monarcaAlertId: alertRecId,
+                            monarcaAlertTipo: 'cal-rec',
+                            calId: String(item.id),
+                            dueMs: dueMs,
+                            dispatchKey: dispatchRecKey
+                        }
+                    });
+                    futurasMeta.push({ dispatchKey: dispatchRecKey, idNum: numRecId, futureAt: dueMs });
+                }
+            } else if (item.tipo === 'evento' && !item.avisoDescartado && item.avisoPrevioMin > 0 && item.fecha && (item.horaInicio || item.hora)) {
+                var hIni = item.horaInicio || item.hora;
+                var startMs = obtenerFechaHoraMs(item.fecha, hIni);
+                var alertMs = startMs - (Number(item.avisoPrevioMin) * 60000);
+                if (!isNaN(startMs) && !isNaN(alertMs) && alertMs > ahora + 3000) {
+                    var alertEvId = 'alerta-cal-ev-' + item.id;
+                    var numEvId = (typeof window.obtenerIdNumericoNotifMonarca === 'function')
+                        ? window.obtenerIdNumericoNotifMonarca(alertEvId)
+                        : (80000 + Math.abs(String(item.id).split('').reduce(function(acc, ch) { return ((acc * 31) + ch.charCodeAt(0)) % 10000; }, 0)));
+                    var dispatchEvKey = alertEvId + '@' + alertMs;
+
+                    notifs.push({
+                        id: numEvId,
+                        title: '📆 Próximo evento: ' + (item.titulo || 'Evento'),
+                        body: 'Inicia a las ' + hIni + (item.descripcion ? ' · ' + item.descripcion : ''),
+                        schedule: { at: new Date(alertMs), allowWhileIdle: true },
+                        channelId: 'monarca_alerts_channel',
+                        actionTypeId: 'MONARCA_ALERT_OKEY',
+                        autoCancel: true,
+                        extra: {
+                            monarcaAlertId: alertEvId,
+                            monarcaAlertTipo: 'cal-ev',
+                            calId: String(item.id),
+                            alertMs: alertMs,
+                            dispatchKey: dispatchEvKey
+                        }
+                    });
+                    futurasMeta.push({ dispatchKey: dispatchEvKey, idNum: numEvId, futureAt: alertMs });
+                }
             }
         });
+
         if (notifs.length > 0) {
-            ln.schedule({ notifications: notifs }).catch(function() {});
+            var prepProm = (typeof window.asegurarCanalYAccionesNotifMonarca === 'function')
+                ? window.asegurarCanalYAccionesNotifMonarca()
+                : Promise.resolve(true);
+            prepProm.then(function() {
+                return ln.schedule({ notifications: notifs });
+            }).then(function() {
+                if (typeof window.registrarNotifProgramadaTelefono === 'function') {
+                    futurasMeta.forEach(function(m) {
+                        window.registrarNotifProgramadaTelefono(m.dispatchKey, m.idNum, m.futureAt);
+                    });
+                }
+            }).catch(function() {});
         }
     } catch(e) {}
 }
 
 window.crearGuardarRecordatorioCalendario = crearGuardarRecordatorioCalendario;
 window.refrescarSelectoresPersonasCalendario = refrescarSelectoresPersonasCalendario;
+window.confirmarOkeyRecordatorioCalendario = confirmarOkeyRecordatorioCalendario;

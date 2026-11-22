@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v10.79)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v10.80)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.79
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v10.80
             Esta versión nativa incluye:
+            - 🔔 **Notificaciones unificadas Centro de Alertas ↔ Teléfono con `✓ Okey` (v10.80)**:
+              - Todas las notificaciones (Auto-PC, Recordatorios de Calendario, Eventos y Quests/Penitencias) aparecen sincronizadas tanto en **Centro de Alertas & Notificaciones** como en las **notificaciones nativas de tu teléfono**.
+              - Nuevo botón **`✓ Okey`** tanto en las tarjetas del Centro de Alertas como en la notificación del teléfono (Android / PWA) para confirmar y limpiar ambos lados a la vez sin duplicados.
             - 🤖 **Monitoreo en vivo de Auto-PC dentro de Perfil (v10.79)**:
               - Nuevo recuadro de estado en **Perfil** que muestra en tiempo real si **Auto-PC** está trabajando en tu proyecto, el latido de la PC, la solicitud en curso con cronómetro, conteos de cola (`En curso`, `En cola`, `Listas`) y alertas si está en pausa, sin ventana de Antigravity o posiblemente trabado.
             - 🎧 **Auto-actualización automática en el Reproductor MP3 (v10.78)**:

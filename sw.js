@@ -2,25 +2,25 @@
 // SERVICE WORKER - SISTEMA MONARCA PWA (OFFLINE FIRST & CACHE-BUSTING)
 // ==========================================================================
 
-const CACHE_NAME = 'emily-os-v10.79';
+const CACHE_NAME = 'emily-os-v10.80';
 
 const STATIC_ASSETS = [
   './',
   'index.html',
-  'style.css?v=10.79',
+  'style.css?v=10.80',
   'app.js',
-  'js/core.js?v=10.79',
-  'js/perfil.js?v=10.79',
-  'js/progresion.js?v=10.79',
-  'js/estado-personal.js?v=10.79',
-  'js/finanzas.js?v=10.79',
-  'js/ideas.js?v=10.79',
-  'js/dinamicas.js?v=10.79',
-  'js/calendario.js?v=10.79',
-  'js/inventario.js?v=10.79',
-  'js/reproductor.js?v=10.79',
-  'js/jarvis-voz.js?v=10.79',
-  'js/firebase-config.js?v=10.79',
+  'js/core.js?v=10.80',
+  'js/perfil.js?v=10.80',
+  'js/progresion.js?v=10.80',
+  'js/estado-personal.js?v=10.80',
+  'js/finanzas.js?v=10.80',
+  'js/ideas.js?v=10.80',
+  'js/dinamicas.js?v=10.80',
+  'js/calendario.js?v=10.80',
+  'js/inventario.js?v=10.80',
+  'js/reproductor.js?v=10.80',
+  'js/jarvis-voz.js?v=10.80',
+  'js/firebase-config.js?v=10.80',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -91,19 +91,28 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ==========================================================================
-// MANEJADOR DE CLICS EN NOTIFICACIONES DE QUESTS Y ALARMAS
+// MANEJADOR DE CLICS EN NOTIFICACIONES DE QUESTS, CALENDARIO Y SISTEMA
 // ==========================================================================
 self.addEventListener('notificationclick', function(event) {
+    var notifData = (event.notification && event.notification.data) ? event.notification.data : {};
+    var accion = event.action || 'tap';
     event.notification.close();
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
             for (var i = 0; i < clientList.length; i++) {
                 var client = clientList[i];
-                if ('focus' in client) {
+                try {
+                    client.postMessage({
+                        type: 'MONARCA_NOTIF_ACTION',
+                        actionId: accion,
+                        extra: notifData
+                    });
+                } catch(e) {}
+                if (accion !== 'okey' && 'focus' in client) {
                     return client.focus();
                 }
             }
-            if (clients.openWindow) {
+            if (accion !== 'okey' && clients.openWindow) {
                 return clients.openWindow('./');
             }
         })

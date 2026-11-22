@@ -1450,7 +1450,7 @@ function obtenerAlertasAutoPCActivas() {
             var acciones = [
                 {
                     tipo: 'primary',
-                    texto: '✓ Entendido',
+                    texto: '✓ Okey',
                     fn: "descartarNotificacionAutoPC('" + safeId + "')"
                 }
             ];
@@ -1473,7 +1473,13 @@ function obtenerAlertasAutoPCActivas() {
                 metaLinea: '🕒 ' + horaTxt + ' · ' + fechaTxt + ' · ' + (n.esDeEmily ? '✨ Emily → Hecha' : '💻 Cola local Auto-PC'),
                 descripcion: 'La solicitud "' + texto + '" terminó en tu Auto-PC y ya fue añadida correctamente.',
                 acciones: acciones,
-                _sortTs: ts
+                _sortTs: ts,
+                _dispatchKey: 'alerta-autopc-' + safeId + '@' + ts,
+                _phoneMeta: {
+                    monarcaAlertId: 'alerta-autopc-' + safeId,
+                    monarcaAlertTipo: 'autopc',
+                    autopcNotifId: String(n.id)
+                }
             };
         })
         .sort(function(a, b) { return (b._sortTs || 0) - (a._sortTs || 0); });
@@ -1483,6 +1489,8 @@ function descartarNotificacionAutoPC(notifId) {
     if (!APP_STATE) return;
     var key = String(notifId || '').trim();
     if (!key) return;
+    var safeKey = key.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+
     if (typeof registrarTombstone === 'function') {
         registrarTombstone('notificacionesAutoPC', key);
     } else {
@@ -1494,8 +1502,17 @@ function descartarNotificacionAutoPC(notifId) {
     }
     if (Array.isArray(APP_STATE.notificacionesAutoPC)) {
         APP_STATE.notificacionesAutoPC = APP_STATE.notificacionesAutoPC.filter(function(n) {
-            return n && String(n.id) !== key;
+            if (!n) return false;
+            var nId = String(n.id);
+            var nSafeId = nId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+            return nId !== key && nSafeId !== safeKey;
         });
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-' + safeKey);
+        if (key !== safeKey) {
+            window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-' + key);
+        }
     }
     MonarcaDB.save(APP_STATE);
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
@@ -1505,8 +1522,14 @@ function descartarNotificacionAutoPC(notifId) {
 function descartarTodasNotificacionesAutoPC() {
     if (!APP_STATE || !Array.isArray(APP_STATE.notificacionesAutoPC) || APP_STATE.notificacionesAutoPC.length === 0) return;
     APP_STATE.notificacionesAutoPC.forEach(function(n) {
-        if (n && n.id && typeof registrarTombstone === 'function') {
-            registrarTombstone('notificacionesAutoPC', String(n.id));
+        if (n && n.id) {
+            var nSafe = String(n.id).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+            if (typeof registrarTombstone === 'function') {
+                registrarTombstone('notificacionesAutoPC', String(n.id));
+            }
+            if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+                window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-' + nSafe);
+            }
         }
     });
     APP_STATE.notificacionesAutoPC = [];
@@ -1514,7 +1537,7 @@ function descartarTodasNotificacionesAutoPC() {
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
     if (typeof mostrarToastMonarca === 'function') {
-        mostrarToastMonarca('Alertas de Auto-PC limpiadas', '✅');
+        mostrarToastMonarca('Alertas de Auto-PC confirmadas con ✓ Okey', '✅');
     }
 }
 

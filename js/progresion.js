@@ -1194,11 +1194,17 @@ function programarAlarmasNativasQuests() {
                 console.warn("[MonarcaAlarm Error]", e);
             });
 
-            // Cancelar notificaciones heredadas de LocalNotifications para evitar duplicados mudos
+            // Cancelar solo notificaciones heredadas de Quests (< 70000) sin borrar alertas de Calendario/Monarca
             if (ln && typeof ln.getPending === 'function' && typeof ln.cancel === 'function') {
                 ln.getPending().then(function(pend) {
-                    if (pend && pend.notifications && pend.notifications.length > 0) {
-                        return ln.cancel({ notifications: pend.notifications });
+                    var heredadas = (pend && Array.isArray(pend.notifications))
+                        ? pend.notifications.filter(function(n) {
+                            var extra = (n && n.extra) ? n.extra : null;
+                            return n && Number(n.id) < 70000 && (!extra || !extra.monarcaAlertTipo);
+                        })
+                        : [];
+                    if (heredadas.length > 0) {
+                        return ln.cancel({ notifications: heredadas });
                     }
                 }).catch(function() {});
             }
@@ -1208,19 +1214,28 @@ function programarAlarmasNativasQuests() {
         // Respaldo únicamente si MonarcaAlarm no existiera
         if (ln && typeof ln.schedule === 'function') {
             asegurarCanalAlarmaCapacitor();
+            if (typeof window.asegurarCanalYAccionesNotifMonarca === 'function') {
+                window.asegurarCanalYAccionesNotifMonarca();
+            }
             alarmasPayload.forEach(function(a) {
                 ln.schedule({
                     notifications: [{
                         id: a.legacyNotifId,
                         title: a.esOmitible ? '⚔️ ¡Quest Diaria!: ' + a.titulo : '🚨 ¡QUEST OBLIGATORIA!: ' + a.titulo,
                         body: a.esOmitible
-                            ? 'Tienes tiempo límite. Toca para ver e iniciar tu misión.'
+                            ? 'Tienes tiempo límite. Toca para ver o pulsa ✓ Okey.'
                             : '¡NO OMITIBLE! Si expira el cronómetro hay penitencia.',
                         schedule: { at: new Date(a.timestamp), allowWhileIdle: true },
                         channelId: 'quest_alarms_channel',
+                        actionTypeId: 'MONARCA_ALERT_OKEY',
                         ongoing: false,
                         autoCancel: true,
-                        extra: { questId: a.questId, fullScreen: true }
+                        extra: {
+                            questId: a.questId,
+                            monarcaAlertId: 'alerta-quest-act-' + a.questId,
+                            monarcaAlertTipo: 'quest',
+                            fullScreen: true
+                        }
                     }]
                 }).catch(function() {});
             });
@@ -1260,12 +1275,13 @@ function sincronizarQuestConRelojAndroid(id) {
     }
 }
 
-// Listener para cuando el usuario toca una notificación de respaldo en Android
+// Listener heredado únicamente si la notificación no trae monarcaAlertTipo (manejado por js/core.js)
 if (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
     try {
         window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', function(notification) {
-            if (notification && notification.notification && notification.notification.extra) {
-                var qId = notification.notification.extra.questId;
+            var extra = notification && notification.notification && notification.notification.extra ? notification.notification.extra : null;
+            if (extra && !extra.monarcaAlertTipo && extra.questId) {
+                var qId = extra.questId;
                 var q = (APP_STATE.questsDiarios || []).find(function(item) { return String(item.id) === String(qId); });
                 if (q) emitirAlertaQuestActivada(q, false);
             }
@@ -1614,8 +1630,113 @@ function detenerPruebaTonoAlarma() {
     }
 }
 
+function obtenerAlertasQuestsActivas() {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return [];
+    var alertas = [];
+    APP_STATE.questsDiarios.forEach(function(q) {
+        if (!q || typeof q !== 'object' || !q.id) return;
+        var safeQId = String(q.id).replace(/'/g, "\\'");
+
+        if (q.estado === 'en_progreso') {
+            var actTs = Number(q.ultimaActivacionTs || q.fechaActualizacion || 0);
+            if (!q.alertaOkeyAckAt || Number(q.alertaOkeyAckAt) < actTs) {
+                var tiempoTxt = typeof formatearSegundos === 'function' ? formatearSegundos(q.tiempoRestante || 0) : '';
+                alertas.push({
+                    id: 'alerta-quest-act-' + q.id,
+                    questId: String(q.id),
+                    tipo: 'quest',
+                    icono: q.esOmitible === false ? '🚨' : '⚔️',
+                    badge: q.esOmitible === false ? 'Quest Obligatoria' : 'Quest Activa',
+                    color: q.esOmitible === false ? '#f43f5e' : '#38bdf8',
+                    titulo: q.titulo || 'Quest Diaria',
+                    metaLinea: (tiempoTxt ? '⏱️ ' + tiempoTxt : '⚔️ Misión en curso') + (q.esOmitible === false ? ' · NO omitible' : ''),
+                    descripcion: q.penitencia ? ('Castigo si expira: ' + q.penitencia) : 'Completa tu misión antes de que termine el tiempo.',
+                    acciones: [
+                        { tipo: 'primary', texto: '✓ Okey', fn: "confirmarAlertaOkeyQuest('" + safeQId + "')" },
+                        { tipo: 'secondary', texto: '⚔️ Ver Quest', fn: "cerrarCentroNotificaciones(); cambiarVista('vista-acciones-progresion')" }
+                    ],
+                    _sortTs: actTs || Date.now(),
+                    _dispatchKey: 'alerta-quest-act-' + q.id + '@' + (actTs || q.ultimaActivacionFecha || 'act'),
+                    _phoneMeta: {
+                        monarcaAlertId: 'alerta-quest-act-' + q.id,
+                        monarcaAlertTipo: 'quest',
+                        questId: String(q.id),
+                        ackTs: actTs
+                    }
+                });
+            }
+        } else if (q.estado === 'penalizada') {
+            var penTs = Number(q.ultimaPenitenciaTs || q.fechaActualizacion || 0);
+            if (!q.penitenciaOkeyAckAt || Number(q.penitenciaOkeyAckAt) < penTs) {
+                var pNom = q.penitenciaNombre || q.penitencia || '30 Flexiones';
+                alertas.push({
+                    id: 'alerta-quest-pen-' + q.id,
+                    questId: String(q.id),
+                    tipo: 'quest-penitencia',
+                    icono: '💀',
+                    badge: 'Penitencia Activa',
+                    color: '#ef4444',
+                    titulo: 'Penitencia: ' + (q.titulo || 'Quest Diaria'),
+                    metaLinea: '⚠️ Castigo pendiente · ' + pNom,
+                    descripcion: 'Expiró el tiempo de la misión. Salda tu penitencia física para restaurar tu honor.',
+                    acciones: [
+                        { tipo: 'primary', texto: '✓ Okey', fn: "confirmarAlertaOkeyPenitenciaQuest('" + safeQId + "')" },
+                        { tipo: 'secondary', texto: '⚖️ Ver Castigo', fn: "cerrarCentroNotificaciones(); cambiarVista('vista-acciones-progresion')" }
+                    ],
+                    _sortTs: penTs || Date.now(),
+                    _dispatchKey: 'alerta-quest-pen-' + q.id + '@' + (penTs || 'pen'),
+                    _phoneMeta: {
+                        monarcaAlertId: 'alerta-quest-pen-' + q.id,
+                        monarcaAlertTipo: 'quest-pen',
+                        questId: String(q.id),
+                        ackTs: penTs
+                    }
+                });
+            }
+        }
+    });
+    return alertas;
+}
+
+function confirmarAlertaOkeyQuest(questId) {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return;
+    var q = APP_STATE.questsDiarios.find(function(item) { return item && String(item.id) === String(questId); });
+    if (q) {
+        q.alertaOkeyAckAt = Math.max(Date.now(), (Number(q.ultimaActivacionTs || q.fechaActualizacion || 0) + 1));
+        if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+    }
+    if (typeof cerrarAlertaQuestActivada === 'function') {
+        cerrarAlertaQuestActivada();
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + questId);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+function confirmarAlertaOkeyPenitenciaQuest(questId) {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return;
+    var q = APP_STATE.questsDiarios.find(function(item) { return item && String(item.id) === String(questId); });
+    if (q) {
+        q.penitenciaOkeyAckAt = Math.max(Date.now(), (Number(q.ultimaPenitenciaTs || q.fechaActualizacion || 0) + 1));
+        if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-pen-' + questId);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+if (typeof window !== 'undefined') {
+    window.obtenerAlertasQuestsActivas = obtenerAlertasQuestsActivas;
+    window.confirmarAlertaOkeyQuest = confirmarAlertaOkeyQuest;
+    window.confirmarAlertaOkeyPenitenciaQuest = confirmarAlertaOkeyPenitenciaQuest;
+}
+
 /**
- * Emite notificación nativa de sistema al teléfono o PC
+ * Emite notificación nativa de sistema al teléfono o PC y al Centro de Alertas
  */
 function emitirNotificacionQuest(titulo, cuerpo, requireInteraction, tag) {
     // 1. Vibración en móviles
@@ -1623,7 +1744,40 @@ function emitirNotificacionQuest(titulo, cuerpo, requireInteraction, tag) {
         try { navigator.vibrate([300, 150, 300, 150, 450]); } catch(e) {}
     }
 
-    // 2. Notificación en pantalla
+    var tagStr = String(tag || '');
+    var qList = (window.APP_STATE && Array.isArray(APP_STATE.questsDiarios)) ? APP_STATE.questsDiarios : [];
+    var esCanonicaCal = tagStr.indexOf('cal-rec-') === 0 || tagStr.indexOf('cal-ev-') === 0;
+    var esCanonicaQuest = false;
+
+    if (tagStr.indexOf('quest-') === 0) {
+        var qIdBuscado = tagStr.slice('quest-'.length);
+        esCanonicaQuest = qList.some(function(item) { return item && String(item.id) === qIdBuscado && item.estado === 'en_progreso'; });
+    } else if (tagStr.indexOf('penitencia-') === 0) {
+        var pIdBuscado = tagStr.slice('penitencia-'.length);
+        esCanonicaQuest = qList.some(function(item) { return item && String(item.id) === pIdBuscado && item.estado === 'penalizada'; });
+    }
+
+    if (esCanonicaCal || esCanonicaQuest) {
+        if (typeof actualizarBadgeNotificaciones === 'function') {
+            actualizarBadgeNotificaciones();
+        }
+        return;
+    }
+
+    if (typeof window.registrarAlertaGeneralMonarca === 'function') {
+        window.registrarAlertaGeneralMonarca({
+            id: 'alerta-gen-' + (tagStr || ('sys-' + Date.now())),
+            titulo: titulo,
+            descripcion: cuerpo,
+            badge: tagStr.indexOf('penitencia-') === 0 ? 'Penitencia' : (tagStr.indexOf('quest-') === 0 ? 'Quest Diaria' : 'Sistema Monarca'),
+            icono: tagStr.indexOf('penitencia-') === 0 ? '💀' : '⚔️',
+            color: tagStr.indexOf('penitencia-') === 0 ? '#ef4444' : '#818cf8',
+            tag: tagStr
+        });
+        return;
+    }
+
+    // Respaldo web directo si aún no se cargó core.js
     if ('Notification' in window && Notification.permission === 'granted') {
         try {
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -1656,6 +1810,9 @@ function emitirNotificacionQuest(titulo, cuerpo, requireInteraction, tag) {
 function emitirAlertaQuestActivada(q, esReactivacion) {
     var esOmitible = (q.esOmitible !== false);
     var mins = q.tiempoMinutos || 15;
+    if (q && q.estado === 'en_progreso' && !q.ultimaActivacionTs) {
+        q.ultimaActivacionTs = Date.now();
+    }
 
     // 1. Alarma continua insistente (Tono o MP3 de la biblioteca) y vibración
     iniciarAlarmaContinuaQuest(q);
@@ -1824,6 +1981,10 @@ function posponerQuestUnaHora(id) {
 
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     renderizarQuestsDiarios();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
@@ -2109,6 +2270,7 @@ function iniciarLoopQuestsDiarios() {
                 if (horaActStr >= horaNorm && q.ultimaActivacionFecha !== hoyStr) {
                     q.horaActivacion = horaNorm;
                     q.ultimaActivacionFecha = hoyStr;
+                    q.ultimaActivacionTs = ahoraMs;
                     q.estado = 'en_progreso';
                     q.temporizadorActivo = true;
                     q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
@@ -2122,6 +2284,7 @@ function iniciarLoopQuestsDiarios() {
             if (q.estado === 'pospuesta' && q.pospuestaHasta) {
                 if (ahoraMs >= q.pospuestaHasta) {
                     q.pospuestaHasta = null;
+                    q.ultimaActivacionTs = ahoraMs;
                     q.estado = 'en_progreso';
                     q.temporizadorActivo = true;
                     q.tiempoRestante = (q.tiempoMinutos || 15) * 60;
@@ -2181,6 +2344,7 @@ function iniciarLoopQuestsDiarios() {
         if (huboCambios) {
             MonarcaDB.save(APP_STATE, false);
             renderizarQuestsDiarios();
+            if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
         }
     }, 1000);
 }
@@ -2237,9 +2401,14 @@ function toggleDetalleQuest(id) {
 function aplicarPenalizacionAutomatica(q) {
     detenerAlarmaContinuaQuest();
     detenerSonidoAlarmaNativa();
+    var ahoraPenMs = Date.now();
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
-    q.fechaActualizacion = Date.now();
+    q.ultimaPenitenciaTs = ahoraPenMs;
+    q.fechaActualizacion = ahoraPenMs;
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
+    }
     var penalizacionExp = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
     if (penalizacionExp > 0) restarExp(penalizacionExp);
     MonarcaDB.save(APP_STATE);
@@ -2253,6 +2422,7 @@ function aplicarPenalizacionAutomatica(q) {
         true,
         'penitencia-' + q.id
     );
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
 
     setTimeout(function() {
         alert("⚠️ ¡ALERTA DEL SISTEMA: MISIÓN NO COMPLETADA A TIEMPO!\n\n" +
@@ -2679,6 +2849,11 @@ function completarQuestDiaria(id) {
 
     MonarcaDB.save(APP_STATE);
     cerrarAlertaQuestActivada();
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-pen-' + q.id);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
 
     alert("¡Excelente disciplina! Has completado '" + q.titulo + "' en su tiempo asignado.\n+" + pct + "% de EXP (" + expGanada + " EXP) añadida a tu avatar." + detalleAtrs);
@@ -2719,6 +2894,10 @@ function cumplirPenitenciaQuest(id) {
     });
 
     MonarcaDB.save(APP_STATE);
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-pen-' + q.id);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
 
     alert("⚔️ ¡PENITENCIA CUMPLIDA! Has saldado tu falta con honor y templanza." + detalleAtrs);
     renderizarQuestsDiarios();

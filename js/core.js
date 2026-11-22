@@ -1634,8 +1634,8 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '10.79';
-var MONARCA_APP_VERSION_FECHA = '2026-11-21';
+var MONARCA_APP_VERSION = '10.80';
+var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
 var MONARCA_APK_DOWNLOAD_URL = 'https://github.com/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/download/latest-apk/Sistema-Monarca.apk';
@@ -2012,11 +2012,519 @@ function abrirSeccionPerfil() {
     mostrarToastMonarca('Perfil Monarca · Próximamente disponible. En preparación.', '👤');
 }
 
+var MONARCA_NOTIFS_DISPATCH_KEY = 'monarca_notifs_telefono_despachadas_v1';
+var MONARCA_ALERTAS_GENERALES = [];
+var _MONARCA_PUENTE_NOTIFS_INICIADO = false;
+var _MONARCA_CANAL_PROMESA = null;
+var _MONARCA_CANAL_LISTO = false;
+var _MONARCA_DISPATCH_CACHE = null;
+
+function _cargarRegistroNotifsTelefono() {
+    if (_MONARCA_DISPATCH_CACHE) return _MONARCA_DISPATCH_CACHE;
+    var base = { keys: {}, activeAlertIds: {} };
+    try {
+        var raw = localStorage.getItem(MONARCA_NOTIFS_DISPATCH_KEY);
+        if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                if (parsed.keys && typeof parsed.keys === 'object') base.keys = parsed.keys;
+                if (parsed.activeAlertIds && typeof parsed.activeAlertIds === 'object') base.activeAlertIds = parsed.activeAlertIds;
+            }
+        }
+    } catch(e) {}
+    _MONARCA_DISPATCH_CACHE = base;
+    return base;
+}
+
+function _guardarRegistroNotifsTelefono(reg) {
+    _MONARCA_DISPATCH_CACHE = reg;
+    try {
+        var kList = Object.keys(reg.keys || {});
+        if (kList.length > 150) {
+            kList.sort(function(a, b) {
+                return ((reg.keys[a] && reg.keys[a].ts) || 0) - ((reg.keys[b] && reg.keys[b].ts) || 0);
+            });
+            kList.slice(0, kList.length - 150).forEach(function(oldK) {
+                delete reg.keys[oldK];
+            });
+        }
+        localStorage.setItem(MONARCA_NOTIFS_DISPATCH_KEY, JSON.stringify(reg));
+    } catch(e) {}
+}
+
+function obtenerIdNumericoNotifMonarca(rawKey) {
+    var s = String(rawKey || 'monarca');
+    var hash = 2166136261;
+    for (var i = 0; i < s.length; i++) {
+        hash ^= s.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    var positivo = hash >>> 0;
+    return 800000 + (positivo % 990000000);
+}
+
+function asegurarCanalYAccionesNotifMonarca() {
+    var plugins = (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var ln = plugins ? plugins.LocalNotifications : null;
+    if (!ln) return Promise.resolve(false);
+    if (_MONARCA_CANAL_PROMESA) return _MONARCA_CANAL_PROMESA;
+
+    var tareas = [];
+    if (typeof ln.createChannel === 'function') {
+        tareas.push(
+            Promise.resolve().then(function() {
+                return ln.createChannel({
+                    id: 'monarca_alerts_channel',
+                    name: 'Alertas Sistema Monarca',
+                    description: 'Notificaciones unificadas del Sistema Monarca con confirmación ✓ Okey',
+                    importance: 4,
+                    visibility: 1,
+                    vibration: true,
+                    lights: true,
+                    lightColor: '#6366f1'
+                });
+            }).catch(function() {})
+        );
+    }
+    if (typeof ln.registerActionTypes === 'function') {
+        tareas.push(
+            Promise.resolve().then(function() {
+                return ln.registerActionTypes({
+                    types: [{
+                        id: 'MONARCA_ALERT_OKEY',
+                        actions: [{
+                            id: 'okey',
+                            title: '✓ Okey',
+                            foreground: true
+                        }]
+                    }]
+                });
+            }).catch(function() {})
+        );
+    }
+
+    _MONARCA_CANAL_PROMESA = Promise.all(tareas).then(function() {
+        _MONARCA_CANAL_LISTO = true;
+        return true;
+    }).catch(function() {
+        _MONARCA_CANAL_PROMESA = null;
+        return false;
+    });
+    return _MONARCA_CANAL_PROMESA;
+}
+
+function registrarNotifProgramadaTelefono(dispatchKey, idNum, futureAtMs) {
+    if (!dispatchKey) return;
+    var reg = _cargarRegistroNotifsTelefono();
+    reg.keys[String(dispatchKey)] = {
+        idNum: Number(idNum) || obtenerIdNumericoNotifMonarca(dispatchKey),
+        ts: Date.now(),
+        futureAt: Number(futureAtMs) || 0
+    };
+    _guardarRegistroNotifsTelefono(reg);
+}
+
+function cancelarNotificacionTelefonoPorAlerta(alertId, idNumOpcional) {
+    var keyId = String(alertId || '').trim();
+    if (!keyId && !idNumOpcional) return;
+    var idNum = Number(idNumOpcional) || obtenerIdNumericoNotifMonarca(keyId);
+
+    var reg = _cargarRegistroNotifsTelefono();
+    if (keyId && reg.activeAlertIds) {
+        delete reg.activeAlertIds[keyId];
+    }
+    if (keyId && reg.keys) {
+        Object.keys(reg.keys).forEach(function(k) {
+            if (k === keyId || k.indexOf(keyId + '@') === 0) {
+                delete reg.keys[k];
+            }
+        });
+    }
+    _guardarRegistroNotifsTelefono(reg);
+
+    var plugins = (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var ln = plugins ? plugins.LocalNotifications : null;
+    if (ln) {
+        try {
+            if (typeof ln.cancel === 'function') {
+                ln.cancel({ notifications: [{ id: idNum }] }).catch(function() {});
+            }
+        } catch(e) {}
+        try {
+            if (typeof ln.removeDeliveredNotifications === 'function') {
+                ln.removeDeliveredNotifications({ notifications: [{ id: idNum }] }).catch(function() {});
+            }
+        } catch(e) {}
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller && typeof navigator.serviceWorker.ready === 'object') {
+        try {
+            navigator.serviceWorker.ready.then(function(swReg) {
+                if (swReg && typeof swReg.getNotifications === 'function') {
+                    return swReg.getNotifications({ tag: keyId }).then(function(lista) {
+                        (lista || []).forEach(function(n) { try { n.close(); } catch(e) {} });
+                    });
+                }
+            }).catch(function() {});
+        } catch(e) {}
+    }
+}
+
+function registrarAlertaGeneralMonarca(opts) {
+    if (!opts || !opts.titulo) return null;
+    var baseId = String(opts.id || ('alerta-gen-' + (opts.tag || Date.now()))).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+    var safeId = baseId.replace(/'/g, "\\'");
+    var ts = Number(opts.timestamp) || Date.now();
+    var nueva = {
+        id: baseId,
+        tipo: opts.tipo || 'general',
+        icono: opts.icono || '🔔',
+        badge: opts.badge || 'Sistema Monarca',
+        color: opts.color || '#818cf8',
+        titulo: String(opts.titulo),
+        metaLinea: opts.metaLinea || ('🕒 ' + new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })),
+        descripcion: String(opts.descripcion || ''),
+        acciones: Array.isArray(opts.acciones) ? opts.acciones : [
+            { tipo: 'primary', texto: '✓ Okey', fn: "descartarAlertaGeneralMonarca('" + safeId + "')" }
+        ],
+        _sortTs: ts,
+        _dispatchKey: baseId + '@' + ts,
+        _phoneMeta: {
+            monarcaAlertId: baseId,
+            monarcaAlertTipo: opts.phoneTipo || 'general',
+            tag: opts.tag || baseId
+        }
+    };
+    MONARCA_ALERTAS_GENERALES = MONARCA_ALERTAS_GENERALES.filter(function(a) { return a && a.id !== baseId; });
+    MONARCA_ALERTAS_GENERALES.unshift(nueva);
+    if (MONARCA_ALERTAS_GENERALES.length > 25) {
+        MONARCA_ALERTAS_GENERALES = MONARCA_ALERTAS_GENERALES.slice(0, 25);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    var modal = document.getElementById('modal-centro-notificaciones');
+    if (modal && modal.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+        renderizarCentroNotificaciones();
+    }
+    return nueva;
+}
+
+function descartarAlertaGeneralMonarca(alertaId) {
+    var key = String(alertaId || '').trim();
+    if (!key) return;
+    MONARCA_ALERTAS_GENERALES = MONARCA_ALERTAS_GENERALES.filter(function(a) { return a && a.id !== key; });
+    cancelarNotificacionTelefonoPorAlerta(key);
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+function obtenerAlertasGeneralesActivas() {
+    return Array.isArray(MONARCA_ALERTAS_GENERALES) ? MONARCA_ALERTAS_GENERALES.slice() : [];
+}
+
+function confirmarAlertaOkeySistema(metaOrId) {
+    var extra = (metaOrId && typeof metaOrId === 'object') ? metaOrId : null;
+    var alertId = extra ? String(extra.monarcaAlertId || extra.id || '') : String(metaOrId || '');
+    var tipo = extra ? String(extra.monarcaAlertTipo || extra.tipo || '') : '';
+    var notifNumId = extra && extra.notifId ? Number(extra.notifId) : (alertId ? obtenerIdNumericoNotifMonarca(alertId) : 0);
+
+    if ((!tipo || !extra) && alertId) {
+        var encontradas = obtenerAlertasSistemaMonarca();
+        var match = encontradas.find(function(a) { return a && String(a.id) === alertId; });
+        if (match) {
+            extra = Object.assign({}, match._phoneMeta || {}, {
+                monarcaAlertId: match.id,
+                monarcaAlertTipo: (match._phoneMeta && match._phoneMeta.monarcaAlertTipo) || match.tipo,
+                autopcNotifId: match.autopcNotifId || (match._phoneMeta && match._phoneMeta.autopcNotifId),
+                calId: match.calId || (match._phoneMeta && match._phoneMeta.calId),
+                questId: match.questId || (match._phoneMeta && match._phoneMeta.questId),
+                dueMs: match._sortTs
+            });
+            tipo = String(extra.monarcaAlertTipo || '');
+        }
+    }
+
+    if (tipo === 'autopc' || (alertId.indexOf('alerta-autopc-') === 0 && extra && extra.autopcNotifId)) {
+        var autopcId = (extra && extra.autopcNotifId) ? extra.autopcNotifId : alertId.replace('alerta-autopc-', '');
+        if (typeof window.descartarNotificacionAutoPC === 'function') {
+            window.descartarNotificacionAutoPC(autopcId);
+        }
+    } else if (tipo === 'cal-rec' || tipo === 'urgente' || alertId.indexOf('alerta-cal-rec-') === 0) {
+        var calRecId = (extra && extra.calId) ? extra.calId : alertId.replace('alerta-cal-rec-', '');
+        var dueMs = extra && extra.dueMs ? Number(extra.dueMs) : Date.now();
+        if (typeof window.confirmarOkeyRecordatorioCalendario === 'function') {
+            window.confirmarOkeyRecordatorioCalendario(calRecId, dueMs);
+        }
+    } else if (tipo === 'cal-ev' || tipo === 'info' || alertId.indexOf('alerta-cal-ev-') === 0) {
+        var calEvId = (extra && extra.calId) ? extra.calId : alertId.replace('alerta-cal-ev-', '');
+        if (typeof window.descartarAvisoEventoCalendario === 'function') {
+            window.descartarAvisoEventoCalendario(calEvId);
+        }
+    } else if (tipo === 'quest' || alertId.indexOf('alerta-quest-act-') === 0) {
+        var qId = (extra && extra.questId) ? extra.questId : alertId.replace('alerta-quest-act-', '');
+        if (typeof window.confirmarAlertaOkeyQuest === 'function') {
+            window.confirmarAlertaOkeyQuest(qId);
+        }
+    } else if (tipo === 'quest-pen' || tipo === 'quest-penitencia' || alertId.indexOf('alerta-quest-pen-') === 0) {
+        var qPenId = (extra && extra.questId) ? extra.questId : alertId.replace('alerta-quest-pen-', '');
+        if (typeof window.confirmarAlertaOkeyPenitenciaQuest === 'function') {
+            window.confirmarAlertaOkeyPenitenciaQuest(qPenId);
+        }
+    } else if (alertId) {
+        descartarAlertaGeneralMonarca(alertId);
+    }
+
+    if (alertId || notifNumId) {
+        cancelarNotificacionTelefonoPorAlerta(alertId, notifNumId);
+    }
+}
+
+function confirmarTodasAlertasOkeySistema() {
+    var alertas = obtenerAlertasSistemaMonarca().slice();
+    if (alertas.length === 0) return;
+    alertas.forEach(function(a) {
+        if (!a) return;
+        confirmarAlertaOkeySistema(Object.assign({
+            monarcaAlertId: a.id,
+            monarcaAlertTipo: (a._phoneMeta && a._phoneMeta.monarcaAlertTipo) || a.tipo,
+            autopcNotifId: a.autopcNotifId,
+            calId: a.calId,
+            questId: a.questId,
+            dueMs: a._sortTs
+        }, a._phoneMeta || {}));
+    });
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Todas las alertas confirmadas con ✓ Okey', '✅');
+    }
+}
+
+function manejarAccionNotificacionTelefono(event) {
+    try {
+        var actionId = (event && event.actionId) ? String(event.actionId) : 'tap';
+        var notif = (event && event.notification) ? event.notification : event;
+        var extra = (notif && notif.extra && typeof notif.extra === 'object')
+            ? Object.assign({}, notif.extra)
+            : {};
+        if (notif && notif.id) {
+            extra.notifId = notif.id;
+        }
+
+        if (actionId === 'okey') {
+            confirmarAlertaOkeySistema(extra);
+            return;
+        }
+
+        if ((extra.monarcaAlertTipo === 'quest' || (!extra.monarcaAlertTipo && extra.questId)) && extra.questId && typeof window.emitirAlertaQuestActivada === 'function' && window.APP_STATE) {
+            var q = (APP_STATE.questsDiarios || []).find(function(item) { return item && String(item.id) === String(extra.questId); });
+            if (q) {
+                window.emitirAlertaQuestActivada(q, false);
+                return;
+            }
+        }
+
+        abrirCentroNotificaciones();
+    } catch(e) {
+        console.warn('[Notificaciones Monarca Acción]', e);
+    }
+}
+
+function inicializarPuenteNotificacionesTelefono() {
+    if (_MONARCA_PUENTE_NOTIFS_INICIADO || typeof window === 'undefined') return;
+    _MONARCA_PUENTE_NOTIFS_INICIADO = true;
+
+    asegurarCanalYAccionesNotifMonarca();
+
+    var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+    var ln = plugins ? plugins.LocalNotifications : null;
+    if (ln && typeof ln.addListener === 'function') {
+        try {
+            ln.addListener('localNotificationActionPerformed', function(event) {
+                manejarAccionNotificacionTelefono(event);
+            });
+        } catch(e) {}
+        try {
+            ln.addListener('localNotificationReceived', function() {
+                if (typeof window.verificarDisparadoresCalendario === 'function') {
+                    window.verificarDisparadoresCalendario();
+                } else if (typeof actualizarBadgeNotificaciones === 'function') {
+                    actualizarBadgeNotificaciones();
+                }
+                var modal = document.getElementById('modal-centro-notificaciones');
+                if (modal && modal.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+                    renderizarCentroNotificaciones();
+                }
+            });
+        } catch(e) {}
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker && typeof navigator.serviceWorker.addEventListener === 'function') {
+        try {
+            navigator.serviceWorker.addEventListener('message', function(ev) {
+                var data = ev && ev.data;
+                if (data && data.type === 'MONARCA_NOTIF_ACTION') {
+                    manejarAccionNotificacionTelefono({
+                        actionId: data.actionId || 'tap',
+                        notification: { extra: data.extra || {} }
+                    });
+                }
+            });
+        } catch(e) {}
+    }
+}
+
+function despacharNotificacionesTelefonoSiNuevas(alertas) {
+    try {
+        inicializarPuenteNotificacionesTelefono();
+        var lista = Array.isArray(alertas) ? alertas : [];
+        var reg = _cargarRegistroNotifsTelefono();
+        var plugins = (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+        var ln = plugins ? plugins.LocalNotifications : null;
+
+        // 1. Limpiar de la barra del teléfono alertas que ya no están activas (ej. sincronizadas desde otro dispositivo)
+        var activasAhoraMap = {};
+        lista.forEach(function(a) {
+            if (a && a.id) {
+                activasAhoraMap[String(a.id)] = obtenerIdNumericoNotifMonarca(a.id);
+            }
+        });
+        var idsParaLimpiar = [];
+        Object.keys(reg.activeAlertIds || {}).forEach(function(prevAlertId) {
+            if (!activasAhoraMap[prevAlertId]) {
+                var prevNumId = Number(reg.activeAlertIds[prevAlertId]) || obtenerIdNumericoNotifMonarca(prevAlertId);
+                idsParaLimpiar.push({ id: prevNumId });
+                delete reg.activeAlertIds[prevAlertId];
+                Object.keys(reg.keys || {}).forEach(function(k) {
+                    if (k === prevAlertId || k.indexOf(prevAlertId + '@') === 0) {
+                        delete reg.keys[k];
+                    }
+                });
+            }
+        });
+        if (idsParaLimpiar.length > 0 && ln) {
+            try {
+                if (typeof ln.cancel === 'function') ln.cancel({ notifications: idsParaLimpiar }).catch(function() {});
+                if (typeof ln.removeDeliveredNotifications === 'function') ln.removeDeliveredNotifications({ notifications: idsParaLimpiar }).catch(function() {});
+            } catch(e) {}
+        }
+
+        // 2. Enviar al teléfono todas las alertas nuevas aún no despachadas
+        var ahora = Date.now();
+        var loteNativo = [];
+        var loteWeb = [];
+
+        lista.forEach(function(a) {
+            if (!a || !a.id) return;
+            var alertId = String(a.id);
+            var idNum = obtenerIdNumericoNotifMonarca(alertId);
+            var dKey = String(a._dispatchKey || (alertId + '@' + (a._sortTs || a.titulo || '')));
+
+            reg.activeAlertIds[alertId] = idNum;
+            var previa = reg.keys[dKey];
+            if (previa) {
+                // Si ya se despachó o si Capacitor ya la programó como alarma futura exacta, no duplicar
+                if (!previa.futureAt || ln) {
+                    return;
+                }
+            }
+
+            reg.keys[dKey] = { idNum: idNum, ts: ahora };
+
+            var titulo = (a.icono ? (a.icono + ' ') : '🔔 ') + (a.titulo || 'Notificación Monarca');
+            var partesCuerpo = [];
+            if (a.metaLinea) partesCuerpo.push(a.metaLinea);
+            if (a.descripcion && a.descripcion !== a.metaLinea) partesCuerpo.push(a.descripcion);
+            var cuerpo = partesCuerpo.join(' · ') || 'Pulsa ✓ Okey para confirmar.';
+
+            var extraMeta = Object.assign({
+                monarcaAlertId: alertId,
+                monarcaAlertTipo: (a._phoneMeta && a._phoneMeta.monarcaAlertTipo) || a.tipo || 'general',
+                autopcNotifId: a.autopcNotifId || null,
+                calId: a.calId || null,
+                questId: a.questId || null,
+                dueMs: a._sortTs || ahora,
+                dispatchKey: dKey
+            }, a._phoneMeta || {});
+
+            if (ln && typeof ln.schedule === 'function') {
+                loteNativo.push({
+                    id: idNum,
+                    title: titulo,
+                    body: cuerpo,
+                    channelId: 'monarca_alerts_channel',
+                    actionTypeId: 'MONARCA_ALERT_OKEY',
+                    autoCancel: true,
+                    extra: extraMeta
+                });
+            } else {
+                loteWeb.push({ id: alertId, titulo: titulo, cuerpo: cuerpo, extra: extraMeta });
+            }
+        });
+
+        _guardarRegistroNotifsTelefono(reg);
+
+        if (loteNativo.length > 0 && ln && typeof ln.schedule === 'function') {
+            if (_MONARCA_CANAL_LISTO) {
+                ln.schedule({ notifications: loteNativo }).catch(function(err) {
+                    console.warn('[LocalNotifications Schedule]', err);
+                });
+            } else {
+                asegurarCanalYAccionesNotifMonarca().then(function() {
+                    return ln.schedule({ notifications: loteNativo });
+                }).catch(function(err) {
+                    console.warn('[LocalNotifications Schedule]', err);
+                });
+            }
+        } else if (loteWeb.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            loteWeb.forEach(function(item) {
+                try {
+                    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.ready.then(function(swReg) {
+                            return swReg.showNotification(item.titulo, {
+                                body: item.cuerpo,
+                                icon: 'icons/icon-192.png',
+                                badge: 'icons/icon-192.png',
+                                tag: item.id,
+                                renotify: true,
+                                data: item.extra,
+                                actions: [{ action: 'okey', title: '✓ Okey' }]
+                            });
+                        }).catch(function() {
+                            try {
+                                var nFallback = new Notification(item.titulo, {
+                                    body: item.cuerpo,
+                                    icon: 'icons/icon-192.png',
+                                    tag: item.id
+                                });
+                                nFallback.onclick = function() {
+                                    try { window.focus(); } catch(e) {}
+                                    abrirCentroNotificaciones();
+                                };
+                            } catch(e2) {}
+                        });
+                    } else {
+                        var nWeb = new Notification(item.titulo, {
+                            body: item.cuerpo,
+                            icon: 'icons/icon-192.png',
+                            tag: item.id
+                        });
+                        nWeb.onclick = function() {
+                            try { window.focus(); } catch(e) {}
+                            abrirCentroNotificaciones();
+                        };
+                    }
+                } catch(e) {}
+            });
+        }
+    } catch(e) {
+        console.warn('[Despacho Teléfono]', e);
+    }
+}
+
 function abrirCentroNotificaciones() {
     var modal = document.getElementById('modal-centro-notificaciones');
     if (!modal) return;
     modal.style.display = 'flex';
     renderizarCentroNotificaciones();
+    actualizarBadgeNotificaciones();
 }
 
 function cerrarCentroNotificaciones() {
@@ -2035,38 +2543,54 @@ function monarcaEscHtml(str) {
 }
 
 function obtenerAlertasSistemaMonarca() {
-    var alertasAutoPC = [];
-    if (typeof window.obtenerAlertasAutoPCActivas === 'function') {
-        try {
-            alertasAutoPC = window.obtenerAlertasAutoPCActivas() || [];
-        } catch(e) {
-            console.warn('[Notificaciones Auto-PC]', e);
+    var combinadas = [];
+    var fuentes = [
+        window.obtenerAlertasAutoPCActivas,
+        window.obtenerAlertasCalendarioActivas,
+        window.obtenerAlertasQuestsActivas,
+        obtenerAlertasGeneralesActivas
+    ];
+    fuentes.forEach(function(fn) {
+        if (typeof fn === 'function') {
+            try {
+                var res = fn() || [];
+                if (Array.isArray(res) && res.length > 0) {
+                    combinadas = combinadas.concat(res);
+                }
+            } catch(e) {
+                console.warn('[Alertas Sistema Monarca]', e);
+            }
         }
-    }
+    });
 
-    var alertasCal = [];
-    if (typeof window.obtenerAlertasCalendarioActivas === 'function') {
-        try {
-            alertasCal = window.obtenerAlertasCalendarioActivas() || [];
-        } catch(e) {
-            console.warn('[Notificaciones Calendario]', e);
-        }
-    }
-
-    return alertasAutoPC.concat(alertasCal);
+    var vistos = {};
+    return combinadas.filter(function(a) {
+        if (!a || !a.id) return false;
+        var k = String(a.id);
+        if (vistos[k]) return false;
+        vistos[k] = true;
+        return true;
+    });
 }
 
 function renderizarCentroNotificaciones() {
     var cont = document.getElementById('contenedor-alertas-notificaciones');
     var txtResumen = document.getElementById('texto-resumen-alertas');
     var btnLimpiarAutoPC = document.getElementById('btn-limpiar-notifs-autopc');
+    var btnOkeyTodas = document.getElementById('btn-okey-todas-notifs');
     if (!cont) return;
 
     var alertas = obtenerAlertasSistemaMonarca();
     var countAutoPC = alertas.filter(function(a) { return a && a.tipo === 'autopc'; }).length;
-    if (btnLimpiarAutoPC) {
+    if (btnOkeyTodas) {
+        btnOkeyTodas.style.display = alertas.length >= 2 ? 'inline-flex' : 'none';
+        if (btnLimpiarAutoPC) {
+            btnLimpiarAutoPC.style.display = (alertas.length < 2 && countAutoPC >= 2) ? 'inline-flex' : 'none';
+        }
+    } else if (btnLimpiarAutoPC) {
         btnLimpiarAutoPC.style.display = countAutoPC >= 2 ? 'inline-flex' : 'none';
     }
+
     if (txtResumen) {
         txtResumen.textContent = alertas.length + (alertas.length === 1 ? ' notificación activa' : ' notificaciones activas');
     }
@@ -2097,7 +2621,7 @@ function renderizarCentroNotificaciones() {
                 '</button>';
             }
 
-            html += '<div style="background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); border-left: 3px solid ' + (a.color || '#f59e0b') + '; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">' +
+            html += '<div data-alerta-id="' + monarcaEscHtml(a.id) + '" style="background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); border-left: 3px solid ' + (a.color || '#f59e0b') + '; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">' +
                 '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">' +
                     '<div style="display: flex; align-items: center; gap: 8px; min-width: 0;">' +
                         '<span style="font-size: 16px;">' + (a.icono || '🔔') + '</span>' +
@@ -2138,9 +2662,11 @@ function renderizarCentroNotificaciones() {
 
 function actualizarBadgeNotificaciones() {
     try {
+        var alertas = obtenerAlertasSistemaMonarca();
+        despacharNotificacionesTelefonoSiNuevas(alertas);
+
         var badge = document.getElementById('hud-badge-notificaciones');
         if (!badge) return;
-        var alertas = obtenerAlertasSistemaMonarca();
         if (alertas.length > 0) {
             badge.textContent = alertas.length;
             badge.style.display = 'flex';
@@ -2150,14 +2676,28 @@ function actualizarBadgeNotificaciones() {
     } catch(e) {}
 }
 
-// Actualizar badge al cargar la ventana
 if (typeof window !== 'undefined') {
+    window.obtenerIdNumericoNotifMonarca = obtenerIdNumericoNotifMonarca;
+    window.asegurarCanalYAccionesNotifMonarca = asegurarCanalYAccionesNotifMonarca;
+    window.registrarNotifProgramadaTelefono = registrarNotifProgramadaTelefono;
+    window.cancelarNotificacionTelefonoPorAlerta = cancelarNotificacionTelefonoPorAlerta;
+    window.registrarAlertaGeneralMonarca = registrarAlertaGeneralMonarca;
+    window.descartarAlertaGeneralMonarca = descartarAlertaGeneralMonarca;
+    window.confirmarAlertaOkeySistema = confirmarAlertaOkeySistema;
+    window.confirmarTodasAlertasOkeySistema = confirmarTodasAlertasOkeySistema;
+    window.manejarAccionNotificacionTelefono = manejarAccionNotificacionTelefono;
+
+    window.addEventListener('DOMContentLoaded', function() {
+        inicializarPuenteNotificacionesTelefono();
+    });
     window.addEventListener('load', function() {
+        inicializarPuenteNotificacionesTelefono();
         setTimeout(function() {
             actualizarBadgeNotificaciones();
         }, 1200);
     });
 }
+
 
 
 
