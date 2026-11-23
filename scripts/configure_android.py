@@ -1299,8 +1299,322 @@ public class BootReceiver extends BroadcastReceiver {
 
 
 # ------------------------------------------------------------------------------
+# 5B. MonarcaRestTimerReceiver.java: Alarma exacta de Descanso Entre Series
+#     Despierta pantalla y notifica con vibración + sonido incluso en HyperOS/Doze
+# ------------------------------------------------------------------------------
+write_java('MonarcaRestTimerReceiver.java', '''
+package com.monarca.app;
+
+import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.media.RingtoneManager;
+import android.media.ToneGenerator;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.PowerManager;
+import android.os.VibrationAttributes;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import androidx.core.app.NotificationCompat;
+
+public class MonarcaRestTimerReceiver extends BroadcastReceiver {
+    public static final String CHANNEL_ID = "monarca_rest_timer_channel_v1";
+    public static final int NOTIF_ID = 77790;
+    public static final int REQUEST_CODE = 77790;
+    public static final String ACTION_REST_DONE = "com.monarca.app.ACTION_REST_TIMER_DONE";
+    private static final long[] VIBRATION_PATTERN = new long[] { 0, 260, 110, 260, 110, 420 };
+
+    public static void ensureRestChannel(Context ctx) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && ctx != null) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Descanso Entre Series (Rutinas)",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("Aviso inmediato al terminar tu contador de descanso entre series con pantalla apagada");
+                Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                if (soundUri != null) {
+                    AudioAttributes aa = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                    channel.setSound(soundUri, aa);
+                }
+                channel.enableVibration(true);
+                channel.setVibrationPattern(VIBRATION_PATTERN);
+                channel.enableLights(true);
+                channel.setLightColor(0xFF38BDF8);
+                channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                channel.setBypassDnd(true);
+                nm.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    public static boolean scheduleRestTimer(Context ctx, long targetMillis, int segundos, String titulo, String cuerpo) {
+        if (ctx == null) return false;
+        ensureRestChannel(ctx);
+        cancelRestTimer(ctx, true);
+
+        AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        if (am == null) return false;
+
+        long now = System.currentTimeMillis();
+        long fireAt = targetMillis > now + 500L ? targetMillis : (now + Math.max(1, segundos) * 1000L);
+
+        Intent intent = new Intent(ctx, MonarcaRestTimerReceiver.class);
+        intent.setAction(ACTION_REST_DONE);
+        intent.putExtra("segundos", Math.max(1, segundos));
+        intent.putExtra("titulo", (titulo != null && !titulo.isEmpty()) ? titulo : "⏱️ ¡Descanso terminado! ¡A entrenar!");
+        intent.putExtra("cuerpo", (cuerpo != null && !cuerpo.isEmpty()) ? cuerpo : ("Finalizó tu descanso de " + Math.max(1, segundos) + "s. ¡Vamos con la siguiente serie!"));
+        intent.putExtra("timestamp", fireAt);
+
+        PendingIntent broadcastPi = PendingIntent.getBroadcast(
+            ctx,
+            REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Intent showIntent = new Intent(ctx, MainActivity.class);
+        showIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        showIntent.putExtra("fromRestTimer", true);
+        showIntent.putExtra("openView", "vista-detalle-rutina-dinamica");
+        PendingIntent showPi = PendingIntent.getActivity(
+            ctx,
+            REQUEST_CODE + 1,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, broadcastPi);
+                return false;
+            } else {
+                am.setAlarmClock(new AlarmManager.AlarmClockInfo(fireAt, showPi), broadcastPi);
+                return true;
+            }
+        } catch (SecurityException se) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, broadcastPi);
+                } else {
+                    am.set(AlarmManager.RTC_WAKEUP, fireAt, broadcastPi);
+                }
+            } catch (Exception ignored) {}
+            return false;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void cancelRestTimer(Context ctx, boolean clearNotification) {
+        if (ctx == null) return;
+        try {
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) {
+                Intent intent = new Intent(ctx, MonarcaRestTimerReceiver.class);
+                intent.setAction(ACTION_REST_DONE);
+                PendingIntent pi = PendingIntent.getBroadcast(
+                    ctx,
+                    REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE
+                );
+                if (pi != null) {
+                    am.cancel(pi);
+                    pi.cancel();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        if (clearNotification) {
+            clearRestNotificationOnly(ctx);
+        }
+    }
+
+    public static void clearRestNotificationOnly(Context ctx) {
+        if (ctx == null) return;
+        try {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NOTIF_ID);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onReceive(Context context, Intent intent) {
+        final PendingResult pendingResult = goAsync();
+        PowerManager.WakeLock cpuLock = null;
+        PowerManager.WakeLock screenLock = null;
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                cpuLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Monarca:RestTimerCpu");
+                cpuLock.acquire(5000L);
+                screenLock = pm.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                    "Monarca:RestTimerScreen"
+                );
+                screenLock.acquire(4000L);
+            }
+        } catch (Exception ignored) {}
+
+        int segundos = intent != null ? intent.getIntExtra("segundos", 60) : 60;
+        String titulo = intent != null ? intent.getStringExtra("titulo") : null;
+        String cuerpo = intent != null ? intent.getStringExtra("cuerpo") : null;
+        if (titulo == null || titulo.isEmpty()) titulo = "⏱️ ¡Descanso terminado! ¡A entrenar!";
+        if (cuerpo == null || cuerpo.isEmpty()) cuerpo = "Finalizó tu descanso de " + segundos + "s. ¡Siguiente serie lista!";
+
+        try {
+            ensureRestChannel(context);
+
+            Intent openIntent = new Intent(context, MainActivity.class);
+            openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            openIntent.putExtra("fromRestTimer", true);
+            openIntent.putExtra("openView", "vista-detalle-rutina-dinamica");
+            PendingIntent openPi = PendingIntent.getActivity(
+                context,
+                REQUEST_CODE + 2,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(titulo)
+                .setContentText(cuerpo)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(cuerpo))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .setContentIntent(openPi)
+                .setVibrate(VIBRATION_PATTERN);
+
+            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (soundUri != null) {
+                builder.setSound(soundUri);
+            }
+
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(NOTIF_ID, builder.build());
+            }
+        } catch (SecurityException ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        triggerRestVibration(context);
+        playHeadsetChimeIfMuted(context);
+        MonarcaAlarmPlugin.emitRestTimerFinished(segundos);
+
+        final PowerManager.WakeLock finalCpu = cpuLock;
+        final PowerManager.WakeLock finalScreen = screenLock;
+        boolean scheduled = new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try { if (finalScreen != null && finalScreen.isHeld()) finalScreen.release(); } catch (Exception ignored) {}
+            try { if (finalCpu != null && finalCpu.isHeld()) finalCpu.release(); } catch (Exception ignored) {}
+            try { if (pendingResult != null) pendingResult.finish(); } catch (Exception ignored) {}
+        }, 4200L);
+        if (!scheduled) {
+            try { if (finalScreen != null && finalScreen.isHeld()) finalScreen.release(); } catch (Exception ignored) {}
+            try { if (finalCpu != null && finalCpu.isHeld()) finalCpu.release(); } catch (Exception ignored) {}
+            try { if (pendingResult != null) pendingResult.finish(); } catch (Exception ignored) {}
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void triggerRestVibration(Context context) {
+        try {
+            Vibrator vib = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib != null && vib.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    VibrationAttributes attrs = new VibrationAttributes.Builder()
+                        .setUsage(VibrationAttributes.USAGE_ALARM)
+                        .build();
+                    vib.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, -1), attrs);
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    AudioAttributes aa = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                    vib.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, -1), aa);
+                } else {
+                    vib.vibrate(VIBRATION_PATTERN, -1);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private boolean hasExternalHeadsetOutput(AudioManager am) {
+        if (am == null) return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                AudioDeviceInfo[] devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+                if (devices != null) {
+                    for (AudioDeviceInfo dev : devices) {
+                        int type = dev.getType();
+                        if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                            || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                            || type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                            || type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) {
+                            return true;
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && type == AudioDeviceInfo.TYPE_USB_HEADSET) {
+                            return true;
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            && (type == AudioDeviceInfo.TYPE_BLE_HEADSET || type == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return false;
+    }
+
+    private void playHeadsetChimeIfMuted(Context context) {
+        try {
+            AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) return;
+            // Si el teléfono está en silencio/vibración pero tiene audífonos Bluetooth/cableados puestos,
+            // reproduce un pitido corto y claro directo en los audífonos sin sonar por altavoz.
+            if (am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL && hasExternalHeadsetOutput(am)) {
+                final ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_MUSIC, 88);
+                tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 340);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try { tg.release(); } catch (Exception ignored) {}
+                }, 950L);
+            }
+        } catch (Exception ignored) {}
+    }
+}
+''')
+
+
+# ------------------------------------------------------------------------------
 # 6. MonarcaAlarmPlugin.java: API completa para JS (sincronización, tonos MP3,
-#    diagnóstico de permisos Android/HyperOS, accesos a ajustes y pruebas)
+#    diagnóstico de permisos Android/HyperOS, accesos a ajustes, descanso y pruebas)
 # ------------------------------------------------------------------------------
 write_java('MonarcaAlarmPlugin.java', '''
 package com.monarca.app;
@@ -1345,6 +1659,7 @@ public class MonarcaAlarmPlugin extends Plugin {
         super.load();
         activePlugin = this;
         MonarcaAlarmService.ensureAlarmChannel(getContext());
+        MonarcaRestTimerReceiver.ensureRestChannel(getContext());
     }
 
     public static void emitAlarmAction(String tipo, String questId) {
@@ -1361,6 +1676,30 @@ public class MonarcaAlarmPlugin extends Plugin {
             data.put("questId", questId != null ? questId : "");
             notifyListeners("alarmAction", data);
         } catch (Exception ignored) {}
+    }
+
+    public static void emitRestTimerFinished(int segundos) {
+        MonarcaAlarmPlugin plugin = activePlugin;
+        if (plugin != null) {
+            try {
+                JSObject data = new JSObject();
+                data.put("segundos", segundos);
+                data.put("timestamp", System.currentTimeMillis());
+                plugin.notifyListeners("restTimerFinished", data);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    public static void emitRestTimerOpened() {
+        MonarcaAlarmPlugin plugin = activePlugin;
+        if (plugin != null) {
+            try {
+                JSObject data = new JSObject();
+                data.put("openView", "vista-detalle-rutina-dinamica");
+                data.put("timestamp", System.currentTimeMillis());
+                plugin.notifyListeners("restTimerOpened", data);
+            } catch (Exception ignored) {}
+        }
     }
 
     @PluginMethod
@@ -1472,6 +1811,38 @@ public class MonarcaAlarmPlugin extends Plugin {
         MonarcaAlarmService.stopAlarm(getContext());
         AlarmAlertActivity.closeIfOpen();
         call.resolve();
+    }
+
+    @PluginMethod
+    public void programarDescanso(PluginCall call) {
+        try {
+            int segundos = call.getInt("segundos", 60);
+            if (segundos < 1) segundos = 1;
+            Long timestamp = call.getLong("timestamp");
+            String titulo = call.getString("titulo", "⏱️ ¡Descanso terminado! ¡A entrenar!");
+            String cuerpo = call.getString("cuerpo", "Finalizó tu descanso de " + segundos + "s. ¡Siguiente serie lista!");
+
+            long now = System.currentTimeMillis();
+            long fireAt = (timestamp != null && timestamp > now + 500L) ? timestamp : (now + (segundos * 1000L));
+            boolean exacto = MonarcaRestTimerReceiver.scheduleRestTimer(getContext(), fireAt, segundos, titulo, cuerpo);
+
+            JSObject res = new JSObject();
+            res.put("ok", true);
+            res.put("exacto", exacto);
+            res.put("timestamp", fireAt);
+            call.resolve(res);
+        } catch (Exception e) {
+            call.reject("Error programando descanso: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void cancelarDescanso(PluginCall call) {
+        boolean clearNotif = Boolean.TRUE.equals(call.getBoolean("clearNotification", true));
+        MonarcaRestTimerReceiver.cancelRestTimer(getContext(), clearNotif);
+        JSObject res = new JSObject();
+        res.put("ok", true);
+        call.resolve(res);
     }
 
     @PluginMethod
@@ -2728,6 +3099,12 @@ public class MainActivity extends BridgeActivity {
     @SuppressWarnings("deprecation")
     private void handleAlarmIntent(Intent intent) {
         if (intent == null) return;
+        if (intent.getBooleanExtra("fromRestTimer", false)) {
+            MonarcaRestTimerReceiver.clearRestNotificationOnly(this);
+            intent.removeExtra("fromRestTimer");
+            MonarcaAlarmPlugin.emitRestTimerOpened();
+        }
+
         String alarmAction = intent.getStringExtra("alarmAction");
         String questId = intent.getStringExtra("questId");
         boolean fromAlarm = intent.getBooleanExtra("fromAlarm", false);
@@ -2820,6 +3197,9 @@ if os.path.exists(manifest_path):
 
     if 'android:name=".MonarcaAlarmReceiver"' not in content:
         components_to_add.append('        <receiver android:name=".MonarcaAlarmReceiver" android:enabled="true" android:exported="false" />')
+
+    if 'android:name=".MonarcaRestTimerReceiver"' not in content:
+        components_to_add.append('        <receiver android:name=".MonarcaRestTimerReceiver" android:enabled="true" android:exported="false" />')
 
     if 'android:name=".BootReceiver"' not in content:
         components_to_add.append(textwrap.dedent('''

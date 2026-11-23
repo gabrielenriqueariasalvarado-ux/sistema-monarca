@@ -1643,8 +1643,8 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.06';
-var MONARCA_APP_VERSION_FECHA = '2026-11-22';
+var MONARCA_APP_VERSION = '11.07';
+var MONARCA_APP_VERSION_FECHA = '2026-11-23';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
 var MONARCA_APK_DOWNLOAD_URL = 'https://github.com/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/download/latest-apk/Sistema-Monarca.apk';
@@ -2347,6 +2347,16 @@ function manejarAccionNotificacionTelefono(event) {
 
         if (actionId === 'okey') {
             confirmarAlertaOkeySistema(extra);
+            return;
+        }
+
+        if (extra.monarcaAlertTipo === 'rest-timer') {
+            if (typeof window.sincronizarDescansoGymAlVolver === 'function') {
+                window.sincronizarDescansoGymAlVolver();
+            }
+            if (typeof cambiarVista === 'function' && window.RUTINA_ACTIVA && window.RUTINA_ACTIVA.rutina) {
+                cambiarVista('vista-detalle-rutina-dinamica');
+            }
             return;
         }
 

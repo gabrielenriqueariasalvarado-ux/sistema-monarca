@@ -1,5 +1,5 @@
 {
-  "version": "11.06",
-  "fecha": "2026-11-22",
-  "resumen": "Inventario v11.06: Soporte completo para Venta Única / Artículos Propios sin categoría fija (ej. tarjeta de vídeo, laptop, repuesto), condición y detalles, precio en $ USD o Bs. (BCV/Paralelo), estado Vendida al agotar, filtros por tipo y acreditación directa de ventas al contado a Tarjetas en Finanzas."
+  "version": "11.07",
+  "fecha": "2026-11-23",
+  "resumen": "Rutinas v11.07: Notificación nativa exacta con pantalla apagada al finalizar el Descanso Entre Series (AlarmManager exacto anti-Doze/HyperOS, despertar breve de pantalla, vibración táctil triple, tono directo en audífonos Bluetooth si el teléfono está en silencio, y sincronización exacta por reloj real al volver a la app)."
 }

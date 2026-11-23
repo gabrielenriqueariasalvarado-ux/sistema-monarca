@@ -5610,15 +5610,224 @@ function cerrarModalDetalleEjercicio() {
     if (modal) modal.style.display = 'none';
 }
 
-// --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER) ---
+// --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER + PANTALLA APAGADA v11.07) ---
 
 var TIEMPO_DESCANSO_SELECCIONADO = 60;
+var MONARCA_REST_NOTIF_ID = 77790;
+var MONARCA_REST_CHANNEL_ID = 'monarca_rest_timer_channel_v1';
+var _MONARCA_REST_BRIDGE_INIT = false;
+var _MONARCA_REST_LN_CANAL_OK = false;
 
 var ASISTENTE_GYM = {
     descansoRestante: 0,
     descansoTotal: 0,
+    finTimestamp: 0,
+    finalizado: false,
+    ultimoSegundoPitido: -1,
     intervaloId: null
 };
+
+function _obtenerPluginsNativosDescansoGym() {
+    if (typeof window === 'undefined' || !window.Capacitor || !window.Capacitor.Plugins) {
+        return { alarm: null, ln: null };
+    }
+    return {
+        alarm: window.Capacitor.Plugins.MonarcaAlarm || null,
+        ln: window.Capacitor.Plugins.LocalNotifications || null
+    };
+}
+
+function inicializarPuenteDescansoGymNativo() {
+    if (_MONARCA_REST_BRIDGE_INIT || typeof window === 'undefined') return;
+
+    var p = _obtenerPluginsNativosDescansoGym();
+    if (p.alarm && typeof p.alarm.addListener === 'function') {
+        _MONARCA_REST_BRIDGE_INIT = true;
+        try {
+            p.alarm.addListener('restTimerFinished', function() {
+                if (ASISTENTE_GYM.finTimestamp > 0 && !ASISTENTE_GYM.finalizado) {
+                    finalizarDescansoGym({ desdeNativo: true });
+                }
+            });
+        } catch (e) {}
+        try {
+            p.alarm.addListener('restTimerOpened', function() {
+                sincronizarDescansoGymAlVolver();
+                if (typeof cambiarVista === 'function' && window.RUTINA_ACTIVA && window.RUTINA_ACTIVA.rutina) {
+                    cambiarVista('vista-detalle-rutina-dinamica');
+                }
+            });
+        } catch (e) {}
+    }
+}
+
+function _asegurarPermisoNotifDescansoGym() {
+    var p = _obtenerPluginsNativosDescansoGym();
+    if (p.ln && typeof p.ln.checkPermissions === 'function') {
+        try {
+            p.ln.checkPermissions().then(function(res) {
+                if (res && res.display !== 'granted' && typeof p.ln.requestPermissions === 'function') {
+                    p.ln.requestPermissions().catch(function() {});
+                }
+            }).catch(function() {});
+        } catch (e) {}
+        return;
+    }
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        try {
+            Notification.requestPermission().catch(function() {});
+        } catch (e) {}
+    }
+}
+
+function programarNotificacionDescansoGym(finTimestampMs, duracionSegs) {
+    inicializarPuenteDescansoGymNativo();
+    _asegurarPermisoNotifDescansoGym();
+
+    var segs = Math.max(1, parseInt(duracionSegs, 10) || 60);
+    var rutinaNombre = (window.RUTINA_ACTIVA && window.RUTINA_ACTIVA.rutina && window.RUTINA_ACTIVA.rutina.nombre)
+        ? String(window.RUTINA_ACTIVA.rutina.nombre).trim()
+        : '';
+    var titulo = '⏱️ ¡Descanso terminado! ¡A entrenar!';
+    var cuerpo = 'Finalizó tu descanso de ' + segs + 's' + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
+
+    var p = _obtenerPluginsNativosDescansoGym();
+
+    // 1. Motor Nativo Principal (AlarmManager.setAlarmClock + WakeLock + Vibración + Audífonos BT)
+    if (p.alarm && typeof p.alarm.programarDescanso === 'function') {
+        try {
+            p.alarm.programarDescanso({
+                timestamp: finTimestampMs,
+                segundos: segs,
+                titulo: titulo,
+                cuerpo: cuerpo
+            }).catch(function(err) {
+                console.warn('[RestTimer Native Schedule]', err);
+            });
+            return;
+        } catch (e) {
+            console.warn('[RestTimer Native Error]', e);
+        }
+    }
+
+    // 2. Respaldo Capacitor LocalNotifications si el plugin nativo no expone programarDescanso
+    if (p.ln && typeof p.ln.schedule === 'function') {
+        var programarLN = function() {
+            var payload = {
+                notifications: [{
+                    id: MONARCA_REST_NOTIF_ID,
+                    title: titulo,
+                    body: cuerpo,
+                    schedule: { at: new Date(finTimestampMs), allowWhileIdle: true },
+                    channelId: MONARCA_REST_CHANNEL_ID,
+                    autoCancel: true,
+                    extra: {
+                        monarcaAlertTipo: 'rest-timer',
+                        openView: 'vista-detalle-rutina-dinamica'
+                    }
+                }]
+            };
+            try {
+                if (typeof p.ln.cancel === 'function') {
+                    p.ln.cancel({ notifications: [{ id: MONARCA_REST_NOTIF_ID }] })
+                        .catch(function() {})
+                        .finally(function() {
+                            p.ln.schedule(payload).catch(function() {});
+                        });
+                } else {
+                    p.ln.schedule(payload).catch(function() {});
+                }
+            } catch (e) {}
+        };
+
+        if (!_MONARCA_REST_LN_CANAL_OK && typeof p.ln.createChannel === 'function') {
+            p.ln.createChannel({
+                id: MONARCA_REST_CHANNEL_ID,
+                name: 'Descanso Entre Series (Rutinas)',
+                description: 'Aviso inmediato cuando termina tu descanso entre series',
+                importance: 4,
+                visibility: 1,
+                vibration: true,
+                lights: true,
+                lightColor: '#38bdf8'
+            }).then(function() {
+                _MONARCA_REST_LN_CANAL_OK = true;
+                programarLN();
+            }).catch(function() {
+                programarLN();
+            });
+        } else {
+            programarLN();
+        }
+    }
+}
+
+function cancelarNotificacionDescansoGym(limpiarEntregada) {
+    var clearFlag = (limpiarEntregada !== false);
+    var p = _obtenerPluginsNativosDescansoGym();
+
+    if (p.alarm && typeof p.alarm.cancelarDescanso === 'function') {
+        try {
+            p.alarm.cancelarDescanso({ clearNotification: clearFlag }).catch(function() {});
+        } catch (e) {}
+    }
+
+    if (p.ln) {
+        try {
+            if (typeof p.ln.cancel === 'function') {
+                p.ln.cancel({ notifications: [{ id: MONARCA_REST_NOTIF_ID }] }).catch(function() {});
+            }
+            if (clearFlag && typeof p.ln.removeDeliveredNotifications === 'function') {
+                p.ln.removeDeliveredNotifications({ notifications: [{ id: MONARCA_REST_NOTIF_ID }] }).catch(function() {});
+            }
+        } catch (e) {}
+    }
+
+    if (clearFlag && typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller && typeof navigator.serviceWorker.ready === 'object') {
+        try {
+            navigator.serviceWorker.ready.then(function(swReg) {
+                if (swReg && typeof swReg.getNotifications === 'function') {
+                    return swReg.getNotifications({ tag: 'monarca-rest-timer' }).then(function(lista) {
+                        (lista || []).forEach(function(n) { try { n.close(); } catch (e) {} });
+                    });
+                }
+            }).catch(function() {});
+        } catch (e) {}
+    }
+}
+
+function _notificarWebFinDescansoGym(duracionSegs) {
+    var p = _obtenerPluginsNativosDescansoGym();
+    // Si estamos en APK nativa con plugin nativo/LN, no disparar duplicado web
+    if (p.alarm || p.ln) return;
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return;
+
+    var rutinaNombre = (window.RUTINA_ACTIVA && window.RUTINA_ACTIVA.rutina && window.RUTINA_ACTIVA.rutina.nombre)
+        ? String(window.RUTINA_ACTIVA.rutina.nombre).trim()
+        : '';
+    var titulo = '⏱️ ¡Descanso terminado! ¡A entrenar!';
+    var cuerpo = 'Finalizó tu descanso de ' + (duracionSegs || 60) + 's' + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
+
+    try {
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(function(swReg) {
+                return swReg.showNotification(titulo, {
+                    body: cuerpo,
+                    icon: 'icons/icon-192.png',
+                    badge: 'icons/icon-192.png',
+                    tag: 'monarca-rest-timer',
+                    renotify: true,
+                    vibrate: [260, 110, 260, 110, 420],
+                    data: { monarcaAlertTipo: 'rest-timer', openView: 'vista-detalle-rutina-dinamica' }
+                });
+            }).catch(function() {
+                try { new Notification(titulo, { body: cuerpo, icon: 'icons/icon-192.png', tag: 'monarca-rest-timer' }); } catch (e) {}
+            });
+        } else {
+            new Notification(titulo, { body: cuerpo, icon: 'icons/icon-192.png', tag: 'monarca-rest-timer' });
+        }
+    } catch (e) {}
+}
 
 function seleccionarTiempoDescanso(segundos) {
     TIEMPO_DESCANSO_SELECCIONADO = segundos || 60;
@@ -5637,40 +5846,170 @@ function seleccionarTiempoDescanso(segundos) {
     iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO);
 }
 
-function iniciarDescansoGym(segundos) {
+function _aplicarEstiloCajaRestTimer(completado) {
+    var boxEl = document.getElementById('gym-rest-timer-box');
+    var numEl = document.getElementById('rest-timer-num');
+    var statusEl = document.getElementById('rest-timer-status-txt');
+    var barEl = document.getElementById('rest-timer-bar-fill');
+    var btnEl = document.getElementById('btn-rest-detener');
+
+    if (completado) {
+        if (boxEl) {
+            boxEl.style.background = 'rgba(16, 185, 129, 0.12)';
+            boxEl.style.borderColor = 'rgba(16, 185, 129, 0.45)';
+        }
+        if (numEl) {
+            numEl.innerText = '¡A entrenar!';
+            numEl.style.color = '#34d399';
+        }
+        if (statusEl) {
+            statusEl.innerText = '¡Descanso terminado!';
+            statusEl.style.color = '#6ee7b7';
+        }
+        if (barEl) {
+            barEl.style.width = '100%';
+            barEl.style.background = '#10b981';
+        }
+        if (btnEl) {
+            btnEl.innerText = '✓ Listo';
+            btnEl.style.background = 'rgba(16, 185, 129, 0.2)';
+            btnEl.style.borderColor = 'rgba(16, 185, 129, 0.45)';
+            btnEl.style.color = '#6ee7b7';
+        }
+    } else {
+        if (boxEl) {
+            boxEl.style.background = 'rgba(56, 189, 248, 0.08)';
+            boxEl.style.borderColor = 'rgba(56, 189, 248, 0.25)';
+        }
+        if (numEl) {
+            numEl.style.color = '#38bdf8';
+        }
+        if (statusEl) {
+            statusEl.innerText = 'Descanso en curso · 🔔 Aviso activo';
+            statusEl.style.color = '#94a3b8';
+        }
+        if (barEl) {
+            barEl.style.background = '#38bdf8';
+        }
+        if (btnEl) {
+            btnEl.innerText = '✕ Detener';
+            btnEl.style.background = 'rgba(239, 68, 68, 0.2)';
+            btnEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            btnEl.style.color = '#fca5a5';
+        }
+    }
+}
+
+function finalizarDescansoGym(opts) {
+    if (ASISTENTE_GYM.finalizado) return;
+    opts = opts || {};
+
+    ASISTENTE_GYM.finalizado = true;
     if (ASISTENTE_GYM.intervaloId) {
         clearInterval(ASISTENTE_GYM.intervaloId);
         ASISTENTE_GYM.intervaloId = null;
     }
 
-    var duracion = segundos || TIEMPO_DESCANSO_SELECCIONADO || 60;
-    ASISTENTE_GYM.descansoTotal = duracion;
-    ASISTENTE_GYM.descansoRestante = duracion;
+    var duracionUsada = ASISTENTE_GYM.descansoTotal || TIEMPO_DESCANSO_SELECCIONADO || 60;
+    ASISTENTE_GYM.descansoRestante = 0;
+    ASISTENTE_GYM.finTimestamp = 0;
 
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'flex';
+    _aplicarEstiloCajaRestTimer(true);
 
-    actualizarDisplayRestTimer();
+    var esVisible = (typeof document === 'undefined' || document.visibilityState === 'visible');
+
+    if (!opts.desdeNativo && !opts.desdeFondo && esVisible) {
+        // Usuario mirando la pantalla: cancelar la alarma nativa pendiente para no duplicar notificación
+        cancelarNotificacionDescansoGym(true);
+        emitirTonoAudio(1050, 0.35, 'triangle');
+        if (navigator.vibrate) navigator.vibrate([150, 80, 200]);
+    } else if (opts.desdeFondo && esVisible) {
+        // Volvió justo después de que la notificación nativa sonó en pantalla apagada: limpiar notificación entregada
+        cancelarNotificacionDescansoGym(true);
+    }
+
+    // Respaldo Web/PWA cuando no existe puente nativo Android
+    if (!opts.desdeNativo) {
+        _notificarWebFinDescansoGym(duracionUsada);
+    }
+
     if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
+}
 
-    ASISTENTE_GYM.intervaloId = setInterval(function() {
-        ASISTENTE_GYM.descansoRestante--;
+function _tickDescansoGym() {
+    if (!ASISTENTE_GYM.finTimestamp || ASISTENTE_GYM.finalizado) return;
+
+    var restanteMs = ASISTENTE_GYM.finTimestamp - Date.now();
+    var restanteSeg = Math.max(0, Math.ceil(restanteMs / 1000));
+
+    if (restanteSeg !== ASISTENTE_GYM.descansoRestante) {
+        ASISTENTE_GYM.descansoRestante = restanteSeg;
         actualizarDisplayRestTimer();
 
-        if (ASISTENTE_GYM.descansoRestante <= 3 && ASISTENTE_GYM.descansoRestante > 0) {
-            emitirTonoAudio(700, 0.08);
+        if (restanteSeg <= 3 && restanteSeg > 0 && restanteSeg !== ASISTENTE_GYM.ultimoSegundoPitido) {
+            ASISTENTE_GYM.ultimoSegundoPitido = restanteSeg;
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                emitirTonoAudio(700, 0.08);
+            }
         }
+    }
 
-        if (ASISTENTE_GYM.descansoRestante <= 0) {
-            clearInterval(ASISTENTE_GYM.intervaloId);
-            ASISTENTE_GYM.intervaloId = null;
-            emitirTonoAudio(1050, 0.35, 'triangle');
-            if (navigator.vibrate) navigator.vibrate([150, 80, 200]);
-            var numEl = document.getElementById('rest-timer-num');
-            if (numEl) numEl.innerText = "¡A entrenar!";
-            if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
-        }
-    }, 1000);
+    if (restanteMs <= 0) {
+        var estabaOculto = (typeof document !== 'undefined' && document.visibilityState !== 'visible');
+        finalizarDescansoGym({ desdeFondo: estabaOculto });
+    }
+}
+
+function iniciarDescansoGym(segundos, finTimestampExistente) {
+    if (ASISTENTE_GYM.intervaloId) {
+        clearInterval(ASISTENTE_GYM.intervaloId);
+        ASISTENTE_GYM.intervaloId = null;
+    }
+
+    var duracion = Math.max(1, parseInt(segundos || TIEMPO_DESCANSO_SELECCIONADO || 60, 10) || 60);
+    var ahora = Date.now();
+    var finTs = (finTimestampExistente && Number(finTimestampExistente) > ahora + 300)
+        ? Number(finTimestampExistente)
+        : (ahora + (duracion * 1000));
+    var restanteInicial = Math.max(1, Math.ceil((finTs - ahora) / 1000));
+
+    ASISTENTE_GYM.descansoTotal = Math.max(duracion, restanteInicial);
+    ASISTENTE_GYM.descansoRestante = restanteInicial;
+    ASISTENTE_GYM.finTimestamp = finTs;
+    ASISTENTE_GYM.finalizado = false;
+    ASISTENTE_GYM.ultimoSegundoPitido = -1;
+
+    var boxEl = document.getElementById('gym-rest-timer-box');
+    if (boxEl) boxEl.style.display = 'flex';
+    _aplicarEstiloCajaRestTimer(false);
+
+    actualizarDisplayRestTimer();
+    programarNotificacionDescansoGym(finTs, restanteInicial);
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
+
+    ASISTENTE_GYM.intervaloId = setInterval(_tickDescansoGym, 250);
+}
+
+function sincronizarDescansoGymAlVolver() {
+    if (!ASISTENTE_GYM.finTimestamp || ASISTENTE_GYM.finalizado) return;
+
+    var restanteMs = ASISTENTE_GYM.finTimestamp - Date.now();
+    if (restanteMs <= 0) {
+        finalizarDescansoGym({ desdeFondo: true });
+        return;
+    }
+
+    ASISTENTE_GYM.descansoRestante = Math.max(1, Math.ceil(restanteMs / 1000));
+    var boxEl = document.getElementById('gym-rest-timer-box');
+    if (boxEl) boxEl.style.display = 'flex';
+    _aplicarEstiloCajaRestTimer(false);
+    actualizarDisplayRestTimer();
+
+    if (!ASISTENTE_GYM.intervaloId) {
+        ASISTENTE_GYM.intervaloId = setInterval(_tickDescansoGym, 250);
+    }
 }
 
 function detenerDescansoGym() {
@@ -5678,6 +6017,13 @@ function detenerDescansoGym() {
         clearInterval(ASISTENTE_GYM.intervaloId);
         ASISTENTE_GYM.intervaloId = null;
     }
+    ASISTENTE_GYM.descansoRestante = 0;
+    ASISTENTE_GYM.finTimestamp = 0;
+    ASISTENTE_GYM.finalizado = false;
+    ASISTENTE_GYM.ultimoSegundoPitido = -1;
+
+    cancelarNotificacionDescansoGym(true);
+
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'none';
     if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
@@ -5686,15 +6032,23 @@ function detenerDescansoGym() {
 function actualizarDisplayRestTimer() {
     var numEl = document.getElementById('rest-timer-num');
     var barEl = document.getElementById('rest-timer-bar-fill');
-    if (numEl) {
+    if (numEl && !ASISTENTE_GYM.finalizado) {
         var m = Math.floor(ASISTENTE_GYM.descansoRestante / 60);
         var s = ASISTENTE_GYM.descansoRestante % 60;
         numEl.innerText = (m > 0 ? (m + ':' + (s < 10 ? '0' : '') + s) : (s + 's'));
     }
-    if (barEl && ASISTENTE_GYM.descansoTotal > 0) {
+    if (barEl && ASISTENTE_GYM.descansoTotal > 0 && !ASISTENTE_GYM.finalizado) {
         var pct = Math.round((ASISTENTE_GYM.descansoRestante / ASISTENTE_GYM.descansoTotal) * 100);
-        barEl.style.width = Math.max(0, pct) + '%';
+        barEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.sincronizarDescansoGymAlVolver = sincronizarDescansoGymAlVolver;
+    window.programarNotificacionDescansoGym = programarNotificacionDescansoGym;
+    window.cancelarNotificacionDescansoGym = cancelarNotificacionDescansoGym;
+    window.addEventListener('focus', sincronizarDescansoGymAlVolver);
+    inicializarPuenteDescansoGymNativo();
 }
 
 // --- INTERACCIÓN DE FILAS Y SERIES DE RUTINA (v10.6) ---
@@ -6975,12 +7329,12 @@ function guardarEstadoSesionActivaEnStorage() {
         }
 
         var descansoData = null;
-        if (ASISTENTE_GYM && (ASISTENTE_GYM.intervaloId || ASISTENTE_GYM.descansoRestante > 0)) {
+        if (ASISTENTE_GYM && ASISTENTE_GYM.finTimestamp > 0 && !ASISTENTE_GYM.finalizado) {
             descansoData = {
                 total: ASISTENTE_GYM.descansoTotal || 60,
-                restante: ASISTENTE_GYM.descansoRestante,
-                activo: !!ASISTENTE_GYM.intervaloId,
-                timestampFin: ASISTENTE_GYM.intervaloId ? (Date.now() + (ASISTENTE_GYM.descansoRestante * 1000)) : null
+                restante: Math.max(0, Math.ceil((ASISTENTE_GYM.finTimestamp - Date.now()) / 1000)),
+                activo: true,
+                timestampFin: ASISTENTE_GYM.finTimestamp
             };
         }
 
@@ -7071,11 +7425,16 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
             actualizarBotonToggleTodasSeriesRutina();
         }
 
-        // Restaurar descanso si aún tiene tiempo corriendo
+        // Restaurar descanso si aún tiene tiempo corriendo (respetando reloj exacto)
         if (sesion.descanso && sesion.descanso.timestampFin) {
-            var segsRestantes = Math.round((sesion.descanso.timestampFin - Date.now()) / 1000);
+            var segsRestantes = Math.ceil((sesion.descanso.timestampFin - Date.now()) / 1000);
             if (segsRestantes > 0) {
-                iniciarDescansoGym(segsRestantes);
+                iniciarDescansoGym(sesion.descanso.total || segsRestantes, sesion.descanso.timestampFin);
+            } else if (sesion.descanso.activo) {
+                ASISTENTE_GYM.descansoTotal = sesion.descanso.total || 60;
+                ASISTENTE_GYM.finTimestamp = sesion.descanso.timestampFin;
+                ASISTENTE_GYM.finalizado = false;
+                finalizarDescansoGym({ desdeFondo: true });
             }
         }
 
@@ -7114,6 +7473,8 @@ if (typeof window !== 'undefined') {
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'hidden') {
             guardarEstadoSesionActivaEnStorage();
+        } else if (document.visibilityState === 'visible') {
+            sincronizarDescansoGymAlVolver();
         }
     });
 }
@@ -7364,6 +7725,9 @@ if (typeof window !== 'undefined') {
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     limpiarTodosLosTimersSeries();
     if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
+    var prevRutinaKey = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina)
+        ? (RUTINA_ACTIVA.rutina.id || RUTINA_ACTIVA.rutina.nombre || String(RUTINA_ACTIVA.idx))
+        : null;
     var rutina = null;
     var idx = -1;
 
@@ -7383,6 +7747,11 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     if (!rutina) {
         console.warn("Rutina no encontrada para:", idxOrId);
         return;
+    }
+
+    var nuevaRutinaKey = rutina.id || rutina.nombre || String(idx);
+    if (prevRutinaKey && prevRutinaKey !== nuevaRutinaKey && (ASISTENTE_GYM.intervaloId || ASISTENTE_GYM.finTimestamp > 0 || ASISTENTE_GYM.finalizado)) {
+        detenerDescansoGym();
     }
 
     RUTINA_ACTIVA = { rutina: rutina, idx: idx };
@@ -7895,6 +8264,7 @@ function ejecutarRutinaDinamica() {
     }
 
     sumarExp(60);
+    detenerDescansoGym();
     limpiarTodosLosTimersSeries();
     limpiarSesionActivaStorage();
     MonarcaDB.save(APP_STATE);
@@ -9743,6 +10113,7 @@ function iniciarRutinaAleatoriaGenerada() {
 }
 
 function abrirDetalleRutinaDinamicaGenerada(rutina) {
+    if (typeof detenerDescansoGym === 'function') detenerDescansoGym();
     if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries();
     RUTINA_ACTIVA = { rutina: rutina, idx: -1 };
     HISTORIAL_FACTOR_SERIES = {};
