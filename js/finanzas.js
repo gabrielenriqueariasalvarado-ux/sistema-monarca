@@ -454,9 +454,20 @@ function clasificarOrigenIngreso(item) {
         };
     }
 
-    // 4. Almacén -> Exclusivamente ventas y créditos de inventario / mercancía
+    // 4. Almacén -> Ventas y créditos de inventario / ventas únicas personales
     if (item.ventaId || item.cuotaId || idStr.indexOf('almacen') !== -1 || idStr.indexOf('inv-') !== -1 || tipoRaw === 'almacen' || tipoRaw === 'credito' || desc.indexOf('almacén') !== -1 || desc.indexOf('almacen') !== -1 || desc.indexOf('producto') !== -1 || desc.indexOf('mercanc') !== -1) {
         var subTxt = item.ventaId ? (item.cuotaId ? 'Crédito Cuota' : 'Venta Contado') : 'Venta';
+        if (item.esVentaUnica) {
+            var subVU = item.cuotaId ? 'Cuota' : 'Contado';
+            return {
+                tipoDestino: 'almacen',
+                origen: 'almacen',
+                origenId: 'ALMACEN',
+                nombreOrigen: 'Venta Única',
+                icono: '✨',
+                badgeHtml: '<span class="badge-cat" style="background: rgba(56, 189, 248, 0.16); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); font-weight: 700;">✨ Venta Única · ' + subVU + '</span>'
+            };
+        }
         return {
             tipoDestino: 'almacen',
             origen: 'almacen',

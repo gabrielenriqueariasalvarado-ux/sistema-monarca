@@ -78,7 +78,7 @@ function cambiarTabInventario(tab) {
 
     // Renderizar contenido correspondiente
     if (tab === 'productos') {
-        renderizarProductosInventario();
+        filtrarProductosInventario();
     } else if (tab === 'categorias') {
         renderizarCategoriasInventario();
     } else if (tab === 'vendidos') {
@@ -145,71 +145,147 @@ function actualizarMetricasKpisInventario() {
 }
 
 // ==========================================================================
-// 1. GESTIÓN DE PRODUCTOS (STOCK ACTIVO, VARIANTES Y RENTABILIDAD)
+// 1. GESTIÓN DE PRODUCTOS (CATÁLOGO, VENTAS ÚNICAS, VARIANTES Y RENTABILIDAD)
 // ==========================================================================
 
+function escaparHTMLInv(str) {
+    if (typeof escaparHTML === 'function') return escaparHTML(str);
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function esProductoVentaUnicaInv(prod) {
+    if (!prod) return false;
+    return !!(prod.esVentaUnica || prod.tipoProducto === 'venta_unica' || prod.categoriaId === '__VENTA_UNICA__');
+}
+
+function obtenerConversionPrecioInv(montoIn, moneda, tasaTipo) {
+    if (typeof convertirMontoFinanzasAUsd === 'function') {
+        return convertirMontoFinanzasAUsd(montoIn, moneda, tasaTipo);
+    }
+    var val = Math.max(0, Number(montoIn) || 0);
+    if (moneda !== 'VES') {
+        return { valido: true, usd: Math.round(val * 100) / 100, bs: 0, tasaUsada: 0, tasaLabel: 'USD', monedaOrigen: 'USD' };
+    }
+    try {
+        var raw = localStorage.getItem('MONARCA_TASAS_BCV_V1');
+        var cache = raw ? JSON.parse(raw) : {};
+        var tasa = (tasaTipo === 'paralelo' && Number(cache.paralelo) > 0) ? Number(cache.paralelo) : (Number(cache.usd) || Number(cache.paralelo) || 0);
+        var label = (tasaTipo === 'paralelo' && Number(cache.paralelo) > 0) ? 'Paralelo' : 'BCV USD';
+        if (tasa > 0) {
+            return { valido: true, usd: Math.round((val / tasa) * 100) / 100, bs: Math.round(val * 100) / 100, tasaUsada: tasa, tasaLabel: label, monedaOrigen: 'VES' };
+        }
+    } catch (e) {}
+    return { valido: false, usd: 0, bs: val, tasaUsada: 0, tasaLabel: 'Sin tasa', monedaOrigen: 'VES' };
+}
+
 /**
- * Renderiza el listado de productos activos en stock
+ * Renderiza el listado de productos activos en stock (catálogo y ventas únicas)
  */
 function renderizarProductosInventario(listaManual) {
     asegurarEstructuraInventario();
     var cont = document.getElementById('contenedor-productos-inventario');
     if (!cont) return;
 
-    var lista = listaManual || APP_STATE.inventario.productos;
+    var todosProds = APP_STATE.inventario.productos || [];
+    var listaRaw = listaManual || todosProds;
 
-    if (!lista || lista.length === 0) {
+    if (!listaRaw || listaRaw.length === 0) {
+        if (todosProds.length > 0 && listaManual) {
+            cont.innerHTML = `
+            <div class="card" style="text-align: center; padding: 34px 20px; border-radius: 16px; border: 1.5px dashed rgba(255,255,255,0.12); background: #121725;">
+                <div style="font-size: 36px; margin-bottom: 10px;">🔍</div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">Sin resultados con el filtro actual</h3>
+                <p style="margin: 6px auto 0 auto; max-width: 420px; font-size: 12.5px; color: #94a3b8;">
+                    Prueba cambiando el filtro de tipo, categoría o búsqueda para ver los ${todosProds.length} artículos guardados.
+                </p>
+            </div>`;
+            return;
+        }
         var tieneCategorias = APP_STATE.inventario.categorias.length > 0;
         cont.innerHTML = `
-        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed #d1d5db; background: #121725;">
+        <div class="card" style="text-align: center; padding: 40px 20px; border-radius: 16px; border: 1.5px dashed rgba(255,255,255,0.16); background: #121725;">
             <div style="font-size: 42px; margin-bottom: 12px;">📦</div>
-            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes productos en inventario</h3>
-            <p style="margin: 6px auto 18px auto; max-width: 440px; font-size: 13px; color: #6b7280; line-height: 1.45;">
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes artículos en inventario</h3>
+            <p style="margin: 6px auto 18px auto; max-width: 460px; font-size: 13px; color: #94a3b8; line-height: 1.45;">
                 ${tieneCategorias 
-                    ? 'Agrega tus productos indicando costo, precio de venta, tallas/colores o stock simple para comenzar a registrar ventas.' 
-                    : 'Te recomendamos crear primero tus categorías (ej: "Franelas", "Pantalones", "Calzado") y luego añadir tus productos.'}
+                    ? 'Agrega mercancía de tu catálogo o publica cosas personales en Venta Única (ej: una tarjeta de vídeo, laptop o celular) sin crear categorías fijas.' 
+                    : 'Puedes crear categorías de tienda para tu catálogo o agregar directamente un artículo personal en Venta Única.'}
             </p>
             <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 ${!tieneCategorias ? `
-                <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #121725; color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.1); padding: 9px 16px; font-size: 13px; font-weight: 700; border-radius: 10px;">
-                    🏷️ Crear Primera Categoría
+                <button class="btn-system" onclick="abrirModalNuevaCategoria()" style="background: #121725; color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.14); padding: 9px 16px; font-size: 13px; font-weight: 700; border-radius: 10px;">
+                    🏷️ Crear Categoría
                 </button>` : ''}
-                <button class="btn-system" onclick="abrirModalNuevoProducto()" style="background: #111827; color: #ffffff; border: 1px solid #111827; padding: 9px 18px; font-size: 13px; font-weight: 700; border-radius: 10px;">
-                    ➕ + Agregar Nuevo Producto
+                <button class="btn-system" onclick="abrirModalNuevoProducto(null, 'venta_unica')" style="background: rgba(56, 189, 248, 0.16); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35); padding: 9px 18px; font-size: 13px; font-weight: 700; border-radius: 10px;">
+                    ✨ + Venta Única
+                </button>
+                <button class="btn-system" onclick="abrirModalNuevoProducto(null, 'catalogo')" style="background: #111827; color: #ffffff; border: 1px solid rgba(255,255,255,0.18); padding: 9px 18px; font-size: 13px; font-weight: 700; border-radius: 10px;">
+                    ➕ + Nuevo Producto
                 </button>
             </div>
         </div>`;
         return;
     }
 
+    // Mostrar artículos con existencias primero y los agotados/vendidos después
+    var lista = listaRaw.slice().sort(function(a, b) {
+        var sa = (Number(a && a.stock) || 0) > 0 ? 1 : 0;
+        var sb = (Number(b && b.stock) || 0) > 0 ? 1 : 0;
+        return sb - sa;
+    });
+
     var html = '<div class="inventario-productos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px;">';
 
     lista.forEach(function(prod) {
         var stock = Math.max(0, Number(prod.stock) || 0);
+        var esVU = esProductoVentaUnicaInv(prod);
         var precioCosto = Number(prod.precioCosto != null ? prod.precioCosto : prod.costo) || 0;
         var precioVenta = Number(prod.precioVenta != null ? prod.precioVenta : (prod.costo || 0));
         var ganancia = precioVenta - precioCosto;
         var margenPct = precioVenta > 0 ? ((ganancia / precioVenta) * 100) : 0;
         var enStock = stock > 0;
         var totalVend = Number(prod.totalVendidos) || 0;
-        var catNombre = prod.categoriaNombre || "General";
-        var catIcono = prod.categoriaIcono || "🏷️";
+        var catNombre = prod.categoriaNombre || (esVU ? "Venta Única" : "General");
+        var catIcono = prod.categoriaIcono || (esVU ? "✨" : "🏷️");
 
         var statusBadge = enStock
             ? `<span style="font-size: 10.5px; font-weight: 800; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> ${stock} en Stock
                </span>`
-            : `<span style="font-size: 10.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
-                <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Agotado (0)
+            : (esVU
+                ? `<span class="badge-vendida-unica-inv">✅ Vendida</span>`
+                : `<span style="font-size: 10.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Agotado (0)
+                   </span>`);
+
+        var catBadgeHtml = (esVU && prod.categoriaId === '__VENTA_UNICA__')
+            ? `<span class="badge-venta-unica-inv">✨ Venta Única</span>`
+            : `<span style="font-size: 11px; font-weight: 800; color: #94a3b8; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
+                    ${escaparHTMLInv(catIcono)} ${escaparHTMLInv(catNombre)}
                </span>`;
 
-        // Etiquetas opcionales (Marca y Género)
+        // Etiquetas (Venta Única, Condición, Marca, Género y Ref Bs)
         var tagsHtml = '';
-        if (prod.marca) {
-            tagsHtml += `<span style="font-size: 10px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">🏷️ ${prod.marca}</span>`;
+        if (esVU && prod.categoriaId !== '__VENTA_UNICA__') {
+            tagsHtml += `<span class="badge-venta-unica-inv">✨ Venta Única</span>`;
         }
-        if (prod.genero && prod.genero !== 'No aplica') {
-            tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">👤 ${prod.genero}</span>`;
+        if (prod.estado && (esVU || prod.estado !== 'Nuevo')) {
+            var icoEst = prod.estado === 'Nuevo' ? '✨' : (String(prod.estado).indexOf('Como nuevo') !== -1 ? '💎' : (String(prod.estado).indexOf('detalle') !== -1 ? '🔧' : '✅'));
+            tagsHtml += `<span class="badge-condicion-inv">${icoEst} ${escaparHTMLInv(prod.estado)}</span>`;
+        }
+        if (prod.marca) {
+            tagsHtml += `<span style="font-size: 10px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">🏷️ ${escaparHTMLInv(prod.marca)}</span>`;
+        }
+        if (prod.genero && prod.genero !== 'No aplica' && !esVU) {
+            tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 5px;">👤 ${escaparHTMLInv(prod.genero)}</span>`;
+        }
+        if (prod.monedaOrigenPrecio === 'VES' && Number(prod.precioOriginalBs) > 0) {
+            tagsHtml += `<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.1); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 7px; border-radius: 5px;">💱 Bs. ${Number(prod.precioOriginalBs).toFixed(2)}</span>`;
         }
 
         // Variantes (Tallas y Colores)
@@ -218,8 +294,8 @@ function renderizarProductosInventario(listaManual) {
             variantesHtml = '<div style="margin: 8px 0 10px 0; display: flex; flex-wrap: wrap; gap: 4px;">';
             prod.variantes.forEach(function(v) {
                 var vStock = Math.max(0, Number(v.stock) || 0);
-                var txtTalla = v.talla ? 'T: ' + v.talla : '';
-                var txtColor = v.color ? v.color : '';
+                var txtTalla = v.talla ? 'T: ' + escaparHTMLInv(v.talla) : '';
+                var txtColor = v.color ? escaparHTMLInv(v.color) : '';
                 var txtLabel = [txtTalla, txtColor].filter(Boolean).join(' · ') || 'Var';
                 variantesHtml += `<span class="variant-pill ${vStock <= 0 ? 'is-zero' : ''}" title="${txtLabel}: ${vStock} unidades disponibles">
                     ${txtLabel}: <strong>${vStock}</strong>
@@ -228,27 +304,31 @@ function renderizarProductosInventario(listaManual) {
             variantesHtml += '</div>';
         }
 
+        var subPrecioHtml = (esVU && precioCosto <= 0)
+            ? `<div style="font-size: 10.5px; color: #7dd3fc; margin-top: 2px;">Artículo propio · Sin costo de compra</div>`
+            : `<div style="font-size: 10.5px; color: #6b7280; margin-top: 2px;">
+                    Costo: <strong>$${precioCosto.toFixed(2)}</strong> · <span style="color: ${ganancia >= 0 ? '#34d399' : '#f87171'}; font-weight: 700;">${ganancia >= 0 ? '+' : ''}${margenPct.toFixed(0)}%</span>
+               </div>`;
+
         html += `
-        <div class="card inventario-producto-card ${enStock ? '' : 'is-agotado'}" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease;">
+        <div class="card inventario-producto-card ${enStock ? '' : 'is-agotado'}" style="margin-bottom: 0; padding: 16px; border-radius: 14px; background: #121725; border: 1px solid ${esVU && enStock ? 'rgba(56, 189, 248, 0.28)' : 'rgba(255, 255, 255, 0.08)'}; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease;">
             <div>
-                <!-- Fila Superior: Categoría y Disponibilidad -->
+                <!-- Fila Superior: Categoría / Venta Única y Disponibilidad -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-                    <span style="font-size: 11px; font-weight: 800; color: #94a3b8; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
-                        ${catIcono} ${catNombre}
-                    </span>
+                    ${catBadgeHtml}
                     ${statusBadge}
                 </div>
 
-                <!-- Etiquetas de Atributos Rápidos (Marca y Género) -->
+                <!-- Etiquetas de Atributos Rápidos (Condición, Marca y Género) -->
                 ${tagsHtml ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">${tagsHtml}</div>` : ''}
 
                 <!-- Nombre del Producto -->
                 <h4 style="margin: 0 0 6px 0; font-size: 15.5px; font-weight: 800; color: #f8fafc; line-height: 1.35;">
-                    ${prod.nombre}
+                    ${escaparHTMLInv(prod.nombre)}
                 </h4>
 
-                <!-- Descripción si existe -->
-                ${prod.descripcion ? `<p style="margin: 0 0 10px 0; font-size: 11.5px; color: #6b7280; line-height: 1.4;">${prod.descripcion}</p>` : '<div style="margin-bottom: 6px;"></div>'}
+                <!-- Descripción / Especificaciones si existe -->
+                ${prod.descripcion ? `<p style="margin: 0 0 10px 0; font-size: 11.5px; color: #94a3b8; line-height: 1.45;">${escaparHTMLInv(prod.descripcion)}</p>` : '<div style="margin-bottom: 6px;"></div>'}
 
                 <!-- Pastillas de Variantes (Tallas y Colores) -->
                 ${variantesHtml}
@@ -260,14 +340,12 @@ function renderizarProductosInventario(listaManual) {
                         <div style="font-size: 17px; font-weight: 800; color: #f8fafc; margin-top: 1px;">
                             $${precioVenta.toFixed(2)}
                         </div>
-                        <div style="font-size: 10.5px; color: #6b7280; margin-top: 2px;">
-                            Costo: <strong>$${precioCosto.toFixed(2)}</strong> · <span style="color: ${ganancia >= 0 ? '#34d399' : '#f87171'}; font-weight: 700;">${ganancia >= 0 ? '+' : ''}${margenPct.toFixed(0)}%</span>
-                        </div>
+                        ${subPrecioHtml}
                     </div>
                     <div>
                         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase;">Existencias</span>
-                        <div style="font-size: 16px; font-weight: 800; color: ${enStock ? '#f8fafc' : '#f87171'}; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
-                            <span>${stock} unids</span>
+                        <div style="font-size: 16px; font-weight: 800; color: ${enStock ? '#f8fafc' : (esVU ? '#34d399' : '#f87171')}; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>${stock} unid${stock === 1 ? '' : 's'}</span>
                             <div style="display: flex; gap: 3px;">
                                 <button onclick="ajustarStockRapido('${prod.id}', -1)" title="Restar 1 unidad" style="border: 1px solid rgba(255, 255, 255, 0.1); background: #121725; color: #f8fafc; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">-</button>
                                 <button onclick="ajustarStockRapido('${prod.id}', 1)" title="Sumar 1 unidad" style="border: 1px solid rgba(255, 255, 255, 0.1); background: #121725; color: #f8fafc; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">+</button>
@@ -278,28 +356,27 @@ function renderizarProductosInventario(listaManual) {
                 </div>
 
                 ${totalVend > 0 ? `
-                <div style="font-size: 11px; color: #6b7280; margin-bottom: 12px; display: flex; align-items: center; gap: 4px;">
-                    <span>✓</span> Total vendidos históricamente: <strong style="color: #f8fafc;">${totalVend} unidades</strong>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; gap: 4px;">
+                    <span>✓</span> ${esVU ? 'Vendido:' : 'Total vendidos históricamente:'} <strong style="color: #f8fafc;">${totalVend} unidad${totalVend === 1 ? '' : 'es'}</strong>
                 </div>` : ''}
             </div>
 
             <!-- Botones de Acción -->
             <div>
-                <!-- BOTÓN PRINCIPAL DE VENTA (REQUERIMIENTO DEL USUARIO) -->
                 <button type="button" 
                         class="btn-system" 
                         onclick="abrirModalRegistrarVenta('${prod.id}')"
                         style="width: 100%; justify-content: center; font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 9px; margin-bottom: 8px; ${enStock ? 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none;' : 'background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.08); cursor: not-allowed;'}"
-                        ${enStock ? '' : 'disabled title="Producto agotado. Añade existencias para vender."'}>
-                    <span>💵</span> ${enStock ? 'Registrar Venta (Vendido)' : 'Agotado (Sin Stock)'}
+                        ${enStock ? '' : (esVU ? 'disabled title="Artículo único ya vendido. Si deseas revertir la venta, hazlo en la pestaña Vendidos."' : 'disabled title="Producto agotado. Añade existencias para vender."')}>
+                    <span>${enStock ? '💵' : (esVU ? '✅' : '⚠️')}</span> ${enStock ? 'Registrar Venta (Vendido)' : (esVU ? 'Artículo Vendido' : 'Agotado (Sin Stock)')}
                 </button>
 
                 <!-- Acciones secundarias: Editar y Eliminar con Confirmación -->
                 <div style="display: flex; gap: 6px;">
-                    <button type="button" onclick="confirmarEditarProductoInventario('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar producto">
+                    <button type="button" onclick="confirmarEditarProductoInventario('${prod.id}')" style="flex: 1; border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #cbd5e1; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Editar artículo">
                         ✏️ Editar
                     </button>
-                    <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar producto">
+                    <button type="button" onclick="eliminarProductoInventario('${prod.id}')" style="border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 7px; cursor: pointer;" title="Eliminar artículo">
                         🗑️
                     </button>
                 </div>
@@ -312,19 +389,26 @@ function renderizarProductosInventario(listaManual) {
 }
 
 /**
- * Filtro reactivo por búsqueda de texto, categoría y estado de stock
+ * Filtro reactivo por búsqueda de texto, tipo, categoría y estado de stock
  */
 function filtrarProductosInventario() {
     asegurarEstructuraInventario();
     var txtEl = document.getElementById('inv-filtro-busqueda');
+    var tipEl = document.getElementById('inv-filtro-tipo');
     var catEl = document.getElementById('inv-filtro-categoria');
     var stkEl = document.getElementById('inv-filtro-stock');
 
     var q = txtEl ? txtEl.value.trim().toLowerCase() : '';
+    var tipoF = tipEl ? tipEl.value : 'todos';
     var cat = catEl ? catEl.value : 'todas';
     var stk = stkEl ? stkEl.value : 'todos';
 
     var filtrados = APP_STATE.inventario.productos.filter(function(p) {
+        var esVU = esProductoVentaUnicaInv(p);
+        var matchTipo = true;
+        if (tipoF === 'venta_unica') matchTipo = esVU;
+        else if (tipoF === 'catalogo') matchTipo = !esVU;
+
         var matchTxt = true;
         if (q) {
             var n = (p.nombre || '').toLowerCase();
@@ -332,12 +416,17 @@ function filtrarProductosInventario() {
             var c = (p.categoriaNombre || '').toLowerCase();
             var m = (p.marca || '').toLowerCase();
             var g = (p.genero || '').toLowerCase();
-            matchTxt = (n.indexOf(q) !== -1 || d.indexOf(q) !== -1 || c.indexOf(q) !== -1 || m.indexOf(q) !== -1 || g.indexOf(q) !== -1);
+            var e = (p.estado || '').toLowerCase();
+            matchTxt = (n.indexOf(q) !== -1 || d.indexOf(q) !== -1 || c.indexOf(q) !== -1 || m.indexOf(q) !== -1 || g.indexOf(q) !== -1 || e.indexOf(q) !== -1);
         }
 
         var matchCat = true;
         if (cat !== 'todas') {
-            matchCat = (p.categoriaId === cat || p.categoriaNombre === cat);
+            if (cat === '__VENTA_UNICA__') {
+                matchCat = esVU;
+            } else {
+                matchCat = (p.categoriaId === cat || p.categoriaNombre === cat);
+            }
         }
 
         var matchStk = true;
@@ -348,7 +437,7 @@ function filtrarProductosInventario() {
             matchStk = s <= 0;
         }
 
-        return matchTxt && matchCat && matchStk;
+        return matchTipo && matchTxt && matchCat && matchStk;
     });
 
     renderizarProductosInventario(filtrados);
@@ -472,19 +561,148 @@ function recalcularTotalStockVariantes() {
     return total;
 }
 
+function seleccionarTipoProductoModal(tipo) {
+    var modo = (tipo === 'venta_unica') ? 'venta_unica' : 'catalogo';
+    var inTipo = document.getElementById('modal-prod-tipo');
+    if (inTipo) inTipo.value = modo;
+
+    var btnCat = document.getElementById('btn-prod-tipo-catalogo');
+    var btnVU = document.getElementById('btn-prod-tipo-venta-unica');
+    var hintEl = document.getElementById('modal-prod-tipo-hint');
+    var icoH = document.getElementById('modal-prod-icono-header');
+    var titH = document.getElementById('modal-prod-titulo-header');
+    var inCat = document.getElementById('modal-prod-categoria');
+    var lblMarca = document.getElementById('label-modal-prod-marca');
+    var inMarca = document.getElementById('modal-prod-marca');
+    var lblNom = document.getElementById('label-modal-prod-nombre');
+    var inNom = document.getElementById('modal-prod-nombre');
+    var lblCst = document.getElementById('label-modal-prod-costo');
+    var inCst = document.getElementById('modal-prod-costo');
+    var hintCst = document.getElementById('hint-modal-prod-costo');
+    var lblStk = document.getElementById('label-modal-prod-stock');
+    var grpGen = document.getElementById('grupo-modal-prod-genero');
+    var inGen = document.getElementById('modal-prod-genero');
+    var grpVarToggle = document.getElementById('grupo-modal-prod-variantes-toggle');
+    var chkVar = document.getElementById('modal-prod-tiene-variantes');
+    var bloqueVar = document.getElementById('modal-prod-bloque-variantes');
+    var bloqueStk = document.getElementById('modal-prod-bloque-stock-simple');
+    var btnGuardar = document.getElementById('btn-guardar-prod-inv');
+
+    if (modo === 'venta_unica') {
+        if (btnVU) btnVU.classList.add('active');
+        if (btnCat) btnCat.classList.remove('active');
+        if (hintEl) hintEl.style.display = 'block';
+        if (icoH) icoH.textContent = '✨';
+        if (titH) titH.textContent = _PROD_EDITANDO_ID ? 'EDITAR VENTA ÚNICA' : 'NUEVA VENTA ÚNICA';
+        if (lblMarca) lblMarca.textContent = 'Marca / Modelo (Opcional):';
+        if (inMarca) inMarca.placeholder = 'Ej: NVIDIA, ASUS, Sony, Samsung...';
+        if (lblNom) lblNom.textContent = '¿Qué artículo vas a vender?:';
+        if (inNom) inNom.placeholder = 'Ej: Tarjeta de Vídeo RTX 3060 12GB';
+        if (lblCst) lblCst.textContent = 'Costo / Inversión ($ Opcional):';
+        if (inCst) inCst.placeholder = '0.00 (deja 0 si ya era tuyo)';
+        if (hintCst) hintCst.textContent = 'Opcional: déjalo en 0 o vacío si vendes algo personal que ya tenías.';
+        if (lblStk) lblStk.textContent = 'Cantidad disponible:';
+        if (btnGuardar) btnGuardar.textContent = '✨ Guardar Venta Única';
+
+        if (inCat) inCat.value = '__VENTA_UNICA__';
+        if (grpGen) grpGen.style.display = 'none';
+        if (inGen) inGen.value = 'No aplica';
+
+        var tieneVarActivas = !!(chkVar && chkVar.checked);
+        if (grpVarToggle) grpVarToggle.style.display = tieneVarActivas ? 'flex' : 'none';
+        if (!tieneVarActivas) {
+            if (bloqueVar) bloqueVar.style.display = 'none';
+            if (bloqueStk) bloqueStk.style.display = 'block';
+        }
+    } else {
+        if (btnCat) btnCat.classList.add('active');
+        if (btnVU) btnVU.classList.remove('active');
+        if (hintEl) hintEl.style.display = 'none';
+        if (icoH) icoH.textContent = '📦';
+        if (titH) titH.textContent = _PROD_EDITANDO_ID ? 'EDITAR PRODUCTO' : 'NUEVO PRODUCTO';
+        if (lblMarca) lblMarca.textContent = 'Marca / Fabricante (Opcional):';
+        if (inMarca) inMarca.placeholder = 'Ej: Nike, Adidas, Puma...';
+        if (lblNom) lblNom.textContent = 'Nombre del Producto / Artículo:';
+        if (inNom) inNom.placeholder = 'Ej: Franela Dry-Fit Training Manga Corta';
+        if (lblCst) lblCst.textContent = 'Precio de Costo ($):';
+        if (inCst) inCst.placeholder = 'Ej: 10.00';
+        if (hintCst) hintCst.textContent = 'Inversión interna para calcular tu margen de ganancia';
+        if (lblStk) lblStk.textContent = 'Cantidad en Stock Inicial:';
+        if (btnGuardar) btnGuardar.textContent = '💾 Guardar Producto';
+
+        if (inCat && inCat.value === '__VENTA_UNICA__') {
+            var cats = (APP_STATE && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.categorias)) ? APP_STATE.inventario.categorias : [];
+            inCat.value = cats.length > 0 ? cats[0].id : '';
+        }
+        if (grpGen) grpGen.style.display = 'block';
+        if (inGen && inGen.value === 'No aplica' && !_PROD_EDITANDO_ID) inGen.value = 'Unisex';
+        if (grpVarToggle) grpVarToggle.style.display = 'flex';
+    }
+
+    calcularMargenGananciaModal();
+}
+
+function actualizarPreviewMonedaProducto() {
+    var inVta = document.getElementById('modal-prod-precio-venta');
+    var selMon = document.getElementById('modal-prod-moneda');
+    var selTasa = document.getElementById('modal-prod-tasa-tipo');
+    var prev = document.getElementById('modal-prod-conv-preview');
+
+    var moneda = selMon ? selMon.value : 'USD';
+    var tasaTipo = selTasa ? selTasa.value : 'bcv';
+    var monto = inVta ? parseFloat(inVta.value) : 0;
+    if (isNaN(monto) || monto < 0) monto = 0;
+
+    if (selTasa) {
+        selTasa.style.display = (moneda === 'VES') ? '' : 'none';
+    }
+    if (inVta) {
+        inVta.placeholder = (moneda === 'VES') ? 'Ej: 9000.00' : 'Ej: 180.00';
+    }
+
+    if (prev) {
+        if (moneda === 'VES' && monto > 0) {
+            var conv = obtenerConversionPrecioInv(monto, 'VES', tasaTipo);
+            prev.style.display = 'block';
+            if (conv.valido) {
+                prev.className = 'fin-conv-preview';
+                prev.textContent = `Equivale a $${conv.usd.toFixed(2)} USD (Tasa ${conv.tasaLabel}: ${Number(conv.tasaUsada).toFixed(2)} Bs/$)`;
+            } else {
+                prev.className = 'fin-conv-preview is-error';
+                prev.textContent = '⚠️ Sin tasa en caché todavía. Actualiza BCV en Finanzas o ingresa el monto en $ USD.';
+            }
+        } else {
+            prev.style.display = 'none';
+            prev.textContent = '';
+        }
+    }
+
+    calcularMargenGananciaModal();
+}
+
 function calcularMargenGananciaModal() {
     var inCst = document.getElementById('modal-prod-costo');
     var inVta = document.getElementById('modal-prod-precio-venta');
+    var selMon = document.getElementById('modal-prod-moneda');
+    var selTasa = document.getElementById('modal-prod-tasa-tipo');
+    var inTipo = document.getElementById('modal-prod-tipo');
     var banner = document.getElementById('modal-prod-margen-banner');
+    var titulo = document.getElementById('modal-prod-margen-titulo');
     var texto = document.getElementById('modal-prod-margen-texto');
 
     if (!banner || !texto) return;
 
     var costo = inCst ? parseFloat(inCst.value) : 0;
-    var venta = inVta ? parseFloat(inVta.value) : 0;
+    var rawVenta = inVta ? parseFloat(inVta.value) : 0;
+    var moneda = selMon ? selMon.value : 'USD';
+    var tasaTipo = selTasa ? selTasa.value : 'bcv';
+    var tipo = inTipo ? inTipo.value : 'catalogo';
 
-    if (isNaN(costo)) costo = 0;
-    if (isNaN(venta)) venta = 0;
+    if (isNaN(costo) || costo < 0) costo = 0;
+    if (isNaN(rawVenta) || rawVenta < 0) rawVenta = 0;
+
+    var conv = obtenerConversionPrecioInv(rawVenta, moneda, tasaTipo);
+    var venta = conv.valido ? conv.usd : 0;
 
     if (costo <= 0 && venta <= 0) {
         banner.style.display = 'none';
@@ -492,6 +710,14 @@ function calcularMargenGananciaModal() {
     }
 
     banner.style.display = 'flex';
+    if (tipo === 'venta_unica' && costo <= 0 && venta > 0) {
+        if (titulo) titulo.textContent = '✨ Ingreso Neto Estimado:';
+        banner.className = 'profit-margin-banner is-positive';
+        texto.textContent = `+$${venta.toFixed(2)} USD (Artículo propio)`;
+        return;
+    }
+
+    if (titulo) titulo.textContent = 'Margen de Ganancia Estimado:';
     var ganancia = venta - costo;
     var margenPct = venta > 0 ? ((ganancia / venta) * 100) : (costo > 0 ? -100 : 0);
 
@@ -505,16 +731,15 @@ function calcularMargenGananciaModal() {
 }
 
 /**
- * Abre el modal para crear o editar un producto
+ * Abre el modal para crear o editar un producto o venta única
  */
-function abrirModalNuevoProducto(productoId) {
+function abrirModalNuevoProducto(productoId, tipoInicialOpt) {
     asegurarEstructuraInventario();
     actualizarSelectsCategorias();
 
     var modal = document.getElementById('modal-nuevo-producto');
     if (!modal) return;
 
-    var tituloH = document.getElementById('modal-prod-titulo-header');
     var inId = document.getElementById('modal-prod-id');
     var inCat = document.getElementById('modal-prod-categoria');
     var inNom = document.getElementById('modal-prod-nombre');
@@ -523,6 +748,8 @@ function abrirModalNuevoProducto(productoId) {
     var inEst = document.getElementById('modal-prod-estado');
     var inCst = document.getElementById('modal-prod-costo');
     var inVta = document.getElementById('modal-prod-precio-venta');
+    var selMon = document.getElementById('modal-prod-moneda');
+    var selTasa = document.getElementById('modal-prod-tasa-tipo');
     var inStk = document.getElementById('modal-prod-stock');
     var inDesc = document.getElementById('modal-prod-descripcion');
     var chkVar = document.getElementById('modal-prod-tiene-variantes');
@@ -538,21 +765,7 @@ function abrirModalNuevoProducto(productoId) {
         var p = APP_STATE.inventario.productos.find(function(item) { return item.id === productoId; });
         if (!p) return;
 
-        if (tituloH) tituloH.textContent = "EDITAR PRODUCTO";
-        if (inId) inId.value = p.id;
-        if (inCat && p.categoriaId) inCat.value = p.categoriaId;
-        if (inNom) inNom.value = p.nombre || '';
-        if (inMarca) inMarca.value = p.marca || '';
-        if (inGen) inGen.value = p.genero || 'Unisex';
-        if (inEst) inEst.value = p.estado || 'Nuevo';
-        
-        var cstVal = p.precioCosto != null ? p.precioCosto : (p.costo || '');
-        var vtaVal = p.precioVenta != null ? p.precioVenta : (p.costo || '');
-        if (inCst) inCst.value = cstVal;
-        if (inVta) inVta.value = vtaVal;
-
-        if (inDesc) inDesc.value = p.descripcion || '';
-
+        var esVU = esProductoVentaUnicaInv(p);
         var tieneVar = !!(p.tieneVariantes && Array.isArray(p.variantes) && p.variantes.length > 0);
         if (chkVar) chkVar.checked = tieneVar;
 
@@ -566,28 +779,56 @@ function abrirModalNuevoProducto(productoId) {
         } else {
             if (bloqueVar) bloqueVar.style.display = 'none';
             if (bloqueStk) bloqueStk.style.display = 'block';
-            if (inStk) inStk.value = p.stock || 0;
+            if (inStk) inStk.value = p.stock != null ? p.stock : 0;
         }
+
+        seleccionarTipoProductoModal(esVU ? 'venta_unica' : 'catalogo');
+
+        if (inId) inId.value = p.id;
+        if (inCat) inCat.value = p.categoriaId || (esVU ? '__VENTA_UNICA__' : '');
+        if (inNom) inNom.value = p.nombre || '';
+        if (inMarca) inMarca.value = p.marca || '';
+        if (inGen) inGen.value = p.genero || (esVU ? 'No aplica' : 'Unisex');
+        if (inEst) inEst.value = p.estado || 'Nuevo';
+
+        var cstVal = (p.precioCosto != null && p.precioCosto !== '') ? p.precioCosto : (p.costo || '');
+        if (inCst) inCst.value = (esVU && Number(cstVal) === 0) ? '' : cstVal;
+
+        if (p.monedaOrigenPrecio === 'VES' && Number(p.precioOriginalBs) > 0) {
+            if (selMon) selMon.value = 'VES';
+            if (selTasa) selTasa.value = (p.tasaTipo === 'paralelo') ? 'paralelo' : 'bcv';
+            if (inVta) inVta.value = Number(p.precioOriginalBs).toFixed(2);
+        } else {
+            if (selMon) selMon.value = 'USD';
+            if (selTasa) selTasa.value = 'bcv';
+            var vtaVal = p.precioVenta != null ? p.precioVenta : (p.costo || '');
+            if (inVta) inVta.value = vtaVal;
+        }
+
+        if (inDesc) inDesc.value = p.descripcion || '';
     } else {
         // Modo creación
         _PROD_EDITANDO_ID = null;
-        if (tituloH) tituloH.textContent = "NUEVO PRODUCTO";
-        if (inId) inId.value = '';
-        if (inNom) inNom.value = '';
-        if (inMarca) inMarca.value = '';
-        if (inGen) inGen.value = 'Unisex';
-        if (inEst) inEst.value = 'Nuevo';
-        if (inCst) inCst.value = '';
-        if (inVta) inVta.value = '';
-        if (inStk) inStk.value = '1';
-        if (inDesc) inDesc.value = '';
-
         if (chkVar) chkVar.checked = false;
         if (bloqueVar) bloqueVar.style.display = 'none';
         if (bloqueStk) bloqueStk.style.display = 'block';
+
+        var modoInicial = (tipoInicialOpt === 'venta_unica') ? 'venta_unica' : 'catalogo';
+        seleccionarTipoProductoModal(modoInicial);
+
+        if (inId) inId.value = '';
+        if (inNom) inNom.value = '';
+        if (inMarca) inMarca.value = '';
+        if (inEst) inEst.value = 'Nuevo';
+        if (inCst) inCst.value = '';
+        if (selMon) selMon.value = 'USD';
+        if (selTasa) selTasa.value = 'bcv';
+        if (inVta) inVta.value = '';
+        if (inStk) inStk.value = '1';
+        if (inDesc) inDesc.value = '';
     }
 
-    calcularMargenGananciaModal();
+    actualizarPreviewMonedaProducto();
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
     if (inNom) setTimeout(function() { inNom.focus(); }, 100);
@@ -601,11 +842,12 @@ function cerrarModalNuevoProducto() {
 }
 
 /**
- * Guarda el producto (creación o edición) con variantes y márgenes
+ * Guarda el producto o venta única (creación o edición) con variantes, conversión y márgenes
  */
 function guardarProductoInventario() {
     asegurarEstructuraInventario();
 
+    var inTipo = document.getElementById('modal-prod-tipo');
     var inNom = document.getElementById('modal-prod-nombre');
     var inCat = document.getElementById('modal-prod-categoria');
     var inMarca = document.getElementById('modal-prod-marca');
@@ -613,37 +855,71 @@ function guardarProductoInventario() {
     var inEst = document.getElementById('modal-prod-estado');
     var inCst = document.getElementById('modal-prod-costo');
     var inVta = document.getElementById('modal-prod-precio-venta');
+    var selMon = document.getElementById('modal-prod-moneda');
+    var selTasa = document.getElementById('modal-prod-tasa-tipo');
     var inStk = document.getElementById('modal-prod-stock');
     var inDesc = document.getElementById('modal-prod-descripcion');
     var chkVar = document.getElementById('modal-prod-tiene-variantes');
     var listaVar = document.getElementById('modal-prod-lista-variantes');
 
+    var tipoProd = (inTipo && inTipo.value === 'venta_unica') ? 'venta_unica' : 'catalogo';
     var nombre = inNom ? inNom.value.trim() : '';
     if (!nombre) {
-        alert("Por favor introduce el nombre del producto (ej: Franela Dry-Fit Training).");
+        alert(tipoProd === 'venta_unica'
+            ? "Por favor escribe qué artículo vas a vender (ej: Tarjeta de Vídeo RTX 3060 12GB)."
+            : "Por favor introduce el nombre del producto (ej: Franela Dry-Fit Training).");
         if (inNom) inNom.focus();
         return;
     }
 
     var precioCosto = inCst ? parseFloat(inCst.value) : 0;
     if (isNaN(precioCosto) || precioCosto < 0) precioCosto = 0;
+    precioCosto = Math.round(precioCosto * 100) / 100;
 
-    var precioVenta = inVta ? parseFloat(inVta.value) : 0;
-    if (isNaN(precioVenta) || precioVenta < 0) precioVenta = 0;
+    var rawVenta = inVta ? parseFloat(inVta.value) : 0;
+    if (isNaN(rawVenta) || rawVenta < 0) rawVenta = 0;
+    var monedaOrigen = selMon ? selMon.value : 'USD';
+    var tasaTipo = (monedaOrigen === 'VES' && selTasa) ? selTasa.value : 'bcv';
+    var conv = obtenerConversionPrecioInv(rawVenta, monedaOrigen, tasaTipo);
+
+    if (monedaOrigen === 'VES' && rawVenta > 0 && !conv.valido) {
+        alert("No hay tasa BCV o Paralelo guardada para convertir el precio en Bolívares.\n\nActualiza las tasas en Finanzas o cambia el selector a $ USD.");
+        return;
+    }
+
+    var precioVenta = (monedaOrigen === 'VES') ? conv.usd : (Math.round(rawVenta * 100) / 100);
+    var precioOriginalBs = (monedaOrigen === 'VES' && rawVenta > 0) ? conv.bs : 0;
 
     // Respaldo de compatibilidad para código existente que use p.costo
     var costo = precioVenta > 0 ? precioVenta : precioCosto;
 
     var marca = inMarca ? inMarca.value.trim() : '';
-    var genero = inGen ? inGen.value : 'Unisex';
     var estado = inEst ? inEst.value : 'Nuevo';
     var descripcion = inDesc ? inDesc.value.trim() : '';
 
     var categoriaId = inCat ? inCat.value : '';
-    var catEncontrada = APP_STATE.inventario.categorias.find(function(c) { return c.id === categoriaId; });
-    var categoriaNombre = catEncontrada ? catEncontrada.nombre : "General";
-    var categoriaIcono = catEncontrada ? catEncontrada.icono : "🏷️";
+    if (tipoProd === 'venta_unica' && !categoriaId) {
+        categoriaId = '__VENTA_UNICA__';
+    }
 
+    var esVentaUnica = (tipoProd === 'venta_unica' || categoriaId === '__VENTA_UNICA__');
+    var categoriaNombre = "General";
+    var categoriaIcono = "🏷️";
+    if (categoriaId === '__VENTA_UNICA__') {
+        categoriaNombre = "Venta Única";
+        categoriaIcono = "✨";
+    } else {
+        var catEncontrada = APP_STATE.inventario.categorias.find(function(c) { return c.id === categoriaId; });
+        if (catEncontrada) {
+            categoriaNombre = catEncontrada.nombre;
+            categoriaIcono = catEncontrada.icono || "🏷️";
+        } else if (esVentaUnica) {
+            categoriaNombre = "Venta Única";
+            categoriaIcono = "✨";
+        }
+    }
+
+    var genero = esVentaUnica ? 'No aplica' : (inGen ? inGen.value : 'Unisex');
     var tieneVariantes = !!(chkVar && chkVar.checked);
     var variantesArray = [];
     var stockTotal = 0;
@@ -687,9 +963,14 @@ function guardarProductoInventario() {
         var p = APP_STATE.inventario.productos.find(function(item) { return item.id === _PROD_EDITANDO_ID; });
         if (p) {
             p.nombre = nombre;
+            p.tipoProducto = esVentaUnica ? 'venta_unica' : 'catalogo';
+            p.esVentaUnica = esVentaUnica;
             p.precioCosto = precioCosto;
             p.precioVenta = precioVenta;
             p.costo = costo;
+            p.monedaOrigenPrecio = monedaOrigen;
+            p.precioOriginalBs = precioOriginalBs;
+            p.tasaTipo = tasaTipo;
             p.marca = marca;
             p.genero = genero;
             p.estado = estado;
@@ -709,7 +990,7 @@ function guardarProductoInventario() {
         });
         var permitirDuplicadoProd = false;
         if (yaExisteProd) {
-            if (!confirm("Ya existe un producto registrado con el nombre \"" + nombre + "\".\n¿Deseas agregar otro producto con el mismo nombre?")) {
+            if (!confirm("Ya existe un artículo registrado con el nombre \"" + nombre + "\".\n¿Deseas agregar otro con el mismo nombre?")) {
                 return;
             }
             permitirDuplicadoProd = true;
@@ -720,9 +1001,14 @@ function guardarProductoInventario() {
         var nuevoProd = {
             id: "PROD-" + nowProd,
             nombre: nombre,
+            tipoProducto: esVentaUnica ? 'venta_unica' : 'catalogo',
+            esVentaUnica: esVentaUnica,
             precioCosto: precioCosto,
             precioVenta: precioVenta,
             costo: costo,
+            monedaOrigenPrecio: monedaOrigen,
+            precioOriginalBs: precioOriginalBs,
+            tasaTipo: tasaTipo,
             marca: marca,
             genero: genero,
             estado: estado,
@@ -758,7 +1044,7 @@ function confirmarEditarProductoInventario(productoId) {
 
     var stockTxt = p.stock || 0;
     var precioTxt = (parseFloat(p.precioVenta) || 0).toFixed(2);
-    var advertencia = `⚠️ CONFIRMACIÓN DE EDICIÓN\n\n¿Deseas modificar los datos del producto "${p.nombre}"?\n• Stock actual: ${stockTxt} unidades\n• Precio de venta: $${precioTxt}\n\nAsegúrate de guardar los cambios al terminar para mantener tu inventario exacto.`;
+    var advertencia = `⚠️ CONFIRMACIÓN DE EDICIÓN\n\n¿Deseas modificar los datos de "${p.nombre}"?\n• Stock actual: ${stockTxt} unidades\n• Precio de venta: $${precioTxt}\n\nAsegúrate de guardar los cambios al terminar para mantener tu inventario exacto.`;
 
     if (confirm(advertencia)) {
         abrirModalNuevoProducto(productoId);
@@ -773,7 +1059,7 @@ function eliminarProductoInventario(productoId) {
     var p = APP_STATE.inventario.productos.find(function(item) { return item.id === productoId; });
     if (!p) return;
 
-    var advertencia = `🚨 ADVERTENCIA DE SEGURIDAD - ELIMINACIÓN PERMANENTE\n\n¿Estás completamente seguro de que deseas ELIMINAR el producto "${p.nombre}" del inventario?\n\n⚠️ Esta acción borrará de forma irreversible su ficha, precios, variantes y existencias (${p.stock || 0} unidades en stock).\n\n¿Deseas continuar y eliminarlo?`;
+    var advertencia = `🚨 ADVERTENCIA DE SEGURIDAD - ELIMINACIÓN PERMANENTE\n\n¿Estás completamente seguro de que deseas ELIMINAR "${p.nombre}" del inventario?\n\n⚠️ Esta acción borrará de forma irreversible su ficha, precios, variantes y existencias (${p.stock || 0} unidades en stock).\n\n¿Deseas continuar y eliminarlo?`;
 
     if (confirm(advertencia)) {
         if (typeof registrarTombstone === 'function') {
@@ -810,15 +1096,20 @@ function actualizarSelectsCategorias() {
     // 1. Selector en modal de nuevo producto
     var selModal = document.getElementById('modal-prod-categoria');
     if (selModal) {
+        var prevModalVal = selModal.value;
         var optHtml = '';
         if (cats.length === 0) {
-            optHtml = '<option value="">(Sin categorías creadas - General)</option>';
+            optHtml += '<option value="">(Sin categorías creadas - General)</option>';
         } else {
             cats.forEach(function(c) {
-                optHtml += `<option value="${c.id}">${c.icono || '🏷️'} ${c.nombre}</option>`;
+                optHtml += `<option value="${escaparHTMLInv(c.id)}">${escaparHTMLInv(c.icono || '🏷️')} ${escaparHTMLInv(c.nombre)}</option>`;
             });
         }
+        optHtml += '<option value="__VENTA_UNICA__">✨ Venta Única</option>';
         selModal.innerHTML = optHtml;
+        if (prevModalVal && Array.from(selModal.options).some(function(o) { return o.value === prevModalVal; })) {
+            selModal.value = prevModalVal;
+        }
     }
 
     // 2. Selector en filtro de la barra superior
@@ -826,11 +1117,12 @@ function actualizarSelectsCategorias() {
     if (selFiltro) {
         var valActual = selFiltro.value || 'todas';
         var fHtml = '<option value="todas">🏷️ Todas las categorías</option>';
+        fHtml += '<option value="__VENTA_UNICA__">✨ Venta Única</option>';
         cats.forEach(function(c) {
-            fHtml += `<option value="${c.id}">${c.icono || '🏷️'} ${c.nombre}</option>`;
+            fHtml += `<option value="${escaparHTMLInv(c.id)}">${escaparHTMLInv(c.icono || '🏷️')} ${escaparHTMLInv(c.nombre)}</option>`;
         });
         selFiltro.innerHTML = fHtml;
-        selFiltro.value = valActual;
+        selFiltro.value = Array.from(selFiltro.options).some(function(o) { return o.value === valActual; }) ? valActual : 'todas';
     }
 }
 
@@ -1031,8 +1323,106 @@ function eliminarCategoriaInventario(categoriaId) {
 // 3. MECÁNICA DE VENTA (SELECCIÓN DE VARIANTE, OBSERVACIÓN Y RESTA DE STOCK)
 // ==========================================================================
 
+function poblarSelectTarjetaVentaInv() {
+    var sel = document.getElementById('modal-venta-tarjeta');
+    if (!sel) return;
+    var prev = sel.value;
+    var html = '<option value="">💵 Caja / Solo registro (sin sumar a tarjeta)</option>';
+
+    if (typeof asegurarArrayTarjetasFinanzas === 'function') {
+        var tarjetas = asegurarArrayTarjetasFinanzas();
+        var cache = typeof leerCacheTasasBCV === 'function' ? leerCacheTasasBCV() : {};
+        tarjetas.forEach(function(t) {
+            var est = typeof calcularEstadoTarjetaEnVivo === 'function' ? calcularEstadoTarjetaEnVivo(t, cache) : null;
+            var titulo = typeof construirTituloTarjeta === 'function' ? construirTituloTarjeta(t) : (t.alias || t.banco || 'Tarjeta');
+            var saldoTxt = '';
+            if (est) {
+                if (est.monedaBase === 'USD') {
+                    var usdFmt = typeof formatearUsdTarjeta === 'function' ? formatearUsdTarjeta(est.saldoUsd) : ('$' + Number(est.saldoUsd || 0).toFixed(2));
+                    saldoTxt = ' (' + usdFmt + ' USDT)';
+                } else {
+                    var bsFmt = typeof formatearTasaBsDisplay === 'function' ? formatearTasaBsDisplay(est.saldoBs, 2) : (Number(est.saldoBs || 0).toFixed(2) + ' Bs.');
+                    var eqFmt = typeof formatearUsdTarjeta === 'function' ? formatearUsdTarjeta(est.valorActualUsd) : ('$' + Number(est.valorActualUsd || 0).toFixed(2));
+                    saldoTxt = ' (' + bsFmt + ' ≈ ' + eqFmt + ')';
+                }
+            }
+            html += `<option value="${escaparHTMLInv(t.id)}">${escaparHTMLInv(titulo + saldoTxt)}</option>`;
+        });
+    }
+
+    sel.innerHTML = html;
+    if (prev && Array.from(sel.options).some(function(o) { return o.value === prev; })) {
+        sel.value = prev;
+    } else {
+        sel.value = '';
+    }
+    actualizarPreviewTarjetaVenta();
+}
+
+function actualizarVisibilidadTarjetaVenta() {
+    var chkFin = document.getElementById('modal-venta-registrar-finanzas');
+    var inMod = document.getElementById('modal-venta-modalidad');
+    var wrap = document.getElementById('modal-venta-tarjeta-wrap');
+    if (!wrap) return;
+
+    var mostrar = (!chkFin || chkFin.checked) && (!inMod || inMod.value !== 'credito');
+    wrap.style.display = mostrar ? 'block' : 'none';
+    actualizarPreviewTarjetaVenta();
+}
+
+function actualizarPreviewTarjetaVenta() {
+    var sel = document.getElementById('modal-venta-tarjeta');
+    var prev = document.getElementById('modal-venta-tarjeta-preview');
+    var wrap = document.getElementById('modal-venta-tarjeta-wrap');
+    if (!prev) return;
+
+    var tarjId = sel ? sel.value : '';
+    if (!tarjId || (wrap && wrap.style.display === 'none')) {
+        prev.style.display = 'none';
+        prev.textContent = '';
+        return;
+    }
+
+    var inCant = document.getElementById('modal-venta-cantidad');
+    var inPre = document.getElementById('modal-venta-precio');
+    var cant = inCant ? parseInt(inCant.value, 10) : 1;
+    if (isNaN(cant) || cant < 1) cant = 1;
+    var pre = inPre ? parseFloat(inPre.value) : 0;
+    if (isNaN(pre) || pre < 0) pre = 0;
+    var total = cant * pre;
+
+    if (total <= 0 || typeof asegurarArrayTarjetasFinanzas !== 'function') {
+        prev.style.display = 'none';
+        prev.textContent = '';
+        return;
+    }
+
+    var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === tarjId; });
+    if (!t || typeof calcularEstadoTarjetaEnVivo !== 'function') {
+        prev.style.display = 'none';
+        return;
+    }
+
+    var est = calcularEstadoTarjetaEnVivo(t);
+    var titulo = typeof construirTituloTarjeta === 'function' ? construirTituloTarjeta(t) : (t.alias || t.banco || 'Tarjeta');
+    prev.style.display = 'block';
+
+    if (est.monedaBase === 'USD') {
+        prev.className = 'fin-conv-preview';
+        prev.textContent = `Acreditará +$${total.toFixed(2)} USDT en ${titulo}`;
+    } else if (est.tasaActual > 0) {
+        var equivBs = total * est.tasaActual;
+        var bsFmt = typeof formatearTasaBsDisplay === 'function' ? formatearTasaBsDisplay(equivBs, 2) : (equivBs.toFixed(2) + ' Bs.');
+        prev.className = 'fin-conv-preview';
+        prev.textContent = `Acreditará +${bsFmt} en ${titulo} (Tasa ${est.tasaLabel}: ${Number(est.tasaActual).toFixed(2)} Bs/$)`;
+    } else {
+        prev.className = 'fin-conv-preview is-error';
+        prev.textContent = '⚠️ Sin tasa BCV/Paralelo en caché para convertir $ a Bs. en esta tarjeta.';
+    }
+}
+
 /**
- * Abre el modal para registrar la venta de un producto (con soporte de variantes)
+ * Abre el modal para registrar la venta de un producto (con soporte de variantes y tarjetas)
  */
 function abrirModalRegistrarVenta(productoId) {
     asegurarEstructuraInventario();
@@ -1041,7 +1431,7 @@ function abrirModalRegistrarVenta(productoId) {
 
     var stockTotal = Math.max(0, Number(p.stock) || 0);
     if (stockTotal <= 0) {
-        alert(`El producto "${p.nombre}" se encuentra AGOTADO (0 unidades en stock). No es posible registrar una venta hasta agregar existencias.`);
+        alert(`El artículo "${p.nombre}" se encuentra AGOTADO / VENDIDO (0 unidades en stock).`);
         return;
     }
 
@@ -1059,15 +1449,23 @@ function abrirModalRegistrarVenta(productoId) {
     var inObs = document.getElementById('modal-venta-observacion');
     var bloqueVar = document.getElementById('modal-venta-bloque-variante');
     var selVar = document.getElementById('modal-venta-selector-variante');
+    var chkFin = document.getElementById('modal-venta-registrar-finanzas');
+    var selTarj = document.getElementById('modal-venta-tarjeta');
 
+    var esVU = esProductoVentaUnicaInv(p);
     if (inId) inId.value = p.id;
-    if (badgeCat) badgeCat.textContent = (p.categoriaIcono || '🏷️') + " " + (p.categoriaNombre || "General");
+    if (badgeCat) {
+        badgeCat.textContent = esVU
+            ? ('✨ ' + (p.categoriaNombre || 'Venta Única') + (p.estado ? ' · ' + p.estado : ''))
+            : ((p.categoriaIcono || '🏷️') + " " + (p.categoriaNombre || "General"));
+    }
     if (txtNom) txtNom.textContent = p.nombre;
 
     var precioSugerido = Number(p.precioVenta != null ? p.precioVenta : (p.costo || 0));
     if (inPre) inPre.value = precioSugerido.toFixed(2);
     if (inObs) inObs.value = "";
     if (inCant) inCant.value = "1";
+    if (chkFin) chkFin.checked = true;
 
     var tieneVar = !!(p.tieneVariantes && Array.isArray(p.variantes) && p.variantes.length > 0);
 
@@ -1081,7 +1479,7 @@ function abrirModalRegistrarVenta(productoId) {
             var optDisabled = vStk <= 0 ? 'disabled' : '';
             var labelVar = `${v.talla ? 'Talla: ' + v.talla : ''} ${v.color ? '· Color: ' + v.color : ''} (${vStk} en stock)`.trim();
             if (vStk > 0 && !primerIdDisponible) primerIdDisponible = v.id;
-            optHtml += `<option value="${v.id}" ${optDisabled}>${labelVar}</option>`;
+            optHtml += `<option value="${escaparHTMLInv(v.id)}" ${optDisabled}>${escaparHTMLInv(labelVar)}</option>`;
         });
 
         selVar.innerHTML = optHtml;
@@ -1089,9 +1487,12 @@ function abrirModalRegistrarVenta(productoId) {
         alSeleccionarVarianteVenta();
     } else {
         if (bloqueVar) bloqueVar.style.display = 'none';
-        if (badgeStock) badgeStock.textContent = stockTotal + " unidades disponibles";
+        if (badgeStock) badgeStock.textContent = stockTotal + (stockTotal === 1 ? " unidad disponible" : " unidades disponibles");
         if (inCant) inCant.max = stockTotal;
     }
+
+    poblarSelectTarjetaVentaInv();
+    if (selTarj) selTarj.value = '';
 
     // Inicializar modalidad de pago (Contado por defecto)
     seleccionarModalidadVentaModal('contado');
@@ -1101,6 +1502,7 @@ function abrirModalRegistrarVenta(productoId) {
     if (selNum) selNum.value = '2';
 
     actualizarTotalVentaCalculado();
+    actualizarVisibilidadTarjetaVenta();
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
     if (inObs) setTimeout(function() { inObs.focus(); }, 120);
@@ -1127,6 +1529,8 @@ function seleccionarModalidadVentaModal(modo) {
         if (btnCred) btnCred.classList.remove('active');
         if (bloqCred) bloqCred.style.display = 'none';
     }
+
+    actualizarVisibilidadTarjetaVenta();
 }
 
 /**
@@ -1247,6 +1651,8 @@ function actualizarTotalVentaCalculado() {
     if (inMod && inMod.value === 'credito') {
         generarFilasCuotasVenta();
     }
+
+    actualizarPreviewTarjetaVenta();
 }
 
 /**
@@ -1271,6 +1677,7 @@ function confirmarVentaProducto() {
     var inObs = document.getElementById('modal-venta-observacion');
     var chkFin = document.getElementById('modal-venta-registrar-finanzas');
     var selVar = document.getElementById('modal-venta-selector-variante');
+    var selTarj = document.getElementById('modal-venta-tarjeta');
 
     var cantidad = inCant ? parseInt(inCant.value, 10) : 1;
     if (isNaN(cantidad) || cantidad < 1) {
@@ -1311,13 +1718,29 @@ function confirmarVentaProducto() {
     var precioUnitario = inPre ? parseFloat(inPre.value) : Number(prod.precioVenta != null ? prod.precioVenta : (prod.costo || 0));
     if (isNaN(precioUnitario) || precioUnitario < 0) precioUnitario = 0;
 
-    var totalVenta = cantidad * precioUnitario;
+    var totalVenta = Math.round((cantidad * precioUnitario) * 100) / 100;
     var observacion = inObs ? inObs.value.trim() : '';
 
     var inMod = document.getElementById('modal-venta-modalidad');
     var modalidad = inMod ? inMod.value : 'contado';
     var inCli = document.getElementById('modal-venta-cliente');
     var cliente = inCli ? inCli.value.trim() : '';
+    var tarjetaContadoId = (modalidad === 'contado' && chkFin && chkFin.checked && selTarj) ? selTarj.value : '';
+    var tarjetaContadoTitulo = '';
+
+    if (tarjetaContadoId && totalVenta > 0 && typeof asegurarArrayTarjetasFinanzas === 'function' && typeof calcularEstadoTarjetaEnVivo === 'function') {
+        var tarjObj = asegurarArrayTarjetasFinanzas().find(function(x) { return x.id === tarjetaContadoId; });
+        if (!tarjObj) {
+            alert("La tarjeta seleccionada ya no existe.");
+            return;
+        }
+        var estTarj = calcularEstadoTarjetaEnVivo(tarjObj);
+        if (estTarj.monedaBase === 'VES' && !estTarj.tasaActual) {
+            alert("No se puede acreditar la venta a esa tarjeta en Bolívares porque aún no hay tasa BCV/Paralelo en caché.\n\nActualiza las tasas en Finanzas o elige 'Caja / Solo registro'.");
+            return;
+        }
+        tarjetaContadoTitulo = typeof construirTituloTarjeta === 'function' ? construirTituloTarjeta(tarjObj) : (tarjObj.alias || tarjObj.banco || 'Tarjeta');
+    }
 
     var fechaHoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
     var horaHoy = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -1352,6 +1775,8 @@ function confirmarVentaProducto() {
         }
     }
 
+    var esVU = esProductoVentaUnicaInv(prod);
+
     // 1. Descontar existencias
     if (tieneVar && varianteSeleccionada) {
         varianteSeleccionada.stock = Math.max(0, (Number(varianteSeleccionada.stock) || 0) - cantidad);
@@ -1364,15 +1789,19 @@ function confirmarVentaProducto() {
     prod.fechaActualizacion = Date.now();
 
     // 2. Crear registro de venta para el apartado de Vendidos
+    var nowVenta = Date.now();
     var nuevaVenta = {
-        id: "VENTA-" + Date.now(),
+        id: "VENTA-" + nowVenta,
         productoId: prod.id,
         productoNombre: prod.nombre,
+        esVentaUnica: esVU,
+        tipoProducto: esVU ? 'venta_unica' : 'catalogo',
+        estado: prod.estado || 'Nuevo',
         varianteId: varianteSeleccionada ? varianteSeleccionada.id : null,
         varianteDetalle: varianteDetalle || null,
         categoriaId: prod.categoriaId || '',
-        categoriaNombre: prod.categoriaNombre || 'General',
-        categoriaIcono: prod.categoriaIcono || '🏷️',
+        categoriaNombre: prod.categoriaNombre || (esVU ? 'Venta Única' : 'General'),
+        categoriaIcono: prod.categoriaIcono || (esVU ? '✨' : '🏷️'),
         marca: prod.marca || '',
         genero: prod.genero || '',
         cantidad: cantidad,
@@ -1380,16 +1809,19 @@ function confirmarVentaProducto() {
         totalVenta: totalVenta,
         modalidad: modalidad,
         cliente: cliente,
+        tarjetaId: tarjetaContadoId || '',
+        tarjetaTitulo: tarjetaContadoTitulo || '',
         cuotas: cuotasArr,
         observacion: observacion,
         fecha: fechaHoy,
         hora: horaHoy,
-        timestamp: Date.now()
+        timestamp: nowVenta
     };
 
     APP_STATE.inventario.ventas.unshift(nuevaVenta);
 
     // 3. Registrar automáticamente en Finanzas (Apartado Almacén & Labores)
+    var movTarjetaMsg = '';
     if (chkFin && chkFin.checked && APP_STATE.finanzas) {
         if (!Array.isArray(APP_STATE.finanzas.ingresos)) APP_STATE.finanzas.ingresos = [];
 
@@ -1402,29 +1834,45 @@ function confirmarVentaProducto() {
                     id: "ING-CR-" + cItem.id,
                     fuente: conceptoCuota,
                     tipo: 'credito',
-                    categoria: "Ventas / Crédito",
+                    categoria: esVU ? "Ventas Únicas / Crédito" : "Ventas / Crédito",
                     monto: cItem.monto,
                     fecha: cItem.fecha,
                     dia: cItem.dia,
                     cobrado: false,
+                    esVentaUnica: esVU,
                     ventaId: nuevaVenta.id,
                     cuotaId: cItem.id
                 });
             });
         } else {
             // Venta al contado: 1 sola entrada cobrada de inmediato
-            var descFinanza = `Venta: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (${cantidad} unid${cantidad > 1 ? 'es' : ''})${cliente ? ' - ' + cliente : ''}${observacion ? ' - ' + observacion : ''}`;
-            APP_STATE.finanzas.ingresos.push({
-                id: "ING-V-" + Date.now(),
+            var descFinanza = `${esVU ? 'Venta Única' : 'Venta'}: ${prod.nombre}${varianteDetalle ? ' (' + varianteDetalle + ')' : ''} (${cantidad} unid${cantidad > 1 ? 'es' : ''})${cliente ? ' - ' + cliente : ''}${observacion ? ' - ' + observacion : ''}`;
+            var ingAlmacen = {
+                id: "ING-V-" + nowVenta,
                 fuente: descFinanza,
                 tipo: 'almacen',
-                categoria: "Ventas / Almacén",
+                categoria: esVU ? "Venta Única / Artículo Propio" : "Ventas / Almacén",
                 monto: totalVenta,
                 fecha: fechaHoy,
                 dia: new Date().getDate(),
                 cobrado: true,
+                esVentaUnica: esVU,
                 ventaId: nuevaVenta.id
-            });
+            };
+
+            if (tarjetaContadoId && totalVenta > 0 && typeof aplicarTarjetasMovimientoFinanzas === 'function') {
+                var movsAplicados = aplicarTarjetasMovimientoFinanzas(
+                    ingAlmacen,
+                    true,
+                    [{ tarjetaId: tarjetaContadoId, montoUsd: totalVenta }],
+                    descFinanza
+                );
+                if (movsAplicados && movsAplicados.length > 0) {
+                    movTarjetaMsg = `\n• Acreditado a tarjeta: ${tarjetaContadoTitulo}`;
+                }
+            }
+
+            APP_STATE.finanzas.ingresos.push(ingAlmacen);
         }
     }
 
@@ -1435,6 +1883,7 @@ function confirmarVentaProducto() {
     // Actualizar interfaz
     filtrarProductosInventario();
     actualizarMetricasKpisInventario();
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
     if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
 
     var detalleFinal = varianteDetalle ? ` [${varianteDetalle}]` : '';
@@ -1443,10 +1892,10 @@ function confirmarVentaProducto() {
         : '\n• Modalidad: Al Contado (Cobrado)';
     alert(`✓ ¡Venta registrada exitosamente!
 
-• Producto: ${prod.nombre}${detalleFinal}
+• ${esVU ? 'Artículo' : 'Producto'}: ${prod.nombre}${detalleFinal}
 • Unidades vendidas: ${cantidad}
 • Stock restante: ${prod.stock} unids
-• Total: $${totalVenta.toFixed(2)}${modalMsg}
+• Total: $${totalVenta.toFixed(2)}${modalMsg}${movTarjetaMsg}
 • Observación: "${observacion || 'Sin observación'}"`);
 }
 
@@ -1470,12 +1919,15 @@ function renderizarVendidosInventario(listaManual) {
             <div style="font-size: 42px; margin-bottom: 12px;">💰</div>
             <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc;">No tienes ventas registradas</h3>
             <p style="margin: 6px auto 18px auto; max-width: 440px; font-size: 13px; color: #6b7280; line-height: 1.45;">
-                Cuando registres ventas de tus productos aparecerán en este historial con su fecha, variante, unidades, monto recaudado y tu observación.
+                Cuando registres ventas de tus productos o artículos personales aparecerán en este historial con su fecha, unidades, monto recaudado y tu observación.
             </p>
             <button class="btn-system" onclick="cambiarTabInventario('productos')" style="background: #111827; color: #ffffff; border: 1px solid #111827; padding: 9px 18px; font-size: 13px; font-weight: 700; border-radius: 10px;">
                 📦 Ir a Productos en Stock
             </button>
         </div>`;
+        if (!listaManual && typeof actualizarGraficaCobrosCreditoInventario === 'function') {
+            actualizarGraficaCobrosCreditoInventario();
+        }
         return;
     }
 
@@ -1485,6 +1937,7 @@ function renderizarVendidosInventario(listaManual) {
         var cant = Number(venta.cantidad) || 1;
         var unit = Number(venta.precioUnitario) || 0;
         var total = Number(venta.totalVenta) || (cant * unit);
+        var esVU = esProductoVentaUnicaInv(venta);
 
         var esCredito = venta.modalidad === 'credito';
         var cuotas = Array.isArray(venta.cuotas) ? venta.cuotas : [];
@@ -1520,14 +1973,14 @@ function renderizarVendidosInventario(listaManual) {
                 <div class="cuota-card-vendidos ${yaCobrada ? 'cobrada' : 'pendiente'}">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">${labelParteVendidos}: $${mMonto}</span>
-                        <span style="font-size: 11px; color: #94a3b8;">📅 Acordado: ${cq.fecha}</span>
+                        <span style="font-size: 11px; color: #94a3b8;">📅 Acordado: ${escaparHTMLInv(cq.fecha)}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         ${yaCobrada
                             ? `<span style="font-size: 10.5px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 2px 7px; border-radius: 5px;">✅ Cobrada</span>
-                               <button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroCuotaVentaUI('${venta.id}', '${cq.id}')" title="Desmarcar cobro de esta cuota">↩</button>`
+                               <button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroCuotaVentaUI('${escaparHTMLInv(venta.id)}', '${escaparHTMLInv(cq.id)}')" title="Desmarcar cobro de esta cuota">↩</button>`
                             : `<span style="font-size: 10.5px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.12); padding: 2px 7px; border-radius: 5px;">⏳ Pendiente</span>
-                               <button type="button" class="btn-cobrar-ingreso" onclick="cobrarCuotaVentaUI('${venta.id}', '${cq.id}')" title="Marcar esta cuota como cobrada">💰 Cobrar</button>`
+                               <button type="button" class="btn-cobrar-ingreso" onclick="cobrarCuotaVentaUI('${escaparHTMLInv(venta.id)}', '${escaparHTMLInv(cq.id)}')" title="Cobrar cuota (elige tarjeta en Finanzas)">💰 Cobrar</button>`
                         }
                     </div>
                 </div>`;
@@ -1539,23 +1992,27 @@ function renderizarVendidosInventario(listaManual) {
         html += `
         <div class="card inventario-venta-card" style="margin-bottom: 0; padding: 16px 18px; border-radius: 14px; background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
             <div style="flex: 1; min-width: 240px;">
-                <!-- Fila de Metadatos: Categoría, Modalidad y Fecha/Hora -->
+                <!-- Fila de Metadatos: Categoría, Venta Única, Modalidad y Fecha/Hora -->
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-                    <span style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
-                        ${venta.categoriaIcono || '🏷️'} ${venta.categoriaNombre || 'General'}
-                    </span>
+                    ${(esVU && venta.categoriaId === '__VENTA_UNICA__')
+                        ? '<span class="badge-venta-unica-inv">✨ Venta Única</span>'
+                        : `<span style="font-size: 11px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 6px;">
+                                ${escaparHTMLInv(venta.categoriaIcono || '🏷️')} ${escaparHTMLInv(venta.categoriaNombre || 'General')}
+                           </span>${esVU ? '<span class="badge-venta-unica-inv">✨ Venta Única</span>' : ''}`
+                    }
                     ${badgeModalidadHtml}
-                    ${venta.cliente ? `<span style="font-size: 11px; font-weight: 700; background: rgba(56, 189, 248, 0.12); color: #38bdf8; padding: 2px 8px; border-radius: 6px;">👤 ${venta.cliente}</span>` : ''}
-                    ${venta.marca ? `<span style="font-size: 10.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 2px 6px; border-radius: 5px;">🏷️ ${venta.marca}</span>` : ''}
+                    ${venta.tarjetaTitulo ? `<span style="font-size: 10.5px; font-weight: 700; background: rgba(16, 185, 129, 0.14); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 7px; border-radius: 6px;">💳 ${escaparHTMLInv(venta.tarjetaTitulo)}</span>` : ''}
+                    ${venta.cliente ? `<span style="font-size: 11px; font-weight: 700; background: rgba(56, 189, 248, 0.12); color: #38bdf8; padding: 2px 8px; border-radius: 6px;">👤 ${escaparHTMLInv(venta.cliente)}</span>` : ''}
+                    ${venta.marca ? `<span style="font-size: 10.5px; font-weight: 700; background: rgba(255, 255, 255, 0.05); color: #94a3b8; padding: 2px 6px; border-radius: 5px;">🏷️ ${escaparHTMLInv(venta.marca)}</span>` : ''}
                     <span style="font-size: 11.5px; color: #6b7280; font-weight: 600;">
-                        📅 ${venta.fecha} ${venta.hora ? '· ' + venta.hora : ''}
+                        📅 ${escaparHTMLInv(venta.fecha)} ${venta.hora ? '· ' + escaparHTMLInv(venta.hora) : ''}
                     </span>
                 </div>
 
                 <!-- Nombre del Producto Vendido y Variante -->
                 <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span>${venta.productoNombre}</span>
-                    ${venta.varianteDetalle ? `<span class="variant-pill" style="font-size: 11.5px; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">👕 ${venta.varianteDetalle}</span>` : ''}
+                    <span>${escaparHTMLInv(venta.productoNombre)}</span>
+                    ${venta.varianteDetalle ? `<span class="variant-pill" style="font-size: 11.5px; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">👕 ${escaparHTMLInv(venta.varianteDetalle)}</span>` : ''}
                 </h4>
 
                 <!-- Cantidad y Precio -->
@@ -1566,7 +2023,7 @@ function renderizarVendidosInventario(listaManual) {
                 <!-- Observación (Requerimiento explícito) -->
                 <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3.5px solid #111827; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #cbd5e1; line-height: 1.45;">
                     <strong style="color: #f8fafc;">📝 Observación:</strong> 
-                    <span>${venta.observacion ? venta.observacion : '<em style="color: #9ca3af;">Sin observación registrada</em>'}</span>
+                    <span>${venta.observacion ? escaparHTMLInv(venta.observacion) : '<em style="color: #9ca3af;">Sin observación registrada</em>'}</span>
                 </div>
 
                 <!-- Desglose de cuotas si es a crédito -->
@@ -1583,7 +2040,7 @@ function renderizarVendidosInventario(listaManual) {
                     ${esCredito ? `<div style="font-size: 11px; font-weight: 700; color: ${totalCobrado >= total ? '#10b981' : '#fbbf24'};">En Cuenta: $${totalCobrado.toFixed(2)}</div>` : ''}
                 </div>
                 <button type="button" 
-                        onclick="anularVentaInventario('${venta.id}')" 
+                        onclick="anularVentaInventario('${escaparHTMLInv(venta.id)}')" 
                         style="border: 1px solid rgba(255, 255, 255, 0.08); background: #121725; color: #6b7280; padding: 5px 10px; font-size: 11px; font-weight: 700; border-radius: 7px; cursor: pointer; transition: all 0.2s ease; margin-top: 12px;" 
                         title="Anular venta y reincorporar las unidades al stock">
                     ↩ Revertir Venta (+${cant} stock)
@@ -1594,10 +2051,14 @@ function renderizarVendidosInventario(listaManual) {
 
     html += '</div>';
     cont.innerHTML = html;
+
+    if (!listaManual && typeof actualizarGraficaCobrosCreditoInventario === 'function') {
+        actualizarGraficaCobrosCreditoInventario();
+    }
 }
 
 /**
- * Marca una cuota de venta a crédito como cobrada y sincroniza con Finanzas
+ * Marca una cuota de venta a crédito como cobrada (usando el modal Finanzas cuando existe enlace)
  */
 function cobrarCuotaVentaUI(ventaId, cuotaId) {
     asegurarEstructuraInventario();
@@ -1607,19 +2068,22 @@ function cobrarCuotaVentaUI(ventaId, cuotaId) {
     var cuota = venta.cuotas.find(function(c) { return c.id === cuotaId; });
     if (!cuota) return;
 
-    cuota.cobrado = true;
-    cuota.fechaCobrado = new Date().toISOString();
-
-    // Sincronizar en Finanzas
     if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
         var ing = APP_STATE.finanzas.ingresos.find(function(ig) {
             return (ig.ventaId === ventaId && ig.cuotaId === cuotaId) || ig.id === ('ING-CR-' + cuotaId);
         });
         if (ing) {
+            if (typeof cobrarIngresoUI === 'function' && document.getElementById('modal-confirmar-cobro-ingreso')) {
+                cobrarIngresoUI(ing.id);
+                return;
+            }
             ing.cobrado = true;
             ing.fechaCobro = new Date().toISOString();
         }
     }
+
+    cuota.cobrado = true;
+    cuota.fechaCobrado = new Date().toISOString();
 
     MonarcaDB.save(APP_STATE);
     renderizarVendidosInventario();
@@ -1627,7 +2091,7 @@ function cobrarCuotaVentaUI(ventaId, cuotaId) {
 }
 
 /**
- * Deshace el cobro de una cuota de venta a crédito y sincroniza con Finanzas
+ * Deshace el cobro de una cuota de venta a crédito y revierte tarjetas/Finanzas
  */
 function deshacerCobroCuotaVentaUI(ventaId, cuotaId) {
     asegurarEstructuraInventario();
@@ -1637,19 +2101,26 @@ function deshacerCobroCuotaVentaUI(ventaId, cuotaId) {
     var cuota = venta.cuotas.find(function(c) { return c.id === cuotaId; });
     if (!cuota) return;
 
-    cuota.cobrado = false;
-    delete cuota.fechaCobrado;
-
-    // Sincronizar en Finanzas
     if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
         var ing = APP_STATE.finanzas.ingresos.find(function(ig) {
             return (ig.ventaId === ventaId && ig.cuotaId === cuotaId) || ig.id === ('ING-CR-' + cuotaId);
         });
         if (ing) {
+            if (typeof deshacerCobroIngresoUI === 'function') {
+                deshacerCobroIngresoUI(ing.id);
+                return;
+            }
+            if (typeof revertirTarjetasMovimientoFinanzas === 'function') {
+                revertirTarjetasMovimientoFinanzas(ing, true);
+            }
             ing.cobrado = false;
+            delete ing.montoCobrado;
             delete ing.fechaCobro;
         }
     }
+
+    cuota.cobrado = false;
+    delete cuota.fechaCobrado;
 
     MonarcaDB.save(APP_STATE);
     renderizarVendidosInventario();
@@ -1675,14 +2146,15 @@ function filtrarVentasInventario() {
         var c = (v.categoriaNombre || '').toLowerCase();
         var varDet = (v.varianteDetalle || '').toLowerCase();
         var f = (v.fecha || '').toLowerCase();
-        return (n.indexOf(q) !== -1 || o.indexOf(q) !== -1 || c.indexOf(q) !== -1 || varDet.indexOf(q) !== -1 || f.indexOf(q) !== -1);
+        var cli = (v.cliente || '').toLowerCase();
+        return (n.indexOf(q) !== -1 || o.indexOf(q) !== -1 || c.indexOf(q) !== -1 || varDet.indexOf(q) !== -1 || f.indexOf(q) !== -1 || cli.indexOf(q) !== -1);
     });
 
     renderizarVendidosInventario(filtradas);
 }
 
 /**
- * Anula una venta y devuelve las unidades al stock del producto y de su variante
+ * Anula una venta, devuelve las unidades al stock y revierte tarjetas/Finanzas asociadas
  */
 function anularVentaInventario(ventaId) {
     asegurarEstructuraInventario();
@@ -1692,9 +2164,9 @@ function anularVentaInventario(ventaId) {
     var cant = Number(venta.cantidad) || 1;
     var confirmMsg = `¿Deseas revertir esta venta?
 
-• Producto: ${venta.productoNombre}${venta.varianteDetalle ? ' (' + venta.varianteDetalle + ')' : ''}
+• Artículo: ${venta.productoNombre}${venta.varianteDetalle ? ' (' + venta.varianteDetalle + ')' : ''}
 • Se reincorporarán ${cant} unidad(es) al stock.
-• Se eliminará del historial de vendidos.`;
+• Se eliminará del historial de vendidos${venta.tarjetaTitulo ? ' y se revertirá el ingreso en ' + venta.tarjetaTitulo : ''}.`;
 
     if (confirm(confirmMsg)) {
         // Devolver stock al producto si aún existe
@@ -1714,16 +2186,30 @@ function anularVentaInventario(ventaId) {
         }
 
         // Eliminar del historial de ventas y registrar tombstone
-        if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
-        if (!Array.isArray(APP_STATE._eliminados.ventas)) APP_STATE._eliminados.ventas = [];
-        APP_STATE._eliminados.ventas.push(ventaId);
+        if (typeof registrarTombstone === 'function') {
+            registrarTombstone('ventas', ventaId);
+        } else {
+            if (!APP_STATE._eliminados) APP_STATE._eliminados = { productos: [], categorias: [], ventas: [] };
+            if (!Array.isArray(APP_STATE._eliminados.ventas)) APP_STATE._eliminados.ventas = [];
+            APP_STATE._eliminados.ventas.push(ventaId);
+        }
 
         APP_STATE.inventario.ventas = APP_STATE.inventario.ventas.filter(function(v) {
             return v.id !== ventaId;
         });
 
-        // Limpiar también los ingresos registrados en Finanzas asociados a esta venta
+        // Limpiar los ingresos registrados en Finanzas asociados a esta venta y revertir tarjetas cobradas
         if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
+            APP_STATE.finanzas.ingresos.forEach(function(ig) {
+                if (ig && ig.ventaId === ventaId) {
+                    if (ig.cobrado && typeof revertirTarjetasMovimientoFinanzas === 'function') {
+                        revertirTarjetasMovimientoFinanzas(ig, true);
+                    }
+                    if (ig.id && typeof registrarTombstone === 'function') {
+                        registrarTombstone('finanzas_ingresos', ig.id);
+                    }
+                }
+            });
             APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
                 return ig.ventaId !== ventaId;
             });
@@ -1731,7 +2217,9 @@ function anularVentaInventario(ventaId) {
 
         MonarcaDB.save(APP_STATE, true);
         renderizarVendidosInventario();
+        filtrarProductosInventario();
         actualizarMetricasKpisInventario();
+        if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
         if (typeof actualizarGraficaCobrosCreditoInventario === 'function') {
             actualizarGraficaCobrosCreditoInventario();
         }
