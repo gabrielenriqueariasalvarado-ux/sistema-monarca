@@ -141,14 +141,7 @@ const DEFAULT_STATE = {
         tiempoPromedioMetaMin: 60,
         alumnos: [],
         sesiones: [],
-        rutinasEnfoques: [
-            { id: "ENF-1", nombre: "Pierna & Glúteos", tiempoMin: 60, descripcion: "Sentadilla, prensa, curl femoral, extensiones y pantorrilla." },
-            { id: "ENF-2", nombre: "Pecho & Tríceps", tiempoMin: 60, descripcion: "Press banca plano/inclinado, aperturas y fondos." },
-            { id: "ENF-3", nombre: "Espalda & Bíceps", tiempoMin: 60, descripcion: "Dominadas, jalones al pecho, remos y curls con barra." },
-            { id: "ENF-4", nombre: "Hombro & Trapecio", tiempoMin: 50, descripcion: "Press militar, elevaciones laterales y pájaros." },
-            { id: "ENF-5", nombre: "Full Body / Funcional", tiempoMin: 60, descripcion: "Circuito de alta intensidad, fuerza y resistencia metabólica." },
-            { id: "ENF-6", nombre: "Cardio & Core", tiempoMin: 45, descripcion: "HIIT, planchas, elevación de piernas y rueda abdominal." }
-        ]
+        rutinasEnfoques: []
     },
     agendaPersonas: [],
     gruposPersonas: [],
@@ -406,8 +399,8 @@ const MonarcaDB = {
                 if (!Array.isArray(data.subappTrainer.sesiones)) data.subappTrainer.sesiones = [];
                 if (!Array.isArray(data.subappTrainer.sesionesActivas)) data.subappTrainer.sesionesActivas = [];
                 if (typeof data.subappTrainer.tiempoPromedioMetaMin !== 'number') data.subappTrainer.tiempoPromedioMetaMin = 60;
-                if (!Array.isArray(data.subappTrainer.rutinasEnfoques) || data.subappTrainer.rutinasEnfoques.length === 0) {
-                    data.subappTrainer.rutinasEnfoques = JSON.parse(JSON.stringify(DEFAULT_STATE.subappTrainer.rutinasEnfoques));
+                if (!Array.isArray(data.subappTrainer.rutinasEnfoques)) {
+                    data.subappTrainer.rutinasEnfoques = [];
                 }
             }
             if (!data.reproductorPlaylists || !Array.isArray(data.reproductorPlaylists)) {
@@ -1648,7 +1641,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.00';
+var MONARCA_APP_VERSION = '11.01';
 var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

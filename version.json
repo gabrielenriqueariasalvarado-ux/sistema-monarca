@@ -1,5 +1,5 @@
 {
-  "version": "11.00",
+  "version": "11.01",
   "fecha": "2026-11-22",
-  "resumen": "Rutinas aleatorias conectadas directamente a Enfoques en Personal Trainer, soporte para 1, 2, 3 o más sesiones rodando simultáneamente con cronómetro independiente y vista detallada por rutina con atleta asignado, grupos musculares y checklist de ejercicios completados vs faltantes."
+  "resumen": "Vista de Enfoques más limpia y compacta sin tarjetas duplicadas (barra rápida de atletas en vivo + checklist de 2 líneas), limpieza de rutinas por defecto que reaparecían al eliminar todo y botón 🧹 Vaciar para dejar el horario en 0 cuando no trabajas de Personal Trainer."
 }
