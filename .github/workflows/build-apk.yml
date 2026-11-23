@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.01)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.02)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.01
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.02
             Esta versión nativa incluye:
+            - 💬 **Enviar Rutina a WhatsApp por Mensajitos (v11.02)**: En **Personal Trainer → Rutina Aleatoria**, el botón **`📋 Asignar a Alumno`** se reemplaza por **`📤 Enviar Rutina`**; al pulsarlo se abre una ventana que divide la rutina generada en mensajes cortos al estilo natural de WhatsApp (**`Mensaje 1`**, **`Mensaje 2`**, **`Mensaje 3`**...), con botón **`📋 Copiar`** individual (marca visual `✓ Copiado`), **`📋 Copiar Todo`** y acceso directo **`💬 Abrir WhatsApp`**.
             - 🧹 **Enfoques Limpio, Vaciar Horario & Sin Reaparición de Plantillas (v11.01)**: Interfaz de **Enfoques** mucho más compacta y despejada (selector rápido por atleta en vivo sin repetir tarjetas ni saturar la pantalla, filas de ejercicios más limpias y selector de mes en una sola línea), eliminación real hasta quedar vacío (`0` rutinas cuando no trabajas de Trainer sin que vuelvan las 6 rutinas por defecto) y botón **`🧹 Vaciar`** para limpiar el horario al instante.
             - 🎯 **Enfoques Multi-Atleta en Vivo + Rutinas Aleatorias Integradas (v11.00)**: Cada rutina aleatoria que asignas, guardas o inicias aparece de inmediato dentro de **Enfoques** con su atleta, grupos musculares y lista de ejercicios; permite mantener **1, 2, 3 o más rutinas rodando al mismo tiempo** con cronómetro individual, seleccionar cualquiera para ver sus músculos/ejercicios y marcar hechos vs. faltantes en vivo.
             - 🏋️‍♂️ **Personal Trainer Limpio + Rutina Aleatoria con Settings y Sorteo en Descanso (v10.99)**: Rediseño luminoso y sin bordes opacados en todo el módulo de **Personal Trainer** (cabecera compacta, KPIs legibles y pestañas en 1 línea), botón destacado **`⚙️ Settings`** para configurar músculos por día (Lunes–Domingo) y generación aleatoria real que sortea músculos de tu configuración incluso cuando pides rutina en día de descanso.

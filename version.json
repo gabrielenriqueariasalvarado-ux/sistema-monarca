@@ -1,5 +1,5 @@
 {
-  "version": "11.01",
+  "version": "11.02",
   "fecha": "2026-11-22",
-  "resumen": "Vista de Enfoques más limpia y compacta sin tarjetas duplicadas (barra rápida de atletas en vivo + checklist de 2 líneas), limpieza de rutinas por defecto que reaparecían al eliminar todo y botón 🧹 Vaciar para dejar el horario en 0 cuando no trabajas de Personal Trainer."
+  "resumen": "Reemplazo de Asignar a Alumno por botón 📤 Enviar Rutina en Personal Trainer, abriendo ventana con la rutina dividida en mensajes cortos (Mensaje 1, Mensaje 2, Mensaje 3...) listos para copiar uno a uno o en bloque hacia grupos de WhatsApp."
 }

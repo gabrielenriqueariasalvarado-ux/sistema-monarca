@@ -5462,8 +5462,8 @@ function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
 
     <!-- BOTONES DE ACCIÓN PARA EL ATLETA -->
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
-        <button type="button" class="btn-system" onclick="asignarRutinaGeneradaAAlumnoTrainer()" style="flex: 2; min-width: 190px; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
-            <span>📋</span> Asignar a Alumno
+        <button type="button" id="btn-trainer-enviar-rutina" class="btn-system" onclick="abrirModalEnviarRutinaTrainer()" style="flex: 2; min-width: 190px; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            <span>📤</span> Enviar Rutina
         </button>
         <button type="button" class="btn-system" onclick="iniciarEntrenamientoConRutinaTrainer()" style="flex: 1.5; min-width: 170px; padding: 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);">
             <span>🏋️‍♂️</span> Iniciar Sesión
@@ -5476,6 +5476,260 @@ function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
 
     return html;
 }
+
+function formatearListaGruposNaturalTrainer(grupos) {
+    var limpios = (grupos || []).map(function(g) { return String(g || '').trim().toLowerCase(); }).filter(Boolean);
+    var unicos = [];
+    limpios.forEach(function(g) {
+        if (unicos.indexOf(g) === -1) unicos.push(g);
+    });
+    if (unicos.length === 0) return 'entrenamiento completo';
+    if (unicos.length === 1) return unicos[0];
+    if (unicos.length === 2) return unicos[0] + ' y ' + unicos[1];
+    return unicos.slice(0, -1).join(', ') + ' y ' + unicos[unicos.length - 1];
+}
+
+function formatearEjercicioWhatsAppTrainer(ej) {
+    if (!ej) return '';
+    var nombre = String(ej.nombre || 'Ejercicio').trim();
+    var seriesNum = Number(ej.series) || 4;
+    var etiquetaSeries = seriesNum === 1 ? 'serie' : 'series';
+    var rawReps = String(ej.repeticiones || '10-12 reps').trim();
+    var repsWa = rawReps.replace(/\breps?\b/gi, 'repes');
+    var notaCue = String(ej.nota || ej.notas || ej.tip || '').trim();
+    var linea = nombre + ': ' + seriesNum + ' ' + etiquetaSeries + ' × ' + repsWa;
+    if (notaCue) {
+        linea += ' (' + notaCue + ')';
+    }
+    return linea;
+}
+
+function construirMensajesWhatsAppRutinaTrainer() {
+    var ejercicios = Array.isArray(RUTINA_TRAINER_GENERADA) ? RUTINA_TRAINER_GENERADA : [];
+    var diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    var diaHoyDefault = diasSemana[(new Date()).getDay()];
+    var diaNombre = (RUTINA_TRAINER_META && RUTINA_TRAINER_META.diaNombre)
+        ? String(RUTINA_TRAINER_META.diaNombre).trim().toLowerCase()
+        : diaHoyDefault;
+
+    var grupos = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados
+        : ejercicios.map(function(e) { return e.musculoPrincipal || ''; }).filter(Boolean);
+    var gruposTexto = formatearListaGruposNaturalTrainer(grupos);
+
+    var atleta = null;
+    if (typeof ALUMNO_RUTINA_TRAINER_SELECCIONADO !== 'undefined' && ALUMNO_RUTINA_TRAINER_SELECCIONADO) {
+        atleta = (APP_STATE.subappTrainer && Array.isArray(APP_STATE.subappTrainer.alumnos))
+            ? APP_STATE.subappTrainer.alumnos.find(function(a) { return a.id === ALUMNO_RUTINA_TRAINER_SELECCIONADO; })
+            : null;
+    }
+
+    var introLinea = (atleta && atleta.nombre)
+        ? ('Para ' + atleta.nombre + ' (' + diaNombre + '): hoy toca ' + gruposTexto + ' con buen bombeo 💪')
+        : ('Hoy toca ' + gruposTexto + ' con buen bombeo 💪');
+
+    var chunkSize = 2;
+    var mensajes = [];
+    for (var i = 0; i < ejercicios.length; i += chunkSize) {
+        var slice = ejercicios.slice(i, i + chunkSize);
+        var lineas = slice.map(formatearEjercicioWhatsAppTrainer).filter(Boolean);
+        if (i === 0) {
+            lineas.unshift(introLinea);
+        }
+        mensajes.push({
+            index: mensajes.length,
+            numero: mensajes.length + 1,
+            titulo: 'Mensaje ' + (mensajes.length + 1),
+            cantidadEjercicios: slice.length,
+            texto: lineas.join('\n')
+        });
+    }
+
+    return {
+        diaNombre: diaNombre,
+        gruposTexto: gruposTexto,
+        atletaNombre: atleta ? atleta.nombre : '',
+        mensajes: mensajes
+    };
+}
+
+function copiarTextoPortapapelesTrainer(texto, onOk) {
+    var yaNotificado = false;
+    var notificarOk = function() {
+        if (yaNotificado) return;
+        yaNotificado = true;
+        if (typeof onOk === 'function') onOk();
+    };
+
+    var intentarExecSync = function() {
+        var ok = false;
+        try {
+            var activeEl = document.activeElement;
+            var ta = document.createElement('textarea');
+            ta.value = texto;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '0';
+            ta.style.left = '0';
+            ta.style.width = '2px';
+            ta.style.height = '2px';
+            ta.style.opacity = '0';
+            ta.style.pointerEvents = 'none';
+            document.body.appendChild(ta);
+            try { ta.focus({ preventScroll: true }); } catch (eTaFocus) { ta.focus(); }
+            ta.select();
+            ta.setSelectionRange(0, texto.length);
+            ok = !!document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (activeEl && typeof activeEl.focus === 'function') {
+                try { activeEl.focus({ preventScroll: true }); } catch (eFocus) {}
+            }
+        } catch (err) {
+            ok = false;
+        }
+        return ok;
+    };
+
+    var syncOk = intentarExecSync();
+    if (syncOk) {
+        notificarOk();
+    }
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
+        navigator.clipboard.writeText(texto).then(function() {
+            notificarOk();
+        }).catch(function() {
+            if (!syncOk && typeof mostrarToast === 'function') {
+                mostrarToast('⚠️ No se pudo copiar automáticamente; selecciona el texto manual', 'warning');
+            }
+        });
+    } else if (!syncOk && typeof mostrarToast === 'function') {
+        mostrarToast('⚠️ No se pudo copiar automáticamente; selecciona el texto manual', 'warning');
+    }
+}
+
+function abrirModalEnviarRutinaTrainer() {
+    if (!RUTINA_TRAINER_GENERADA || RUTINA_TRAINER_GENERADA.length === 0) {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('⚠️ Primero genera una rutina aleatoria arriba', 'warning');
+        }
+        return;
+    }
+
+    var paquete = construirMensajesWhatsAppRutinaTrainer();
+    var modal = document.getElementById('modal-enviar-rutina-whatsapp-trainer');
+    var subEl = document.getElementById('enviar-rutina-wa-subtitle');
+    var cont = document.getElementById('enviar-rutina-wa-mensajes');
+    var btnTodo = document.getElementById('btn-wa-copiar-todo');
+
+    if (!modal || !subEl || !cont) return;
+
+    var etiquetaAtleta = paquete.atletaNombre
+        ? (' para <strong>' + escapeHtmlTrainer(paquete.atletaNombre) + '</strong>')
+        : '';
+
+    subEl.innerHTML = 'Aquí tienes esta rutina de <strong>' + escapeHtmlTrainer(paquete.diaNombre) + '</strong>' + etiquetaAtleta +
+        ' (' + escapeHtmlTrainer(paquete.gruposTexto) + ') adaptada al estilo natural de WhatsApp, dividida en <strong>' +
+        paquete.mensajes.length + ' mensajitos</strong> para que los copies y pegues de volada:';
+
+    var cardsHtml = '';
+    paquete.mensajes.forEach(function(m) {
+        var lineCount = m.texto.split('\n').length;
+        var rows = Math.max(3, Math.min(7, lineCount + 1));
+        cardsHtml += `
+        <div class="trainer-wa-msg-card" id="wa-msg-card-${m.index}">
+            <div class="trainer-wa-msg-head">
+                <span class="trainer-wa-msg-badge">
+                    <span>💬</span> ${escapeHtmlTrainer(m.titulo)}
+                    <span style="font-size: 10.5px; font-weight: 600; color: #94a3b8;">(${m.cantidadEjercicios} ${m.cantidadEjercicios === 1 ? 'ej.' : 'ejs.'})</span>
+                </span>
+                <button type="button" class="trainer-wa-copy-btn" id="wa-copy-btn-${m.index}" onclick="copiarMensajeWhatsAppTrainer(${m.index})">
+                    📋 Copiar
+                </button>
+            </div>
+            <textarea class="trainer-wa-msg-textarea" id="wa-msg-textarea-${m.index}" rows="${rows}" aria-label="${escapeHtmlTrainer(m.titulo)}">${escapeHtmlTrainer(m.texto)}</textarea>
+        </div>
+        `;
+    });
+
+    cont.innerHTML = cardsHtml;
+    if (btnTodo) {
+        btnTodo.innerHTML = '📋 Copiar Todo';
+    }
+    modal.style.display = 'flex';
+
+    // Ajustar altura exacta de cada bloque de texto tras pintar para evitar texto cortado en móvil
+    document.querySelectorAll('#enviar-rutina-wa-mensajes .trainer-wa-msg-textarea').forEach(function(ta) {
+        ta.style.height = 'auto';
+        ta.style.height = (ta.scrollHeight + 4) + 'px';
+    });
+}
+
+function cerrarModalEnviarRutinaTrainer() {
+    var modal = document.getElementById('modal-enviar-rutina-whatsapp-trainer');
+    if (modal) modal.style.display = 'none';
+}
+
+function obtenerMensajesWhatsAppActualesTrainer() {
+    var textareas = document.querySelectorAll('#enviar-rutina-wa-mensajes .trainer-wa-msg-textarea');
+    var resultados = [];
+    textareas.forEach(function(ta) {
+        var val = String(ta.value || '').trim();
+        if (val) resultados.push(val);
+    });
+    return resultados;
+}
+
+function copiarMensajeWhatsAppTrainer(idx) {
+    var ta = document.getElementById('wa-msg-textarea-' + idx);
+    var card = document.getElementById('wa-msg-card-' + idx);
+    var btn = document.getElementById('wa-copy-btn-' + idx);
+    if (!ta) return;
+
+    var texto = String(ta.value || '').trim();
+    copiarTextoPortapapelesTrainer(texto, function() {
+        if (card) card.classList.add('is-copied');
+        if (btn) {
+            btn.classList.add('is-copied');
+            btn.innerHTML = '✓ Copiado';
+        }
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('📋 Mensaje ' + (idx + 1) + ' copiado para WhatsApp', 'success');
+        }
+    });
+}
+
+function copiarTodosMensajesWhatsAppTrainer() {
+    var lista = obtenerMensajesWhatsAppActualesTrainer();
+    if (lista.length === 0) return;
+
+    var textoCompleto = lista.join('\n\n');
+    copiarTextoPortapapelesTrainer(textoCompleto, function() {
+        var btnTodo = document.getElementById('btn-wa-copiar-todo');
+        if (btnTodo) {
+            btnTodo.innerHTML = '✓ ¡Todo Copiado!';
+        }
+        document.querySelectorAll('#enviar-rutina-wa-mensajes .trainer-wa-msg-card').forEach(function(c) {
+            c.classList.add('is-copied');
+        });
+        document.querySelectorAll('#enviar-rutina-wa-mensajes .trainer-wa-copy-btn').forEach(function(b) {
+            b.classList.add('is-copied');
+            b.innerHTML = '✓ Copiado';
+        });
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('📋 Toda la rutina (' + lista.length + ' mensajes) copiada para WhatsApp', 'success');
+        }
+    });
+}
+
+function abrirRutinaEnWhatsAppApp() {
+    var lista = obtenerMensajesWhatsAppActualesTrainer();
+    if (lista.length === 0) return;
+    var texto = lista.join('\n\n');
+    var url = 'https://wa.me/?text=' + encodeURIComponent(texto);
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 
 function alCambiarAlumnoRutinaTrainer(alumnoId) {
     ALUMNO_RUTINA_TRAINER_SELECCIONADO = alumnoId || '';
