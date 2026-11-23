@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.03">
+    <link rel="stylesheet" href="style.css?v=11.04">
 </head>
 <body>
 
@@ -1002,46 +1002,55 @@
                             </svg>
                             <span>Nueva Rutina</span>
                         </button>
-                    </div>
-                </div>
-
-                <!-- CONFIGURACIÓN GLOBAL DE PLAYLIST POR DEFECTO EN RUTINAS -->
-                <div class="rutina-musica-config-card rutina-musica-noir">
-                    <div class="rutina-musica-config-info">
-                        <div class="rutina-musica-icon-box" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M9 18V5l12-2v13"></path>
-                                <circle cx="6" cy="18" r="3"></circle>
-                                <circle cx="18" cy="16" r="3"></circle>
-                            </svg>
-                        </div>
-                        <div style="min-width: 0; flex: 1;">
-                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Playlist por Defecto (Global)</div>
-                            <div id="rutina-musica-default-status" style="font-size: 11px; color: #94a3b8; line-height: 1.35;">Se usa cuando una rutina no tiene lista propia asignada</div>
-                        </div>
-                    </div>
-                    <div class="rutina-musica-config-controls">
-                        <select id="select-playlist-rutina-default" class="finanzas-input-clean rutina-playlist-select" onchange="alCambiarPlaylistDefaultRutina(this.value)">
-                            <option value="">Desactivado (Sin música)</option>
-                        </select>
-                        <button type="button" class="btn-subfiltro-ej btn-rutinas-gestionar-pl" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" title="Gestionar listas de reproducción">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <line x1="8" y1="6" x2="21" y2="6"></line>
-                                <line x1="8" y1="12" x2="21" y2="12"></line>
-                                <line x1="8" y1="18" x2="21" y2="18"></line>
-                                <circle cx="3.5" cy="6" r="1"></circle>
-                                <circle cx="3.5" cy="12" r="1"></circle>
-                                <circle cx="3.5" cy="18" r="1"></circle>
-                            </svg>
-                            <span>Listas</span>
+                        <button type="button" id="btn-abrir-rutina-aleatoria-personal" class="btn-subfiltro-ej btn-rutina-aleatoria-personal" onclick="abrirPanelRutinaAleatoriaPersonal()" title="Generar rutina aleatoria personal con tu horario y música">
+                            <span>🎲</span>
+                            <span>Rutina Aleatoria</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- PORTALES DE RUTINAS DINÁMICAS (SIN DUPLICADOS) -->
-                <div id="contenedor-portales-rutinas-ejercicios">
-                    <p style="color: #94a3b8; text-align: center; padding: 20px;">Cargando rutinas...</p>
+                <div id="rutinas-personales-catalogo-wrap">
+                    <!-- CONFIGURACIÓN GLOBAL DE PLAYLIST POR DEFECTO EN RUTINAS -->
+                    <div class="rutina-musica-config-card rutina-musica-noir">
+                        <div class="rutina-musica-config-info">
+                            <div class="rutina-musica-icon-box" aria-hidden="true">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Playlist por Defecto (Global)</div>
+                                <div id="rutina-musica-default-status" style="font-size: 11px; color: #94a3b8; line-height: 1.35;">Se usa cuando una rutina no tiene lista propia asignada</div>
+                            </div>
+                        </div>
+                        <div class="rutina-musica-config-controls">
+                            <select id="select-playlist-rutina-default" class="finanzas-input-clean rutina-playlist-select" onchange="alCambiarPlaylistDefaultRutina(this.value)">
+                                <option value="">Desactivado (Sin música)</option>
+                            </select>
+                            <button type="button" class="btn-subfiltro-ej btn-rutinas-gestionar-pl" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" title="Gestionar listas de reproducción">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <circle cx="3.5" cy="6" r="1"></circle>
+                                    <circle cx="3.5" cy="12" r="1"></circle>
+                                    <circle cx="3.5" cy="18" r="1"></circle>
+                                </svg>
+                                <span>Listas</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PORTALES DE RUTINAS DINÁMICAS (SIN DUPLICADOS) -->
+                    <div id="contenedor-portales-rutinas-ejercicios">
+                        <p style="color: #94a3b8; text-align: center; padding: 20px;">Cargando rutinas...</p>
+                    </div>
                 </div>
+
+                <!-- GENERADOR PERSONAL DE RUTINA ALEATORIA & SETTINGS SEMANAL PROPIO -->
+                <div id="rutinas-personales-aleatoria-wrap" style="display: none;"></div>
             </div>
 
             <!-- 2. APARTADO: ARSENAL DE EJERCICIOS FÍSICOS -->
@@ -6914,26 +6923,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.03"></script>
-    <script src="js/perfil.js?v=11.03"></script>
-    <script src="js/progresion.js?v=11.03"></script>
-    <script src="js/estado-personal.js?v=11.03"></script>
-    <script src="js/finanzas.js?v=11.03"></script>
-    <script src="js/ideas.js?v=11.03"></script>
-    <script src="js/dinamicas.js?v=11.03"></script>
-    <script src="js/calendario.js?v=11.03"></script>
-    <script src="js/inventario.js?v=11.03"></script>
-    <script src="js/reproductor.js?v=11.03"></script>
-    <script src="js/jarvis-voz.js?v=11.03"></script>
+    <script src="js/core.js?v=11.04"></script>
+    <script src="js/perfil.js?v=11.04"></script>
+    <script src="js/progresion.js?v=11.04"></script>
+    <script src="js/estado-personal.js?v=11.04"></script>
+    <script src="js/finanzas.js?v=11.04"></script>
+    <script src="js/ideas.js?v=11.04"></script>
+    <script src="js/dinamicas.js?v=11.04"></script>
+    <script src="js/calendario.js?v=11.04"></script>
+    <script src="js/inventario.js?v=11.04"></script>
+    <script src="js/reproductor.js?v=11.04"></script>
+    <script src="js/jarvis-voz.js?v=11.04"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.03"></script>
+    <script type="module" src="js/firebase-config.js?v=11.04"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.03')
+                navigator.serviceWorker.register('sw.js?v=11.04')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

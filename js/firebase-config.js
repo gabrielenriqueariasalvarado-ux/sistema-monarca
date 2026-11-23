@@ -619,6 +619,9 @@ function fusionarEstadosInteligente(local, remoto) {
     if (!fusion.rutinaPlaylistDefaultId && local.rutinaPlaylistDefaultId) {
         fusion.rutinaPlaylistDefaultId = local.rutinaPlaylistDefaultId;
     }
+    if (local.splitPersonal && (!fusion.splitPersonal || (Number(local.splitPersonal.updatedAt) || 0) >= (Number(fusion.splitPersonal.updatedAt) || 0))) {
+        fusion.splitPersonal = JSON.parse(JSON.stringify(local.splitPersonal));
+    }
     var statsL = (local && local.reproductorPlayStats && typeof local.reproductorPlayStats === 'object') ? local.reproductorPlayStats : {};
     var statsR = (remoto && remoto.reproductorPlayStats && typeof remoto.reproductorPlayStats === 'object') ? remoto.reproductorPlayStats : {};
     var statsMerged = JSON.parse(JSON.stringify(statsR));

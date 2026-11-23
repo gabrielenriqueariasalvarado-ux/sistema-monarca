@@ -2311,6 +2311,9 @@ var FILTRO_RUTINAS_ACTIVO = 'todas';
 
 function filtrarTipoRutinas(tipo) {
     FILTRO_RUTINAS_ACTIVO = tipo || 'todas';
+    if (typeof cerrarPanelRutinaAleatoriaPersonal === 'function') {
+        cerrarPanelRutinaAleatoriaPersonal(true);
+    }
     var bTodas = document.getElementById('filtro-rutina-todas');
     var bFis = document.getElementById('filtro-rutina-fisicas');
     var bMen = document.getElementById('filtro-rutina-mentales');
@@ -2351,7 +2354,11 @@ function cambiarCategoriaEjercicios(cat) {
         if (typeof actualizarSelectoresPlaylistRutinas === 'function') {
             actualizarSelectoresPlaylistRutinas();
         }
-        renderizarPortalesRutinasEjercicios();
+        if (typeof PANEL_ALEATORIA_PERSONAL_ABIERTO !== 'undefined' && PANEL_ALEATORIA_PERSONAL_ABIERTO && typeof renderizarModuloRutinaAleatoriaPersonal === 'function') {
+            renderizarModuloRutinaAleatoriaPersonal();
+        } else {
+            renderizarPortalesRutinasEjercicios();
+        }
     } else if (CATEGORIA_EJERCICIOS_ACTIVA === 'banco-fisico') {
         if (btnBancoFis) btnBancoFis.classList.add('active');
         if (secBancoFis) secBancoFis.style.display = 'block';
@@ -9736,6 +9743,7 @@ function iniciarRutinaAleatoriaGenerada() {
 }
 
 function abrirDetalleRutinaDinamicaGenerada(rutina) {
+    if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries();
     RUTINA_ACTIVA = { rutina: rutina, idx: -1 };
     HISTORIAL_FACTOR_SERIES = {};
 
@@ -9745,7 +9753,7 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     var tituloEl = document.getElementById('detalle-rutina-titulo');
     var badgeEl = document.getElementById('detalle-rutina-badge');
     if (tituloEl) tituloEl.innerText = rutina.nombre;
-    if (badgeEl) badgeEl.innerText = (rutina.rankLabel || 'SESIÓN ALEATORIA').replace(/[^\w\s·-]/gi, '').trim();
+    if (badgeEl) badgeEl.innerText = limpiarBadgeRutina(rutina.rankLabel, 'SESIÓN ALEATORIA');
 
     var cont = document.getElementById('contenedor-detalle-rutina-dinamica');
     if (!cont) return;
@@ -9770,6 +9778,12 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
         CHART_FATIGA_RUTINA_SESION = null;
     }
     actualizarGraficaFatigaSesion();
+
+    if (typeof iniciarCalentamientoAutomatico === 'function') {
+        setTimeout(function() {
+            iniciarCalentamientoAutomatico();
+        }, 120);
+    }
 }
 
 function guardarRutinaAleatoriaEnMisRutinas() {
@@ -9808,10 +9822,619 @@ function guardarRutinaAleatoriaEnMisRutinas() {
     alert("✓ Rutina '" + nueva.nombre + "' guardada exitosamente en 'Rutinas & Sesiones'.");
 }
 
+// ==========================================================================
+// MÓDULO PERSONAL INDEPENDIENTE: RUTINA ALEATORIA + MIS DÍAS + MÚSICA
+// ==========================================================================
+
+var PANEL_ALEATORIA_PERSONAL_ABIERTO = false;
+var SUBVISTA_ALEATORIA_PERSONAL = 'generador'; // 'generador' | 'settings'
+var DIA_ALEATORIA_PERSONAL_IDX = null;
+var RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+var RUTINA_ALEATORIA_PERSONAL_META = null;
+var PLAYLIST_ALEATORIA_PERSONAL_SELECCIONADA = '';
+var NOMBRE_ALEATORIA_PERSONAL_DRAFT = '';
+
+var SPLIT_PERSONAL_SEMANAL_DEFAULT = [
+    { dia: 'Lunes', descanso: false, grupos: ['Pecho', 'Tríceps', 'Hombros'] },
+    { dia: 'Martes', descanso: false, grupos: ['Espalda', 'Bíceps'] },
+    { dia: 'Miércoles', descanso: false, grupos: ['Cuádriceps', 'Glúteos', 'Core'] },
+    { dia: 'Jueves', descanso: true, grupos: [] },
+    { dia: 'Viernes', descanso: false, grupos: ['Pecho', 'Espalda', 'Hombros'] },
+    { dia: 'Sábado', descanso: false, grupos: ['Isquios', 'Glúteos', 'Pantorrillas'] },
+    { dia: 'Domingo', descanso: true, grupos: [] }
+];
+
+function obtenerSplitPersonalSemanal() {
+    if (!APP_STATE.splitPersonal || !Array.isArray(APP_STATE.splitPersonal.dias) || APP_STATE.splitPersonal.dias.length !== 7) {
+        APP_STATE.splitPersonal = {
+            dias: JSON.parse(JSON.stringify(SPLIT_PERSONAL_SEMANAL_DEFAULT)),
+            updatedAt: Date.now()
+        };
+    }
+    return APP_STATE.splitPersonal.dias;
+}
+
+function guardarSplitPersonalSemanal(diasArr) {
+    APP_STATE.splitPersonal = {
+        dias: Array.isArray(diasArr) ? diasArr : JSON.parse(JSON.stringify(SPLIT_PERSONAL_SEMANAL_DEFAULT)),
+        updatedAt: Date.now()
+    };
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+}
+
+function obtenerDiaAleatoriaPersonalActivoIdx() {
+    if (typeof DIA_ALEATORIA_PERSONAL_IDX === 'number' && DIA_ALEATORIA_PERSONAL_IDX >= 0 && DIA_ALEATORIA_PERSONAL_IDX <= 6) {
+        return DIA_ALEATORIA_PERSONAL_IDX;
+    }
+    DIA_ALEATORIA_PERSONAL_IDX = obtenerDiaSemanaActualIdx();
+    return DIA_ALEATORIA_PERSONAL_IDX;
+}
+
+function normalizarEjercicioPersonalParaRutina(rawEj) {
+    if (!rawEj) return null;
+    var nomLow = (rawEj.nombre || '').toLowerCase().trim();
+    var matchUsuario = (APP_STATE.ejercicios || []).find(function(e) {
+        if (!e || e.esMental) return false;
+        if (rawEj.id && e.id === rawEj.id) return true;
+        return e.nombre && e.nombre.toLowerCase().trim() === nomLow;
+    });
+    var base = matchUsuario ? JSON.parse(JSON.stringify(matchUsuario)) : JSON.parse(JSON.stringify(rawEj));
+
+    if (!base.id) {
+        var slug = nomLow.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28) || 'ej';
+        base.id = 'EJ-PERS-' + slug;
+    }
+    base.esMental = false;
+    base.tipo = base.tipo || 'gym';
+
+    var esTiempo = (base.modalidadEsfuerzo === 'tiempo') || (base.tiempoSegundos != null && base.tiempoSegundos > 0);
+    base.modalidadEsfuerzo = esTiempo ? 'tiempo' : 'repeticiones';
+    base.series = (base.series != null && !isNaN(parseInt(base.series, 10))) ? Math.max(1, parseInt(base.series, 10)) : 4;
+
+    if (!esTiempo) {
+        var repsAvg = base.repeticionesPromedio || obtenerRepsPromedioEjercicio(base) || 10;
+        base.repeticionesPromedio = repsAvg;
+        base.repeticiones = base.repeticiones || (repsAvg + ' reps');
+        base.tiempoSegundos = 0;
+    } else {
+        var segs = base.tiempoSegundos || base.repeticionesPromedio || 45;
+        base.tiempoSegundos = segs;
+        base.tiempoReferencia = segs;
+        base.repeticionesPromedio = segs;
+        base.repeticiones = base.repeticiones || (segs + 's isométrico (' + formatearTiempoMMSS(segs) + ')');
+    }
+
+    base.peso = (base.peso != null && !isNaN(parseFloat(base.peso))) ? parseFloat(base.peso) : 0;
+    base.alFallo = !!base.alFallo;
+    base.dropset = base.dropset || null;
+    base.fatigaPorcentaje = Number(base.fatigaPorcentaje) || 20;
+    base.categorias = Array.isArray(base.categorias) && base.categorias.length > 0
+        ? base.categorias
+        : (base.musculoPrincipal ? [base.musculoPrincipal] : ['General']);
+    return base;
+}
+
+function abrirPanelRutinaAleatoriaPersonal() {
+    PANEL_ALEATORIA_PERSONAL_ABIERTO = true;
+    SUBVISTA_ALEATORIA_PERSONAL = 'generador';
+    if (DIA_ALEATORIA_PERSONAL_IDX === null) {
+        DIA_ALEATORIA_PERSONAL_IDX = obtenerDiaSemanaActualIdx();
+    }
+    var catWrap = document.getElementById('rutinas-personales-catalogo-wrap');
+    var randWrap = document.getElementById('rutinas-personales-aleatoria-wrap');
+    var btnToggle = document.getElementById('btn-abrir-rutina-aleatoria-personal');
+    if (catWrap) catWrap.style.display = 'none';
+    if (randWrap) randWrap.style.display = 'block';
+    if (btnToggle) btnToggle.classList.add('is-open');
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function cerrarPanelRutinaAleatoriaPersonal(omitirRender) {
+    PANEL_ALEATORIA_PERSONAL_ABIERTO = false;
+    var catWrap = document.getElementById('rutinas-personales-catalogo-wrap');
+    var randWrap = document.getElementById('rutinas-personales-aleatoria-wrap');
+    var btnToggle = document.getElementById('btn-abrir-rutina-aleatoria-personal');
+    if (randWrap) randWrap.style.display = 'none';
+    if (catWrap) catWrap.style.display = 'block';
+    if (btnToggle) btnToggle.classList.remove('is-open');
+    if (!omitirRender && typeof renderizarPortalesRutinasEjercicios === 'function') {
+        if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
+        renderizarPortalesRutinasEjercicios();
+    }
+}
+
+function mostrarSubvistaAleatoriaPersonal(sub) {
+    SUBVISTA_ALEATORIA_PERSONAL = (sub === 'settings') ? 'settings' : 'generador';
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function cambiarDiaRutinaAleatoriaPersonal(diaIdx) {
+    DIA_ALEATORIA_PERSONAL_IDX = (typeof diaIdx === 'number' && diaIdx >= 0 && diaIdx <= 6) ? diaIdx : obtenerDiaSemanaActualIdx();
+    RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+    RUTINA_ALEATORIA_PERSONAL_META = null;
+    NOMBRE_ALEATORIA_PERSONAL_DRAFT = '';
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function alCambiarPlaylistAleatoriaPersonal(plId) {
+    PLAYLIST_ALEATORIA_PERSONAL_SELECCIONADA = plId || '';
+}
+
+function alCambiarNombreAleatoriaPersonal(nom) {
+    NOMBRE_ALEATORIA_PERSONAL_DRAFT = nom || '';
+}
+
+function generarRutinaAleatoriaPersonal() {
+    var split = obtenerSplitPersonalSemanal();
+    var diaIdx = obtenerDiaAleatoriaPersonalActivoIdx();
+    var resolucion = resolverGruposObjetivoParaDiaAleatoria(split, diaIdx);
+    var gruposObjetivo = resolucion.grupos;
+
+    var res = construirRutinaAleatoriaPorGrupos(gruposObjetivo, 6);
+    if (!res.seleccionados || res.seleccionados.length === 0) {
+        RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+        RUTINA_ALEATORIA_PERSONAL_META = null;
+        alert("No se encontraron ejercicios disponibles para los grupos (" + gruposObjetivo.join(', ') + "). Agrega ejercicios en Arsenal Físico o ajusta tus grupos en Settings.");
+        renderizarModuloRutinaAleatoriaPersonal();
+        return;
+    }
+
+    RUTINA_ALEATORIA_PERSONAL_GENERADA = res.seleccionados.map(normalizarEjercicioPersonalParaRutina).filter(Boolean);
+    RUTINA_ALEATORIA_PERSONAL_META = {
+        diaIdx: diaIdx,
+        diaNombre: resolucion.diaNombre,
+        gruposUsados: gruposObjetivo,
+        fueSorteoDescanso: resolucion.fueSorteoDescanso
+    };
+    NOMBRE_ALEATORIA_PERSONAL_DRAFT = 'Rutina ' + resolucion.diaNombre + ' · ' + gruposObjetivo.join(', ');
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function reRollearEjercicioAleatorioPersonal(idx) {
+    if (!RUTINA_ALEATORIA_PERSONAL_GENERADA || !RUTINA_ALEATORIA_PERSONAL_GENERADA[idx]) return;
+    var split = obtenerSplitPersonalSemanal();
+    var diaIdx = (RUTINA_ALEATORIA_PERSONAL_META && typeof RUTINA_ALEATORIA_PERSONAL_META.diaIdx === 'number')
+        ? RUTINA_ALEATORIA_PERSONAL_META.diaIdx
+        : obtenerDiaAleatoriaPersonalActivoIdx();
+    var gruposObjetivo = (RUTINA_ALEATORIA_PERSONAL_META && Array.isArray(RUTINA_ALEATORIA_PERSONAL_META.gruposUsados) && RUTINA_ALEATORIA_PERSONAL_META.gruposUsados.length > 0)
+        ? RUTINA_ALEATORIA_PERSONAL_META.gruposUsados
+        : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
+
+    var sust = elegirSustitutoEjercicioAleatorio(RUTINA_ALEATORIA_PERSONAL_GENERADA, idx, gruposObjetivo);
+    if (!sust) {
+        alert("No hay más variantes distintas para este grupo muscular en el catálogo.");
+        return;
+    }
+    RUTINA_ALEATORIA_PERSONAL_GENERADA[idx] = normalizarEjercicioPersonalParaRutina(sust);
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function construirObjetoRutinaPersonalDesdeAleatoria(nombreOverride) {
+    var ejercicios = Array.isArray(RUTINA_ALEATORIA_PERSONAL_GENERADA) ? RUTINA_ALEATORIA_PERSONAL_GENERADA : [];
+    var split = obtenerSplitPersonalSemanal();
+    var diaIdx = obtenerDiaAleatoriaPersonalActivoIdx();
+    var diaNombre = (RUTINA_ALEATORIA_PERSONAL_META && RUTINA_ALEATORIA_PERSONAL_META.diaNombre)
+        ? RUTINA_ALEATORIA_PERSONAL_META.diaNombre
+        : (split[diaIdx] ? split[diaIdx].dia : DIAS_SEMANA_NOMBRES[diaIdx]);
+    var grupos = (RUTINA_ALEATORIA_PERSONAL_META && Array.isArray(RUTINA_ALEATORIA_PERSONAL_META.gruposUsados))
+        ? RUTINA_ALEATORIA_PERSONAL_META.gruposUsados
+        : [];
+
+    var inNom = document.getElementById('input-nombre-rutina-aleatoria-personal');
+    var selPl = document.getElementById('select-playlist-rutina-aleatoria-personal');
+    var nombreFinal = (nombreOverride || (inNom ? inNom.value : '') || NOMBRE_ALEATORIA_PERSONAL_DRAFT || ('Rutina Aleatoria · ' + diaNombre)).trim();
+    var plVal = selPl ? String(selPl.value || '').trim() : String(PLAYLIST_ALEATORIA_PERSONAL_SELECCIONADA || '').trim();
+    PLAYLIST_ALEATORIA_PERSONAL_SELECCIONADA = plVal;
+    NOMBRE_ALEATORIA_PERSONAL_DRAFT = nombreFinal;
+
+    var now = Date.now();
+    return {
+        id: 'RUT-' + now,
+        codigo: 'RUT-' + ((APP_STATE.rutinas ? APP_STATE.rutinas.length : 0) + 1),
+        tipo: 'fisica',
+        nombre: nombreFinal,
+        descripcion: grupos.length > 0 ? ('Rutina personal: ' + grupos.join(', ')) : 'Rutina aleatoria personalizada',
+        rankLabel: 'ALEATORIA · ' + diaNombre.toUpperCase(),
+        ejercicios: JSON.parse(JSON.stringify(ejercicios)),
+        playlistId: plVal || null,
+        origenAleatoriaPersonal: true,
+        permitirDuplicadoNombre: true,
+        fechaCreacion: now,
+        timestamp: now,
+        fechaActualizacion: now
+    };
+}
+
+function asegurarEjerciciosEnArsenalPersonal(ejercicios) {
+    if (!Array.isArray(ejercicios) || ejercicios.length === 0) return false;
+    if (!APP_STATE.ejercicios) APP_STATE.ejercicios = [];
+    var ahora = Date.now();
+    var agregados = 0;
+
+    ejercicios.forEach(function(ej) {
+        if (!ej || ej.esMental) return;
+        var nomLow = (ej.nombre || '').trim().toLowerCase();
+        var existente = APP_STATE.ejercicios.find(function(e) {
+            if (!e) return false;
+            if (ej.id && e.id === ej.id) return true;
+            return e.nombre && nomLow && e.nombre.trim().toLowerCase() === nomLow;
+        });
+        if (existente) {
+            if (existente.id) ej.id = existente.id;
+            return;
+        }
+        var nuevo = {
+            id: ej.id || ('EJ-' + ahora + '-' + Math.floor(Math.random() * 10000)),
+            nombre: ej.nombre || 'Ejercicio Personal',
+            tipo: ej.tipo || 'gym',
+            compuesto: !!ej.compuesto,
+            especificaciones: ej.especificaciones || 'Técnica biomecánica controlada.',
+            descripcion: ej.descripcion || ej.especificaciones || 'Técnica biomecánica controlada.',
+            musculoPrincipal: ej.musculoPrincipal || (Array.isArray(ej.categorias) && ej.categorias[0]) || 'General',
+            series: ej.series || 4,
+            peso: Number(ej.peso) || 0,
+            pesoReferencia: Number(ej.pesoReferencia || ej.peso) || 0,
+            modalidadEsfuerzo: ej.modalidadEsfuerzo || 'repeticiones',
+            tiempoSegundos: Number(ej.tiempoSegundos) || 0,
+            tiempoReferencia: Number(ej.tiempoReferencia || ej.tiempoSegundos) || 0,
+            repeticiones: ej.repeticiones || '8-12 reps',
+            repeticionesPromedio: Number(ej.repeticionesPromedio) || 10,
+            zonas: Array.isArray(ej.zonas) ? ej.zonas.slice() : [],
+            categorias: Array.isArray(ej.categorias) && ej.categorias.length > 0
+                ? ej.categorias.slice()
+                : [ej.musculoPrincipal || 'General'],
+            fatigaPorcentaje: Number(ej.fatigaPorcentaje) || 20,
+            timestamp: ahora,
+            fechaActualizacion: ahora
+        };
+        ej.id = nuevo.id;
+        APP_STATE.ejercicios.push(nuevo);
+        agregados++;
+    });
+
+    if (agregados > 0 && typeof renderizarEjercicios === 'function') {
+        renderizarEjercicios(APP_STATE.ejercicios);
+    }
+    return agregados > 0;
+}
+
+function guardarRutinaAleatoriaPersonalEnMisRutinas() {
+    if (!RUTINA_ALEATORIA_PERSONAL_GENERADA || RUTINA_ALEATORIA_PERSONAL_GENERADA.length === 0) {
+        alert("Primero genera tu rutina aleatoria.");
+        return;
+    }
+    if (!APP_STATE.rutinas) APP_STATE.rutinas = [];
+    asegurarEjerciciosEnArsenalPersonal(RUTINA_ALEATORIA_PERSONAL_GENERADA);
+    var nueva = construirObjetoRutinaPersonalDesdeAleatoria();
+    APP_STATE.rutinas.push(nueva);
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+    cerrarPanelRutinaAleatoriaPersonal();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Rutina '" + nueva.nombre + "' guardada en Mis Rutinas", '💾');
+    }
+}
+
+function iniciarRutinaAleatoriaPersonalAhora() {
+    if (!RUTINA_ALEATORIA_PERSONAL_GENERADA || RUTINA_ALEATORIA_PERSONAL_GENERADA.length === 0) {
+        generarRutinaAleatoriaPersonal();
+    }
+    if (!RUTINA_ALEATORIA_PERSONAL_GENERADA || RUTINA_ALEATORIA_PERSONAL_GENERADA.length === 0) return;
+
+    var huboNuevosEj = asegurarEjerciciosEnArsenalPersonal(RUTINA_ALEATORIA_PERSONAL_GENERADA);
+    if (huboNuevosEj && typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+    var rutinaObj = construirObjetoRutinaPersonalDesdeAleatoria();
+    abrirDetalleRutinaDinamicaGenerada(rutinaObj);
+}
+
+function toggleDescansoDiaSplitPersonal(diaIdx) {
+    var split = obtenerSplitPersonalSemanal();
+    if (!split[diaIdx]) return;
+    split[diaIdx].descanso = !split[diaIdx].descanso;
+    guardarSplitPersonalSemanal(split);
+    RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+    RUTINA_ALEATORIA_PERSONAL_META = null;
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function toggleMusculoDiaSplitPersonal(diaIdx, musculo) {
+    var split = obtenerSplitPersonalSemanal();
+    if (!split[diaIdx]) return;
+    if (split[diaIdx].descanso) split[diaIdx].descanso = false;
+    if (!Array.isArray(split[diaIdx].grupos)) split[diaIdx].grupos = [];
+    var pos = split[diaIdx].grupos.indexOf(musculo);
+    if (pos >= 0) {
+        split[diaIdx].grupos.splice(pos, 1);
+    } else {
+        split[diaIdx].grupos.push(musculo);
+    }
+    guardarSplitPersonalSemanal(split);
+    RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+    RUTINA_ALEATORIA_PERSONAL_META = null;
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function restablecerSplitPersonalDefault() {
+    if (!confirm("¿Restablecer tus días de entrenamiento y grupos musculares personales por defecto?")) return;
+    guardarSplitPersonalSemanal(JSON.parse(JSON.stringify(SPLIT_PERSONAL_SEMANAL_DEFAULT)));
+    RUTINA_ALEATORIA_PERSONAL_GENERADA = null;
+    RUTINA_ALEATORIA_PERSONAL_META = null;
+    renderizarModuloRutinaAleatoriaPersonal();
+}
+
+function renderizarSettingsSplitPersonal() {
+    var split = obtenerSplitPersonalSemanal();
+    var diaHoyIdx = obtenerDiaSemanaActualIdx();
+
+    var html = `
+    <div class="personal-rand-box">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button type="button" class="btn-subfiltro-ej" onclick="mostrarSubvistaAleatoriaPersonal('generador')">
+                ◀ Volver a Generar
+            </button>
+            <button type="button" class="btn-subfiltro-ej" onclick="restablecerSplitPersonalDefault()">
+                🔄 Restablecer
+            </button>
+        </div>
+
+        <div style="background: #0d1322; border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 12px; padding: 11px 13px; margin-bottom: 12px;">
+            <h4 style="margin: 0 0 4px 0; font-size: 14.5px; color: #f8fafc; font-weight: 800;">⚙️ Settings · Mis Días y Grupos Musculares</h4>
+            <p style="margin: 0; font-size: 12px; color: #cbd5e1; line-height: 1.4;">
+                Configura <strong>tu propia semana</strong> (totalmente aparte de Personal Trainer). Toca los músculos que entrenas cada día o marca <strong>Descanso</strong>.
+            </p>
+        </div>
+
+        <div class="training-split-grid">
+    `;
+
+    split.forEach(function(item, idx) {
+        var esHoy = (idx === diaHoyIdx);
+        var esDescanso = !!item.descanso;
+        var grupos = item.grupos || [];
+
+        var chipsHtml = GRUPOS_MUSCULARES_SPLIT.map(function(m) {
+            var activo = !esDescanso && grupos.indexOf(m) !== -1;
+            return `<span class="split-muscle-chip ${activo ? 'active' : ''}" onclick="toggleMusculoDiaSplitPersonal(${idx}, '${m}')">${m}</span>`;
+        }).join('');
+
+        html += `
+        <div class="split-day-card ${esHoy ? 'today' : ''} ${esDescanso ? 'is-rest' : ''}">
+            <div class="split-day-header">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <strong style="color: #ffffff; font-size: 14px;">${item.dia}</strong>
+                    ${esHoy ? '<span style="font-size: 10px; font-weight: 800; background: #38bdf8; color: #080a0f; padding: 1px 6px; border-radius: 5px;">HOY</span>' : ''}
+                    ${!esDescanso ? `<span style="font-size: 10px; font-weight: 800; background: rgba(16, 185, 129, 0.16); color: #6ee7b7; padding: 1px 6px; border-radius: 5px;">${grupos.length} grp</span>` : ''}
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: ${esDescanso ? '#fcd34d' : '#cbd5e1'}; user-select: none;">
+                    <input type="checkbox" ${esDescanso ? 'checked' : ''} onchange="toggleDescansoDiaSplitPersonal(${idx})" style="cursor: pointer; accent-color: #f59e0b; width: 15px; height: 15px;">
+                    <span>Descanso</span>
+                </label>
+            </div>
+            <div>
+                <span style="font-size: 11px; color: ${esDescanso ? '#fcd34d' : '#7dd3fc'}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 7px;">
+                    ${esDescanso ? '🏖️ Día de Descanso (Toca un músculo para activarlo):' : '💪 Tus Grupos Musculares:'}
+                </span>
+                <div class="split-chips-container">${chipsHtml}</div>
+            </div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+    return html;
+}
+
+function renderizarModuloRutinaAleatoriaPersonal() {
+    var cont = document.getElementById('rutinas-personales-aleatoria-wrap');
+    if (!cont) return;
+
+    if (SUBVISTA_ALEATORIA_PERSONAL === 'settings') {
+        cont.innerHTML = renderizarSettingsSplitPersonal();
+        return;
+    }
+
+    var split = obtenerSplitPersonalSemanal();
+    var diaHoyIdx = obtenerDiaSemanaActualIdx();
+    var diaIdx = obtenerDiaAleatoriaPersonalActivoIdx();
+    var diaConfig = split[diaIdx] || { dia: DIAS_SEMANA_NOMBRES[diaIdx], descanso: false, grupos: [] };
+    var nombreDia = diaConfig.dia || DIAS_SEMANA_NOMBRES[diaIdx];
+    var esHoy = (diaIdx === diaHoyIdx);
+    var esDescanso = !!diaConfig.descanso;
+    var gruposDia = diaConfig.grupos || [];
+
+    var metaCoincide = RUTINA_ALEATORIA_PERSONAL_META && RUTINA_ALEATORIA_PERSONAL_META.diaIdx === diaIdx;
+    var gruposMostrados = (metaCoincide && Array.isArray(RUTINA_ALEATORIA_PERSONAL_META.gruposUsados) && RUTINA_ALEATORIA_PERSONAL_META.gruposUsados.length > 0)
+        ? RUTINA_ALEATORIA_PERSONAL_META.gruposUsados
+        : gruposDia;
+    var fueSorteoDescanso = !!(metaCoincide && RUTINA_ALEATORIA_PERSONAL_META.fueSorteoDescanso);
+
+    var dayChipsHtml = split.map(function(dItem, idx) {
+        var corto = (dItem.dia || DIAS_SEMANA_NOMBRES[idx] || '').slice(0, 3);
+        var sel = idx === diaIdx;
+        var rest = !!dItem.descanso;
+        var cnt = Array.isArray(dItem.grupos) ? dItem.grupos.length : 0;
+        return `<button type="button" class="trainer-day-chip ${sel ? 'is-selected' : ''} ${rest ? 'is-rest-chip' : ''}" onclick="cambiarDiaRutinaAleatoriaPersonal(${idx})">
+            <span>${corto}${idx === diaHoyIdx ? ' ★' : ''}</span>
+            <span class="trainer-day-chip-dot">${rest ? '🏖️' : (cnt + ' grp')}</span>
+        </button>`;
+    }).join('');
+
+    var html = `
+    <div class="personal-rand-box">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button type="button" class="btn-subfiltro-ej" onclick="cerrarPanelRutinaAleatoriaPersonal()">
+                ◀ Mis Rutinas
+            </button>
+            <button type="button" id="btn-settings-rutina-aleatoria-personal" class="trainer-btn-settings" onclick="mostrarSubvistaAleatoriaPersonal('settings')">
+                <span>⚙️</span> Settings (Mis Días)
+            </button>
+        </div>
+
+        <div style="background: #0d1322; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 13px; padding: 12px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                <div>
+                    <div style="font-size: 10.5px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.4px;">MI RUTINA PERSONAL · SPLIT PROPIO</div>
+                    <h4 style="margin: 2px 0 0 0; font-size: 15.5px; font-weight: 800; color: #ffffff;">
+                        📅 ${nombreDia}${esHoy ? ' <span style="color:#34d399; font-size:12px;">(Hoy)</span>' : ''}
+                    </h4>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: ${esDescanso ? '#fcd34d' : '#6ee7b7'}; background: ${esDescanso ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)'}; border: 1px solid ${esDescanso ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.35)'}; padding: 3px 9px; border-radius: 9999px;">
+                    ${esDescanso ? '🏖️ Descanso · Sorteo Activo' : '💪 Día de Entrenamiento'}
+                </span>
+            </div>
+
+            <div class="trainer-day-pills-bar">${dayChipsHtml}</div>
+
+            <div style="margin-top: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                ${fueSorteoDescanso ? '<span style="font-size: 11px; font-weight: 800; color: #fcd34d;">🎲 Grupos sorteados:</span>' : ''}
+                ${(gruposMostrados && gruposMostrados.length > 0 && (!esDescanso || fueSorteoDescanso))
+                    ? gruposMostrados.map(function(g) {
+                        return `<span style="display: inline-flex; align-items: center; padding: 3px 9px; background: rgba(56, 189, 248, 0.16); border: 1px solid rgba(56, 189, 248, 0.4); color: #e0f2fe; border-radius: 9999px; font-size: 11px; font-weight: 700;">⚡ ${escaparHtmlRutina(g)}</span>`;
+                    }).join('')
+                    : `<span style="font-size: 11.5px; color: #cbd5e1;">${esDescanso ? 'Día de descanso: si pides rutina se sortearán músculos de tus días activos.' : 'Sin grupos configurados aún: pulsa ⚙️ Settings o genera aleatorio.'}</span>`}
+            </div>
+        </div>
+
+        <button type="button" id="btn-generar-rutina-aleatoria-personal" class="btn-system" onclick="generarRutinaAleatoriaPersonal()" style="width: 100%; margin-bottom: 14px; background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%); color: #ffffff; font-weight: 800; font-size: 14px; padding: 12px 16px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 5px 18px rgba(37, 99, 235, 0.35);">
+            <span>🎲</span> ${esDescanso ? 'Generar Mi Rutina Aleatoria (Elegir al Azar)' : 'Generar Mi Rutina de ' + nombreDia}
+        </button>
+    `;
+
+    if (!RUTINA_ALEATORIA_PERSONAL_GENERADA || RUTINA_ALEATORIA_PERSONAL_GENERADA.length === 0) {
+        html += `
+        <div style="text-align: center; padding: 24px 14px; background: #0d1322; border: 1px dashed rgba(148, 163, 184, 0.25); border-radius: 13px;">
+            <div style="font-size: 28px; margin-bottom: 6px;">🏋️‍♂️</div>
+            <div style="font-size: 14px; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">Listo para armar tu rutina</div>
+            <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.45;">
+                Genera tu sesión según <strong>Settings (Mis Días)</strong>, elige tu música, guárdala en tus rutinas o iníciala al instante con tu calentamiento y seguimiento de series.
+            </p>
+        </div></div>`;
+        cont.innerHTML = html;
+        return;
+    }
+
+    var playlists = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function')
+        ? window.MonarcaPlayer.getPlaylists()
+        : (APP_STATE.reproductorPlaylists || []);
+    var defaultPlId = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylistDefaultRutinaId === 'function')
+        ? window.MonarcaPlayer.getPlaylistDefaultRutinaId()
+        : (APP_STATE.rutinaPlaylistDefaultId || null);
+    var canciones = (window.MonarcaPlayer && typeof window.MonarcaPlayer.getCanciones === 'function')
+        ? window.MonarcaPlayer.getCanciones()
+        : [];
+    var plUI = construirOpcionesSelectorRutinaIndividual(
+        PLAYLIST_ALEATORIA_PERSONAL_SELECCIONADA || '',
+        defaultPlId,
+        playlists,
+        canciones,
+        construirMapaCancionesPlaylist(canciones)
+    );
+
+    html += `
+        <div class="personal-rand-music-card">
+            <div style="margin-bottom: 10px;">
+                <label for="input-nombre-rutina-aleatoria-personal" style="display: block; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">
+                    📝 Nombre de tu Rutina
+                </label>
+                <input type="text" id="input-nombre-rutina-aleatoria-personal" class="finanzas-input-clean" value="${escaparHtmlRutina(NOMBRE_ALEATORIA_PERSONAL_DRAFT || ('Rutina ' + nombreDia))}" oninput="alCambiarNombreAleatoriaPersonal(this.value)" style="width: 100%; box-sizing: border-box; background: #141b2d; border: 1px solid rgba(148, 163, 184, 0.25); color: #ffffff; border-radius: 9px; padding: 8px 11px; font-size: 13px; font-weight: 700;">
+            </div>
+
+            <div>
+                <label for="select-playlist-rutina-aleatoria-personal" style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">
+                    <span>🎵</span> Música para reproducir con esta rutina
+                </label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="select-playlist-rutina-aleatoria-personal" class="finanzas-input-clean" onchange="alCambiarPlaylistAleatoriaPersonal(this.value)" style="flex: 1; min-width: 0; background: #141b2d; border: 1px solid rgba(16, 185, 129, 0.35); color: #f8fafc; border-radius: 9px; padding: 8px 11px; font-size: 12.5px; font-weight: 700;">
+                        ${plUI.html}
+                    </select>
+                    <button type="button" class="btn-subfiltro-ej" onclick="cambiarVista('vista-reproductor'); if(window.MonarcaPlayer) window.MonarcaPlayer.cambiarSubtab('playlists');" style="padding: 8px 10px; font-size: 11.5px; white-space: nowrap;">
+                        🎵 Listas
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">🔥 Ejercicios (${RUTINA_ALEATORIA_PERSONAL_GENERADA.length})</span>
+            <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaPersonal()" style="font-size: 11.5px; padding: 5px 10px;">
+                🔄 Regenerar Todo
+            </button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+    `;
+
+    RUTINA_ALEATORIA_PERSONAL_GENERADA.forEach(function(ej, idx) {
+        var esComp = !!ej.compuesto;
+        var badgeComp = esComp
+            ? '<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.24); border: 1px solid rgba(129, 140, 248, 0.45); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>'
+            : '<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.3); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>';
+        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
+            return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; padding: 2px 6px; border-radius: 5px;">${escaparHtmlRutina(c)}</span>`;
+        }).join(' ');
+        var pesoTag = ej.peso > 0 ? (' · ' + ej.peso + ' ' + (ej.unidadPeso || 'kg')) : '';
+
+        html += `
+        <div class="random-exercise-card">
+            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
+                <div style="width: 28px; height: 28px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; color: #38bdf8; flex-shrink: 0;">
+                    ${idx + 1}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                        <h4 style="margin: 0; font-size: 13.5px; font-weight: 800; color: #ffffff;">${escaparHtmlRutina(ej.nombre)}</h4>
+                        ${badgeComp}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 3px;">
+                        <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escaparHtmlRutina(ej.repeticiones || '10 reps')}${escaparHtmlRutina(pesoTag)}</span>
+                        ${muscleBadges}
+                    </div>
+                </div>
+            </div>
+            <div style="flex-shrink: 0;">
+                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorioPersonal(${idx})" title="Cambiar ejercicio">
+                    <span>🔄</span> Re-roll
+                </button>
+            </div>
+        </div>`;
+    });
+
+    html += `
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btn-guardar-rutina-aleatoria-personal" class="btn-subfiltro-ej" onclick="guardarRutinaAleatoriaPersonalEnMisRutinas()" style="flex: 1; min-width: 150px; padding: 12px 14px; font-weight: 800; font-size: 13px; justify-content: center; display: flex; align-items: center; gap: 6px; border-color: rgba(56, 189, 248, 0.45); color: #e0f2fe;">
+                <span>💾</span> Guardar en Mis Rutinas
+            </button>
+            <button type="button" id="btn-iniciar-rutina-aleatoria-personal" class="btn-system" onclick="iniciarRutinaAleatoriaPersonalAhora()" style="flex: 1.3; min-width: 170px; margin: 0; padding: 12px 16px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-weight: 800; font-size: 13.5px; border: none; border-radius: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.32);">
+                <span>▶️</span> Iniciar Sesión Ahora
+            </button>
+        </div>
+    </div>`;
+
+    cont.innerHTML = html;
+}
+
 if (typeof window !== 'undefined') {
     window.abrirModalEditarRutina = abrirModalEditarRutina;
     window.toggleSerieCeroRutina = toggleSerieCeroRutina;
     window.alCambiarInputSeriesRutina = alCambiarInputSeriesRutina;
+    window.abrirPanelRutinaAleatoriaPersonal = abrirPanelRutinaAleatoriaPersonal;
+    window.cerrarPanelRutinaAleatoriaPersonal = cerrarPanelRutinaAleatoriaPersonal;
+    window.mostrarSubvistaAleatoriaPersonal = mostrarSubvistaAleatoriaPersonal;
+    window.cambiarDiaRutinaAleatoriaPersonal = cambiarDiaRutinaAleatoriaPersonal;
+    window.alCambiarPlaylistAleatoriaPersonal = alCambiarPlaylistAleatoriaPersonal;
+    window.alCambiarNombreAleatoriaPersonal = alCambiarNombreAleatoriaPersonal;
+    window.generarRutinaAleatoriaPersonal = generarRutinaAleatoriaPersonal;
+    window.reRollearEjercicioAleatorioPersonal = reRollearEjercicioAleatorioPersonal;
+    window.guardarRutinaAleatoriaPersonalEnMisRutinas = guardarRutinaAleatoriaPersonalEnMisRutinas;
+    window.iniciarRutinaAleatoriaPersonalAhora = iniciarRutinaAleatoriaPersonalAhora;
+    window.toggleDescansoDiaSplitPersonal = toggleDescansoDiaSplitPersonal;
+    window.toggleMusculoDiaSplitPersonal = toggleMusculoDiaSplitPersonal;
+    window.restablecerSplitPersonalDefault = restablecerSplitPersonalDefault;
 }
 
 /* ==========================================================================
