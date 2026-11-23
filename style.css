@@ -20511,4 +20511,210 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   PENITENCIA EXP POR SERIES NO REALIZADAS EN RUTINAS (v11.08)
+   ========================================================================== */
+
+.rutina-penalty-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(239, 68, 68, 0.14);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.34);
+    white-space: nowrap;
+}
+
+.rutina-penitencia-live-panel {
+    margin-top: 10px;
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.24), rgba(15, 23, 42, 0.72));
+    border: 1px solid rgba(239, 68, 68, 0.34);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.rutina-penitencia-live-panel.is-sin-penitencia {
+    background: linear-gradient(135deg, rgba(51, 65, 85, 0.32), rgba(15, 23, 42, 0.72));
+    border-color: rgba(148, 163, 184, 0.28);
+}
+
+.rutina-penitencia-live-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rutina-penitencia-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.38);
+}
+
+.rutina-penitencia-live-panel.is-sin-penitencia .rutina-penitencia-badge {
+    background: rgba(148, 163, 184, 0.16);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.rutina-penitencia-formula {
+    font-size: 12px;
+    font-weight: 800;
+    color: #f87171;
+    font-family: monospace;
+}
+
+.rutina-penitencia-detalle {
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.4;
+}
+
+.btn-rutina-incompleta-penitencia {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.48);
+    color: #fecaca;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+}
+
+.btn-rutina-incompleta-penitencia:hover {
+    background: rgba(239, 68, 68, 0.28);
+    border-color: rgba(248, 113, 113, 0.72);
+}
+
+.btn-rutina-incompleta-penitencia:active {
+    transform: scale(0.99);
+}
+
+.rutina-penitencia-live-panel.is-sin-penitencia .btn-rutina-incompleta-penitencia {
+    background: rgba(148, 163, 184, 0.14);
+    border-color: rgba(148, 163, 184, 0.38);
+    color: #e2e8f0;
+}
+
+.modal-penitencia-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.modal-penitencia-kpi {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 9px 8px;
+    text-align: center;
+}
+
+.modal-penitencia-kpi.is-danger {
+    background: rgba(127, 29, 29, 0.28);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.modal-penitencia-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94a3b8;
+    letter-spacing: 0.35px;
+}
+
+.modal-penitencia-kpi-val {
+    font-size: 16px;
+    font-weight: 900;
+    color: #f8fafc;
+    margin-top: 3px;
+    font-family: monospace;
+}
+
+.modal-penitencia-kpi.is-danger .modal-penitencia-kpi-val {
+    color: #f87171;
+}
+
+.modal-penitencia-desglose {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(239, 68, 68, 0.24);
+    border-radius: 10px;
+    padding: 10px 12px;
+    max-height: 190px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-penitencia-ej-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    color: #e2e8f0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modal-penitencia-ej-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.modal-penitencia-ej-loss {
+    font-weight: 800;
+    color: #f87171;
+    white-space: nowrap;
+    font-family: monospace;
+}
+
+.modal-penitencia-exp-bar {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 12px;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+    .modal-penitencia-kpi-grid {
+        gap: 6px;
+    }
+    .modal-penitencia-kpi-val {
+        font-size: 14px;
+    }
+}
+
+
 

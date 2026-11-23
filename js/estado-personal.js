@@ -2496,6 +2496,9 @@ function construirTarjetaRutinaNoirHtml(rut, idx, ctx) {
     var tipoTexto = esMental ? 'Mental' : (esHibrida ? 'Híbrida' : 'Física');
     var tipoClase = esMental ? 'mental' : (esHibrida ? 'hibrida' : '');
     var borderAccent = esMental ? '#38bdf8' : (esHibrida ? '#f59e0b' : '#cbd5e1');
+    var penPorSerie = (typeof obtenerPenitenciaExpPorSerieRutina === 'function')
+        ? obtenerPenitenciaExpPorSerieRutina(rut)
+        : 20;
     var ident = String(rut.id || idx);
     var safeId = escaparHtmlRutina(ident);
     var safeNombre = escaparHtmlRutina(rut.nombre || 'Rutina');
@@ -2516,6 +2519,7 @@ function construirTarjetaRutinaNoirHtml(rut, idx, ctx) {
                     <span class="rutina-code-chip">${escaparHtmlRutina(rutCodigo)}</span>
                     <span class="rutina-rank-chip">${escaparHtmlRutina(cleanRank)}</span>
                     <span class="rutina-type-chip ${tipoClase}">${tipoTexto}</span>
+                    ${penPorSerie > 0 ? `<span class="rutina-penalty-chip" title="Penitencia en EXP por cada serie no realizada">💀 -${penPorSerie} EXP/serie</span>` : ''}
                 </div>
                 <div class="rutina-card-icon-actions" onclick="event.stopPropagation();">
                     <button type="button" class="rutina-icon-btn edit" title="Editar rutina" aria-label="Editar ${safeNombre}" onclick="event.stopPropagation(); event.stopImmediatePropagation(); abrirModalEditarRutina('${safeId}', event)">
@@ -4824,10 +4828,12 @@ function abrirModalNuevaRutina() {
     var inTipo = document.getElementById('modal-rutina-tipo');
     var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
     var selPl = document.getElementById('modal-rutina-playlist');
+    var inPen = document.getElementById('modal-rutina-penitencia-exp');
     if (inNom) inNom.value = "";
     if (inDesc) inDesc.value = "";
     if (inBusq) inBusq.value = "";
     if (inTipo) inTipo.value = (CATEGORIA_EJERCICIOS_ACTIVA === 'gimnasio-mental' || SUBFILTRO_BANCO_ACTIVO === 'mental' || FILTRO_RUTINAS_ACTIVO === 'mentales') ? 'mental' : 'fisica';
+    if (inPen) inPen.value = MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT;
     if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
     if (selPl) selPl.value = "";
 
@@ -4889,11 +4895,13 @@ function abrirModalEditarRutina(rutinaIdOIdx, event) {
     var inTipo = document.getElementById('modal-rutina-tipo');
     var inBusq = document.getElementById('buscador-ejercicios-modal-rutina');
     var selPl = document.getElementById('modal-rutina-playlist');
+    var inPen = document.getElementById('modal-rutina-penitencia-exp');
 
     if (inNom) inNom.value = rutina.nombre || "";
     if (inDesc) inDesc.value = rutina.descripcion || "";
     if (inBusq) inBusq.value = "";
     if (inTipo) inTipo.value = rutina.tipo || "fisica";
+    if (inPen) inPen.value = obtenerPenitenciaExpPorSerieRutina(rutina);
     if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
     if (selPl) {
         var targetVal = rutina.playlistId || "";
@@ -5095,12 +5103,16 @@ function confirmarAgregarRutina() {
             var rutAEditar = APP_STATE.rutinas[idxExistente];
             var selPlEdit = document.getElementById('modal-rutina-playlist');
             var plIdEdit = selPlEdit ? selPlEdit.value.trim() : '';
+            var inPenEdit = document.getElementById('modal-rutina-penitencia-exp');
+            var parsedPenEdit = inPenEdit ? parseInt(inPenEdit.value, 10) : MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT;
+            var penExpEdit = isNaN(parsedPenEdit) ? MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT : Math.max(0, Math.min(500, parsedPenEdit));
             rutAEditar.nombre = nom;
             rutAEditar.descripcion = desc || (tipo === 'mental' ? "Entrenamiento cognitivo y foco" : "Entrenamiento programado");
             rutAEditar.tipo = tipo;
             rutAEditar.rankLabel = tag;
             rutAEditar.ejercicios = selectedEjercicios;
             rutAEditar.playlistId = plIdEdit || null;
+            rutAEditar.penitenciaExpPorSerie = penExpEdit;
             rutAEditar.fechaActualizacion = Date.now();
 
             MonarcaDB.save(APP_STATE);
@@ -5135,6 +5147,9 @@ function confirmarAgregarRutina() {
     var prefix = tipo === 'mental' ? 'COG-' : (tipo === 'hibrida' ? 'HIB-' : 'RUT-');
     var selPlNew = document.getElementById('modal-rutina-playlist');
     var plIdNew = selPlNew ? selPlNew.value.trim() : '';
+    var inPenNew = document.getElementById('modal-rutina-penitencia-exp');
+    var parsedPenNew = inPenNew ? parseInt(inPenNew.value, 10) : MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT;
+    var penExpNew = isNaN(parsedPenNew) ? MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT : Math.max(0, Math.min(500, parsedPenNew));
     var nuevaRutina = {
         id: "RUT-" + nowRut,
         codigo: prefix + (APP_STATE.rutinas.length + 1),
@@ -5144,6 +5159,7 @@ function confirmarAgregarRutina() {
         rankLabel: tag,
         ejercicios: selectedEjercicios,
         playlistId: plIdNew || null,
+        penitenciaExpPorSerie: penExpNew,
         permitirDuplicadoNombre: permitirDuplicadoRut,
         timestamp: nowRut,
         fechaActualizacion: nowRut
@@ -6593,7 +6609,7 @@ function actualizarGraficaFatigaSesion() {
         }
         if (!existe) return; // Omitir ejercicios eliminados
 
-        var numSeries = esM ? 1 : Math.max(1, parseInt(ej.series) || 3);
+        var numSeries = esM ? 1 : ((ej.series === 0 || ej.esSerieCero) ? 1 : Math.max(1, parseInt(ej.series) || 3));
         totalSeriesRutina += numSeries;
         var fatigaNominal = Number(ej.fatigaPorcentaje || ej.fatigaEstimada) || 20;
 
@@ -7691,12 +7707,22 @@ function detenerMusicaManualDesdeRutina() {
     }
 }
 
-function mostrarModalResumenFinalizacionRutina(titulo, mensaje) {
+function mostrarModalResumenFinalizacionRutina(titulo, mensaje, opts) {
+    opts = opts || {};
+    var esPen = !!opts.esPenitencia;
     var modal = document.getElementById('modal-rutina-finalizada');
+    var elIcon = document.getElementById('modal-rutina-finalizada-icono');
     var elTit = document.getElementById('modal-rutina-finalizada-titulo');
     var elMsg = document.getElementById('modal-rutina-finalizada-mensaje');
+    var win = modal ? modal.querySelector('.modal-system-window') : null;
     if (modal && elMsg) {
-        if (elTit) elTit.textContent = titulo || 'SESIÓN COMPLETADA';
+        if (elIcon) elIcon.textContent = esPen ? '💀' : '🏆';
+        if (elTit) {
+            elTit.textContent = titulo || (esPen ? 'PENITENCIA APLICADA' : 'SESIÓN COMPLETADA');
+            elTit.style.color = esPen ? '#fca5a5' : '';
+        }
+        if (win) win.style.borderColor = esPen ? 'rgba(239, 68, 68, 0.45)' : '';
+        elMsg.style.borderColor = esPen ? 'rgba(239, 68, 68, 0.32)' : 'rgba(56, 189, 248, 0.16)';
         elMsg.textContent = mensaje || 'Has completado tu rutina.';
         modal.style.display = 'flex';
         return;
@@ -7711,6 +7737,194 @@ function cerrarModalResumenFinalizacionRutina() {
     }
 }
 
+var MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT = 20;
+
+function obtenerPenitenciaExpPorSerieRutina(rutina) {
+    if (rutina && rutina.penitenciaExpPorSerie !== undefined && rutina.penitenciaExpPorSerie !== null && rutina.penitenciaExpPorSerie !== '') {
+        var parsed = parseInt(rutina.penitenciaExpPorSerie, 10);
+        if (!isNaN(parsed)) {
+            return Math.max(0, Math.min(500, parsed));
+        }
+    }
+    return MONARCA_RUTINA_PENITENCIA_EXP_DEFAULT;
+}
+
+function evaluarProgresoSeriesRutinaActiva() {
+    var rutina = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) ? RUTINA_ACTIVA.rutina : null;
+    var penitenciaPorSerie = obtenerPenitenciaExpPorSerieRutina(rutina);
+    var cards = document.querySelectorAll('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]');
+    var totalSeries = 0;
+    var seriesCompletadas = 0;
+    var faltantesPorEjercicio = [];
+
+    if (cards && cards.length > 0) {
+        cards.forEach(function(card) {
+            var idx = parseInt(card.getAttribute('data-ej-idx'), 10);
+            var ejChecks = card.querySelectorAll('.check-rutina-din');
+            var ejTotal = ejChecks.length;
+            var ejDone = 0;
+            ejChecks.forEach(function(c) { if (c.checked) ejDone++; });
+            totalSeries += ejTotal;
+            seriesCompletadas += ejDone;
+            var ejFalt = Math.max(0, ejTotal - ejDone);
+            if (ejFalt > 0) {
+                var ejObj = (rutina && Array.isArray(rutina.ejercicios) && !isNaN(idx)) ? rutina.ejercicios[idx] : null;
+                var titleEl = card.querySelector('.routine-exercise-session-name, .clean-row-title, h4');
+                var nombreEj = (ejObj && ejObj.nombre) ? ejObj.nombre : (titleEl ? titleEl.textContent.trim() : ('Ejercicio #' + (idx + 1)));
+                faltantesPorEjercicio.push({
+                    ejIdx: idx,
+                    nombre: nombreEj,
+                    hechas: ejDone,
+                    totales: ejTotal,
+                    faltantes: ejFalt,
+                    expPenitencia: ejFalt * penitenciaPorSerie
+                });
+            }
+        });
+    } else {
+        var checks = document.querySelectorAll('.check-rutina-din');
+        totalSeries = checks.length;
+        checks.forEach(function(c) { if (c.checked) seriesCompletadas++; });
+        if (totalSeries > seriesCompletadas) {
+            var fTot = totalSeries - seriesCompletadas;
+            faltantesPorEjercicio.push({
+                ejIdx: 0,
+                nombre: (rutina && rutina.nombre) ? rutina.nombre : 'Series pendientes',
+                hechas: seriesCompletadas,
+                totales: totalSeries,
+                faltantes: fTot,
+                expPenitencia: fTot * penitenciaPorSerie
+            });
+        }
+    }
+
+    var seriesFaltantes = Math.max(0, totalSeries - seriesCompletadas);
+    var pct = totalSeries > 0 ? Math.round((seriesCompletadas / totalSeries) * 100) : 0;
+    var penitenciaTotal = seriesFaltantes * penitenciaPorSerie;
+
+    return {
+        totalSeries: totalSeries,
+        seriesCompletadas: seriesCompletadas,
+        seriesFaltantes: seriesFaltantes,
+        pct: pct,
+        penitenciaPorSerie: penitenciaPorSerie,
+        penitenciaTotal: penitenciaTotal,
+        faltantesPorEjercicio: faltantesPorEjercicio
+    };
+}
+
+function actualizarPanelPenitenciaRutinaIncompleta(evalData) {
+    var panel = document.getElementById('panel-penitencia-rutina-incompleta');
+    if (!panel) return;
+    var ev = evalData || evaluarProgresoSeriesRutinaActiva();
+
+    if (ev.totalSeries <= 0 || ev.seriesFaltantes <= 0 || (ev.penitenciaPorSerie === 0 && ev.seriesCompletadas === 0)) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    var badgeEl = document.getElementById('penitencia-rutina-badge-live');
+    var totalEl = document.getElementById('penitencia-rutina-total-live');
+    var detEl = document.getElementById('penitencia-rutina-detalle-live');
+    var btnEl = document.getElementById('btn-terminar-rutina-incompleta');
+
+    panel.style.display = 'flex';
+    var esSinPen = ev.penitenciaPorSerie === 0;
+    panel.classList.toggle('is-sin-penitencia', esSinPen);
+
+    var sufSeries = ev.seriesFaltantes === 1 ? 'serie' : 'series';
+    var resumenEjs = ev.faltantesPorEjercicio.slice(0, 3).map(function(f) {
+        return f.nombre + ' (' + f.faltantes + ')';
+    }).join(', ');
+    if (ev.faltantesPorEjercicio.length > 3) {
+        resumenEjs += ' y ' + (ev.faltantesPorEjercicio.length - 3) + ' más';
+    }
+
+    if (esSinPen) {
+        if (badgeEl) badgeEl.textContent = '⚙️ SESIÓN PARCIAL · SIN PENITENCIA';
+        if (totalEl) totalEl.textContent = '0 EXP';
+        if (detEl) detEl.textContent = 'Faltan ' + ev.seriesFaltantes + ' ' + sufSeries + (resumenEjs ? (': ' + resumenEjs) : '') + '. Esta rutina tiene la penitencia desactivada.';
+        if (btnEl) btnEl.textContent = 'Finalizar Sesión Parcial (+0 EXP)';
+    } else {
+        if (badgeEl) badgeEl.textContent = '💀 PENITENCIA · -' + ev.penitenciaPorSerie + ' EXP / SERIE';
+        if (totalEl) totalEl.textContent = '-' + ev.penitenciaTotal + ' EXP (' + ev.seriesFaltantes + ' × -' + ev.penitenciaPorSerie + ')';
+        if (detEl) detEl.textContent = 'Faltan ' + ev.seriesFaltantes + ' ' + sufSeries + (resumenEjs ? (': ' + resumenEjs) : '') + '. Si cierras incompleta perderás -' + ev.penitenciaTotal + ' EXP.';
+        if (btnEl) btnEl.textContent = '💀 Terminar Incompleta (-' + ev.penitenciaTotal + ' EXP)';
+    }
+}
+
+function abrirModalConfirmarPenitenciaRutina() {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return;
+    var ev = evaluarProgresoSeriesRutinaActiva();
+    if (ev.seriesFaltantes <= 0) {
+        ejecutarRutinaDinamica();
+        return;
+    }
+
+    var modal = document.getElementById('modal-confirmar-penitencia-rutina');
+    if (!modal) {
+        ejecutarRutinaDinamica({ permitirIncompleta: true });
+        return;
+    }
+
+    var jug = APP_STATE.jugador || { nivel: 1, exp: 0, expMax: 100 };
+    var expAntes = Number(jug.exp) || 0;
+    var expDespues = Math.max(0, expAntes - ev.penitenciaTotal);
+    var rutNom = RUTINA_ACTIVA.rutina.nombre || 'esta rutina';
+    var sufFalt = ev.seriesFaltantes === 1 ? 'serie sin realizar' : 'series sin realizar';
+
+    var introEl = document.getElementById('modal-pen-rutina-intro');
+    var kpiHechas = document.getElementById('modal-pen-kpi-hechas');
+    var kpiFalt = document.getElementById('modal-pen-kpi-faltantes');
+    var kpiExp = document.getElementById('modal-pen-kpi-exp');
+    var desgloseEl = document.getElementById('modal-pen-rutina-desglose');
+    var expPrevEl = document.getElementById('modal-pen-rutina-exp-preview');
+    var btnConfirm = document.getElementById('btn-confirmar-penitencia-rutina');
+
+    if (introEl) {
+        introEl.innerHTML = 'Aún te ' + (ev.seriesFaltantes === 1 ? 'falta' : 'faltan') + ' <strong style="color:#fca5a5;">' + ev.seriesFaltantes + ' ' + sufFalt + '</strong> en <strong>' + escaparHtmlRutina(rutNom) + '</strong>.' +
+            (ev.penitenciaTotal > 0 ? (' Se aplicará una penitencia de <strong style="color:#f87171;">-' + ev.penitenciaPorSerie + ' EXP × ' + ev.seriesFaltantes + ' = -' + ev.penitenciaTotal + ' EXP</strong>.') : ' Esta rutina tiene la penitencia EXP desactivada (0 EXP).');
+    }
+    if (kpiHechas) kpiHechas.textContent = ev.seriesCompletadas + '/' + ev.totalSeries;
+    if (kpiFalt) kpiFalt.textContent = String(ev.seriesFaltantes);
+    if (kpiExp) kpiExp.textContent = ev.penitenciaTotal > 0 ? ('-' + ev.penitenciaTotal + ' EXP') : '0 EXP';
+
+    if (desgloseEl) {
+        desgloseEl.innerHTML = ev.faltantesPorEjercicio.map(function(item) {
+            var suf = item.faltantes === 1 ? 'serie faltante' : 'series faltantes';
+            var lossTxt = item.expPenitencia > 0 ? ('-' + item.expPenitencia + ' EXP') : '0 EXP';
+            return '<div class="modal-penitencia-ej-row">' +
+                '<div><strong>' + escaparHtmlRutina(item.nombre) + '</strong> <span style="color:#94a3b8; font-size:11px;">(' + item.hechas + '/' + item.totales + ' · ' + item.faltantes + ' ' + suf + ')</span></div>' +
+                '<span class="modal-penitencia-ej-loss">' + lossTxt + '</span>' +
+            '</div>';
+        }).join('');
+    }
+
+    if (expPrevEl) {
+        expPrevEl.innerHTML = '<span>📉 <strong>EXP del Monarca</strong> (Nivel ' + (jug.nivel || 1) + ')</span>' +
+            '<span style="font-family:monospace; font-weight:800; color:' + (ev.penitenciaTotal > 0 ? '#fca5a5' : '#94a3b8') + ';">' +
+            expAntes + ' → ' + expDespues + ' / ' + (jug.expMax || 100) + ' EXP</span>';
+    }
+
+    if (btnConfirm) {
+        btnConfirm.textContent = ev.penitenciaTotal > 0
+            ? ('💀 Aceptar Penitencia (-' + ev.penitenciaTotal + ' EXP)')
+            : '✓ Cerrar Sesión Parcial';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function cerrarModalConfirmarPenitenciaRutina() {
+    var modal = document.getElementById('modal-confirmar-penitencia-rutina');
+    if (modal) modal.style.display = 'none';
+}
+
+function confirmarFinalizarRutinaIncompleta() {
+    cerrarModalConfirmarPenitenciaRutina();
+    ejecutarRutinaDinamica({ permitirIncompleta: true });
+}
+
 if (typeof window !== 'undefined') {
     window.actualizarSelectoresPlaylistRutinas = actualizarSelectoresPlaylistRutinas;
     window.alCambiarPlaylistDefaultRutina = alCambiarPlaylistDefaultRutina;
@@ -7720,6 +7934,11 @@ if (typeof window !== 'undefined') {
     window.detenerMusicaManualDesdeRutina = detenerMusicaManualDesdeRutina;
     window.mostrarModalResumenFinalizacionRutina = mostrarModalResumenFinalizacionRutina;
     window.cerrarModalResumenFinalizacionRutina = cerrarModalResumenFinalizacionRutina;
+    window.obtenerPenitenciaExpPorSerieRutina = obtenerPenitenciaExpPorSerieRutina;
+    window.evaluarProgresoSeriesRutinaActiva = evaluarProgresoSeriesRutinaActiva;
+    window.abrirModalConfirmarPenitenciaRutina = abrirModalConfirmarPenitenciaRutina;
+    window.cerrarModalConfirmarPenitenciaRutina = cerrarModalConfirmarPenitenciaRutina;
+    window.confirmarFinalizarRutinaIncompleta = confirmarFinalizarRutinaIncompleta;
 }
 
 function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
@@ -7790,6 +8009,9 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     }
 
     var sesionRestaurada = restaurarEstadoSesionActivaDeStorage(idxOrId);
+    if (!sesionRestaurada) {
+        actualizarProgresoRutinaDinamica();
+    }
 
     if (CHART_FATIGA_RUTINA_SESION) {
         CHART_FATIGA_RUTINA_SESION.destroy();
@@ -7833,6 +8055,7 @@ function actualizarProgresoRutinaDinamica() {
     });
 
     var pct = total > 0 ? Math.round((completados / total) * 100) : 0;
+    var faltantes = Math.max(0, total - completados);
     var progrBarra = document.getElementById('progreso-barra-rutina-dinamica');
     var progrTexto = document.getElementById('progreso-texto-rutina-dinamica');
     var btnReg = document.getElementById('btn-registrar-rutina-dinamica');
@@ -7841,11 +8064,15 @@ function actualizarProgresoRutinaDinamica() {
     if (progrTexto) progrTexto.innerText = completados + ' / ' + total + ' series (' + pct + '%)';
 
     if (btnReg) {
-        btnReg.disabled = (completados < total);
+        btnReg.disabled = (total === 0 || completados < total);
         if (completados === total && total > 0) {
             btnReg.classList.add('btn-ready-pulse');
+            btnReg.innerText = '✓ Completar y Registrar Rutina (+60 EXP)';
         } else {
             btnReg.classList.remove('btn-ready-pulse');
+            btnReg.innerText = total > 0
+                ? ('Completar y Registrar Rutina (faltan ' + faltantes + ' ' + (faltantes === 1 ? 'serie' : 'series') + ')')
+                : 'Completar y Registrar Rutina';
         }
     }
 
@@ -7867,6 +8094,8 @@ function actualizarProgresoRutinaDinamica() {
             chip.textContent = (allDone ? '✓ ' : '') + ejDone + '/' + ejTotal + suf;
         }
     });
+
+    actualizarPanelPenitenciaRutinaIncompleta();
 }
 
 function actualizarProgresoRutina(checkClass, barraId, textoId, btnId) {
@@ -7972,9 +8201,17 @@ function ejecutarRutina(tipo) {
     mostrarModalResumenFinalizacionRutina('RUTINA COMPLETADA', "¡Excelente trabajo! Has completado la " + nombre + " al 100% (+50 EXP y fatiga registrada).");
 }
 
-function ejecutarRutinaDinamica() {
+function ejecutarRutinaDinamica(opts) {
     if (!RUTINA_ACTIVA) return;
+    opts = opts || {};
     var rutina = RUTINA_ACTIVA.rutina;
+    var evalProg = evaluarProgresoSeriesRutinaActiva();
+    var esIncompleta = evalProg.totalSeries > 0 && evalProg.seriesFaltantes > 0;
+
+    if (esIncompleta && !opts.permitirIncompleta) {
+        abrirModalConfirmarPenitenciaRutina();
+        return;
+    }
 
     if (!APP_STATE.fatiga) APP_STATE.fatiga = DEFAULT_STATE.fatiga;
 
@@ -7983,10 +8220,19 @@ function ejecutarRutinaDinamica() {
     var yaSeAplicoDesgasteEnVivo = Object.keys(HISTORIAL_FACTOR_SERIES || {}).length > 0;
 
     if (rutina.ejercicios) {
-        rutina.ejercicios.forEach(function(ej) {
+        rutina.ejercicios.forEach(function(ej, ejIdx) {
+            var esSerieCeroEj = (ej.series === 0 || ej.esSerieCero);
+            var numSeriesEj = ej.esMental ? 1 : (esSerieCeroEj ? 1 : Math.max(1, parseInt(ej.series, 10) || 3));
+            var hechasEj = 0;
+            for (var sIdx = 1; sIdx <= numSeriesEj; sIdx++) {
+                var chkEj = document.getElementById('check-ej-' + ejIdx + '-s-' + sIdx);
+                if (chkEj && chkEj.checked) hechasEj++;
+            }
+            var ratioHechas = numSeriesEj > 0 ? (hechasEj / numSeriesEj) : 0;
+
             if (ej.esMental) {
                 tieneMentales = true;
-                if (!yaSeAplicoDesgasteEnVivo) {
+                if (!yaSeAplicoDesgasteEnVivo && (!esIncompleta || hechasEj > 0)) {
                     if (typeof sumarExpMusculoMental === 'function' && ej.musculoPrincipal) {
                         sumarExpMusculoMental(ej.musculoPrincipal, ej.expRecompensa || 25);
                     }
@@ -7998,22 +8244,22 @@ function ejecutarRutinaDinamica() {
                 }
             } else {
                 tieneFisicos = true;
-                if (!yaSeAplicoDesgasteEnVivo) {
-                    var fatigaVal = Number(ej.fatigaPorcentaje) || 20;
+                if (!yaSeAplicoDesgasteEnVivo && (!esIncompleta || hechasEj > 0)) {
+                    var fatigaVal = (Number(ej.fatigaPorcentaje) || 20) * (esIncompleta ? ratioHechas : 1);
                     var mKeys = mapearTextoAMusculos(ej.categorias || []);
                     if (mKeys.length === 0 && ej.nombre) {
                         mKeys = mapearTextoAMusculos(ej.nombre);
                     }
                     mKeys.forEach(function(mKey) {
                         var actual = Number(APP_STATE.fatiga[mKey]) || 0;
-                        APP_STATE.fatiga[mKey] = Math.min(100, actual + fatigaVal);
+                        APP_STATE.fatiga[mKey] = Math.min(100, Math.round(actual + fatigaVal));
                     });
                 }
             }
         });
     }
 
-    // Detección y actualización de Sobrecarga Progresiva o Récords en Serie 0
+    // Detección y actualización de Sobrecarga Progresiva o Récords en Serie 0 (solo sobre series realizadas)
     var sobrecargas = [];
     var recordsSerieCero = [];
     if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
@@ -8182,14 +8428,14 @@ function ejecutarRutinaDinamica() {
         });
     }
 
-    if (tieneFisicos) {
+    if (tieneFisicos && (!esIncompleta || evalProg.seriesCompletadas > 0)) {
         var keysFatiga = Object.keys(METADATOS_MUSCULOS);
         var sumaTotal = 0;
         keysFatiga.forEach(function(k) {
             sumaTotal += (Number(APP_STATE.fatiga[k]) || 0);
         });
         APP_STATE.fatiga.promedioHoy = Math.round(sumaTotal / keysFatiga.length);
-        APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + rutina.nombre;
+        APP_STATE.fatiga.ultimoCierre = (esIncompleta ? "Entrenamiento incompleto: " : "Entrenamiento: ") + rutina.nombre;
     }
 
     calcularMetricasGeneralesDesgaste();
@@ -8197,10 +8443,31 @@ function ejecutarRutinaDinamica() {
     var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
     if (!APP_STATE.gym) APP_STATE.gym = [];
     var tagTipoHist = tieneMentales && tieneFisicos ? " [HÍBRIDA]" : (tieneMentales ? " [MENTAL]" : " [FÍSICA]");
-    APP_STATE.gym.unshift({
-        fecha: fechaHoy,
-        detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
-    });
+
+    if (esIncompleta) {
+        var resumenFaltLog = evalProg.faltantesPorEjercicio.map(function(f) {
+            return f.nombre + ' (' + f.faltantes + ')';
+        }).join(', ');
+        var txtPenLog = evalProg.penitenciaTotal > 0
+            ? (' → Penitencia -' + evalProg.penitenciaTotal + ' EXP (' + evalProg.seriesFaltantes + ' × -' + evalProg.penitenciaPorSerie + ')')
+            : ' · Sin penitencia';
+        APP_STATE.gym.unshift({
+            fecha: fechaHoy,
+            detalle: "Rutina INCOMPLETA" + tagTipoHist + ": " + rutina.nombre + " (" + evalProg.seriesCompletadas + "/" + evalProg.totalSeries + " series · Faltaron " + evalProg.seriesFaltantes + txtPenLog + ")" + (resumenFaltLog ? (" · Faltantes: " + resumenFaltLog) : ""),
+            esIncompleta: true,
+            seriesHechas: evalProg.seriesCompletadas,
+            seriesTotales: evalProg.totalSeries,
+            seriesFaltantes: evalProg.seriesFaltantes,
+            penitenciaPorSerie: evalProg.penitenciaPorSerie,
+            penitenciaExp: evalProg.penitenciaTotal,
+            detalleFaltantes: evalProg.faltantesPorEjercicio
+        });
+    } else {
+        APP_STATE.gym.unshift({
+            fecha: fechaHoy,
+            detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
+        });
+    }
 
     // Registrar logs de records en Serie 0 en gym log
     recordsSerieCero.forEach(function(rc) {
@@ -8233,9 +8500,9 @@ function ejecutarRutinaDinamica() {
         }
     });
 
-    // Auto-completar Hábitos y Misiones Diarias vinculadas a esta rutina
+    // Auto-completar Hábitos y Misiones Diarias vinculadas SOLO si la rutina se terminó al 100%
     var habitosCompletadosAuto = 0;
-    if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+    if (!esIncompleta && APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
         APP_STATE.questsDiarios.forEach(function(q) {
             if (!q) return;
             var coincideId = q.rutinaId && (
@@ -8263,7 +8530,17 @@ function ejecutarRutinaDinamica() {
         }
     }
 
-    sumarExp(60);
+    var expPenRes = null;
+    if (esIncompleta) {
+        if (evalProg.penitenciaTotal > 0 && typeof restarExp === 'function') {
+            expPenRes = restarExp(evalProg.penitenciaTotal);
+            emitirTonoAudio(220, 0.28, 'sawtooth');
+            if (navigator.vibrate) navigator.vibrate([180, 90, 240]);
+        }
+    } else {
+        sumarExp(60);
+    }
+
     detenerDescansoGym();
     limpiarTodosLosTimersSeries();
     limpiarSesionActivaStorage();
@@ -8272,13 +8549,39 @@ function ejecutarRutinaDinamica() {
         window.MonarcaPlayer.detenerMusicaDeRutina(true);
     }
 
-    var msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
-    if (tieneMentales && tieneFisicos) {
-        msgAviso += "Se han actualizado tu mapa muscular corporal y tus músculos cognitivos en el sistema.";
-    } else if (tieneMentales) {
-        msgAviso += "El desarrollo de tus músculos mentales y la fatiga cognitiva del SNC han sido actualizados.";
+    var msgAviso = "";
+    if (esIncompleta) {
+        var jugAct = APP_STATE.jugador || { nivel: 1, exp: 0, expMax: 100 };
+        msgAviso = "⚠️ Has cerrado '" + rutina.nombre + "' de forma incompleta.\n" +
+            "Progreso realizado: " + evalProg.seriesCompletadas + " / " + evalProg.totalSeries + " series (" + evalProg.pct + "%).\n" +
+            "Series no realizadas: " + evalProg.seriesFaltantes + ".\n";
+
+        if (evalProg.penitenciaTotal > 0) {
+            msgAviso += "\n💀 PENITENCIA APLICADA: -" + evalProg.penitenciaTotal + " EXP (" + evalProg.seriesFaltantes + " series × -" + evalProg.penitenciaPorSerie + " EXP)";
+            if (expPenRes) {
+                msgAviso += "\n📉 EXP del Monarca: " + expPenRes.antes + " → " + expPenRes.despues + " / " + (jugAct.expMax || 100) + " (Nivel " + (jugAct.nivel || 1) + ")";
+            }
+        } else {
+            msgAviso += "\n⚙️ Esta rutina tiene la penitencia EXP desactivada (0 EXP deducidos).";
+        }
+
+        if (evalProg.faltantesPorEjercicio.length > 0) {
+            msgAviso += "\n\n📋 Series faltantes por ejercicio:";
+            evalProg.faltantesPorEjercicio.forEach(function(item) {
+                var sufS = item.faltantes === 1 ? 'serie faltante' : 'series faltantes';
+                var expTag = item.expPenitencia > 0 ? (' (-' + item.expPenitencia + ' EXP)') : '';
+                msgAviso += "\n• " + item.nombre + ": " + item.faltantes + " " + sufS + expTag;
+            });
+        }
     } else {
-        msgAviso += "La fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.";
+        msgAviso = "🏆 ¡Sesión completada con éxito!\nHas finalizado '" + rutina.nombre + "'.\n+60 EXP recibidos.\n";
+        if (tieneMentales && tieneFisicos) {
+            msgAviso += "Se han actualizado tu mapa muscular corporal y tus músculos cognitivos en el sistema.";
+        } else if (tieneMentales) {
+            msgAviso += "El desarrollo de tus músculos mentales y la fatiga cognitiva del SNC han sido actualizados.";
+        } else {
+            msgAviso += "La fatiga muscular de tu cuerpo ha sido actualizada en el mapa anatómico.";
+        }
     }
 
     if (recordsSerieCero.length > 0) {
@@ -8310,13 +8613,24 @@ function ejecutarRutinaDinamica() {
     if (typeof renderizarEjercicios === 'function' && APP_STATE.ejercicios) {
         renderizarEjercicios(APP_STATE.ejercicios);
     }
+    if (typeof renderizarGym === 'function') {
+        renderizarGym(APP_STATE.gym);
+    }
 
     RUTINA_ACTIVA = null;
     cambiarVista('vista-ejercicios');
     if (typeof cambiarCategoriaEjercicios === 'function') {
         cambiarCategoriaEjercicios('rutinas');
     }
-    mostrarModalResumenFinalizacionRutina('SESIÓN COMPLETADA', msgAviso);
+    if (esIncompleta) {
+        mostrarModalResumenFinalizacionRutina(
+            evalProg.penitenciaTotal > 0 ? 'PENITENCIA APLICADA · RUTINA INCOMPLETA' : 'SESIÓN PARCIAL REGISTRADA',
+            msgAviso,
+            { esPenitencia: evalProg.penitenciaTotal > 0 }
+        );
+    } else {
+        mostrarModalResumenFinalizacionRutina('SESIÓN COMPLETADA', msgAviso, { esPenitencia: false });
+    }
 }
 
 function renderizarGym(registros) {
@@ -8366,20 +8680,25 @@ function renderizarGym(registros) {
     if (hechasHoy.length > 0) {
         html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
         hechasHoy.forEach(function(reg) {
+            var esIncomp = !!(reg.esIncompleta || (reg.detalle && reg.detalle.includes('INCOMPLETA')));
             var esMen = reg.detalle && reg.detalle.includes('[MENTAL]');
             var esHib = reg.detalle && reg.detalle.includes('[HÍBRIDA]');
-            var badgeBg = esMen ? 'rgba(37, 99, 235, 0.2)' : (esHib ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)');
-            var badgeColor = esMen ? '#93c5fd' : (esHib ? '#fcd34d' : '#6ee7b7');
-            var badgeBorder = esMen ? 'rgba(59, 130, 246, 0.4)' : (esHib ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)');
+            var badgeBg = esIncomp ? 'rgba(239, 68, 68, 0.2)' : (esMen ? 'rgba(37, 99, 235, 0.2)' : (esHib ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'));
+            var badgeColor = esIncomp ? '#fca5a5' : (esMen ? '#93c5fd' : (esHib ? '#fcd34d' : '#6ee7b7'));
+            var badgeBorder = esIncomp ? 'rgba(239, 68, 68, 0.45)' : (esMen ? 'rgba(59, 130, 246, 0.4)' : (esHib ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'));
+            var cardBorder = esIncomp ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)';
+            var badgeLabel = esIncomp
+                ? ('💀 INCOMPLETA' + (reg.penitenciaExp > 0 ? (' · -' + reg.penitenciaExp + ' EXP') : ''))
+                : '✓ HECHA HOY';
 
             html += `
-            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <div style="background: #0b0e15; border: 1px solid ${cardBorder}; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 16px;">${esMen ? '🧠' : (esHib ? '⚡' : '🏋️')}</span>
+                    <span style="font-size: 16px;">${esIncomp ? '💀' : (esMen ? '🧠' : (esHib ? '⚡' : '🏋️'))}</span>
                     <span style="font-weight: 700; color: #f8fafc; font-size: 13.5px;">${reg.detalle}</span>
                 </div>
                 <span style="font-size: 11px; font-weight: 700; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 8px; border-radius: 9999px;">
-                    ✓ HECHA HOY
+                    ${badgeLabel}
                 </span>
             </div>`;
         });
@@ -8399,9 +8718,11 @@ function renderizarGym(registros) {
 
     if (anteriores.length > 0) {
         anteriores.forEach(function(reg) {
+            var esIncompAnt = !!(reg.esIncompleta || (reg.detalle && reg.detalle.includes('INCOMPLETA')));
+            var antBorder = esIncompAnt ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)';
             html += `
-            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-                <span style="font-weight: 600; color: #f8fafc; font-size: 13px;">${reg.detalle}</span>
+            <div style="background: #0b0e15; border: 1px solid ${antBorder}; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <span style="font-weight: 600; color: ${esIncompAnt ? '#fecaca' : '#f8fafc'}; font-size: 13px;">${reg.detalle}</span>
                 <span style="color: #64748b; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
             </div>`;
         });
@@ -8410,7 +8731,6 @@ function renderizarGym(registros) {
     } else {
         html += '<p style="color: #64748b; font-size: 12px; font-style: italic;">No hay registros de sesiones anteriores.</p>';
     }
-
     html += '</div>';
 
     cont.innerHTML = html;
@@ -10144,6 +10464,7 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     }
 
     cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
+    actualizarProgresoRutinaDinamica();
     if (CHART_FATIGA_RUTINA_SESION) {
         CHART_FATIGA_RUTINA_SESION.destroy();
         CHART_FATIGA_RUTINA_SESION = null;

@@ -651,9 +651,18 @@ function fusionarEstadosInteligente(local, remoto) {
     });
     fusion.reproductorPlayStats = statsMerged;
 
-    // 7. JUGADOR (Preservar mayor nivel / mayor EXP acumulada)
+    // 7. JUGADOR (Respetar cambio de EXP más reciente para preservar penitencias; fallback mayor nivel/EXP)
     if (local.jugador && fusion.jugador) {
-        if ((local.jugador.nivel || 1) > (fusion.jugador.nivel || 1)) {
+        var localExpTs = Number(local.jugador.expActualizadaEn) || 0;
+        var remoteExpTs = Number(fusion.jugador.expActualizadaEn) || 0;
+        if (localExpTs > 0 || remoteExpTs > 0) {
+            if (localExpTs >= remoteExpTs) {
+                fusion.jugador.nivel = local.jugador.nivel || 1;
+                fusion.jugador.exp = local.jugador.exp || 0;
+                fusion.jugador.expMax = local.jugador.expMax || 100;
+                fusion.jugador.expActualizadaEn = localExpTs;
+            }
+        } else if ((local.jugador.nivel || 1) > (fusion.jugador.nivel || 1)) {
             fusion.jugador.nivel = local.jugador.nivel;
             fusion.jugador.exp = local.jugador.exp;
             fusion.jugador.expMax = local.jugador.expMax;

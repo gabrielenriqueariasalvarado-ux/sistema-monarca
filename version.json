@@ -1,5 +1,5 @@
 {
-  "version": "11.07",
+  "version": "11.08",
   "fecha": "2026-11-23",
-  "resumen": "Rutinas v11.07: Notificación nativa exacta con pantalla apagada al finalizar el Descanso Entre Series (AlarmManager exacto anti-Doze/HyperOS, despertar breve de pantalla, vibración táctil triple, tono directo en audífonos Bluetooth si el teléfono está en silencio, y sincronización exacta por reloj real al volver a la app)."
+  "resumen": "Rutinas v11.08: Penitencia en EXP por volumen de series no realizadas al cerrar una rutina incompleta (por defecto -20 EXP × cada serie faltante en cualquier ejercicio, configurable por rutina), panel en vivo con desglose por ejercicio, modal de confirmación claro, historial marcado como incompleto y sincronización blindada de EXP en Firebase."
 }

@@ -984,6 +984,7 @@ function sumarExp(cantidad) {
         APP_STATE.perfil.mp = (APP_STATE.perfil.mp || 100) + 10;
         subioNivel = true;
     }
+    APP_STATE.jugador.expActualizadaEn = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarJugador(APP_STATE.jugador);
     if (subioNivel) {
@@ -995,10 +996,18 @@ function sumarExp(cantidad) {
 
 function restarExp(cantidad) {
     if (!APP_STATE.jugador) APP_STATE.jugador = { titulo: "Gabriel Arias", nivel: 1, exp: 0, expMax: 100 };
-    var expActual = APP_STATE.jugador.exp || 0;
-    APP_STATE.jugador.exp = Math.max(0, expActual - (cantidad || 0));
+    var expActual = Number(APP_STATE.jugador.exp) || 0;
+    var deducir = Math.max(0, Number(cantidad) || 0);
+    APP_STATE.jugador.exp = Math.max(0, expActual - deducir);
+    APP_STATE.jugador.expActualizadaEn = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarJugador(APP_STATE.jugador);
+    return {
+        antes: expActual,
+        despues: APP_STATE.jugador.exp,
+        deducidoReal: Math.max(0, expActual - APP_STATE.jugador.exp),
+        penalizacionSolicitada: deducir
+    };
 }
 
 // ==========================================================================
@@ -1643,7 +1652,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.07';
+var MONARCA_APP_VERSION = '11.08';
 var MONARCA_APP_VERSION_FECHA = '2026-11-23';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

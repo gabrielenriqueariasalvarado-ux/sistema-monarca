@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.07">
+    <link rel="stylesheet" href="style.css?v=11.08">
 </head>
 <body>
 
@@ -1269,6 +1269,20 @@
                 onclick="ejecutarRutinaDinamica()">
                 Completar y Registrar Rutina
             </button>
+
+            <!-- PENITENCIA EXP POR SERIES NO REALIZADAS (v11.08) -->
+            <div id="panel-penitencia-rutina-incompleta" class="rutina-penitencia-live-panel" style="display: none;">
+                <div class="rutina-penitencia-live-top">
+                    <span id="penitencia-rutina-badge-live" class="rutina-penitencia-badge">💀 PENITENCIA · -20 EXP / SERIE</span>
+                    <span id="penitencia-rutina-total-live" class="rutina-penitencia-formula">-0 EXP</span>
+                </div>
+                <div id="penitencia-rutina-detalle-live" class="rutina-penitencia-detalle">
+                    Te faltan series por completar en esta sesión.
+                </div>
+                <button type="button" id="btn-terminar-rutina-incompleta" class="btn-rutina-incompleta-penitencia" onclick="abrirModalConfirmarPenitenciaRutina()">
+                    💀 Terminar Incompleta
+                </button>
+            </div>
         </div>
     </div>
 
@@ -3559,6 +3573,15 @@
                         <option value="__none__">Sin música en esta rutina</option>
                     </select>
                 </div>
+                <div class="modal-form-group">
+                    <label for="modal-rutina-penitencia-exp">💀 Penitencia EXP por serie no realizada:</label>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <input type="number" id="modal-rutina-penitencia-exp" class="modal-input" inputmode="numeric" min="0" max="500" step="5" value="20" style="max-width: 120px; font-weight: 800; color: #fca5a5;">
+                        <span style="font-size: 11.5px; color: #94a3b8; flex: 1; min-width: 180px; line-height: 1.35;">
+                            Se descuenta por cada serie sin completar (ej: <strong style="color: #fca5a5;">-20 × 3 series = -60 EXP</strong>). Pon <code>0</code> para desactivar.
+                        </span>
+                    </div>
+                </div>
 
                 <div class="modal-form-group" style="margin-bottom: 6px;">
                     <label style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
@@ -5000,7 +5023,7 @@
         <div class="modal-system-window" style="max-width: 440px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 18px;">🏆</span>
+                    <span id="modal-rutina-finalizada-icono" style="font-size: 18px;">🏆</span>
                     <span id="modal-rutina-finalizada-titulo" style="font-weight: 700; font-size: 13.5px; text-transform: uppercase;">SESIÓN COMPLETADA</span>
                 </div>
                 <button type="button" onclick="cerrarModalResumenFinalizacionRutina()" class="modal-close-btn" title="Cerrar">&times;</button>
@@ -5010,6 +5033,59 @@
                 <button type="button" onclick="cerrarModalResumenFinalizacionRutina()" class="btn-primary" style="width: 100%; padding: 11px 16px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;">
                     ✓ Continuar
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN DE PENITENCIA POR RUTINA INCOMPLETA (v11.08) -->
+    <div id="modal-confirmar-penitencia-rutina" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-pen-rutina-titulo" style="display: none;" onclick="if(event.target === this && typeof cerrarModalConfirmarPenitenciaRutina === 'function') cerrarModalConfirmarPenitenciaRutina();">
+        <div class="modal-system-window" style="max-width: 460px; border-color: rgba(239, 68, 68, 0.45);">
+            <div class="modal-system-header" style="border-bottom-color: rgba(239, 68, 68, 0.25);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💀</span>
+                    <span id="modal-pen-rutina-titulo" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #fca5a5;">PENITENCIA POR RUTINA INCOMPLETA</span>
+                </div>
+                <button type="button" onclick="cerrarModalConfirmarPenitenciaRutina()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;">
+                <p id="modal-pen-rutina-intro" style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.45;"></p>
+
+                <div class="modal-penitencia-kpi-grid">
+                    <div class="modal-penitencia-kpi">
+                        <div class="modal-penitencia-kpi-label">Hechas</div>
+                        <div id="modal-pen-kpi-hechas" class="modal-penitencia-kpi-val">0/0</div>
+                    </div>
+                    <div class="modal-penitencia-kpi is-danger">
+                        <div class="modal-penitencia-kpi-label">Faltantes</div>
+                        <div id="modal-pen-kpi-faltantes" class="modal-penitencia-kpi-val">0</div>
+                    </div>
+                    <div class="modal-penitencia-kpi is-danger">
+                        <div class="modal-penitencia-kpi-label">Penitencia</div>
+                        <div id="modal-pen-kpi-exp" class="modal-penitencia-kpi-val">-0 EXP</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #94a3b8; margin-bottom: 6px;">
+                        Desglose de series no realizadas:
+                    </div>
+                    <div id="modal-pen-rutina-desglose" class="modal-penitencia-desglose"></div>
+                </div>
+
+                <div id="modal-pen-rutina-exp-preview" class="modal-penitencia-exp-bar"></div>
+
+                <div style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">
+                    ⚠️ Al cerrar incompleta <strong style="color: #e2e8f0;">no recibirás los +60 EXP</strong> de sesión completada ni se marcará automáticamente el hábito diario vinculado. Tus series realizadas sí conservarán su fatiga y récords.
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
+                    <button type="button" onclick="cerrarModalConfirmarPenitenciaRutina()" class="btn-primary" style="flex: 1; min-width: 150px; padding: 11px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;">
+                        ↩ Seguir Entrenando
+                    </button>
+                    <button type="button" id="btn-confirmar-penitencia-rutina" onclick="confirmarFinalizarRutinaIncompleta()" style="flex: 1.15; min-width: 170px; padding: 11px 14px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.55); color: #ffffff; font-weight: 800; font-size: 13px; cursor: pointer;">
+                        💀 Aceptar Penitencia
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -7124,26 +7200,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.07"></script>
-    <script src="js/perfil.js?v=11.07"></script>
-    <script src="js/progresion.js?v=11.07"></script>
-    <script src="js/estado-personal.js?v=11.07"></script>
-    <script src="js/finanzas.js?v=11.07"></script>
-    <script src="js/ideas.js?v=11.07"></script>
-    <script src="js/dinamicas.js?v=11.07"></script>
-    <script src="js/calendario.js?v=11.07"></script>
-    <script src="js/inventario.js?v=11.07"></script>
-    <script src="js/reproductor.js?v=11.07"></script>
-    <script src="js/jarvis-voz.js?v=11.07"></script>
+    <script src="js/core.js?v=11.08"></script>
+    <script src="js/perfil.js?v=11.08"></script>
+    <script src="js/progresion.js?v=11.08"></script>
+    <script src="js/estado-personal.js?v=11.08"></script>
+    <script src="js/finanzas.js?v=11.08"></script>
+    <script src="js/ideas.js?v=11.08"></script>
+    <script src="js/dinamicas.js?v=11.08"></script>
+    <script src="js/calendario.js?v=11.08"></script>
+    <script src="js/inventario.js?v=11.08"></script>
+    <script src="js/reproductor.js?v=11.08"></script>
+    <script src="js/jarvis-voz.js?v=11.08"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.07"></script>
+    <script type="module" src="js/firebase-config.js?v=11.08"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.07')
+                navigator.serviceWorker.register('sw.js?v=11.08')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
