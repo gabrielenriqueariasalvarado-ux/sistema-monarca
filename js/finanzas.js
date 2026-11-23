@@ -207,18 +207,180 @@ function seleccionarTipoGastoModal(tipo) {
     }
 }
 
+function obtenerTasaConversionFinanzas(tasaModo) {
+    var modo = (tasaModo === 'paralelo') ? 'paralelo' : 'bcv';
+    if (typeof obtenerTasaParaTarjeta === 'function') {
+        var res = obtenerTasaParaTarjeta(modo);
+        if (res && res.valor > 0) return res;
+    }
+    var cache = (typeof leerCacheTasasBCV === 'function') ? (leerCacheTasasBCV() || {}) : {};
+    var usdBcv = Number(cache.usd) || 0;
+    var par = Number(cache.paralelo) || 0;
+    if (modo === 'paralelo' && par > 0) return { valor: par, label: 'Paralelo', fallback: false };
+    if (usdBcv > 0) return { valor: usdBcv, label: 'BCV USD', fallback: modo !== 'bcv' };
+    if (par > 0) return { valor: par, label: 'Paralelo', fallback: true };
+    return { valor: 0, label: 'Sin tasa', fallback: true };
+}
+
+function convertirMontoFinanzasAUsd(montoInput, moneda, tasaModo) {
+    var val = Math.max(0, Number(montoInput) || 0);
+    var mon = (moneda === 'VES') ? 'VES' : 'USD';
+    var tasaInfo = obtenerTasaConversionFinanzas(tasaModo);
+    if (mon === 'VES') {
+        if (!tasaInfo.valor || tasaInfo.valor <= 0) {
+            return { valido: false, usd: 0, bs: val, tasaUsada: 0, tasaLabel: tasaInfo.label, monedaOrigen: 'VES' };
+        }
+        var usdConv = Math.round((val / tasaInfo.valor) * 100) / 100;
+        return { valido: true, usd: usdConv, bs: Math.round(val * 100) / 100, tasaUsada: tasaInfo.valor, tasaLabel: tasaInfo.label, monedaOrigen: 'VES' };
+    }
+    var bsEq = tasaInfo.valor > 0 ? Math.round((val * tasaInfo.valor) * 100) / 100 : 0;
+    return { valido: true, usd: Math.round(val * 100) / 100, bs: bsEq, tasaUsada: tasaInfo.valor || 0, tasaLabel: tasaInfo.label, monedaOrigen: 'USD' };
+}
+
+function esItemRecurrenteMensualReal(item, esGasto) {
+    if (!item) return false;
+    if (esGasto) {
+        if (item.tipo === 'ocasional' || item.esPrestamo || item.fechaManualFija) return false;
+        if (item.tipo !== 'programado' && !item.dia) return false;
+        if (item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+            if (!item.dia) return false;
+            var diaF = parseInt(item.fecha.slice(8, 10), 10);
+            var diaObj = parseInt(item.dia, 10);
+            if (!isNaN(diaF) && !isNaN(diaObj) && diaF !== diaObj) {
+                return true;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    var info = clasificarOrigenIngreso(item);
+    if (info.tipoDestino !== 'fija') return false;
+    if (item.ventaId || item.cuotaId || item.prestamoGastoId || item.esCobroPrestamo || item.fechaManualFija) return false;
+    var esBoomMesFijo = /^ING-BOOM-\d{4}-\d{2}/.test(String(item.id || ''));
+    if (esBoomMesFijo) return false;
+    if (item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+        if (!item.dia) return false;
+        var diaFI = parseInt(item.fecha.slice(8, 10), 10);
+        var diaOI = parseInt(item.dia, 10);
+        if (!isNaN(diaFI) && !isNaN(diaOI) && diaFI !== diaOI) {
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+function sanearDatosFinanzasRecurrentesYCategorias(f) {
+    if (!f) return;
+    if (!Array.isArray(f.categoriasGastos) || f.categoriasGastos.length === 0) {
+        f.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
+    } else {
+        var elimCats = (typeof APP_STATE !== 'undefined' && APP_STATE && APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.finanzas_categoriasGastos))
+            ? APP_STATE._eliminados.finanzas_categoriasGastos
+            : [];
+        var tienePrestamosCat = f.categoriasGastos.some(function(c) {
+            return c && (c.id === 'CAT-PRESTAMOS' || String(c.nombre || '').toLowerCase().indexOf('prestam') !== -1 || String(c.nombre || '').toLowerCase().indexOf('préstam') !== -1);
+        });
+        if (!tienePrestamosCat && elimCats.indexOf('CAT-PRESTAMOS') === -1) {
+            var idxOtros = f.categoriasGastos.findIndex(function(c) { return c && c.id === 'CAT-OTROS'; });
+            var catPres = { id: 'CAT-PRESTAMOS', nombre: 'Préstamos', icono: '🤝', color: '#38bdf8' };
+            if (idxOtros >= 0) f.categoriasGastos.splice(idxOtros, 0, catPres);
+            else f.categoriasGastos.push(catPres);
+        }
+    }
+
+    (f.ingresos || []).forEach(function(item) {
+        if (!item) return;
+        if (esItemRecurrenteMensualReal(item, false) && item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+            var dFecha = parseInt(item.fecha.slice(8, 10), 10);
+            var dReg = parseInt(item.dia, 10);
+            if (!isNaN(dFecha) && !isNaN(dReg) && dFecha !== dReg) {
+                item.fecha = '';
+            }
+        } else if (!item.cobrado && /^ING-BOOM-\d{4}-\d{2}/.test(String(item.id || '')) && item.dia && item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+            var dFechaB = parseInt(item.fecha.slice(8, 10), 10);
+            var dRegB = parseInt(item.dia, 10);
+            if (!isNaN(dFechaB) && !isNaN(dRegB) && dFechaB !== dRegB) {
+                var ymB = String(item.id).slice(9, 16);
+                item.fecha = ymB + '-' + String(Math.min(31, Math.max(1, dRegB))).padStart(2, '0');
+            }
+        }
+    });
+
+    (f.gastos || []).forEach(function(item) {
+        if (!item) return;
+        if (esItemRecurrenteMensualReal(item, true) && item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+            var dFechaG = parseInt(item.fecha.slice(8, 10), 10);
+            var dRegG = parseInt(item.dia, 10);
+            if (!isNaN(dFechaG) && !isNaN(dRegG) && dFechaG !== dRegG) {
+                item.fecha = '';
+            }
+        }
+    });
+}
+
+function esCategoriaPrestamoNombre(nombreCat) {
+    var c = String(nombreCat || '').toLowerCase().trim();
+    return c.indexOf('prestam') !== -1 || c.indexOf('préstam') !== -1;
+}
+
 function alCambiarCategoriaEnModalGasto() {
     var inCat = document.getElementById('modal-gasto-categoria');
     var inPilar = document.getElementById('modal-gasto-pilar');
-    if (!inCat || !inPilar) return;
+    var inFu = document.getElementById('modal-gasto-fuente');
+    var lblFu = document.getElementById('label-modal-gasto-fuente');
+    var lblFecha = document.getElementById('label-modal-gasto-fecha');
+    var panelPres = document.getElementById('grupo-gasto-prestamo-panel');
+    var inEditId = document.getElementById('modal-gasto-edit-id');
+    var inTipo = document.getElementById('modal-gasto-tipo');
+    if (!inCat) return;
 
-    var cat = inCat.value.toLowerCase();
-    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
-        inPilar.value = 'inversion';
-    } else if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1) {
-        inPilar.value = 'caprichos';
-    } else {
-        inPilar.value = 'gastos';
+    var esPres = esCategoriaPrestamoNombre(inCat.value);
+    if (panelPres) {
+        panelPres.style.display = esPres ? 'block' : 'none';
+    }
+    if (lblFu) {
+        lblFu.textContent = esPres ? 'Concepto / Motivo del Préstamo (Opcional si pones persona):' : 'Nombre del Gasto / Concepto:';
+    }
+    if (lblFecha) {
+        lblFecha.textContent = esPres ? 'Fecha en que entregas el préstamo:' : 'Fecha del Gasto:';
+    }
+    if (inFu) {
+        inFu.placeholder = esPres ? 'Ej: Préstamo personal, Ayuda emergencia...' : 'Ej: Gasolina (todos los 16), Alquiler, Repuesto Moto...';
+    }
+
+    if (esPres) {
+        if (typeof poblarDatalistPersonasFinanzas === 'function') poblarDatalistPersonasFinanzas();
+        if (inPilar) inPilar.value = 'inversion';
+        if (inTipo && inTipo.value !== 'ocasional' && !(inEditId && inEditId.value)) {
+            seleccionarTipoGastoModal('ocasional');
+        }
+        var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
+        if (chkDesc && !(inEditId && inEditId.value)) chkDesc.checked = true;
+        var inFechaUnica = document.getElementById('modal-gasto-prestamo-fecha-unica');
+        if (inFechaUnica && !inFechaUnica.value) {
+            var prox = new Date();
+            prox.setDate(prox.getDate() + 15);
+            inFechaUnica.value = prox.toISOString().slice(0, 10);
+        }
+        if (typeof actualizarResumenPartesPrestamoUI === 'function') actualizarResumenPartesPrestamoUI();
+    } else if (inPilar) {
+        var cat = inCat.value.toLowerCase();
+        if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
+            inPilar.value = 'inversion';
+        } else if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1) {
+            inPilar.value = 'caprichos';
+        } else {
+            inPilar.value = 'gastos';
+        }
+    }
+    var boxFreno = document.getElementById('contenedor-freno-impulso-modal-gasto');
+    if (boxFreno && esPres) {
+        boxFreno.style.display = 'none';
+    } else if (typeof alCambiarMontoGastoModal === 'function') {
+        var inMontoG = document.getElementById('modal-gasto-monto');
+        if (inMontoG && inMontoG.value) alCambiarMontoGastoModal(inMontoG.value);
     }
 }
 
@@ -227,7 +389,7 @@ function obtenerPilarGasto(gasto) {
         return gasto.pilar;
     }
     var cat = (gasto.categoria || "").toLowerCase();
-    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1) {
+    if (cat.indexOf('invers') !== -1 || cat.indexOf('trabajo') !== -1 || cat.indexOf('negocio') !== -1 || cat.indexOf('prestam') !== -1 || cat.indexOf('préstam') !== -1) {
         return 'inversion';
     }
     if (cat.indexOf('entretenimiento') !== -1 || cat.indexOf('ocio') !== -1 || cat.indexOf('capricho') !== -1 || cat.indexOf('juego') !== -1 || cat.indexOf('divers') !== -1 || cat.indexOf('salida') !== -1) {
@@ -242,6 +404,19 @@ function clasificarOrigenIngreso(item) {
     var desc = ((item.fuente || item.concepto || item.descripcion || item.nombre || '') + ' ' + (item.categoria || '')).toLowerCase();
     var idStr = String(item.id || '').toLowerCase();
     var tipoRaw = String(item.tipo || '').toLowerCase();
+
+    // 0. Cobro de Préstamo otorgado desde Salidas -> Entrada Aleatoria programada por fecha exacta
+    if (item.esCobroPrestamo || item.prestamoGastoId || idStr.indexOf('ing-prest-') === 0) {
+        var nomPer = item.personaPrestamo ? (' · ' + escaparHTML(item.personaPrestamo)) : '';
+        return {
+            tipoDestino: 'aleatoria',
+            origen: 'prestamo',
+            origenId: 'PRESTAMO',
+            nombreOrigen: 'Préstamo',
+            icono: '🤝',
+            badgeHtml: '<span class="badge-prestamo-fin">🤝 Cobro Préstamo' + nomPer + '</span>'
+        };
+    }
 
     // 1. Boom Solutions -> Entrada Fija Mensual (Sueldo)
     if (item.origenLabor === 'LAB-BOOM' || item.laborId === 'LAB-BOOM' || idStr.indexOf('boom') !== -1 || desc.indexOf('boom') !== -1) {
@@ -411,13 +586,39 @@ function seleccionarTipoIngresoModal(tipo) {
     }
 }
 
+function construirBadgesTarjetasMovHTML(item) {
+    if (!item || typeof asegurarArrayTarjetasFinanzas !== 'function') return '';
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var dist = Array.isArray(item.tarjetasMovs) && item.tarjetasMovs.length > 0
+        ? item.tarjetasMovs
+        : (Array.isArray(item.tarjetasDistribucion) && item.tarjetasDistribucion.length > 0 ? item.tarjetasDistribucion : null);
+
+    if (dist && dist.length > 0) {
+        return dist.map(function(row) {
+            if (!row || !row.tarjetaId) return '';
+            var tObj = tarjetas.find(function(x) { return x.id === row.tarjetaId; });
+            var nomT = tObj ? construirTituloTarjeta(tObj) : 'Tarjeta';
+            var mU = Number(row.montoUsd || row.deltaUsdRef) || 0;
+            var txtM = mU > 0 ? (' ($' + mU.toFixed(2) + ')') : '';
+            return '<span class="badge-tarjeta-mov">💳 ' + escaparHTML(nomT) + txtM + '</span>';
+        }).join('');
+    }
+    if (item.tarjetaId && item.tarjetaId !== '__EFECTIVO__') {
+        var tSingle = tarjetas.find(function(x) { return x.id === item.tarjetaId; });
+        var nomS = tSingle ? construirTituloTarjeta(tSingle) : 'Tarjeta';
+        return '<span class="badge-tarjeta-mov">💳 ' + escaparHTML(nomS) + '</span>';
+    }
+    if (item.tarjetaId === '__EFECTIVO__') {
+        return '<span class="badge-cat" style="background: rgba(148, 163, 184, 0.14); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25);">💵 Efectivo</span>';
+    }
+    return '';
+}
+
 function renderizarFinanzas(fin) {
     var f = fin || APP_STATE.finanzas || DEFAULT_STATE.finanzas;
 
-    // Asegurar estructura de categorías
-    if (!f.categoriasGastos || !Array.isArray(f.categoriasGastos) || f.categoriasGastos.length === 0) {
-        f.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
-    }
+    // Sanear categorías base (incl. Préstamos) y fechas residuales en fijos/programados
+    sanearDatosFinanzasRecurrentesYCategorias(f);
 
     var fechaMes = obtenerFechaMesFinanzas();
     var anioActivo = fechaMes.getFullYear();
@@ -467,6 +668,8 @@ function renderizarFinanzas(fin) {
     function coincideQuincena(dia, fechaStr, itemRef) {
         if (itemRef && itemRef.excepcionesMes && itemRef.excepcionesMes[mesClaveVista]) {
             fechaStr = itemRef.excepcionesMes[mesClaveVista];
+        } else if (itemRef && esItemRecurrenteMensualReal(itemRef, itemRef.tipo === 'programado' || !!itemRef.categoria)) {
+            fechaStr = '';
         }
         if (vq === 'mes') return true;
         if (semanaActivaObj) {
@@ -569,16 +772,22 @@ function renderizarFinanzas(fin) {
             : `<div class="finanzas-tx-monto monto-positivo">+$${(estaCobrado ? montoRealCobrado : m).toFixed(2)}</div>`;
 
         var fechaStr = item.fecha || ('Día ' + (item.dia || 15));
-        var esRecIng = (infoOrigen.tipoDestino === 'fija' && !(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10));
+        var esRecIng = esItemRecurrenteMensualReal(item, false);
         var fechaEffIng = resolverFechaEfectivaMovFinanzas(item, esRecIng, anioActivo, mesActivo);
+        var excMesIng = (esRecIng && item.excepcionesMes && typeof item.excepcionesMes[mesClaveVista] === 'string') ? item.excepcionesMes[mesClaveVista] : '';
         var retIng = !estaCobrado ? retrasoMap['ingreso:' + item.id] : null;
         var clsOverdueIng = retIng ? ' is-overdue' : '';
         var badgeRetrasoIngHtml = retIng
             ? `<span class="cuota-badge-vencida">🚨 Retrasado · ${retIng.diasRetraso}d</span>`
             : '';
+        var tarjetasIngHtml = construirBadgesTarjetasMovHTML(item);
+        var badgeConvIngHtml = (item.monedaOrigen === 'VES' && item.montoOriginalBs > 0)
+            ? `<span class="badge-cat" style="background: rgba(56, 189, 248, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">Bs. ${Number(item.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
+            : '';
         var btnReprogIngHtml = !estaCobrado
             ? `<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza('ingreso', '${item.id}', '', '${retIng ? retIng.mesOrigenRegla : mesClaveVista}', '${retIng ? retIng.fechaISO : fechaEffIng}', ${esRecIng ? 'true' : 'false'})" title="Reprogramar fecha">📅 Reprogramar</button>`
             : '';
+        var btnEditIngHtml = `<button type="button" class="btn-edit-mov-fin" onclick="editarIngresoFinanzasUI('${item.id}')" title="Editar / asignar tarjetas">✏️</button>`;
 
         if (infoOrigen.tipoDestino === 'almacen') {
             totAlmacen += m;
@@ -593,6 +802,7 @@ function renderizarFinanzas(fin) {
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
                             ${badgeRetrasoIngHtml}
+                            ${tarjetasIngHtml}
                             <span class="badge-cat" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1);">
                                 📅 ${fechaStr}
                             </span>
@@ -603,6 +813,7 @@ function renderizarFinanzas(fin) {
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
                     ${btnReprogIngHtml}
+                    ${btnEditIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -619,6 +830,8 @@ function renderizarFinanzas(fin) {
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
                             ${badgeRetrasoIngHtml}
+                            ${tarjetasIngHtml}
+                            ${badgeConvIngHtml}
                             <span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
                                 ⚡ ${fechaStr}
                             </span>
@@ -629,6 +842,7 @@ function renderizarFinanzas(fin) {
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
                     ${btnReprogIngHtml}
+                    ${btnEditIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -636,6 +850,9 @@ function renderizarFinanzas(fin) {
             totFijos += m;
             countFijos++;
             var diaNum = item.dia || 15;
+            var badgeFechaFijaHtml = excMesIng
+                ? `<span class="badge-cat" style="background: rgba(245, 158, 11, 0.16); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.32);">📅 Este mes: ${formatearFechaCorta(excMesIng)} (Base Día ${diaNum})</span>`
+                : `<span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">📅 Cobro Día ${diaNum} de cada mes</span>`;
 
             htmlFijos += `
             <div class="finanzas-tx-item${clsOverdueIng}">
@@ -646,9 +863,9 @@ function renderizarFinanzas(fin) {
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
                             ${badgeRetrasoIngHtml}
-                            <span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
-                                📅 Cobro Día ${diaNum} de cada mes
-                            </span>
+                            ${tarjetasIngHtml}
+                            ${badgeConvIngHtml}
+                            ${badgeFechaFijaHtml}
                         </div>
                     </div>
                 </div>
@@ -656,6 +873,7 @@ function renderizarFinanzas(fin) {
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
                     ${btnReprogIngHtml}
+                    ${btnEditIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -828,14 +1046,17 @@ function renderizarFinanzas(fin) {
                 var esOcasG = gasto.tipo === 'ocasional';
                 var pilarG = obtenerPilarGasto(gasto);
                 var estaPagadoG = !!gasto.pagado;
-                var esRecG = (!esOcasG && !(gasto.fecha && typeof gasto.fecha === 'string' && gasto.fecha.length >= 10));
+                var esRecG = esItemRecurrenteMensualReal(gasto, true);
                 var fechaEffG = resolverFechaEfectivaMovFinanzas(gasto, esRecG, anioActivo, mesActivo);
+                var excMesG = (esRecG && gasto.excepcionesMes && typeof gasto.excepcionesMes[mesClaveVista] === 'string') ? gasto.excepcionesMes[mesClaveVista] : '';
                 var retG = !estaPagadoG ? retrasoMap['gasto:' + gasto.id] : null;
                 var clsOverdueG = retG ? ' is-overdue' : '';
 
                 var badgeTipoHtml = esOcasG
                     ? `<span class="badge-gasto-ocasional">⚡ ${gasto.fecha || 'Ocasional'}</span>`
-                    : `<span class="badge-gasto-programado">📅 Día ${gDia} (Fijo)</span>`;
+                    : (excMesG
+                        ? `<span class="badge-gasto-programado">📅 Este mes: ${formatearFechaCorta(excMesG)} (Base Día ${gDia})</span>`
+                        : `<span class="badge-gasto-programado">📅 Día ${gDia} (Fijo)</span>`);
 
                 var badgeRetrasoGHtml = retG
                     ? `<span class="cuota-badge-vencida">🚨 Retrasado · ${retG.diasRetraso}d</span>`
@@ -845,6 +1066,19 @@ function renderizarFinanzas(fin) {
                 if (pilarG === 'inversion') badgePilarHtml = `<span class="badge-pilar-inversion">🚀 50% Inversión</span>`;
                 else if (pilarG === 'caprichos') badgePilarHtml = `<span class="badge-pilar-caprichos">🎉 10% Caprichos</span>`;
                 else badgePilarHtml = `<span class="badge-pilar-gastos">🏠 40% Fijos</span>`;
+
+                var tarjetasGasHtml = construirBadgesTarjetasMovHTML(gasto);
+                var badgeConvGasHtml = (gasto.monedaOrigen === 'VES' && gasto.montoOriginalBs > 0)
+                    ? `<span class="badge-cat" style="background: rgba(56, 189, 248, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">Bs. ${Number(gasto.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
+                    : '';
+                var badgePrestamoGasHtml = '';
+                if (gasto.esPrestamo || esCategoriaPrestamoNombre(gasto.categoria)) {
+                    var ingresosPrestLinked = (f.ingresos || []).filter(function(ig) { return ig && ig.prestamoGastoId === gasto.id; });
+                    var cobradosP = ingresosPrestLinked.filter(function(ig) { return !!ig.cobrado; }).length;
+                    var totalP = ingresosPrestLinked.length || (Array.isArray(gasto.cuotasPrestamo) ? gasto.cuotasPrestamo.length : 1);
+                    var perNom = gasto.personaPrestamo ? ('A: ' + escaparHTML(gasto.personaPrestamo)) : 'Préstamo';
+                    badgePrestamoGasHtml = `<span class="badge-prestamo-fin">🤝 ${perNom} · ${cobradosP}/${totalP} cobrado${totalP === 1 ? '' : 's'}</span>`;
+                }
 
                 var badgeAbonoHtml = (!estaPagadoG && estAbG.abonado > 0.009)
                     ? `<span class="badge-pilar-inversion" style="background: rgba(56, 189, 248, 0.14); color: #38bdf8;">💸 Abonado: $${estAbG.abonado.toFixed(2)} / $${gm.toFixed(2)}</span>`
@@ -864,6 +1098,9 @@ function renderizarFinanzas(fin) {
                                 <div class="finanzas-tx-meta" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 3px;">
                                     ${badgeTipoHtml}
                                     ${badgeRetrasoGHtml}
+                                    ${badgePrestamoGasHtml}
+                                    ${tarjetasGasHtml}
+                                    ${badgeConvGasHtml}
                                     ${badgePilarHtml}
                                     ${badgeAbonoHtml}
                                 </div>
@@ -872,6 +1109,7 @@ function renderizarFinanzas(fin) {
                         <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                             <div class="finanzas-tx-monto monto-negativo">-$${gm.toFixed(2)}</div>
                             ${badgePagoHtml}
+                            <button type="button" class="btn-edit-mov-fin" onclick="editarGastoFinanzasUI('${gasto.id}')" title="Editar salida / tarjeta">✏️</button>
                             <button class="btn-delete-row" title="Eliminar gasto" onclick="eliminarRegistroFinanzasUI('${gasto.id}', 'gasto')">✕</button>
                         </div>
                     </div>`;
@@ -1397,7 +1635,7 @@ function renderizarListaCategorias() {
 
     var html = '';
     cats.forEach(function(cat) {
-        var esDefault = ['CAT-VIVIENDA', 'CAT-ALIMENTACION', 'CAT-MOTO', 'CAT-SERVICIOS', 'CAT-SALUD', 'CAT-ENTRETENIMIENTO', 'CAT-INVERSION', 'CAT-OTROS'].includes(cat.id);
+        var esDefault = ['CAT-VIVIENDA', 'CAT-ALIMENTACION', 'CAT-MOTO', 'CAT-SERVICIOS', 'CAT-SALUD', 'CAT-ENTRETENIMIENTO', 'CAT-INVERSION', 'CAT-PRESTAMOS', 'CAT-OTROS'].includes(cat.id);
         var icon = cat.icono || "🏷️";
 
         html += `
@@ -1436,7 +1674,6 @@ function guardarNuevaCategoriaGasto() {
         APP_STATE.finanzas.categoriasGastos = JSON.parse(JSON.stringify(DEFAULT_STATE.finanzas.categoriasGastos));
     }
 
-    // Verificar si ya existe una categoría con ese nombre
     var existe = APP_STATE.finanzas.categoriasGastos.some(function(c) {
         return c.nombre.toLowerCase() === nom.toLowerCase();
     });
@@ -1483,22 +1720,434 @@ function eliminarCategoriaGasto(id) {
 }
 
 // ==========================================================================
+// HELPERS DE DISTRIBUCIÓN MULTI-TARJETA, MONEDA Y PRÉSTAMOS
+// ==========================================================================
+
+function construirOpcionesTarjetasHTML(selectedId) {
+    var tarjetas = (typeof asegurarArrayTarjetasFinanzas === 'function') ? asegurarArrayTarjetasFinanzas() : [];
+    var cache = (typeof leerCacheTasasBCV === 'function') ? leerCacheTasasBCV() : {};
+    var html = '<option value="">-- Selecciona Tarjeta --</option>';
+    tarjetas.forEach(function(t) {
+        var est = calcularEstadoTarjetaEnVivo(t, cache);
+        var saldoTxt = est.monedaBase === 'USD'
+            ? (formatearUsdTarjeta(est.saldoUsd) + ' USDT')
+            : (formatearTasaBsDisplay(est.saldoBs, 2) + ' ≈ ' + formatearUsdTarjeta(est.valorActualUsd));
+        var sel = (selectedId && selectedId === t.id) ? ' selected' : '';
+        html += '<option value="' + escaparHTML(t.id) + '"' + sel + '>' + escaparHTML(construirTituloTarjeta(t)) + ' (' + saldoTxt + ')</option>';
+    });
+    return html;
+}
+
+function obtenerMontoObjetivoSplitModal(ctx) {
+    if (ctx === 'cobro') {
+        var inR = document.getElementById('modal-cobro-ingreso-real');
+        return Math.max(0, parseFloat(inR ? inR.value : '0') || 0);
+    }
+    var inM = document.getElementById('modal-ingreso-monto');
+    var selMon = document.getElementById('modal-ingreso-moneda');
+    var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
+    var conv = convertirMontoFinanzasAUsd(inM ? inM.value : 0, selMon ? selMon.value : 'USD', selTasa ? selTasa.value : 'bcv');
+    return conv.valido ? conv.usd : 0;
+}
+
+function esModoSplitTarjetasActivo(ctx) {
+    var grpSplit = document.getElementById('grupo-' + ctx + '-tarjetas-split');
+    return !!(grpSplit && grpSplit.style.display !== 'none');
+}
+
+function establecerModoSplitTarjetasModal(ctx, activo, rowsOpt) {
+    var grpUnica = document.getElementById('grupo-' + ctx + '-tarjeta-unica');
+    var grpSplit = document.getElementById('grupo-' + ctx + '-tarjetas-split');
+    var btn = document.getElementById('btn-toggle-split-' + ctx);
+    if (grpUnica) grpUnica.style.display = activo ? 'none' : 'block';
+    if (grpSplit) grpSplit.style.display = activo ? 'block' : 'none';
+    if (btn) {
+        btn.classList.toggle('is-active', !!activo);
+        btn.textContent = activo ? '💳 Usar 1 sola tarjeta' : '✂️ Dividir en 2+ tarjetas';
+    }
+    if (activo) {
+        var rows = Array.isArray(rowsOpt) && rowsOpt.length > 0 ? rowsOpt : null;
+        if (!rows) {
+            var tarjetas = asegurarArrayTarjetasFinanzas();
+            var totObj = obtenerMontoObjetivoSplitModal(ctx);
+            var m1 = totObj > 0 ? Math.round((totObj / 2) * 100) / 100 : '';
+            var m2 = totObj > 0 ? Math.round((totObj - Number(m1 || 0)) * 100) / 100 : '';
+            rows = [
+                { tarjetaId: tarjetas[0] ? tarjetas[0].id : '', montoUsd: m1 },
+                { tarjetaId: tarjetas[1] ? tarjetas[1].id : (tarjetas[0] ? tarjetas[0].id : ''), montoUsd: m2 }
+            ];
+        }
+        renderizarListaSplitTarjetasModal(ctx, rows);
+    }
+    if (ctx === 'cobro' && typeof actualizarPreviewCobroTarjeta === 'function') {
+        actualizarPreviewCobroTarjeta();
+    }
+}
+
+function toggleModoSplitTarjetasModal(ctx) {
+    establecerModoSplitTarjetasModal(ctx, !esModoSplitTarjetasActivo(ctx));
+}
+
+function renderizarListaSplitTarjetasModal(ctx, rows) {
+    var cont = document.getElementById('lista-' + ctx + '-tarjetas-split');
+    if (!cont) return;
+    cont.innerHTML = '';
+    (rows || []).forEach(function(r) {
+        agregarFilaSplitTarjetaModal(ctx, r.tarjetaId || '', r.montoUsd != null && r.montoUsd !== '' ? Number(r.montoUsd) : '');
+    });
+    alCambiarSplitTarjetasUI(ctx);
+}
+
+function agregarFilaSplitTarjetaModal(ctx, tarjetaIdOpt, montoOpt) {
+    var cont = document.getElementById('lista-' + ctx + '-tarjetas-split');
+    if (!cont) return;
+    var row = document.createElement('div');
+    row.className = 'fin-split-card-row';
+
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var chosenId = tarjetaIdOpt || (tarjetas[cont.children.length] ? tarjetas[cont.children.length].id : (tarjetas[0] ? tarjetas[0].id : ''));
+    var valMonto = (montoOpt !== undefined && montoOpt !== null && montoOpt !== '') ? Number(montoOpt).toFixed(2) : '';
+
+    row.innerHTML =
+        '<select class="ideas-select fin-split-trj-select" style="flex: 1.6; min-width: 130px; padding: 7px 8px; font-size: 12px;" onchange="alCambiarSplitTarjetasUI(\'' + ctx + '\')">' +
+            construirOpcionesTarjetasHTML(chosenId) +
+        '</select>' +
+        '<input type="number" step="0.01" min="0" class="modal-input fin-split-trj-monto" placeholder="$ USD" value="' + escaparHTML(valMonto) + '" style="flex: 0.9; min-width: 80px; padding: 7px 8px; font-size: 12px; font-weight: 800; color: #34d399;" oninput="alCambiarSplitTarjetasUI(\'' + ctx + '\')">' +
+        '<button type="button" class="fin-split-del-btn" title="Quitar tarjeta" onclick="eliminarFilaSplitTarjetaModal(\'' + ctx + '\', this)">✕</button>';
+
+    cont.appendChild(row);
+    alCambiarSplitTarjetasUI(ctx);
+}
+
+function eliminarFilaSplitTarjetaModal(ctx, btnEl) {
+    var cont = document.getElementById('lista-' + ctx + '-tarjetas-split');
+    if (!cont) return;
+    var row = btnEl ? btnEl.closest('.fin-split-card-row') : null;
+    if (row && cont.children.length > 1) {
+        row.remove();
+        alCambiarSplitTarjetasUI(ctx);
+    } else if (cont.children.length <= 1) {
+        establecerModoSplitTarjetasModal(ctx, false);
+    }
+}
+
+function leerFilasSplitTarjetasModal(ctx) {
+    var cont = document.getElementById('lista-' + ctx + '-tarjetas-split');
+    if (!cont) return [];
+    var filas = [];
+    Array.from(cont.querySelectorAll('.fin-split-card-row')).forEach(function(rowEl) {
+        var sel = rowEl.querySelector('.fin-split-trj-select');
+        var inp = rowEl.querySelector('.fin-split-trj-monto');
+        var trjId = sel ? sel.value : '';
+        var m = Math.round(Math.max(0, parseFloat(inp ? inp.value : '0') || 0) * 100) / 100;
+        if (trjId && m > 0) {
+            filas.push({ tarjetaId: trjId, montoUsd: m });
+        }
+    });
+    return filas;
+}
+
+function actualizarResumenSplitTarjetasUI(ctx) {
+    var sumEl = document.getElementById('resumen-' + ctx + '-tarjetas-split');
+    if (!sumEl) return;
+    var filas = leerFilasSplitTarjetasModal(ctx);
+    var sum = Math.round(filas.reduce(function(acc, r) { return acc + r.montoUsd; }, 0) * 100) / 100;
+    var obj = obtenerMontoObjetivoSplitModal(ctx);
+    if (obj > 0) {
+        var diff = Math.round((obj - sum) * 100) / 100;
+        if (Math.abs(diff) <= 0.02) {
+            sumEl.style.color = '#34d399';
+            sumEl.textContent = '✓ Repartido: $' + sum.toFixed(2) + ' / $' + obj.toFixed(2);
+        } else {
+            sumEl.style.color = '#fbbf24';
+            sumEl.textContent = 'Asignado: $' + sum.toFixed(2) + ' · ' + (diff > 0 ? ('Faltan $' + diff.toFixed(2)) : ('Excede por $' + Math.abs(diff).toFixed(2)));
+        }
+    } else {
+        sumEl.style.color = '#38bdf8';
+        sumEl.textContent = 'Asignado: $' + sum.toFixed(2);
+    }
+}
+
+function alCambiarSplitTarjetasUI(ctx) {
+    actualizarResumenSplitTarjetasUI(ctx);
+    if (ctx === 'cobro' && typeof actualizarPreviewCobroTarjeta === 'function') {
+        actualizarPreviewCobroTarjeta();
+    }
+}
+
+function actualizarPreviewMonedaIngreso() {
+    var inM = document.getElementById('modal-ingreso-monto');
+    var selMon = document.getElementById('modal-ingreso-moneda');
+    var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
+    var prev = document.getElementById('modal-ingreso-conv-preview');
+    var mon = selMon ? selMon.value : 'USD';
+    if (selTasa) selTasa.style.display = (mon === 'VES') ? 'block' : 'none';
+    if (prev) {
+        var val = parseFloat(inM ? inM.value : '0') || 0;
+        var conv = convertirMontoFinanzasAUsd(val, mon, selTasa ? selTasa.value : 'bcv');
+        if (val > 0 && mon === 'VES') {
+            prev.style.display = 'block';
+            prev.innerHTML = conv.valido
+                ? ('Equivale a <strong style="color:#34d399;">$' + conv.usd.toFixed(2) + ' USD</strong> (Tasa ' + escaparHTML(conv.tasaLabel) + ': ' + Number(conv.tasaUsada).toFixed(2) + ')')
+                : '⚠️ No hay tasa cargada en caché para convertir Bs. a $.';
+        } else if (val > 0 && mon === 'USD' && conv.tasaUsada > 0) {
+            prev.style.display = 'block';
+            prev.innerHTML = 'Se mantiene en <strong style="color:#34d399;">$' + conv.usd.toFixed(2) + ' USD</strong> · Ref. ' + formatearTasaBsDisplay(conv.bs, 2) + ' (' + escaparHTML(conv.tasaLabel) + ').';
+        } else {
+            prev.style.display = 'none';
+        }
+    }
+    if (esModoSplitTarjetasActivo('ingreso')) alCambiarSplitTarjetasUI('ingreso');
+}
+
+function poblarDatalistPersonasFinanzas() {
+    var dl = document.getElementById('datalist-personas-finanzas');
+    if (!dl) return;
+    var personas = (typeof APP_STATE !== 'undefined' && APP_STATE && Array.isArray(APP_STATE.agendaPersonas))
+        ? APP_STATE.agendaPersonas
+        : [];
+    var vistos = {};
+    var opts = [];
+    personas.forEach(function(p) {
+        if (!p || !p.nombre) return;
+        var n = String(p.nombre).trim();
+        var low = n.toLowerCase();
+        if (!n || vistos[low]) return;
+        vistos[low] = true;
+        opts.push('<option value="' + escaparHTML(n) + '"></option>');
+    });
+    dl.innerHTML = opts.join('');
+}
+
+function seleccionarModalidadPrestamoGasto(mod) {
+    var m = (mod === 'partes') ? 'partes' : 'unico';
+    var inMod = document.getElementById('modal-gasto-prestamo-devolucion');
+    var btnU = document.getElementById('btn-prestamo-dev-unico');
+    var btnP = document.getElementById('btn-prestamo-dev-partes');
+    var grpU = document.getElementById('grupo-prestamo-fecha-unica');
+    var grpP = document.getElementById('grupo-prestamo-partes');
+    if (inMod) inMod.value = m;
+    if (btnU) btnU.classList.toggle('is-active', m === 'unico');
+    if (btnP) btnP.classList.toggle('is-active', m === 'partes');
+    if (grpU) grpU.style.display = (m === 'unico') ? 'block' : 'none';
+    if (grpP) grpP.style.display = (m === 'partes') ? 'block' : 'none';
+
+    if (m === 'partes') {
+        var lista = document.getElementById('lista-partes-prestamo');
+        if (lista && lista.children.length === 0) {
+            var d1 = new Date(); d1.setDate(d1.getDate() + 15);
+            var d2 = new Date(); d2.setDate(d2.getDate() + 30);
+            agregarPartePrestamoUI(d1.toISOString().slice(0, 10), '');
+            agregarPartePrestamoUI(d2.toISOString().slice(0, 10), '');
+            repartirEquitativoPartesPrestamo();
+        } else {
+            actualizarResumenPartesPrestamoUI();
+        }
+    }
+}
+
+function agregarPartePrestamoUI(fechaOpt, montoOpt, monedaOpt) {
+    var cont = document.getElementById('lista-partes-prestamo');
+    if (!cont) return;
+    var row = document.createElement('div');
+    row.className = 'fin-split-card-row';
+
+    var fDef = fechaOpt;
+    if (!fDef) {
+        var base = new Date();
+        base.setDate(base.getDate() + 15 * (cont.children.length + 1));
+        fDef = base.toISOString().slice(0, 10);
+    }
+    var mVal = (montoOpt !== undefined && montoOpt !== null && montoOpt !== '') ? Number(montoOpt).toFixed(2) : '';
+    var mon = (monedaOpt === 'VES') ? 'VES' : 'USD';
+
+    row.innerHTML =
+        '<input type="date" class="modal-input fin-prest-parte-fecha" value="' + escaparHTML(fDef) + '" style="flex: 1.35; min-width: 108px; padding: 6px 5px; font-size: 11.5px;" onchange="actualizarResumenPartesPrestamoUI()">' +
+        '<input type="number" step="0.01" min="0" class="modal-input fin-prest-parte-monto" placeholder="Monto" value="' + escaparHTML(mVal) + '" style="flex: 0.85; min-width: 58px; padding: 6px 6px; font-size: 12px; font-weight: 800; color: #34d399;" oninput="actualizarResumenPartesPrestamoUI()">' +
+        '<select class="ideas-select fin-prest-parte-mon" style="flex: 0.5; min-width: 46px; padding: 6px 4px; font-size: 11.5px;" onchange="actualizarResumenPartesPrestamoUI()">' +
+            '<option value="USD"' + (mon === 'USD' ? ' selected' : '') + '>$</option>' +
+            '<option value="VES"' + (mon === 'VES' ? ' selected' : '') + '>Bs</option>' +
+        '</select>' +
+        '<button type="button" class="fin-split-del-btn" title="Quitar parte" onclick="eliminarPartePrestamoUI(this)">✕</button>';
+
+    cont.appendChild(row);
+    actualizarResumenPartesPrestamoUI();
+}
+
+function eliminarPartePrestamoUI(btnEl) {
+    var cont = document.getElementById('lista-partes-prestamo');
+    if (!cont) return;
+    var row = btnEl ? btnEl.closest('.fin-split-card-row') : null;
+    if (row && cont.children.length > 1) {
+        row.remove();
+        actualizarResumenPartesPrestamoUI();
+    }
+}
+
+function repartirEquitativoPartesPrestamo() {
+    var cont = document.getElementById('lista-partes-prestamo');
+    if (!cont || cont.children.length === 0) return;
+    var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
+    var convTotal = convertirMontoFinanzasAUsd(inM ? inM.value : 0, selMon ? selMon.value : 'USD', selTasa ? selTasa.value : 'bcv');
+    var totUsd = convTotal.valido ? convTotal.usd : 0;
+    var rows = Array.from(cont.querySelectorAll('.fin-split-card-row'));
+    if (totUsd <= 0 || rows.length === 0) return;
+
+    var baseParte = Math.floor((totUsd / rows.length) * 100) / 100;
+    var acum = 0;
+    rows.forEach(function(r, idx) {
+        var selM = r.querySelector('.fin-prest-parte-mon');
+        var inp = r.querySelector('.fin-prest-parte-monto');
+        if (selM) selM.value = 'USD';
+        var val = (idx === rows.length - 1) ? Math.round((totUsd - acum) * 100) / 100 : baseParte;
+        acum += val;
+        if (inp) inp.value = val.toFixed(2);
+    });
+    actualizarResumenPartesPrestamoUI();
+}
+
+function leerPartesPrestamoDesdeDOM(tasaModo) {
+    var cont = document.getElementById('lista-partes-prestamo');
+    if (!cont) return [];
+    var out = [];
+    Array.from(cont.querySelectorAll('.fin-split-card-row')).forEach(function(row) {
+        var fIn = row.querySelector('.fin-prest-parte-fecha');
+        var mIn = row.querySelector('.fin-prest-parte-monto');
+        var monIn = row.querySelector('.fin-prest-parte-mon');
+        var fecha = fIn ? String(fIn.value || '').slice(0, 10) : '';
+        var mon = monIn ? monIn.value : 'USD';
+        var rawM = Math.max(0, parseFloat(mIn ? mIn.value : '0') || 0);
+        var conv = convertirMontoFinanzasAUsd(rawM, mon, tasaModo || 'bcv');
+        if (fecha && rawM > 0 && conv.valido) {
+            out.push({
+                fecha: fecha,
+                montoUsd: conv.usd,
+                monedaOrigen: mon,
+                montoOriginal: rawM
+            });
+        }
+    });
+    return out;
+}
+
+function actualizarResumenPartesPrestamoUI() {
+    var el = document.getElementById('resumen-partes-prestamo');
+    if (!el) return;
+    var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    var convTot = convertirMontoFinanzasAUsd(inM ? inM.value : 0, selMon ? selMon.value : 'USD', tasaModo);
+    var partes = leerPartesPrestamoDesdeDOM(tasaModo);
+    var sum = Math.round(partes.reduce(function(a, p) { return a + p.montoUsd; }, 0) * 100) / 100;
+    if (convTot.valido && convTot.usd > 0) {
+        var diff = Math.round((convTot.usd - sum) * 100) / 100;
+        if (Math.abs(diff) <= 0.05) {
+            el.style.color = '#34d399';
+            el.textContent = '✓ Suma exacta: $' + sum.toFixed(2) + ' (' + partes.length + ' cobros)';
+        } else {
+            el.style.color = '#fbbf24';
+            el.textContent = 'Suma partes: $' + sum.toFixed(2) + ' / $' + convTot.usd.toFixed(2);
+        }
+    } else {
+        el.style.color = '#38bdf8';
+        el.textContent = 'Suma partes: $' + sum.toFixed(2);
+    }
+}
+
+// ==========================================================================
 // MODALES Y OPERACIONES FINANCIERAS
 // ==========================================================================
 
 function abrirModalIngreso(tipoPorDefecto, fechaOpcional) {
     var m = document.getElementById('modal-finanzas-ingreso') || document.getElementById('modal-finanza-ingreso');
-    if (m) {
-        if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
-            var inFecha = document.getElementById('modal-ingreso-fecha');
-            var inDia = document.getElementById('modal-ingreso-dia');
-            if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
-            var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
-            if (inDia && !isNaN(diaP)) inDia.value = diaP;
-        }
-        m.style.display = 'flex';
-        seleccionarTipoIngresoModal(tipoPorDefecto || 'fija');
+    if (!m) return;
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+
+    var inEdit = document.getElementById('modal-ingreso-edit-id');
+    var titEl = document.getElementById('modal-ingreso-modal-titulo');
+    var inF = document.getElementById('modal-ingreso-fuente');
+    var inDia = document.getElementById('modal-ingreso-dia');
+    var inFecha = document.getElementById('modal-ingreso-fecha');
+    var inM = document.getElementById('modal-ingreso-monto');
+    var selMon = document.getElementById('modal-ingreso-moneda');
+    var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
+    var selTrj = document.getElementById('modal-ingreso-tarjeta');
+    var btnSave = document.getElementById('btn-guardar-modal-ingreso');
+
+    if (inEdit) inEdit.value = '';
+    if (titEl) titEl.textContent = 'AGREGAR NUEVA ENTRADA DE INGRESO';
+    if (btnSave) btnSave.textContent = '✓ Guardar Entrada';
+    if (inF) inF.value = '';
+    if (inDia) inDia.value = '15';
+    if (inFecha) inFecha.value = '';
+    if (inM) inM.value = '';
+    if (selMon) selMon.value = 'USD';
+    if (selTasa) selTasa.value = 'bcv';
+    if (selTrj) selTrj.value = '';
+    establecerModoSplitTarjetasModal('ingreso', false);
+
+    if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
+        if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
+        var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
+        if (inDia && !isNaN(diaP)) inDia.value = diaP;
     }
+    m.style.display = 'flex';
+    seleccionarTipoIngresoModal(tipoPorDefecto || 'fija');
+    actualizarPreviewMonedaIngreso();
+}
+
+function editarIngresoFinanzasUI(id) {
+    if (!APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) return;
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === id; });
+    if (!item) return;
+
+    var m = document.getElementById('modal-finanzas-ingreso');
+    if (!m) return;
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+
+    var inEdit = document.getElementById('modal-ingreso-edit-id');
+    var titEl = document.getElementById('modal-ingreso-modal-titulo');
+    var inF = document.getElementById('modal-ingreso-fuente');
+    var inDia = document.getElementById('modal-ingreso-dia');
+    var inFecha = document.getElementById('modal-ingreso-fecha');
+    var inM = document.getElementById('modal-ingreso-monto');
+    var selMon = document.getElementById('modal-ingreso-moneda');
+    var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
+    var selTrj = document.getElementById('modal-ingreso-tarjeta');
+    var btnSave = document.getElementById('btn-guardar-modal-ingreso');
+
+    var infoOrig = clasificarOrigenIngreso(item);
+    var tipoDest = infoOrig.tipoDestino || item.tipo || 'fija';
+
+    if (inEdit) inEdit.value = item.id;
+    if (titEl) titEl.textContent = 'EDITAR ENTRADA Y TARJETAS';
+    if (btnSave) btnSave.textContent = '✓ Guardar Cambios';
+    if (inF) inF.value = item.fuente || item.concepto || item.nombre || '';
+    if (inDia) inDia.value = item.dia || 15;
+    if (inFecha) inFecha.value = (item.fecha && String(item.fecha).length >= 10) ? String(item.fecha).slice(0, 10) : '';
+    if (selMon) selMon.value = 'USD';
+    if (selTasa) selTasa.value = item.tasaTipo || 'bcv';
+    if (inM) inM.value = Number(item.monto || 0).toFixed(2);
+
+    seleccionarTipoIngresoModal(tipoDest);
+
+    var distRows = Array.isArray(item.tarjetasMovs) && item.tarjetasMovs.length > 0
+        ? item.tarjetasMovs.map(function(r) { return { tarjetaId: r.tarjetaId, montoUsd: r.montoUsd || r.deltaUsdRef || 0 }; })
+        : (Array.isArray(item.tarjetasDistribucion) && item.tarjetasDistribucion.length > 0 ? item.tarjetasDistribucion : null);
+
+    if (distRows && distRows.length > 1) {
+        establecerModoSplitTarjetasModal('ingreso', true, distRows);
+    } else {
+        establecerModoSplitTarjetasModal('ingreso', false);
+        var trjUni = (distRows && distRows.length === 1) ? distRows[0].tarjetaId : (item.tarjetaId || '');
+        if (selTrj) selTrj.value = trjUni || '';
+    }
+
+    actualizarPreviewMonedaIngreso();
+    m.style.display = 'flex';
 }
 
 function cerrarModalIngreso() {
@@ -1507,15 +2156,33 @@ function cerrarModalIngreso() {
 }
 
 function confirmarAgregarIngreso() {
+    var inEdit = document.getElementById('modal-ingreso-edit-id');
+    var editId = inEdit ? inEdit.value.trim() : '';
     var inF = document.getElementById('modal-ingreso-fuente');
     var inD = document.getElementById('modal-ingreso-dia');
     var inFecha = document.getElementById('modal-ingreso-fecha');
     var inM = document.getElementById('modal-ingreso-monto');
+    var selMon = document.getElementById('modal-ingreso-moneda');
+    var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
     var inTipo = document.getElementById('modal-ingreso-tipo');
+    var selTrj = document.getElementById('modal-ingreso-tarjeta');
 
     var tipo = inTipo ? inTipo.value : 'fija';
     var f = inF ? inF.value.trim() : "";
-    var m = inM ? (Number(inM.value) || 0) : 0;
+    var monIn = selMon ? selMon.value : 'USD';
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    var rawMonto = inM ? (parseFloat(inM.value) || 0) : 0;
+    var conv = convertirMontoFinanzasAUsd(rawMonto, monIn, tasaModo);
+
+    if (!f || rawMonto <= 0) {
+        alert("Completa la fuente/concepto y un monto válido.");
+        return;
+    }
+    if (!conv.valido || conv.usd <= 0) {
+        alert("No hay tasa cargada en caché para convertir Bolívares a $ USD.");
+        return;
+    }
+    var m = conv.usd;
     var d = inD ? (Number(inD.value) || 15) : 15;
     var fecha = (tipo === 'fija') ? "" : (inFecha ? inFecha.value : "");
     if (tipo !== 'fija' && fecha && fecha.length >= 10) {
@@ -1523,15 +2190,72 @@ function confirmarAgregarIngreso() {
         if (!isNaN(diaParsed)) d = diaParsed;
     }
 
-    if (!f || m <= 0) {
-        alert("Completa la fuente/concepto y un monto válido.");
-        return;
+    // Tarjeta(s) destino
+    var tarjetasDistribucion = [];
+    var tarjetaIdUnica = null;
+    if (esModoSplitTarjetasActivo('ingreso')) {
+        tarjetasDistribucion = leerFilasSplitTarjetasModal('ingreso');
+        if (tarjetasDistribucion.length === 0) {
+            alert("Agrega al menos 1 tarjeta con monto válido en la división o vuelve a 1 sola tarjeta.");
+            return;
+        }
+        var sumSplit = Math.round(tarjetasDistribucion.reduce(function(a, x) { return a + x.montoUsd; }, 0) * 100) / 100;
+        if (Math.abs(sumSplit - m) > 0.05) {
+            alert("La suma asignada a las tarjetas ($" + sumSplit.toFixed(2) + ") debe coincidir con el monto del ingreso ($" + m.toFixed(2) + ").");
+            return;
+        }
+        if (tarjetasDistribucion.length === 1) {
+            tarjetaIdUnica = tarjetasDistribucion[0].tarjetaId;
+        }
+    } else {
+        var vTrj = selTrj ? selTrj.value : '';
+        if (vTrj) {
+            tarjetaIdUnica = vTrj;
+            tarjetasDistribucion = [{ tarjetaId: vTrj, montoUsd: m }];
+        }
     }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
 
     var nowIng = Date.now();
+
+    if (editId) {
+        var exist = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === editId; });
+        if (!exist) return;
+
+        // Si ya estaba cobrado, revertir movimientos previos en tarjetas antes de actualizar distribución
+        if (exist.cobrado) {
+            revertirTarjetasMovimientoFinanzas(exist, true);
+        }
+
+        exist.fuente = f;
+        exist.dia = d;
+        exist.fecha = fecha;
+        exist.monto = m;
+        exist.monedaOrigen = monIn;
+        exist.montoOriginalBs = (monIn === 'VES') ? conv.bs : 0;
+        exist.tasaTipo = tasaModo;
+        exist.tasaUsada = conv.tasaUsada || 0;
+        exist.tarjetaId = tarjetaIdUnica;
+        exist.tarjetasDistribucion = tarjetasDistribucion.slice();
+        var infoEdit = clasificarOrigenIngreso(exist);
+        exist.tipo = infoEdit.tipoDestino;
+        if (infoEdit.origen === 'labor') exist.origenLabor = infoEdit.origenId;
+
+        if (exist.cobrado) {
+            exist.montoCobrado = m;
+            var distAplicar = tarjetasDistribucion.length > 0 ? tarjetasDistribucion : (tarjetaIdUnica ? [{ tarjetaId: tarjetaIdUnica, montoUsd: m }] : []);
+            aplicarTarjetasMovimientoFinanzas(exist, true, distAplicar, f);
+        }
+        exist.fechaActualizacion = nowIng;
+
+        MonarcaDB.save(APP_STATE);
+        cerrarModalIngreso();
+        renderizarFinanzas(APP_STATE.finanzas);
+        return;
+    }
+
     var nuevoIngreso = {
         id: "ING-" + nowIng,
         fuente: f,
@@ -1539,6 +2263,12 @@ function confirmarAgregarIngreso() {
         dia: d,
         fecha: fecha,
         monto: m,
+        monedaOrigen: monIn,
+        montoOriginalBs: (monIn === 'VES') ? conv.bs : 0,
+        tasaTipo: tasaModo,
+        tasaUsada: conv.tasaUsada || 0,
+        tarjetaId: tarjetaIdUnica,
+        tarjetasDistribucion: tarjetasDistribucion,
         cobrado: false,
         timestamp: nowIng,
         fechaActualizacion: nowIng
@@ -1559,7 +2289,6 @@ function confirmarAgregarIngreso() {
     cerrarModalIngreso();
     renderizarFinanzas(APP_STATE.finanzas);
 
-    // Cambiar al tab correspondiente para ver el nuevo ingreso de inmediato
     if (nuevoIngreso.tipo === 'almacen') {
         cambiarTabIngresos('almacen');
     } else if (nuevoIngreso.tipo === 'aleatoria') {
@@ -1569,26 +2298,194 @@ function confirmarAgregarIngreso() {
     }
 }
 
-function abrirModalGasto(tipoPorDefecto, fechaOpcional) {
-    var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
-    if (m) {
-        if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
-            var inFecha = document.getElementById('modal-gasto-fecha');
-            var inDia = document.getElementById('modal-gasto-dia');
-            if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
-            var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
-            if (inDia && !isNaN(diaP)) inDia.value = diaP;
+function aplicarTarjetasMovimientoFinanzas(item, esIngreso, listaDistribucion, conceptoNota) {
+    if (!item || !Array.isArray(listaDistribucion) || listaDistribucion.length === 0 || typeof aplicarMovimientoEnTarjeta !== 'function') return [];
+    var modo = esIngreso ? 'ingreso' : 'retiro';
+    var movsAplicados = [];
+    listaDistribucion.forEach(function(row, idx) {
+        if (!row || !row.tarjetaId || row.tarjetaId === '__EFECTIVO__') return;
+        var montoPart = Math.round((Number(row.montoUsd) || 0) * 100) / 100;
+        if (montoPart <= 0) return;
+        var refMov = item.id + (listaDistribucion.length > 1 ? (':TRJ:' + idx) : '');
+        var resMov = aplicarMovimientoEnTarjeta(row.tarjetaId, modo, montoPart, 'USD', conceptoNota || 'Movimiento Finanzas', refMov);
+        if (resMov) {
+            movsAplicados.push({
+                tarjetaId: row.tarjetaId,
+                montoUsd: montoPart,
+                deltaNativo: resMov.deltaNativo,
+                deltaUsdRef: resMov.deltaUsdRef,
+                refMovimientoId: refMov
+            });
         }
-        m.style.display = 'flex';
-        poblarSelectCategoriasGastos();
-        if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
-        var selTrjG = document.getElementById('modal-gasto-tarjeta');
-        if (selTrjG) selTrjG.value = '';
-        seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
-        alCambiarCategoriaEnModalGasto();
-        var inM = document.getElementById('modal-gasto-monto');
-        if (inM) alCambiarMontoGastoModal(inM.value);
+    });
+    item.tarjetasMovs = movsAplicados;
+    if (movsAplicados.length === 1) {
+        item.tarjetaId = movsAplicados[0].tarjetaId;
+        item.tarjetaDeltaNativo = movsAplicados[0].deltaNativo;
+        item.tarjetaDeltaUsdRef = movsAplicados[0].deltaUsdRef;
+    } else if (movsAplicados.length > 1) {
+        delete item.tarjetaId;
+        delete item.tarjetaDeltaNativo;
+        delete item.tarjetaDeltaUsdRef;
     }
+    return movsAplicados;
+}
+
+function revertirTarjetasMovimientoFinanzas(item, fueIngreso) {
+    if (!item || typeof revertirMovimientoEnTarjeta !== 'function') return;
+    if (Array.isArray(item.tarjetasMovs) && item.tarjetasMovs.length > 0) {
+        item.tarjetasMovs.forEach(function(mv) {
+            if (mv && mv.tarjetaId && mv.deltaNativo) {
+                revertirMovimientoEnTarjeta(mv.tarjetaId, fueIngreso, mv.deltaNativo, mv.deltaUsdRef, mv.refMovimientoId || item.id);
+            }
+        });
+        item.tarjetasMovs = [];
+        delete item.tarjetaDeltaNativo;
+        delete item.tarjetaDeltaUsdRef;
+        return;
+    }
+    if (item.tarjetaId && item.tarjetaDeltaNativo) {
+        revertirMovimientoEnTarjeta(item.tarjetaId, fueIngreso, item.tarjetaDeltaNativo, item.tarjetaDeltaUsdRef, item.id);
+        delete item.tarjetaDeltaNativo;
+        delete item.tarjetaDeltaUsdRef;
+    }
+}
+
+function abrirModalPrestamoGasto() {
+    abrirModalGasto('ocasional', null, 'Préstamos');
+}
+
+function abrirModalGasto(tipoPorDefecto, fechaOpcional, categoriaInicialOpt) {
+    var m = document.getElementById('modal-finanzas-gasto') || document.getElementById('modal-finanza-gasto');
+    if (!m) return;
+
+    sanearDatosFinanzasRecurrentesYCategorias(APP_STATE.finanzas || DEFAULT_STATE.finanzas);
+    poblarSelectCategoriasGastos();
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+    poblarDatalistPersonasFinanzas();
+
+    var inEdit = document.getElementById('modal-gasto-edit-id');
+    var titEl = document.getElementById('modal-gasto-modal-titulo');
+    var btnSave = document.getElementById('btn-guardar-modal-gasto');
+    var inCp = document.getElementById('modal-gasto-fuente');
+    var inDia = document.getElementById('modal-gasto-dia');
+    var inFecha = document.getElementById('modal-gasto-fecha');
+    var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
+    var selCat = document.getElementById('modal-gasto-categoria');
+    var selTrjG = document.getElementById('modal-gasto-tarjeta');
+    var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
+    var inPers = document.getElementById('modal-gasto-prestamo-persona');
+    var inFechaU = document.getElementById('modal-gasto-prestamo-fecha-unica');
+    var listaPartes = document.getElementById('lista-partes-prestamo');
+
+    if (inEdit) inEdit.value = '';
+    if (titEl) titEl.textContent = categoriaInicialOpt ? 'REGISTRAR PRÉSTAMO (SALIDA → INGRESO)' : 'AGREGAR NUEVA SALIDA O GASTO';
+    if (btnSave) btnSave.textContent = categoriaInicialOpt ? '✓ Guardar Préstamo' : '✓ Guardar Salida';
+    if (inCp) inCp.value = '';
+    if (inM) inM.value = '';
+    if (selMon) selMon.value = 'USD';
+    if (selTasa) selTasa.value = 'bcv';
+    if (inDia) inDia.value = '16';
+    if (inFecha) inFecha.value = '';
+    if (inPers) inPers.value = '';
+    if (inFechaU) inFechaU.value = '';
+    if (listaPartes) listaPartes.innerHTML = '';
+
+    var tarjetas = (typeof asegurarArrayTarjetasFinanzas === 'function') ? asegurarArrayTarjetasFinanzas() : [];
+    if (selTrjG) {
+        selTrjG.value = (tarjetas.length === 1) ? tarjetas[0].id : '';
+    }
+    if (chkDesc) chkDesc.checked = true;
+
+    if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
+        if (inFecha) inFecha.value = fechaOpcional.slice(0, 10);
+        var diaP = parseInt(fechaOpcional.slice(8, 10), 10);
+        if (inDia && !isNaN(diaP)) inDia.value = diaP;
+    }
+
+    if (selCat && categoriaInicialOpt) {
+        var catMatch = Array.from(selCat.options).find(function(o) {
+            return o.value.toLowerCase() === categoriaInicialOpt.toLowerCase() || esCategoriaPrestamoNombre(o.value);
+        });
+        if (catMatch) selCat.value = catMatch.value;
+    } else if (selCat && selCat.options.length > 0) {
+        var nonPresOpt = Array.from(selCat.options).find(function(o) { return !esCategoriaPrestamoNombre(o.value); });
+        selCat.value = nonPresOpt ? nonPresOpt.value : selCat.options[0].value;
+    }
+
+    seleccionarModalidadPrestamoGasto('unico');
+    seleccionarTipoGastoModal(tipoPorDefecto || 'programado');
+    alCambiarCategoriaEnModalGasto();
+    alCambiarMontoGastoModal(inM ? inM.value : '');
+    m.style.display = 'flex';
+}
+
+function editarGastoFinanzasUI(id) {
+    if (!APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.gastos)) return;
+    var g = APP_STATE.finanzas.gastos.find(function(x) { return x && x.id === id; });
+    if (!g) return;
+
+    var m = document.getElementById('modal-finanzas-gasto');
+    if (!m) return;
+
+    sanearDatosFinanzasRecurrentesYCategorias(APP_STATE.finanzas);
+    poblarSelectCategoriasGastos();
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+    poblarDatalistPersonasFinanzas();
+
+    var inEdit = document.getElementById('modal-gasto-edit-id');
+    var titEl = document.getElementById('modal-gasto-modal-titulo');
+    var btnSave = document.getElementById('btn-guardar-modal-gasto');
+    var inCp = document.getElementById('modal-gasto-fuente');
+    var inDia = document.getElementById('modal-gasto-dia');
+    var inFecha = document.getElementById('modal-gasto-fecha');
+    var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
+    var selCat = document.getElementById('modal-gasto-categoria');
+    var selPilar = document.getElementById('modal-gasto-pilar');
+    var selTrjG = document.getElementById('modal-gasto-tarjeta');
+    var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
+    var inPers = document.getElementById('modal-gasto-prestamo-persona');
+    var inFechaU = document.getElementById('modal-gasto-prestamo-fecha-unica');
+    var listaPartes = document.getElementById('lista-partes-prestamo');
+
+    if (inEdit) inEdit.value = g.id;
+    if (titEl) titEl.textContent = g.esPrestamo ? 'EDITAR PRÉSTAMO Y TARJETA' : 'EDITAR SALIDA O GASTO';
+    if (btnSave) btnSave.textContent = '✓ Guardar Cambios';
+    if (inCp) inCp.value = g.concepto || '';
+    if (selCat && g.categoria) selCat.value = g.categoria;
+    if (selPilar) selPilar.value = obtenerPilarGasto(g);
+    if (inDia) inDia.value = g.dia || 16;
+    if (inFecha) inFecha.value = (g.fecha && String(g.fecha).length >= 10) ? String(g.fecha).slice(0, 10) : '';
+    if (selMon) selMon.value = 'USD';
+    if (selTasa) selTasa.value = g.tasaTipo || 'bcv';
+    if (inM) inM.value = Number(g.monto || 0).toFixed(2);
+    if (selTrjG) selTrjG.value = g.tarjetaId || '';
+    if (chkDesc) chkDesc.checked = !!g.pagado;
+
+    seleccionarTipoGastoModal(g.tipo === 'ocasional' ? 'ocasional' : 'programado');
+    alCambiarCategoriaEnModalGasto();
+
+    if (g.esPrestamo || esCategoriaPrestamoNombre(g.categoria)) {
+        if (inPers) inPers.value = g.personaPrestamo || '';
+        if (listaPartes) listaPartes.innerHTML = '';
+        var modDev = (g.tipoDevolucionPrestamo === 'partes' || (Array.isArray(g.cuotasPrestamo) && g.cuotasPrestamo.length > 1)) ? 'partes' : 'unico';
+        seleccionarModalidadPrestamoGasto(modDev);
+        if (modDev === 'partes' && Array.isArray(g.cuotasPrestamo)) {
+            if (listaPartes) listaPartes.innerHTML = '';
+            g.cuotasPrestamo.forEach(function(p) {
+                agregarPartePrestamoUI(p.fecha, p.montoUsd, 'USD');
+            });
+        } else if (inFechaU && Array.isArray(g.cuotasPrestamo) && g.cuotasPrestamo[0]) {
+            inFechaU.value = g.cuotasPrestamo[0].fecha || '';
+        }
+    }
+
+    alCambiarMontoGastoModal(inM ? inM.value : '');
+    m.style.display = 'flex';
 }
 
 function cerrarModalGasto() {
@@ -1599,53 +2496,248 @@ function cerrarModalGasto() {
 }
 
 function confirmarAgregarGasto() {
+    var inEdit = document.getElementById('modal-gasto-edit-id');
+    var editId = inEdit ? inEdit.value.trim() : '';
     var inC = document.getElementById('modal-gasto-categoria') || document.getElementById('modal-gasto-cat');
     var inCp = document.getElementById('modal-gasto-fuente') || document.getElementById('modal-gasto-concepto');
     var inD = document.getElementById('modal-gasto-dia');
     var inFecha = document.getElementById('modal-gasto-fecha');
     var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
     var inTipo = document.getElementById('modal-gasto-tipo');
     var inPilar = document.getElementById('modal-gasto-pilar');
     var selTrjG = document.getElementById('modal-gasto-tarjeta');
+    var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
 
     var tipo = inTipo ? inTipo.value : 'programado';
     var c = inC ? inC.value : "Otros";
+    var esPres = esCategoriaPrestamoNombre(c);
     var cp = inCp ? inCp.value.trim() : "";
+    var monIn = selMon ? selMon.value : 'USD';
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    var rawMonto = inM ? (parseFloat(inM.value) || 0) : 0;
+    var conv = convertirMontoFinanzasAUsd(rawMonto, monIn, tasaModo);
+
+    if (rawMonto <= 0) {
+        alert("Ingresa un monto válido mayor a 0.");
+        return;
+    }
+    if (!conv.valido || conv.usd <= 0) {
+        alert("No hay tasa API en caché para convertir Bolívares a $ USD.");
+        return;
+    }
+    var m = conv.usd;
+    var pilar = inPilar ? inPilar.value : "gastos";
+    var trjGId = selTrjG ? selTrjG.value : '';
+    var tarjetasDisponibles = (typeof asegurarArrayTarjetasFinanzas === 'function') ? asegurarArrayTarjetasFinanzas() : [];
+    if (tarjetasDisponibles.length > 0 && !trjGId) {
+        alert("Selecciona la tarjeta o cuenta de donde sale este dinero.");
+        if (selTrjG) selTrjG.focus();
+        return;
+    }
+
+    var personaPres = '';
+    var modDev = 'unico';
+    var partesPrestamo = [];
+    if (esPres) {
+        var inPers = document.getElementById('modal-gasto-prestamo-persona');
+        personaPres = inPers ? inPers.value.trim() : '';
+        if (!personaPres) {
+            alert("Indica el nombre de la persona a quien le haces el préstamo.");
+            if (inPers) inPers.focus();
+            return;
+        }
+        if (!cp) cp = 'Préstamo a ' + personaPres;
+
+        var inMod = document.getElementById('modal-gasto-prestamo-devolucion');
+        modDev = (inMod && inMod.value === 'partes') ? 'partes' : 'unico';
+        if (modDev === 'partes') {
+            partesPrestamo = leerPartesPrestamoDesdeDOM(tasaModo);
+            if (partesPrestamo.length === 0) {
+                alert("Agrega al menos 1 fecha y monto válido para la devolución por partes.");
+                return;
+            }
+            var sumP = Math.round(partesPrestamo.reduce(function(a, p) { return a + p.montoUsd; }, 0) * 100) / 100;
+            if (Math.abs(sumP - m) > 0.05) {
+                alert("Las partes a cobrar ($" + sumP.toFixed(2) + ") deben sumar el monto total prestado ($" + m.toFixed(2) + ").");
+                return;
+            }
+        } else {
+            var inFU = document.getElementById('modal-gasto-prestamo-fecha-unica');
+            var fU = inFU ? String(inFU.value || '').slice(0, 10) : '';
+            if (!fU) {
+                alert("Selecciona la fecha programada en que " + personaPres + " te pagará el préstamo.");
+                if (inFU) inFU.focus();
+                return;
+            }
+            partesPrestamo = [{ fecha: fU, montoUsd: m, monedaOrigen: 'USD', montoOriginal: m }];
+        }
+    } else if (!cp) {
+        alert("Completa el concepto del gasto.");
+        return;
+    }
+
     var d = inD ? (Number(inD.value) || 16) : 16;
     var fecha = (tipo === 'programado') ? "" : (inFecha ? inFecha.value : "");
+    if (tipo !== 'programado' && !fecha) {
+        fecha = (typeof obtenerHoyISOFinanzas === 'function') ? obtenerHoyISOFinanzas() : new Date().toISOString().slice(0, 10);
+    }
     if (tipo !== 'programado' && fecha && fecha.length >= 10) {
         var diaParsedG = parseInt(fecha.slice(8, 10), 10);
         if (!isNaN(diaParsedG)) d = diaParsedG;
     }
-    var m = inM ? (Number(inM.value) || 0) : 0;
-    var pilar = inPilar ? inPilar.value : "gastos";
-    var trjGId = selTrjG ? selTrjG.value : '';
-
-    if (!cp || m <= 0) {
-        alert("Completa el concepto del gasto y un monto válido.");
-        return;
-    }
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.gastos) APP_STATE.finanzas.gastos = [];
+    if (!APP_STATE.finanzas.ingresos) APP_STATE.finanzas.ingresos = [];
 
+    var descontarAhora = chkDesc ? !!chkDesc.checked : true;
     var nowGas = Date.now();
-    var nuevoGasto = {
-        id: "GAS-" + nowGas,
-        tipo: tipo,
-        categoria: c,
-        concepto: cp,
-        dia: d,
-        fecha: fecha,
-        monto: m,
-        pilar: pilar,
-        tarjetaId: trjGId || null,
-        pagado: false,
-        timestamp: nowGas,
-        fechaActualizacion: nowGas
-    };
+    var targetGasto = null;
 
-    APP_STATE.finanzas.gastos.push(nuevoGasto);
+    if (editId) {
+        targetGasto = APP_STATE.finanzas.gastos.find(function(x) { return x && x.id === editId; });
+        if (!targetGasto) return;
+        if (targetGasto.pagado) {
+            if (Array.isArray(targetGasto.abonos) && targetGasto.abonos.length > 0) {
+                targetGasto.abonos.forEach(function(ab) {
+                    if (ab.tarjetaId && ab.deltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                        revertirMovimientoEnTarjeta(ab.tarjetaId, false, ab.deltaNativo, ab.deltaUsdRef, ab.id);
+                    }
+                });
+                targetGasto.abonos = [];
+            }
+            revertirTarjetasMovimientoFinanzas(targetGasto, false);
+        }
+        targetGasto.tipo = tipo;
+        targetGasto.categoria = c;
+        targetGasto.concepto = cp;
+        targetGasto.dia = d;
+        targetGasto.fecha = fecha;
+        targetGasto.monto = m;
+        targetGasto.monedaOrigen = monIn;
+        targetGasto.montoOriginalBs = (monIn === 'VES') ? conv.bs : 0;
+        targetGasto.tasaTipo = tasaModo;
+        targetGasto.tasaUsada = conv.tasaUsada || 0;
+        targetGasto.pilar = pilar;
+        targetGasto.tarjetaId = trjGId || null;
+        targetGasto.esPrestamo = esPres;
+        targetGasto.personaPrestamo = personaPres;
+        targetGasto.tipoDevolucionPrestamo = modDev;
+        targetGasto.cuotasPrestamo = partesPrestamo;
+        targetGasto.pagado = descontarAhora;
+        targetGasto.montoAbonado = descontarAhora ? m : 0;
+        if (descontarAhora) {
+            targetGasto.fechaPago = targetGasto.fechaPago || new Date().toISOString();
+            if (trjGId && trjGId !== '__EFECTIVO__') {
+                var movEdit = aplicarTarjetasMovimientoFinanzas(targetGasto, false, [{ tarjetaId: trjGId, montoUsd: m }], (esPres ? 'Préstamo: ' : 'Gasto: ') + cp);
+                if (!movEdit || movEdit.length === 0) {
+                    targetGasto.pagado = false;
+                    targetGasto.montoAbonado = 0;
+                    delete targetGasto.fechaPago;
+                    alert("Guardado pendiente: no hay tasa API cargada para convertir y descontar de esa tarjeta en Bs.");
+                }
+            }
+        } else {
+            delete targetGasto.fechaPago;
+        }
+        targetGasto.fechaActualizacion = nowGas;
+
+        if (esPres) {
+            // Reemplazar los cobros pendientes anteriores vinculados a este préstamo y conservar los ya cobrados
+            var cobradosPrev = APP_STATE.finanzas.ingresos.filter(function(ig) { return ig && ig.prestamoGastoId === targetGasto.id && ig.cobrado; });
+            if (cobradosPrev.length === 0) {
+                APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+                    if (ig && ig.prestamoGastoId === targetGasto.id) {
+                        if (typeof registrarTombstone === 'function') registrarTombstone('finanzas_ingresos', ig.id);
+                        return false;
+                    }
+                    return true;
+                });
+                partesPrestamo.forEach(function(pt, idxP) {
+                    APP_STATE.finanzas.ingresos.push({
+                        id: 'ING-PREST-' + nowGas + '-' + (idxP + 1),
+                        fuente: partesPrestamo.length > 1 ? ('Cobro Préstamo ' + personaPres + ' (Parte ' + (idxP + 1) + '/' + partesPrestamo.length + ')') : ('Cobro Préstamo ' + personaPres),
+                        tipo: 'aleatoria',
+                        esCobroPrestamo: true,
+                        prestamoGastoId: targetGasto.id,
+                        cuotaPrestamoIdx: idxP + 1,
+                        personaPrestamo: personaPres,
+                        dia: parseInt(pt.fecha.slice(8, 10), 10) || 15,
+                        fecha: pt.fecha,
+                        monto: pt.montoUsd,
+                        monedaOrigen: pt.monedaOrigen || 'USD',
+                        montoOriginalBs: pt.monedaOrigen === 'VES' ? pt.montoOriginal : 0,
+                        tarjetaId: (trjGId && trjGId !== '__EFECTIVO__') ? trjGId : null,
+                        cobrado: false,
+                        timestamp: nowGas + idxP,
+                        fechaActualizacion: nowGas
+                    });
+                });
+            }
+        }
+    } else {
+        targetGasto = {
+            id: "GAS-" + nowGas,
+            tipo: tipo,
+            categoria: c,
+            concepto: cp,
+            dia: d,
+            fecha: fecha,
+            monto: m,
+            monedaOrigen: monIn,
+            montoOriginalBs: (monIn === 'VES') ? conv.bs : 0,
+            tasaTipo: tasaModo,
+            tasaUsada: conv.tasaUsada || 0,
+            pilar: pilar,
+            tarjetaId: trjGId || null,
+            esPrestamo: esPres,
+            personaPrestamo: personaPres,
+            tipoDevolucionPrestamo: modDev,
+            cuotasPrestamo: partesPrestamo,
+            pagado: descontarAhora,
+            montoAbonado: descontarAhora ? m : 0,
+            fechaPago: descontarAhora ? new Date().toISOString() : undefined,
+            timestamp: nowGas,
+            fechaActualizacion: nowGas
+        };
+
+        if (descontarAhora && trjGId && trjGId !== '__EFECTIVO__') {
+            var movNew = aplicarTarjetasMovimientoFinanzas(targetGasto, false, [{ tarjetaId: trjGId, montoUsd: m }], (esPres ? 'Préstamo a ' + personaPres : ('Gasto: ' + cp)));
+            if (!movNew || movNew.length === 0) {
+                targetGasto.pagado = false;
+                targetGasto.montoAbonado = 0;
+                delete targetGasto.fechaPago;
+                alert("Guardado pendiente: no hay tasa API cargada para convertir y descontar de esa tarjeta en Bs.");
+            }
+        }
+
+        APP_STATE.finanzas.gastos.push(targetGasto);
+
+        if (esPres && partesPrestamo.length > 0) {
+            partesPrestamo.forEach(function(pt, idxP) {
+                APP_STATE.finanzas.ingresos.push({
+                    id: 'ING-PREST-' + nowGas + '-' + (idxP + 1),
+                    fuente: partesPrestamo.length > 1 ? ('Cobro Préstamo ' + personaPres + ' (Parte ' + (idxP + 1) + '/' + partesPrestamo.length + ')') : ('Cobro Préstamo ' + personaPres),
+                    tipo: 'aleatoria',
+                    esCobroPrestamo: true,
+                    prestamoGastoId: targetGasto.id,
+                    cuotaPrestamoIdx: idxP + 1,
+                    personaPrestamo: personaPres,
+                    dia: parseInt(pt.fecha.slice(8, 10), 10) || 15,
+                    fecha: pt.fecha,
+                    monto: pt.montoUsd,
+                    monedaOrigen: pt.monedaOrigen || 'USD',
+                    montoOriginalBs: pt.monedaOrigen === 'VES' ? pt.montoOriginal : 0,
+                    tarjetaId: (trjGId && trjGId !== '__EFECTIVO__') ? trjGId : null,
+                    cobrado: false,
+                    timestamp: nowGas + idxP,
+                    fechaActualizacion: nowGas
+                });
+            });
+        }
+    }
 
     if (inCp) inCp.value = "";
     if (inM) inM.value = "";
@@ -1658,9 +2750,27 @@ function confirmarAgregarGasto() {
 
 function pagarGastoUI(id) {
     if (!APP_STATE.finanzas || !APP_STATE.finanzas.gastos) return;
+    var tarjetas = (typeof asegurarArrayTarjetasFinanzas === 'function') ? asegurarArrayTarjetasFinanzas() : [];
     for (var i = 0; i < APP_STATE.finanzas.gastos.length; i++) {
         var g = APP_STATE.finanzas.gastos[i];
         if (g.id === id) {
+            if (!g.pagado && (!g.tarjetaId || g.tarjetaId === '') && tarjetas.length > 0) {
+                if (typeof abrirModalAbonoPlanificacion === 'function') {
+                    var existeEnPlan = (typeof buscarItemPlanificacionPorClave === 'function') ? buscarItemPlanificacionPorClave('gasto', g.id) : null;
+                    if (existeEnPlan) {
+                        abrirModalAbonoPlanificacion('gasto', g.id, 'completo');
+                        return;
+                    }
+                }
+                if (typeof editarGastoFinanzasUI === 'function') {
+                    editarGastoFinanzasUI(g.id);
+                    var selEdT = document.getElementById('modal-gasto-tarjeta');
+                    var chkEdD = document.getElementById('modal-gasto-descontar-ahora');
+                    if (chkEdD) chkEdD.checked = true;
+                    if (selEdT) selEdT.focus();
+                    return;
+                }
+            }
             var estG = (typeof normalizarAbonosGasto === 'function')
                 ? normalizarAbonosGasto(g)
                 : { restante: Number(g.monto) || 0, abonado: 0 };
@@ -1668,7 +2778,7 @@ function pagarGastoUI(id) {
                 var montoRest = estG.restante;
                 if (Array.isArray(g.abonos) && g.abonos.length > 0 && montoRest > 0.009) {
                     var abId = 'PLA-' + Date.now();
-                    var movPart = (g.tarjetaId && typeof aplicarMovimientoEnTarjeta === 'function')
+                    var movPart = (g.tarjetaId && g.tarjetaId !== '__EFECTIVO__' && typeof aplicarMovimientoEnTarjeta === 'function')
                         ? aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', montoRest, 'USD', 'Liquidación gasto: ' + (g.concepto || g.categoria || 'Pago'), abId)
                         : null;
                     g.abonos.push({
@@ -1676,7 +2786,7 @@ function pagarGastoUI(id) {
                         montoUsd: montoRest,
                         montoBs: movPart ? (movPart.tasaUsada * montoRest) : 0,
                         tasaUsada: movPart ? movPart.tasaUsada : 0,
-                        tarjetaId: g.tarjetaId || null,
+                        tarjetaId: (g.tarjetaId && g.tarjetaId !== '__EFECTIVO__') ? g.tarjetaId : null,
                         deltaNativo: movPart ? movPart.deltaNativo : 0,
                         deltaUsdRef: movPart ? movPart.deltaUsdRef : 0,
                         nota: 'Liquidación gasto',
@@ -1687,12 +2797,8 @@ function pagarGastoUI(id) {
                     g.pagado = true;
                     g.montoAbonado = Number(g.monto) || 0;
                     g.fechaPago = new Date().toISOString();
-                    if (g.tarjetaId && Number(g.monto) > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
-                        var movGas = aplicarMovimientoEnTarjeta(g.tarjetaId, 'retiro', Number(g.monto), 'USD', 'Gasto: ' + (g.concepto || g.categoria || 'Pago'), g.id);
-                        if (movGas) {
-                            g.tarjetaDeltaNativo = movGas.deltaNativo;
-                            g.tarjetaDeltaUsdRef = movGas.deltaUsdRef;
-                        }
+                    if (g.tarjetaId && g.tarjetaId !== '__EFECTIVO__' && Number(g.monto) > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+                        aplicarTarjetasMovimientoFinanzas(g, false, [{ tarjetaId: g.tarjetaId, montoUsd: Number(g.monto) }], 'Gasto: ' + (g.concepto || g.categoria || 'Pago'));
                     }
                 }
                 g.fechaActualizacion = Date.now();
@@ -1717,11 +2823,7 @@ function deshacerPagoGastoUI(id) {
                 });
                 g.abonos = [];
             }
-            if (g.tarjetaId && g.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
-                revertirMovimientoEnTarjeta(g.tarjetaId, false, g.tarjetaDeltaNativo, g.tarjetaDeltaUsdRef, g.id);
-                delete g.tarjetaDeltaNativo;
-                delete g.tarjetaDeltaUsdRef;
-            }
+            revertirTarjetasMovimientoFinanzas(g, false);
             g.pagado = false;
             g.montoAbonado = 0;
             delete g.fechaPago;
@@ -1769,6 +2871,25 @@ function generarArrayFechasCuotas(fechaInicioStr, numCuotas, tipoFrecuencia, dia
     return fechas;
 }
 
+function seleccionarModalidadDeudaModal(modalidad) {
+    var esLibre = (modalidad === 'libre');
+    var inMod = document.getElementById('modal-deuda-modalidad');
+    var btnC = document.getElementById('btn-deuda-mod-cuotas');
+    var btnL = document.getElementById('btn-deuda-mod-libre');
+    var grpCuotasWrap = document.getElementById('grupo-deuda-cuotas-wrap');
+    var grpCrono = document.getElementById('grupo-deuda-cronograma-campos');
+    var btnSave = document.getElementById('btn-confirmar-guardar-deuda');
+
+    if (inMod) inMod.value = esLibre ? 'libre' : 'cuotas_fijas';
+    if (btnC) btnC.classList.toggle('is-active', !esLibre);
+    if (btnL) btnL.classList.toggle('is-active', esLibre);
+    if (grpCuotasWrap) grpCuotasWrap.style.display = esLibre ? 'none' : 'block';
+    if (grpCrono) grpCrono.style.display = esLibre ? 'none' : 'grid';
+    if (btnSave) btnSave.textContent = esLibre ? '✓ Guardar Deuda Flexible' : '✓ Guardar & Crear Cronograma';
+
+    alCambiarValoresModalDeuda();
+}
+
 function alCambiarFrecuenciaModalDeuda() {
     var sel = document.getElementById('modal-deuda-frecuencia');
     var grupoCustom = document.getElementById('grupo-deuda-dias-custom');
@@ -1796,6 +2917,8 @@ function alCambiarFrecuenciaModalDeuda() {
 }
 
 function alCambiarValoresModalDeuda() {
+    var inMod = document.getElementById('modal-deuda-modalidad');
+    var esLibre = !!(inMod && inMod.value === 'libre');
     var inTotal = document.getElementById('modal-deuda-precio-total');
     var inIni = document.getElementById('modal-deuda-inicial');
     var inRest = document.getElementById('modal-deuda-restante');
@@ -1803,15 +2926,48 @@ function alCambiarValoresModalDeuda() {
     var inFrec = document.getElementById('modal-deuda-frecuencia');
     var inCustom = document.getElementById('modal-deuda-dias-custom');
     var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+    var selMon = document.getElementById('modal-deuda-moneda');
+    var selTasa = document.getElementById('modal-deuda-tasa-tipo');
+    var convPrev = document.getElementById('modal-deuda-conv-preview');
     var labelValor = document.getElementById('label-valor-cada-cuota');
     var textDetalle = document.getElementById('texto-detalle-cronograma-deuda');
 
-    var total = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
-    var inicial = inIni ? (parseFloat(inIni.value) || 0) : 0;
+    var monIn = selMon ? selMon.value : 'USD';
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    if (selTasa) selTasa.style.display = (monIn === 'VES') ? 'block' : 'none';
+
+    var rawTotal = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
+    var rawIni = inIni ? (parseFloat(inIni.value) || 0) : 0;
+    var convTot = convertirMontoFinanzasAUsd(rawTotal, monIn, tasaModo);
+    var convIni = convertirMontoFinanzasAUsd(rawIni, monIn, tasaModo);
+
+    var total = convTot.valido ? convTot.usd : 0;
+    var inicial = convIni.valido ? convIni.usd : 0;
     if (inicial > total && total > 0) inicial = total;
-    var restante = Math.max(0, total - inicial);
+    var restante = Math.max(0, Math.round((total - inicial) * 100) / 100);
+
+    if (convPrev) {
+        if (monIn === 'VES' && rawTotal > 0) {
+            convPrev.style.display = 'block';
+            convPrev.innerHTML = convTot.valido
+                ? ('Total: <strong style="color:#fbbf24;">$' + total.toFixed(2) + ' USD</strong> · Inicial: <strong style="color:#34d399;">$' + inicial.toFixed(2) + '</strong> (Tasa ' + escaparHTML(convTot.tasaLabel) + ': ' + Number(convTot.tasaUsada).toFixed(2) + ')')
+                : '⚠️ Sin tasa API cargada en caché para convertir Bs. a $.';
+        } else {
+            convPrev.style.display = 'none';
+        }
+    }
 
     if (inRest) inRest.value = '$' + restante.toFixed(2);
+
+    if (esLibre) {
+        if (labelValor) labelValor.textContent = 'A tu ritmo · Sin cuotas fijas';
+        if (textDetalle) {
+            textDetalle.innerHTML = total <= 0
+                ? 'Ingresa el monto total de la deuda. Podrás abonar cuando quieras sin alertas de vencimiento.'
+                : 'Restante flexible: <strong style="color:#67e8f9;">$' + restante.toFixed(2) + '</strong>. Abona en $ o Bs. poco a poco desde el botón <strong>💵 Abonar</strong> (sin fechas fijas ni cobros obligatorios 15 y último).';
+        }
+        return;
+    }
 
     var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
     if (numCuotas < 1) numCuotas = 1;
@@ -1875,6 +3031,8 @@ function abrirModalDeuda() {
         var inCustom = document.getElementById('modal-deuda-dias-custom');
         var grupoCustom = document.getElementById('grupo-deuda-dias-custom');
         var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+        var selMon = document.getElementById('modal-deuda-moneda');
+        var selTasa = document.getElementById('modal-deuda-tasa-tipo');
 
         if (inN) inN.value = '';
         if (inTotal) inTotal.value = '';
@@ -1883,6 +3041,8 @@ function abrirModalDeuda() {
         if (inFrec) inFrec.value = 'quince_ultimo';
         if (grupoCustom) grupoCustom.style.display = 'none';
         if (inCustom) inCustom.value = '';
+        if (selMon) selMon.value = 'USD';
+        if (selTasa) selTasa.value = 'bcv';
 
         var hoy = new Date();
         var y = hoy.getFullYear();
@@ -1892,7 +3052,7 @@ function abrirModalDeuda() {
         var sugerida = (d <= 15) ? new Date(y, mMes, 15, 12, 0, 0) : new Date(y, mMes, ultDia, 12, 0, 0);
         if (inFecha) inFecha.value = sugerida.toISOString().slice(0, 10);
 
-        alCambiarValoresModalDeuda();
+        seleccionarModalidadDeudaModal('cuotas_fijas');
         setTimeout(function() { if (inN) inN.focus(); }, 120);
     }
 }
@@ -1903,6 +3063,8 @@ function cerrarModalDeuda() {
 }
 
 function confirmarAgregarDeuda() {
+    var inMod = document.getElementById('modal-deuda-modalidad');
+    var esLibre = !!(inMod && inMod.value === 'libre');
     var inN = document.getElementById('modal-deuda-nombre');
     var inCat = document.getElementById('modal-deuda-categoria');
     var inTotal = document.getElementById('modal-deuda-precio-total');
@@ -1911,81 +3073,126 @@ function confirmarAgregarDeuda() {
     var inFrec = document.getElementById('modal-deuda-frecuencia');
     var inCustom = document.getElementById('modal-deuda-dias-custom');
     var inFecha = document.getElementById('modal-deuda-fecha-inicio');
+    var selMon = document.getElementById('modal-deuda-moneda');
+    var selTasa = document.getElementById('modal-deuda-tasa-tipo');
 
     var nombre = inN ? inN.value.trim() : '';
     var categoria = inCat ? inCat.value : '📦 Otros Compromisos';
-    var total = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
-    var inicial = inIni ? (parseFloat(inIni.value) || 0) : 0;
-    var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
-
-    var tipoFrec = inFrec ? inFrec.value : 'quince_ultimo';
-    var diasFrec = 15;
-    if (tipoFrec === 'custom') {
-        diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
-    } else if (tipoFrec === 'quince_ultimo') {
-        diasFrec = 15;
-    } else {
-        diasFrec = parseInt(tipoFrec, 10) || 15;
-    }
-    var fechaInicio = inFecha ? inFecha.value : new Date().toISOString().slice(0, 10);
+    var monIn = selMon ? selMon.value : 'USD';
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    var rawTotal = inTotal ? (parseFloat(inTotal.value) || 0) : 0;
+    var rawIni = inIni ? (parseFloat(inIni.value) || 0) : 0;
 
     if (!nombre) {
-        alert('Por favor escribe el nombre de la deuda o crédito (ej: Teléfono Xiaomi, Moto, Préstamo).');
+        alert('Por favor escribe el nombre de la deuda o crédito.');
         if (inN) inN.focus();
         return;
     }
-    if (total <= 0) {
-        alert('Ingresa un precio total válido mayor a 0.');
+    if (rawTotal <= 0) {
+        alert('Ingresa un monto total válido mayor a 0.');
         if (inTotal) inTotal.focus();
         return;
     }
-    if (numCuotas < 1) {
-        alert('El número de cuotas debe ser al menos 1.');
-        if (inCuotas) inCuotas.focus();
+
+    var convTot = convertirMontoFinanzasAUsd(rawTotal, monIn, tasaModo);
+    var convIni = convertirMontoFinanzasAUsd(rawIni, monIn, tasaModo);
+    if (!convTot.valido || convTot.usd <= 0) {
+        alert('No hay tasa API en caché para convertir Bolívares a $ USD.');
         return;
     }
 
-    var restante = Math.max(0, total - inicial);
-    var montoPorCuota = Math.round((restante / numCuotas) * 100) / 100;
-
-    var fechasCuotas = generarArrayFechasCuotas(fechaInicio, numCuotas, tipoFrec, diasFrec);
-    var cuotas = [];
-    for (var i = 1; i <= numCuotas; i++) {
-        cuotas.push({
-            num: i,
-            fecha: fechasCuotas[i - 1] || fechaInicio,
-            monto: montoPorCuota,
-            pagada: false,
-            fechaPago: null
-        });
-    }
+    var total = convTot.usd;
+    var inicial = Math.min(total, convIni.valido ? convIni.usd : 0);
+    var restante = Math.max(0, Math.round((total - inicial) * 100) / 100);
 
     if (!APP_STATE.finanzas) APP_STATE.finanzas = DEFAULT_STATE.finanzas;
     if (!APP_STATE.finanzas.deudas) APP_STATE.finanzas.deudas = [];
 
-    var baseDate = new Date(fechaInicio + 'T12:00:00');
     var nowDeu = Date.now();
-    var nuevaDeuda = {
-        id: 'DEU-' + nowDeu,
-        nombre: nombre,
-        categoria: categoria,
-        iconoCategoria: categoria.slice(0, 2),
-        precioTotal: total,
-        pagoInicial: inicial,
-        montoRestante: restante,
-        cuotasTotal: numCuotas,
-        cuotasPagadas: 0,
-        montoCuota: montoPorCuota,
-        tipoFrecuencia: tipoFrec,
-        diasFrecuencia: diasFrec,
-        fechaInicio: fechaInicio,
-        cuotas: cuotas,
-        montoTotal: restante,
-        dia: isNaN(baseDate.getDate()) ? 15 : baseDate.getDate(),
-        pagada: restante <= 0,
-        timestamp: nowDeu,
-        fechaActualizacion: nowDeu
-    };
+    var nuevaDeuda;
+
+    if (esLibre) {
+        nuevaDeuda = {
+            id: 'DEU-' + nowDeu,
+            nombre: nombre,
+            categoria: categoria,
+            iconoCategoria: categoria.slice(0, 2),
+            esFlexible: true,
+            tipoFrecuencia: 'libre',
+            diasFrecuencia: 0,
+            precioTotal: total,
+            pagoInicial: inicial,
+            montoRestante: restante,
+            cuotasTotal: 0,
+            cuotasPagadas: 0,
+            montoCuota: 0,
+            fechaInicio: '',
+            cuotas: [],
+            abonosLibres: [],
+            monedaOrigen: monIn,
+            montoOriginalBs: monIn === 'VES' ? convTot.bs : 0,
+            montoTotal: restante,
+            dia: 0,
+            pagada: restante <= 0,
+            timestamp: nowDeu,
+            fechaActualizacion: nowDeu
+        };
+    } else {
+        var numCuotas = inCuotas ? (parseInt(inCuotas.value, 10) || 1) : 1;
+        if (numCuotas < 1) {
+            alert('El número de cuotas debe ser al menos 1.');
+            if (inCuotas) inCuotas.focus();
+            return;
+        }
+        var tipoFrec = inFrec ? inFrec.value : 'quince_ultimo';
+        var diasFrec = 15;
+        if (tipoFrec === 'custom') {
+            diasFrec = inCustom ? (parseInt(inCustom.value, 10) || 15) : 15;
+        } else if (tipoFrec === 'quince_ultimo') {
+            diasFrec = 15;
+        } else {
+            diasFrec = parseInt(tipoFrec, 10) || 15;
+        }
+        var fechaInicio = inFecha ? inFecha.value : new Date().toISOString().slice(0, 10);
+        var montoPorCuota = Math.round((restante / numCuotas) * 100) / 100;
+        var fechasCuotas = generarArrayFechasCuotas(fechaInicio, numCuotas, tipoFrec, diasFrec);
+        var cuotas = [];
+        for (var i = 1; i <= numCuotas; i++) {
+            cuotas.push({
+                num: i,
+                fecha: fechasCuotas[i - 1] || fechaInicio,
+                monto: montoPorCuota,
+                pagada: false,
+                fechaPago: null
+            });
+        }
+        var baseDate = new Date(fechaInicio + 'T12:00:00');
+        nuevaDeuda = {
+            id: 'DEU-' + nowDeu,
+            nombre: nombre,
+            categoria: categoria,
+            iconoCategoria: categoria.slice(0, 2),
+            esFlexible: false,
+            precioTotal: total,
+            pagoInicial: inicial,
+            montoRestante: restante,
+            cuotasTotal: numCuotas,
+            cuotasPagadas: 0,
+            montoCuota: montoPorCuota,
+            tipoFrecuencia: tipoFrec,
+            diasFrecuencia: diasFrec,
+            fechaInicio: fechaInicio,
+            cuotas: cuotas,
+            abonosLibres: [],
+            monedaOrigen: monIn,
+            montoOriginalBs: monIn === 'VES' ? convTot.bs : 0,
+            montoTotal: restante,
+            dia: isNaN(baseDate.getDate()) ? 15 : baseDate.getDate(),
+            pagada: restante <= 0,
+            timestamp: nowDeu,
+            fechaActualizacion: nowDeu
+        };
+    }
 
     APP_STATE.finanzas.deudas.unshift(nuevaDeuda);
     MonarcaDB.save(APP_STATE);
@@ -2109,8 +3316,40 @@ function actualizarPreviewCobroTarjeta() {
     var prev = document.getElementById('modal-cobro-tarjeta-preview');
     var selTarj = document.getElementById('modal-cobro-ingreso-tarjeta');
     var inReal = document.getElementById('modal-cobro-ingreso-real');
-    if (!prev || !selTarj) return;
+    if (esModoSplitTarjetasActivo('cobro')) {
+        actualizarResumenSplitTarjetasUI('cobro');
+    }
+    if (!prev) return;
 
+    if (esModoSplitTarjetasActivo('cobro')) {
+        var filas = leerFilasSplitTarjetasModal('cobro');
+        if (filas.length === 0) {
+            prev.style.display = 'none';
+            return;
+        }
+        var tarjetas = asegurarArrayTarjetasFinanzas();
+        var partesHtml = filas.map(function(r) {
+            var tObj = tarjetas.find(function(x) { return x.id === r.tarjetaId; });
+            if (!tObj) return '';
+            var est = calcularEstadoTarjetaEnVivo(tObj);
+            if (est.monedaBase === 'USD') {
+                return '• <strong style="color:#fbbf24;">+' + formatearUsdTarjeta(r.montoUsd) + ' USDT</strong> a ' + escaparHTML(construirTituloTarjeta(tObj));
+            }
+            if (est.tasaActual > 0) {
+                return '• <strong style="color:#7dd3fc;">+' + formatearTasaBsDisplay(r.montoUsd * est.tasaActual, 2) + '</strong> (' + formatearUsdTarjeta(r.montoUsd) + ') a ' + escaparHTML(construirTituloTarjeta(tObj));
+            }
+            return '• +$' + r.montoUsd.toFixed(2) + ' a ' + escaparHTML(construirTituloTarjeta(tObj));
+        }).filter(Boolean);
+        if (partesHtml.length === 0) {
+            prev.style.display = 'none';
+            return;
+        }
+        prev.style.display = 'block';
+        prev.innerHTML = partesHtml.join('<br>');
+        return;
+    }
+
+    if (!selTarj) return;
     var trjId = selTarj.value;
     if (!trjId) {
         prev.style.display = 'none';
@@ -2141,7 +3380,6 @@ function cobrarIngresoUI(id) {
     var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
     if (!item) return;
 
-    // Abrir panel/modal para colocar lo que realmente se cobró hoy
     var modal = document.getElementById('modal-confirmar-cobro-ingreso');
     if (modal) {
         if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
@@ -2162,9 +3400,21 @@ function cobrarIngresoUI(id) {
         if (elTitulo) elTitulo.innerText = tit;
         if (elProy) elProy.innerText = '$' + mProy.toFixed(2);
         if (inReal) inReal.value = mDefecto.toFixed(2);
-        if (selTarj) {
-            var existeTarj = item.tarjetaId && asegurarArrayTarjetasFinanzas().some(function(x) { return x.id === item.tarjetaId; });
-            selTarj.value = existeTarj ? item.tarjetaId : '';
+
+        var tarjetas = asegurarArrayTarjetasFinanzas();
+        var distPre = Array.isArray(item.tarjetasMovs) && item.tarjetasMovs.length > 0
+            ? item.tarjetasMovs.map(function(r) { return { tarjetaId: r.tarjetaId, montoUsd: r.montoUsd || r.deltaUsdRef || 0 }; })
+            : (Array.isArray(item.tarjetasDistribucion) && item.tarjetasDistribucion.length > 0 ? item.tarjetasDistribucion : null);
+
+        if (distPre && distPre.length > 1) {
+            establecerModoSplitTarjetasModal('cobro', true, distPre);
+        } else {
+            establecerModoSplitTarjetasModal('cobro', false);
+            var idPre = (distPre && distPre.length === 1) ? distPre[0].tarjetaId : (item.tarjetaId || '');
+            if (selTarj) {
+                var existeTarj = idPre && tarjetas.some(function(x) { return x.id === idPre; });
+                selTarj.value = existeTarj ? idPre : '';
+            }
         }
         actualizarPreviewCobroTarjeta();
 
@@ -2178,7 +3428,6 @@ function cobrarIngresoUI(id) {
         return;
     }
 
-    // Fallback directo
     item.cobrado = true;
     item.fechaCobro = new Date().toISOString();
     MonarcaDB.save(APP_STATE);
@@ -2233,7 +3482,26 @@ function ejecutarCobroIngresoReal() {
         return;
     }
     montoVal = Math.round(montoVal * 100) / 100;
-    var trjId = selTarj ? selTarj.value : '';
+
+    var distCobro = [];
+    var esSplit = esModoSplitTarjetasActivo('cobro');
+    if (esSplit) {
+        distCobro = leerFilasSplitTarjetasModal('cobro');
+        if (distCobro.length === 0) {
+            alert("Agrega al menos 1 tarjeta con monto en la división o vuelve a 1 sola tarjeta.");
+            return;
+        }
+        var sumSplitC = Math.round(distCobro.reduce(function(acc, r) { return acc + r.montoUsd; }, 0) * 100) / 100;
+        if (Math.abs(sumSplitC - montoVal) > 0.05) {
+            alert("La suma asignada a las tarjetas ($" + sumSplitC.toFixed(2) + ") debe coincidir con lo cobrado ($" + montoVal.toFixed(2) + ").");
+            return;
+        }
+    } else {
+        var trjId = selTarj ? selTarj.value : '';
+        if (trjId && montoVal > 0) {
+            distCobro = [{ tarjetaId: trjId, montoUsd: montoVal }];
+        }
+    }
 
     // Caso especial: Pago de Sueldo / Bono de Boom Solutions
     if (id.indexOf('BOOM:') === 0) {
@@ -2280,8 +3548,9 @@ function ejecutarCobroIngresoReal() {
         var targetBoomItem = existe;
 
         if (targetBoomItem) {
+            revertirTarjetasMovimientoFinanzas(targetBoomItem, true);
             targetBoomItem.cobrado = true;
-            targetBoomItem.tipo = 'fija'; // Pagos programados
+            targetBoomItem.tipo = 'fija';
             targetBoomItem.categoria = "Sueldos & Pagos Programados";
             targetBoomItem.fuente = concepto;
             targetBoomItem.monto = montoProy;
@@ -2293,7 +3562,7 @@ function ejecutarCobroIngresoReal() {
             targetBoomItem = {
                 id: idFinanza,
                 fuente: concepto,
-                tipo: 'fija', // Pagos programados en Finanzas
+                tipo: 'fija',
                 categoria: "Sueldos & Pagos Programados",
                 monto: montoProy,
                 montoCobrado: montoVal,
@@ -2305,20 +3574,12 @@ function ejecutarCobroIngresoReal() {
             APP_STATE.finanzas.ingresos.push(targetBoomItem);
         }
 
-        if (targetBoomItem.tarjetaId && targetBoomItem.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
-            revertirMovimientoEnTarjeta(targetBoomItem.tarjetaId, true, targetBoomItem.tarjetaDeltaNativo, targetBoomItem.tarjetaDeltaUsdRef, idFinanza);
-            delete targetBoomItem.tarjetaDeltaNativo;
-            delete targetBoomItem.tarjetaDeltaUsdRef;
-        }
-        if (trjId && montoVal > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
-            var movBoom = aplicarMovimientoEnTarjeta(trjId, 'ingreso', montoVal, 'USD', concepto, idFinanza);
-            if (movBoom) {
-                targetBoomItem.tarjetaId = trjId;
-                targetBoomItem.tarjetaDeltaNativo = movBoom.deltaNativo;
-                targetBoomItem.tarjetaDeltaUsdRef = movBoom.deltaUsdRef;
-            }
-        } else if (!trjId) {
+        targetBoomItem.tarjetasDistribucion = distCobro.slice();
+        if (distCobro.length > 0 && montoVal > 0) {
+            aplicarTarjetasMovimientoFinanzas(targetBoomItem, true, distCobro, concepto);
+        } else {
             delete targetBoomItem.tarjetaId;
+            targetBoomItem.tarjetasMovs = [];
         }
 
         MonarcaDB.save(APP_STATE);
@@ -2333,26 +3594,19 @@ function ejecutarCobroIngresoReal() {
     var item = APP_STATE.finanzas.ingresos.find(function(x) { return x.id === id; });
     if (!item) return;
 
-    if (item.tarjetaId && item.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
-        revertirMovimientoEnTarjeta(item.tarjetaId, true, item.tarjetaDeltaNativo, item.tarjetaDeltaUsdRef, item.id);
-        delete item.tarjetaDeltaNativo;
-        delete item.tarjetaDeltaUsdRef;
-    }
+    revertirTarjetasMovimientoFinanzas(item, true);
 
     item.cobrado = true;
     item.montoCobrado = montoVal;
     item.fechaCobro = new Date().toISOString();
+    item.tarjetasDistribucion = distCobro.slice();
 
-    if (trjId && montoVal > 0 && typeof aplicarMovimientoEnTarjeta === 'function') {
+    if (distCobro.length > 0 && montoVal > 0) {
         var titMov = item.fuente || item.concepto || item.nombre || 'Cobro Finanzas';
-        var movRes = aplicarMovimientoEnTarjeta(trjId, 'ingreso', montoVal, 'USD', titMov, item.id);
-        if (movRes) {
-            item.tarjetaId = trjId;
-            item.tarjetaDeltaNativo = movRes.deltaNativo;
-            item.tarjetaDeltaUsdRef = movRes.deltaUsdRef;
-        }
-    } else if (!trjId) {
+        aplicarTarjetasMovimientoFinanzas(item, true, distCobro, titMov);
+    } else {
         delete item.tarjetaId;
+        item.tarjetasMovs = [];
     }
 
     // Sincronizar con Boom Solutions si este ingreso corresponde a Boom
@@ -2412,16 +3666,11 @@ function deshacerCobroIngresoUI(id) {
         for (var i = 0; i < APP_STATE.finanzas.ingresos.length; i++) {
             if (APP_STATE.finanzas.ingresos[i].id === id) {
                 var item = APP_STATE.finanzas.ingresos[i];
-                if (item.tarjetaId && item.tarjetaDeltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
-                    revertirMovimientoEnTarjeta(item.tarjetaId, true, item.tarjetaDeltaNativo, item.tarjetaDeltaUsdRef, item.id);
-                    delete item.tarjetaDeltaNativo;
-                    delete item.tarjetaDeltaUsdRef;
-                }
+                revertirTarjetasMovimientoFinanzas(item, true);
                 item.cobrado = false;
                 delete item.montoCobrado;
                 delete item.fechaCobro;
 
-                // Sincronizar cuota de venta en Inventario si proviene de una venta a crédito
                 if (item.ventaId && item.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
                     var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === item.ventaId; });
                     if (vObj && Array.isArray(vObj.cuotas)) {
@@ -2433,7 +3682,6 @@ function deshacerCobroIngresoUI(id) {
                     }
                 }
 
-                // Sincronizar con Boom Solutions si es un pago originado allí o vinculado a Boom
                 var descB = ((item.fuente || item.concepto || item.descripcion || '') + ' ' + (item.categoria || '')).toLowerCase();
                 var idStrB = String(item.id || '').toLowerCase();
                 if ((idStrB.indexOf('boom') !== -1 || descB.indexOf('boom') !== -1 || item.origenLabor === 'LAB-BOOM') && APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) {
@@ -2471,6 +3719,32 @@ function normalizarDeuda(d) {
     if (!d) return;
     if (d.precioTotal == null) d.precioTotal = Number(d.montoTotal) || 0;
     if (d.pagoInicial == null) d.pagoInicial = 0;
+    if (!d.categoria) d.categoria = '📦 Otros Compromisos';
+    if (!d.iconoCategoria) d.iconoCategoria = d.categoria.slice(0, 2);
+    if (!Array.isArray(d.abonosLibres)) d.abonosLibres = [];
+
+    var totalAbonosLibres = 0;
+    d.abonosLibres.forEach(function(ab) {
+        totalAbonosLibres += (Number(ab.montoUsd) || 0);
+    });
+    totalAbonosLibres = Math.round(totalAbonosLibres * 100) / 100;
+
+    var esFlex = !!(d.esFlexible || d.tipoFrecuencia === 'libre');
+    if (esFlex) {
+        d.esFlexible = true;
+        d.tipoFrecuencia = 'libre';
+        d.diasFrecuencia = 0;
+        d.cuotasTotal = 0;
+        d.cuotasPagadas = d.abonosLibres.length;
+        d.montoCuota = 0;
+        d.cuotas = [];
+        d.montoRestante = Math.max(0, Math.round((Number(d.precioTotal) - Number(d.pagoInicial) - totalAbonosLibres) * 100) / 100);
+        if (d.montoRestante <= 0.009) d.montoRestante = 0;
+        d.montoTotal = d.montoRestante;
+        d.pagada = (d.montoRestante <= 0);
+        return;
+    }
+
     if (d.cuotasTotal == null) d.cuotasTotal = (d.cuotas && d.cuotas.length) ? d.cuotas.length : 1;
     if (d.cuotasPagadas == null) {
         if (d.cuotas && Array.isArray(d.cuotas)) {
@@ -2492,8 +3766,6 @@ function normalizarDeuda(d) {
         }
     }
     if (d.diasFrecuencia == null) d.diasFrecuencia = 15;
-    if (!d.categoria) d.categoria = '📦 Otros Compromisos';
-    if (!d.iconoCategoria) d.iconoCategoria = d.categoria.slice(0, 2);
 
     if (!Array.isArray(d.cuotas) || d.cuotas.length === 0) {
         var cuotas = [];
@@ -2514,13 +3786,6 @@ function normalizarDeuda(d) {
         }
         d.cuotas = cuotas;
     }
-
-    if (!Array.isArray(d.abonosLibres)) d.abonosLibres = [];
-    var totalAbonosLibres = 0;
-    d.abonosLibres.forEach(function(ab) {
-        totalAbonosLibres += (Number(ab.montoUsd) || 0);
-    });
-    totalAbonosLibres = Math.round(totalAbonosLibres * 100) / 100;
 
     var sumDirecto = 0;
     (d.cuotas || []).forEach(function(c) {
@@ -2706,12 +3971,14 @@ function toggleCronogramaDeudaUI(deudaId) {
     var el = document.getElementById('cronograma-deuda-' + deudaId);
     var btn = document.getElementById('btn-toggle-crono-' + deudaId);
     if (!el) return;
+    var showLbl = (btn && btn.getAttribute('data-show-lbl')) || '📅 Ver Cronograma de Cuotas ▾';
+    var hideLbl = (btn && btn.getAttribute('data-hide-lbl')) || '📅 Ocultar Cronograma ▴';
     if (el.style.display === 'none' || !el.style.display) {
         el.style.display = 'block';
-        if (btn) btn.innerHTML = '📅 Ocultar Cronograma ▴';
+        if (btn) btn.innerHTML = hideLbl;
     } else {
         el.style.display = 'none';
-        if (btn) btn.innerHTML = '📅 Ver Cronograma de Cuotas ▾';
+        if (btn) btn.innerHTML = showLbl;
     }
 }
 
@@ -2719,17 +3986,18 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
     var totPendientes = 0;
     var totPagadas = 0;
     var deudas = f.deudas || [];
+    var tarjetasFin = (typeof asegurarArrayTarjetasFinanzas === 'function') ? asegurarArrayTarjetasFinanzas() : [];
 
     // Normalizar todas las deudas
     deudas.forEach(function(d) { normalizarDeuda(d); });
 
-    // 1. Encontrar la próxima cuota a pagar más urgente
+    // 1. Encontrar la próxima cuota a pagar más urgente (excluyendo deudas flexibles sin fecha fija)
     var todasCuotasPendientes = [];
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     deudas.forEach(function(d) {
-        if (d.pagada) return;
+        if (d.pagada || d.esFlexible || d.tipoFrecuencia === 'libre') return;
         (d.cuotas || []).forEach(function(c) {
             if (!c.pagada) {
                 todasCuotasPendientes.push({
@@ -2759,8 +4027,8 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
             bannerEl.innerHTML = '<div class="banner-proxima-deuda-empty">' +
                 '<span style="font-size: 20px;">🛡️</span>' +
                 '<div>' +
-                    '<div style="font-weight: 700; color: #34d399; font-size: 13.5px;">¡Sin cuotas pendientes por pagar!</div>' +
-                    '<div style="font-size: 11.5px; color: #94a3b8;">No tienes deudas activas ni pagos urgentes programados. Excelente control financiero.</div>' +
+                    '<div style="font-weight: 700; color: #34d399; font-size: 13.5px;">¡Sin cuotas programadas pendientes!</div>' +
+                    '<div style="font-size: 11.5px; color: #94a3b8;">No tienes cuotas fijas por vencer. Tus deudas flexibles se manejan a tu propio ritmo.</div>' +
                 '</div>' +
             '</div>';
         } else {
@@ -2810,24 +4078,27 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
         }
     }
 
-    // 2. Renderizar Tarjetas de Deudas y Cronogramas
+    // 2. Renderizar Tarjetas de Deudas y Cronogramas / Historial Flexible
     var contDeudas = document.getElementById('lista-deudas-tx');
     if (contDeudas) {
         if (deudas.length === 0) {
             contDeudas.innerHTML = '<div class="finanzas-empty-hint">' +
-                'No hay deudas ni créditos registrados. Usa el botón "➕ Nueva Deuda" para registrar compras a crédito, teléfonos o préstamos.' +
+                'No hay deudas ni créditos registrados. Usa el botón "➕ Nueva Deuda" para registrar compras a crédito, préstamos o deudas flexibles a tu ritmo.' +
             '</div>';
         } else {
             var html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
 
             deudas.forEach(function(item) {
                 var estaPagada = !!item.pagada;
+                var esFlexible = !!(item.esFlexible || item.tipoFrecuencia === 'libre');
                 var precioTot = Number(item.precioTotal) || 0;
                 var ini = Number(item.pagoInicial) || 0;
                 var rest = Number(item.montoRestante) || 0;
                 var montoCuota = Number(item.montoCuota) || 0;
                 var numCuotas = Number(item.cuotasTotal) || 1;
                 var cuotasPagadas = Number(item.cuotasPagadas) || 0;
+                var abonosLib = Array.isArray(item.abonosLibres) ? item.abonosLibres : [];
+                var totalAbonosLibSum = Math.round(abonosLib.reduce(function(acc, ab) { return acc + (Number(ab.montoUsd) || 0); }, 0) * 100) / 100;
 
                 if (estaPagada) {
                     totPagadas += precioTot;
@@ -2841,63 +4112,136 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
 
                 var badgeEstado = estaPagada
                     ? '<span class="badge-deuda-liquidada">✅ 100% LIQUIDADA</span>'
-                    : '<span class="badge-deuda-activa">⏳ ' + cuotasPagadas + ' de ' + numCuotas + ' cuotas</span>';
+                    : (esFlexible
+                        ? '<span class="badge-deuda-flexible">🌊 A tu ritmo · ' + abonosLib.length + (abonosLib.length === 1 ? ' abono' : ' abonos') + '</span>'
+                        : '<span class="badge-deuda-activa">⏳ ' + cuotasPagadas + ' de ' + numCuotas + ' cuotas</span>');
 
-                // Generar filas del cronograma
                 var htmlCuotas = '';
                 var cuotasVencidasDeuda = 0;
-                (item.cuotas || []).forEach(function(c) {
-                    var fC = new Date(c.fecha + 'T00:00:00');
-                    var dDiff = Math.round((fC.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-                    var estadoCuota = '';
 
-                    if (c.pagada) {
-                        estadoCuota = '<span class="badge-cuota-pagada">✅ Pagada</span>';
-                    } else if (c.num === cuotasPagadas + 1) {
-                        estadoCuota = '<button type="button" class="btn-pagar-cuota-mini" onclick="pagarCuotaDeudaUI(\'' + item.id + '\', ' + c.num + ')">💳 Pagar Ahora</button>';
+                if (esFlexible) {
+                    if (abonosLib.length === 0) {
+                        htmlCuotas = '<div style="font-size: 11.5px; color: #94a3b8; padding: 8px 4px;">Aún no registras abonos en esta deuda flexible. Usa el botón <strong>💵 Abonar</strong> para ir pagando a tu ritmo.</div>';
                     } else {
-                        estadoCuota = '<span class="badge-cuota-pendiente">⏳ Pendiente</span>';
+                        htmlCuotas = abonosLib.slice().reverse().map(function(ab) {
+                            var fechaAbStr = (ab.fecha && typeof ab.fecha === 'string') ? formatearFechaCorta(ab.fecha.slice(0, 10)) : 'Hoy';
+                            var tObjAb = ab.tarjetaId ? tarjetasFin.find(function(x) { return x.id === ab.tarjetaId; }) : null;
+                            var trjBadge = tObjAb
+                                ? '<span class="badge-tarjeta-mov">💳 ' + escaparHTML(construirTituloTarjeta(tObjAb)) + '</span>'
+                                : '<span class="badge-cat" style="background:rgba(148,163,184,0.14); color:#cbd5e1; border:1px solid rgba(148,163,184,0.22);">💵 Caja</span>';
+                            var bsInfoAb = (ab.montoBs > 0 && ab.tasaUsada > 0)
+                                ? ' <span style="font-size:10.5px; color:#94a3b8;">(Bs. ' + Number(ab.montoBs).toFixed(2) + ')</span>'
+                                : '';
+                            return '<div class="cronograma-cuota-row cuota-pagada">' +
+                                '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                                    '<span style="font-size: 12px; font-weight: 700; color: #cbd5e1;">' + escaparHTML(fechaAbStr) + '</span>' +
+                                    '<span style="font-size: 11.5px; color: #94a3b8;">' + escaparHTML(ab.nota || 'Abono') + '</span>' +
+                                    trjBadge +
+                                '</div>' +
+                                '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">' +
+                                    '<span style="font-weight: 800; font-size: 12px; color: #34d399;">$' + Number(ab.montoUsd || 0).toFixed(2) + bsInfoAb + '</span>' +
+                                    '<button type="button" class="btn-mover-fecha-fin" style="padding:3px 7px; font-size:10.5px;" onclick="revertirAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'' + ab.id + '\')" title="Revertir este abono">↩</button>' +
+                                '</div>' +
+                            '</div>';
+                        }).join('');
                     }
+                } else {
+                    // Generar filas del cronograma fijo
+                    (item.cuotas || []).forEach(function(c) {
+                        var fC = new Date(c.fecha + 'T00:00:00');
+                        var dDiff = Math.round((fC.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                        var estadoCuota = '';
 
-                    var infoFecha = formatearFechaCorta(c.fecha);
-                    var btnMoverCuota = '';
-                    if (!c.pagada) {
-                        if (dDiff < 0) {
-                            cuotasVencidasDeuda++;
-                            infoFecha += ' <span style="color:#ef4444; font-size:10.5px; font-weight:700;">(hace ' + Math.abs(dDiff) + 'd)</span>';
-                        } else if (dDiff === 0) {
-                            infoFecha += ' <span style="color:#f59e0b; font-size:10.5px;">(¡Hoy!)</span>';
+                        if (c.pagada) {
+                            estadoCuota = '<span class="badge-cuota-pagada">✅ Pagada</span>';
+                        } else if (c.num === cuotasPagadas + 1) {
+                            estadoCuota = '<button type="button" class="btn-pagar-cuota-mini" onclick="pagarCuotaDeudaUI(\'' + item.id + '\', ' + c.num + ')">💳 Pagar Ahora</button>';
                         } else {
-                            infoFecha += ' <span style="color:#94a3b8; font-size:10.5px;">(en ' + dDiff + 'd)</span>';
+                            estadoCuota = '<span class="badge-cuota-pendiente">⏳ Pendiente</span>';
                         }
-                        var fechaCStr = (c.fecha || '').slice(0, 10);
-                        btnMoverCuota = '<button type="button" class="btn-mover-fecha-fin" style="padding:3px 7px; font-size:10.5px;" onclick="abrirModalMoverFechaFinanza(\'deuda_cuota\', \'' + item.id + '\', \'' + c.num + '\', \'' + fechaCStr.slice(0, 7) + '\', \'' + fechaCStr + '\', false)" title="Reprogramar fecha de cuota">📅 Mover</button>';
-                    }
 
-                    htmlCuotas += '<div class="cronograma-cuota-row ' + (c.pagada ? 'cuota-pagada' : (c.num === cuotasPagadas + 1 ? 'cuota-siguiente' : '')) + '">' +
-                        '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
-                            '<span style="font-weight: 800; font-size: 12px; color: #f8fafc;">#' + c.num + '</span>' +
-                            '<span style="font-size: 12px; color: #cbd5e1;">' + infoFecha + '</span>' +
-                        '</div>' +
-                        '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">' +
-                            '<span style="font-weight: 800; font-size: 12px; color: #38bdf8;">$' + Number(c.monto).toFixed(2) + '</span>' +
-                            estadoCuota +
-                            btnMoverCuota +
-                        '</div>' +
-                    '</div>';
-                });
+                        var infoFecha = formatearFechaCorta(c.fecha);
+                        var btnMoverCuota = '';
+                        if (!c.pagada) {
+                            if (dDiff < 0) {
+                                cuotasVencidasDeuda++;
+                                infoFecha += ' <span style="color:#ef4444; font-size:10.5px; font-weight:700;">(hace ' + Math.abs(dDiff) + 'd)</span>';
+                            } else if (dDiff === 0) {
+                                infoFecha += ' <span style="color:#f59e0b; font-size:10.5px;">(¡Hoy!)</span>';
+                            } else {
+                                infoFecha += ' <span style="color:#94a3b8; font-size:10.5px;">(en ' + dDiff + 'd)</span>';
+                            }
+                            var fechaCStr = (c.fecha || '').slice(0, 10);
+                            btnMoverCuota = '<button type="button" class="btn-mover-fecha-fin" style="padding:3px 7px; font-size:10.5px;" onclick="abrirModalMoverFechaFinanza(\'deuda_cuota\', \'' + item.id + '\', \'' + c.num + '\', \'' + fechaCStr.slice(0, 7) + '\', \'' + fechaCStr + '\', false)" title="Reprogramar fecha de cuota">📅 Mover</button>';
+                        }
 
-                var badgeVencidaDeuda = (!estaPagada && cuotasVencidasDeuda > 0)
+                        htmlCuotas += '<div class="cronograma-cuota-row ' + (c.pagada ? 'cuota-pagada' : (c.num === cuotasPagadas + 1 ? 'cuota-siguiente' : '')) + '">' +
+                            '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                                '<span style="font-weight: 800; font-size: 12px; color: #f8fafc;">#' + c.num + '</span>' +
+                                '<span style="font-size: 12px; color: #cbd5e1;">' + infoFecha + '</span>' +
+                            '</div>' +
+                            '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">' +
+                                '<span style="font-weight: 800; font-size: 12px; color: #38bdf8;">$' + Number(c.monto).toFixed(2) + '</span>' +
+                                estadoCuota +
+                                btnMoverCuota +
+                            '</div>' +
+                        '</div>';
+                    });
+                }
+
+                var badgeVencidaDeuda = (!estaPagada && !esFlexible && cuotasVencidasDeuda > 0)
                     ? '<span class="cuota-badge-vencida">🚨 ' + cuotasVencidasDeuda + ' retrasada' + (cuotasVencidasDeuda === 1 ? '' : 's') + '</span>'
                     : '';
 
                 var textoFrecuenciaItem = 'Cada ' + (item.diasFrecuencia || 15) + ' días';
-                if (item.tipoFrecuencia === 'quince_ultimo' || item.diasFrecuencia === 'quince_ultimo') {
+                if (esFlexible) {
+                    textoFrecuenciaItem = '🌊 Sin fecha fija (a tu ritmo)';
+                } else if (item.tipoFrecuencia === 'quince_ultimo' || item.diasFrecuencia === 'quince_ultimo') {
                     textoFrecuenciaItem = '🗓️ 15 y Último';
                 } else if (item.diasFrecuencia == 30) {
                     textoFrecuenciaItem = 'Mensual (30 días)';
                 } else if (item.diasFrecuencia == 7) {
                     textoFrecuenciaItem = 'Semanal (7 días)';
+                }
+
+                var lblToggleShow = esFlexible
+                    ? ('📜 Ver Historial de Abonos (' + abonosLib.length + ') ▾')
+                    : ('📅 Ver Cronograma de Cuotas (' + (item.cuotas ? item.cuotas.length : numCuotas) + ') ▾');
+                var lblToggleHide = esFlexible
+                    ? '📜 Ocultar Historial de Abonos ▴'
+                    : '📅 Ocultar Cronograma ▴';
+
+                var badgeMonedaOrigDeu = (item.monedaOrigen === 'VES' && item.montoOriginalBs > 0)
+                    ? '<span class="badge-cat" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.28);">💱 Bs. ' + Number(item.montoOriginalBs).toFixed(2) + '</span>'
+                    : '';
+
+                var actionsDeudaHtml = '';
+                if (esFlexible) {
+                    actionsDeudaHtml =
+                        (!estaPagada
+                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'abono\')">' +
+                                '💵 Abonar ($' + rest.toFixed(2) + ' pend.)' +
+                              '</button>'
+                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Deuda flexible completamente saldada ✓</span>') +
+                        (abonosLib.length > 0
+                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer último abono registrado">↩ Deshacer Abono</button>'
+                            : '') +
+                        (!estaPagada && rest > 0
+                            ? '<button type="button" class="btn-liquidar-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'completo\')" title="Liquidar todo el saldo restante">⚡ Liquidar Restante</button>'
+                            : '');
+                } else {
+                    actionsDeudaHtml =
+                        (!estaPagada
+                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="pagarCuotaDeudaUI(\'' + item.id + '\')">' +
+                                '💳 Pagar Cuota ' + (cuotasPagadas + 1) + ' ($' + montoCuota.toFixed(2) + ')' +
+                              '</button>'
+                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Crédito completamente amortizado ✓</span>') +
+                        ((cuotasPagadas > 0 || abonosLib.length > 0)
+                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota o abono pagado">↩ Deshacer Pago</button>'
+                            : '') +
+                        (!estaPagada && rest > 0
+                            ? '<button type="button" class="btn-liquidar-action" onclick="liquidarDeudaCompletaUI(\'' + item.id + '\')" title="Liquidar todo el saldo restante">⚡ Liquidar Todo</button>'
+                            : '');
                 }
 
                 html += '<div class="deuda-card-moderna ' + (estaPagada ? 'deuda-liquidada' : '') + '">' +
@@ -2910,6 +4254,7 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                                     '<span>' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
                                     '<span>•</span>' +
                                     '<span>' + textoFrecuenciaItem + '</span>' +
+                                    badgeMonedaOrigDeu +
                                     badgeVencidaDeuda +
                                 '</div>' +
                             '</div>' +
@@ -2942,8 +4287,8 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                             '<span class="dmb-val" style="color: #34d399;">$' + ini.toFixed(2) + '</span>' +
                         '</div>' +
                         '<div class="deuda-metric-box">' +
-                            '<span class="dmb-lbl">Valor Cuota</span>' +
-                            '<span class="dmb-val" style="color: #38bdf8;">$' + montoCuota.toFixed(2) + '</span>' +
+                            '<span class="dmb-lbl">' + (esFlexible ? 'Abonado Libre' : 'Valor Cuota') + '</span>' +
+                            '<span class="dmb-val" style="color: #38bdf8;">$' + (esFlexible ? totalAbonosLibSum : montoCuota).toFixed(2) + '</span>' +
                         '</div>' +
                         '<div class="deuda-metric-box">' +
                             '<span class="dmb-lbl">Pendiente</span>' +
@@ -2951,10 +4296,10 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                         '</div>' +
                     '</div>' +
 
-                    // Botón y panel del cronograma
+                    // Botón y panel del cronograma / historial de abonos
                     '<div style="margin-top: 10px;">' +
-                        '<button type="button" id="btn-toggle-crono-' + item.id + '" class="btn-toggle-cronograma" onclick="toggleCronogramaDeudaUI(\'' + item.id + '\')">' +
-                            '📅 Ver Cronograma de Cuotas (' + (item.cuotas ? item.cuotas.length : numCuotas) + ') ▾' +
+                        '<button type="button" id="btn-toggle-crono-' + item.id + '" class="btn-toggle-cronograma" data-show-lbl="' + escaparHTML(lblToggleShow) + '" data-hide-lbl="' + escaparHTML(lblToggleHide) + '" onclick="toggleCronogramaDeudaUI(\'' + item.id + '\')">' +
+                            lblToggleShow +
                         '</button>' +
                         '<div id="cronograma-deuda-' + item.id + '" class="cronograma-cuotas-container" style="display: none;">' +
                             htmlCuotas +
@@ -2963,17 +4308,7 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
 
                     // Acciones inferiores
                     '<div class="deuda-card-actions">' +
-                        (!estaPagada
-                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="pagarCuotaDeudaUI(\'' + item.id + '\')">' +
-                                '💳 Pagar Cuota ' + (cuotasPagadas + 1) + ' ($' + montoCuota.toFixed(2) + ')' +
-                              '</button>'
-                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Crédito completamente amortizado ✓</span>') +
-                        (cuotasPagadas > 0
-                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota pagada">↩ Deshacer Pago</button>'
-                            : '') +
-                        (!estaPagada && rest > 0
-                            ? '<button type="button" class="btn-liquidar-action" onclick="liquidarDeudaCompletaUI(\'' + item.id + '\')" title="Liquidar todo el saldo restante">⚡ Liquidar Todo</button>'
-                            : '') +
+                        actionsDeudaHtml +
                     '</div>' +
                 '</div>';
             });
@@ -3112,8 +4447,34 @@ function eliminarRegistroFinanzasUI(id, tipo) {
     }
 
     if (tipo === 'ingreso' && APP_STATE.finanzas.ingresos) {
+        var ingObj = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === id; });
+        if (ingObj && ingObj.cobrado) {
+            revertirTarjetasMovimientoFinanzas(ingObj, true);
+        }
         APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(x) { return x.id !== id; });
     } else if (tipo === 'gasto' && APP_STATE.finanzas.gastos) {
+        var gasObj = APP_STATE.finanzas.gastos.find(function(x) { return x && x.id === id; });
+        if (gasObj) {
+            if (Array.isArray(gasObj.abonos) && gasObj.abonos.length > 0) {
+                gasObj.abonos.forEach(function(ab) {
+                    if (ab && ab.tarjetaId && ab.deltaNativo && typeof revertirMovimientoEnTarjeta === 'function') {
+                        revertirMovimientoEnTarjeta(ab.tarjetaId, false, ab.deltaNativo, ab.deltaUsdRef, ab.id);
+                    }
+                });
+            }
+            if (gasObj.pagado) {
+                revertirTarjetasMovimientoFinanzas(gasObj, false);
+            }
+            if (gasObj.esPrestamo && Array.isArray(APP_STATE.finanzas.ingresos)) {
+                APP_STATE.finanzas.ingresos = APP_STATE.finanzas.ingresos.filter(function(ig) {
+                    if (ig && ig.prestamoGastoId === gasObj.id && !ig.cobrado) {
+                        if (typeof registrarTombstone === 'function') registrarTombstone('finanzas_ingresos', ig.id);
+                        return false;
+                    }
+                    return true;
+                });
+            }
+        }
         APP_STATE.finanzas.gastos = APP_STATE.finanzas.gastos.filter(function(x) { return x.id !== id; });
     } else if (tipo === 'deuda' && APP_STATE.finanzas.deudas) {
         APP_STATE.finanzas.deudas = APP_STATE.finanzas.deudas.filter(function(x) { return x.id !== id; });
@@ -3456,7 +4817,39 @@ function actualizarComparadorFrenoGasto(val, contenedorId) {
 }
 
 function alCambiarMontoGastoModal(val) {
-    actualizarComparadorFrenoGasto(val, 'contenedor-freno-impulso-modal-gasto');
+    var inM = document.getElementById('modal-gasto-monto');
+    var selMon = document.getElementById('modal-gasto-moneda');
+    var selTasa = document.getElementById('modal-gasto-tasa-tipo');
+    var prev = document.getElementById('modal-gasto-conv-preview');
+
+    var rawVal = (val !== undefined && val !== null && val !== '') ? parseFloat(val) : (inM ? parseFloat(inM.value) : 0);
+    if (isNaN(rawVal)) rawVal = 0;
+    var mon = selMon ? selMon.value : 'USD';
+    var tasaModo = selTasa ? selTasa.value : 'bcv';
+    if (selTasa) selTasa.style.display = (mon === 'VES') ? 'block' : 'none';
+
+    var conv = convertirMontoFinanzasAUsd(rawVal, mon, tasaModo);
+    if (prev) {
+        if (rawVal > 0 && mon === 'VES') {
+            prev.style.display = 'block';
+            prev.innerHTML = conv.valido
+                ? ('Equivale a <strong style="color:#f87171;">$' + conv.usd.toFixed(2) + ' USD</strong> (Tasa ' + escaparHTML(conv.tasaLabel) + ': ' + Number(conv.tasaUsada).toFixed(2) + ')')
+                : '⚠️ No hay tasa cargada en caché para convertir Bs. a $.';
+        } else if (rawVal > 0 && mon === 'USD' && conv.tasaUsada > 0) {
+            prev.style.display = 'block';
+            prev.innerHTML = 'Se mantiene en <strong style="color:#f87171;">$' + conv.usd.toFixed(2) + ' USD</strong> · Ref. ' + formatearTasaBsDisplay(conv.bs, 2) + ' (' + escaparHTML(conv.tasaLabel) + ').';
+        } else {
+            prev.style.display = 'none';
+        }
+    }
+
+    var selCatG = document.getElementById('modal-gasto-categoria');
+    var esPresG = selCatG && esCategoriaPrestamoNombre(selCatG.value);
+    var usdParaFreno = (!esPresG && conv.valido) ? conv.usd : 0;
+    actualizarComparadorFrenoGasto(usdParaFreno, 'contenedor-freno-impulso-modal-gasto');
+    if (typeof actualizarResumenPartesPrestamoUI === 'function') {
+        actualizarResumenPartesPrestamoUI();
+    }
 }
 
 /* ==========================================================================
@@ -3551,6 +4944,7 @@ function obtenerHoyISOFinanzas() {
  */
 function resolverOcurrenciasFinanzasMes(fin, anio, mes) {
     var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    sanearDatosFinanzasRecurrentesYCategorias(f);
     var mesClave = anio + '-' + String(mes + 1).padStart(2, '0');
     var totalDiasMes = new Date(anio, mes + 1, 0).getDate();
     var hoyISO = obtenerHoyISOFinanzas();
@@ -3621,8 +5015,7 @@ function resolverOcurrenciasFinanzasMes(fin, anio, mes) {
         var montoMostrar = (cobrado && item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== "")
             ? Number(item.montoCobrado)
             : monto;
-        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
-        var esRecurrente = (info.tipoDestino === 'fija' && !tieneFechaExacta);
+        var esRecurrente = esItemRecurrenteMensualReal(item, false);
 
         expandirItemRecurrenteOFijo(item, esRecurrente, function(fechaDest, diaDest, esExcepcion, mesOrigKey) {
             return {
@@ -3651,8 +5044,7 @@ function resolverOcurrenciasFinanzasMes(fin, anio, mes) {
     (f.gastos || []).forEach(function(item) {
         var monto = Number(item.monto) || 0;
         var pagado = !!item.pagado;
-        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
-        var esRecurrente = (item.tipo !== 'ocasional' && !tieneFechaExacta);
+        var esRecurrente = esItemRecurrenteMensualReal(item, true);
 
         expandirItemRecurrenteOFijo(item, esRecurrente, function(fechaDest, diaDest, esExcepcion, mesOrigKey) {
             return {
@@ -3676,9 +5068,10 @@ function resolverOcurrenciasFinanzasMes(fin, anio, mes) {
         });
     });
 
-    // 3. Pagos de Cuotas de Deudas
+    // 3. Pagos de Cuotas de Deudas (omitiendo flexibles a tu ritmo)
     (f.deudas || []).forEach(function(deuda) {
         normalizarDeuda(deuda);
+        if (deuda.esFlexible || deuda.tipoFrecuencia === 'libre') return;
         (deuda.cuotas || []).forEach(function(c) {
             if (!c.fecha || typeof c.fecha !== 'string' || c.fecha.slice(0, 7) !== mesClave) return;
             var fechaC = c.fecha.slice(0, 10);
@@ -4321,6 +5714,7 @@ function resolverFechaEfectivaMovFinanzas(item, esRecurrente, anio, mes) {
 
 function obtenerRetrasosFinanzas(fin) {
     var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    sanearDatosFinanzasRecurrentesYCategorias(f);
     var hoyISO = obtenerHoyISOFinanzas();
     var hoyAnio = parseInt(hoyISO.slice(0, 4), 10);
     var hoyMes = parseInt(hoyISO.slice(5, 7), 10) - 1;
@@ -4333,8 +5727,7 @@ function obtenerRetrasosFinanzas(fin) {
     (f.ingresos || []).forEach(function(item) {
         if (!item || !item.id || item.cobrado) return;
         var info = clasificarOrigenIngreso(item);
-        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
-        var esRecurrente = (info.tipoDestino === 'fija' && !tieneFechaExacta);
+        var esRecurrente = esItemRecurrenteMensualReal(item, false);
         var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRecurrente, hoyAnio, hoyMes);
         if (!fechaEff || fechaEff >= hoyISO) return;
 
@@ -4360,8 +5753,7 @@ function obtenerRetrasosFinanzas(fin) {
     // 2. Pagos retrasados (Gastos programados u ocasionales vencidos sin pagar)
     (f.gastos || []).forEach(function(item) {
         if (!item || !item.id || item.pagado) return;
-        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
-        var esRecurrente = (item.tipo !== 'ocasional' && !tieneFechaExacta);
+        var esRecurrente = esItemRecurrenteMensualReal(item, true);
         var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRecurrente, hoyAnio, hoyMes);
         if (!fechaEff || fechaEff >= hoyISO) return;
 
@@ -4383,10 +5775,11 @@ function obtenerRetrasosFinanzas(fin) {
         });
     });
 
-    // 3. Cuotas de deudas retrasadas
+    // 3. Cuotas de deudas retrasadas (omitiendo deudas flexibles a tu ritmo)
     (f.deudas || []).forEach(function(deuda) {
         if (!deuda || !deuda.id || deuda.pagada) return;
         normalizarDeuda(deuda);
+        if (deuda.esFlexible || deuda.tipoFrecuencia === 'libre') return;
         (deuda.cuotas || []).forEach(function(c) {
             if (!c || c.pagada || !c.fecha || typeof c.fecha !== 'string') return;
             var fechaC = c.fecha.slice(0, 10);
@@ -5624,11 +7017,14 @@ function poblarSelectsTarjetasFinanzas() {
     var tarjetas = asegurarArrayTarjetasFinanzas();
     var cache = leerCacheTasasBCV();
 
-    function rellenarSelect(selId, etiquetaNula) {
+    function rellenarSelect(selId, etiquetaNula, incluirEfectivo) {
         var sel = document.getElementById(selId);
         if (!sel) return;
         var prev = sel.value;
         var html = '<option value="">' + escaparHTML(etiquetaNula) + '</option>';
+        if (incluirEfectivo && tarjetas.length > 0) {
+            html += '<option value="__EFECTIVO__">💵 Efectivo / Sin tarjeta</option>';
+        }
         tarjetas.forEach(function(t) {
             var est = calcularEstadoTarjetaEnVivo(t, cache);
             var saldoTxt = est.monedaBase === 'USD'
@@ -5637,14 +7033,27 @@ function poblarSelectsTarjetasFinanzas() {
             html += '<option value="' + escaparHTML(t.id) + '">' + escaparHTML(construirTituloTarjeta(t)) + ' (' + saldoTxt + ')</option>';
         });
         sel.innerHTML = html;
-        if (prev && tarjetas.some(function(t) { return t.id === prev; })) {
+        if (prev && ((incluirEfectivo && prev === '__EFECTIVO__') || tarjetas.some(function(t) { return t.id === prev; }))) {
             sel.value = prev;
         }
     }
 
-    rellenarSelect('modal-cobro-ingreso-tarjeta', 'No asociar a tarjeta (solo registro)');
-    rellenarSelect('modal-gasto-tarjeta', 'Sin tarjeta asociada (solo registro)');
-    rellenarSelect('modal-plan-abono-tarjeta', 'Caja / Dinero cobrado (sin descontar tarjeta)');
+    rellenarSelect('modal-ingreso-tarjeta', 'Sin tarjeta predeterminada (elegir al cobrar)', false);
+    rellenarSelect('modal-cobro-ingreso-tarjeta', 'No asociar a tarjeta (solo registro)', false);
+    rellenarSelect('modal-gasto-tarjeta', tarjetas.length > 0 ? '-- Selecciona tarjeta de salida --' : '💵 Efectivo / Sin tarjetas registradas', true);
+    rellenarSelect('modal-plan-abono-tarjeta', 'Caja / Dinero cobrado (sin descontar tarjeta)', false);
+
+    if (typeof document !== 'undefined' && typeof construirOpcionesTarjetasHTML === 'function') {
+        ['lista-ingreso-tarjetas-split', 'lista-cobro-tarjetas-split'].forEach(function(contId) {
+            var contEl = document.getElementById(contId);
+            if (!contEl) return;
+            Array.from(contEl.querySelectorAll('.fin-split-trj-select')).forEach(function(selRow) {
+                var valPrev = selRow.value;
+                selRow.innerHTML = construirOpcionesTarjetasHTML(valPrev);
+            });
+        });
+    }
+
     actualizarResumenTarjetasUI();
 }
 
@@ -6308,7 +7717,7 @@ function obtenerDisponibleParaPlanificacion(fin, cacheOpt) {
     var pendientePorCobrarMesUsd = 0;
 
     (f.ingresos || []).forEach(function(item) {
-        var esRec = (item.tipo === 'fija' && (!item.fecha || String(item.fecha).length < 10));
+        var esRec = esItemRecurrenteMensualReal(item, false);
         if (!itemPerteneceAMesActivoPlan(item.fecha, esRec, anioActivo, mesActivo)) return;
         var m = Number(item.monto) || 0;
         if (item.cobrado) {
@@ -6316,9 +7725,16 @@ function obtenerDisponibleParaPlanificacion(fin, cacheOpt) {
                 ? Number(item.montoCobrado)
                 : m;
             cobradoMesTotalUsd += realM;
-            if (!item.tarjetaId) {
-                cobradoSinTarjetaUsd += realM;
+            var credTarj = 0;
+            if (Array.isArray(item.tarjetasMovs) && item.tarjetasMovs.length > 0) {
+                item.tarjetasMovs.forEach(function(mv) {
+                    credTarj += (Number(mv && (mv.montoUsd || mv.deltaUsdRef)) || 0);
+                });
+            } else if (item.tarjetaId && item.tarjetaId !== '__EFECTIVO__') {
+                credTarj = realM;
             }
+            var remSinTarj = Math.max(0, Math.round((realM - credTarj) * 100) / 100);
+            cobradoSinTarjetaUsd += remSinTarj;
         } else {
             pendientePorCobrarMesUsd += m;
         }
@@ -6328,14 +7744,23 @@ function obtenerDisponibleParaPlanificacion(fin, cacheOpt) {
     (f.gastos || []).forEach(function(g) {
         if (Array.isArray(g.abonos) && g.abonos.length > 0) {
             g.abonos.forEach(function(ab) {
-                if (!ab.tarjetaId && (!ab.fecha || String(ab.fecha).slice(0, 7) === mesClave)) {
+                if ((!ab.tarjetaId || ab.tarjetaId === '__EFECTIVO__') && (!ab.fecha || String(ab.fecha).slice(0, 7) === mesClave)) {
                     ejecutadoSinTarjetaUsd += (Number(ab.montoUsd) || 0);
                 }
             });
-        } else if (g.pagado && !g.tarjetaId) {
+        } else if (g.pagado) {
+            var debTarj = 0;
+            if (Array.isArray(g.tarjetasMovs) && g.tarjetasMovs.length > 0) {
+                g.tarjetasMovs.forEach(function(mv) {
+                    debTarj += (Number(mv && (mv.montoUsd || mv.deltaUsdRef)) || 0);
+                });
+            } else if (g.tarjetaId && g.tarjetaId !== '__EFECTIVO__') {
+                debTarj = Number(g.monto) || 0;
+            }
+            var remGasSinTarj = Math.max(0, Math.round(((Number(g.monto) || 0) - debTarj) * 100) / 100);
             var fP = g.fechaPago || g.fecha || '';
-            if (!fP || String(fP).slice(0, 7) === mesClave) {
-                ejecutadoSinTarjetaUsd += (Number(g.monto) || 0);
+            if (remGasSinTarj > 0 && (!fP || String(fP).slice(0, 7) === mesClave)) {
+                ejecutadoSinTarjetaUsd += remGasSinTarj;
             }
         }
     });
@@ -6415,15 +7840,24 @@ function construirItemsPlanificacion(fin) {
     // 2. Deudas
     (f.deudas || []).forEach(function(d, idx) {
         normalizarDeuda(d);
+        var esFlex = !!(d.esFlexible || d.tipoFrecuencia === 'libre');
         var precioTot = Number(d.precioTotal) || 0;
         var rest = Number(d.montoRestante) || 0;
         var abonado = Math.max(0, Math.round((precioTot - rest) * 100) / 100);
-        var prio = d.planPrioridad || 'alta';
+        var prio = d.planPrioridad || (esFlex ? 'media' : 'alta');
         var orden = (d.planOrden != null) ? Number(d.planOrden) : (200 + idx);
-        var proxCuota = (d.cuotas || []).find(function(c) { return !c.pagada; });
-        var subD = d.pagada
-            ? ('Crédito 100% liquidado (' + d.cuotasTotal + '/' + d.cuotasTotal + ' cuotas)')
-            : ('Cuotas: ' + d.cuotasPagadas + '/' + d.cuotasTotal + (proxCuota ? (' · Próx #' + proxCuota.num + ': $' + Number(proxCuota.monto).toFixed(2) + (proxCuota.fecha ? (' (' + formatearFechaCorta(proxCuota.fecha) + ')') : '')) : ''));
+        var proxCuota = esFlex ? null : (d.cuotas || []).find(function(c) { return !c.pagada; });
+        var subD = '';
+        if (esFlex) {
+            var numAbF = Array.isArray(d.abonosLibres) ? d.abonosLibres.length : 0;
+            subD = d.pagada
+                ? ('Deuda flexible 100% liquidada (' + numAbF + ' abono' + (numAbF === 1 ? '' : 's') + ')')
+                : ('🌊 Deuda flexible a tu ritmo · ' + numAbF + ' abono' + (numAbF === 1 ? '' : 's') + ' registrado' + (numAbF === 1 ? '' : 's'));
+        } else {
+            subD = d.pagada
+                ? ('Crédito 100% liquidado (' + d.cuotasTotal + '/' + d.cuotasTotal + ' cuotas)')
+                : ('Cuotas: ' + d.cuotasPagadas + '/' + d.cuotasTotal + (proxCuota ? (' · Próx #' + proxCuota.num + ': $' + Number(proxCuota.monto).toFixed(2) + (proxCuota.fecha ? (' (' + formatearFechaCorta(proxCuota.fecha) + ')') : '')) : ''));
+        }
 
         items.push({
             uid: 'deuda:' + d.id,
@@ -7240,4 +8674,23 @@ if (typeof window !== 'undefined') {
     window.alCambiarInputAbonoPlanificacion = alCambiarInputAbonoPlanificacion;
     window.confirmarAbonoPlanificacion = confirmarAbonoPlanificacion;
     window.revertirAbonoPlanificacion = revertirAbonoPlanificacion;
+    window.abrirModalPrestamoGasto = abrirModalPrestamoGasto;
+    window.editarIngresoFinanzasUI = editarIngresoFinanzasUI;
+    window.editarGastoFinanzasUI = editarGastoFinanzasUI;
+    window.establecerModoSplitTarjetasModal = establecerModoSplitTarjetasModal;
+    window.toggleModoSplitTarjetasModal = toggleModoSplitTarjetasModal;
+    window.agregarFilaSplitTarjetaModal = agregarFilaSplitTarjetaModal;
+    window.eliminarFilaSplitTarjetaModal = eliminarFilaSplitTarjetaModal;
+    window.alCambiarSplitTarjetasUI = alCambiarSplitTarjetasUI;
+    window.actualizarResumenSplitTarjetasUI = actualizarResumenSplitTarjetasUI;
+    window.actualizarPreviewMonedaIngreso = actualizarPreviewMonedaIngreso;
+    window.actualizarPreviewCobroTarjeta = actualizarPreviewCobroTarjeta;
+    window.seleccionarModalidadPrestamoGasto = seleccionarModalidadPrestamoGasto;
+    window.agregarPartePrestamoUI = agregarPartePrestamoUI;
+    window.eliminarPartePrestamoUI = eliminarPartePrestamoUI;
+    window.repartirEquitativoPartesPrestamo = repartirEquitativoPartesPrestamo;
+    window.actualizarResumenPartesPrestamoUI = actualizarResumenPartesPrestamoUI;
+    window.seleccionarModalidadDeudaModal = seleccionarModalidadDeudaModal;
+    window.alCambiarMontoGastoModal = alCambiarMontoGastoModal;
+    window.alCambiarValoresModalDeuda = alCambiarValoresModalDeuda;
 }

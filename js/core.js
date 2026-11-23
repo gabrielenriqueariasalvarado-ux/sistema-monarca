@@ -181,6 +181,7 @@ const DEFAULT_STATE = {
             { id: "CAT-SALUD", nombre: "Salud", icono: "🏥", color: "#ec4899" },
             { id: "CAT-ENTRETENIMIENTO", nombre: "Entretenimiento & Ocio", icono: "🎮", color: "#8b5cf6" },
             { id: "CAT-INVERSION", nombre: "Inversión & Trabajo", icono: "💼", color: "#6366f1" },
+            { id: "CAT-PRESTAMOS", nombre: "Préstamos", icono: "🤝", color: "#38bdf8" },
             { id: "CAT-OTROS", nombre: "Otros", icono: "📦", color: "#64748b" }
         ],
         ingresos: [],
@@ -1642,7 +1643,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.04';
+var MONARCA_APP_VERSION = '11.05';
 var MONARCA_APP_VERSION_FECHA = '2026-11-22';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

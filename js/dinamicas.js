@@ -1195,10 +1195,11 @@ function abrirModalCobroBoom(tipoPago) {
     }
 
     var idFinanza = "ING-BOOM-" + MES_BOOM_ACTUAL + "-" + tipoPago;
+    var ingresoExistente = null;
 
     // Si ya existe un ingreso de Boom Solutions en Finanzas para este día/pago, reusar su ID para sincronizarlo
     if (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.ingresos)) {
-        var ingresoExistente = APP_STATE.finanzas.ingresos.find(function(ig) {
+        ingresoExistente = APP_STATE.finanzas.ingresos.find(function(ig) {
             if (ig.id === idFinanza) return true;
             var d = ((ig.fuente || ig.concepto || ig.descripcion || '') + ' ' + (ig.categoria || '')).toLowerCase();
             var esB = String(ig.id || '').toLowerCase().indexOf('boom') !== -1 || d.indexOf('boom') !== -1;
@@ -1225,6 +1226,7 @@ function abrirModalCobroBoom(tipoPago) {
     var elTitulo = document.getElementById('modal-cobro-ingreso-titulo');
     var elProy = document.getElementById('modal-cobro-ingreso-proyectado');
     var inReal = document.getElementById('modal-cobro-ingreso-real');
+    var selTarj = document.getElementById('modal-cobro-ingreso-tarjeta');
 
     if (!modal || !inId || !elTitulo || !elProy || !inReal) {
         if (!planMes.pagosCobrados) planMes.pagosCobrados = {};
@@ -1234,6 +1236,8 @@ function abrirModalCobroBoom(tipoPago) {
         return;
     }
 
+    if (typeof poblarSelectsTarjetasFinanzas === 'function') poblarSelectsTarjetasFinanzas();
+
     var mCobradoExistente = (planMes.montosRealesCobrados && planMes.montosRealesCobrados[tipoPago] !== undefined)
         ? planMes.montosRealesCobrados[tipoPago]
         : monto;
@@ -1242,6 +1246,29 @@ function abrirModalCobroBoom(tipoPago) {
     elTitulo.innerText = concepto;
     elProy.innerText = '$' + monto.toFixed(2);
     inReal.value = mCobradoExistente > 0 ? Number(mCobradoExistente).toFixed(2) : '';
+
+    var distBoom = null;
+    if (ingresoExistente) {
+        if (Array.isArray(ingresoExistente.tarjetasMovs) && ingresoExistente.tarjetasMovs.length > 0) {
+            distBoom = ingresoExistente.tarjetasMovs.map(function(r) { return { tarjetaId: r.tarjetaId, montoUsd: r.montoUsd || r.deltaUsdRef || 0 }; });
+        } else if (Array.isArray(ingresoExistente.tarjetasDistribucion) && ingresoExistente.tarjetasDistribucion.length > 0) {
+            distBoom = ingresoExistente.tarjetasDistribucion;
+        }
+    }
+    if (typeof establecerModoSplitTarjetasModal === 'function') {
+        if (distBoom && distBoom.length > 1) {
+            establecerModoSplitTarjetasModal('cobro', true, distBoom);
+        } else {
+            establecerModoSplitTarjetasModal('cobro', false);
+            if (selTarj) {
+                var idPreB = (distBoom && distBoom.length === 1) ? distBoom[0].tarjetaId : (ingresoExistente ? (ingresoExistente.tarjetaId || '') : '');
+                selTarj.value = idPreB || '';
+            }
+        }
+    } else if (selTarj) {
+        selTarj.value = '';
+    }
+    if (typeof actualizarPreviewCobroTarjeta === 'function') actualizarPreviewCobroTarjeta();
 
     modal.style.display = 'flex';
     setTimeout(function() {
@@ -1278,6 +1305,9 @@ function revertirCobroBoom(tipoPago) {
                                (tipoPago === 'quincena1' && (d.indexOf('quincena 1') !== -1 || (dia > 5 && dia <= 15))) ||
                                (tipoPago === 'quincena2' && (d.indexOf('quincena 2') !== -1 || dia > 15));
                 if (coincide) {
+                    if (ig.cobrado && typeof revertirTarjetasMovimientoFinanzas === 'function') {
+                        revertirTarjetasMovimientoFinanzas(ig, true);
+                    }
                     ig.cobrado = false;
                     delete ig.montoCobrado;
                     delete ig.fechaCobro;
@@ -1288,7 +1318,7 @@ function revertirCobroBoom(tipoPago) {
         MonarcaDB.save(APP_STATE);
         renderizarSubAppBoom();
         if (typeof renderizarFinanzasSiActivo === 'function') renderizarFinanzasSiActivo();
-        if (typeof renderizarFinanzas === 'function' && document.getElementById('view-finanzas') && document.getElementById('view-finanzas').classList.contains('active')) {
+        if (typeof renderizarFinanzas === 'function' && document.getElementById('vista-finanzas') && document.getElementById('vista-finanzas').classList.contains('active')) {
             renderizarFinanzas(APP_STATE.finanzas);
         }
         if (typeof mostrarNotificacion === 'function') {

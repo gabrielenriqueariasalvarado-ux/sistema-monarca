@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.04">
+    <link rel="stylesheet" href="style.css?v=11.05">
 </head>
 <body>
 
@@ -1902,6 +1902,9 @@
                                 <button class="btn-add-finanza" onclick="abrirModalGasto('ocasional')" style="border-color: #ef4444; color: #f87171; background: rgba(239, 68, 68, 0.15);">
                                     <span>⚡</span> + Ocasional
                                 </button>
+                                <button class="btn-add-finanza" onclick="abrirModalPrestamoGasto()" style="border-color: #38bdf8; color: #7dd3fc; background: rgba(56, 189, 248, 0.14);">
+                                    <span>🤝</span> + Préstamo
+                                </button>
                                 <button class="btn-add-finanza" onclick="abrirModalCategoriasGastos()" style="border-color: rgba(255, 255, 255, 0.2); color: #cbd5e1; background: #161c2d;">
                                     <span>🏷️</span> Categorías
                                 </button>
@@ -2044,15 +2047,16 @@
 
     <!-- MODAL 1: NUEVA ENTRADA (INGRESO: FIJA O ALEATORIA) -->
     <div id="modal-finanzas-ingreso" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window">
+        <div class="modal-system-window" style="max-width: 480px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">💵</span>
-                    <span style="color: #34d399; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA ENTRADA DE INGRESO</span>
+                    <span id="modal-ingreso-modal-titulo" style="color: #34d399; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA ENTRADA DE INGRESO</span>
                 </div>
                 <button onclick="cerrarModalIngreso()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 18px;">
+                <input type="hidden" id="modal-ingreso-edit-id" value="">
                 <input type="hidden" id="modal-ingreso-tipo" value="fija">
                 
                 <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Entrada:</label>
@@ -2084,15 +2088,51 @@
                 </div>
 
                 <div class="modal-form-group">
-                    <label>Monto ($):</label>
-                    <input type="number" id="modal-ingreso-monto" class="modal-input" step="0.01" min="0" placeholder="0.00">
+                    <label>Monto del Ingreso:</label>
+                    <div class="fin-currency-row">
+                        <input type="number" id="modal-ingreso-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="actualizarPreviewMonedaIngreso()" style="flex: 1.5; min-width: 0;">
+                        <select id="modal-ingreso-moneda" class="ideas-select" onchange="actualizarPreviewMonedaIngreso()" style="flex: 0.9; min-width: 82px;">
+                            <option value="USD">$ USD</option>
+                            <option value="VES">Bs.</option>
+                        </select>
+                        <select id="modal-ingreso-tasa-tipo" class="ideas-select" onchange="actualizarPreviewMonedaIngreso()" style="display: none; flex: 1; min-width: 96px;">
+                            <option value="bcv">BCV</option>
+                            <option value="paralelo">Paralelo</option>
+                        </select>
+                    </div>
+                    <div id="modal-ingreso-conv-preview" class="fin-conv-preview" style="display: none;"></div>
+                </div>
+
+                <!-- Asignación de 1 o múltiples tarjetas destino -->
+                <div class="modal-form-group">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <label style="margin-bottom: 0; color: #38bdf8; font-weight: 700; font-size: 12px;">💳 Tarjeta(s) donde se acredita este cobro:</label>
+                        <button type="button" id="btn-toggle-split-ingreso" class="fin-split-toggle-btn" onclick="toggleModoSplitTarjetasModal('ingreso')">
+                            ✂️ Dividir en 2+ tarjetas
+                        </button>
+                    </div>
+                    <div id="grupo-ingreso-tarjeta-unica">
+                        <select id="modal-ingreso-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);">
+                            <option value="">Sin tarjeta predeterminada (elegir al cobrar)</option>
+                        </select>
+                    </div>
+                    <div id="grupo-ingreso-tarjetas-split" class="fin-split-card-box" style="display: none;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; line-height: 1.35;">
+                            Detalla cuánto ($) cae en cada tarjeta (ej. Boom Solutions dividido en 2 cuentas):
+                        </div>
+                        <div id="lista-ingreso-tarjetas-split" class="fin-split-card-list"></div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                            <button type="button" class="fin-split-add-btn" onclick="agregarFilaSplitTarjetaModal('ingreso')">+ Agregar tarjeta</button>
+                            <span id="resumen-ingreso-tarjetas-split" style="font-size: 11px; color: #38bdf8; font-weight: 700;"></span>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalIngreso()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-color: #34d399;" onclick="confirmarAgregarIngreso()">
+                    <button id="btn-guardar-modal-ingreso" class="btn-system" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-color: #34d399;" onclick="confirmarAgregarIngreso()">
                         ✓ Guardar Entrada
                     </button>
                 </div>
@@ -2102,7 +2142,7 @@
 
     <!-- MODAL CONFIRMAR COBRO REAL DE INGRESO (SUMAR A CUENTA) -->
     <div id="modal-confirmar-cobro-ingreso" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window" style="max-width: 420px;">
+        <div class="modal-system-window" style="max-width: 460px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">💰</span>
@@ -2129,17 +2169,34 @@
                     </label>
                     <input type="number" id="modal-cobro-ingreso-real" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="if(typeof actualizarPreviewCobroTarjeta==='function')actualizarPreviewCobroTarjeta()" style="font-size: 20px; font-weight: 800; text-align: center; color: #34d399; background: #0b0e15; border: 1px solid rgba(52, 211, 153, 0.4); padding: 12px; border-radius: 10px;">
                     <div style="font-size: 11.5px; color: #64748b; margin-top: 6px; line-height: 1.4;">
-                        Este es el monto exacto que se sumará al dinero real disponible en tu cuenta.
+                        Este es el monto exacto que se sumará al dinero real disponible en tus cuentas.
                     </div>
                 </div>
 
                 <div class="modal-form-group">
-                    <label for="modal-cobro-ingreso-tarjeta" style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-                        <span>💳</span> ¿A qué tarjeta / banco entra este dinero?
-                    </label>
-                    <select id="modal-cobro-ingreso-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="if(typeof actualizarPreviewCobroTarjeta==='function')actualizarPreviewCobroTarjeta()">
-                        <option value="">No asociar a tarjeta (solo registro)</option>
-                    </select>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                        <label for="modal-cobro-ingreso-tarjeta" style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 6px; margin-bottom: 0;">
+                            <span>💳</span> ¿A qué tarjeta(s) entra este dinero?
+                        </label>
+                        <button type="button" id="btn-toggle-split-cobro" class="fin-split-toggle-btn" onclick="toggleModoSplitTarjetasModal('cobro')">
+                            ✂️ Dividir en 2+ tarjetas
+                        </button>
+                    </div>
+                    <div id="grupo-cobro-tarjeta-unica">
+                        <select id="modal-cobro-ingreso-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(56, 189, 248, 0.35);" onchange="if(typeof actualizarPreviewCobroTarjeta==='function')actualizarPreviewCobroTarjeta()">
+                            <option value="">No asociar a tarjeta (solo registro)</option>
+                        </select>
+                    </div>
+                    <div id="grupo-cobro-tarjetas-split" class="fin-split-card-box" style="display: none;">
+                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; line-height: 1.35;">
+                            Asigna el monto exacto ($) que entra a cada tarjeta (ej. dividir el sueldo entre 2 cuentas):
+                        </div>
+                        <div id="lista-cobro-tarjetas-split" class="fin-split-card-list"></div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                            <button type="button" class="fin-split-add-btn" onclick="agregarFilaSplitTarjetaModal('cobro')">+ Agregar tarjeta</button>
+                            <span id="resumen-cobro-tarjetas-split" style="font-size: 11px; color: #38bdf8; font-weight: 700;"></span>
+                        </div>
+                    </div>
                     <div id="modal-cobro-tarjeta-preview" class="tarjeta-preview-box" style="display: none; margin-top: 8px;"></div>
                 </div>
 
@@ -2188,37 +2245,33 @@
         </div>
     </div>
 
-    <!-- MODAL 2: NUEVA SALIDA (GASTO PROGRAMADO U OCASIONAL) -->
+    <!-- MODAL 2: NUEVA SALIDA (GASTO PROGRAMADO, OCASIONAL O PRÉSTAMO) -->
     <div id="modal-finanzas-gasto" class="modal-overlay" style="display: none;">
-        <div class="modal-system-window">
+        <div class="modal-system-window" style="max-width: 500px;">
             <div class="modal-system-header">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">💳</span>
-                    <span style="color: #f87171; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA SALIDA O GASTO</span>
+                    <span id="modal-gasto-modal-titulo" style="color: #f87171; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase;">AGREGAR NUEVA SALIDA O GASTO</span>
                 </div>
                 <button onclick="cerrarModalGasto()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 18px;">
+                <input type="hidden" id="modal-gasto-edit-id" value="">
                 <input type="hidden" id="modal-gasto-tipo" value="programado">
 
-                <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Gasto:</label>
+                <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Salida:</label>
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                     <button type="button" id="btn-modal-gasto-tipo-prog" class="btn-system" style="flex: 1; padding: 10px; font-size: 12px; background: #1e263c; border-color: #f59e0b; color: #fbbf24;" onclick="seleccionarTipoGastoModal('programado')">
                         📅 Programado / Fijo
                     </button>
                     <button type="button" id="btn-modal-gasto-tipo-ocas" class="btn-back-system" style="flex: 1; padding: 10px; font-size: 12px; margin-bottom: 0;" onclick="seleccionarTipoGastoModal('ocasional')">
-                        ⚡ Ocasional / Variable
+                        ⚡ Ocasional / Único
                     </button>
                 </div>
 
                 <div class="modal-form-group">
-                    <label>Nombre del Gasto / Concepto:</label>
-                    <input type="text" id="modal-gasto-fuente" class="modal-input" placeholder="Ej: Gasolina (todos los 16), Alquiler, Repuesto Moto...">
-                </div>
-
-                <div class="modal-form-group">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <label style="margin-bottom: 0;">Categoría del Gasto:</label>
+                        <label style="margin-bottom: 0;">Categoría de la Salida:</label>
                         <button type="button" onclick="abrirModalCategoriasGastos()" style="background: none; border: none; color: #38bdf8; font-size: 11.5px; font-weight: 700; cursor: pointer; padding: 0;">
                             + Crear Categoría
                         </button>
@@ -2228,7 +2281,12 @@
                     </select>
                 </div>
 
-                <div class="modal-form-group">
+                <div class="modal-form-group" id="grupo-gasto-concepto-wrap">
+                    <label id="label-modal-gasto-fuente">Nombre del Gasto / Concepto:</label>
+                    <input type="text" id="modal-gasto-fuente" class="modal-input" placeholder="Ej: Gasolina (todos los 16), Alquiler, Repuesto Moto...">
+                </div>
+
+                <div class="modal-form-group" id="grupo-gasto-pilar-wrap">
                     <label>Pilar de la Regla 50 / 40 / 10:</label>
                     <select id="modal-gasto-pilar" class="ideas-select">
                         <option value="gastos">🏠 40% Gastos Fijos y Necesidades</option>
@@ -2244,29 +2302,86 @@
                 </div>
 
                 <div class="modal-form-group" id="grupo-gasto-fecha" style="display: none;">
-                    <label>Fecha del Gasto:</label>
+                    <label id="label-modal-gasto-fecha">Fecha del Gasto:</label>
                     <input type="date" id="modal-gasto-fecha" class="modal-input">
                 </div>
 
                 <div class="modal-form-group">
-                    <label>Monto ($):</label>
-                    <input type="number" id="modal-gasto-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarMontoGastoModal(this.value)">
+                    <label>Monto de la Salida:</label>
+                    <div class="fin-currency-row">
+                        <input type="number" id="modal-gasto-monto" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarMontoGastoModal(this.value)" style="flex: 1.5; min-width: 0;">
+                        <select id="modal-gasto-moneda" class="ideas-select" onchange="alCambiarMontoGastoModal()" style="flex: 0.9; min-width: 82px;">
+                            <option value="USD">$ USD</option>
+                            <option value="VES">Bs.</option>
+                        </select>
+                        <select id="modal-gasto-tasa-tipo" class="ideas-select" onchange="alCambiarMontoGastoModal()" style="display: none; flex: 1; min-width: 96px;">
+                            <option value="bcv">BCV</option>
+                            <option value="paralelo">Paralelo</option>
+                        </select>
+                    </div>
+                    <div id="modal-gasto-conv-preview" class="fin-conv-preview" style="display: none;"></div>
                     <div id="contenedor-freno-impulso-modal-gasto" style="display: none; margin-top: 10px;"></div>
                 </div>
 
-                <div class="modal-form-group">
-                    <label for="modal-gasto-tarjeta" style="font-size: 12px; color: #94a3b8;">💳 Pagar / Descontar de Tarjeta (Opcional):</label>
-                    <select id="modal-gasto-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(148, 163, 184, 0.25);">
-                        <option value="">Sin tarjeta asociada (solo registro)</option>
+                <!-- Panel Especial: Préstamo otorgado a persona -> cobro automático en Ingresos -->
+                <div id="grupo-gasto-prestamo-panel" class="fin-prestamo-panel" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+                        <span style="font-size: 16px;">🤝</span>
+                        <span style="font-size: 12px; font-weight: 800; color: #7dd3fc; text-transform: uppercase; letter-spacing: 0.4px;">Detalles del Préstamo & Cobro en Ingresos</span>
+                    </div>
+
+                    <div class="modal-form-group" style="margin-bottom: 10px;">
+                        <label for="modal-gasto-prestamo-persona" style="font-size: 11.5px; color: #cbd5e1;">👤 ¿A quién le prestas el dinero?</label>
+                        <input type="text" id="modal-gasto-prestamo-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Carlos, María, Mamá..." oninput="alCambiarMontoGastoModal()">
+                        <datalist id="datalist-personas-finanzas"></datalist>
+                    </div>
+
+                    <input type="hidden" id="modal-gasto-prestamo-devolucion" value="unico">
+                    <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">¿Cómo te lo va a pagar?</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button type="button" id="btn-prestamo-dev-unico" class="fin-split-toggle-btn is-active" style="flex: 1; padding: 8px;" onclick="seleccionarModalidadPrestamoGasto('unico')">
+                            📅 Un solo pago
+                        </button>
+                        <button type="button" id="btn-prestamo-dev-partes" class="fin-split-toggle-btn" style="flex: 1; padding: 8px;" onclick="seleccionarModalidadPrestamoGasto('partes')">
+                            ✂️ Por partes (fechas y montos)
+                        </button>
+                    </div>
+
+                    <div id="grupo-prestamo-fecha-unica">
+                        <label for="modal-gasto-prestamo-fecha-unica" style="font-size: 11.5px; color: #cbd5e1;">Fecha programada en que te paga (se agrega a Ingresos):</label>
+                        <input type="date" id="modal-gasto-prestamo-fecha-unica" class="modal-input" style="margin-top: 4px;">
+                    </div>
+
+                    <div id="grupo-prestamo-partes" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; color: #cbd5e1;">Cada parte se creará automáticamente en <strong>Ingresos</strong>:</span>
+                            <button type="button" class="fin-split-toggle-btn" onclick="repartirEquitativoPartesPrestamo()">⚖️ Repartir igual</button>
+                        </div>
+                        <div id="lista-partes-prestamo" class="fin-split-card-list"></div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                            <button type="button" class="fin-split-add-btn" onclick="agregarPartePrestamoUI()">+ Agregar otra fecha</button>
+                            <span id="resumen-partes-prestamo" style="font-size: 11px; font-weight: 700; color: #38bdf8;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-form-group" id="grupo-gasto-tarjeta-wrap">
+                    <label for="modal-gasto-tarjeta" style="font-size: 12px; font-weight: 700; color: #f87171;">💳 Tarjeta / Cuenta de donde sale el dinero:</label>
+                    <select id="modal-gasto-tarjeta" class="ideas-select" style="width: 100%; background: #0f172a; color: #f8fafc; border-color: rgba(248, 113, 113, 0.35);">
+                        <option value="">-- Selecciona de qué tarjeta sale --</option>
                     </select>
+                    <label style="display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; cursor: pointer; font-size: 11.5px; color: #cbd5e1; line-height: 1.35;">
+                        <input type="checkbox" id="modal-gasto-descontar-ahora" checked style="margin-top: 2px; accent-color: #ef4444; width: 15px; height: 15px; flex-shrink: 0;">
+                        <span><strong>Descontar automáticamente de la tarjeta al guardar</strong> (desmarca solo si es un gasto futuro pendiente).</span>
+                    </label>
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalGasto()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 1; background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); border-color: #f87171;" onclick="confirmarAgregarGasto()">
-                        ✓ Guardar Gasto
+                    <button id="btn-guardar-modal-gasto" class="btn-system" style="flex: 1; background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); border-color: #f87171;" onclick="confirmarAgregarGasto()">
+                        ✓ Guardar Salida
                     </button>
                 </div>
             </div>
@@ -2376,7 +2491,7 @@
         </div>
     </div>
 
-    <!-- MODAL 3: NUEVA DEUDA O CRÉDITO EN CUOTAS -->
+    <!-- MODAL 3: NUEVA DEUDA O CRÉDITO (CUOTAS FIJAS O FLEXIBLE) -->
     <div id="modal-finanzas-deuda" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px;">
             <div class="modal-system-header">
@@ -2387,14 +2502,25 @@
                 <button onclick="cerrarModalDeuda()" class="modal-close-btn">&times;</button>
             </div>
             <div style="padding: 20px;">
-                <p style="font-size: 12px; color: #94a3b8; margin: 0 0 16px 0; line-height: 1.4;">
-                    Registra cualquier deuda, compra a crédito o préstamo. Define el valor total, lo que diste de inicial, el número de cuotas y el intervalo de días para generar el cronograma exacto de pagos.
+                <p style="font-size: 12px; color: #94a3b8; margin: 0 0 14px 0; line-height: 1.4;">
+                    Registra cualquier deuda o compra a crédito. Puedes elegir <strong>cuotas con fechas fijas</strong> o una deuda <strong>flexible a tu ritmo</strong> para ir abonando cuando quieras sin alertas de vencimiento.
                 </p>
+
+                <input type="hidden" id="modal-deuda-modalidad" value="cuotas_fijas">
+                <label style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Modalidad de Pago:</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                    <button type="button" id="btn-deuda-mod-cuotas" class="fin-split-toggle-btn is-active" style="flex: 1; min-width: 145px; padding: 9px;" onclick="seleccionarModalidadDeudaModal('cuotas_fijas')">
+                        📅 Cuotas / Fechas Fijas
+                    </button>
+                    <button type="button" id="btn-deuda-mod-libre" class="fin-split-toggle-btn" style="flex: 1; min-width: 145px; padding: 9px;" onclick="seleccionarModalidadDeudaModal('libre')">
+                        🌊 Flexible (A mi ritmo)
+                    </button>
+                </div>
 
                 <!-- 1. Nombre y Categoría -->
                 <div class="modal-form-group">
                     <label>Nombre de la Deuda o Crédito:</label>
-                    <input type="text" id="modal-deuda-nombre" class="modal-input" placeholder="Ej: Teléfono Xiaomi, Moto, Préstamo Personal...">
+                    <input type="text" id="modal-deuda-nombre" class="modal-input" placeholder="Ej: Teléfono Xiaomi, Moto, Préstamo de amigo...">
                 </div>
 
                 <div class="modal-form-group">
@@ -2410,32 +2536,47 @@
                     </select>
                 </div>
 
-                <!-- 2. Precios y Cuotas -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                    <div>
-                        <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Precio Total ($):</label>
-                        <input type="number" id="modal-deuda-precio-total" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarValoresModalDeuda()">
-                    </div>
-                    <div>
-                        <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Pago Inicial ($):</label>
-                        <input type="number" id="modal-deuda-inicial" class="modal-input" step="0.01" min="0" placeholder="0.00" value="0.00" oninput="alCambiarValoresModalDeuda()">
+                <!-- 2. Moneda & Precios -->
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                    <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 0;">Moneda de Ingreso:</label>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <select id="modal-deuda-moneda" class="ideas-select" onchange="alCambiarValoresModalDeuda()" style="padding: 5px 8px; font-size: 11.5px;">
+                            <option value="USD">$ USD</option>
+                            <option value="VES">Bs.</option>
+                        </select>
+                        <select id="modal-deuda-tasa-tipo" class="ideas-select" onchange="alCambiarValoresModalDeuda()" style="display: none; padding: 5px 8px; font-size: 11.5px;">
+                            <option value="bcv">BCV</option>
+                            <option value="paralelo">Paralelo</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- 3. Monto Restante y Cuotas -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                     <div>
+                        <label id="label-deuda-precio-total" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Precio Total:</label>
+                        <input type="number" id="modal-deuda-precio-total" class="modal-input" step="0.01" min="0" placeholder="0.00" oninput="alCambiarValoresModalDeuda()">
+                    </div>
+                    <div>
+                        <label id="label-deuda-inicial" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Pago Inicial:</label>
+                        <input type="number" id="modal-deuda-inicial" class="modal-input" step="0.01" min="0" placeholder="0.00" value="0.00" oninput="alCambiarValoresModalDeuda()">
+                    </div>
+                </div>
+                <div id="modal-deuda-conv-preview" class="fin-conv-preview" style="display: none; margin-bottom: 12px;"></div>
+
+                <!-- 3. Monto Restante y Cronograma (ocultable si es Flexible) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div id="grupo-deuda-restante-wrap">
                         <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Restante por Pagar ($):</label>
                         <input type="text" id="modal-deuda-restante" class="modal-input" readonly style="background: #0b0f19; color: #f87171; font-weight: 800; cursor: default;" value="$0.00">
                     </div>
-                    <div>
+                    <div id="grupo-deuda-cuotas-wrap">
                         <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Número de Cuotas:</label>
                         <input type="number" id="modal-deuda-cuotas" class="modal-input" min="1" max="120" value="6" oninput="alCambiarValoresModalDeuda()">
                     </div>
                 </div>
 
                 <!-- 4. Frecuencia y Fecha de Inicio -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                <div id="grupo-deuda-cronograma-campos" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
                     <div>
                         <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; display: block;">Frecuencia de Pago:</label>
                         <select id="modal-deuda-frecuencia" class="ideas-select" onchange="alCambiarFrecuenciaModalDeuda()">
@@ -2455,7 +2596,7 @@
                     </div>
                 </div>
 
-                <!-- Resumen Proyectado de Cuotas -->
+                <!-- Resumen Proyectado -->
                 <div id="resumen-proyeccion-cuotas" style="background: #0f1523; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 12px; margin-bottom: 18px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                         <span style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase;">📊 Plan Proyectado:</span>
@@ -2470,7 +2611,7 @@
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalDeuda()">
                         Cancelar
                     </button>
-                    <button class="btn-system" style="flex: 1.3; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-color: #fbbf24; color: #0b0f19; font-weight: 800;" onclick="confirmarAgregarDeuda()">
+                    <button id="btn-confirmar-guardar-deuda" class="btn-system" style="flex: 1.3; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-color: #fbbf24; color: #0b0f19; font-weight: 800;" onclick="confirmarAgregarDeuda()">
                         ✓ Guardar & Crear Cronograma
                     </button>
                 </div>
@@ -6923,26 +7064,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.04"></script>
-    <script src="js/perfil.js?v=11.04"></script>
-    <script src="js/progresion.js?v=11.04"></script>
-    <script src="js/estado-personal.js?v=11.04"></script>
-    <script src="js/finanzas.js?v=11.04"></script>
-    <script src="js/ideas.js?v=11.04"></script>
-    <script src="js/dinamicas.js?v=11.04"></script>
-    <script src="js/calendario.js?v=11.04"></script>
-    <script src="js/inventario.js?v=11.04"></script>
-    <script src="js/reproductor.js?v=11.04"></script>
-    <script src="js/jarvis-voz.js?v=11.04"></script>
+    <script src="js/core.js?v=11.05"></script>
+    <script src="js/perfil.js?v=11.05"></script>
+    <script src="js/progresion.js?v=11.05"></script>
+    <script src="js/estado-personal.js?v=11.05"></script>
+    <script src="js/finanzas.js?v=11.05"></script>
+    <script src="js/ideas.js?v=11.05"></script>
+    <script src="js/dinamicas.js?v=11.05"></script>
+    <script src="js/calendario.js?v=11.05"></script>
+    <script src="js/inventario.js?v=11.05"></script>
+    <script src="js/reproductor.js?v=11.05"></script>
+    <script src="js/jarvis-voz.js?v=11.05"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.04"></script>
+    <script type="module" src="js/firebase-config.js?v=11.05"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.04')
+                navigator.serviceWorker.register('sw.js?v=11.05')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

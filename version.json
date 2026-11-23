@@ -1,5 +1,5 @@
 {
-  "version": "11.04",
+  "version": "11.05",
   "fecha": "2026-11-22",
-  "resumen": "Nuevo módulo de Rutina Aleatoria Personal en Entrenamiento con Settings propios por día y grupos musculares (aislado de Personal Trainer), selector de playlist integrado, guardado directo en Mis Rutinas e inicio inmediato con calentamiento, música, sobrecarga y registro."
+  "resumen": "Finanzas v11.05: Corrección de falsos retrasos en pagos fijos mensuales (Boom Solutions Día 30), nueva categoría Préstamos en Salidas con conversión Bs→$ por BCV (y selector Paralelo), abonos en 1 pago o por partes registrados automáticamente en Ingresos, asignación obligatoria y división multi-tarjeta en Gastos/Ingresos, y Deudas Flexibles a tu ritmo sin cuotas fijas."
 }
