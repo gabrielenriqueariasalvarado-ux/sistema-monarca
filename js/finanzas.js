@@ -4206,109 +4206,109 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
 
                 var textoFrecuenciaItem = 'Cada ' + (item.diasFrecuencia || 15) + ' días';
                 if (esFlexible) {
-                    textoFrecuenciaItem = '🌊 Sin fecha fija (a tu ritmo)';
+                    textoFrecuenciaItem = '🌊 Sin fecha fija';
                 } else if (item.tipoFrecuencia === 'quince_ultimo' || item.diasFrecuencia === 'quince_ultimo') {
                     textoFrecuenciaItem = '🗓️ 15 y Último';
                 } else if (item.diasFrecuencia == 30) {
-                    textoFrecuenciaItem = 'Mensual (30 días)';
+                    textoFrecuenciaItem = 'Mensual (30d)';
                 } else if (item.diasFrecuencia == 7) {
-                    textoFrecuenciaItem = 'Semanal (7 días)';
+                    textoFrecuenciaItem = 'Semanal (7d)';
                 }
 
                 var lblToggleShow = esFlexible
-                    ? ('📜 Ver Historial de Abonos (' + abonosLib.length + ') ▾')
-                    : ('📅 Ver Cronograma de Cuotas (' + (item.cuotas ? item.cuotas.length : numCuotas) + ') ▾');
+                    ? ('📜 Historial de abonos (' + abonosLib.length + ') ▾')
+                    : ('📅 Cronograma de cuotas (' + (item.cuotas ? item.cuotas.length : numCuotas) + ') ▾');
                 var lblToggleHide = esFlexible
-                    ? '📜 Ocultar Historial de Abonos ▴'
-                    : '📅 Ocultar Cronograma ▴';
+                    ? '📜 Ocultar abonos ▴'
+                    : '📅 Ocultar cronograma ▴';
 
                 var badgeMonedaOrigDeu = (item.monedaOrigen === 'VES' && item.montoOriginalBs > 0)
-                    ? '<span class="badge-cat" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.28);">💱 Bs. ' + Number(item.montoOriginalBs).toFixed(2) + '</span>'
+                    ? '<span class="deuda-meta-pill is-ves">💱 Bs. ' + Number(item.montoOriginalBs).toFixed(2) + '</span>'
                     : '';
 
-                var actionsDeudaHtml = '';
+                var primaryActionHtml = '';
+                var secondaryBtns = [];
                 if (esFlexible) {
-                    actionsDeudaHtml =
-                        (!estaPagada
-                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'abono\')">' +
-                                '💵 Abonar ($' + rest.toFixed(2) + ' pend.)' +
-                              '</button>'
-                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Deuda flexible completamente saldada ✓</span>') +
-                        (abonosLib.length > 0
-                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer último abono registrado">↩ Deshacer Abono</button>'
-                            : '') +
-                        (!estaPagada && rest > 0
-                            ? '<button type="button" class="btn-liquidar-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'completo\')" title="Liquidar todo el saldo restante">⚡ Liquidar Restante</button>'
-                            : '');
+                    primaryActionHtml = !estaPagada
+                        ? '<button type="button" class="btn-pagar-cuota-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'abono\')">' +
+                            '💵 Abonar a esta deuda' +
+                          '</button>'
+                        : '<div class="deuda-saldada-banner">✓ Deuda flexible completamente saldada</div>';
+                    if (abonosLib.length > 0) {
+                        secondaryBtns.push('<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer último abono registrado">↩ Deshacer</button>');
+                    }
+                    if (!estaPagada && rest > 0) {
+                        secondaryBtns.push('<button type="button" class="btn-liquidar-action" onclick="abrirModalAbonoPlanificacion(\'deuda\', \'' + item.id + '\', \'completo\')" title="Liquidar todo el saldo restante">⚡ Liquidar ($' + rest.toFixed(2) + ')</button>');
+                    }
                 } else {
-                    actionsDeudaHtml =
-                        (!estaPagada
-                            ? '<button type="button" class="btn-pagar-cuota-action" onclick="pagarCuotaDeudaUI(\'' + item.id + '\')">' +
-                                '💳 Pagar Cuota ' + (cuotasPagadas + 1) + ' ($' + montoCuota.toFixed(2) + ')' +
-                              '</button>'
-                            : '<span style="font-size: 12px; color: #34d399; font-weight: 700;">Crédito completamente amortizado ✓</span>') +
-                        ((cuotasPagadas > 0 || abonosLib.length > 0)
-                            ? '<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota o abono pagado">↩ Deshacer Pago</button>'
-                            : '') +
-                        (!estaPagada && rest > 0
-                            ? '<button type="button" class="btn-liquidar-action" onclick="liquidarDeudaCompletaUI(\'' + item.id + '\')" title="Liquidar todo el saldo restante">⚡ Liquidar Todo</button>'
-                            : '');
+                    primaryActionHtml = !estaPagada
+                        ? '<button type="button" class="btn-pagar-cuota-action" onclick="pagarCuotaDeudaUI(\'' + item.id + '\')">' +
+                            '💳 Pagar Cuota ' + (cuotasPagadas + 1) + ' · $' + montoCuota.toFixed(2) +
+                          '</button>'
+                        : '<div class="deuda-saldada-banner">✓ Crédito completamente amortizado</div>';
+                    if (cuotasPagadas > 0 || abonosLib.length > 0) {
+                        secondaryBtns.push('<button type="button" class="btn-deshacer-cuota-action" onclick="deshacerCuotaDeudaUI(\'' + item.id + '\')" title="Deshacer última cuota o abono pagado">↩ Deshacer</button>');
+                    }
+                    if (!estaPagada && rest > 0) {
+                        secondaryBtns.push('<button type="button" class="btn-liquidar-action" onclick="liquidarDeudaCompletaUI(\'' + item.id + '\')" title="Liquidar todo el saldo restante">⚡ Liquidar Todo</button>');
+                    }
                 }
 
+                var secondaryRowHtml = secondaryBtns.length > 0
+                    ? '<div class="deuda-card-secondary-row">' + secondaryBtns.join('') + '</div>'
+                    : '';
+
                 html += '<div class="deuda-card-moderna ' + (estaPagada ? 'deuda-liquidada' : '') + '">' +
-                    '<div class="deuda-card-top">' +
-                        '<div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">' +
-                            '<span style="font-size: 22px; flex-shrink: 0;">' + (item.iconoCategoria || '🛡️') + '</span>' +
-                            '<div style="min-width: 0; flex: 1;">' +
-                                '<div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; word-break: break-word;">' + escaparHTML(item.nombre) + '</div>' +
-                                '<div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">' +
-                                    '<span>' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
-                                    '<span>•</span>' +
-                                    '<span>' + textoFrecuenciaItem + '</span>' +
-                                    badgeMonedaOrigDeu +
-                                    badgeVencidaDeuda +
-                                '</div>' +
-                            '</div>' +
+                    // Fila 1: Icono + Nombre completo + Saldo pendiente destacado + Eliminar
+                    '<div class="deuda-card-head-row">' +
+                        '<div class="deuda-card-title-group">' +
+                            '<span class="deuda-icon-pill">' + (item.iconoCategoria || '🛡️') + '</span>' +
+                            '<div class="deuda-card-name">' + escaparHTML(item.nombre) + '</div>' +
                         '</div>' +
-                        '<div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">' +
-                            badgeEstado +
-                            '<button type="button" class="btn-delete-row" title="Eliminar deuda" onclick="eliminarRegistroFinanzasUI(\'' + item.id + '\', \'deuda\')">✕</button>' +
+                        '<div class="deuda-card-head-right">' +
+                            '<span class="deuda-card-saldo-top ' + (estaPagada ? 'is-paid' : '') + '">' + (estaPagada ? '$0.00' : ('$' + rest.toFixed(2))) + '</span>' +
+                            '<button type="button" class="btn-delete-row" title="Eliminar deuda" aria-label="Eliminar deuda" onclick="eliminarRegistroFinanzasUI(\'' + item.id + '\', \'deuda\')">✕</button>' +
                         '</div>' +
                     '</div>' +
 
-                    // Barra de amortización
-                    '<div style="margin: 10px 0 12px 0;">' +
-                        '<div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">' +
-                            '<span style="color: #94a3b8;">Amortizado: <strong style="color: #34d399;">$' + pagadoTotal.toFixed(2) + '</strong> (' + pct + '%)</span>' +
-                            '<span style="color: #f87171; font-weight: 700;">Resta: $' + rest.toFixed(2) + '</span>' +
+                    // Fila 2: Chips limpios a todo el ancho (sin aplastarse en columnas angostas)
+                    '<div class="deuda-card-meta-row">' +
+                        badgeEstado +
+                        '<span class="deuda-meta-pill">' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
+                        '<span class="deuda-meta-pill">' + textoFrecuenciaItem + '</span>' +
+                        badgeMonedaOrigDeu +
+                        badgeVencidaDeuda +
+                    '</div>' +
+
+                    // Barra de progreso limpia
+                    '<div class="deuda-progress-block">' +
+                        '<div class="deuda-progress-labels">' +
+                            '<span>Pagado <strong style="color: #34d399;">$' + pagadoTotal.toFixed(2) + '</strong> (' + pct + '%)</span>' +
+                            '<span>Total <strong>$' + precioTot.toFixed(2) + '</strong></span>' +
                         '</div>' +
                         '<div class="deuda-amort-bar">' +
                             '<div class="deuda-amort-fill" style="width: ' + pct + '%;"></div>' +
                         '</div>' +
                     '</div>' +
 
-                    // Grid de métricas
-                    '<div class="deuda-metrics-grid">' +
-                        '<div class="deuda-metric-box">' +
-                            '<span class="dmb-lbl">Precio Total</span>' +
-                            '<span class="dmb-val">$' + precioTot.toFixed(2) + '</span>' +
-                        '</div>' +
-                        '<div class="deuda-metric-box">' +
-                            '<span class="dmb-lbl">Inicial Dada</span>' +
-                            '<span class="dmb-val" style="color: #34d399;">$' + ini.toFixed(2) + '</span>' +
-                        '</div>' +
-                        '<div class="deuda-metric-box">' +
-                            '<span class="dmb-lbl">' + (esFlexible ? 'Abonado Libre' : 'Valor Cuota') + '</span>' +
+                    // Tira compacta de 3 datos clave (sin duplicar números)
+                    '<div class="deuda-stats-strip">' +
+                        '<div class="deuda-stat-cell">' +
+                            '<span class="dmb-lbl">' + (esFlexible ? 'Abonado' : 'Cuota') + '</span>' +
                             '<span class="dmb-val" style="color: #38bdf8;">$' + (esFlexible ? totalAbonosLibSum : montoCuota).toFixed(2) + '</span>' +
                         '</div>' +
-                        '<div class="deuda-metric-box">' +
+                        '<div class="deuda-stat-cell">' +
+                            '<span class="dmb-lbl">Inicial</span>' +
+                            '<span class="dmb-val" style="color: #34d399;">$' + ini.toFixed(2) + '</span>' +
+                        '</div>' +
+                        '<div class="deuda-stat-cell">' +
                             '<span class="dmb-lbl">Pendiente</span>' +
-                            '<span class="dmb-val" style="color: #f87171;">$' + rest.toFixed(2) + '</span>' +
+                            '<span class="dmb-val" style="color: ' + (estaPagada ? '#34d399' : '#f87171') + ';">$' + rest.toFixed(2) + '</span>' +
                         '</div>' +
                     '</div>' +
 
                     // Botón y panel del cronograma / historial de abonos
-                    '<div style="margin-top: 10px;">' +
+                    '<div style="margin-top: 9px;">' +
                         '<button type="button" id="btn-toggle-crono-' + item.id + '" class="btn-toggle-cronograma" data-show-lbl="' + escaparHTML(lblToggleShow) + '" data-hide-lbl="' + escaparHTML(lblToggleHide) + '" onclick="toggleCronogramaDeudaUI(\'' + item.id + '\')">' +
                             lblToggleShow +
                         '</button>' +
@@ -4317,9 +4317,10 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                         '</div>' +
                     '</div>' +
 
-                    // Acciones inferiores
-                    '<div class="deuda-card-actions">' +
-                        actionsDeudaHtml +
+                    // Acciones inferiores balanceadas
+                    '<div class="deuda-card-actions-v2">' +
+                        primaryActionHtml +
+                        secondaryRowHtml +
                     '</div>' +
                 '</div>';
             });
@@ -4891,6 +4892,17 @@ function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (tabPlan) tabPlan.classList.toggle('active', destino === 'planificacion');
     if (tabTarj) tabTarj.classList.toggle('active', destino === 'tarjetas');
     if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
+
+    var activeTabEl = destino === 'panel' ? tabPanel
+        : destino === 'movimientos' ? tabMov
+        : destino === 'planificacion' ? tabPlan
+        : destino === 'tarjetas' ? tabTarj
+        : tabCal;
+    var navRail = document.getElementById('finanzas-secciones-nav');
+    if (activeTabEl && navRail && navRail.scrollWidth > navRail.clientWidth) {
+        var targetLeft = activeTabEl.offsetLeft - (navRail.clientWidth - activeTabEl.offsetWidth) / 2;
+        navRail.scrollLeft = Math.max(0, targetLeft);
+    }
 
     if (vistaPanel) vistaPanel.style.display = destino === 'panel' ? 'block' : 'none';
     if (vistaMov) vistaMov.style.display = destino === 'movimientos' ? 'block' : 'none';
@@ -5976,46 +5988,70 @@ function renderizarBannerAlertaRetrasosFinanzas(fin, infoPrecalc) {
         return;
     }
 
-    var partesResumen = [];
+    var chipsResumen = [];
     if (info.countPagos > 0) {
-        partesResumen.push('<strong>' + info.countPagos + ' ' + (info.countPagos === 1 ? 'pago' : 'pagos') + '</strong> (-$' + info.totalPagosUsd.toFixed(2) + ')');
+        chipsResumen.push('<span class="fin-retraso-chip is-pago">Pagos -$' + info.totalPagosUsd.toFixed(2) + ' (' + info.countPagos + ')</span>');
     }
     if (info.countCobros > 0) {
-        partesResumen.push('<strong>' + info.countCobros + ' ' + (info.countCobros === 1 ? 'cobro' : 'cobros') + '</strong> (+$' + info.totalCobrosUsd.toFixed(2) + ')');
+        chipsResumen.push('<span class="fin-retraso-chip is-cobro">Cobros +$' + info.totalCobrosUsd.toFixed(2) + ' (' + info.countCobros + ')</span>');
     }
 
-    var previewLista = info.todos.slice(0, 3).map(function(r) {
-        return escaparHTML(r.titulo) + ' (' + r.diasRetraso + 'd)';
-    }).join(' · ');
-    if (info.totalCount > 3) {
-        previewLista += ' y ' + (info.totalCount - 3) + ' más';
+    var filasDetalleHtml = info.todos.slice(0, 8).map(function(r) {
+        var esCobro = r.clase === 'cobro';
+        var signoM = esCobro ? '+$' : '-$';
+        var colM = esCobro ? '#6ee7b7' : '#fca5a5';
+        return '<div class="fin-retrasos-detalle-row">' +
+            '<span class="fin-retrasos-detalle-name">' + escaparHTML(r.titulo) + '</span>' +
+            '<span class="fin-retrasos-detalle-meta">' +
+                '<span style="color:' + colM + '; font-weight:800;">' + signoM + Number(r.monto || 0).toFixed(2) + '</span>' +
+                '<span class="fin-retrasos-dias-pill">' + r.diasRetraso + 'd</span>' +
+            '</span>' +
+        '</div>';
+    }).join('');
+    if (info.totalCount > 8) {
+        filasDetalleHtml += '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding-top: 4px;">... y ' + (info.totalCount - 8) + ' más en Reprogramar</div>';
     }
 
     cont.style.display = 'block';
     cont.innerHTML = `
         <div class="fin-retrasos-banner">
             <div class="fin-retrasos-banner-top">
-                <div style="min-width: 0; flex: 1;">
-                    <div style="font-size: 13px; font-weight: 800; color: #fecaca; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <span>🚨 ALERTA DE RETRASOS (${info.totalCount})</span>
-                        <span style="font-size: 11px; font-weight: 700; color: #fca5a5;">· ${partesResumen.join(' y ')}</span>
-                    </div>
-                    <div style="font-size: 11.5px; color: #e2e8f0; margin-top: 3px; line-height: 1.4;">
-                        ${previewLista}
+                <div class="fin-retrasos-head-info">
+                    <div class="fin-retrasos-title-row">
+                        <span class="fin-retrasos-title">🚨 Retrasos (${info.totalCount})</span>
+                        <div class="fin-retrasos-chips">${chipsResumen.join('')}</div>
                     </div>
                 </div>
-                <div class="fin-retrasos-actions">
-                    <button type="button" id="btn-abrir-reprogramar-retrasados" class="fin-retrasos-btn-main" onclick="abrirModalReprogramarRetrasadosFinanzas('todos')">
-                        📅 Reprogramar Todos y c/u (${info.totalCount})
-                    </button>
-                    ${info.countPagos > 0 && info.countCobros > 0 ? `
-                        <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('pagos')">💳 Pagos (${info.countPagos})</button>
-                        <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('cobros')">💰 Cobros (${info.countCobros})</button>
-                    ` : ''}
-                </div>
+                <button type="button" id="btn-toggle-retrasos-detalle" class="fin-retrasos-toggle-btn" onclick="toggleDetalleRetrasosBannerFinanzas()">
+                    Ver lista ▾
+                </button>
+            </div>
+            <div id="fin-retrasos-detalle-lista" class="fin-retrasos-detalle-lista" style="display: none;">
+                ${filasDetalleHtml}
+            </div>
+            <div class="fin-retrasos-actions">
+                <button type="button" id="btn-abrir-reprogramar-retrasados" class="fin-retrasos-btn-main" onclick="abrirModalReprogramarRetrasadosFinanzas('todos')">
+                    📅 Reprogramar (${info.totalCount})
+                </button>
+                ${info.countPagos > 0 && info.countCobros > 0 ? `
+                    <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('pagos')">💳 Pagos (${info.countPagos})</button>
+                    <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('cobros')">💰 Cobros (${info.countCobros})</button>
+                ` : ''}
             </div>
         </div>
     `;
+}
+
+function toggleDetalleRetrasosBannerFinanzas() {
+    var box = document.getElementById('fin-retrasos-detalle-lista');
+    var btn = document.getElementById('btn-toggle-retrasos-detalle');
+    if (!box) return;
+    var abierto = box.style.display !== 'none';
+    box.style.display = abierto ? 'none' : 'flex';
+    if (btn) btn.textContent = abierto ? 'Ver lista ▾' : 'Ocultar ▴';
+}
+if (typeof window !== 'undefined') {
+    window.toggleDetalleRetrasosBannerFinanzas = toggleDetalleRetrasosBannerFinanzas;
 }
 
 function notificarToastSiHayRetrasosFinanzas() {

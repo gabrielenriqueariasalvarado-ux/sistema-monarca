@@ -1624,19 +1624,26 @@ body.modal-open {
     }
 
     .btn-delete-row {
-        background: #f4f4f5;
-        border: none;
-        color: #71717a;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
         cursor: pointer;
         font-size: 12px;
-        padding: 4px 8px;
-        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         transition: all 0.2s;
+        flex-shrink: 0;
     }
 
     .btn-delete-row:hover {
-        background: #fee2e2;
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #fca5a5;
     }
 
     /* ==========================================================================
@@ -18940,24 +18947,31 @@ body.modal-open {
     }
     #finanzas-secciones-nav {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
         gap: 6px;
+        padding: 5px;
     }
     #finanzas-secciones-nav .finanzas-tab-btn {
-        flex: 1 1 46%;
+        flex: 0 0 auto;
         width: auto;
-        min-width: 0;
-        padding: 8px 8px;
+        min-width: max-content;
+        padding: 8px 11px;
         font-size: 11.5px;
+        white-space: nowrap;
     }
     .plan-subtabs-nav {
         gap: 4px;
+        padding: 4px;
     }
     .plan-subtab-btn {
-        padding: 8px 4px;
+        padding: 8px 6px;
         font-size: 11px;
-        flex-direction: column;
-        gap: 2px;
+        flex-direction: row;
+        gap: 4px;
+        white-space: nowrap;
     }
 }
 
@@ -20811,6 +20825,368 @@ body.modal-open {
     color: #fecaca;
     line-height: 1.4;
 }
+
+/* ==========================================================================
+   FINANZAS & DEUDAS — REDISEÑO LIMPIO Y ESPACIOSO PARA MÓVIL (v11.10)
+   ========================================================================== */
+
+/* 1. Banner compacto y desplegable de Alertas de Retrasos */
+.fin-retrasos-banner {
+    padding: 11px 13px;
+    gap: 8px;
+}
+
+.fin-retrasos-banner-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.fin-retrasos-head-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.fin-retrasos-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.fin-retrasos-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #fecaca;
+    white-space: nowrap;
+}
+
+.fin-retrasos-chips {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.fin-retraso-chip {
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.fin-retraso-chip.is-cobro {
+    background: rgba(16, 185, 129, 0.18);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.fin-retraso-chip.is-pago {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.fin-retrasos-toggle-btn {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #fecaca;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 9px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.fin-retrasos-detalle-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: rgba(11, 14, 21, 0.65);
+    border: 1px solid rgba(248, 113, 113, 0.22);
+    border-radius: 10px;
+    padding: 8px 10px;
+    max-height: 170px;
+    overflow-y: auto;
+}
+
+.fin-retrasos-detalle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11.5px;
+    color: #e2e8f0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fin-retrasos-detalle-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.fin-retrasos-detalle-name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fin-retrasos-detalle-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.fin-retrasos-dias-pill {
+    font-size: 10px;
+    font-weight: 800;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.16);
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+
+/* 2. Tarjeta Moderna de Deuda v2 — Sin columnas aplastadas ni ruido visual */
+.deuda-card-moderna {
+    background: linear-gradient(160deg, #131a2c 0%, #0e1422 100%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 16px;
+    padding: 14px 15px;
+}
+
+.deuda-card-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.deuda-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.deuda-icon-pill {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+
+.deuda-card-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.25;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.deuda-card-head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.deuda-card-saldo-top {
+    font-size: 15px;
+    font-weight: 900;
+    color: #f87171;
+    font-family: monospace;
+    letter-spacing: -0.3px;
+}
+
+.deuda-card-saldo-top.is-paid {
+    color: #34d399;
+}
+
+.deuda-card-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 9px;
+}
+
+.deuda-meta-pill {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    padding: 3px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.deuda-meta-pill.is-ves {
+    background: rgba(56, 189, 248, 0.14);
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.28);
+}
+
+.deuda-progress-block {
+    margin: 11px 0 10px 0;
+}
+
+.deuda-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 5px;
+}
+
+.deuda-stats-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    background: rgba(9, 13, 21, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+.deuda-stat-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.deuda-card-actions-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.deuda-card-actions-v2 .btn-pagar-cuota-action {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.deuda-card-secondary-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.deuda-card-secondary-row .btn-deshacer-cuota-action,
+.deuda-card-secondary-row .btn-liquidar-action {
+    flex: 1;
+    margin-left: 0;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 11.5px;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.deuda-saldada-banner {
+    font-size: 12px;
+    color: #34d399;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 9px;
+    padding: 8px 12px;
+    text-align: center;
+}
+
+/* 3. Ajustes responsivos finos en móvil (<= 640px) */
+@media (max-width: 640px) {
+    #vista-finanzas > .card {
+        padding: 12px 11px;
+    }
+    #plan-subvista-deudas > .finanzas-section-card {
+        background: transparent;
+        border: none;
+        padding: 4px 0 0 0;
+        box-shadow: none;
+    }
+    #plan-subvista-deudas .finanzas-section-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        gap: 8px;
+    }
+    #plan-subvista-deudas .finanzas-section-title {
+        font-size: 13.5px;
+    }
+    .fin-retrasos-actions {
+        width: 100%;
+    }
+    .fin-retrasos-btn-main {
+        flex: 1 1 100%;
+        justify-content: center;
+        padding: 8px 12px;
+    }
+    .fin-retrasos-btn-pill {
+        flex: 1;
+        text-align: center;
+    }
+    .banner-proxima-deuda-card {
+        padding: 12px 13px;
+    }
+    .bpd-body {
+        gap: 10px;
+    }
+    .bpd-info {
+        min-width: 100%;
+    }
+    .bpd-action {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .deuda-card-moderna {
+        padding: 13px 12px;
+    }
+    .deuda-card-name {
+        font-size: 14.5px;
+    }
+    .deuda-card-saldo-top {
+        font-size: 14px;
+    }
+    .deuda-stats-strip {
+        padding: 8px 8px;
+    }
+    .deuda-stats-strip .dmb-val {
+        font-size: 12.5px;
+    }
+}
+
 
 
 
