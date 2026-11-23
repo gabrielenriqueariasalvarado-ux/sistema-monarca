@@ -1,5 +1,5 @@
 {
-  "version": "11.02",
+  "version": "11.03",
   "fecha": "2026-11-22",
-  "resumen": "Reemplazo de Asignar a Alumno por botón 📤 Enviar Rutina en Personal Trainer, abriendo ventana con la rutina dividida en mensajes cortos (Mensaje 1, Mensaje 2, Mensaje 3...) listos para copiar uno a uno o en bloque hacia grupos de WhatsApp."
+  "resumen": "Alertas automáticas de pagos, cobros y cuotas de deuda retrasados en Finanzas y en la campana global de notificaciones, con insignias 🚨 Retrasado en Movimientos/Deudas y centro interactivo para reprogramar cada uno con fecha distinta o todos juntos."
 }

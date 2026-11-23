@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.02">
+    <link rel="stylesheet" href="style.css?v=11.03">
 </head>
 <body>
 
@@ -1609,6 +1609,9 @@
                 </div>
             </div>
 
+            <!-- ALERTA DE PAGOS Y COBROS RETRASADOS -->
+            <div id="finanzas-alerta-retrasados-banner" style="display: none;"></div>
+
             <!-- 2. NAVEGACIÓN PRINCIPAL EN 5 APARTADOS LIMPIOS -->
             <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 14px;">
                 <button type="button" class="finanzas-tab-btn active" id="tab-finanzas-panel" onclick="cambiarSeccionFinanzas('panel')">
@@ -2566,6 +2569,55 @@
                     </button>
                     <button type="button" class="btn-system" style="flex: 1.5; margin: 0; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #2563eb, #38bdf8); border-color: #60a5fa; color: #ffffff; font-weight: 800;" onclick="ejecutarMoverFechaFinanza()">
                         ✓ Mover a esta Fecha
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5B: CENTRO DE ALERTAS Y REPROGRAMACIÓN MASIVA E INDIVIDUAL DE RETRASADOS -->
+    <div id="modal-reprogramar-retrasados-finanzas" class="modal-overlay" style="display: none; z-index: 9990;" onclick="if (event.target === this) cerrarModalReprogramarRetrasadosFinanzas()">
+        <div class="modal-system-window" style="max-width: 620px; width: 95%; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="modal-system-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25); flex-shrink: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🚨</span>
+                    <span style="color: #f87171; font-weight: 800; letter-spacing: 0.6px; font-size: 13px; text-transform: uppercase;">PAGOS Y COBROS RETRASADOS</span>
+                </div>
+                <button type="button" onclick="cerrarModalReprogramarRetrasadosFinanzas()" class="modal-close-btn" aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; flex: 1; min-height: 0;">
+                <div id="reprog-ret-resumen" style="font-size: 12.5px; color: #fecaca; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.28); border-radius: 10px; padding: 9px 11px; line-height: 1.45; flex-shrink: 0;"></div>
+
+                <div id="reprog-ret-filtros" style="display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0;"></div>
+
+                <!-- BARRA DE REPROGRAMACIÓN EN LOTE ("TODOS") -->
+                <div id="reprog-lote-box" class="fin-reprog-lote-box" style="flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #e0f2fe; cursor: pointer;">
+                            <input type="checkbox" id="reprog-lote-select-all" checked onchange="toggleSeleccionTodosRetrasadosFinanzas(this.checked)" style="width: 16px; height: 16px; accent-color: #38bdf8;">
+                            <span id="reprog-lote-select-label">Seleccionar todos</span>
+                        </label>
+                        <span style="font-size: 11px; color: #94a3b8;">Mover todos en lote o edita cada fecha abajo</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <input type="date" id="reprog-lote-fecha" class="modal-input" style="flex: 1; min-width: 140px; font-weight: 700; font-size: 13px; padding: 8px 10px;">
+                        <button type="button" id="btn-reprog-aplicar-todos" class="btn-system" onclick="ejecutarReprogramacionMasivaFinanzas()" style="flex: 1.4; min-width: 170px; margin: 0; padding: 9px 12px; font-size: 12.5px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #2563eb, #38bdf8); border: none; color: #ffffff; border-radius: 10px; cursor: pointer;">
+                            🚀 Reprogramar Marcados
+                        </button>
+                    </div>
+                    <div id="reprog-lote-atajos" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px;"></div>
+                </div>
+
+                <!-- LISTA INDIVIDUAL ("CADA UNO") -->
+                <div id="reprog-ret-lista" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; min-height: 0; padding-right: 2px;"></div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                    <button type="button" id="btn-reprog-guardar-individuales" class="btn-system" onclick="guardarFechasIndividualesRetrasosFinanzas()" style="flex: 1.6; min-width: 185px; margin: 0; padding: 11px 12px; font-size: 12.5px; font-weight: 800; justify-content: center; background: linear-gradient(135deg, #10b981, #059669); border: none; color: #ffffff; border-radius: 10px; cursor: pointer;">
+                        💾 Guardar Fechas Editadas (c/u)
+                    </button>
+                    <button type="button" class="btn-back-system" onclick="cerrarModalReprogramarRetrasadosFinanzas()" style="flex: 0.7; min-width: 90px; margin: 0; padding: 11px 12px; font-size: 12.5px; justify-content: center;">
+                        Cerrar
                     </button>
                 </div>
             </div>
@@ -6862,26 +6914,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.02"></script>
-    <script src="js/perfil.js?v=11.02"></script>
-    <script src="js/progresion.js?v=11.02"></script>
-    <script src="js/estado-personal.js?v=11.02"></script>
-    <script src="js/finanzas.js?v=11.02"></script>
-    <script src="js/ideas.js?v=11.02"></script>
-    <script src="js/dinamicas.js?v=11.02"></script>
-    <script src="js/calendario.js?v=11.02"></script>
-    <script src="js/inventario.js?v=11.02"></script>
-    <script src="js/reproductor.js?v=11.02"></script>
-    <script src="js/jarvis-voz.js?v=11.02"></script>
+    <script src="js/core.js?v=11.03"></script>
+    <script src="js/perfil.js?v=11.03"></script>
+    <script src="js/progresion.js?v=11.03"></script>
+    <script src="js/estado-personal.js?v=11.03"></script>
+    <script src="js/finanzas.js?v=11.03"></script>
+    <script src="js/ideas.js?v=11.03"></script>
+    <script src="js/dinamicas.js?v=11.03"></script>
+    <script src="js/calendario.js?v=11.03"></script>
+    <script src="js/inventario.js?v=11.03"></script>
+    <script src="js/reproductor.js?v=11.03"></script>
+    <script src="js/jarvis-voz.js?v=11.03"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.02"></script>
+    <script type="module" src="js/firebase-config.js?v=11.03"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.02')
+                navigator.serviceWorker.register('sw.js?v=11.03')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

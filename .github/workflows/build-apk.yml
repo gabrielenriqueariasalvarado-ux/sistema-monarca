@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.02)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.03)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.02
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.03
             Esta versión nativa incluye:
+            - 🚨 **Alertas de Pagos/Cobros Retrasados y Reprogramación Masiva e Individual (v11.03)**: Banner de alerta automático en **Finanzas** y en la **campana de notificaciones** cada vez que tengas pagos, cuotas de deuda o cobros (incluyendo créditos de **Almacén**) vencidos antes de hoy; insignias **`🚨 Retrasado`** + botón **`📅 Reprogramar`** directo en Movimientos y Deudas, y ventana dedicada para reprogramarlos **todos juntos** o **cada uno** con fechas personalizadas.
             - 💬 **Enviar Rutina a WhatsApp por Mensajitos (v11.02)**: En **Personal Trainer → Rutina Aleatoria**, el botón **`📋 Asignar a Alumno`** se reemplaza por **`📤 Enviar Rutina`**; al pulsarlo se abre una ventana que divide la rutina generada en mensajes cortos al estilo natural de WhatsApp (**`Mensaje 1`**, **`Mensaje 2`**, **`Mensaje 3`**...), con botón **`📋 Copiar`** individual (marca visual `✓ Copiado`), **`📋 Copiar Todo`** y acceso directo **`💬 Abrir WhatsApp`**.
             - 🧹 **Enfoques Limpio, Vaciar Horario & Sin Reaparición de Plantillas (v11.01)**: Interfaz de **Enfoques** mucho más compacta y despejada (selector rápido por atleta en vivo sin repetir tarjetas ni saturar la pantalla, filas de ejercicios más limpias y selector de mes en una sola línea), eliminación real hasta quedar vacío (`0` rutinas cuando no trabajas de Trainer sin que vuelvan las 6 rutinas por defecto) y botón **`🧹 Vaciar`** para limpiar el horario al instante.
             - 🎯 **Enfoques Multi-Atleta en Vivo + Rutinas Aleatorias Integradas (v11.00)**: Cada rutina aleatoria que asignas, guardas o inicias aparece de inmediato dentro de **Enfoques** con su atleta, grupos musculares y lista de ejercicios; permite mantener **1, 2, 3 o más rutinas rodando al mismo tiempo** con cronómetro individual, seleccionar cualquiera para ver sus músculos/ejercicios y marcar hechos vs. faltantes en vivo.

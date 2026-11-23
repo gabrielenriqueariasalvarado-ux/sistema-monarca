@@ -5693,8 +5693,8 @@ function copiarMensajeWhatsAppTrainer(idx) {
             btn.classList.add('is-copied');
             btn.innerHTML = '✓ Copiado';
         }
-        if (typeof mostrarToast === 'function') {
-            mostrarToast('📋 Mensaje ' + (idx + 1) + ' copiado para WhatsApp', 'success');
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Mensaje ' + (idx + 1) + ' copiado para WhatsApp', '📋');
         }
     });
 }
@@ -5716,8 +5716,8 @@ function copiarTodosMensajesWhatsAppTrainer() {
             b.classList.add('is-copied');
             b.innerHTML = '✓ Copiado';
         });
-        if (typeof mostrarToast === 'function') {
-            mostrarToast('📋 Toda la rutina (' + lista.length + ' mensajes) copiada para WhatsApp', 'success');
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Toda la rutina (' + lista.length + ' mensajes) copiada', '📋');
         }
     });
 }

@@ -129,6 +129,7 @@ function cargarFinanzas() {
         cambiarSeccionFinanzas(window.ESTADO_FINANZAS.seccionActiva, true);
     }
     renderizarFinanzas(APP_STATE.finanzas);
+    notificarToastSiHayRetrasosFinanzas();
     if (typeof actualizarTasasBCV === 'function') {
         actualizarTasasBCV(false);
     }
@@ -505,6 +506,14 @@ function renderizarFinanzas(fin) {
         inObj.value = f.cabecera.objetivo || "";
     }
 
+    var retrasosResumen = (typeof obtenerRetrasosFinanzas === 'function')
+        ? obtenerRetrasosFinanzas(f)
+        : { todos: [], cobros: [], pagos: [], totalCount: 0, countCobros: 0, countPagos: 0, totalCobrosUsd: 0, totalPagosUsd: 0 };
+    var retrasoMap = {};
+    (retrasosResumen.todos || []).forEach(function(r) {
+        if (r && r.uid) retrasoMap[r.uid] = r;
+    });
+
     // 2. Ingresos (Separados en Fijos vs Aleatorios vs Almacén & Labores y Filtrados por Quincena)
     var totIngresosMes = 0;       // Proyección total del mes completo (para Regla 50/40/10)
     var totIngresosVista = 0;     // Total del período seleccionado (mes, q1 o q2)
@@ -560,19 +569,30 @@ function renderizarFinanzas(fin) {
             : `<div class="finanzas-tx-monto monto-positivo">+$${(estaCobrado ? montoRealCobrado : m).toFixed(2)}</div>`;
 
         var fechaStr = item.fecha || ('Día ' + (item.dia || 15));
+        var esRecIng = (infoOrigen.tipoDestino === 'fija' && !(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10));
+        var fechaEffIng = resolverFechaEfectivaMovFinanzas(item, esRecIng, anioActivo, mesActivo);
+        var retIng = !estaCobrado ? retrasoMap['ingreso:' + item.id] : null;
+        var clsOverdueIng = retIng ? ' is-overdue' : '';
+        var badgeRetrasoIngHtml = retIng
+            ? `<span class="cuota-badge-vencida">🚨 Retrasado · ${retIng.diasRetraso}d</span>`
+            : '';
+        var btnReprogIngHtml = !estaCobrado
+            ? `<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza('ingreso', '${item.id}', '', '${retIng ? retIng.mesOrigenRegla : mesClaveVista}', '${retIng ? retIng.fechaISO : fechaEffIng}', ${esRecIng ? 'true' : 'false'})" title="Reprogramar fecha">📅 Reprogramar</button>`
+            : '';
 
         if (infoOrigen.tipoDestino === 'almacen') {
             totAlmacen += m;
             countAlmacen++;
 
             htmlAlmacen += `
-            <div class="finanzas-tx-item">
+            <div class="finanzas-tx-item${clsOverdueIng}">
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: #f59e0b;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
+                            ${badgeRetrasoIngHtml}
                             <span class="badge-cat" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1);">
                                 📅 ${fechaStr}
                             </span>
@@ -582,6 +602,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
+                    ${btnReprogIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -590,13 +611,14 @@ function renderizarFinanzas(fin) {
             countAleatorios++;
 
             htmlAleatorios += `
-            <div class="finanzas-tx-item">
+            <div class="finanzas-tx-item${clsOverdueIng}">
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: #38bdf8;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
+                            ${badgeRetrasoIngHtml}
                             <span class="badge-cat" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
                                 ⚡ ${fechaStr}
                             </span>
@@ -606,6 +628,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
+                    ${btnReprogIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -615,13 +638,14 @@ function renderizarFinanzas(fin) {
             var diaNum = item.dia || 15;
 
             htmlFijos += `
-            <div class="finanzas-tx-item">
+            <div class="finanzas-tx-item${clsOverdueIng}">
                 <div class="finanzas-tx-main">
                     <div class="finanzas-tx-icon" style="color: #34d399;">${infoOrigen.icono}</div>
                     <div class="finanzas-tx-details">
                         <div class="finanzas-tx-title">${tituloIngreso}</div>
                         <div class="finanzas-tx-meta" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                             ${infoOrigen.badgeHtml}
+                            ${badgeRetrasoIngHtml}
                             <span class="badge-cat" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
                                 📅 Cobro Día ${diaNum} de cada mes
                             </span>
@@ -631,6 +655,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
+                    ${btnReprogIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
                 </div>
             </div>`;
@@ -803,10 +828,18 @@ function renderizarFinanzas(fin) {
                 var esOcasG = gasto.tipo === 'ocasional';
                 var pilarG = obtenerPilarGasto(gasto);
                 var estaPagadoG = !!gasto.pagado;
+                var esRecG = (!esOcasG && !(gasto.fecha && typeof gasto.fecha === 'string' && gasto.fecha.length >= 10));
+                var fechaEffG = resolverFechaEfectivaMovFinanzas(gasto, esRecG, anioActivo, mesActivo);
+                var retG = !estaPagadoG ? retrasoMap['gasto:' + gasto.id] : null;
+                var clsOverdueG = retG ? ' is-overdue' : '';
 
                 var badgeTipoHtml = esOcasG
                     ? `<span class="badge-gasto-ocasional">⚡ ${gasto.fecha || 'Ocasional'}</span>`
                     : `<span class="badge-gasto-programado">📅 Día ${gDia} (Fijo)</span>`;
+
+                var badgeRetrasoGHtml = retG
+                    ? `<span class="cuota-badge-vencida">🚨 Retrasado · ${retG.diasRetraso}d</span>`
+                    : '';
 
                 var badgePilarHtml = '';
                 if (pilarG === 'inversion') badgePilarHtml = `<span class="badge-pilar-inversion">🚀 50% Inversión</span>`;
@@ -820,15 +853,17 @@ function renderizarFinanzas(fin) {
                 var badgePagoHtml = estaPagadoG
                     ? `<span class="badge-ingreso-cobrado">✅ PAGADO</span>
                        <button class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerPagoGastoUI('${gasto.id}')" title="Desmarcar pago">↩</button>`
-                    : `<button class="btn-pagar-deuda" onclick="pagarGastoUI('${gasto.id}')" title="Marcar como pagado / debitado">💳 Marcar Pagado</button>`;
+                    : `<button class="btn-pagar-deuda" onclick="pagarGastoUI('${gasto.id}')" title="Marcar como pagado / debitado">💳 Marcar Pagado</button>
+                       <button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza('gasto', '${gasto.id}', '', '${retG ? retG.mesOrigenRegla : mesClaveVista}', '${retG ? retG.fechaISO : fechaEffG}', ${esRecG ? 'true' : 'false'})" title="Reprogramar fecha">📅 Reprogramar</button>`;
 
                 htmlGrupos += `
-                    <div class="finanzas-tx-item" style="background: rgba(255, 255, 255, 0.02); margin-bottom: 6px; ${estaPagadoG ? 'opacity: 0.85;' : ''}">
+                    <div class="finanzas-tx-item${clsOverdueG}" style="background: rgba(255, 255, 255, 0.02); margin-bottom: 6px; ${estaPagadoG ? 'opacity: 0.85;' : ''}">
                         <div class="finanzas-tx-main">
                             <div class="finanzas-tx-details">
                                 <div class="finanzas-tx-title" style="${estaPagadoG ? 'color: #f8fafc;' : ''}">${gasto.concepto}</div>
                                 <div class="finanzas-tx-meta" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 3px;">
                                     ${badgeTipoHtml}
+                                    ${badgeRetrasoGHtml}
                                     ${badgePilarHtml}
                                     ${badgeAbonoHtml}
                                 </div>
@@ -1132,6 +1167,16 @@ function renderizarFinanzas(fin) {
         renderizarTarjetasFinanzas();
     } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
         renderizarPlanificacionFinanzas();
+    }
+
+    if (typeof renderizarBannerAlertaRetrasosFinanzas === 'function') {
+        renderizarBannerAlertaRetrasosFinanzas(f, retrasosResumen);
+    }
+    if (typeof refrescarModalReprogramarSiAbiertoFinanzas === 'function') {
+        refrescarModalReprogramarSiAbiertoFinanzas();
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') {
+        actualizarBadgeNotificaciones();
     }
 }
 
@@ -2800,6 +2845,7 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
 
                 // Generar filas del cronograma
                 var htmlCuotas = '';
+                var cuotasVencidasDeuda = 0;
                 (item.cuotas || []).forEach(function(c) {
                     var fC = new Date(c.fecha + 'T00:00:00');
                     var dDiff = Math.round((fC.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
@@ -2814,23 +2860,36 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                     }
 
                     var infoFecha = formatearFechaCorta(c.fecha);
+                    var btnMoverCuota = '';
                     if (!c.pagada) {
-                        if (dDiff < 0) infoFecha += ' <span style="color:#ef4444; font-size:10.5px;">(hace ' + Math.abs(dDiff) + 'd)</span>';
-                        else if (dDiff === 0) infoFecha += ' <span style="color:#f59e0b; font-size:10.5px;">(¡Hoy!)</span>';
-                        else infoFecha += ' <span style="color:#94a3b8; font-size:10.5px;">(en ' + dDiff + 'd)</span>';
+                        if (dDiff < 0) {
+                            cuotasVencidasDeuda++;
+                            infoFecha += ' <span style="color:#ef4444; font-size:10.5px; font-weight:700;">(hace ' + Math.abs(dDiff) + 'd)</span>';
+                        } else if (dDiff === 0) {
+                            infoFecha += ' <span style="color:#f59e0b; font-size:10.5px;">(¡Hoy!)</span>';
+                        } else {
+                            infoFecha += ' <span style="color:#94a3b8; font-size:10.5px;">(en ' + dDiff + 'd)</span>';
+                        }
+                        var fechaCStr = (c.fecha || '').slice(0, 10);
+                        btnMoverCuota = '<button type="button" class="btn-mover-fecha-fin" style="padding:3px 7px; font-size:10.5px;" onclick="abrirModalMoverFechaFinanza(\'deuda_cuota\', \'' + item.id + '\', \'' + c.num + '\', \'' + fechaCStr.slice(0, 7) + '\', \'' + fechaCStr + '\', false)" title="Reprogramar fecha de cuota">📅 Mover</button>';
                     }
 
                     htmlCuotas += '<div class="cronograma-cuota-row ' + (c.pagada ? 'cuota-pagada' : (c.num === cuotasPagadas + 1 ? 'cuota-siguiente' : '')) + '">' +
-                        '<div style="display: flex; align-items: center; gap: 8px;">' +
+                        '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
                             '<span style="font-weight: 800; font-size: 12px; color: #f8fafc;">#' + c.num + '</span>' +
                             '<span style="font-size: 12px; color: #cbd5e1;">' + infoFecha + '</span>' +
                         '</div>' +
-                        '<div style="display: flex; align-items: center; gap: 8px;">' +
+                        '<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">' +
                             '<span style="font-weight: 800; font-size: 12px; color: #38bdf8;">$' + Number(c.monto).toFixed(2) + '</span>' +
                             estadoCuota +
+                            btnMoverCuota +
                         '</div>' +
                     '</div>';
                 });
+
+                var badgeVencidaDeuda = (!estaPagada && cuotasVencidasDeuda > 0)
+                    ? '<span class="cuota-badge-vencida">🚨 ' + cuotasVencidasDeuda + ' retrasada' + (cuotasVencidasDeuda === 1 ? '' : 's') + '</span>'
+                    : '';
 
                 var textoFrecuenciaItem = 'Cada ' + (item.diasFrecuencia || 15) + ' días';
                 if (item.tipoFrecuencia === 'quince_ultimo' || item.diasFrecuencia === 'quince_ultimo') {
@@ -2847,10 +2906,11 @@ function renderizarDeudasYCronograma(f, vq, coincideFn) {
                             '<span style="font-size: 22px; flex-shrink: 0;">' + (item.iconoCategoria || '🛡️') + '</span>' +
                             '<div style="min-width: 0; flex: 1;">' +
                                 '<div style="font-size: 14.5px; font-weight: 800; color: #f8fafc; word-break: break-word;">' + escaparHTML(item.nombre) + '</div>' +
-                                '<div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; margin-top: 2px;">' +
+                                '<div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px;">' +
                                     '<span>' + escaparHTML(item.categoria || 'Deuda') + '</span>' +
                                     '<span>•</span>' +
                                     '<span>' + textoFrecuenciaItem + '</span>' +
+                                    badgeVencidaDeuda +
                                 '</div>' +
                             '</div>' +
                         '</div>' +
@@ -4232,6 +4292,236 @@ function cerrarModalMoverFechaFinanza() {
     if (modal) modal.style.display = 'none';
 }
 
+function calcularDiasDiferenciaISOFinanzas(fechaA, fechaB) {
+    if (!fechaA || !fechaB || fechaA.length < 10 || fechaB.length < 10) return 0;
+    var a = new Date(fechaA.slice(0, 10) + 'T00:00:00');
+    var b = new Date(fechaB.slice(0, 10) + 'T00:00:00');
+    if (isNaN(a.getTime()) || isNaN(b.getTime())) return 0;
+    return Math.round((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function resolverFechaEfectivaMovFinanzas(item, esRecurrente, anio, mes) {
+    if (!item) return obtenerHoyISOFinanzas();
+    var mesClave = anio + '-' + String(mes + 1).padStart(2, '0');
+    var totalDiasMes = new Date(anio, mes + 1, 0).getDate();
+    if (esRecurrente) {
+        var excMap = (item.excepcionesMes && typeof item.excepcionesMes === 'object') ? item.excepcionesMes : null;
+        if (excMap && typeof excMap[mesClave] === 'string' && excMap[mesClave].length >= 10) {
+            return excMap[mesClave].slice(0, 10);
+        }
+        var diaRec = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasMes);
+        return obtenerClaveFechaISOFinanzas(anio, mes, diaRec);
+    }
+    if (item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10) {
+        return item.fecha.slice(0, 10);
+    }
+    var diaFallback = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasMes);
+    return obtenerClaveFechaISOFinanzas(anio, mes, diaFallback);
+}
+
+function obtenerRetrasosFinanzas(fin) {
+    var f = fin || (APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var hoyISO = obtenerHoyISOFinanzas();
+    var hoyAnio = parseInt(hoyISO.slice(0, 4), 10);
+    var hoyMes = parseInt(hoyISO.slice(5, 7), 10) - 1;
+    var hoyMesClave = hoyISO.slice(0, 7);
+
+    var cobros = [];
+    var pagos = [];
+
+    // 1. Cobros retrasados (Ingresos fijos del mes vigente, variables o créditos Almacén vencidos sin cobrar)
+    (f.ingresos || []).forEach(function(item) {
+        if (!item || !item.id || item.cobrado) return;
+        var info = clasificarOrigenIngreso(item);
+        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
+        var esRecurrente = (info.tipoDestino === 'fija' && !tieneFechaExacta);
+        var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRecurrente, hoyAnio, hoyMes);
+        if (!fechaEff || fechaEff >= hoyISO) return;
+
+        var dias = Math.max(1, calcularDiasDiferenciaISOFinanzas(hoyISO, fechaEff));
+        cobros.push({
+            uid: 'ingreso:' + item.id,
+            clase: 'cobro',
+            origen: 'ingreso',
+            id: item.id,
+            cuotaNum: '',
+            titulo: item.fuente || item.concepto || item.nombre || item.descripcion || 'Cobro pendiente',
+            categoriaTxt: item.ventaId ? (item.cuotaId ? 'Crédito Almacén' : 'Venta Almacén') : (info.nombreOrigen || 'Ingreso'),
+            icono: info.icono || '💵',
+            monto: Number(item.monto) || 0,
+            fechaISO: fechaEff,
+            diasRetraso: dias,
+            esRecurrente: esRecurrente,
+            mesOrigenRegla: fechaEff.slice(0, 7),
+            esCreditoAlmacen: !!(item.ventaId && item.cuotaId)
+        });
+    });
+
+    // 2. Pagos retrasados (Gastos programados u ocasionales vencidos sin pagar)
+    (f.gastos || []).forEach(function(item) {
+        if (!item || !item.id || item.pagado) return;
+        var tieneFechaExacta = !!(item.fecha && typeof item.fecha === 'string' && item.fecha.length >= 10);
+        var esRecurrente = (item.tipo !== 'ocasional' && !tieneFechaExacta);
+        var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRecurrente, hoyAnio, hoyMes);
+        if (!fechaEff || fechaEff >= hoyISO) return;
+
+        var dias = Math.max(1, calcularDiasDiferenciaISOFinanzas(hoyISO, fechaEff));
+        pagos.push({
+            uid: 'gasto:' + item.id,
+            clase: 'pago',
+            origen: 'gasto',
+            id: item.id,
+            cuotaNum: '',
+            titulo: item.concepto || 'Pago pendiente',
+            categoriaTxt: item.categoria || (item.tipo === 'ocasional' ? 'Ocasional' : 'Programado'),
+            icono: item.tipo === 'ocasional' ? '⚡' : '💳',
+            monto: Number(item.monto) || 0,
+            fechaISO: fechaEff,
+            diasRetraso: dias,
+            esRecurrente: esRecurrente,
+            mesOrigenRegla: fechaEff.slice(0, 7)
+        });
+    });
+
+    // 3. Cuotas de deudas retrasadas
+    (f.deudas || []).forEach(function(deuda) {
+        if (!deuda || !deuda.id || deuda.pagada) return;
+        normalizarDeuda(deuda);
+        (deuda.cuotas || []).forEach(function(c) {
+            if (!c || c.pagada || !c.fecha || typeof c.fecha !== 'string') return;
+            var fechaC = c.fecha.slice(0, 10);
+            if (fechaC >= hoyISO) return;
+            var dias = Math.max(1, calcularDiasDiferenciaISOFinanzas(hoyISO, fechaC));
+            pagos.push({
+                uid: 'deuda_cuota:' + deuda.id + ':' + c.num,
+                clase: 'pago',
+                origen: 'deuda_cuota',
+                id: deuda.id,
+                cuotaNum: String(c.num),
+                titulo: deuda.nombre + ' · Cuota #' + c.num + '/' + (deuda.cuotasTotal || 1),
+                categoriaTxt: deuda.categoria || 'Cuota de Deuda',
+                icono: deuda.iconoCategoria || '🛡️',
+                monto: Number(c.monto) || Number(deuda.montoCuota) || 0,
+                fechaISO: fechaC,
+                diasRetraso: dias,
+                esRecurrente: false,
+                mesOrigenRegla: fechaC.slice(0, 7)
+            });
+        });
+    });
+
+    var ordenarRetrasos = function(a, b) {
+        if (b.diasRetraso !== a.diasRetraso) return b.diasRetraso - a.diasRetraso;
+        return b.monto - a.monto;
+    };
+    cobros.sort(ordenarRetrasos);
+    pagos.sort(ordenarRetrasos);
+    var todos = pagos.concat(cobros).sort(ordenarRetrasos);
+
+    var totalCobrosUsd = cobros.reduce(function(acc, r) { return acc + r.monto; }, 0);
+    var totalPagosUsd = pagos.reduce(function(acc, r) { return acc + r.monto; }, 0);
+
+    return {
+        hoyISO: hoyISO,
+        cobros: cobros,
+        pagos: pagos,
+        todos: todos,
+        countCobros: cobros.length,
+        countPagos: pagos.length,
+        totalCount: todos.length,
+        totalCobrosUsd: totalCobrosUsd,
+        totalPagosUsd: totalPagosUsd
+    };
+}
+
+function aplicarCambioFechaItemFinanzaCore(params) {
+    if (!APP_STATE || !APP_STATE.finanzas || !params) return null;
+    var origen = params.origen;
+    var id = params.id;
+    var cuotaNum = params.cuotaNum;
+    var mesClaveOrigen = params.mesClaveOrigen || '';
+    var esRecurrente = !!params.esRecurrente;
+    var nuevaFecha = params.nuevaFecha;
+    var alcance = params.alcance || 'solo_mes';
+
+    if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) return null;
+
+    var partes = nuevaFecha.split('-');
+    var nuevoAnio = parseInt(partes[0], 10);
+    var nuevoMes = parseInt(partes[1], 10) - 1;
+    var nuevoDia = parseInt(partes[2], 10);
+    var mesDestinoClave = nuevaFecha.slice(0, 7);
+    var now = Date.now();
+    var tituloMovido = 'Movimiento';
+
+    function mutarRecurrenteOFijo(item) {
+        if (esRecurrente) {
+            if (alcance === 'siempre') {
+                item.dia = nuevoDia;
+                if (item.excepcionesMes && mesClaveOrigen) {
+                    delete item.excepcionesMes[mesClaveOrigen];
+                }
+            } else {
+                if (!item.excepcionesMes || typeof item.excepcionesMes !== 'object') {
+                    item.excepcionesMes = {};
+                }
+                var claveRef = mesClaveOrigen || mesDestinoClave;
+                var totalDiasDest = new Date(nuevoAnio, nuevoMes + 1, 0).getDate();
+                var diaOriginalClamped = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasDest);
+                if (mesDestinoClave === claveRef && nuevoDia === diaOriginalClamped) {
+                    delete item.excepcionesMes[claveRef];
+                } else {
+                    item.excepcionesMes[claveRef] = nuevaFecha;
+                }
+            }
+        } else {
+            item.fecha = nuevaFecha;
+            item.dia = nuevoDia;
+        }
+        item.fechaActualizacion = now;
+    }
+
+    if (origen === 'ingreso') {
+        var ing = (APP_STATE.finanzas.ingresos || []).find(function(x) { return x.id === id; });
+        if (!ing) return null;
+        tituloMovido = ing.fuente || ing.concepto || ing.nombre || 'Cobro';
+        mutarRecurrenteOFijo(ing);
+
+        if (ing.ventaId && ing.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
+            var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === ing.ventaId; });
+            if (vObj && Array.isArray(vObj.cuotas)) {
+                var cObj = vObj.cuotas.find(function(c) { return c.id === ing.cuotaId; });
+                if (cObj) {
+                    cObj.fecha = nuevaFecha;
+                    cObj.dia = nuevoDia;
+                }
+            }
+        }
+    } else if (origen === 'gasto') {
+        var gas = (APP_STATE.finanzas.gastos || []).find(function(x) { return x.id === id; });
+        if (!gas) return null;
+        tituloMovido = gas.concepto || 'Pago';
+        mutarRecurrenteOFijo(gas);
+    } else if (origen === 'deuda_cuota') {
+        var deu = (APP_STATE.finanzas.deudas || []).find(function(x) { return x.id === id; });
+        if (!deu) return null;
+        normalizarDeuda(deu);
+        var cuotaTarget = (deu.cuotas || []).find(function(c) { return String(c.num) === String(cuotaNum); });
+        if (!cuotaTarget) return null;
+        cuotaTarget.fecha = nuevaFecha;
+        cuotaTarget.reprogramada = true;
+        if (Number(deu.cuotasTotal) === 1 || Number(cuotaNum) === 1) {
+            deu.dia = nuevoDia;
+        }
+        deu.fechaActualizacion = now;
+        tituloMovido = deu.nombre + ' · Cuota #' + cuotaNum;
+    } else {
+        return null;
+    }
+
+    return tituloMovido;
+}
+
 function ejecutarMoverFechaFinanza() {
     var origen = document.getElementById('mover-fin-origen').value;
     var id = document.getElementById('mover-fin-id').value;
@@ -4248,80 +4538,16 @@ function ejecutarMoverFechaFinanza() {
     var radioAlc = document.querySelector('input[name="mover-fin-alcance"]:checked');
     var alcance = radioAlc ? radioAlc.value : 'solo_mes';
 
-    var partes = nuevaFecha.split('-');
-    var nuevoAnio = parseInt(partes[0], 10);
-    var nuevoMes = parseInt(partes[1], 10) - 1;
-    var nuevoDia = parseInt(partes[2], 10);
-    var mesDestinoClave = nuevaFecha.slice(0, 7);
-    var now = Date.now();
-    var tituloMovido = 'Movimiento';
-
-    if (!APP_STATE || !APP_STATE.finanzas) return;
-
-    function aplicarCambioItemRecurrenteOFijo(item) {
-        if (esRecurrente) {
-            if (alcance === 'siempre') {
-                item.dia = nuevoDia;
-                if (item.excepcionesMes && mesClaveOrigen) {
-                    delete item.excepcionesMes[mesClaveOrigen];
-                }
-            } else {
-                if (!item.excepcionesMes || typeof item.excepcionesMes !== 'object') {
-                    item.excepcionesMes = {};
-                }
-                var totalDiasDest = new Date(nuevoAnio, nuevoMes + 1, 0).getDate();
-                var diaOriginalClamped = Math.min(Math.max(1, parseInt(item.dia, 10) || 15), totalDiasDest);
-                if (mesDestinoClave === mesClaveOrigen && nuevoDia === diaOriginalClamped) {
-                    delete item.excepcionesMes[mesClaveOrigen];
-                } else {
-                    item.excepcionesMes[mesClaveOrigen] = nuevaFecha;
-                }
-            }
-        } else {
-            item.fecha = nuevaFecha;
-            item.dia = nuevoDia;
-        }
-        item.fechaActualizacion = now;
-    }
-
-    if (origen === 'ingreso') {
-        var ing = (APP_STATE.finanzas.ingresos || []).find(function(x) { return x.id === id; });
-        if (!ing) return;
-        tituloMovido = ing.fuente || ing.concepto || ing.nombre || 'Cobro';
-        aplicarCambioItemRecurrenteOFijo(ing);
-
-        // Si corresponde a cuota de venta a crédito en Inventario, sincronizar también allá
-        if (ing.ventaId && ing.cuotaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) {
-            var vObj = APP_STATE.inventario.ventas.find(function(v) { return v.id === ing.ventaId; });
-            if (vObj && Array.isArray(vObj.cuotas)) {
-                var cObj = vObj.cuotas.find(function(c) { return c.id === ing.cuotaId; });
-                if (cObj) {
-                    cObj.fecha = nuevaFecha;
-                    cObj.dia = nuevoDia;
-                }
-            }
-        }
-    } else if (origen === 'gasto') {
-        var gas = (APP_STATE.finanzas.gastos || []).find(function(x) { return x.id === id; });
-        if (!gas) return;
-        tituloMovido = gas.concepto || 'Pago';
-        aplicarCambioItemRecurrenteOFijo(gas);
-    } else if (origen === 'deuda_cuota') {
-        var deu = (APP_STATE.finanzas.deudas || []).find(function(x) { return x.id === id; });
-        if (!deu) return;
-        normalizarDeuda(deu);
-        var cuotaTarget = (deu.cuotas || []).find(function(c) { return String(c.num) === String(cuotaNum); });
-        if (!cuotaTarget) return;
-        cuotaTarget.fecha = nuevaFecha;
-        cuotaTarget.reprogramada = true;
-        if (Number(deu.cuotasTotal) === 1 || Number(cuotaNum) === 1) {
-            deu.dia = nuevoDia;
-        }
-        deu.fechaActualizacion = now;
-        tituloMovido = deu.nombre + ' · Cuota #' + cuotaNum;
-    } else {
-        return;
-    }
+    var tituloMovido = aplicarCambioFechaItemFinanzaCore({
+        origen: origen,
+        id: id,
+        cuotaNum: cuotaNum,
+        mesClaveOrigen: mesClaveOrigen,
+        esRecurrente: esRecurrente,
+        nuevaFecha: nuevaFecha,
+        alcance: alcance
+    });
+    if (!tituloMovido) return;
 
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.calUltimoMovimiento = {
@@ -4333,6 +4559,518 @@ function ejecutarMoverFechaFinanza() {
     cerrarModalMoverFechaFinanza();
     renderizarFinanzas(APP_STATE.finanzas);
     if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+}
+
+function renderizarBannerAlertaRetrasosFinanzas(fin, infoPrecalc) {
+    var cont = document.getElementById('finanzas-alerta-retrasados-banner');
+    if (!cont) return;
+
+    var info = infoPrecalc || obtenerRetrasosFinanzas(fin);
+    if (!info || info.totalCount === 0) {
+        cont.style.display = 'none';
+        cont.innerHTML = '';
+        return;
+    }
+
+    var partesResumen = [];
+    if (info.countPagos > 0) {
+        partesResumen.push('<strong>' + info.countPagos + ' ' + (info.countPagos === 1 ? 'pago' : 'pagos') + '</strong> (-$' + info.totalPagosUsd.toFixed(2) + ')');
+    }
+    if (info.countCobros > 0) {
+        partesResumen.push('<strong>' + info.countCobros + ' ' + (info.countCobros === 1 ? 'cobro' : 'cobros') + '</strong> (+$' + info.totalCobrosUsd.toFixed(2) + ')');
+    }
+
+    var previewLista = info.todos.slice(0, 3).map(function(r) {
+        return escaparHTML(r.titulo) + ' (' + r.diasRetraso + 'd)';
+    }).join(' · ');
+    if (info.totalCount > 3) {
+        previewLista += ' y ' + (info.totalCount - 3) + ' más';
+    }
+
+    cont.style.display = 'block';
+    cont.innerHTML = `
+        <div class="fin-retrasos-banner">
+            <div class="fin-retrasos-banner-top">
+                <div style="min-width: 0; flex: 1;">
+                    <div style="font-size: 13px; font-weight: 800; color: #fecaca; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span>🚨 ALERTA DE RETRASOS (${info.totalCount})</span>
+                        <span style="font-size: 11px; font-weight: 700; color: #fca5a5;">· ${partesResumen.join(' y ')}</span>
+                    </div>
+                    <div style="font-size: 11.5px; color: #e2e8f0; margin-top: 3px; line-height: 1.4;">
+                        ${previewLista}
+                    </div>
+                </div>
+                <div class="fin-retrasos-actions">
+                    <button type="button" id="btn-abrir-reprogramar-retrasados" class="fin-retrasos-btn-main" onclick="abrirModalReprogramarRetrasadosFinanzas('todos')">
+                        📅 Reprogramar Todos y c/u (${info.totalCount})
+                    </button>
+                    ${info.countPagos > 0 && info.countCobros > 0 ? `
+                        <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('pagos')">💳 Pagos (${info.countPagos})</button>
+                        <button type="button" class="fin-retrasos-btn-pill" onclick="abrirModalReprogramarRetrasadosFinanzas('cobros')">💰 Cobros (${info.countCobros})</button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function notificarToastSiHayRetrasosFinanzas() {
+    var info = obtenerRetrasosFinanzas();
+    if (!info || info.totalCount === 0) {
+        window._ULTIMO_AVISO_RETRASOS_FIN_SIG = '';
+        return;
+    }
+    var sig = info.todos.map(function(r) { return r.uid + '@' + r.fechaISO; }).join('|');
+    if (window._ULTIMO_AVISO_RETRASOS_FIN_SIG === sig) return;
+    window._ULTIMO_AVISO_RETRASOS_FIN_SIG = sig;
+
+    var partes = [];
+    if (info.countPagos > 0) partes.push(info.countPagos + ' pago(s)');
+    if (info.countCobros > 0) partes.push(info.countCobros + ' cobro(s)');
+    var msg = partes.join(' y ') + ' retrasados · Toca para reprogramar';
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(msg, '🚨');
+    }
+}
+
+var REPROG_RETRASOS_FILTRO = 'todos';
+var REPROG_RETRASOS_SELECCIONADOS = {};
+var REPROG_RETRASOS_FECHAS_DRAFT = {};
+var REPROG_RETRASOS_FECHAS_EDITADAS = {};
+
+function sumarDiasFechaISOFinanzas(baseISO, diasDelta) {
+    var d = new Date((baseISO || obtenerHoyISOFinanzas()).slice(0, 10) + 'T12:00:00');
+    d.setDate(d.getDate() + diasDelta);
+    return obtenerClaveFechaISOFinanzas(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function abrirModalReprogramarRetrasadosFinanzas(filtroInicial) {
+    var modal = document.getElementById('modal-reprogramar-retrasados-finanzas');
+    if (!modal) return;
+
+    var info = obtenerRetrasosFinanzas();
+    REPROG_RETRASOS_FILTRO = (filtroInicial === 'pagos' || filtroInicial === 'cobros') ? filtroInicial : 'todos';
+    REPROG_RETRASOS_SELECCIONADOS = {};
+    REPROG_RETRASOS_FECHAS_DRAFT = {};
+    REPROG_RETRASOS_FECHAS_EDITADAS = {};
+
+    var hoyISO = info.hoyISO || obtenerHoyISOFinanzas();
+    (info.todos || []).forEach(function(item) {
+        REPROG_RETRASOS_SELECCIONADOS[item.uid] = true;
+        REPROG_RETRASOS_FECHAS_DRAFT[item.uid] = hoyISO;
+    });
+
+    var inLote = document.getElementById('reprog-lote-fecha');
+    if (inLote) inLote.value = hoyISO;
+
+    var contAtajos = document.getElementById('reprog-lote-atajos');
+    if (contAtajos) {
+        var hoyDate = new Date(hoyISO + 'T12:00:00');
+        var ultDiaMes = new Date(hoyDate.getFullYear(), hoyDate.getMonth() + 1, 0).getDate();
+        var proxMes = new Date(hoyDate.getFullYear(), hoyDate.getMonth() + 1, 1);
+        var atajos = [
+            { lbl: 'Hoy', iso: hoyISO },
+            { lbl: 'Mañana (+1d)', iso: sumarDiasFechaISOFinanzas(hoyISO, 1) },
+            { lbl: '+3 días', iso: sumarDiasFechaISOFinanzas(hoyISO, 3) },
+            { lbl: '+7 días', iso: sumarDiasFechaISOFinanzas(hoyISO, 7) },
+            { lbl: 'Último (' + ultDiaMes + ')', iso: obtenerClaveFechaISOFinanzas(hoyDate.getFullYear(), hoyDate.getMonth(), ultDiaMes) },
+            { lbl: 'Día 1 próx. mes', iso: obtenerClaveFechaISOFinanzas(proxMes.getFullYear(), proxMes.getMonth(), 1) }
+        ];
+        contAtajos.innerHTML = atajos.map(function(a) {
+            return '<button type="button" class="btn-atajo-fecha-fin" onclick="seleccionarAtajoLoteRetrasosFin(\'' + a.iso + '\')">' + a.lbl + '</button>';
+        }).join('');
+    }
+
+    renderizarContenidoModalReprogramarRetrasosFinanzas();
+    modal.style.display = 'flex';
+}
+
+function cerrarModalReprogramarRetrasadosFinanzas() {
+    var modal = document.getElementById('modal-reprogramar-retrasados-finanzas');
+    if (modal) modal.style.display = 'none';
+}
+
+function refrescarModalReprogramarSiAbiertoFinanzas() {
+    var modal = document.getElementById('modal-reprogramar-retrasados-finanzas');
+    if (modal && modal.style.display === 'flex') {
+        renderizarContenidoModalReprogramarRetrasosFinanzas();
+    }
+}
+
+function cambiarFiltroModalRetrasosFinanzas(filtro) {
+    REPROG_RETRASOS_FILTRO = filtro || 'todos';
+    renderizarContenidoModalReprogramarRetrasosFinanzas();
+}
+
+function seleccionarAtajoLoteRetrasosFin(fechaISO) {
+    var inLote = document.getElementById('reprog-lote-fecha');
+    if (inLote && fechaISO) inLote.value = fechaISO;
+}
+
+function toggleSeleccionTodosRetrasadosFinanzas(checked) {
+    var info = obtenerRetrasosFinanzas();
+    var lista = obtenerListaFiltradaRetrasosFinanzas(info);
+    lista.forEach(function(item) {
+        REPROG_RETRASOS_SELECCIONADOS[item.uid] = !!checked;
+    });
+    renderizarContenidoModalReprogramarRetrasosFinanzas();
+}
+
+function alCambiarCheckItemRetrasoFinanzas(uid, checked) {
+    REPROG_RETRASOS_SELECCIONADOS[uid] = !!checked;
+    actualizarEstadoBotonLoteRetrasosFinanzas();
+}
+
+function alCambiarFechaItemRetrasoFinanzas(uid, valor) {
+    if (valor) {
+        REPROG_RETRASOS_FECHAS_DRAFT[uid] = valor;
+        REPROG_RETRASOS_FECHAS_EDITADAS[uid] = true;
+    }
+    actualizarEstadoBotonLoteRetrasosFinanzas();
+}
+
+function obtenerListaFiltradaRetrasosFinanzas(info) {
+    if (!info) return [];
+    if (REPROG_RETRASOS_FILTRO === 'pagos') return info.pagos || [];
+    if (REPROG_RETRASOS_FILTRO === 'cobros') return info.cobros || [];
+    return info.todos || [];
+}
+
+function actualizarEstadoBotonLoteRetrasosFinanzas() {
+    var info = obtenerRetrasosFinanzas();
+    var lista = obtenerListaFiltradaRetrasosFinanzas(info);
+    var seleccionados = lista.filter(function(x) { return REPROG_RETRASOS_SELECCIONADOS[x.uid] !== false; }).length;
+    var editadasCount = lista.filter(function(x) { return !!REPROG_RETRASOS_FECHAS_EDITADAS[x.uid]; }).length;
+    var chkAll = document.getElementById('reprog-lote-select-all');
+    var lblAll = document.getElementById('reprog-lote-select-label');
+    var btnLote = document.getElementById('btn-reprog-aplicar-todos');
+    var btnInd = document.getElementById('btn-reprog-guardar-individuales');
+
+    if (chkAll) chkAll.checked = (lista.length > 0 && seleccionados === lista.length);
+    if (lblAll) lblAll.textContent = 'Seleccionar todos (' + seleccionados + '/' + lista.length + ')';
+    if (btnLote) {
+        btnLote.textContent = '🚀 Reprogramar Marcados (' + seleccionados + ')';
+        btnLote.disabled = seleccionados === 0;
+    }
+    if (btnInd) {
+        btnInd.textContent = editadasCount > 0
+            ? ('💾 Guardar ' + editadasCount + ' Fecha' + (editadasCount === 1 ? '' : 's') + ' Editada' + (editadasCount === 1 ? '' : 's') + ' (c/u)')
+            : '💾 Guardar Fechas Editadas (c/u)';
+    }
+}
+
+function renderizarContenidoModalReprogramarRetrasosFinanzas() {
+    var info = obtenerRetrasosFinanzas();
+    var hoyISO = info.hoyISO || obtenerHoyISOFinanzas();
+    var resEl = document.getElementById('reprog-ret-resumen');
+    var fltEl = document.getElementById('reprog-ret-filtros');
+    var listEl = document.getElementById('reprog-ret-lista');
+    var loteBox = document.getElementById('reprog-lote-box');
+    var btnGuardarInd = document.getElementById('btn-reprog-guardar-individuales');
+    if (!listEl) return;
+
+    if (resEl) {
+        if (info.totalCount === 0) {
+            resEl.style.background = 'rgba(16, 185, 129, 0.12)';
+            resEl.style.borderColor = 'rgba(52, 211, 153, 0.35)';
+            resEl.style.color = '#a7f3d0';
+            resEl.innerHTML = '✅ <strong>¡Todo al día!</strong> Todos tus pagos y cobros están reprogramados o liquidados.';
+        } else {
+            resEl.style.background = 'rgba(239, 68, 68, 0.1)';
+            resEl.style.borderColor = 'rgba(239, 68, 68, 0.28)';
+            resEl.style.color = '#fecaca';
+            resEl.innerHTML = 'Tienes <strong>' + info.countPagos + ' pago' + (info.countPagos === 1 ? '' : 's') + ' retrasado' + (info.countPagos === 1 ? '' : 's') +
+                '</strong> (-$' + info.totalPagosUsd.toFixed(2) + ') y <strong>' + info.countCobros + ' cobro' + (info.countCobros === 1 ? '' : 's') +
+                ' retrasado' + (info.countCobros === 1 ? '' : 's') + '</strong> (+$' + info.totalCobrosUsd.toFixed(2) + '). Reprogramalos todos juntos o pon una fecha distinta a cada uno.';
+        }
+    }
+
+    if (fltEl) {
+        var filtros = [
+            { id: 'todos', lbl: '📋 Todos (' + info.totalCount + ')' },
+            { id: 'pagos', lbl: '💳 Pagos (' + info.countPagos + ')' },
+            { id: 'cobros', lbl: '💰 Cobros (' + info.countCobros + ')' }
+        ];
+        fltEl.innerHTML = filtros.map(function(fl) {
+            return '<button type="button" class="trainer-filter-pill ' + (REPROG_RETRASOS_FILTRO === fl.id ? 'active' : '') +
+                '" onclick="cambiarFiltroModalRetrasosFinanzas(\'' + fl.id + '\')">' + fl.lbl + '</button>';
+        }).join('');
+    }
+
+    var lista = obtenerListaFiltradaRetrasosFinanzas(info);
+    if (loteBox) loteBox.style.display = lista.length > 0 ? 'block' : 'none';
+    if (btnGuardarInd) btnGuardarInd.style.display = lista.length > 0 ? 'inline-flex' : 'none';
+
+    if (lista.length === 0) {
+        listEl.innerHTML = '<div class="finanzas-empty-hint" style="margin: 0; padding: 26px 14px;">✅ Sin retrasos en esta categoría.</div>';
+        actualizarEstadoBotonLoteRetrasosFinanzas();
+        return;
+    }
+
+    var html = '';
+    lista.forEach(function(item) {
+        if (REPROG_RETRASOS_SELECCIONADOS[item.uid] === undefined) {
+            REPROG_RETRASOS_SELECCIONADOS[item.uid] = true;
+        }
+        if (!REPROG_RETRASOS_FECHAS_DRAFT[item.uid]) {
+            REPROG_RETRASOS_FECHAS_DRAFT[item.uid] = hoyISO;
+        }
+        var checked = REPROG_RETRASOS_SELECCIONADOS[item.uid] !== false;
+        var draftFecha = REPROG_RETRASOS_FECHAS_DRAFT[item.uid];
+        var safeUidAttr = String(item.uid).replace(/'/g, "\\'");
+        var safeDomId = String(item.uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+        var esCobro = item.clase === 'cobro';
+        var tipoBadge = esCobro
+            ? '<span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:999px; background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.35);">💰 COBRO</span>'
+            : '<span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:999px; background:rgba(239,68,68,0.18); color:#f87171; border:1px solid rgba(239,68,68,0.35);">💳 PAGO</span>';
+        var btnLiquidar = '<button type="button" class="fin-reprog-btn-settle" onclick="liquidarDesdeRetrasosFinanzas(\'' + safeUidAttr + '\')">' +
+            (esCobro ? '💰 Cobrar' : '💳 Pagar') + '</button>';
+
+        html += `
+        <div class="fin-reprog-item-card ${esCobro ? 'is-cobro' : ''}">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                <label style="display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 0; cursor: pointer;">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="alCambiarCheckItemRetrasoFinanzas('${safeUidAttr}', this.checked)" style="width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; accent-color: #38bdf8;">
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                            ${tipoBadge}
+                            <span class="cuota-badge-vencida">🚨 Hace ${item.diasRetraso}d · ${formatearFechaCorta(item.fechaISO)}</span>
+                        </div>
+                        <div style="font-size: 13px; font-weight: 800; color: #f8fafc; word-break: break-word;">${escaparHTML(item.titulo)}</div>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">${escaparHTML(item.categoriaTxt)}</div>
+                    </div>
+                </label>
+                <div style="font-size: 14px; font-weight: 800; color: ${esCobro ? '#34d399' : '#f87171'}; flex-shrink: 0;">
+                    ${esCobro ? '+$' : '-$'}${item.monto.toFixed(2)}
+                </div>
+            </div>
+            <div class="fin-reprog-controls-row">
+                <input type="date" id="reprog-fecha-${safeDomId}" data-reprog-uid="${escaparHTML(item.uid)}" class="fin-reprog-date-input" value="${draftFecha}" oninput="alCambiarFechaItemRetrasoFinanzas('${safeUidAttr}', this.value)" onchange="alCambiarFechaItemRetrasoFinanzas('${safeUidAttr}', this.value)">
+                <button type="button" class="fin-reprog-btn-single" onclick="reprogramarItemIndividualRetrasosFinanzas('${safeUidAttr}')">📅 Mover</button>
+                ${btnLiquidar}
+            </div>
+        </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+    actualizarEstadoBotonLoteRetrasosFinanzas();
+}
+
+function ejecutarReprogramacionMasivaFinanzas() {
+    var inLote = document.getElementById('reprog-lote-fecha');
+    var nuevaFecha = inLote ? inLote.value : '';
+    if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) {
+        alert("Selecciona una fecha válida para reprogramar en lote.");
+        return;
+    }
+
+    var info = obtenerRetrasosFinanzas();
+    var lista = obtenerListaFiltradaRetrasosFinanzas(info).filter(function(item) {
+        return REPROG_RETRASOS_SELECCIONADOS[item.uid] !== false;
+    });
+    if (lista.length === 0) return;
+
+    var movidos = 0;
+    lista.forEach(function(item) {
+        var res = aplicarCambioFechaItemFinanzaCore({
+            origen: item.origen,
+            id: item.id,
+            cuotaNum: item.cuotaNum,
+            mesClaveOrigen: item.mesOrigenRegla,
+            esRecurrente: item.esRecurrente,
+            nuevaFecha: nuevaFecha,
+            alcance: 'solo_mes'
+        });
+        if (res) {
+            movidos++;
+            REPROG_RETRASOS_FECHAS_DRAFT[item.uid] = nuevaFecha;
+            delete REPROG_RETRASOS_FECHAS_EDITADAS[item.uid];
+        }
+    });
+
+    if (movidos > 0) {
+        MonarcaDB.save(APP_STATE);
+        renderizarFinanzas(APP_STATE.finanzas);
+        if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca(movidos + ' movimientos reprogramados al ' + formatearFechaCorta(nuevaFecha), '📅');
+        }
+        var postInfo = obtenerRetrasosFinanzas();
+        if (postInfo.totalCount === 0) {
+            cerrarModalReprogramarRetrasadosFinanzas();
+        }
+    }
+}
+
+function reprogramarItemIndividualRetrasosFinanzas(uid) {
+    var info = obtenerRetrasosFinanzas();
+    var item = (info.todos || []).find(function(x) { return x.uid === uid; });
+    if (!item) return;
+
+    var safeDomId = String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+    var inFecha = document.getElementById('reprog-fecha-' + safeDomId);
+    var nuevaFecha = inFecha ? inFecha.value : (REPROG_RETRASOS_FECHAS_DRAFT[uid] || '');
+    if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) {
+        alert("Selecciona una fecha válida para este movimiento.");
+        return;
+    }
+
+    var titulo = aplicarCambioFechaItemFinanzaCore({
+        origen: item.origen,
+        id: item.id,
+        cuotaNum: item.cuotaNum,
+        mesClaveOrigen: item.mesOrigenRegla,
+        esRecurrente: item.esRecurrente,
+        nuevaFecha: nuevaFecha,
+        alcance: 'solo_mes'
+    });
+    if (!titulo) return;
+
+    delete REPROG_RETRASOS_FECHAS_EDITADAS[uid];
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    window.ESTADO_FINANZAS.calUltimoMovimiento = { titulo: titulo, destinoFecha: nuevaFecha };
+
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('"' + titulo + '" movido al ' + formatearFechaCorta(nuevaFecha), '📅');
+    }
+}
+
+function guardarFechasIndividualesRetrasosFinanzas() {
+    var info = obtenerRetrasosFinanzas();
+    var hoyISO = info.hoyISO || obtenerHoyISOFinanzas();
+    var lista = obtenerListaFiltradaRetrasosFinanzas(info);
+    if (lista.length === 0) return;
+
+    var movidos = 0;
+    lista.forEach(function(item) {
+        var safeDomId = String(item.uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+        var inFecha = document.getElementById('reprog-fecha-' + safeDomId);
+        var nuevaFecha = inFecha ? inFecha.value : (REPROG_RETRASOS_FECHAS_DRAFT[item.uid] || '');
+        if (!nuevaFecha || !/^\d{4}-\d{2}-\d{2}$/.test(nuevaFecha)) return;
+
+        var fueEditado = !!REPROG_RETRASOS_FECHAS_EDITADAS[item.uid] || (nuevaFecha !== hoyISO && nuevaFecha !== item.fechaISO);
+        if (!fueEditado) return;
+
+        var res = aplicarCambioFechaItemFinanzaCore({
+            origen: item.origen,
+            id: item.id,
+            cuotaNum: item.cuotaNum,
+            mesClaveOrigen: item.mesOrigenRegla,
+            esRecurrente: item.esRecurrente,
+            nuevaFecha: nuevaFecha,
+            alcance: 'solo_mes'
+        });
+        if (res) {
+            movidos++;
+            delete REPROG_RETRASOS_FECHAS_EDITADAS[item.uid];
+        }
+    });
+
+    if (movidos === 0) {
+        alert("Cambia al menos una fecha en las tarjetas de abajo (o usa '📅 Mover' en la fila / '🚀 Reprogramar Marcados' arriba).");
+        return;
+    }
+
+    MonarcaDB.save(APP_STATE);
+    renderizarFinanzas(APP_STATE.finanzas);
+    if (typeof renderizarVendidosInventario === 'function') renderizarVendidosInventario();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(movidos + ' fecha(s) individual(es) guardada(s)', '💾');
+    }
+    var postInfo = obtenerRetrasosFinanzas();
+    if (postInfo.totalCount === 0) {
+        cerrarModalReprogramarRetrasadosFinanzas();
+    }
+}
+
+function liquidarDesdeRetrasosFinanzas(uid) {
+    var info = obtenerRetrasosFinanzas();
+    var item = (info.todos || []).find(function(x) { return x.uid === uid; });
+    if (!item) return;
+
+    if (item.origen === 'ingreso' && typeof cobrarIngresoUI === 'function') {
+        cobrarIngresoUI(item.id);
+    } else if (item.origen === 'gasto' && typeof pagarGastoUI === 'function') {
+        pagarGastoUI(item.id);
+    } else if (item.origen === 'deuda_cuota' && typeof pagarCuotaDeudaUI === 'function') {
+        pagarCuotaDeudaUI(item.id, parseInt(item.cuotaNum, 10) || 1);
+    }
+}
+
+function obtenerAlertasFinanzasRetrasadasActivas() {
+    if (!window.APP_STATE || !APP_STATE.finanzas) return [];
+    var info = obtenerRetrasosFinanzas(APP_STATE.finanzas);
+    if (!info || info.totalCount === 0) return [];
+
+    var alertas = [];
+    if (info.countPagos > 0) {
+        var listaP = info.pagos.slice(0, 3).map(function(p) {
+            return p.titulo + ' (-$' + p.monto.toFixed(2) + ', ' + p.diasRetraso + 'd)';
+        }).join(' · ');
+        alertas.push({
+            id: 'alerta-fin-retrasos-pagos',
+            tipo: 'urgente',
+            icono: '🚨',
+            badge: 'Pagos Retrasados (' + info.countPagos + ')',
+            color: '#ef4444',
+            titulo: info.countPagos + ' ' + (info.countPagos === 1 ? 'Pago Retrasado' : 'Pagos Retrasados') + ' (-$' + info.totalPagosUsd.toFixed(2) + ')',
+            metaLinea: '📅 Más antiguo: ' + info.pagos[0].fechaISO + ' (' + info.pagos[0].diasRetraso + 'd de atraso)',
+            descripcion: listaP + (info.countPagos > 3 ? ' y ' + (info.countPagos - 3) + ' más' : ''),
+            acciones: [
+                {
+                    tipo: 'primary',
+                    texto: '📅 Reprogramar Pagos',
+                    fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof abrirModalReprogramarRetrasadosFinanzas==='function') abrirModalReprogramarRetrasadosFinanzas('pagos'); }, 60);"
+                }
+            ]
+        });
+    }
+
+    if (info.countCobros > 0) {
+        var listaC = info.cobros.slice(0, 3).map(function(c) {
+            return c.titulo + ' (+$' + c.monto.toFixed(2) + ', ' + c.diasRetraso + 'd)';
+        }).join(' · ');
+        alertas.push({
+            id: 'alerta-fin-retrasos-cobros',
+            tipo: 'urgente',
+            icono: '⚠️',
+            badge: 'Cobros Retrasados (' + info.countCobros + ')',
+            color: '#f59e0b',
+            titulo: info.countCobros + ' ' + (info.countCobros === 1 ? 'Cobro Retrasado' : 'Cobros Retrasados') + ' (+$' + info.totalCobrosUsd.toFixed(2) + ')',
+            metaLinea: '📅 Más antiguo: ' + info.cobros[0].fechaISO + ' (' + info.cobros[0].diasRetraso + 'd de atraso)',
+            descripcion: listaC + (info.countCobros > 3 ? ' y ' + (info.countCobros - 3) + ' más' : ''),
+            acciones: [
+                {
+                    tipo: 'primary',
+                    texto: '📅 Reprogramar Cobros',
+                    fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof abrirModalReprogramarRetrasadosFinanzas==='function') abrirModalReprogramarRetrasadosFinanzas('cobros'); }, 60);"
+                }
+            ]
+        });
+    }
+
+    return alertas;
+}
+
+if (typeof window !== 'undefined') {
+    window.obtenerRetrasosFinanzas = obtenerRetrasosFinanzas;
+    window.obtenerAlertasFinanzasRetrasadasActivas = obtenerAlertasFinanzasRetrasadasActivas;
+    window.abrirModalReprogramarRetrasadosFinanzas = abrirModalReprogramarRetrasadosFinanzas;
+    window.cerrarModalReprogramarRetrasadosFinanzas = cerrarModalReprogramarRetrasadosFinanzas;
+    window.cambiarFiltroModalRetrasosFinanzas = cambiarFiltroModalRetrasosFinanzas;
+    window.seleccionarAtajoLoteRetrasosFin = seleccionarAtajoLoteRetrasosFin;
+    window.toggleSeleccionTodosRetrasadosFinanzas = toggleSeleccionTodosRetrasadosFinanzas;
+    window.alCambiarCheckItemRetrasoFinanzas = alCambiarCheckItemRetrasoFinanzas;
+    window.alCambiarFechaItemRetrasoFinanzas = alCambiarFechaItemRetrasoFinanzas;
+    window.ejecutarReprogramacionMasivaFinanzas = ejecutarReprogramacionMasivaFinanzas;
+    window.reprogramarItemIndividualRetrasosFinanzas = reprogramarItemIndividualRetrasosFinanzas;
+    window.guardarFechasIndividualesRetrasosFinanzas = guardarFechasIndividualesRetrasosFinanzas;
+    window.liquidarDesdeRetrasosFinanzas = liquidarDesdeRetrasosFinanzas;
 }
 
 // ==========================================================================
