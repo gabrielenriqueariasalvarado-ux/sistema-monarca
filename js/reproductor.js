@@ -60,6 +60,11 @@
         _scanRescanQueued: false,
         _lastAutoScanTs: 0,
         _playSeqId: 0,
+        _cargandoPlay: false,
+        _cancelarCargaPorDesconexionSeq: -1,
+        _lastNoisyPauseTs: 0,
+        _noisyListenerRegistered: false,
+        _knownWebAudioOutputs: null,
         _pendingSongForNewPlaylist: null,
         _modalAgregarModo: 'song',
         _modalAgregarSongId: null,
@@ -1912,6 +1917,7 @@
         solicitarPermisoNotifReproductorSiFalta();
         cancelarFadeAudio();
         var playSeq = ++state._playSeqId;
+        state._cargandoPlay = true;
         state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
         state._playListenState = {
             seqId: playSeq,
@@ -1971,7 +1977,21 @@
             var playPromise = state.audio.play();
             if (playPromise !== undefined) {
                 return playPromise.then(function() {
+                    if (state._cancelarCargaPorDesconexionSeq === playSeq) {
+                        state._cargandoPlay = false;
+                        try { if (!state.audio.paused) state.audio.pause(); } catch (e) {}
+                        state.reproduciendo = false;
+                        if (state.audio.volume < 0.01 && state.volumen > 0.01) {
+                            state.audio.volume = clampVol01(state.volumen);
+                        }
+                        actualizarUIPlayerCompleto();
+                        actualizarMiniPlayer();
+                        actualizarBarraAudioRutina();
+                        actualizarMediaSession();
+                        return false;
+                    }
                     if (playSeq !== state._playSeqId) return false;
+                    state._cargandoPlay = false;
                     state.reproduciendo = true;
                     state.rutinaConsecErrors = 0;
 
@@ -1992,6 +2012,7 @@
                     return true;
                 }).catch(function(err) {
                     if (playSeq !== state._playSeqId) return false;
+                    state._cargandoPlay = false;
                     console.warn('[Reproductor] Autoplay prevenido o error:', err);
                     state.audio.volume = clampVol01(state.volumen);
                     state.reproduciendo = false;
@@ -2009,12 +2030,14 @@
                     return false;
                 });
             }
+            state._cargandoPlay = false;
             if (fadeInMs > 0) {
                 hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
             }
             return true;
         }).catch(function(err) {
             if (playSeq !== state._playSeqId) return false;
+            state._cargandoPlay = false;
             console.warn('[Reproductor] Error abriendo audio:', err);
             if (opciones && opciones.silencioso && state.rutinaModoActivo) {
                 var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
@@ -2309,6 +2332,114 @@
         actualizarBarraAudioRutina();
         renderizarContenidoSegunSubtab();
         actualizarMediaSession();
+    }
+
+    function pausarPorDesconexionAudio(motivo, nombreDispositivo) {
+        var ahora = Date.now();
+        var estabaCargando = !!state._cargandoPlay;
+        var estabaReproduciendo = !!(state.reproduciendo || (state.audio && !state.audio.paused));
+
+        if (!estabaReproduciendo && !estabaCargando) {
+            return false;
+        }
+
+        cancelarFadeAudio();
+        if (estabaCargando) {
+            state._cancelarCargaPorDesconexionSeq = state._playSeqId;
+            state._playSeqId++;
+            state._cargandoPlay = false;
+        }
+
+        if (state.audio && !state.audio.paused) {
+            try { state.audio.pause(); } catch (e) {}
+        }
+        if (state.audio && state.audio.volume < 0.01 && state.volumen > 0.01) {
+            state.audio.volume = clampVol01(state.volumen);
+        }
+        state.reproduciendo = false;
+
+        actualizarUIPlayerCompleto();
+        actualizarMiniPlayer();
+        actualizarBarraAudioRutina();
+        renderizarContenidoSegunSubtab();
+        actualizarMediaSession();
+
+        if (ahora - (state._lastNoisyPauseTs || 0) > 1800) {
+            state._lastNoisyPauseTs = ahora;
+            var devTxt = (typeof nombreDispositivo === 'string' && nombreDispositivo.trim())
+                ? (' (' + nombreDispositivo.trim() + ')')
+                : '';
+            notificarPlayerToast('Música pausada al desconectar audífonos' + devTxt, '🎧');
+        }
+        return true;
+    }
+
+    function initMonitorDesconexionAudifonos() {
+        if (state._noisyListenerRegistered) return;
+        state._noisyListenerRegistered = true;
+
+        var plugin = obtenerPluginMonarcaMedia();
+        if (plugin && typeof plugin.addListener === 'function') {
+            try {
+                var p = plugin.addListener('audioBecomingNoisy', function(ev) {
+                    var reason = (ev && ev.reason) ? ev.reason : 'becoming_noisy';
+                    var devName = (ev && ev.deviceName) ? ev.deviceName : '';
+                    pausarPorDesconexionAudio(reason, devName);
+                });
+                if (p && typeof p.catch === 'function') p.catch(function() {});
+            } catch (e) {}
+            return;
+        }
+
+        // Respaldo Web / PWA / Escritorio usando MediaDevices devicechange
+        if (typeof navigator !== 'undefined' && navigator.mediaDevices
+            && typeof navigator.mediaDevices.enumerateDevices === 'function'
+            && typeof navigator.mediaDevices.addEventListener === 'function') {
+            var leerSalidasAudioWeb = function() {
+                return navigator.mediaDevices.enumerateDevices().then(function(devs) {
+                    var map = {};
+                    (devs || []).forEach(function(d) {
+                        if (d && d.kind === 'audiooutput' && d.deviceId) {
+                            map[d.deviceId] = d.label || '';
+                        }
+                    });
+                    return map;
+                }).catch(function() { return null; });
+            };
+
+            leerSalidasAudioWeb().then(function(inicial) {
+                if (inicial) state._knownWebAudioOutputs = inicial;
+            });
+
+            navigator.mediaDevices.addEventListener('devicechange', function() {
+                leerSalidasAudioWeb().then(function(actual) {
+                    if (!actual) return;
+                    var previo = state._knownWebAudioOutputs;
+                    state._knownWebAudioOutputs = actual;
+                    if (!previo) return;
+
+                    var prevIds = Object.keys(previo);
+                    var actIds = Object.keys(actual);
+                    var removedLabel = '';
+                    var seDesconectoSalida = false;
+
+                    for (var i = 0; i < prevIds.length; i++) {
+                        var id = prevIds[i];
+                        if (id === 'default' || id === 'communications') continue;
+                        if (!Object.prototype.hasOwnProperty.call(actual, id)) {
+                            seDesconectoSalida = true;
+                            if (previo[id] && !removedLabel) removedLabel = previo[id];
+                        }
+                    }
+                    if (!seDesconectoSalida && actIds.length < prevIds.length) {
+                        seDesconectoSalida = true;
+                    }
+                    if (seDesconectoSalida) {
+                        pausarPorDesconexionAudio('web_devicechange', removedLabel);
+                    }
+                });
+            });
+        }
     }
 
     function togglePlayPausa() {
@@ -4493,6 +4624,7 @@
             state._listenersBound = true;
             initAudioListeners();
             initMediaSession();
+            initMonitorDesconexionAudifonos();
         }
         actualizarControlesFuenteBiblioteca();
         actualizarControlesModo();
@@ -4608,6 +4740,7 @@
         reproducirIndice: reproducirIndice,
         reproducirPorId: reproducirPorId,
         togglePlayPausa: togglePlayPausa,
+        pausarPorDesconexionAudio: pausarPorDesconexionAudio,
         siguienteCancion: function() { siguienteCancion(true); },
         anteriorCancion: anteriorCancion,
         cambiarSeek: cambiarSeek,

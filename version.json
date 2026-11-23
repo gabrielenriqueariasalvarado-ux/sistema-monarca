@@ -1,5 +1,5 @@
 {
-  "version": "11.10",
+  "version": "11.11",
   "fecha": "2026-11-23",
-  "resumen": "Finanzas Móvil v11.10: Rediseño limpio y espacioso para teléfono — banner compacto y desplegable de Alertas de Retrasos (sin paredes de texto), pestañas de Finanzas en 1 sola línea deslizable, subpestañas segmentadas limpias, tarjetas de Deudas con cabecera en 2 filas sin aplastarse, tira de 3 métricas sin datos duplicados, botones de acción balanceados y botón eliminar oscuro."
+  "resumen": "Reproductor MP3 v11.11: Pausa automática inmediata al desconectar audífonos Bluetooth, BLE, USB-C o cableados (ACTION_AUDIO_BECOMING_NOISY + AudioDeviceCallback nativo en Android + respaldo Web devicechange), evitando que la música siga sonando por el altavoz del teléfono."
 }

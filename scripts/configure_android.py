@@ -2110,23 +2110,31 @@ write_java('MonarcaMediaPlugin.java', '''
 package com.monarca.app;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Size;
+import android.webkit.WebView;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -2150,6 +2158,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 
 @CapacitorPlugin(
     name = "MonarcaMedia",
@@ -2166,6 +2175,220 @@ import java.util.concurrent.TimeUnit;
 )
 public class MonarcaMediaPlugin extends Plugin {
     private static final ConcurrentHashMap<String, Boolean> noArtCache = new ConcurrentHashMap<>();
+    private Context registeredAudioCtx = null;
+    private BroadcastReceiver noisyAudioReceiver = null;
+    private AudioDeviceCallback audioDeviceCallback = null;
+    private long lastNoisyEmitMs = 0L;
+
+    @Override
+    public void load() {
+        super.load();
+        registrarMonitorSalidaAudio();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        desregistrarMonitorSalidaAudio();
+        super.handleOnDestroy();
+    }
+
+    private boolean isExternalMediaOutputDevice(AudioDeviceInfo dev) {
+        if (dev == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+        if (!dev.isSink()) return false;
+        int type = dev.getType();
+        if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+            || type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+            || type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+            || type == AudioDeviceInfo.TYPE_USB_DEVICE) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && type == AudioDeviceInfo.TYPE_USB_HEADSET) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && type == AudioDeviceInfo.TYPE_HEARING_AID) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            && (type == AudioDeviceInfo.TYPE_BLE_HEADSET || type == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
+            return true;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && type == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean hasExternalMediaOutput(AudioManager am) {
+        if (am == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+        try {
+            AudioDeviceInfo[] devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            if (devices != null) {
+                for (AudioDeviceInfo dev : devices) {
+                    if (isExternalMediaOutputDevice(dev)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    private String getFirstExternalMediaOutputName(AudioManager am) {
+        if (am == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return "";
+        try {
+            AudioDeviceInfo[] devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            if (devices != null) {
+                for (AudioDeviceInfo dev : devices) {
+                    if (isExternalMediaOutputDevice(dev)) {
+                        CharSequence pname = dev.getProductName();
+                        if (pname != null && pname.length() > 0) {
+                            return pname.toString().trim();
+                        }
+                        return "Audifonos";
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    private void registrarMonitorSalidaAudio() {
+        desregistrarMonitorSalidaAudio();
+        try {
+            Context baseCtx = getContext();
+            if (baseCtx == null) return;
+            Context appCtx = baseCtx.getApplicationContext();
+            if (appCtx == null) appCtx = baseCtx;
+            registeredAudioCtx = appCtx;
+
+            final AudioManager am = (AudioManager) appCtx.getSystemService(Context.AUDIO_SERVICE);
+
+            noisyAudioReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent == null) return;
+                    String action = intent.getAction();
+                    if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(action)) {
+                        emitAudioBecomingNoisy("becoming_noisy", "");
+                    } else if (AudioManager.ACTION_HEADSET_PLUG.equals(action)) {
+                        int plugState = intent.getIntExtra("state", -1);
+                        if (plugState == 0 && !hasExternalMediaOutput(am)) {
+                            String devName = intent.getStringExtra("name");
+                            emitAudioBecomingNoisy("headset_unplugged", devName != null ? devName : "");
+                        }
+                    }
+                }
+            };
+
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+            filter.addAction(AudioManager.ACTION_HEADSET_PLUG);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                appCtx.registerReceiver(noisyAudioReceiver, filter, Context.RECEIVER_EXPORTED);
+            } else {
+                appCtx.registerReceiver(noisyAudioReceiver, filter);
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && am != null) {
+                audioDeviceCallback = new AudioDeviceCallback() {
+                    @Override
+                    public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+                        if (removedDevices == null || removedDevices.length == 0) return;
+                        boolean removedExternal = false;
+                        String removedName = "";
+                        for (AudioDeviceInfo dev : removedDevices) {
+                            if (isExternalMediaOutputDevice(dev)) {
+                                removedExternal = true;
+                                try {
+                                    CharSequence pname = dev.getProductName();
+                                    if (pname != null && pname.length() > 0 && removedName.isEmpty()) {
+                                        removedName = pname.toString().trim();
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                        if (removedExternal && !hasExternalMediaOutput(am)) {
+                            emitAudioBecomingNoisy("audio_device_removed", removedName);
+                        }
+                    }
+                };
+                am.registerAudioDeviceCallback(audioDeviceCallback, new Handler(Looper.getMainLooper()));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void desregistrarMonitorSalidaAudio() {
+        try {
+            if (registeredAudioCtx != null && noisyAudioReceiver != null) {
+                registeredAudioCtx.unregisterReceiver(noisyAudioReceiver);
+            }
+        } catch (Exception ignored) {}
+        noisyAudioReceiver = null;
+
+        try {
+            if (registeredAudioCtx != null && audioDeviceCallback != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                AudioManager am = (AudioManager) registeredAudioCtx.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) {
+                    am.unregisterAudioDeviceCallback(audioDeviceCallback);
+                }
+            }
+        } catch (Exception ignored) {}
+        audioDeviceCallback = null;
+        registeredAudioCtx = null;
+    }
+
+    private void emitAudioBecomingNoisy(final String reason, final String deviceName) {
+        long now = System.currentTimeMillis();
+        synchronized (this) {
+            if (now - lastNoisyEmitMs < 450L) {
+                return;
+            }
+            lastNoisyEmitMs = now;
+        }
+
+        final String safeReason = reason != null ? reason : "becoming_noisy";
+        final String safeName = deviceName != null ? deviceName.trim() : "";
+
+        try {
+            JSObject payload = new JSObject();
+            payload.put("reason", safeReason);
+            payload.put("deviceName", safeName);
+            payload.put("timestamp", now);
+            notifyListeners("audioBecomingNoisy", payload);
+        } catch (Exception ignored) {}
+
+        // Respaldo inmediato directo al WebView para pausar sin demora incluso en segundo plano o pantalla apagada
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                final WebView wv = getBridge().getWebView();
+                final String js = "try{if(window.MonarcaPlayer&&typeof window.MonarcaPlayer.pausarPorDesconexionAudio==='function'){window.MonarcaPlayer.pausarPorDesconexionAudio("
+                    + JSONObject.quote(safeReason) + "," + JSONObject.quote(safeName) + ");}}catch(e){}";
+                wv.post(() -> {
+                    try {
+                        wv.evaluateJavascript(js, null);
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @PluginMethod
+    public void estadoSalidaAudio(PluginCall call) {
+        boolean hasExt = false;
+        String devName = "";
+        try {
+            Context ctx = getContext();
+            if (ctx != null) {
+                AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                hasExt = hasExternalMediaOutput(am);
+                devName = hasExt ? getFirstExternalMediaOutputName(am) : "";
+            }
+        } catch (Exception ignored) {}
+        JSObject res = new JSObject();
+        res.put("hasExternalOutput", hasExt);
+        res.put("deviceName", devName);
+        call.resolve(res);
+    }
 
     private String getActiveAlias() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? "mediaAudio" : "legacyStorage";

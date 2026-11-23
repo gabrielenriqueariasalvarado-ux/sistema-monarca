@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.10)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.11)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.10
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.11
             Esta versión nativa incluye:
+            - 🎧 **Pausa Automática al Desconectar Audífonos Bluetooth/Cableados (v11.11)**: El motor nativo (`MonarcaMediaPlugin`) ahora escucha en tiempo real **`ACTION_AUDIO_BECOMING_NOISY`**, **`ACTION_HEADSET_PLUG`** y **`AudioManager.AudioDeviceCallback`** (Bluetooth A2DP, BLE Audio, USB-C y jack 3.5mm) — incluso con la app en segundo plano o pantalla apagada — pausando la música de inmediato (y actualizando mini-reproductor, rutina y pantalla de bloqueo) para que jamás se quede sonando por el altavoz del teléfono.
             - 📱 **Rediseño Limpio & Espacioso de Finanzas / Deudas en Móvil (v11.10)**: Banner compacto y desplegable para **Alertas de Retrasos** (sin torres largas de texto), pestañas principales de Finanzas en **1 sola línea deslizable**, subpestañas segmentadas más limpias, tarjetas de **Deudas** reestructuradas en 2 filas claras (sin textos aplastados en columnas angostas ni números repetidos), botones de acción full-width bien balanceados y corrección del botón eliminar `✕` al tema oscuro.
             - 📝 **Motivo de Rutina Incompleta & Guardián al Salir (v11.09)**: Al intentar salir de una rutina con ejercicios sin completar (`◀ VOLVER A EJERCICIOS`, gesto atrás en Android o cambiar de pestaña), Emily te muestra tu porcentaje de avance, las series faltantes, la penitencia exacta en EXP y te pregunta **¿Por qué no terminaste la rutina?** (chips rápidos + texto libre obligatorio para cerrar con penitencia, guardado en el resumen y en el historial, más opción de **pausar temporalmente** si solo vas a revisar otra sección).
             - 💀 **Penitencia en EXP por Series No Realizadas en Rutinas (v11.08)**: Si terminas una rutina incompleta, Emily calcula automáticamente cuántas series te faltaron entre todos los ejercicios y deduce **`-20 EXP × series faltantes`** (ej: 3 series sin hacer = **`-60 EXP`**, configurable por rutina o desactivable con `0`), mostrando vista previa en vivo, desglose por ejercicio antes de confirmar, registro en historial y sincronización blindada de EXP con Firebase. También corrige el contador de series en el HUD para ejercicios en Modo Serie 0.
