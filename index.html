@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.08">
+    <link rel="stylesheet" href="style.css?v=11.09">
 </head>
 <body>
 
@@ -1149,7 +1149,7 @@
     <!-- VISTA: DETALLE DE RUTINA DINÁMICA (DISEÑO MINIMALISTA & SERIO) -->
     <div id="vista-detalle-rutina-dinamica" class="tab-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <button class="btn-back-system" style="margin-bottom: 0;" onclick="if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries(); cambiarVista('vista-ejercicios');">
+            <button class="btn-back-system" style="margin-bottom: 0;" onclick="if (typeof intentarSalirDeRutinaActiva === 'function') { intentarSalirDeRutinaActiva('vista-ejercicios'); } else { if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries(); cambiarVista('vista-ejercicios'); }">
                 <span style="font-size: 16px;">◀</span> VOLVER A EJERCICIOS
             </button>
             <button type="button" class="btn-subfiltro-ej" onclick="if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) abrirModalEditarRutina(RUTINA_ACTIVA.rutina.id || RUTINA_ACTIVA.idx);" style="padding: 7px 14px; font-size: 12.5px; font-weight: 700; color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1);" title="Editar configuración de esta rutina">
@@ -5037,23 +5037,23 @@
         </div>
     </div>
 
-    <!-- MODAL CONFIRMACIÓN DE PENITENCIA POR RUTINA INCOMPLETA (v11.08) -->
+    <!-- MODAL CONFIRMACIÓN DE PENITENCIA POR RUTINA INCOMPLETA (v11.09) -->
     <div id="modal-confirmar-penitencia-rutina" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-pen-rutina-titulo" style="display: none;" onclick="if(event.target === this && typeof cerrarModalConfirmarPenitenciaRutina === 'function') cerrarModalConfirmarPenitenciaRutina();">
-        <div class="modal-system-window" style="max-width: 460px; border-color: rgba(239, 68, 68, 0.45);">
+        <div class="modal-system-window" style="max-width: 470px; max-height: 92vh; overflow-y: auto; border-color: rgba(239, 68, 68, 0.45);">
             <div class="modal-system-header" style="border-bottom-color: rgba(239, 68, 68, 0.25);">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 18px;">💀</span>
-                    <span id="modal-pen-rutina-titulo" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #fca5a5;">PENITENCIA POR RUTINA INCOMPLETA</span>
+                    <span id="modal-pen-rutina-titulo" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #fca5a5;">RUTINA INCOMPLETA · PENITENCIA</span>
                 </div>
                 <button type="button" onclick="cerrarModalConfirmarPenitenciaRutina()" class="modal-close-btn" title="Cerrar">&times;</button>
             </div>
-            <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="padding: 15px 18px; display: flex; flex-direction: column; gap: 11px;">
                 <p id="modal-pen-rutina-intro" style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.45;"></p>
 
                 <div class="modal-penitencia-kpi-grid">
                     <div class="modal-penitencia-kpi">
-                        <div class="modal-penitencia-kpi-label">Hechas</div>
-                        <div id="modal-pen-kpi-hechas" class="modal-penitencia-kpi-val">0/0</div>
+                        <div class="modal-penitencia-kpi-label">Avance</div>
+                        <div id="modal-pen-kpi-hechas" class="modal-penitencia-kpi-val">0%</div>
                     </div>
                     <div class="modal-penitencia-kpi is-danger">
                         <div class="modal-penitencia-kpi-label">Faltantes</div>
@@ -5072,20 +5072,45 @@
                     <div id="modal-pen-rutina-desglose" class="modal-penitencia-desglose"></div>
                 </div>
 
+                <!-- MOTIVO POR EL CUAL NO FINALIZÓ LA RUTINA (v11.09) -->
+                <div id="modal-pen-rutina-motivo-wrap">
+                    <label for="modal-pen-rutina-motivo" style="display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: #f8fafc; margin-bottom: 6px;">
+                        <span>📝 ¿Por qué no terminaste la rutina?</span>
+                        <span style="font-size: 10.5px; color: #f87171; font-weight: 700;">*Obligatorio</span>
+                    </label>
+                    <div class="penitencia-motivo-chips">
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitencia('Falta de tiempo', this)">⏱️ Falta de tiempo</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitencia('Fatiga / Agotamiento', this)">😮‍💨 Fatiga</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitencia('Molestia o dolor físico', this)">🩹 Molestia física</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitencia('Imprevisto / Trabajo', this)">🚨 Imprevisto</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitencia('Falta de energía / Disciplina', this)">😴 Sin energía</button>
+                    </div>
+                    <textarea id="modal-pen-rutina-motivo" class="modal-penitencia-motivo-input" rows="2" maxlength="240"
+                        placeholder="Escribe el motivo (ej: me surgió un compromiso, dolor en el hombro, sin tiempo...)"
+                        oninput="limpiarErrorMotivoPenitenciaRutina()"></textarea>
+                    <div id="modal-pen-rutina-motivo-error" class="modal-penitencia-motivo-error" style="display: none;">
+                        ⚠️ Selecciona o escribe el motivo por el cual no terminaste la rutina.
+                    </div>
+                </div>
+
                 <div id="modal-pen-rutina-exp-preview" class="modal-penitencia-exp-bar"></div>
 
-                <div style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">
-                    ⚠️ Al cerrar incompleta <strong style="color: #e2e8f0;">no recibirás los +60 EXP</strong> de sesión completada ni se marcará automáticamente el hábito diario vinculado. Tus series realizadas sí conservarán su fatiga y récords.
+                <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
+                    ⚠️ Al cerrar incompleta <strong style="color: #e2e8f0;">no recibirás los +60 EXP</strong> ni se marcará el hábito diario vinculado. Tus series realizadas sí conservan fatiga y récords.
                 </div>
 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
-                    <button type="button" onclick="cerrarModalConfirmarPenitenciaRutina()" class="btn-primary" style="flex: 1; min-width: 150px; padding: 11px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;">
+                    <button type="button" onclick="cerrarModalConfirmarPenitenciaRutina()" class="btn-primary" style="flex: 1; min-width: 145px; padding: 11px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;">
                         ↩ Seguir Entrenando
                     </button>
-                    <button type="button" id="btn-confirmar-penitencia-rutina" onclick="confirmarFinalizarRutinaIncompleta()" style="flex: 1.15; min-width: 170px; padding: 11px 14px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.55); color: #ffffff; font-weight: 800; font-size: 13px; cursor: pointer;">
+                    <button type="button" id="btn-confirmar-penitencia-rutina" onclick="confirmarFinalizarRutinaIncompleta()" style="flex: 1.2; min-width: 170px; padding: 11px 14px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.55); color: #ffffff; font-weight: 800; font-size: 13px; cursor: pointer;">
                         💀 Aceptar Penitencia
                     </button>
                 </div>
+
+                <button type="button" id="btn-pausar-rutina-sin-cerrar" class="btn-pausar-rutina-subtle" style="display: none;" onclick="pausarYSalirDeRutinaActiva()">
+                    ⏸ Solo pausar y volver después (mantiene mi progreso sin cerrar aún)
+                </button>
             </div>
         </div>
     </div>
@@ -7200,26 +7225,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.08"></script>
-    <script src="js/perfil.js?v=11.08"></script>
-    <script src="js/progresion.js?v=11.08"></script>
-    <script src="js/estado-personal.js?v=11.08"></script>
-    <script src="js/finanzas.js?v=11.08"></script>
-    <script src="js/ideas.js?v=11.08"></script>
-    <script src="js/dinamicas.js?v=11.08"></script>
-    <script src="js/calendario.js?v=11.08"></script>
-    <script src="js/inventario.js?v=11.08"></script>
-    <script src="js/reproductor.js?v=11.08"></script>
-    <script src="js/jarvis-voz.js?v=11.08"></script>
+    <script src="js/core.js?v=11.09"></script>
+    <script src="js/perfil.js?v=11.09"></script>
+    <script src="js/progresion.js?v=11.09"></script>
+    <script src="js/estado-personal.js?v=11.09"></script>
+    <script src="js/finanzas.js?v=11.09"></script>
+    <script src="js/ideas.js?v=11.09"></script>
+    <script src="js/dinamicas.js?v=11.09"></script>
+    <script src="js/calendario.js?v=11.09"></script>
+    <script src="js/inventario.js?v=11.09"></script>
+    <script src="js/reproductor.js?v=11.09"></script>
+    <script src="js/jarvis-voz.js?v=11.09"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.08"></script>
+    <script type="module" src="js/firebase-config.js?v=11.09"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.08')
+                navigator.serviceWorker.register('sw.js?v=11.09')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

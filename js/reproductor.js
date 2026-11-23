@@ -4591,9 +4591,9 @@
         // Hook en cambiarVista: sincronizar automáticamente canciones nuevas al entrar al reproductor MP3
         var origCambiarVista = window.cambiarVista;
         if (typeof origCambiarVista === 'function') {
-            window.cambiarVista = function(vistaId, noPushState) {
-                origCambiarVista(vistaId, noPushState);
-                if (vistaId === 'vista-reproductor') {
+            window.cambiarVista = function(vistaId) {
+                origCambiarVista.apply(this, arguments);
+                if (window.VISTA_ACTUAL === 'vista-reproductor' && vistaId === 'vista-reproductor') {
                     sincronizarBibliotecaAlEntrar();
                 }
                 actualizarMiniPlayer();

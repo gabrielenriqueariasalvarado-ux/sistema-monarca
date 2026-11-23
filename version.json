@@ -1,5 +1,5 @@
 {
-  "version": "11.08",
+  "version": "11.09",
   "fecha": "2026-11-23",
-  "resumen": "Rutinas v11.08: Penitencia en EXP por volumen de series no realizadas al cerrar una rutina incompleta (por defecto -20 EXP × cada serie faltante en cualquier ejercicio, configurable por rutina), panel en vivo con desglose por ejercicio, modal de confirmación claro, historial marcado como incompleto y sincronización blindada de EXP en Firebase."
+  "resumen": "Rutinas v11.09: Guardián al salir de una rutina incompleta + registro obligatorio del motivo (¿Por qué no terminaste?) con chips rápidos o texto libre, porcentaje de avance + penitencia EXP por series faltantes, opción de solo pausar si vuelves luego, y visibilidad del motivo en el resumen y en el historial."
 }

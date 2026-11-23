@@ -679,41 +679,55 @@ function inicializarSistema(omitirLecturaLocal) {
 
 window.VISTA_ACTUAL = 'vista-home';
 
-function cambiarVista(vistaId, noPushState) {
+function cambiarVista(vistaId, noPushState, opts) {
     if (!vistaId) return;
+    opts = opts || {};
 
     // Redirecciones de conveniencia hacia pestañas internas
     if (vistaId === 'vista-misiones') {
-        cambiarVista('vista-acciones-progresion', noPushState);
+        cambiarVista('vista-acciones-progresion', noPushState, opts);
         if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos');
         return;
     }
     if (vistaId === 'vista-quests-diarios') {
-        cambiarVista('vista-acciones-progresion', noPushState);
+        cambiarVista('vista-acciones-progresion', noPushState, opts);
         if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests');
         return;
     }
     if (vistaId === 'vista-habilidades') {
-        cambiarVista('vista-acciones-progresion', noPushState);
+        cambiarVista('vista-acciones-progresion', noPushState, opts);
         if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
         return;
     }
     if (vistaId === 'vista-mente' || vistaId === 'vista-gimnasio-mental') {
-        cambiarVista('vista-estado-personal', noPushState);
+        cambiarVista('vista-estado-personal', noPushState, opts);
         return;
     }
     if (vistaId === 'vista-banco-mental') {
-        cambiarVista('vista-ejercicios', noPushState);
+        cambiarVista('vista-ejercicios', noPushState, opts);
         if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('banco-mental');
         return;
     }
     if (vistaId === 'vista-gym') {
-        cambiarVista('vista-ejercicios', noPushState);
+        cambiarVista('vista-ejercicios', noPushState, opts);
         if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
         return;
     }
 
     var vistaAnterior = window.VISTA_ACTUAL || 'vista-home';
+
+    // Guardián de salida de rutina activa incompleta (v11.09): pregunta motivo y muestra % + penitencia EXP
+    if (
+        vistaAnterior === 'vista-detalle-rutina-dinamica' &&
+        vistaId !== 'vista-detalle-rutina-dinamica' &&
+        !opts.forzarSalidaRutina &&
+        typeof window.interceptarSalidaRutinaIncompleta === 'function'
+    ) {
+        if (window.interceptarSalidaRutinaIncompleta(vistaId, !!noPushState)) {
+            return;
+        }
+    }
+
     window.VISTA_ACTUAL = vistaId;
 
     // Manejo de historial para soporte nativo del botón de retroceso (Android / Gesture navigation)
@@ -1652,7 +1666,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.08';
+var MONARCA_APP_VERSION = '11.09';
 var MONARCA_APP_VERSION_FECHA = '2026-11-23';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

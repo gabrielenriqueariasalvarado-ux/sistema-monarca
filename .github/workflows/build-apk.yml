@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.08)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.09)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.08
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.09
             Esta versión nativa incluye:
+            - 📝 **Motivo de Rutina Incompleta & Guardián al Salir (v11.09)**: Al intentar salir de una rutina con ejercicios sin completar (`◀ VOLVER A EJERCICIOS`, gesto atrás en Android o cambiar de pestaña), Emily te muestra tu porcentaje de avance, las series faltantes, la penitencia exacta en EXP y te pregunta **¿Por qué no terminaste la rutina?** (chips rápidos + texto libre obligatorio para cerrar con penitencia, guardado en el resumen y en el historial, más opción de **pausar temporalmente** si solo vas a revisar otra sección).
             - 💀 **Penitencia en EXP por Series No Realizadas en Rutinas (v11.08)**: Si terminas una rutina incompleta, Emily calcula automáticamente cuántas series te faltaron entre todos los ejercicios y deduce **`-20 EXP × series faltantes`** (ej: 3 series sin hacer = **`-60 EXP`**, configurable por rutina o desactivable con `0`), mostrando vista previa en vivo, desglose por ejercicio antes de confirmar, registro en historial y sincronización blindada de EXP con Firebase. También corrige el contador de series en el HUD para ejercicios en Modo Serie 0.
             - ⏱️ **Notificación Exacta de Descanso con Pantalla Apagada (v11.07)**: Al iniciar el contador de **Descanso Entre Series** (`30s`, `60s`, `90s`, `120s` o al completar una serie), Emily programa una alarma nativa exacta en Android (`MonarcaRestTimerReceiver` vía `AlarmManager.setAlarmClock`) que despierta brevemente la pantalla, muestra la notificación **`⏱️ ¡Descanso terminado! ¡A entrenar!`**, vibra con patrón triple táctil y emite un aviso directo en tus audífonos Bluetooth/cableados si tienes el teléfono en silencio. Además, el contador ahora calcula el tiempo por reloj real (`finTimestamp`) para no congelarse jamás al apagar la pantalla.
             - ✨ **Inventario: Artículos Personales & Ventas Únicas (v11.06)**: Nuevo botón **`✨ + Venta Única`** para registrar cosas propias que quieres vender (tarjeta de vídeo, monitor, consola, repuesto...) sin crear categorías fijas, con condición, detalles, precio en `$` o `Bs.` (`BCV` / `Paralelo`), estado **`✅ Vendida`** y abono directo de ventas al contado hacia tus Tarjetas en Finanzas.
