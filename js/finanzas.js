@@ -1260,7 +1260,7 @@ function renderizarFinanzas(fin) {
         }
     }
 
-    // 6. Metas Quincenales
+    // 6. Metas Quincenales (Rediseño limpio v11.14 alineado con Deudas v2)
     var gridMetas = document.getElementById('contenedor-metas-cards') || document.getElementById('grid-finanzas-metas');
     if (gridMetas) {
         var htmlMetas = '';
@@ -1268,31 +1268,64 @@ function renderizarFinanzas(fin) {
             var tot = Number(item.metaTotal) || 0;
             var ahorr = Number(item.ahorrado) || 0;
             var falt = Math.max(0, tot - ahorr);
-            var pct = tot > 0 ? Math.min(100, Math.round((ahorr / tot) * 100)) : 0;
+            var pct = tot > 0 ? Math.min(100, Math.round((ahorr / tot) * 100)) : (ahorr > 0 ? 100 : 0);
             var cuota = Number(item.cuotaQuincenal) || 0;
+            var cumplida = tot > 0 && falt <= 0.009;
+            var cuotasRest = (!cumplida && cuota > 0) ? Math.ceil(falt / cuota) : 0;
+            var badgeEstadoMeta = cumplida
+                ? '<span class="badge-deuda-liquidada">✅ 100% CUMPLIDA</span>'
+                : (cuotasRest > 0
+                    ? '<span class="badge-deuda-flexible">⏳ ' + cuotasRest + (cuotasRest === 1 ? ' cuota restante' : ' cuotas restantes') + '</span>'
+                    : '<span class="badge-deuda-flexible">🎯 En progreso</span>');
+
+            var accionMetaHtml = cumplida
+                ? '<div class="deuda-saldada-banner">🎉 ¡Meta de ahorro completada al 100%!</div>'
+                : `<button type="button" class="btn-sumar-cuota" onclick="abonarCuotaMetaUI('${item.id}')">
+                    <span>⚡</span> +1 Cuota Quincenal · $${cuota.toFixed(2)}
+                </button>`;
 
             htmlMetas += `
-            <div class="meta-card">
+            <div class="meta-card ${cumplida ? 'is-completed' : ''}">
                 <div>
-                    <div class="meta-card-header">
-                        <h4 class="meta-card-title">🎯 ${item.nombre}</h4>
-                        <button class="btn-delete-row" title="Eliminar meta" onclick="eliminarRegistroFinanzasUI('${item.id}', 'meta')">✕</button>
+                    <div class="meta-card-head-row">
+                        <div class="meta-card-title-group">
+                            <span class="meta-icon-pill">${cumplida ? '🏆' : '🎯'}</span>
+                            <h4 class="meta-card-title">${escaparHTML(item.nombre || 'Meta de Ahorro')}</h4>
+                        </div>
+                        <div class="meta-card-head-right">
+                            <span class="meta-card-pct-pill ${cumplida ? 'is-done' : ''}">${pct}%</span>
+                            <button type="button" class="btn-delete-row" title="Eliminar meta" aria-label="Eliminar meta" onclick="eliminarRegistroFinanzasUI('${item.id}', 'meta')">✕</button>
+                        </div>
                     </div>
-                    <div class="meta-numbers-row">
-                        <span>Ahorrado: <strong>$${ahorr.toFixed(2)}</strong></span>
-                        <span>Meta: <strong>$${tot.toFixed(2)}</strong></span>
+                    <div class="meta-card-meta-row">
+                        ${badgeEstadoMeta}
+                        <span class="deuda-meta-pill">🗓️ 15 y Último</span>
                     </div>
-                    <div class="meta-progress-track">
-                        <div class="meta-progress-fill" style="width: ${pct}%;"></div>
+                    <div class="meta-progress-block">
+                        <div class="meta-numbers-row">
+                            <span>Ahorrado <strong style="color: #34d399;">$${ahorr.toFixed(2)}</strong></span>
+                            <span>Meta <strong style="color: #f8fafc;">$${tot.toFixed(2)}</strong></span>
+                        </div>
+                        <div class="meta-progress-track">
+                            <div class="meta-progress-fill" style="width: ${pct}%;"></div>
+                        </div>
                     </div>
-                    <div class="meta-cuotas-info">
-                        <div>📅 Faltante: <strong>$${falt.toFixed(2)}</strong> (${pct}%)</div>
-                        <div>⚡ Cuota: <strong>$${cuota.toFixed(2)}</strong> (quince y último)</div>
+                    <div class="deuda-stats-strip meta-stats-strip">
+                        <div class="deuda-stat-cell">
+                            <span class="dmb-lbl">Ahorrado</span>
+                            <span class="dmb-val" style="color: #34d399;">$${ahorr.toFixed(2)}</span>
+                        </div>
+                        <div class="deuda-stat-cell">
+                            <span class="dmb-lbl">Faltante</span>
+                            <span class="dmb-val" style="color: ${cumplida ? '#34d399' : '#fbbf24'};">$${falt.toFixed(2)}</span>
+                        </div>
+                        <div class="deuda-stat-cell">
+                            <span class="dmb-lbl">Cuota</span>
+                            <span class="dmb-val" style="color: #38bdf8;">$${cuota.toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>
-                <button class="btn-sumar-cuota" onclick="abonarCuotaMetaUI('${item.id}')">
-                    +1 Cuota Quincenal ($${cuota.toFixed(2)})
-                </button>
+                ${accionMetaHtml}
             </div>`;
         });
         if (!f.metas || f.metas.length === 0) {

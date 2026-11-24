@@ -229,19 +229,19 @@ function renderizarPerfil(perfil) {
             <!-- MÉTODO 1: COPIAR Y PEGAR CÓDIGO (EL MÁS RÁPIDO PARA WHATSAPP) -->
             <div class="sync-method-card sync-method-highlight">
                 <div class="sync-method-icon">📋</div>
-                <div style="flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <h4 style="margin: 0; font-size: 14px; color: #f8fafc;">Sincronización Rápida por Código</h4>
+                <div class="sync-method-body">
+                    <div class="sync-method-title-row">
+                        <h4 class="sync-method-title">Sincronización Rápida por Código</h4>
                         <span class="sync-tag-recommended">Recomendado</span>
                     </div>
-                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                    <p class="sync-method-desc">
                         Copia una clave con todos tus datos en 1 clic para enviártela a tu propio chat de WhatsApp o notas y pegarla en tu teléfono.
                     </p>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-sync-action btn-sync-dark" onclick="copiarCodigoSincronizacion()">
+                    <div class="sync-method-actions">
+                        <button type="button" class="btn-sync-action btn-sync-dark" onclick="copiarCodigoSincronizacion()">
                             📋 Copiar Código
                         </button>
-                        <button class="btn-sync-action btn-sync-light" onclick="abrirModalSincronizarCodigo()">
+                        <button type="button" class="btn-sync-action btn-sync-light" onclick="abrirModalSincronizarCodigo()">
                             📥 Pegar y Sincronizar
                         </button>
                     </div>
@@ -251,27 +251,29 @@ function renderizarPerfil(perfil) {
             <!-- MÉTODO 2: COMPARTIR DIRECTO (WEB SHARE API) -->
             <div class="sync-method-card">
                 <div class="sync-method-icon">📤</div>
-                <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Compartir Directo (WhatsApp / Drive)</h4>
-                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                <div class="sync-method-body">
+                    <h4 class="sync-method-title">Compartir Directo (WhatsApp / Drive)</h4>
+                    <p class="sync-method-desc">
                         Abre la hoja nativa de compartir de tu teléfono o laptop para mandar el respaldo directamente a WhatsApp, Telegram o Google Drive.
                     </p>
-                    <button class="btn-sync-action btn-sync-light" onclick="MonarcaDB.shareBackup()">
-                        📤 Compartir Respaldo
-                    </button>
+                    <div class="sync-method-actions">
+                        <button type="button" class="btn-sync-action btn-sync-light" onclick="MonarcaDB.shareBackup()">
+                            📤 Compartir Respaldo
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- MÉTODO 3: ARCHIVO JSON TRADICIONAL -->
             <div class="sync-method-card">
                 <div class="sync-method-icon">💾</div>
-                <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-size: 14px; color: #f8fafc;">Archivo de Respaldo (.JSON)</h4>
-                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px 0;">
+                <div class="sync-method-body">
+                    <h4 class="sync-method-title">Archivo de Respaldo (.JSON)</h4>
+                    <p class="sync-method-desc">
                         Descarga una copia completa en tu equipo o carga un archivo JSON que hayas transferido previamente.
                     </p>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-sync-action btn-sync-light" onclick="MonarcaDB.exportBackup()">
+                    <div class="sync-method-actions">
+                        <button type="button" class="btn-sync-action btn-sync-light" onclick="MonarcaDB.exportBackup()">
                             💾 Descargar JSON
                         </button>
                         <label class="btn-sync-action btn-sync-light" style="cursor: pointer; margin-bottom: 0;">
@@ -284,13 +286,13 @@ function renderizarPerfil(perfil) {
         </div>
 
         <!-- ZONA DE RESTABLECIMIENTO -->
-        <div style="margin-top: 20px; padding-top: 14px; border-top: 1px dashed #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <strong style="font-size: 12px; color: #f8fafc; display: block;">Limpieza y Restablecimiento de Fábrica</strong>
-                <span style="font-size: 11px; color: #6b7280;">Elimina todos los datos de prueba y deja la app 100% limpia para que agregues tus propias cosas.</span>
+        <div class="sync-danger-zone">
+            <div style="min-width: 0; flex: 1;">
+                <strong class="sync-danger-title">Limpieza y Restablecimiento de Fábrica</strong>
+                <span class="sync-danger-sub">Elimina todos los datos de prueba y deja la app 100% limpia para que agregues tus propias cosas.</span>
             </div>
-            <button class="btn-delete-row" style="font-size: 11.5px; padding: 7px 14px; border-radius: 9999px; background: #fff; border: 1px solid #fee2e2; color: #dc2626; font-weight: 700; cursor: pointer;" onclick="MonarcaDB.resetDefault()">
-                🗑️ Restablecer de Fábrica (Todo Limpio)
+            <button type="button" class="btn-sync-danger" onclick="MonarcaDB.resetDefault()">
+                🗑️ Restablecer de Fábrica
             </button>
         </div>
     </div>`;

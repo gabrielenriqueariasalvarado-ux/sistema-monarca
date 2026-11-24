@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.13">
+    <link rel="stylesheet" href="style.css?v=11.14">
 </head>
 <body>
 
@@ -4378,15 +4378,24 @@
         </div>
 
         <!-- SELECTOR DE PESTAÑAS (PRODUCTOS EN STOCK, CATEGORÍAS, VENDIDOS) -->
-        <div class="tab-category-pill-container" style="display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px;">
-            <button id="tab-btn-inv-productos" class="tab-category-pill active" onclick="cambiarTabInventario('productos')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
-                <span>📦</span> Productos en Stock (<span id="badge-count-productos">0</span>)
+        <div class="tab-category-pill-container inv-tabs-segmented">
+            <button type="button" id="tab-btn-inv-productos" class="tab-category-pill inv-seg-tab active" onclick="cambiarTabInventario('productos')">
+                <span class="inv-tab-ico">📦</span>
+                <span class="inv-tab-lbl-full">Productos en Stock</span>
+                <span class="inv-tab-lbl-short">Stock</span>
+                <span id="badge-count-productos" class="inv-tab-count">0</span>
             </button>
-            <button id="tab-btn-inv-categorias" class="tab-category-pill" onclick="cambiarTabInventario('categorias')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
-                <span>🏷️</span> Categorías (<span id="badge-count-categorias">0</span>)
+            <button type="button" id="tab-btn-inv-categorias" class="tab-category-pill inv-seg-tab" onclick="cambiarTabInventario('categorias')">
+                <span class="inv-tab-ico">🏷️</span>
+                <span class="inv-tab-lbl-full">Categorías</span>
+                <span class="inv-tab-lbl-short">Categorías</span>
+                <span id="badge-count-categorias" class="inv-tab-count">0</span>
             </button>
-            <button id="tab-btn-inv-vendidos" class="tab-category-pill" onclick="cambiarTabInventario('vendidos')" style="padding: 10px 16px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px;">
-                <span>💰</span> Vendidos (<span id="badge-count-vendidos">0</span>)
+            <button type="button" id="tab-btn-inv-vendidos" class="tab-category-pill inv-seg-tab" onclick="cambiarTabInventario('vendidos')">
+                <span class="inv-tab-ico">💰</span>
+                <span class="inv-tab-lbl-full">Vendidos</span>
+                <span class="inv-tab-lbl-short">Vendidos</span>
+                <span id="badge-count-vendidos" class="inv-tab-count">0</span>
             </button>
         </div>
 
@@ -4397,7 +4406,7 @@
                     <div style="flex: 1; min-width: 220px;">
                         <input type="text" id="inv-filtro-busqueda" class="finanzas-input-clean" placeholder="🔍 Buscar producto, detalle o estado..." oninput="filtrarProductosInventario()" style="width: 100%; box-sizing: border-box; padding: 9px 14px; font-size: 13px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0f131d;">
                     </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <div class="inv-filtros-selects" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                         <select id="inv-filtro-tipo" class="finanzas-input-clean" onchange="filtrarProductosInventario()" style="width: auto; max-width: 100%; padding: 9px 12px; font-size: 13px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.1); background: #0f131d;">
                             <option value="todos">📦 Todo el inventario</option>
                             <option value="catalogo">🛍️ Catálogo</option>
@@ -7214,26 +7223,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.13"></script>
-    <script src="js/perfil.js?v=11.13"></script>
-    <script src="js/progresion.js?v=11.13"></script>
-    <script src="js/estado-personal.js?v=11.13"></script>
-    <script src="js/finanzas.js?v=11.13"></script>
-    <script src="js/ideas.js?v=11.13"></script>
-    <script src="js/dinamicas.js?v=11.13"></script>
-    <script src="js/calendario.js?v=11.13"></script>
-    <script src="js/inventario.js?v=11.13"></script>
-    <script src="js/reproductor.js?v=11.13"></script>
-    <script src="js/jarvis-voz.js?v=11.13"></script>
+    <script src="js/core.js?v=11.14"></script>
+    <script src="js/perfil.js?v=11.14"></script>
+    <script src="js/progresion.js?v=11.14"></script>
+    <script src="js/estado-personal.js?v=11.14"></script>
+    <script src="js/finanzas.js?v=11.14"></script>
+    <script src="js/ideas.js?v=11.14"></script>
+    <script src="js/dinamicas.js?v=11.14"></script>
+    <script src="js/calendario.js?v=11.14"></script>
+    <script src="js/inventario.js?v=11.14"></script>
+    <script src="js/reproductor.js?v=11.14"></script>
+    <script src="js/jarvis-voz.js?v=11.14"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.13"></script>
+    <script type="module" src="js/firebase-config.js?v=11.14"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.13')
+                navigator.serviceWorker.register('sw.js?v=11.14')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
