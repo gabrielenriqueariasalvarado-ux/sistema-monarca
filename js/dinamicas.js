@@ -3789,6 +3789,7 @@ function clonarEjerciciosConEstadoTrainer(lista, preservarChecks) {
             repeticiones: ej.repeticiones || '8-10 reps',
             compuesto: !!ej.compuesto,
             musculoPrincipal: ej.musculoPrincipal || (Array.isArray(ej.categorias) && ej.categorias[0]) || '',
+            grupoAsignado: ej.grupoAsignado || '',
             categorias: Array.isArray(ej.categorias) ? ej.categorias.slice() : (ej.musculoPrincipal ? [ej.musculoPrincipal] : []),
             completado: preservarChecks ? !!ej.completado : false,
             completadoAt: (preservarChecks && ej.completado) ? (ej.completadoAt || Date.now()) : null
@@ -5432,56 +5433,96 @@ function renderizarCuerpoRutinaTrainerGenerada(alumnoActivo, grupos) {
         </div>`;
     }
 
-    var metaTitulo = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
-        ? (' · ' + RUTINA_TRAINER_META.gruposUsados.join(', '))
-        : '';
+    var gruposMetaTrainer = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
+        ? RUTINA_TRAINER_META.gruposUsados
+        : [];
+    var seccionesTrainer = (typeof agruparEjerciciosPorGrupoMuscular === 'function')
+        ? agruparEjerciciosPorGrupoMuscular(RUTINA_TRAINER_GENERADA, gruposMetaTrainer)
+        : [{ grupo: 'General', color: '#34d399', items: RUTINA_TRAINER_GENERADA.map(function(e, i) { return { ej: e, idx: i }; }) }];
+
+    var fmtMusc = (typeof formatearEtiquetaMusculoLimpia === 'function')
+        ? formatearEtiquetaMusculoLimpia
+        : function(t) { return String(t || '').replace(/[_-]+/g, ' ').trim(); };
+
+    var resumenGruposPillsHtml = seccionesTrainer.map(function(sec) {
+        return `<span class="rutina-grupo-resumen-pill" style="--grp-color: ${sec.color};">
+            <span class="rutina-grupo-dot"></span>
+            <span>${escapeHtmlTrainer(sec.grupo)}</span>
+            <strong class="rutina-grupo-resumen-num">${sec.items.length}</strong>
+        </span>`;
+    }).join('');
 
     var html = `
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
         <div>
             <h4 style="margin: 0; color: #f8fafc; font-size: 15px; font-weight: 800;">
-                🔥 Sesión Generada (${RUTINA_TRAINER_GENERADA.length} Ejercicios${escapeHtmlTrainer(metaTitulo)})
+                🔥 Sesión Generada (${RUTINA_TRAINER_GENERADA.length} Ejercicios · ${seccionesTrainer.length} ${seccionesTrainer.length === 1 ? 'Grupo' : 'Grupos'})
             </h4>
-            <span style="font-size: 12px; color: #cbd5e1;">Puedes cambiar cualquier ejercicio individualmente con 🔄 Re-roll.</span>
+            <span style="font-size: 12px; color: #cbd5e1;">Detallada por grupo muscular. 🔄 Re-roll siempre cambia por otro ejercicio del mismo grupo.</span>
         </div>
         <button type="button" class="trainer-btn-secondary" onclick="generarRutinaAleatoriaTrainer()" style="font-size: 12px; padding: 6px 12px;">
             🔄 Regenerar
         </button>
     </div>
 
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+    <div class="rutina-grupos-resumen-bar">${resumenGruposPillsHtml}</div>
+
+    <div class="rutina-grupos-stack" style="margin-bottom: 16px;">
     `;
 
-    RUTINA_TRAINER_GENERADA.forEach(function(ej, idx) {
-        var esComp = !!ej.compuesto;
-        var badgeComp = esComp
-            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>`
-            : `<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.32); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
-        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
-            return `<span style="font-size: 10.5px; font-weight: 700; background: #101728; border: 1px solid rgba(148, 163, 184, 0.22); color: #e2e8f0; padding: 2px 7px; border-radius: 5px;">${c}</span>`;
-        }).join(' ');
-
+    var numGlobalTrainer = 0;
+    seccionesTrainer.forEach(function(sec) {
         html += `
-        <div class="random-exercise-card">
-            <div style="display: flex; align-items: flex-start; gap: 11px; flex: 1; min-width: 0;">
-                <div style="width: 30px; height: 30px; border-radius: 8px; background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(52, 211, 153, 0.45); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #34d399; flex-shrink: 0;">
-                    ${idx + 1}
+        <div class="rutina-grupo-bloque" style="--grp-color: ${sec.color};" data-grupo-muscular="${escapeHtmlTrainer(sec.grupo)}">
+            <div class="rutina-grupo-header">
+                <div class="rutina-grupo-titulo">
+                    <span class="rutina-grupo-dot"></span>
+                    <span>💪 ${escapeHtmlTrainer(sec.grupo)}</span>
                 </div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
-                        <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(ej.nombre)}</h4>
-                        ${badgeComp}
+                <span class="rutina-grupo-count">${sec.items.length} ${sec.items.length === 1 ? 'ejercicio' : 'ejercicios'}</span>
+            </div>
+            <div class="rutina-grupo-lista">
+        `;
+
+        sec.items.forEach(function(par) {
+            numGlobalTrainer++;
+            var ej = par.ej;
+            var idx = par.idx;
+            var esComp = !!ej.compuesto;
+            var badgeComp = esComp
+                ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>`
+                : `<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.32); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
+            var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
+                return `<span style="font-size: 10.5px; font-weight: 700; background: #101728; border: 1px solid rgba(148, 163, 184, 0.22); color: #e2e8f0; padding: 2px 7px; border-radius: 5px;">${escapeHtmlTrainer(fmtMusc(c))}</span>`;
+            }).join(' ');
+
+            html += `
+            <div class="random-exercise-card" data-grupo-asignado="${escapeHtmlTrainer(sec.grupo)}">
+                <div style="display: flex; align-items: flex-start; gap: 11px; flex: 1; min-width: 0;">
+                    <div style="width: 30px; height: 30px; border-radius: 8px; background: rgba(15, 23, 42, 0.85); border: 1px solid ${sec.color}66; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: ${sec.color}; flex-shrink: 0;">
+                        ${numGlobalTrainer}
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${ej.repeticiones || '10-12 reps'}</span>
-                        ${muscleBadges}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                            <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #ffffff;">${escapeHtmlTrainer(ej.nombre)}</h4>
+                            ${badgeComp}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escapeHtmlTrainer(ej.repeticiones || '10-12 reps')}</span>
+                            ${muscleBadges}
+                        </div>
                     </div>
+                </div>
+                <div style="flex-shrink: 0;">
+                    <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioTrainer(${idx})" title="Cambiar por otro ejercicio de ${escapeHtmlTrainer(sec.grupo)}">
+                        <span>🔄</span> Re-roll
+                    </button>
                 </div>
             </div>
-            <div style="flex-shrink: 0;">
-                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioTrainer(${idx})" title="Cambiar por otra variante aleatoria">
-                    <span>🔄</span> Re-roll
-                </button>
+            `;
+        });
+
+        html += `
             </div>
         </div>
         `;
@@ -5544,7 +5585,7 @@ function construirMensajesWhatsAppRutinaTrainer() {
 
     var grupos = (RUTINA_TRAINER_META && Array.isArray(RUTINA_TRAINER_META.gruposUsados) && RUTINA_TRAINER_META.gruposUsados.length > 0)
         ? RUTINA_TRAINER_META.gruposUsados
-        : ejercicios.map(function(e) { return e.musculoPrincipal || ''; }).filter(Boolean);
+        : ejercicios.map(function(e) { return e.grupoAsignado || e.musculoPrincipal || ''; }).filter(Boolean);
     var gruposTexto = formatearListaGruposNaturalTrainer(grupos);
 
     var atleta = null;
@@ -5558,22 +5599,31 @@ function construirMensajesWhatsAppRutinaTrainer() {
         ? ('Para ' + atleta.nombre + ' (' + diaNombre + '): hoy toca ' + gruposTexto + ' con buen bombeo 💪')
         : ('Hoy toca ' + gruposTexto + ' con buen bombeo 💪');
 
-    var chunkSize = 2;
+    var secciones = (typeof agruparEjerciciosPorGrupoMuscular === 'function')
+        ? agruparEjerciciosPorGrupoMuscular(ejercicios, grupos)
+        : [{ grupo: 'Rutina', items: ejercicios.map(function(e, i) { return { ej: e, idx: i }; }) }];
+
     var mensajes = [];
-    for (var i = 0; i < ejercicios.length; i += chunkSize) {
-        var slice = ejercicios.slice(i, i + chunkSize);
-        var lineas = slice.map(formatearEjercicioWhatsAppTrainer).filter(Boolean);
-        if (i === 0) {
-            lineas.unshift(introLinea);
+    secciones.forEach(function(sec, secIdx) {
+        var ejsSec = sec.items.map(function(p) { return p.ej; }).filter(Boolean);
+        var chunkSize = 3;
+        for (var c = 0; c < ejsSec.length; c += chunkSize) {
+            var slice = ejsSec.slice(c, c + chunkSize);
+            var lineas = slice.map(function(e) { return '• ' + formatearEjercicioWhatsAppTrainer(e); }).filter(Boolean);
+            var cabeceraGrupo = '💪 *' + sec.grupo + '*';
+            lineas.unshift(cabeceraGrupo);
+            if (secIdx === 0 && c === 0) {
+                lineas.unshift(introLinea);
+            }
+            mensajes.push({
+                index: mensajes.length,
+                numero: mensajes.length + 1,
+                titulo: 'Mensaje ' + (mensajes.length + 1) + ' · ' + sec.grupo,
+                cantidadEjercicios: slice.length,
+                texto: lineas.join('\n')
+            });
         }
-        mensajes.push({
-            index: mensajes.length,
-            numero: mensajes.length + 1,
-            titulo: 'Mensaje ' + (mensajes.length + 1),
-            cantidadEjercicios: slice.length,
-            texto: lineas.join('\n')
-        });
-    }
+    });
 
     return {
         diaNombre: diaNombre,
@@ -5824,12 +5874,15 @@ function reRollearEjercicioTrainer(idx) {
         ? RUTINA_TRAINER_META.gruposUsados
         : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
 
+    var grupoActual = (typeof resolverGrupoAsignadoEjercicio === 'function')
+        ? resolverGrupoAsignadoEjercicio(RUTINA_TRAINER_GENERADA[idx], gruposObjetivo)
+        : (RUTINA_TRAINER_GENERADA[idx].grupoAsignado || RUTINA_TRAINER_GENERADA[idx].musculoPrincipal || 'este grupo muscular');
     var sustituto = elegirSustitutoEjercicioAleatorio(RUTINA_TRAINER_GENERADA, idx, gruposObjetivo);
     if (sustituto) {
         RUTINA_TRAINER_GENERADA[idx] = sustituto;
         renderizarSubAppTrainer();
     } else {
-        alert("No hay más variantes disponibles para este grupo muscular.");
+        alert("No hay más ejercicios distintos de " + grupoActual + " disponibles en el catálogo.");
     }
 }
 

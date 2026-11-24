@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.11)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.12)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.11
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.12
             Esta versión nativa incluye:
+            - 🏋️ **Rutina Aleatoria Detallada por Grupo Muscular & Re-roll Estricto (v11.12)**: En **Personal Trainer → Rutina Aleatoria** y **Entrenamiento → Rutina Aleatoria Personal**, la sesión generada ahora reparte equitativamente los ejercicios y los organiza en bloques claros por cada grupo muscular (ej: **Pecho · 2**, **Tríceps · 2**, **Hombros · 2**), con resumen visual superior, etiquetas limpias, mensajes de WhatsApp agrupados por músculo y **🔄 Re-roll estricto** que siempre sustituye el ejercicio por otra variante del **mismo grupo muscular** (reconociendo acentos y sub-músculos como `Deltoides_Anterior` → Hombros o `Triceps_Lateral` → Tríceps).
             - 🎧 **Pausa Automática al Desconectar Audífonos Bluetooth/Cableados (v11.11)**: El motor nativo (`MonarcaMediaPlugin`) ahora escucha en tiempo real **`ACTION_AUDIO_BECOMING_NOISY`**, **`ACTION_HEADSET_PLUG`** y **`AudioManager.AudioDeviceCallback`** (Bluetooth A2DP, BLE Audio, USB-C y jack 3.5mm) — incluso con la app en segundo plano o pantalla apagada — pausando la música de inmediato (y actualizando mini-reproductor, rutina y pantalla de bloqueo) para que jamás se quede sonando por el altavoz del teléfono.
             - 📱 **Rediseño Limpio & Espacioso de Finanzas / Deudas en Móvil (v11.10)**: Banner compacto y desplegable para **Alertas de Retrasos** (sin torres largas de texto), pestañas principales de Finanzas en **1 sola línea deslizable**, subpestañas segmentadas más limpias, tarjetas de **Deudas** reestructuradas en 2 filas claras (sin textos aplastados en columnas angostas ni números repetidos), botones de acción full-width bien balanceados y corrección del botón eliminar `✕` al tema oscuro.
             - 📝 **Motivo de Rutina Incompleta & Guardián al Salir (v11.09)**: Al intentar salir de una rutina con ejercicios sin completar (`◀ VOLVER A EJERCICIOS`, gesto atrás en Android o cambiar de pestaña), Emily te muestra tu porcentaje de avance, las series faltantes, la penitencia exacta en EXP y te pregunta **¿Por qué no terminaste la rutina?** (chips rápidos + texto libre obligatorio para cerrar con penitencia, guardado en el resumen y en el historial, más opción de **pausar temporalmente** si solo vas a revisar otra sección).

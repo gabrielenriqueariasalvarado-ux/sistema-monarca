@@ -1,5 +1,5 @@
 {
-  "version": "11.11",
+  "version": "11.12",
   "fecha": "2026-11-23",
-  "resumen": "Reproductor MP3 v11.11: Pausa automática inmediata al desconectar audífonos Bluetooth, BLE, USB-C o cableados (ACTION_AUDIO_BECOMING_NOISY + AudioDeviceCallback nativo en Android + respaldo Web devicechange), evitando que la música siga sonando por el altavoz del teléfono."
+  "resumen": "Rutina Aleatoria v11.12: Detalle agrupado por cada grupo muscular (ej: Pecho 2, Tríceps 2, Hombros 2) con reparto equitativo, chips limpios, mensajes de WhatsApp organizados por músculo y Re-roll estricto que siempre cambia por otro ejercicio del mismo grupo muscular."
 }

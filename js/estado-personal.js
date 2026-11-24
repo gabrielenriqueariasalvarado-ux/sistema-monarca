@@ -10096,51 +10096,84 @@ function renderizarModuloRutinaAleatoria() {
         return;
     }
 
+    var gruposMeta = (RUTINA_ALEATORIA_META && Array.isArray(RUTINA_ALEATORIA_META.gruposUsados))
+        ? RUTINA_ALEATORIA_META.gruposUsados
+        : [];
+    var seccionesGrupos = agruparEjerciciosPorGrupoMuscular(RUTINA_ALEATORIA_GENERADA, gruposMeta);
+    var resumenPillsHtml = seccionesGrupos.map(function(sec) {
+        return `<span class="rutina-grupo-resumen-pill" style="--grp-color: ${sec.color};">
+            <span class="rutina-grupo-dot"></span>
+            <span>${escaparHtmlRutina(sec.grupo)}</span>
+            <strong class="rutina-grupo-resumen-num">${sec.items.length}</strong>
+        </span>`;
+    }).join('');
+
     var html = `
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
         <div>
             <h4 style="margin: 0; color: #f8fafc; font-size: 15px; font-weight: 800;">
-                🔥 Sesión Estructurada para Hoy (${RUTINA_ALEATORIA_GENERADA.length} Ejercicios)
+                🔥 Sesión Estructurada (${RUTINA_ALEATORIA_GENERADA.length} Ejercicios · ${seccionesGrupos.length} ${seccionesGrupos.length === 1 ? 'Grupo' : 'Grupos'})
             </h4>
-            <span style="font-size: 12px; color: #94a3b8;">Revisa tus ejercicios. Puedes re-rollear individualmente cualquiera que no te convenza.</span>
+            <span style="font-size: 12px; color: #94a3b8;">Detallada por grupo muscular. 🔄 Re-roll siempre cambia por otro ejercicio del mismo grupo.</span>
         </div>
         <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaHoy()" style="font-size: 11.5px;">
             🔄 Regenerar Todo
         </button>
     </div>
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">`;
+    <div class="rutina-grupos-resumen-bar">${resumenPillsHtml}</div>
+    <div class="rutina-grupos-stack" style="margin-bottom: 20px;">`;
 
-    RUTINA_ALEATORIA_GENERADA.forEach(function(ej, idx) {
-        var esComp = !!ej.compuesto;
-        var badgeComp = esComp 
-            ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL / COMPUESTO</span>`
-            : `<span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
-        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).map(function(c) {
-            return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">${c}</span>`;
-        }).join(' ');
+    var numOrdenGlobal = 0;
+    seccionesGrupos.forEach(function(sec) {
+        html += `
+        <div class="rutina-grupo-bloque" style="--grp-color: ${sec.color};" data-grupo-muscular="${escaparHtmlRutina(sec.grupo)}">
+            <div class="rutina-grupo-header">
+                <div class="rutina-grupo-titulo">
+                    <span class="rutina-grupo-dot"></span>
+                    <span>💪 ${escaparHtmlRutina(sec.grupo)}</span>
+                </div>
+                <span class="rutina-grupo-count">${sec.items.length} ${sec.items.length === 1 ? 'ejercicio' : 'ejercicios'}</span>
+            </div>
+            <div class="rutina-grupo-lista">`;
+
+        sec.items.forEach(function(par) {
+            numOrdenGlobal++;
+            var ej = par.ej;
+            var idx = par.idx;
+            var esComp = !!ej.compuesto;
+            var badgeComp = esComp
+                ? `<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>`
+                : `<span style="font-size: 10px; font-weight: 700; background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); color: #94a3b8; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>`;
+            var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
+                return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); color: #cbd5e1; padding: 2px 6px; border-radius: 4px;">${escaparHtmlRutina(formatearEtiquetaMusculoLimpia(c))}</span>`;
+            }).join(' ');
+
+            html += `
+            <div class="random-exercise-card" data-grupo-asignado="${escaparHtmlRutina(sec.grupo)}">
+                <div style="display: flex; align-items: flex-start; gap: 11px; flex: 1; min-width: 0;">
+                    <div style="width: 30px; height: 30px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: ${sec.color}; flex-shrink: 0;">
+                        ${numOrdenGlobal}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                            <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: #f8fafc;">${escaparHtmlRutina(ej.nombre)}</h4>
+                            ${badgeComp}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escaparHtmlRutina(ej.repeticiones || '10-12 reps')}</span>
+                            ${muscleBadges}
+                        </div>
+                    </div>
+                </div>
+                <div style="flex-shrink: 0;">
+                    <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorio(${idx})" title="Cambiar por otro ejercicio de ${escaparHtmlRutina(sec.grupo)}">
+                        <span>🔄</span> Re-roll
+                    </button>
+                </div>
+            </div>`;
+        });
 
         html += `
-        <div class="random-exercise-card">
-            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #38bdf8; flex-shrink: 0;">
-                    ${idx + 1}
-                </div>
-                <div style="flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
-                        <h4 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #f8fafc;">${ej.nombre}</h4>
-                        ${badgeComp}
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${ej.repeticiones || '10-12 reps'}</span>
-                        <span style="color: #64748b; font-size: 12px;">·</span>
-                        ${muscleBadges}
-                    </div>
-                </div>
-            </div>
-            <div>
-                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorio(${idx})" title="Cambiar por otro ejercicio del mismo grupo">
-                    <span>🔄</span> Re-roll
-                </button>
             </div>
         </div>`;
     });
@@ -10401,84 +10434,252 @@ function resolverGruposObjetivoParaDiaAleatoria(split, diaIdx) {
     };
 }
 
+var GRUPOS_SPLIT_ALIASES = {
+    pecho: ['pecho', 'pectoral', 'pectorales', 'chest'],
+    espalda: ['espalda', 'dorsal', 'dorsales', 'romboides', 'lumbar', 'lumbares', 'trapecio', 'trapecios', 'back'],
+    hombros: ['hombro', 'hombros', 'deltoide', 'deltoides', 'shoulder'],
+    biceps: ['biceps', 'bicep', 'braquial', 'braquiorradial'],
+    triceps: ['triceps', 'tricep'],
+    cuadriceps: ['cuadriceps', 'cuadricep', 'vasto', 'recto femoral'],
+    isquios: ['isquio', 'isquios', 'isquiotibial', 'isquiotibiales', 'femoral', 'femorales', 'biceps femoral'],
+    gluteos: ['gluteo', 'gluteos'],
+    pantorrillas: ['pantorrilla', 'pantorrillas', 'gemelo', 'gemelos', 'soleo'],
+    core: ['core', 'abdomen', 'abdominal', 'abdominales', 'oblicuo', 'oblicuos', 'transverso']
+};
+
+var GRUPOS_SPLIT_COLORES = {
+    pecho: '#38bdf8',
+    espalda: '#60a5fa',
+    hombros: '#a78bfa',
+    biceps: '#34d399',
+    triceps: '#fbbf24',
+    cuadriceps: '#fb923c',
+    isquios: '#f472b6',
+    gluteos: '#e879f9',
+    pantorrillas: '#2dd4bf',
+    core: '#facc15'
+};
+
+function normalizarTextoMusculoSplit(txt) {
+    return String(txt || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function formatearEtiquetaMusculoLimpia(txt) {
+    var limpio = String(txt || '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!limpio) return '';
+    return limpio
+        .replace(/\bTriceps\b/gi, 'Tríceps')
+        .replace(/\bBiceps\b/gi, 'Bíceps')
+        .replace(/\bCuadriceps\b/gi, 'Cuádriceps')
+        .replace(/\bGluteos?\b/gi, function(m) { return m.toLowerCase().endsWith('s') ? 'Glúteos' : 'Glúteo'; });
+}
+
+function obtenerColorGrupoMuscularSplit(grupo) {
+    var key = normalizarTextoMusculoSplit(grupo);
+    return GRUPOS_SPLIT_COLORES[key] || '#34d399';
+}
+
+function coincideEtiquetaConGrupoSplit(etiqueta, grupo) {
+    var cNorm = normalizarTextoMusculoSplit(etiqueta);
+    var gNorm = normalizarTextoMusculoSplit(grupo);
+    if (!cNorm || !gNorm) return false;
+    if (gNorm === 'biceps' && cNorm.indexOf('femoral') !== -1) return false;
+    if (cNorm === gNorm || cNorm.indexOf(gNorm) !== -1 || gNorm.indexOf(cNorm) !== -1) return true;
+    var aliases = GRUPOS_SPLIT_ALIASES[gNorm];
+    if (aliases) {
+        for (var i = 0; i < aliases.length; i++) {
+            var al = aliases[i];
+            if (cNorm === al || cNorm.indexOf(al) !== -1) {
+                if (gNorm === 'biceps' && cNorm.indexOf('femoral') !== -1) continue;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function coincideEjercicioConGrupoPrincipal(ej, grupo) {
+    if (!ej || !grupo) return false;
+    var principales = [];
+    if (ej.musculoPrincipal) principales.push(ej.musculoPrincipal);
+    if (Array.isArray(ej.categorias) && ej.categorias.length > 0 && ej.categorias[0]) {
+        principales.push(ej.categorias[0]);
+    }
+    return principales.some(function(et) {
+        return coincideEtiquetaConGrupoSplit(et, grupo);
+    });
+}
+
 function coincideEjercicioConGruposSplit(ej, grupos) {
     if (!ej || !Array.isArray(grupos) || grupos.length === 0) return false;
-    var categorias = (ej.categorias || []).concat([ej.musculoPrincipal || '']).map(function(c) {
-        return (c || '').toLowerCase().trim();
-    }).filter(Boolean);
+    var etiquetas = (Array.isArray(ej.categorias) ? ej.categorias : []).concat([ej.musculoPrincipal || '']).filter(Boolean);
     return grupos.some(function(g) {
-        var gLow = (g || '').toLowerCase().trim();
-        return categorias.some(function(c) {
-            return c.includes(gLow) || gLow.includes(c);
+        return etiquetas.some(function(et) {
+            return coincideEtiquetaConGrupoSplit(et, g);
         });
     });
 }
 
-function construirRutinaAleatoriaPorGrupos(gruposObjetivo, maxEjercicios) {
-    var catalogo = obtenerCatalogoEjerciciosParaAleatoria();
-    var metaMax = maxEjercicios || 6;
-
-    // Priorizar ejercicios propios del usuario sobre el catálogo maestro cuando existan ambos
-    var candidatosUsuario = catalogo.ejercicios.filter(function(ej) {
-        return ej._fuenteCatalogo === 'usuario' && coincideEjercicioConGruposSplit(ej, gruposObjetivo);
-    });
-    var candidatosMaestro = catalogo.ejercicios.filter(function(ej) {
-        return ej._fuenteCatalogo !== 'usuario' && coincideEjercicioConGruposSplit(ej, gruposObjetivo);
-    });
-    var candidatos = (candidatosUsuario.length >= 4)
-        ? candidatosUsuario
-        : candidatosUsuario.concat(candidatosMaestro);
-
-    if (!candidatos || candidatos.length === 0) {
-        return { seleccionados: [], candidatosCount: 0, catalogo: catalogo };
+function resolverGrupoAsignadoEjercicio(ej, gruposObjetivo) {
+    var objetivos = (Array.isArray(gruposObjetivo) && gruposObjetivo.length > 0) ? gruposObjetivo : [];
+    if (ej && ej.grupoAsignado) {
+        if (objetivos.length === 0) return ej.grupoAsignado;
+        var exacto = objetivos.find(function(g) {
+            return normalizarTextoMusculoSplit(g) === normalizarTextoMusculoSplit(ej.grupoAsignado);
+        });
+        if (exacto) return exacto;
     }
-
-    var compuestos = shuffleArray(candidatos.filter(function(e) { return !!e.compuesto; }));
-    var accesorios = shuffleArray(candidatos.filter(function(e) { return !e.compuesto; }));
-    var todosMezclados = compuestos.concat(accesorios);
-
-    var seleccionados = [];
-    var nombresUsados = {};
-
-    function agregar(ej) {
-        if (!ej || seleccionados.length >= metaMax) return false;
-        var key = (ej.nombre || '').toLowerCase().trim();
-        if (!key || nombresUsados[key]) return false;
-        nombresUsados[key] = true;
-        seleccionados.push(JSON.parse(JSON.stringify(ej)));
-        return true;
+    if (ej && objetivos.length > 0) {
+        var matchPrimario = objetivos.find(function(g) {
+            return coincideEjercicioConGrupoPrincipal(ej, g);
+        });
+        if (matchPrimario) return matchPrimario;
+        var matchSec = objetivos.find(function(g) {
+            return coincideEjercicioConGruposSplit(ej, [g]);
+        });
+        if (matchSec) return matchSec;
     }
+    if (ej && ej.grupoAsignado) return ej.grupoAsignado;
+    if (ej && ej.musculoPrincipal) return formatearEtiquetaMusculoLimpia(ej.musculoPrincipal);
+    if (ej && Array.isArray(ej.categorias) && ej.categorias[0]) return formatearEtiquetaMusculoLimpia(ej.categorias[0]);
+    return 'General';
+}
 
-    // Paso 1: Garantizar al menos 1 ejercicio aleatorio de CADA grupo muscular elegido
-    var gruposMezclados = shuffleArray(gruposObjetivo);
-    gruposMezclados.forEach(function(g) {
-        var porGrupoComp = compuestos.filter(function(e) { return coincideEjercicioConGruposSplit(e, [g]); });
-        var porGrupoAcc = accesorios.filter(function(e) { return coincideEjercicioConGruposSplit(e, [g]); });
-        var poolGrupo = porGrupoComp.length > 0 ? porGrupoComp.concat(porGrupoAcc) : porGrupoAcc;
-        for (var i = 0; i < poolGrupo.length; i++) {
-            if (agregar(poolGrupo[i])) break;
+function agruparEjerciciosPorGrupoMuscular(ejercicios, gruposObjetivo) {
+    var lista = Array.isArray(ejercicios) ? ejercicios : [];
+    var objetivos = (Array.isArray(gruposObjetivo) && gruposObjetivo.length > 0) ? gruposObjetivo : [];
+    var mapa = {};
+    var orden = [];
+
+    objetivos.forEach(function(g) {
+        var k = normalizarTextoMusculoSplit(g);
+        if (k && !mapa[k]) {
+            mapa[k] = { grupo: g, color: obtenerColorGrupoMuscularSplit(g), items: [] };
+            orden.push(k);
         }
     });
 
-    // Paso 2: Completar hasta 5-6 ejercicios priorizando compuestos y variedad de accesorios
-    var objetivoTotal = Math.min(metaMax, candidatos.length, (gruposObjetivo.length <= 1 ? 5 : 6));
-    var metaComp = Math.min(compuestos.length, Math.max(2, Math.min(3, objetivosMinComp(objetivoTotal))));
-    function objetivosMinComp(tot) { return tot >= 5 ? 3 : 2; }
+    lista.forEach(function(ej, idx) {
+        var gNom = resolverGrupoAsignadoEjercicio(ej, objetivos);
+        var k = normalizarTextoMusculoSplit(gNom) || 'general';
+        if (!mapa[k]) {
+            mapa[k] = { grupo: gNom, color: obtenerColorGrupoMuscularSplit(gNom), items: [] };
+            orden.push(k);
+        }
+        mapa[k].items.push({ ej: ej, idx: idx });
+    });
 
-    var compActuales = seleccionados.filter(function(e) { return !!e.compuesto; }).length;
-    for (var i = 0; i < compuestos.length && seleccionados.length < objetivoTotal && compActuales < metaComp; i++) {
-        if (agregar(compuestos[i])) compActuales++;
+    return orden.map(function(k) { return mapa[k]; }).filter(function(sec) { return sec.items.length > 0; });
+}
+
+function construirPoolOrdenadoParaGrupo(catalogoEjercicios, grupo, nombresExcluidos) {
+    var excl = nombresExcluidos || {};
+    var noUsado = function(e) {
+        var key = (e && e.nombre) ? e.nombre.toLowerCase().trim() : '';
+        return !!key && !excl[key];
+    };
+
+    var uPrimComp = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo === 'usuario' && noUsado(e) && coincideEjercicioConGrupoPrincipal(e, grupo) && !!e.compuesto; }));
+    var uPrimAcc  = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo === 'usuario' && noUsado(e) && coincideEjercicioConGrupoPrincipal(e, grupo) && !e.compuesto; }));
+    var mPrimComp = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo !== 'usuario' && noUsado(e) && coincideEjercicioConGrupoPrincipal(e, grupo) && !!e.compuesto; }));
+    var mPrimAcc  = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo !== 'usuario' && noUsado(e) && coincideEjercicioConGrupoPrincipal(e, grupo) && !e.compuesto; }));
+    var uSec      = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo === 'usuario' && noUsado(e) && !coincideEjercicioConGrupoPrincipal(e, grupo) && coincideEjercicioConGruposSplit(e, [grupo]); }));
+    var mSec      = shuffleArray(catalogoEjercicios.filter(function(e) { return e._fuenteCatalogo !== 'usuario' && noUsado(e) && !coincideEjercicioConGrupoPrincipal(e, grupo) && coincideEjercicioConGruposSplit(e, [grupo]); }));
+
+    // Alternar compuesto + accesorio priorizando primarios del usuario y luego catálogo maestro
+    var primariosUsuario = [];
+    var maxU = Math.max(uPrimComp.length, uPrimAcc.length);
+    for (var i = 0; i < maxU; i++) {
+        if (i < uPrimComp.length) primariosUsuario.push(uPrimComp[i]);
+        if (i < uPrimAcc.length) primariosUsuario.push(uPrimAcc[i]);
     }
-    for (var j = 0; j < accesorios.length && seleccionados.length < objetivoTotal; j++) {
-        agregar(accesorios[j]);
+    var primariosMaestro = [];
+    var maxM = Math.max(mPrimComp.length, mPrimAcc.length);
+    for (var j = 0; j < maxM; j++) {
+        if (j < mPrimComp.length) primariosMaestro.push(mPrimComp[j]);
+        if (j < mPrimAcc.length) primariosMaestro.push(mPrimAcc[j]);
     }
-    for (var k = 0; k < todosMezclados.length && seleccionados.length < objetivoTotal; k++) {
-        agregar(todosMezclados[k]);
+
+    return primariosUsuario.concat(primariosMaestro, uSec, mSec);
+}
+
+function construirRutinaAleatoriaPorGrupos(gruposObjetivo, maxEjercicios) {
+    var catalogo = obtenerCatalogoEjerciciosParaAleatoria();
+    var objetivos = (Array.isArray(gruposObjetivo) && gruposObjetivo.length > 0) ? gruposObjetivo.slice() : ['Pecho'];
+    var metaMax = maxEjercicios || 6;
+
+    var candidatosTotales = catalogo.ejercicios.filter(function(ej) {
+        return coincideEjercicioConGruposSplit(ej, objetivos);
+    });
+    if (!candidatosTotales || candidatosTotales.length === 0) {
+        return { seleccionados: [], candidatosCount: 0, catalogo: catalogo };
     }
+
+    var objetivoTotal = Math.min(metaMax, candidatosTotales.length, (objetivos.length <= 1 ? 5 : Math.max(metaMax, objetivos.length)));
+    var numGrupos = objetivos.length;
+    var basePorGrupo = Math.floor(objetivoTotal / numGrupos);
+    var extra = objetivoTotal % numGrupos;
+
+    var cuotasPorGrupo = objetivos.map(function(g, idx) {
+        return Math.max(1, basePorGrupo + (idx < extra ? 1 : 0));
+    });
+
+    var nombresUsados = {};
+    var porGrupoSeleccion = objetivos.map(function() { return []; });
+    var totalElegidos = 0;
+
+    function agregarParaGrupo(grupoIdx, ej) {
+        if (!ej || totalElegidos >= objetivoTotal) return false;
+        var key = (ej.nombre || '').toLowerCase().trim();
+        if (!key || nombresUsados[key]) return false;
+        nombresUsados[key] = true;
+        var clon = JSON.parse(JSON.stringify(ej));
+        clon.grupoAsignado = objetivos[grupoIdx];
+        porGrupoSeleccion[grupoIdx].push(clon);
+        totalElegidos++;
+        return true;
+    }
+
+    // Paso 1: Asignar la cuota equitativa de ejercicios por cada grupo muscular objetivo
+    objetivos.forEach(function(g, gIdx) {
+        var cuota = cuotasPorGrupo[gIdx];
+        var pool = construirPoolOrdenadoParaGrupo(catalogo.ejercicios, g, nombresUsados);
+        for (var i = 0; i < pool.length && porGrupoSeleccion[gIdx].length < cuota && totalElegidos < objetivoTotal; i++) {
+            agregarParaGrupo(gIdx, pool[i]);
+        }
+    });
+
+    // Paso 2: Si algún grupo tuvo menos ejercicios disponibles que su cuota, completar con los demás grupos objetivo
+    if (totalElegidos < objetivoTotal) {
+        var progreso = true;
+        while (totalElegidos < objetivoTotal && progreso) {
+            progreso = false;
+            for (var gIdx2 = 0; gIdx2 < objetivos.length && totalElegidos < objetivoTotal; gIdx2++) {
+                var poolExtra = construirPoolOrdenadoParaGrupo(catalogo.ejercicios, objetivos[gIdx2], nombresUsados);
+                if (poolExtra.length > 0 && agregarParaGrupo(gIdx2, poolExtra[0])) {
+                    progreso = true;
+                }
+            }
+        }
+    }
+
+    // Ordenar cada grupo colocando los compuestos/principales primero, y aplanar respetando el orden de gruposObjetivo
+    var seleccionados = [];
+    porGrupoSeleccion.forEach(function(listaGrp) {
+        listaGrp.sort(function(a, b) {
+            return (b.compuesto ? 1 : 0) - (a.compuesto ? 1 : 0);
+        });
+        listaGrp.forEach(function(item) { seleccionados.push(item); });
+    });
 
     return {
         seleccionados: seleccionados,
-        candidatosCount: candidatos.length,
+        candidatosCount: candidatosTotales.length,
         catalogo: catalogo
     };
 }
@@ -10523,25 +10724,38 @@ function elegirSustitutoEjercicioAleatorio(rutinaActual, idx, gruposObjetivo) {
     var actual = rutinaActual[idx];
     var objetivos = (Array.isArray(gruposObjetivo) && gruposObjetivo.length > 0) ? gruposObjetivo : GRUPOS_MUSCULARES_SPLIT;
     var catalogo = obtenerCatalogoEjerciciosParaAleatoria();
-    var todos = shuffleArray(catalogo.ejercicios);
-    var nombresActuales = rutinaActual.map(function(e) { return (e.nombre || '').toLowerCase().trim(); });
 
-    // Priorizar el grupo objetivo del split que representa el ejercicio actual (evita salirse del split configurado)
-    var grupoActualEnSplit = objetivos.find(function(g) {
-        return coincideEjercicioConGruposSplit(actual, [g]);
-    }) || '';
-
-    var sustituto = (grupoActualEnSplit ? todos.find(function(e) {
-        var nKey = (e.nombre || '').toLowerCase().trim();
-        if (nombresActuales.includes(nKey)) return false;
-        return coincideEjercicioConGruposSplit(e, [grupoActualEnSplit]) && coincideEjercicioConGruposSplit(e, objetivos);
-    }) : null) || todos.find(function(e) {
-        var nKey = (e.nombre || '').toLowerCase().trim();
-        if (nombresActuales.includes(nKey)) return false;
-        return coincideEjercicioConGruposSplit(e, objetivos);
+    var nombresUsados = {};
+    rutinaActual.forEach(function(e) {
+        if (e && e.nombre) nombresUsados[e.nombre.toLowerCase().trim()] = true;
     });
 
-    return sustituto ? JSON.parse(JSON.stringify(sustituto)) : null;
+    // Regla estricta: el Re-roll SIEMPRE debe mantenerse dentro del mismo grupo muscular del ejercicio
+    var grupoEstricto = resolverGrupoAsignadoEjercicio(actual, objetivos);
+    if (!grupoEstricto) return null;
+
+    var candidatosGrupo = construirPoolOrdenadoParaGrupo(catalogo.ejercicios, grupoEstricto, nombresUsados);
+    if (!candidatosGrupo || candidatosGrupo.length === 0) {
+        return null;
+    }
+
+    // Preferir sustituto con el mismo rol (compuesto/accesorio) entre primarios cuando exista
+    var primariosMismoRol = candidatosGrupo.filter(function(e) {
+        return coincideEjercicioConGrupoPrincipal(e, grupoEstricto) && (!!e.compuesto === !!actual.compuesto);
+    });
+    var primariosCualquiera = candidatosGrupo.filter(function(e) {
+        return coincideEjercicioConGrupoPrincipal(e, grupoEstricto);
+    });
+    var poolFinal = primariosMismoRol.length > 0
+        ? primariosMismoRol
+        : (primariosCualquiera.length > 0 ? primariosCualquiera : candidatosGrupo);
+
+    var elegido = poolFinal[Math.floor(Math.random() * poolFinal.length)];
+    if (!elegido) return null;
+
+    var clon = JSON.parse(JSON.stringify(elegido));
+    clon.grupoAsignado = grupoEstricto;
+    return clon;
 }
 
 function reRollearEjercicioAleatorio(idx) {
@@ -10553,12 +10767,13 @@ function reRollearEjercicioAleatorio(idx) {
         ? RUTINA_ALEATORIA_META.gruposUsados
         : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
 
+    var grupoActual = resolverGrupoAsignadoEjercicio(RUTINA_ALEATORIA_GENERADA[idx], gruposObjetivo);
     var sustituto = elegirSustitutoEjercicioAleatorio(RUTINA_ALEATORIA_GENERADA, idx, gruposObjetivo);
     if (sustituto) {
         RUTINA_ALEATORIA_GENERADA[idx] = sustituto;
         renderizarModuloRutinaAleatoria();
     } else {
-        alert("No hay más variantes distintas para este grupo muscular en el catálogo.");
+        alert("No hay más ejercicios distintos de " + grupoActual + " disponibles en el catálogo.");
     }
 }
 
@@ -10752,6 +10967,9 @@ function normalizarEjercicioPersonalParaRutina(rawEj) {
     base.categorias = Array.isArray(base.categorias) && base.categorias.length > 0
         ? base.categorias
         : (base.musculoPrincipal ? [base.musculoPrincipal] : ['General']);
+    if (rawEj.grupoAsignado) {
+        base.grupoAsignado = rawEj.grupoAsignado;
+    }
     return base;
 }
 
@@ -10841,9 +11059,10 @@ function reRollearEjercicioAleatorioPersonal(idx) {
         ? RUTINA_ALEATORIA_PERSONAL_META.gruposUsados
         : resolverGruposObjetivoParaDiaAleatoria(split, diaIdx).grupos;
 
+    var grupoActual = resolverGrupoAsignadoEjercicio(RUTINA_ALEATORIA_PERSONAL_GENERADA[idx], gruposObjetivo);
     var sust = elegirSustitutoEjercicioAleatorio(RUTINA_ALEATORIA_PERSONAL_GENERADA, idx, gruposObjetivo);
     if (!sust) {
-        alert("No hay más variantes distintas para este grupo muscular en el catálogo.");
+        alert("No hay más ejercicios distintos de " + grupoActual + " disponibles en el catálogo.");
         return;
     }
     RUTINA_ALEATORIA_PERSONAL_GENERADA[idx] = normalizarEjercicioPersonalParaRutina(sust);
@@ -11196,48 +11415,90 @@ function renderizarModuloRutinaAleatoriaPersonal() {
                 </div>
             </div>
         </div>
+    `;
 
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;">
-            <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">🔥 Ejercicios (${RUTINA_ALEATORIA_PERSONAL_GENERADA.length})</span>
+    var gruposMetaPers = (RUTINA_ALEATORIA_PERSONAL_META && Array.isArray(RUTINA_ALEATORIA_PERSONAL_META.gruposUsados))
+        ? RUTINA_ALEATORIA_PERSONAL_META.gruposUsados
+        : gruposMostrados;
+    var seccionesPers = agruparEjerciciosPorGrupoMuscular(RUTINA_ALEATORIA_PERSONAL_GENERADA, gruposMetaPers);
+    var resumenPillsPers = seccionesPers.map(function(sec) {
+        return `<span class="rutina-grupo-resumen-pill" style="--grp-color: ${sec.color};">
+            <span class="rutina-grupo-dot"></span>
+            <span>${escaparHtmlRutina(sec.grupo)}</span>
+            <strong class="rutina-grupo-resumen-num">${sec.items.length}</strong>
+        </span>`;
+    }).join('');
+
+    html += `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
+            <div>
+                <span style="font-size: 13.5px; font-weight: 800; color: #f8fafc; display: block;">
+                    🔥 Ejercicios (${RUTINA_ALEATORIA_PERSONAL_GENERADA.length} · ${seccionesPers.length} ${seccionesPers.length === 1 ? 'Grupo' : 'Grupos'})
+                </span>
+                <span style="font-size: 11px; color: #94a3b8;">🔄 Re-roll cambia solo por otro ejercicio del mismo grupo muscular.</span>
+            </div>
             <button type="button" class="btn-subfiltro-ej" onclick="generarRutinaAleatoriaPersonal()" style="font-size: 11.5px; padding: 5px 10px;">
                 🔄 Regenerar Todo
             </button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+        <div class="rutina-grupos-resumen-bar">${resumenPillsPers}</div>
+
+        <div class="rutina-grupos-stack" style="margin-bottom: 14px;">
     `;
 
-    RUTINA_ALEATORIA_PERSONAL_GENERADA.forEach(function(ej, idx) {
-        var esComp = !!ej.compuesto;
-        var badgeComp = esComp
-            ? '<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.24); border: 1px solid rgba(129, 140, 248, 0.45); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>'
-            : '<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.3); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>';
-        var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
-            return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; padding: 2px 6px; border-radius: 5px;">${escaparHtmlRutina(c)}</span>`;
-        }).join(' ');
-        var pesoTag = ej.peso > 0 ? (' · ' + ej.peso + ' ' + (ej.unidadPeso || 'kg')) : '';
+    var numOrdenPers = 0;
+    seccionesPers.forEach(function(sec) {
+        html += `
+        <div class="rutina-grupo-bloque" style="--grp-color: ${sec.color};" data-grupo-muscular="${escaparHtmlRutina(sec.grupo)}">
+            <div class="rutina-grupo-header">
+                <div class="rutina-grupo-titulo">
+                    <span class="rutina-grupo-dot"></span>
+                    <span>💪 ${escaparHtmlRutina(sec.grupo)}</span>
+                </div>
+                <span class="rutina-grupo-count">${sec.items.length} ${sec.items.length === 1 ? 'ejercicio' : 'ejercicios'}</span>
+            </div>
+            <div class="rutina-grupo-lista">`;
+
+        sec.items.forEach(function(par) {
+            numOrdenPers++;
+            var ej = par.ej;
+            var idx = par.idx;
+            var esComp = !!ej.compuesto;
+            var badgeComp = esComp
+                ? '<span style="font-size: 10px; font-weight: 800; background: rgba(99, 102, 241, 0.24); border: 1px solid rgba(129, 140, 248, 0.45); color: #e0e7ff; padding: 2px 7px; border-radius: 6px;">⭐ PRINCIPAL</span>'
+                : '<span style="font-size: 10px; font-weight: 700; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.3); color: #bae6fd; padding: 2px 7px; border-radius: 6px;">ACCESORIO</span>';
+            var muscleBadges = (ej.categorias || [ej.musculoPrincipal]).filter(Boolean).map(function(c) {
+                return `<span style="font-size: 10.5px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; padding: 2px 6px; border-radius: 5px;">${escaparHtmlRutina(formatearEtiquetaMusculoLimpia(c))}</span>`;
+            }).join(' ');
+            var pesoTag = ej.peso > 0 ? (' · ' + ej.peso + ' ' + (ej.unidadPeso || 'kg')) : '';
+
+            html += `
+            <div class="random-exercise-card" data-grupo-asignado="${escaparHtmlRutina(sec.grupo)}">
+                <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
+                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; color: ${sec.color}; flex-shrink: 0;">
+                        ${numOrdenPers}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+                            <h4 style="margin: 0; font-size: 13.5px; font-weight: 800; color: #ffffff;">${escaparHtmlRutina(ej.nombre)}</h4>
+                            ${badgeComp}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 3px;">
+                            <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escaparHtmlRutina(ej.repeticiones || '10 reps')}${escaparHtmlRutina(pesoTag)}</span>
+                            ${muscleBadges}
+                        </div>
+                    </div>
+                </div>
+                <div style="flex-shrink: 0;">
+                    <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorioPersonal(${idx})" title="Cambiar por otro ejercicio de ${escaparHtmlRutina(sec.grupo)}">
+                        <span>🔄</span> Re-roll
+                    </button>
+                </div>
+            </div>`;
+        });
 
         html += `
-        <div class="random-exercise-card">
-            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
-                <div style="width: 28px; height: 28px; border-radius: 8px; background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; color: #38bdf8; flex-shrink: 0;">
-                    ${idx + 1}
-                </div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
-                        <h4 style="margin: 0; font-size: 13.5px; font-weight: 800; color: #ffffff;">${escaparHtmlRutina(ej.nombre)}</h4>
-                        ${badgeComp}
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 3px;">
-                        <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8;">${ej.series || 4} series × ${escaparHtmlRutina(ej.repeticiones || '10 reps')}${escaparHtmlRutina(pesoTag)}</span>
-                        ${muscleBadges}
-                    </div>
-                </div>
-            </div>
-            <div style="flex-shrink: 0;">
-                <button type="button" class="btn-reroll-item" onclick="reRollearEjercicioAleatorioPersonal(${idx})" title="Cambiar ejercicio">
-                    <span>🔄</span> Re-roll
-                </button>
             </div>
         </div>`;
     });
@@ -11274,6 +11535,11 @@ if (typeof window !== 'undefined') {
     window.toggleDescansoDiaSplitPersonal = toggleDescansoDiaSplitPersonal;
     window.toggleMusculoDiaSplitPersonal = toggleMusculoDiaSplitPersonal;
     window.restablecerSplitPersonalDefault = restablecerSplitPersonalDefault;
+    window.agruparEjerciciosPorGrupoMuscular = agruparEjerciciosPorGrupoMuscular;
+    window.resolverGrupoAsignadoEjercicio = resolverGrupoAsignadoEjercicio;
+    window.formatearEtiquetaMusculoLimpia = formatearEtiquetaMusculoLimpia;
+    window.coincideEjercicioConGrupoPrincipal = coincideEjercicioConGrupoPrincipal;
+    window.coincideEtiquetaConGrupoSplit = coincideEtiquetaConGrupoSplit;
 }
 
 /* ==========================================================================
