@@ -5628,7 +5628,14 @@ function cerrarModalDetalleEjercicio() {
 
 // --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER + PANTALLA APAGADA v11.07) ---
 
-var TIEMPO_DESCANSO_SELECCIONADO = 60;
+var MONARCA_REST_PREF_KEY = 'monarca_rest_tiempo_default';
+var TIEMPO_DESCANSO_SELECCIONADO = (function() {
+    try {
+        var v = parseInt(localStorage.getItem(MONARCA_REST_PREF_KEY), 10);
+        if ([30, 60, 90, 120].indexOf(v) !== -1) return v;
+    } catch (e) {}
+    return 60;
+})();
 var MONARCA_REST_NOTIF_ID = 77790;
 var MONARCA_REST_CHANNEL_ID = 'monarca_rest_timer_channel_v1';
 var _MONARCA_REST_BRIDGE_INIT = false;
@@ -5640,7 +5647,8 @@ var ASISTENTE_GYM = {
     finTimestamp: 0,
     finalizado: false,
     ultimoSegundoPitido: -1,
-    intervaloId: null
+    intervaloId: null,
+    ancla: null
 };
 
 function _obtenerPluginsNativosDescansoGym() {
@@ -5845,74 +5853,318 @@ function _notificarWebFinDescansoGym(duracionSegs) {
     } catch (e) {}
 }
 
-function seleccionarTiempoDescanso(segundos) {
-    TIEMPO_DESCANSO_SELECCIONADO = segundos || 60;
+function _sincronizarBotonesPresetDescanso() {
     var botones = [30, 60, 90, 120];
     botones.forEach(function(s) {
         var b = document.getElementById('btn-rest-' + s);
-        if (b) {
-            if (s === TIEMPO_DESCANSO_SELECCIONADO) {
-                b.classList.add('active');
-            } else {
-                b.classList.remove('active');
+        if (b) b.classList.toggle('active', s === TIEMPO_DESCANSO_SELECCIONADO);
+    });
+    var chipsInline = document.querySelectorAll('.btn-rest-inline-chip[data-rest-seg]');
+    chipsInline.forEach(function(btn) {
+        var val = parseInt(btn.getAttribute('data-rest-seg'), 10);
+        btn.classList.toggle('active', val === TIEMPO_DESCANSO_SELECCIONADO);
+    });
+}
+
+function _obtenerNombreEjercicioEnRutina(ejIdx) {
+    if (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && Array.isArray(RUTINA_ACTIVA.rutina.ejercicios) && RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
+        return String(RUTINA_ACTIVA.rutina.ejercicios[ejIdx].nombre || 'Siguiente ejercicio').trim();
+    }
+    var card = document.getElementById('card-ej-' + ejIdx);
+    var titleEl = card ? card.querySelector('.exercise-session-title') : null;
+    return titleEl ? titleEl.textContent.trim() : 'Siguiente ejercicio';
+}
+
+function _resolverAnclaDescansoTrasSerie(ejIdx, serieNum) {
+    var cardActual = document.getElementById('card-ej-' + ejIdx);
+    var checksEnCard = cardActual ? Array.from(cardActual.querySelectorAll('.check-rutina-din')) : [];
+
+    // 1. ¿Hay una serie pendiente posterior dentro del MISMO ejercicio? -> Emergente ENTRE serie terminada y siguiente serie
+    var siguienteSerieNum = null;
+    var primeraPendienteEnMismoEj = null;
+    checksEnCard.forEach(function(c) {
+        if (c.checked) return;
+        var m = String(c.id || '').match(/-s-(\d+)$/);
+        var sNum = m ? parseInt(m[1], 10) : 0;
+        if (!sNum) return;
+        if (primeraPendienteEnMismoEj === null) primeraPendienteEnMismoEj = sNum;
+        if (sNum > serieNum && siguienteSerieNum === null) siguienteSerieNum = sNum;
+    });
+
+    if (siguienteSerieNum !== null) {
+        return {
+            tipo: 'serie',
+            ejIdx: ejIdx,
+            serieNum: serieNum,
+            nextSerieNum: siguienteSerieNum,
+            nextLabel: 'Serie ' + siguienteSerieNum
+        };
+    }
+
+    // Si marcó una serie posterior antes que una anterior en el mismo ejercicio
+    if (primeraPendienteEnMismoEj !== null) {
+        return {
+            tipo: 'serie',
+            ejIdx: ejIdx,
+            serieNum: serieNum,
+            nextSerieNum: primeraPendienteEnMismoEj,
+            nextLabel: 'Serie ' + primeraPendienteEnMismoEj
+        };
+    }
+
+    // 2. Todas las series de este ejercicio quedaron listas -> Buscar siguiente ejercicio pendiente
+    var cardsTodas = Array.from(document.querySelectorAll('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]'));
+    var posActual = cardsTodas.findIndex(function(c) { return parseInt(c.getAttribute('data-ej-idx'), 10) === ejIdx; });
+
+    var encontrarSiguienteCardPendiente = function(listaCards) {
+        for (var i = 0; i < listaCards.length; i++) {
+            var cEl = listaCards[i];
+            if (cEl.classList.contains('routine-exercise-deleted-card')) continue;
+            var chks = Array.from(cEl.querySelectorAll('.check-rutina-din'));
+            if (chks.some(function(ch) { return !ch.checked; })) {
+                return parseInt(cEl.getAttribute('data-ej-idx'), 10);
             }
         }
+        return null;
+    };
+
+    var posteriores = posActual >= 0 ? cardsTodas.slice(posActual + 1) : [];
+    var anteriores = posActual > 0 ? cardsTodas.slice(0, posActual) : [];
+    var nextEjIdx = encontrarSiguienteCardPendiente(posteriores);
+    if (nextEjIdx === null) nextEjIdx = encontrarSiguienteCardPendiente(anteriores);
+
+    if (nextEjIdx !== null && !isNaN(nextEjIdx)) {
+        return {
+            tipo: 'ejercicio',
+            ejIdx: ejIdx,
+            serieNum: serieNum,
+            nextEjIdx: nextEjIdx,
+            nextLabel: _obtenerNombreEjercicioEnRutina(nextEjIdx)
+        };
+    }
+
+    // Respaldo para filas legacy (sin tarjetas)
+    var rowLegacy = document.getElementById('row-ej-' + ejIdx);
+    if (rowLegacy) {
+        return {
+            tipo: 'fila',
+            ejIdx: ejIdx,
+            serieNum: serieNum || 1,
+            nextLabel: 'Siguiente ejercicio'
+        };
+    }
+
+    // 3. No queda ninguna serie pendiente en toda la rutina
+    return { rutinaCompleta: true };
+}
+
+function _inferirUltimaAnclaDesdeDOM() {
+    var checks = Array.from(document.querySelectorAll('#contenedor-detalle-rutina-dinamica .check-rutina-din'));
+    var ultimoMarcado = null;
+    checks.forEach(function(c) {
+        if (c.checked) ultimoMarcado = c;
     });
-    // Iniciar cronómetro de descanso con el tiempo seleccionado
-    iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO);
+    if (ultimoMarcado) {
+        var m = String(ultimoMarcado.id || '').match(/^check-ej-(\d+)-s-(\d+)$/);
+        if (m) {
+            return _resolverAnclaDescansoTrasSerie(parseInt(m[1], 10), parseInt(m[2], 10));
+        }
+    }
+    var primeraCard = document.querySelector('#contenedor-detalle-rutina-dinamica .routine-exercise-session-card[data-ej-idx]');
+    if (primeraCard) {
+        var idx0 = parseInt(primeraCard.getAttribute('data-ej-idx'), 10);
+        if (!isNaN(idx0)) {
+            return { tipo: 'ejercicio', ejIdx: idx0, serieNum: 1, nextLabel: _obtenerNombreEjercicioEnRutina(idx0) };
+        }
+    }
+    return null;
+}
+
+function _construirElementoRestTimerInline() {
+    var existing = document.getElementById('gym-rest-timer-box');
+    if (existing && existing.classList.contains('gym-rest-inline-panel')) {
+        return existing;
+    }
+    if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+    }
+
+    var box = document.createElement('div');
+    box.id = 'gym-rest-timer-box';
+    box.className = 'gym-rest-inline-panel';
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', 'Contador de descanso entre series');
+    box.onclick = function(e) { if (e) e.stopPropagation(); };
+
+    box.innerHTML =
+        '<div class="gym-rest-inline-top">' +
+            '<div class="gym-rest-inline-left">' +
+                '<span class="gym-rest-inline-icon" id="rest-timer-icon">⏱️</span>' +
+                '<div class="gym-rest-inline-copy">' +
+                    '<div class="gym-rest-inline-headline">' +
+                        '<span id="rest-timer-num" class="gym-rest-inline-num">01:00</span>' +
+                        '<span id="rest-timer-next-pill" class="gym-rest-inline-next-pill" style="display: none;"></span>' +
+                    '</div>' +
+                    '<span id="rest-timer-status-txt" class="gym-rest-inline-status">Descanso en curso · 🔔 Aviso activo</span>' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" id="btn-rest-detener" class="gym-rest-inline-stop" onclick="detenerDescansoGym()">✕ Omitir</button>' +
+        '</div>' +
+        '<div class="gym-rest-inline-bar-track">' +
+            '<div id="rest-timer-bar-fill" class="gym-rest-inline-bar-fill" style="width: 100%;"></div>' +
+        '</div>' +
+        '<div class="gym-rest-inline-presets">' +
+            '<span class="gym-rest-inline-presets-lbl">Tiempo:</span>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="30" onclick="seleccionarTiempoDescanso(30)">30s</button>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="60" onclick="seleccionarTiempoDescanso(60)">60s</button>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="90" onclick="seleccionarTiempoDescanso(90)">90s</button>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="120" onclick="seleccionarTiempoDescanso(120)">120s</button>' +
+            '<button type="button" class="btn-rest-inline-chip is-plus" onclick="extenderDescansoGym(15)">+15s</button>' +
+        '</div>';
+
+    return box;
+}
+
+function _montarCajaRestTimerEnAncla(ancla) {
+    if (!ancla || ancla.rutinaCompleta) return null;
+
+    var box = _construirElementoRestTimerInline();
+    if (box.parentNode) {
+        box.parentNode.removeChild(box);
+    }
+
+    var montado = false;
+    var esEntreEjercicios = false;
+
+    if (ancla.tipo === 'serie') {
+        var wrapperEl = document.getElementById('wrapper-ej-' + ancla.ejIdx + '-s-' + ancla.serieNum);
+        if (wrapperEl && wrapperEl.parentNode) {
+            setSeriesCardExpandedState(ancla.ejIdx, true);
+            wrapperEl.parentNode.insertBefore(box, wrapperEl.nextSibling);
+            montado = true;
+        }
+    }
+
+    if (!montado) {
+        var cardEl = document.getElementById('card-ej-' + ancla.ejIdx);
+        if (cardEl && cardEl.parentNode) {
+            cardEl.parentNode.insertBefore(box, cardEl.nextSibling);
+            montado = true;
+            esEntreEjercicios = true;
+        }
+    }
+
+    if (!montado) {
+        var rowEl = document.getElementById('row-ej-' + ancla.ejIdx);
+        if (rowEl && rowEl.parentNode) {
+            rowEl.parentNode.insertBefore(box, rowEl.nextSibling);
+            montado = true;
+            esEntreEjercicios = true;
+        }
+    }
+
+    if (!montado) {
+        var contFallback = document.getElementById('contenedor-detalle-rutina-dinamica');
+        if (contFallback) {
+            contFallback.insertBefore(box, contFallback.firstChild);
+            montado = true;
+            esEntreEjercicios = true;
+        }
+    }
+
+    if (!montado) return null;
+
+    box.classList.toggle('is-between-exercises', esEntreEjercicios);
+    box.setAttribute('data-rest-ancla-tipo', ancla.tipo || (esEntreEjercicios ? 'ejercicio' : 'serie'));
+    box.setAttribute('data-rest-ej-idx', String(ancla.ejIdx));
+    box.setAttribute('data-rest-serie-num', String(ancla.serieNum || 1));
+
+    var nextPill = document.getElementById('rest-timer-next-pill');
+    if (nextPill) {
+        if (ancla.nextLabel) {
+            nextPill.textContent = '→ ' + ancla.nextLabel;
+            nextPill.style.display = 'inline-flex';
+        } else {
+            nextPill.style.display = 'none';
+        }
+    }
+
+    box.style.display = 'flex';
+    box.classList.remove('is-entering');
+    void box.offsetWidth;
+    box.classList.add('is-entering');
+
+    _sincronizarBotonesPresetDescanso();
+
+    // Asegurar visibilidad cómoda sin saltos bruscos si quedó cerca del dock inferior
+    try {
+        var rect = box.getBoundingClientRect();
+        var vh = window.innerHeight || 800;
+        if (rect.bottom > (vh - 135) || rect.top < 55) {
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } catch (e) {}
+
+    return box;
+}
+
+function _desmontarCajaRestTimerInline() {
+    var boxEl = document.getElementById('gym-rest-timer-box');
+    if (boxEl && boxEl.parentNode) {
+        boxEl.parentNode.removeChild(boxEl);
+    }
+}
+
+function seleccionarTiempoDescanso(segundos) {
+    TIEMPO_DESCANSO_SELECCIONADO = segundos || 60;
+    try { localStorage.setItem(MONARCA_REST_PREF_KEY, String(TIEMPO_DESCANSO_SELECCIONADO)); } catch (e) {}
+    _sincronizarBotonesPresetDescanso();
+
+    // Si hay un descanso activo o recién finalizado montado entre series, reiniciarlo en esa misma posición
+    var boxActual = document.getElementById('gym-rest-timer-box');
+    if (ASISTENTE_GYM.ancla && boxActual && boxActual.parentNode) {
+        iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO, null, ASISTENTE_GYM.ancla);
+    }
+}
+
+function extenderDescansoGym(deltaSeg) {
+    var extra = parseInt(deltaSeg, 10) || 15;
+    if (!ASISTENTE_GYM.ancla) return;
+    if (ASISTENTE_GYM.finalizado || !ASISTENTE_GYM.finTimestamp) {
+        iniciarDescansoGym(extra, null, ASISTENTE_GYM.ancla);
+        return;
+    }
+    var nuevoFin = Math.max(Date.now() + 1000, ASISTENTE_GYM.finTimestamp + (extra * 1000));
+    var nuevoRestante = Math.max(1, Math.ceil((nuevoFin - Date.now()) / 1000));
+    ASISTENTE_GYM.descansoTotal = Math.max(ASISTENTE_GYM.descansoTotal || nuevoRestante, nuevoRestante);
+    ASISTENTE_GYM.descansoRestante = nuevoRestante;
+    ASISTENTE_GYM.finTimestamp = nuevoFin;
+    ASISTENTE_GYM.ultimoSegundoPitido = -1;
+    actualizarDisplayRestTimer();
+    programarNotificacionDescansoGym(nuevoFin, nuevoRestante);
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 }
 
 function _aplicarEstiloCajaRestTimer(completado) {
     var boxEl = document.getElementById('gym-rest-timer-box');
+    var iconEl = document.getElementById('rest-timer-icon');
     var numEl = document.getElementById('rest-timer-num');
     var statusEl = document.getElementById('rest-timer-status-txt');
     var barEl = document.getElementById('rest-timer-bar-fill');
     var btnEl = document.getElementById('btn-rest-detener');
 
     if (completado) {
-        if (boxEl) {
-            boxEl.style.background = 'rgba(16, 185, 129, 0.12)';
-            boxEl.style.borderColor = 'rgba(16, 185, 129, 0.45)';
-        }
-        if (numEl) {
-            numEl.innerText = '¡A entrenar!';
-            numEl.style.color = '#34d399';
-        }
-        if (statusEl) {
-            statusEl.innerText = '¡Descanso terminado!';
-            statusEl.style.color = '#6ee7b7';
-        }
-        if (barEl) {
-            barEl.style.width = '100%';
-            barEl.style.background = '#10b981';
-        }
-        if (btnEl) {
-            btnEl.innerText = '✓ Listo';
-            btnEl.style.background = 'rgba(16, 185, 129, 0.2)';
-            btnEl.style.borderColor = 'rgba(16, 185, 129, 0.45)';
-            btnEl.style.color = '#6ee7b7';
-        }
+        if (boxEl) boxEl.classList.add('is-completed');
+        if (iconEl) iconEl.textContent = '⚡';
+        if (numEl) numEl.innerText = '¡A entrenar!';
+        if (statusEl) statusEl.innerText = '¡Descanso terminado! Marca la siguiente serie al completarla';
+        if (barEl) barEl.style.width = '100%';
+        if (btnEl) btnEl.innerText = '✓ Listo';
     } else {
-        if (boxEl) {
-            boxEl.style.background = 'rgba(56, 189, 248, 0.08)';
-            boxEl.style.borderColor = 'rgba(56, 189, 248, 0.25)';
-        }
-        if (numEl) {
-            numEl.style.color = '#38bdf8';
-        }
-        if (statusEl) {
-            statusEl.innerText = 'Descanso en curso · 🔔 Aviso activo';
-            statusEl.style.color = '#94a3b8';
-        }
-        if (barEl) {
-            barEl.style.background = '#38bdf8';
-        }
-        if (btnEl) {
-            btnEl.innerText = '✕ Detener';
-            btnEl.style.background = 'rgba(239, 68, 68, 0.2)';
-            btnEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            btnEl.style.color = '#fca5a5';
-        }
+        if (boxEl) boxEl.classList.remove('is-completed');
+        if (iconEl) iconEl.textContent = '⏱️';
+        if (statusEl) statusEl.innerText = 'Descanso en curso · 🔔 Aviso activo';
+        if (btnEl) btnEl.innerText = '✕ Omitir';
     }
 }
 
@@ -5930,6 +6182,13 @@ function finalizarDescansoGym(opts) {
     ASISTENTE_GYM.descansoRestante = 0;
     ASISTENTE_GYM.finTimestamp = 0;
 
+    if (!document.getElementById('gym-rest-timer-box')) {
+        var anclaObj = ASISTENTE_GYM.ancla || _inferirUltimaAnclaDesdeDOM();
+        if (anclaObj && !anclaObj.rutinaCompleta) {
+            ASISTENTE_GYM.ancla = anclaObj;
+            _montarCajaRestTimerEnAncla(anclaObj);
+        }
+    }
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'flex';
     _aplicarEstiloCajaRestTimer(true);
@@ -5978,10 +6237,16 @@ function _tickDescansoGym() {
     }
 }
 
-function iniciarDescansoGym(segundos, finTimestampExistente) {
+function iniciarDescansoGym(segundos, finTimestampExistente, ancla) {
     if (ASISTENTE_GYM.intervaloId) {
         clearInterval(ASISTENTE_GYM.intervaloId);
         ASISTENTE_GYM.intervaloId = null;
+    }
+
+    var anclaFinal = ancla || ASISTENTE_GYM.ancla || _inferirUltimaAnclaDesdeDOM();
+    if (anclaFinal && anclaFinal.rutinaCompleta) {
+        detenerDescansoGym();
+        return;
     }
 
     var duracion = Math.max(1, parseInt(segundos || TIEMPO_DESCANSO_SELECCIONADO || 60, 10) || 60);
@@ -5996,9 +6261,11 @@ function iniciarDescansoGym(segundos, finTimestampExistente) {
     ASISTENTE_GYM.finTimestamp = finTs;
     ASISTENTE_GYM.finalizado = false;
     ASISTENTE_GYM.ultimoSegundoPitido = -1;
+    ASISTENTE_GYM.ancla = anclaFinal || null;
 
-    var boxEl = document.getElementById('gym-rest-timer-box');
-    if (boxEl) boxEl.style.display = 'flex';
+    if (anclaFinal) {
+        _montarCajaRestTimerEnAncla(anclaFinal);
+    }
     _aplicarEstiloCajaRestTimer(false);
 
     actualizarDisplayRestTimer();
@@ -6018,6 +6285,9 @@ function sincronizarDescansoGymAlVolver() {
     }
 
     ASISTENTE_GYM.descansoRestante = Math.max(1, Math.ceil(restanteMs / 1000));
+    if (!document.getElementById('gym-rest-timer-box') && ASISTENTE_GYM.ancla) {
+        _montarCajaRestTimerEnAncla(ASISTENTE_GYM.ancla);
+    }
     var boxEl = document.getElementById('gym-rest-timer-box');
     if (boxEl) boxEl.style.display = 'flex';
     _aplicarEstiloCajaRestTimer(false);
@@ -6037,11 +6307,10 @@ function detenerDescansoGym() {
     ASISTENTE_GYM.finTimestamp = 0;
     ASISTENTE_GYM.finalizado = false;
     ASISTENTE_GYM.ultimoSegundoPitido = -1;
+    ASISTENTE_GYM.ancla = null;
 
     cancelarNotificacionDescansoGym(true);
-
-    var boxEl = document.getElementById('gym-rest-timer-box');
-    if (boxEl) boxEl.style.display = 'none';
+    _desmontarCajaRestTimerInline();
     if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
 }
 
@@ -6063,6 +6332,7 @@ if (typeof window !== 'undefined') {
     window.sincronizarDescansoGymAlVolver = sincronizarDescansoGymAlVolver;
     window.programarNotificacionDescansoGym = programarNotificacionDescansoGym;
     window.cancelarNotificacionDescansoGym = cancelarNotificacionDescansoGym;
+    window.extenderDescansoGym = extenderDescansoGym;
     window.addEventListener('focus', sincronizarDescansoGymAlVolver);
     inicializarPuenteDescansoGymNativo();
 }
@@ -6533,9 +6803,17 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         }
         emitirTonoAudio(880, 0.12, 'sine');
         if (navigator.vibrate) navigator.vibrate(60);
-        // Iniciar cronómetro de descanso automáticamente
-        iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60);
+        // Hacer emerger el contador de descanso justo entre esta serie y la siguiente (o siguiente ejercicio)
+        var anclaDescanso = _resolverAnclaDescansoTrasSerie(ejIdx, serieNum);
+        if (anclaDescanso && anclaDescanso.rutinaCompleta) {
+            detenerDescansoGym();
+        } else {
+            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60, null, anclaDescanso);
+        }
     } else {
+        if (ASISTENTE_GYM.ancla && ASISTENTE_GYM.ancla.ejIdx === ejIdx && ASISTENTE_GYM.ancla.serieNum === serieNum) {
+            detenerDescansoGym();
+        }
         if (wrapper) wrapper.classList.remove('checked-active');
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
@@ -6761,8 +7039,16 @@ function toggleCheckEjercicio(e, idx) {
     chk.checked = !chk.checked;
     if (chk.checked) {
         if (row) row.classList.add('checked-active');
-        iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60);
+        var anclaEj = _resolverAnclaDescansoTrasSerie(idx, 1);
+        if (anclaEj && anclaEj.rutinaCompleta) {
+            detenerDescansoGym();
+        } else {
+            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60, null, anclaEj);
+        }
     } else {
+        if (ASISTENTE_GYM.ancla && ASISTENTE_GYM.ancla.ejIdx === idx) {
+            detenerDescansoGym();
+        }
         if (row) row.classList.remove('checked-active');
     }
     actualizarProgresoRutinaDinamica();
@@ -7350,7 +7636,18 @@ function guardarEstadoSesionActivaEnStorage() {
                 total: ASISTENTE_GYM.descansoTotal || 60,
                 restante: Math.max(0, Math.ceil((ASISTENTE_GYM.finTimestamp - Date.now()) / 1000)),
                 activo: true,
-                timestampFin: ASISTENTE_GYM.finTimestamp
+                finalizado: false,
+                timestampFin: ASISTENTE_GYM.finTimestamp,
+                ancla: ASISTENTE_GYM.ancla || null
+            };
+        } else if (ASISTENTE_GYM && ASISTENTE_GYM.finalizado && ASISTENTE_GYM.ancla) {
+            descansoData = {
+                total: ASISTENTE_GYM.descansoTotal || 60,
+                restante: 0,
+                activo: false,
+                finalizado: true,
+                timestampFin: 0,
+                ancla: ASISTENTE_GYM.ancla
             };
         }
 
@@ -7441,14 +7738,25 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
             actualizarBotonToggleTodasSeriesRutina();
         }
 
-        // Restaurar descanso si aún tiene tiempo corriendo (respetando reloj exacto)
-        if (sesion.descanso && sesion.descanso.timestampFin) {
-            var segsRestantes = Math.ceil((sesion.descanso.timestampFin - Date.now()) / 1000);
-            if (segsRestantes > 0) {
-                iniciarDescansoGym(sesion.descanso.total || segsRestantes, sesion.descanso.timestampFin);
-            } else if (sesion.descanso.activo) {
+        _sincronizarBotonesPresetDescanso();
+
+        // Restaurar descanso inline en su posición exacta entre series (respetando reloj exacto)
+        if (sesion.descanso) {
+            var anclaRestaurada = sesion.descanso.ancla || _inferirUltimaAnclaDesdeDOM();
+            if (sesion.descanso.timestampFin) {
+                var segsRestantes = Math.ceil((sesion.descanso.timestampFin - Date.now()) / 1000);
+                if (segsRestantes > 0) {
+                    iniciarDescansoGym(sesion.descanso.total || segsRestantes, sesion.descanso.timestampFin, anclaRestaurada);
+                } else if (sesion.descanso.activo && anclaRestaurada && !anclaRestaurada.rutinaCompleta) {
+                    ASISTENTE_GYM.descansoTotal = sesion.descanso.total || 60;
+                    ASISTENTE_GYM.finTimestamp = sesion.descanso.timestampFin;
+                    ASISTENTE_GYM.ancla = anclaRestaurada;
+                    ASISTENTE_GYM.finalizado = false;
+                    finalizarDescansoGym({ desdeFondo: true });
+                }
+            } else if (sesion.descanso.finalizado && anclaRestaurada && !anclaRestaurada.rutinaCompleta) {
                 ASISTENTE_GYM.descansoTotal = sesion.descanso.total || 60;
-                ASISTENTE_GYM.finTimestamp = sesion.descanso.timestampFin;
+                ASISTENTE_GYM.ancla = anclaRestaurada;
                 ASISTENTE_GYM.finalizado = false;
                 finalizarDescansoGym({ desdeFondo: true });
             }
@@ -8131,6 +8439,7 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
 
     var sesionRestaurada = restaurarEstadoSesionActivaDeStorage(idxOrId);
     if (!sesionRestaurada) {
+        _sincronizarBotonesPresetDescanso();
         actualizarProgresoRutinaDinamica();
     }
 

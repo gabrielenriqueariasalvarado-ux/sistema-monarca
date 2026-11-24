@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.12">
+    <link rel="stylesheet" href="style.css?v=11.13">
 </head>
 <body>
 
@@ -1196,12 +1196,15 @@
                 </div>
             </div>
 
-            <!-- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER) -->
-            <div class="gym-assistant-card" style="background: #111827; color: #ffffff; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+            <!-- ASISTENTE DE GIMNASIO: PREFERENCIA DE DESCANSO (EL CONTADOR EMERGE ENTRE SERIES) -->
+            <div class="gym-assistant-card gym-assistant-card--compact" style="background: #111827; color: #ffffff; border-radius: 12px; padding: 10px 13px; margin-bottom: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 14px;">⏱</span>
-                        <span style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Descanso Entre Series:</span>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 13.5px;">⏱</span>
+                            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Descanso Entre Series</span>
+                        </div>
+                        <span style="font-size: 10.5px; color: #94a3b8;">Aparecerá automáticamente entre cada serie al marcarla hecha</span>
                     </div>
                     <div style="display: flex; gap: 5px;">
                         <button type="button" class="btn-rest-quick" id="btn-rest-30" onclick="seleccionarTiempoDescanso(30)">30s</button>
@@ -1209,20 +1212,6 @@
                         <button type="button" class="btn-rest-quick" id="btn-rest-90" onclick="seleccionarTiempoDescanso(90)">90s</button>
                         <button type="button" class="btn-rest-quick" id="btn-rest-120" onclick="seleccionarTiempoDescanso(120)">120s</button>
                     </div>
-                </div>
-                <div id="gym-rest-timer-box" style="display: none; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 9px 12px; margin-top: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-                        <span id="rest-timer-num" style="font-size: 18px; font-weight: 800; font-family: monospace; color: #38bdf8; white-space: nowrap;">01:00</span>
-                        <span id="rest-timer-status-txt" style="font-size: 11px; color: #94a3b8; line-height: 1.25;">Descanso en curso</span>
-                    </div>
-                    <div style="flex: 1; min-width: 68px; max-width: 140px;">
-                        <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 9999px; overflow: hidden;">
-                            <div id="rest-timer-bar-fill" style="height: 100%; width: 100%; background: #38bdf8; border-radius: 9999px; transition: width 0.25s linear;"></div>
-                        </div>
-                    </div>
-                    <button type="button" id="btn-rest-detener" onclick="detenerDescansoGym()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
-                        ✕ Detener
-                    </button>
                 </div>
             </div>
 
@@ -7225,26 +7214,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.12"></script>
-    <script src="js/perfil.js?v=11.12"></script>
-    <script src="js/progresion.js?v=11.12"></script>
-    <script src="js/estado-personal.js?v=11.12"></script>
-    <script src="js/finanzas.js?v=11.12"></script>
-    <script src="js/ideas.js?v=11.12"></script>
-    <script src="js/dinamicas.js?v=11.12"></script>
-    <script src="js/calendario.js?v=11.12"></script>
-    <script src="js/inventario.js?v=11.12"></script>
-    <script src="js/reproductor.js?v=11.12"></script>
-    <script src="js/jarvis-voz.js?v=11.12"></script>
+    <script src="js/core.js?v=11.13"></script>
+    <script src="js/perfil.js?v=11.13"></script>
+    <script src="js/progresion.js?v=11.13"></script>
+    <script src="js/estado-personal.js?v=11.13"></script>
+    <script src="js/finanzas.js?v=11.13"></script>
+    <script src="js/ideas.js?v=11.13"></script>
+    <script src="js/dinamicas.js?v=11.13"></script>
+    <script src="js/calendario.js?v=11.13"></script>
+    <script src="js/inventario.js?v=11.13"></script>
+    <script src="js/reproductor.js?v=11.13"></script>
+    <script src="js/jarvis-voz.js?v=11.13"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.12"></script>
+    <script type="module" src="js/firebase-config.js?v=11.13"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.12')
+                navigator.serviceWorker.register('sw.js?v=11.13')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

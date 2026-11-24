@@ -1,5 +1,5 @@
 {
-  "version": "11.12",
-  "fecha": "2026-11-23",
-  "resumen": "Rutina Aleatoria v11.12: Detalle agrupado por cada grupo muscular (ej: Pecho 2, Tríceps 2, Hombros 2) con reparto equitativo, chips limpios, mensajes de WhatsApp organizados por músculo y Re-roll estricto que siempre cambia por otro ejercicio del mismo grupo muscular."
+  "version": "11.13",
+  "fecha": "2026-11-24",
+  "resumen": "Descanso Inline Entre Series v11.13: El panel contador de descanso ya no queda oculto arriba — ahora emerge justo entre la serie/ejercicio que acabas de terminar y la siguiente por hacer, muestra '¡A entrenar!' en verde al finalizar y se mueve automáticamente debajo de cada nueva serie que marques hecha."
 }
