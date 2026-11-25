@@ -2432,6 +2432,9 @@ function coincideQuestConRutina(q, rutinaId, rutinaNombre, rutinaCodigo, rutinaI
 
 function estaRutinaDeQuestEnCurso(q) {
     if (!q || typeof window === 'undefined' || !window.RUTINA_ACTIVA || !window.RUTINA_ACTIVA.rutina) return false;
+    if (window.MONARCA_QUEST_ORIGEN_RUTINA_ID && String(q.id) === String(window.MONARCA_QUEST_ORIGEN_RUTINA_ID)) {
+        return true;
+    }
     var r = window.RUTINA_ACTIVA.rutina;
     return coincideQuestConRutina(q, r.id, r.nombre, r.codigo, window.RUTINA_ACTIVA.idx);
 }
@@ -2443,17 +2446,20 @@ function rutinaDeQuestYaCompletadaHoy(q) {
     }
     var hoyISO = obtenerClaveHoyQuestLocal();
     return APP_STATE.gym.some(function(entry) {
-        if (!entry || entry.esIncompleta) return false;
+        if (!entry) return false;
         if (!esFechaGymDeHoy(entry, hoyISO)) return false;
         var det = String(entry.detalle || '');
-        if (/INCOMPLETA/i.test(det)) return false;
-        var esCierreOk = /Rutina completada|Sesi[oó]n completada/i.test(det) || !!entry.rutinaCompletadaOk;
+        // Una rutina abandonada en 0% (0 series realizadas) NO cuenta como finalizada;
+        // una rutina terminada al 100% O finalizada parcialmente con series realizadas (>0, ya pagando su penitencia de rutina) SÍ cierra la quest.
+        var esParcialFinalizada = !!(entry.esIncompleta && (Number(entry.seriesHechas) > 0 || entry.rutinaFinalizada === true));
+        if (entry.esIncompleta && !esParcialFinalizada) return false;
+        var esCierreOk = esParcialFinalizada || /Rutina completada|Sesi[oó]n completada/i.test(det) || !!entry.rutinaCompletadaOk;
         if (!esCierreOk) return false;
 
         if (entry.rutinaId || entry.rutinaNombre) {
             if (coincideQuestConRutina(q, entry.rutinaId, entry.rutinaNombre, entry.rutinaCodigo, -1)) return true;
         }
-        // Extraer nombre de rutina del texto "Rutina completada [FÍSICA]: Rutina Matutina (5 ejercicios)"
+        // Extraer nombre de rutina del texto "Rutina completada [FÍSICA]: Rutina Matutina (5 ejercicios)" o "Rutina INCOMPLETA [FÍSICA]: Rutina Matutina (75%...)"
         var mNom = det.match(/:\s*([^(]+?)(?:\s*\(|$)/);
         var nomExtraido = mNom ? mNom[1].trim() : det;
         return coincideQuestConRutina(q, null, nomExtraido, null, -1);
@@ -2490,7 +2496,7 @@ function marcarQuestCompletadaPorRutina(q, opts) {
     var ahoraMs = Date.now();
     var eraPenalizada = (q.estado === 'penalizada');
 
-    // Si había sido penalizada erróneamente hoy pese a terminar la rutina al 100%, devolver la EXP deducida
+    // Si había sido penalizada erróneamente hoy pese a finalizar la rutina, devolver la EXP deducida
     if (eraPenalizada && !q.penalizacionExpDevuelta) {
         var expDevolver = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
         if (expDevolver > 0 && typeof sumarExp === 'function') {
@@ -2523,18 +2529,22 @@ function marcarQuestCompletadaPorRutina(q, opts) {
     return true;
 }
 
-function marcarQuestsPorRutinaCompletada(rutinaObj, rutinaIdx) {
+function marcarQuestsPorRutinaCompletada(rutinaObj, rutinaIdx, questOrigenId) {
     if (!rutinaObj || !window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return 0;
     var completadasAuto = 0;
+    var origenIdStr = questOrigenId ? String(questOrigenId) : '';
     APP_STATE.questsDiarios.forEach(function(q) {
         if (!q) return;
-        if (coincideQuestConRutina(q, rutinaObj.id, rutinaObj.nombre, rutinaObj.codigo, rutinaIdx)) {
+        var coincideOrigen = Boolean(origenIdStr && String(q.id) === origenIdStr);
+        if (coincideOrigen || coincideQuestConRutina(q, rutinaObj.id, rutinaObj.nombre, rutinaObj.codigo, rutinaIdx)) {
             if (q.estado !== 'completada') {
                 marcarQuestCompletadaPorRutina(q, { omitirGuardado: true });
                 completadasAuto++;
             } else {
-                // Asegurar sellos del día actual y presencia en historial
+                // Asegurar sellos del día actual, temporizador apagado y presencia en historial
                 var hoyISO = obtenerClaveHoyQuestLocal();
+                q.temporizadorActivo = false;
+                q.pospuestaHasta = null;
                 q.fechaCompletadaDia = hoyISO;
                 q.ultimaActivacionFecha = hoyISO;
                 q.fechaActualizacion = Date.now();

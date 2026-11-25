@@ -516,7 +516,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
         'ideas', 'notificacionesAutoPC', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'historialDuracionesRutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'vocabulario', 'registrosLabores', 'calendario', 'cronogramaSemanal',
-        'reproductorPlaylists',
+        'reproductorPlaylists', 'iaConversaciones',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques', 'subappTrainer_sesionesActivas'
@@ -762,6 +762,27 @@ function fusionarEstadosInteligente(local, remoto) {
         };
     });
     fusion.reproductorPlayStats = statsMerged;
+
+    // 6.7 CONVERSACIONES Y CONFIGURACIÓN DE APP IA (v11.27)
+    if (Array.isArray(local.iaConversaciones) || Array.isArray(remoto.iaConversaciones)) {
+        fusion.iaConversaciones = fusionarColeccionPorId(
+            local.iaConversaciones || [],
+            remoto.iaConversaciones || [],
+            tombstones.iaConversaciones || []
+        );
+    }
+    if (local.iaConfig || remoto.iaConfig) {
+        var iaCfgL = (local.iaConfig && typeof local.iaConfig === 'object') ? local.iaConfig : {};
+        var iaCfgR = (remoto.iaConfig && typeof remoto.iaConfig === 'object') ? remoto.iaConfig : {};
+        var tsIaL = Number(iaCfgL.fechaActualizacion) || 0;
+        var tsIaR = Number(iaCfgR.fechaActualizacion) || 0;
+        fusion.iaConfig = tsIaL >= tsIaR
+            ? Object.assign({}, iaCfgR, iaCfgL)
+            : Object.assign({}, iaCfgL, iaCfgR);
+        if (!fusion.iaConfig.sincronizarApiKeyNube) {
+            fusion.iaConfig.apiKeyCloud = '';
+        }
+    }
 
     // 7. JUGADOR (Respetar cambio de EXP más reciente para preservar penitencias; fallback mayor nivel/EXP)
     if (local.jugador && fusion.jugador) {
@@ -1721,6 +1742,9 @@ async function inicializarFirebase() {
                     }
                     if (typeof programarAlarmasNativasQuests === 'function') {
                         programarAlarmasNativasQuests();
+                    }
+                    if (window.VISTA_ACTUAL === 'vista-ia' && typeof renderizarVistaIA === 'function' && (!window.IA_RUNTIME || !window.IA_RUNTIME.generando)) {
+                        renderizarVistaIA();
                     }
                     _limpiarMapaAutoPCPorTombstones(window.APP_STATE);
                     refrescarVistasTrasSync();

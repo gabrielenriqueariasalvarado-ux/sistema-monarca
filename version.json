@@ -1,5 +1,5 @@
 {
-  "version": "11.26",
+  "version": "11.27",
   "fecha": "2026-11-25",
-  "resumen": "Reproducción Inmediata desde Botones de Modo en Música MP3 (v11.26): Al pulsar Aleatorio, Inteligente o Repetir (Todas/1) cuando la música está detenida o pausada, inicia la reproducción al instante en ese modo (canción aleatoria en Aleatorio, Top #1 más escuchada en Inteligente o inicio inmediato en Repetir) igual que pulsar Play."
+  "resumen": "Nueva App IA Conversacional con Gemini + Auto-cierre Garantizado de Quests al Finalizar Rutina (v11.27): Agrega la nueva app IA junto a Música MP3 con apartado de conversaciones sincronizadas en la nube, respuestas en streaming vía Google Gemini Interactions API (gemini-3.8-flash gratis con tu API Key de AI Studio), imágenes, dictado/lectura por voz y Contexto Monarca opcional; además corrige el cierre automático de Quests al finalizar una rutina parcial o completa para eliminar falsas alertas de 'Misión no completada a tiempo'."
 }

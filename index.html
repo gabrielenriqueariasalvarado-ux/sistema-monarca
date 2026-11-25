@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.26">
+    <link rel="stylesheet" href="style.css?v=11.27">
 </head>
 <body>
 
@@ -384,6 +384,23 @@
                 </div>
                 <div class="menu-card-footer">
                     <span class="menu-card-arrow" style="color: #38bdf8;">Escuchar →</span>
+                </div>
+            </div>
+
+            <!-- 14. IA CONVERSACIONAL (GEMINI) -->
+            <div class="menu-card menu-card-ia" onclick="cambiarVista('vista-ia')">
+                <div class="menu-card-top">
+                    <div class="menu-icon" style="color: #c084fc;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"></path><circle cx="19" cy="5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="5" cy="19" r="1.2" fill="currentColor" stroke="none"></circle></svg>
+                    </div>
+                    <span class="menu-badge" style="border-color: rgba(192, 132, 252, 0.45); color: #c084fc;">GEMINI IA</span>
+                </div>
+                <div>
+                    <h3>IA</h3>
+                    <p>Asistente Conversacional & Consultas</p>
+                </div>
+                <div class="menu-card-footer">
+                    <span class="menu-card-arrow" style="color: #c084fc;">Conversar →</span>
                 </div>
             </div>
         </div>
@@ -4766,6 +4783,167 @@
         </div>
     </div>
 
+    <!-- ========================================================================== -->
+    <!-- VISTA 14: IA CONVERSACIONAL (GEMINI INTERACTIONS API · v11.27)             -->
+    <!-- ========================================================================== -->
+    <div id="vista-ia" class="tab-content">
+        <div class="ia-view-topbar">
+            <button type="button" class="btn-back-system" onclick="cambiarVista('vista-menu')">
+                <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
+            </button>
+            <div class="ia-topbar-right">
+                <button type="button" id="ia-chat-model-pill" class="ia-model-pill" onclick="abrirModalConfigIA()" title="Configurar API Key y modelo de Gemini">
+                    <span class="ia-status-dot is-offline"></span>
+                    <span>Configurar Gemini</span>
+                </button>
+                <button type="button" class="ia-head-chip-btn" onclick="abrirModalConfigIA()" title="Ajustes de Gemini API">
+                    <span>⚙️</span><span class="ia-head-chip-label">API</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="ia-workspace-shell" class="ia-workspace-shell">
+            <div id="ia-drawer-backdrop" class="ia-drawer-backdrop" onclick="toggleDrawerConversacionesIA(false)"></div>
+
+            <!-- APARTADO DE CONVERSACIONES (SIDEBAR ESCRITORIO / DRAWER MÓVIL) -->
+            <aside class="ia-sidebar" aria-label="Apartado de conversaciones">
+                <div class="ia-sidebar-head">
+                    <div class="ia-sidebar-title-row">
+                        <span class="ia-sidebar-title">
+                            <span>✦ Conversaciones</span>
+                            <span id="ia-conv-count-badge" class="ia-conv-count-badge">0</span>
+                        </span>
+                        <button type="button" class="ia-sidebar-close-mobile" onclick="toggleDrawerConversacionesIA(false)" aria-label="Cerrar lista">&times;</button>
+                    </div>
+                    <button type="button" class="ia-btn-new-chat" onclick="crearNuevaConversacionIA({ forzarNueva: true })">
+                        <span>＋</span>
+                        <span>Nueva conversación</span>
+                    </button>
+                    <input type="text" id="ia-conv-search-input" class="ia-conv-search" placeholder="Buscar conversaciones..." oninput="filtrarConversacionesIA(this.value)">
+                </div>
+                <div id="ia-conv-list" class="ia-conv-list"></div>
+            </aside>
+
+            <!-- ÁREA PRINCIPAL DEL CHAT -->
+            <section class="ia-chat-main" aria-label="Chat con IA">
+                <div class="ia-chat-header">
+                    <div class="ia-chat-header-left">
+                        <button type="button" class="ia-btn-open-drawer" onclick="toggleDrawerConversacionesIA(true)" title="Abrir apartado de conversaciones">
+                            <span>☰</span><span>Chats</span>
+                        </button>
+                        <div id="ia-chat-active-title" class="ia-chat-active-title" onclick="renombrarConversacionIA()" title="Toca para renombrar conversación">Asistente IA · Gemini</div>
+                    </div>
+                    <div class="ia-chat-header-actions">
+                        <button type="button" id="ia-btn-contexto-monarca" class="ia-head-chip-btn" onclick="toggleContextoMonarcaChatIA()" title="Activar Contexto Monarca">
+                            <span>👑</span><span class="ia-head-chip-label">Contexto</span>
+                        </button>
+                        <button type="button" class="ia-head-chip-btn" onclick="crearNuevaConversacionIA({ forzarNueva: true })" title="Iniciar nueva conversación">
+                            <span>＋</span><span class="ia-head-chip-label">Nuevo</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BANNER RÁPIDO SI AÚN NO HAY API KEY -->
+                <div id="ia-no-key-banner" class="ia-no-key-banner" style="display: none;">
+                    <span>🔑 Conecta tu API Key gratuita de <strong>Google AI Studio</strong> para empezar a preguntar.</span>
+                    <button type="button" onclick="abrirModalConfigIA()">Conectar ahora</button>
+                </div>
+
+                <!-- FEED DE MENSAJES -->
+                <div id="ia-messages-feed" class="ia-messages-feed"></div>
+
+                <!-- COMPOSER INFERIOR -->
+                <div class="ia-composer-wrap">
+                    <div id="ia-attachment-preview" class="ia-attachment-preview"></div>
+                    <div class="ia-composer-bar">
+                        <input type="file" id="ia-file-imagen-input" accept="image/*" style="display: none;" onchange="manejarSeleccionImagenIA(this)">
+                        <button type="button" class="ia-composer-icon-btn" onclick="document.getElementById('ia-file-imagen-input').click()" title="Adjuntar imagen para preguntar sobre ella">🖼️</button>
+                        <button type="button" id="ia-btn-mic" class="ia-composer-icon-btn" onclick="toggleDictadoVozIA()" title="Dictar pregunta por voz">🎤</button>
+                        <textarea id="ia-composer-input" class="ia-composer-input" rows="1" placeholder="Hazle una pregunta a Gemini..." oninput="autoAjustarAlturaComposerIA()"></textarea>
+                        <button type="button" id="ia-btn-send" class="ia-btn-send" onclick="enviarMensajeIA()" title="Enviar mensaje">Enviar ➤</button>
+                        <button type="button" id="ia-btn-stop" class="ia-btn-stop" onclick="detenerGeneracionIA()" style="display: none;" title="Detener respuesta">⏹ Parar</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURACIÓN DE CONEXIÓN GEMINI API (v11.27) -->
+    <div id="modal-config-ia" class="modal-overlay" style="display: none;">
+        <div class="modal-system-window" style="max-width: 520px; width: 94%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-system-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px; color: #c084fc;">✦</span>
+                    <span style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">CONEXIÓN IA · GEMINI API</span>
+                </div>
+                <button type="button" onclick="cerrarModalConfigIA()" class="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="modal-body-scroll" style="padding: 16px 18px; overflow-y: auto; flex: 1;">
+                <div class="ia-guide-box">
+                    <div style="font-weight: 800; color: #e9d5ff; margin-bottom: 4px;">🔑 Cómo obtener tu llave gratuita de Gemini en 30 segundos:</div>
+                    <ol>
+                        <li>Entra a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio (API Keys)</a> con tu cuenta de Google.</li>
+                        <li>Pulsa <strong>Create API key</strong> y copia la llave (empieza por <code>AIza...</code>).</li>
+                        <li>Pégala abajo, pulsa <strong>Probar conexión</strong> y luego <strong>Guardar</strong>.</li>
+                    </ol>
+                    <div style="font-size: 11px; color: #94a3b8;">🔒 Tu llave nunca se publica en el código; se guarda en tu dispositivo y se envía únicamente a los servidores oficiales de Google Gemini.</div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="ia-config-api-key">Gemini API Key:</label>
+                    <div class="ia-key-input-row">
+                        <input type="password" id="ia-config-api-key" class="modal-input" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API Key (AIza...)">
+                        <button type="button" id="ia-btn-toggle-key" class="ia-btn-eye" onclick="toggleVisibilidadApiKeyIA()" title="Mostrar / ocultar llave">👁️</button>
+                    </div>
+                    <div class="ia-config-test-row">
+                        <button type="button" id="ia-btn-probar-conexion" class="ia-btn-test-conn" onclick="probarConexionGeminiIA()">🔌 Probar conexión</button>
+                    </div>
+                    <div id="ia-config-test-status" class="ia-config-test-status"></div>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="ia-config-modelo">Modelo de Gemini:</label>
+                    <select id="ia-config-modelo" class="modal-input"></select>
+                </div>
+
+                <div class="modal-form-group">
+                    <label for="ia-config-instrucciones">Personalidad / Instrucciones personalizadas (Opcional):</label>
+                    <textarea id="ia-config-instrucciones" class="modal-input" rows="3" placeholder="Ej: Respóndeme siempre de forma concisa, práctica y con ejemplos concretos..."></textarea>
+                </div>
+
+                <label class="ia-toggle-row">
+                    <input type="checkbox" id="ia-config-contexto-default">
+                    <span>
+                        <strong>👑 Activar Contexto Monarca por defecto en nuevos chats</strong>
+                        <span class="ia-toggle-sub">Permite que la IA consulte un resumen de tus quests, rutinas y metas. También puedes encenderlo o apagarlo en cada chat.</span>
+                    </span>
+                </label>
+
+                <label class="ia-toggle-row">
+                    <input type="checkbox" id="ia-config-sync-key">
+                    <span>
+                        <strong>☁️ Sincronizar API Key en mi Firestore privado (Opcional)</strong>
+                        <span class="ia-toggle-sub">Desactivado por defecto (máxima seguridad: solo local en este dispositivo). Actívalo si no quieres pegarla dos veces entre PC y teléfono.</span>
+                    </span>
+                </label>
+
+                <label class="ia-toggle-row" style="margin-bottom: 0;">
+                    <input type="checkbox" id="ia-config-google-search">
+                    <span>
+                        <strong>🔎 Búsqueda en Google en vivo (Paid Tier)</strong>
+                        <span class="ia-toggle-sub">Deja esta opción apagada si usas el nivel gratuito de Google AI Studio.</span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="modal-system-footer" style="padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-subfiltro-ej" onclick="cerrarModalConfigIA()">Cancelar</button>
+                <button type="button" class="btn-system" style="margin-bottom: 0; background: linear-gradient(135deg, #8b5cf6 0%, #0ea5e9 100%); color: #fff; border: none; padding: 10px 18px;" onclick="guardarConfigIA()">💾 Guardar configuración</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL UNIFICADO CALENDARIO: RECORDATORIOS, EVENTOS, DÍAS DESTACADOS & CRONOGRAMA -->
     <div id="modal-nuevo-evento" class="modal-overlay" style="display: none;">
         <div class="modal-system-window cal-modal-window" style="max-width: 580px; width: 94%; max-height: 90vh; display: flex; flex-direction: column;">
@@ -7498,26 +7676,27 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.26"></script>
-    <script src="js/perfil.js?v=11.26"></script>
-    <script src="js/progresion.js?v=11.26"></script>
-    <script src="js/estado-personal.js?v=11.26"></script>
-    <script src="js/finanzas.js?v=11.26"></script>
-    <script src="js/ideas.js?v=11.26"></script>
-    <script src="js/dinamicas.js?v=11.26"></script>
-    <script src="js/calendario.js?v=11.26"></script>
-    <script src="js/inventario.js?v=11.26"></script>
-    <script src="js/reproductor.js?v=11.26"></script>
-    <script src="js/jarvis-voz.js?v=11.26"></script>
+    <script src="js/core.js?v=11.27"></script>
+    <script src="js/perfil.js?v=11.27"></script>
+    <script src="js/progresion.js?v=11.27"></script>
+    <script src="js/estado-personal.js?v=11.27"></script>
+    <script src="js/finanzas.js?v=11.27"></script>
+    <script src="js/ideas.js?v=11.27"></script>
+    <script src="js/dinamicas.js?v=11.27"></script>
+    <script src="js/calendario.js?v=11.27"></script>
+    <script src="js/inventario.js?v=11.27"></script>
+    <script src="js/reproductor.js?v=11.27"></script>
+    <script src="js/ia.js?v=11.27"></script>
+    <script src="js/jarvis-voz.js?v=11.27"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.26"></script>
+    <script type="module" src="js/firebase-config.js?v=11.27"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.26')
+                navigator.serviceWorker.register('sw.js?v=11.27')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

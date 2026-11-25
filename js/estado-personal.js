@@ -8986,6 +8986,9 @@ var MONARCA_QUEST_ORIGEN_RUTINA_ID = null;
 
 function setQuestOrigenRutinaActiva(questId) {
     MONARCA_QUEST_ORIGEN_RUTINA_ID = questId ? String(questId) : null;
+    if (typeof window !== 'undefined') {
+        window.MONARCA_QUEST_ORIGEN_RUTINA_ID = MONARCA_QUEST_ORIGEN_RUTINA_ID;
+    }
 }
 
 function obtenerQuestObligatoriaVinculadaARutinaActiva() {
@@ -9091,10 +9094,17 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
         }).join('');
         if (questOblig) {
             var castigoQ = questOblig.penitenciaNombre || questOblig.penitencia || 'Penitencia obligatoria';
-            rowsHtml += '<div class="modal-penitencia-ej-row" style="border-top: 1px dashed rgba(248,113,113,0.35); margin-top: 4px; padding-top: 6px;">' +
-                '<div><strong style="color:#fda4af;">🚨 Quest Obligatoria: ' + escaparHtmlRutina(questOblig.titulo || rutNom) + '</strong> <span style="color:#94a3b8; font-size:11px;">(Quedará 💀 PENALIZADA · ' + escaparHtmlRutina(castigoQ) + ')</span></div>' +
-                '<span class="modal-penitencia-ej-loss">Obligatoria</span>' +
-            '</div>';
+            if (ev.seriesCompletadas > 0) {
+                rowsHtml += '<div class="modal-penitencia-ej-row" style="border-top: 1px dashed rgba(52,211,153,0.35); margin-top: 4px; padding-top: 6px;">' +
+                    '<div><strong style="color:#6ee7b7;">⚡ Quest vinculada: ' + escaparHtmlRutina(questOblig.titulo || rutNom) + '</strong> <span style="color:#94a3b8; font-size:11px;">(Se cerrará automáticamente al registrar esta rutina; sin doble castigo por tiempo)</span></div>' +
+                    '<span class="modal-penitencia-ej-loss" style="color:#34d399;">Auto-cierre</span>' +
+                '</div>';
+            } else {
+                rowsHtml += '<div class="modal-penitencia-ej-row" style="border-top: 1px dashed rgba(248,113,113,0.35); margin-top: 4px; padding-top: 6px;">' +
+                    '<div><strong style="color:#fda4af;">🚨 Quest Obligatoria: ' + escaparHtmlRutina(questOblig.titulo || rutNom) + '</strong> <span style="color:#94a3b8; font-size:11px;">(Sin series realizadas · Quedará 💀 PENALIZADA · ' + escaparHtmlRutina(castigoQ) + ')</span></div>' +
+                    '<span class="modal-penitencia-ej-loss">Obligatoria</span>' +
+                '</div>';
+            }
         }
         desgloseEl.innerHTML = rowsHtml;
     }
@@ -9820,6 +9830,9 @@ function ejecutarRutinaDinamica(opts) {
         detenerCronometroRutina();
     }
 
+    var fechaHoyISODin = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
+    var rutinaFinalizadaConTrabajo = !esIncompleta || (evalProg.seriesCompletadas > 0);
+
     if (esIncompleta) {
         var motivoLimpio = (opts.motivoIncompleta && String(opts.motivoIncompleta).trim())
             ? String(opts.motivoIncompleta).trim()
@@ -9832,7 +9845,12 @@ function ejecutarRutinaDinamica(opts) {
             : ' · Sin penitencia';
         APP_STATE.gym.unshift({
             fecha: fechaHoy,
+            fechaISO: fechaHoyISODin,
             hora: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            rutinaId: rutina.id || rutina.codigo || '',
+            rutinaCodigo: rutina.codigo || '',
+            rutinaNombre: rutina.nombre || '',
+            rutinaFinalizada: rutinaFinalizadaConTrabajo,
             detalle: "Rutina INCOMPLETA" + tagTipoHist + ": " + rutina.nombre + " (" + evalProg.pct + "% · " + evalProg.seriesCompletadas + "/" + evalProg.totalSeries + " series · Faltaron " + evalProg.seriesFaltantes + txtPenLog + ")" + (resumenFaltLog ? (" · Faltantes: " + resumenFaltLog) : ""),
             esIncompleta: true,
             porcentajeCompletado: evalProg.pct,
@@ -9848,26 +9866,31 @@ function ejecutarRutinaDinamica(opts) {
             tendenciaDuracion: duracionRegistro ? duracionRegistro.tendencia : null
         });
 
-        // Si esta rutina pertenecía a una Quest Obligatoria activa, marcarla penalizada con el motivo (v11.25)
-        var questObligAbandono = (typeof obtenerQuestObligatoriaVinculadaARutinaActiva === 'function')
-            ? obtenerQuestObligatoriaVinculadaARutinaActiva()
-            : null;
-        if (questObligAbandono && questObligAbandono.estado !== 'completada') {
-            var ahoraPenQ = Date.now();
-            questObligAbandono.estado = 'penalizada';
-            questObligAbandono.temporizadorActivo = false;
-            questObligAbandono.pospuestaHasta = null;
-            questObligAbandono.ultimaPenitenciaTs = ahoraPenQ;
-            questObligAbandono.fechaActualizacion = ahoraPenQ;
-            if (motivoLimpio) {
-                questObligAbandono.motivoAbandono = motivoLimpio;
-            }
-            if (typeof renderizarQuestsDiarios === 'function') {
-                renderizarQuestsDiarios();
+        // Solo si se abandonó en 0% (sin realizar ninguna serie) de una Quest Obligatoria, marcar la quest como penalizada.
+        // Si realizó series (>0) y finalizó/registró la rutina (ya pagando la penitencia de series faltantes), la quest se cierra automáticamente abajo.
+        if (!rutinaFinalizadaConTrabajo) {
+            var questObligAbandono = (typeof obtenerQuestObligatoriaVinculadaARutinaActiva === 'function')
+                ? obtenerQuestObligatoriaVinculadaARutinaActiva()
+                : null;
+            if (questObligAbandono && questObligAbandono.estado !== 'completada') {
+                var ahoraPenQ = Date.now();
+                questObligAbandono.estado = 'penalizada';
+                questObligAbandono.temporizadorActivo = false;
+                questObligAbandono.pospuestaHasta = null;
+                questObligAbandono.ultimaPenitenciaTs = ahoraPenQ;
+                questObligAbandono.fechaActualizacion = ahoraPenQ;
+                if (motivoLimpio) {
+                    questObligAbandono.motivoAbandono = motivoLimpio;
+                }
+                if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+                    window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + questObligAbandono.id);
+                }
+                if (typeof renderizarQuestsDiarios === 'function') {
+                    renderizarQuestsDiarios();
+                }
             }
         }
     } else {
-        var fechaHoyISODin = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
         APP_STATE.gym.unshift({
             fecha: fechaHoy,
             fechaISO: fechaHoyISODin,
@@ -9875,6 +9898,7 @@ function ejecutarRutinaDinamica(opts) {
             rutinaCodigo: rutina.codigo || '',
             rutinaNombre: rutina.nombre || '',
             rutinaCompletadaOk: true,
+            rutinaFinalizada: true,
             duracionSegundos: duracionRegistro ? duracionRegistro.duracionSegundos : null,
             deltaAnteriorSeg: duracionRegistro ? duracionRegistro.deltaAnteriorSeg : null,
             tendenciaDuracion: duracionRegistro ? duracionRegistro.tendencia : null,
@@ -9882,17 +9906,18 @@ function ejecutarRutinaDinamica(opts) {
         });
     }
 
-    // Auto-completar Hábitos y Misiones Diarias vinculadas SOLO si la rutina se terminó al 100%
-    // (actualiza fechaActualizacion, fechaCompletadaDia, historialQuests, limpia falsas penitencias y sincroniza cloud)
+    // Auto-finalizar Quests y Hábitos Diarios vinculados cuando se finaliza la rutina (al 100% o parcial con series realizadas > 0)
+    // Detiene el temporizador del quest, cancela su alarma y evita doble castigo ("MISIÓN NO COMPLETADA A TIEMPO") horas después.
     var habitosCompletadosAuto = 0;
-    if (!esIncompleta) {
+    if (rutinaFinalizadaConTrabajo) {
         if (typeof marcarQuestsPorRutinaCompletada === 'function') {
-            habitosCompletadosAuto = marcarQuestsPorRutinaCompletada(rutina, RUTINA_ACTIVA.idx);
+            habitosCompletadosAuto = marcarQuestsPorRutinaCompletada(rutina, RUTINA_ACTIVA.idx, MONARCA_QUEST_ORIGEN_RUTINA_ID);
         } else if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
             var hoyFallbackISO = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
             var ahoraFallbackMs = Date.now();
             APP_STATE.questsDiarios.forEach(function(q) {
                 if (!q) return;
+                var coincideOrigen = Boolean(MONARCA_QUEST_ORIGEN_RUTINA_ID && String(q.id) === String(MONARCA_QUEST_ORIGEN_RUTINA_ID));
                 var coincideId = q.rutinaId && (
                     q.rutinaId === rutina.id ||
                     q.rutinaId === rutina.codigo ||
@@ -9904,7 +9929,7 @@ function ejecutarRutinaDinamica(opts) {
                 var coincideTitulo = q.titulo && rutina.nombre && (
                     q.titulo.trim().toLowerCase().includes(rutina.nombre.trim().toLowerCase())
                 );
-                if (coincideId || coincideNombre || (q.rutinaId && coincideTitulo)) {
+                if (coincideOrigen || coincideId || coincideNombre || (q.rutinaId && coincideTitulo)) {
                     if (q.estado !== 'completada') {
                         q.estado = 'completada';
                         q.temporizadorActivo = false;
@@ -9937,7 +9962,7 @@ function ejecutarRutinaDinamica(opts) {
     detenerDescansoGym();
     limpiarTodosLosTimersSeries();
     limpiarSesionActivaStorage();
-    MONARCA_QUEST_ORIGEN_RUTINA_ID = null;
+    setQuestOrigenRutinaActiva(null);
     MonarcaDB.save(APP_STATE);
     if (window.MonarcaPlayer && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
         window.MonarcaPlayer.detenerMusicaDeRutina(true);
@@ -10036,7 +10061,11 @@ function ejecutarRutinaDinamica(opts) {
     }
 
     if (habitosCompletadosAuto > 0) {
-        msgAviso += "\n\n⚡ ¡Se ha marcado como completado tu Hábito/Misión diaria vinculada a esta rutina!";
+        if (esIncompleta) {
+            msgAviso += "\n\n⚡ Tu Quest/Hábito diario vinculado se finalizó automáticamente al registrar la rutina (sin doble penalización por tiempo).";
+        } else {
+            msgAviso += "\n\n⚡ ¡Se ha marcado como completado automáticamente tu Quest/Hábito diario vinculado a esta rutina!";
+        }
     }
 
     if (typeof renderizarEjercicios === 'function' && APP_STATE.ejercicios) {

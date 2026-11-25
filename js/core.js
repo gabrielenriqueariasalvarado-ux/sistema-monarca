@@ -204,6 +204,15 @@ const DEFAULT_STATE = {
         categorias: [],
         ventas: []
     },
+    iaConversaciones: [],
+    iaConfig: {
+        modelo: 'gemini-3.8-flash',
+        instruccionesSistema: '',
+        contextoMonarcaDefault: false,
+        googleSearch: false,
+        sincronizarApiKeyNube: false,
+        apiKeyCloud: ''
+    },
     _eliminados: {
         productos: [],
         categorias: [],
@@ -226,6 +235,7 @@ const DEFAULT_STATE = {
         calendario: [],
         cronogramaSemanal: [],
         reproductorPlaylists: [],
+        iaConversaciones: [],
         finanzas_ingresos: [],
         finanzas_gastos: [],
         finanzas_categoriasGastos: [],
@@ -855,6 +865,9 @@ function cambiarVista(vistaId, noPushState, opts) {
         case 'vista-inventario':
             if (typeof cargarInventario === 'function') cargarInventario();
             break;
+        case 'vista-ia':
+            if (typeof cargarVistaIA === 'function') cargarVistaIA();
+            break;
     }
 }
 
@@ -898,6 +911,15 @@ function retrocederNavegacionMonarca() {
             } catch(e) {}
             return true;
         }
+    }
+
+    // Cerrar drawer de conversaciones IA en móvil si está abierto (v11.27)
+    if (window.VISTA_ACTUAL === 'vista-ia' && window.IA_RUNTIME && window.IA_RUNTIME.drawerAbierto && typeof toggleDrawerConversacionesIA === 'function') {
+        toggleDrawerConversacionesIA(false);
+        try {
+            history.pushState({ vista: 'vista-ia' }, '', '#vista-ia');
+        } catch(e) {}
+        return true;
     }
 
     var modales = document.querySelectorAll('.modal-overlay, #modal-jarvis-voz, #modal-asistente-rapido, #modal-alerta-quest-activada, #modal-calentamiento-sesion');
@@ -1706,7 +1728,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.26';
+var MONARCA_APP_VERSION = '11.27';
 var MONARCA_APP_VERSION_FECHA = '2026-11-25';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

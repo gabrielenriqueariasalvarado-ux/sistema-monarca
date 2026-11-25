@@ -71,10 +71,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.26)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.27)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.26
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.27
             Esta versión nativa incluye:
+            - ✨ **Nueva App IA Conversacional con Gemini (v11.27)**: Se incorpora el nuevo módulo **IA** justo al lado de **Música MP3** en el menú principal, conectado directamente a la **Google Gemini Interactions API** (`gemini-3.8-flash` gratis con tu API Key de Google AI Studio, más `gemini-3.5-flash-lite` y `gemini-4-argon`): incluye **apartado completo de conversaciones** sincronizadas entre PC y teléfono (crear, buscar, fijar, renombrar y eliminar), respuestas en vivo en streaming con Markdown seguro y botón copiar código, adjuntar imágenes, dictado/lectura por voz, guardado directo en Conocimiento e interruptor opcional de **Contexto Monarca**.
+            - 🛡️ **Auto-cierre Garantizado de Quests al Finalizar Rutina (v11.27)**: Corregido el fallo que dejaba corriendo el temporizador de la Quest (`Entrenar: Rutina Matutina`) y disparaba **`MISIÓN NO COMPLETADA A TIEMPO (-30 EXP + 30 Flexiones)`** después de finalizar una rutina parcial (ej. 75% tras ya haber pagado la penitencia de `-20 EXP` por la serie faltante). Ahora, al finalizar y registrar una rutina vinculada (al `100%` o parcial con series hechas), su Quest se finaliza automáticamente, apaga su cronómetro y cancela su alarma sin doble castigo; abandonar en `0%` sin entrenar mantiene la penitencia obligatoria.
             - 🎵 **Reproducción Inmediata desde Botones de Modo en Música MP3 (v11.26)**: Ahora al tocar **`Aleatorio`**, **`Inteligente`** o **`Todas / Repetir`** cuando la música está sin canción seleccionada o en pausa, comienza la reproducción de inmediato en ese modo (pista aleatoria en **Aleatorio**, tu canción #1 del Top en **Inteligente**, o inicio inmediato en **Repetir**) exactamente como pulsar **Play**, mientras que si ya está sonando música cambia el modo sin interrumpir la pista actual.
             - ⏱️ **Cronómetro Total de Rutina + Récord de Tiempo por Defecto + Guardián de Quests Obligatorias + Aprobación Remota de Implementation Plan (v11.25)**:
               - **Cronómetro de Duración Total de Rutina**: Mide automáticamente cuánto tardas en completar cada rutina de principio a fin (con pausa/reanudación, persistencia exacta con pantalla apagada, comparativa en vivo contra tu última sesión, mejor marca y promedio, indicador de si tus sesiones se hacen **más cortas** o **más largas**, historial desplegable con barras y chip de tiempo en las tarjetas de rutinas).
