@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.18">
+    <link rel="stylesheet" href="style.css?v=11.19">
 </head>
 <body>
 
@@ -1623,6 +1623,9 @@
 
             <!-- ALERTA DE PAGOS Y COBROS RETRASADOS -->
             <div id="finanzas-alerta-retrasados-banner" style="display: none;"></div>
+
+            <!-- 1C. BLOQUE PRIORITARIO PERSISTENTE: DINERO ACTUAL EN CUENTAS (NO CAMBIA POR SEMANA/MES) -->
+            <section id="finanzas-dinero-actual-hero" class="fin-saldo-actual-hero" aria-label="Dinero actual en cuentas"></section>
 
             <!-- 2. NAVEGACIÓN PRINCIPAL EN 5 APARTADOS LIMPIOS -->
             <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 14px;">
@@ -7249,26 +7252,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.18"></script>
-    <script src="js/perfil.js?v=11.18"></script>
-    <script src="js/progresion.js?v=11.18"></script>
-    <script src="js/estado-personal.js?v=11.18"></script>
-    <script src="js/finanzas.js?v=11.18"></script>
-    <script src="js/ideas.js?v=11.18"></script>
-    <script src="js/dinamicas.js?v=11.18"></script>
-    <script src="js/calendario.js?v=11.18"></script>
-    <script src="js/inventario.js?v=11.18"></script>
-    <script src="js/reproductor.js?v=11.18"></script>
-    <script src="js/jarvis-voz.js?v=11.18"></script>
+    <script src="js/core.js?v=11.19"></script>
+    <script src="js/perfil.js?v=11.19"></script>
+    <script src="js/progresion.js?v=11.19"></script>
+    <script src="js/estado-personal.js?v=11.19"></script>
+    <script src="js/finanzas.js?v=11.19"></script>
+    <script src="js/ideas.js?v=11.19"></script>
+    <script src="js/dinamicas.js?v=11.19"></script>
+    <script src="js/calendario.js?v=11.19"></script>
+    <script src="js/inventario.js?v=11.19"></script>
+    <script src="js/reproductor.js?v=11.19"></script>
+    <script src="js/jarvis-voz.js?v=11.19"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.18"></script>
+    <script type="module" src="js/firebase-config.js?v=11.19"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.18')
+                navigator.serviceWorker.register('sw.js?v=11.19')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

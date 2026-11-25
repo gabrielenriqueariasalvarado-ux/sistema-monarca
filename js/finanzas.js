@@ -7276,8 +7276,131 @@ function obtenerResumenGlobalTarjetas(cacheOpt) {
     };
 }
 
+function _estaOcultoSaldoCuentasFinanzas() {
+    try {
+        return localStorage.getItem('monarca_ocultar_saldo_cuentas') === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
+function toggleOcultarSaldoCuentasFinanzas() {
+    try {
+        var next = _estaOcultoSaldoCuentasFinanzas() ? '0' : '1';
+        localStorage.setItem('monarca_ocultar_saldo_cuentas', next);
+    } catch (e) {}
+    renderizarHeroDineroActualCuentas();
+}
+
+function renderizarHeroDineroActualCuentas(cacheOpt) {
+    var cont = document.getElementById('finanzas-dinero-actual-hero');
+    if (!cont) return;
+
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var cache = cacheOpt || leerCacheTasasBCV();
+    var res = obtenerResumenGlobalTarjetas(cache);
+    var oculto = _estaOcultoSaldoCuentasFinanzas();
+
+    var totalUsdTxt = oculto ? '$••••' : formatearUsdTarjeta(res.totalUsdHoy);
+    var eyeIcon = oculto ? '🙈' : '👁️';
+    var eyeTitle = oculto ? 'Mostrar montos en cuentas' : 'Ocultar montos en cuentas';
+
+    var subChips = [];
+    if (res.totalBsBancos > 0.005) {
+        subChips.push(
+            '<span class="fin-saldo-meta-pill is-ves">🏦 ' +
+            (oculto ? 'Bs. ••••' : formatearTasaBsDisplay(res.totalBsBancos, 2)) +
+            '</span>'
+        );
+    }
+    if (res.totalUsdtBinance > 0.005) {
+        subChips.push(
+            '<span class="fin-saldo-meta-pill is-usdt">⚡ ' +
+            (oculto ? '$•••• USDT' : (formatearUsdTarjeta(res.totalUsdtBinance) + ' USDT')) +
+            '</span>'
+        );
+    }
+    if (!oculto && Math.abs(res.totalDevalUsd) >= 0.01) {
+        var devCls = res.totalDevalUsd < 0 ? 'is-loss' : 'is-gain';
+        var devPref = res.totalDevalUsd < 0 ? '📉 -$' : '📈 +$';
+        subChips.push(
+            '<span class="fin-saldo-meta-pill ' + devCls + '">' +
+            devPref + Math.abs(res.totalDevalUsd).toFixed(2) + ' dev.</span>'
+        );
+    }
+    if (res.cantidad > 0) {
+        subChips.push(
+            '<span class="fin-saldo-meta-pill is-count">' +
+            res.cantidad + (res.cantidad === 1 ? ' cuenta' : ' cuentas') +
+            '</span>'
+        );
+    }
+
+    var cuentasStripHtml = '';
+    if (tarjetas.length === 0) {
+        cuentasStripHtml = `
+            <div class="fin-saldo-empty-bar">
+                <span>Aún no registras tus cuentas o billeteras. Agrégalas para ver tu dinero real siempre fijo aquí.</span>
+                <button type="button" class="fin-saldo-add-btn" onclick="abrirModalTarjeta()">＋ Agregar Cuenta</button>
+            </div>`;
+    } else {
+        var chipsHtml = tarjetas.map(function(t) {
+            var est = calcularEstadoTarjetaEnVivo(t, cache);
+            var info = est.bancoInfo;
+            var aliasCorto = (t.alias && String(t.alias).trim())
+                ? (info.nombre + ' · ' + String(t.alias).trim())
+                : info.nombre;
+            var montoChip = '';
+            if (oculto) {
+                montoChip = est.monedaBase === 'USD' ? '$••••' : 'Bs. ••••';
+            } else if (est.monedaBase === 'USD') {
+                montoChip = formatearUsdTarjeta(est.saldoUsd) + ' USDT';
+            } else {
+                var usdSub = est.tasaActual > 0 ? (' · ' + formatearUsdTarjeta(est.valorActualUsd)) : '';
+                montoChip = formatearTasaBsDisplay(est.saldoBs, 2) + usdSub;
+            }
+            var safeId = escaparHTML(t.id);
+            return `
+                <button type="button" class="fin-saldo-cuenta-chip" style="--cuenta-accent: ${info.accent};" onclick="abrirModalMovimientoTarjeta('${safeId}', 'ajuste')" title="Toca para ajustar o registrar movimiento en ${escaparHTML(aliasCorto)}">
+                    <span class="fin-saldo-cuenta-dot"></span>
+                    <span class="fin-saldo-cuenta-name">${escaparHTML(aliasCorto)}</span>
+                    <span class="fin-saldo-cuenta-val">${escaparHTML(montoChip)}</span>
+                </button>`;
+        }).join('');
+
+        cuentasStripHtml = `
+            <div class="fin-saldo-cuentas-strip">
+                ${chipsHtml}
+                <button type="button" class="fin-saldo-cuenta-chip is-add" onclick="abrirModalTarjeta()" title="Agregar otra cuenta o tarjeta">＋ Cuenta</button>
+            </div>`;
+    }
+
+    cont.innerHTML = `
+        <div class="fin-saldo-eyebrow-row">
+            <span class="fin-saldo-eyebrow">🏦 DINERO ACTUAL EN CUENTAS</span>
+            <span class="fin-saldo-live-pill">● Saldo real hoy</span>
+        </div>
+        <div class="fin-saldo-hero-top">
+            <div class="fin-saldo-hero-left">
+                <div class="fin-saldo-amount-row">
+                    <span class="fin-saldo-amount-main" id="finanzas-saldo-actual-total-usd">${totalUsdTxt}</span>
+                    <span class="fin-saldo-amount-unit">USD total</span>
+                </div>
+                <div class="fin-saldo-persist-note">Saldo fijo real · No cambia al cambiar de semana o mes</div>
+            </div>
+            <div class="fin-saldo-hero-actions">
+                <button type="button" class="fin-saldo-eye-btn" onclick="toggleOcultarSaldoCuentasFinanzas()" title="${eyeTitle}" aria-label="${eyeTitle}">${eyeIcon}</button>
+                <button type="button" class="fin-saldo-manage-btn" onclick="cambiarSeccionFinanzas('tarjetas')">💳 Cuentas</button>
+            </div>
+        </div>
+        ${subChips.length > 0 ? '<div class="fin-saldo-meta-row">' + subChips.join('') + '</div>' : ''}
+        ${cuentasStripHtml}
+    `;
+}
+
 function actualizarResumenTarjetasUI() {
-    var res = obtenerResumenGlobalTarjetas();
+    var cache = leerCacheTasasBCV();
+    var res = obtenerResumenGlobalTarjetas(cache);
     var tabBadge = document.getElementById('badge-finanzas-tarjetas-total');
     if (tabBadge) {
         if (res.cantidad > 0) {
@@ -7288,16 +7411,18 @@ function actualizarResumenTarjetasUI() {
         }
     }
 
+    // El saldo prioritario ahora vive siempre fijo arriba en #finanzas-dinero-actual-hero
+    renderizarHeroDineroActualCuentas(cache);
+
     var chipResumen = document.getElementById('resumen-tarjetas-vinculadas-chip');
     if (chipResumen) {
-        if (res.cantidad > 0) {
-            var devStr = res.totalDevalUsd < -0.005 ? (' · Dev: -$' + Math.abs(res.totalDevalUsd).toFixed(2)) : '';
-            chipResumen.textContent = '💳 Tarjetas hoy: ' + formatearUsdTarjeta(res.totalUsdHoy) + devStr;
-            chipResumen.style.display = 'inline-flex';
-        } else {
-            chipResumen.style.display = 'none';
-        }
+        chipResumen.style.display = 'none';
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.renderizarHeroDineroActualCuentas = renderizarHeroDineroActualCuentas;
+    window.toggleOcultarSaldoCuentasFinanzas = toggleOcultarSaldoCuentasFinanzas;
 }
 
 function poblarSelectsTarjetasFinanzas() {

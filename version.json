@@ -1,5 +1,5 @@
 {
-  "version": "11.18",
+  "version": "11.19",
   "fecha": "2026-11-24",
-  "resumen": "Alertas de Eventos y Horario 30 Minutos Antes v11.18: El Centro de Notificaciones y las alarmas nativas del teléfono ahora te avisan automáticamente media hora antes de cada Evento del Calendario, bloque de tu Horario Semanal (Cronograma) y turno laboral (ej. 'En media hora en tu horario: Gimnasio Fuerza'), con vista previa de próximos bloques del día, selector personalizable (30 min por defecto) y corrección de duplicados en alertas de Auto-PC."
+  "resumen": "Dinero Actual en Cuentas Persistente en Finanzas v11.19: Nuevo bloque prioritario fijo arriba en Finanzas que muestra siempre tu saldo real actual en cuentas (total en USD hoy, desglose en Bolívares y USDT, y chips interactivos por cada cuenta/tarjeta) sin cambiar al navegar entre semanas, meses o pestañas."
 }
