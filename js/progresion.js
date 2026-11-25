@@ -2269,6 +2269,13 @@ function iniciarLoopQuestsDiarios() {
             if (!q || typeof q !== 'object') return;
             var horaNorm = normalizarHora24Str(q.horaActivacion);
 
+            // 0. RECONCILIACIÓN INSTANTÁNEA: si la rutina vinculada ya se completó hoy al 100%, jamás activar ni penalizar
+            if (q.estado !== 'completada' && rutinaDeQuestYaCompletadaHoy(q)) {
+                marcarQuestCompletadaPorRutina(q, { desdeReconciliacion: true, omitirGuardado: true });
+                huboCambios = true;
+                return;
+            }
+
             // 1. ACTIVACIÓN PROGRAMADA (A una hora específica del día)
             if (q.tipoTiempo === 'programada' && q.estado === 'pendiente' && horaNorm) {
                 if (horaActStr >= horaNorm && q.ultimaActivacionFecha !== hoyStr) {
@@ -2308,8 +2315,11 @@ function iniciarLoopQuestsDiarios() {
 
             // 3. MANEJO DE TEMPORIZADOR ACTIVO
             if (q.temporizadorActivo && q.estado === 'en_progreso') {
+                var rutinaEnCurso = estaRutinaDeQuestEnCurso(q);
                 if (q.tiempoRestante > 0) {
-                    q.tiempoRestante--;
+                    if (!(rutinaEnCurso && q.tiempoRestante <= 1)) {
+                        q.tiempoRestante--;
+                    }
                     // Actualizar el DOM en vivo si existe
                     var elTimer = document.getElementById('timer-val-' + q.id);
                     var elBarra = document.getElementById('timer-bar-' + q.id);
@@ -2327,8 +2337,8 @@ function iniciarLoopQuestsDiarios() {
                             elBarra.style.background = '#ef4444';
                         }
                     }
-                } else {
-                    // ¡TIEMPO EXPIRADO! Activar penitencia automática
+                } else if (!rutinaEnCurso) {
+                    // ¡TIEMPO EXPIRADO! Activar penitencia automática solo si la rutina no está en curso ni terminada hoy
                     q.temporizadorActivo = false;
                     cerrarAlertaQuestActivada();
                     aplicarPenalizacionAutomatica(q);
@@ -2338,7 +2348,7 @@ function iniciarLoopQuestsDiarios() {
 
             // 4. MANEJO DE HORA LÍMITE VENCIDA SI SIGUE PENDIENTE
             if (q.tipoTiempo === 'hora_limite' && q.estado === 'pendiente' && q.horaLimite) {
-                if (esHoraLimiteSuperada(q.horaLimite)) {
+                if (esHoraLimiteSuperada(q.horaLimite) && !estaRutinaDeQuestEnCurso(q)) {
                     aplicarPenalizacionAutomatica(q);
                     huboCambios = true;
                 }
@@ -2353,13 +2363,226 @@ function iniciarLoopQuestsDiarios() {
     }, 1000);
 }
 
+// ==========================================================================
+// 🛡️ BLINDAJE RUTINA ↔ HÁBITO DIARIO Y RECONCILIACIÓN AUTOMÁTICA (v11.23)
+// ==========================================================================
+
+function normalizarTextoQuestRutina(str) {
+    var s = String(str || '').toLowerCase();
+    try {
+        s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (_) {}
+    s = s.replace(/^entrenar\s*:\s*/i, '').replace(/^rutina\s*:\s*/i, '');
+    return s.replace(/\s+/g, ' ').trim();
+}
+
+function obtenerClaveHoyQuestLocal() {
+    if (typeof obtenerClaveFechaLocal === 'function') return obtenerClaveFechaLocal();
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function esFechaGymDeHoy(entry, hoyISO) {
+    if (!entry || typeof entry !== 'object') return false;
+    var hoy = hoyISO || obtenerClaveHoyQuestLocal();
+    if (entry.fechaISO && String(entry.fechaISO).slice(0, 10) === hoy) return true;
+    var f = String(entry.fecha || '').trim();
+    if (!f) return false;
+    if (f.slice(0, 10) === hoy) return true;
+    var partes = hoy.split('-');
+    if (partes.length === 3) {
+        var y = partes[0];
+        var m = partes[1];
+        var d = partes[2];
+        var ddmm = d + '/' + m + '/' + y;
+        var dm = String(parseInt(d, 10)) + '/' + String(parseInt(m, 10)) + '/' + y;
+        if (f === ddmm || f === dm) return true;
+    }
+    return false;
+}
+
+function coincideQuestConRutina(q, rutinaId, rutinaNombre, rutinaCodigo, rutinaIdx) {
+    if (!q || typeof q !== 'object') return false;
+    var qRutId = q.rutinaId || q.rutinaVinculada || '';
+    if (qRutId) {
+        if (rutinaId && String(qRutId) === String(rutinaId)) return true;
+        if (rutinaCodigo && String(qRutId) === String(rutinaCodigo)) return true;
+        if (rutinaIdx !== undefined && rutinaIdx !== null && rutinaIdx >= 0 && String(qRutId) === String(rutinaIdx)) return true;
+    }
+    var normRut = normalizarTextoQuestRutina(rutinaNombre);
+    if (!normRut) return false;
+    var normQRut = normalizarTextoQuestRutina(q.rutinaNombre);
+    if (normQRut && normQRut === normRut) return true;
+    var normQTit = normalizarTextoQuestRutina(q.titulo);
+    if (normQTit && (normQTit === normRut || (qRutId && normQTit.indexOf(normRut) !== -1))) return true;
+    // Equivalencia clásica Rutina Mañanera <-> Rutina Matutina
+    if ((normRut.indexOf('mananer') !== -1 || normRut.indexOf('matutin') !== -1) &&
+        (normQTit.indexOf('mananer') !== -1 || normQTit.indexOf('matutin') !== -1 || normQRut.indexOf('mananer') !== -1 || normQRut.indexOf('matutin') !== -1)) {
+        return true;
+    }
+    return false;
+}
+
+function estaRutinaDeQuestEnCurso(q) {
+    if (!q || typeof window === 'undefined' || !window.RUTINA_ACTIVA || !window.RUTINA_ACTIVA.rutina) return false;
+    var r = window.RUTINA_ACTIVA.rutina;
+    return coincideQuestConRutina(q, r.id, r.nombre, r.codigo, window.RUTINA_ACTIVA.idx);
+}
+
+function rutinaDeQuestYaCompletadaHoy(q) {
+    if (!q || !window.APP_STATE || !Array.isArray(APP_STATE.gym) || APP_STATE.gym.length === 0) return false;
+    if (!q.rutinaId && !q.rutinaVinculada && !q.rutinaNombre && !/entrenar|rutina/i.test(String(q.titulo || ''))) {
+        return false;
+    }
+    var hoyISO = obtenerClaveHoyQuestLocal();
+    return APP_STATE.gym.some(function(entry) {
+        if (!entry || entry.esIncompleta) return false;
+        if (!esFechaGymDeHoy(entry, hoyISO)) return false;
+        var det = String(entry.detalle || '');
+        if (/INCOMPLETA/i.test(det)) return false;
+        var esCierreOk = /Rutina completada|Sesi[oó]n completada/i.test(det) || !!entry.rutinaCompletadaOk;
+        if (!esCierreOk) return false;
+
+        if (entry.rutinaId || entry.rutinaNombre) {
+            if (coincideQuestConRutina(q, entry.rutinaId, entry.rutinaNombre, entry.rutinaCodigo, -1)) return true;
+        }
+        // Extraer nombre de rutina del texto "Rutina completada [FÍSICA]: Rutina Matutina (5 ejercicios)"
+        var mNom = det.match(/:\s*([^(]+?)(?:\s*\(|$)/);
+        var nomExtraido = mNom ? mNom[1].trim() : det;
+        return coincideQuestConRutina(q, null, nomExtraido, null, -1);
+    });
+}
+
+function registrarHistorialQuestHoySiFalta(q) {
+    if (!q || !window.APP_STATE) return;
+    if (!Array.isArray(APP_STATE.historialQuests)) APP_STATE.historialQuests = [];
+    var hoyISO = obtenerClaveHoyQuestLocal();
+    var yaExisteHoy = APP_STATE.historialQuests.some(function(h) {
+        if (!h || String(h.questId) !== String(q.id)) return false;
+        if (h.esPenitencia) return false;
+        var fH = typeof obtenerClaveFechaLocal === 'function'
+            ? obtenerClaveFechaLocal(new Date(Number(h.timestamp) || Date.now()))
+            : new Date(Number(h.timestamp) || Date.now()).toISOString().slice(0, 10);
+        return fH === hoyISO;
+    });
+    if (!yaExisteHoy) {
+        APP_STATE.historialQuests.push({
+            id: "HQ-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+            questId: q.id,
+            titulo: q.titulo,
+            tipoTiempo: q.tipoTiempo || 'programada',
+            timestamp: Date.now()
+        });
+    }
+}
+
+function marcarQuestCompletadaPorRutina(q, opts) {
+    if (!q) return false;
+    opts = opts || {};
+    var hoyISO = obtenerClaveHoyQuestLocal();
+    var ahoraMs = Date.now();
+    var eraPenalizada = (q.estado === 'penalizada');
+
+    // Si había sido penalizada erróneamente hoy pese a terminar la rutina al 100%, devolver la EXP deducida
+    if (eraPenalizada && !q.penalizacionExpDevuelta) {
+        var expDevolver = (q.penitenciaExp !== undefined) ? Number(q.penitenciaExp) : 30;
+        if (expDevolver > 0 && typeof sumarExp === 'function') {
+            sumarExp(expDevolver);
+        }
+        q.penalizacionExpDevuelta = true;
+    }
+
+    q.estado = 'completada';
+    q.temporizadorActivo = false;
+    q.pospuestaHasta = null;
+    q.ultimaActivacionFecha = hoyISO;
+    q.fechaCompletadaDia = hoyISO;
+    q.fechaCompletada = new Date(ahoraMs).toISOString();
+    q.ultimaPenitenciaTs = null;
+    q.fechaActualizacion = ahoraMs;
+
+    registrarHistorialQuestHoySiFalta(q);
+
+    if (typeof cerrarAlertaQuestActivada === 'function') cerrarAlertaQuestActivada();
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-pen-' + q.id);
+    }
+    if (!opts.omitirGuardado && typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE);
+    }
+    if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    return true;
+}
+
+function marcarQuestsPorRutinaCompletada(rutinaObj, rutinaIdx) {
+    if (!rutinaObj || !window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return 0;
+    var completadasAuto = 0;
+    APP_STATE.questsDiarios.forEach(function(q) {
+        if (!q) return;
+        if (coincideQuestConRutina(q, rutinaObj.id, rutinaObj.nombre, rutinaObj.codigo, rutinaIdx)) {
+            if (q.estado !== 'completada') {
+                marcarQuestCompletadaPorRutina(q, { omitirGuardado: true });
+                completadasAuto++;
+            } else {
+                // Asegurar sellos del día actual y presencia en historial
+                var hoyISO = obtenerClaveHoyQuestLocal();
+                q.fechaCompletadaDia = hoyISO;
+                q.ultimaActivacionFecha = hoyISO;
+                q.fechaActualizacion = Date.now();
+                registrarHistorialQuestHoySiFalta(q);
+            }
+        }
+    });
+    if (completadasAuto > 0 && typeof renderizarQuestsDiarios === 'function') {
+        renderizarQuestsDiarios();
+    }
+    return completadasAuto;
+}
+window.marcarQuestsPorRutinaCompletada = marcarQuestsPorRutinaCompletada;
+
+function reconciliarQuestsConRutinasCompletadasHoy(omitirGuardado) {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return 0;
+    var hoyISO = obtenerClaveHoyQuestLocal();
+    var reconciliadas = 0;
+    APP_STATE.questsDiarios.forEach(function(q) {
+        if (!q || typeof q !== 'object') return;
+        if (q.estado !== 'completada' && rutinaDeQuestYaCompletadaHoy(q)) {
+            marcarQuestCompletadaPorRutina(q, { desdeReconciliacion: true, omitirGuardado: true });
+            reconciliadas++;
+        } else if (q.estado === 'completada' && !q.fechaCompletadaDia) {
+            q.fechaCompletadaDia = hoyISO;
+            registrarHistorialQuestHoySiFalta(q);
+        }
+    });
+    if (reconciliadas > 0 && !omitirGuardado && typeof MonarcaDB !== 'undefined' && MonarcaDB.save) {
+        MonarcaDB.save(APP_STATE, false);
+    }
+    return reconciliadas;
+}
+window.reconciliarQuestsConRutinasCompletadasHoy = reconciliarQuestsConRutinasCompletadasHoy;
+
+function confirmarRutinaYaRealizadaQuest(id) {
+    if (!APP_STATE.questsDiarios) return;
+    var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
+    if (!q) return;
+    if (!confirm('¿Confirmas que ya completaste "' + (q.rutinaNombre || q.titulo) + '" hoy? Se limpiará la penitencia y se restaurará como Completada.')) return;
+    marcarQuestCompletadaPorRutina(q, { manual: true });
+    renderizarQuestsDiarios();
+}
+window.confirmarRutinaYaRealizadaQuest = confirmarRutinaYaRealizadaQuest;
+
 function verificarPenalizacionesPendientes() {
     if (!APP_STATE.questsDiarios) return;
-    var cambio = false;
+    var cambio = reconciliarQuestsConRutinasCompletadasHoy(true) > 0;
 
     APP_STATE.questsDiarios.forEach(function(q) {
         if (q.tipoTiempo === 'hora_limite' && q.estado === 'pendiente' && q.horaLimite) {
-            if (esHoraLimiteSuperada(q.horaLimite)) {
+            if (rutinaDeQuestYaCompletadaHoy(q)) {
+                marcarQuestCompletadaPorRutina(q, { desdeReconciliacion: true, omitirGuardado: true });
+                cambio = true;
+            } else if (!estaRutinaDeQuestEnCurso(q) && esHoraLimiteSuperada(q.horaLimite)) {
                 q.estado = 'penalizada';
                 q.fechaActualizacion = Date.now();
                 restarExp(30);
@@ -2403,12 +2626,21 @@ function toggleDetalleQuest(id) {
 }
 
 function aplicarPenalizacionAutomatica(q) {
+    if (rutinaDeQuestYaCompletadaHoy(q)) {
+        marcarQuestCompletadaPorRutina(q, { desdeReconciliacion: true });
+        renderizarQuestsDiarios();
+        return;
+    }
+    if (estaRutinaDeQuestEnCurso(q)) {
+        return;
+    }
     detenerAlarmaContinuaQuest();
     detenerSonidoAlarmaNativa();
     var ahoraPenMs = Date.now();
     q.estado = 'penalizada';
     q.temporizadorActivo = false;
     q.ultimaPenitenciaTs = ahoraPenMs;
+    q.penalizacionExpDevuelta = false;
     q.fechaActualizacion = ahoraPenMs;
     if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
         window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
@@ -2444,6 +2676,7 @@ function renderizarQuestsDiarios() {
 
     try {
         sanitizarQuestsDiarios();
+        reconciliarQuestsConRutinasCompletadasHoy(false);
         var qList = APP_STATE.questsDiarios || [];
 
         // Actualizar métricas HUD y panel gráfico desplegable
@@ -2463,41 +2696,47 @@ function renderizarQuestsDiarios() {
             actualizarResumenGraficoHabitosHud(qList);
         }
 
-        // Renderizar caja de alertas de penitencia activa
+        // Renderizar caja de alertas de penitencia activa (100% Dark Glass Monarca v11.23)
         if (contAlertas) {
             var questsPenalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; });
             if (questsPenalizadas.length > 0) {
                 var itemsPenitencia = questsPenalizadas.map(function(qp) {
                     var pNom = qp.penitenciaNombre || qp.penitencia || '30 Flexiones';
-                    var pDesc = qp.penitenciaDesc ? `<div style="font-size: 11.5px; color: #fca5a5; margin-top: 3px; line-height: 1.35;">${qp.penitenciaDesc}</div>` : '';
+                    var pDesc = qp.penitenciaDesc ? `<div class="alerta-penitencia-desc">${qp.penitenciaDesc}</div>` : '';
                     var pExp = (qp.penitenciaExp !== undefined) ? qp.penitenciaExp : 30;
+                    var btnYaCumpliRut = (qp.rutinaId || qp.rutinaNombre)
+                        ? `<button type="button" class="btn-ya-complete-rutina-sm" onclick="confirmarRutinaYaRealizadaQuest('${qp.id}')" title="Si ya completaste esta rutina hoy, limpia la penitencia">✓ Ya la completé</button>`
+                        : '';
                     return `
                     <div class="alerta-penitencia-item">
-                        <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                <span style="font-weight: 800; font-size: 13.5px; color: #991b1b;">⚠️ ${qp.titulo}</span>
+                        <div class="alerta-penitencia-item-body">
+                            <div class="alerta-penitencia-item-top">
+                                <span class="alerta-penitencia-item-title">⚠️ ${qp.titulo}</span>
                                 <span class="badge-penitencia-exp">-${pExp} EXP</span>
                             </div>
-                            <div style="font-size: 12.5px; color: #b91c1c; margin-top: 3px;">
+                            <div class="alerta-penitencia-castigo">
                                 <strong>CASTIGO OBLIGATORIO:</strong> ${pNom}
                             </div>
                             ${pDesc}
                         </div>
-                        <button class="btn-cumplir-penitencia-sm" onclick="cumplirPenitenciaQuest('${qp.id}')">
-                            ✓ Cumplir Castigo
-                        </button>
+                        <div class="alerta-penitencia-item-actions">
+                            ${btnYaCumpliRut}
+                            <button type="button" class="btn-cumplir-penitencia-sm" onclick="cumplirPenitenciaQuest('${qp.id}')">
+                                ✓ Cumplir Castigo
+                            </button>
+                        </div>
                     </div>`;
                 }).join('');
 
                 contAlertas.innerHTML = `
                 <div class="alerta-penitencia-box">
                     <div class="alerta-penitencia-header">
-                        <span style="font-size: 20px;">💀</span>
-                        <div>
-                            <h4 style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 800; letter-spacing: 0.3px;">
+                        <span style="font-size: 20px; flex-shrink: 0;">💀</span>
+                        <div style="min-width: 0;">
+                            <h4 class="alerta-penitencia-title">
                                 PENITENCIAS ACTIVAS DEL SISTEMA (${questsPenalizadas.length})
                             </h4>
-                            <span style="font-size: 12px; color: #b91c1c;">No completaste estas acciones a tiempo. Cumple tu penitencia para restaurar tu honor:</span>
+                            <span class="alerta-penitencia-subtitle">No completaste estas acciones a tiempo. Cumple tu penitencia para restaurar tu honor:</span>
                         </div>
                     </div>
                     <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
@@ -2620,7 +2859,10 @@ function renderizarQuestsDiarios() {
                     botonesAccion = `${btnRutinaDirecto}<button class="btn-qd-action btn-qd-success" onclick="completarQuestDiaria('${q.id}')">✓ Completar</button>`;
                 }
             } else if (esPenalizada) {
-                botonesAccion = `<button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">💀 Penitencia</button>`;
+                var btnYaCompCard = (q.rutinaId || q.rutinaNombre)
+                    ? `<button type="button" class="btn-ya-complete-rutina-sm" onclick="confirmarRutinaYaRealizadaQuest('${q.id}')">✓ Ya completé</button>`
+                    : '';
+                botonesAccion = `${btnYaCompCard}<button class="btn-qd-action btn-qd-danger" onclick="cumplirPenitenciaQuest('${q.id}')">💀 Penitencia</button>`;
             } else if (esCompletada) {
                 var btnRutinaComp = q.rutinaId ? `<button type="button" class="btn-qd-timer" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);" onclick="iniciarRutinaDesdeHabito('${q.rutinaId}', '${q.id}')">👁️ Rutina</button>` : '';
                 botonesAccion = btnRutinaComp + `<button class="btn-qd-action btn-qd-done" disabled>✓ Hecho</button>`;
@@ -2824,10 +3066,16 @@ function completarQuestDiaria(id) {
         return;
     }
 
+    var hoyCompISO = obtenerClaveHoyQuestLocal();
+    var ahoraCompMs = Date.now();
     q.estado = 'completada';
     q.temporizadorActivo = false;
     q.pospuestaHasta = null;
-    q.fechaActualizacion = Date.now();
+    q.ultimaActivacionFecha = hoyCompISO;
+    q.fechaCompletadaDia = hoyCompISO;
+    q.fechaCompletada = new Date(ahoraCompMs).toISOString();
+    q.ultimaPenitenciaTs = null;
+    q.fechaActualizacion = ahoraCompMs;
 
     var pct = Math.max(1, Number(q.exp) || 40);
     var expMaxActual = (APP_STATE.jugador && APP_STATE.jugador.expMax) ? APP_STATE.jugador.expMax : 100;

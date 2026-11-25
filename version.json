@@ -1,5 +1,5 @@
 {
-  "version": "11.22",
-  "fecha": "2026-11-24",
-  "resumen": "Vocabulario Semanal en Conocimiento v11.22: Nuevo apartado dedicado dentro de Conocimiento -> Vocabulario Semanal para elegir las palabras que usarás esta semana, registrar significado, sinónimos habituales ('En lugar de decir...'), frase de ejemplo, contador de usos reales con meta semanal (+EXP y graduación a Dominadas), botón Palabra al Azar, sugerencias de palabras y sincronización en la nube."
+  "version": "11.23",
+  "fecha": "2026-11-25",
+  "resumen": "Blindaje Total Rutina ↔ Hábito Diario & Colores Dark Glass en Hábitos/Penitencias v11.23: Corregido el conflicto que hacía aparecer como penalizada una rutina ya culminada hoy (reconciliación automática con historial de entrenamiento y devolución de EXP, protección durante la sesión activa, sincronización blindada en la nube donde 'completada hoy' siempre gana) y migración total del panel de Penitencias Activas y badges de estado al tema Dark Glass legible."
 }

@@ -23638,5 +23638,187 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v11.23 · HÁBITOS, PENITENCIAS & BADGES — 100% MONARCA DARK GLASS
+   ========================================================================== */
+
+.alerta-penitencia-box {
+    background: linear-gradient(155deg, rgba(127, 29, 29, 0.3) 0%, rgba(17, 13, 22, 0.94) 100%) !important;
+    border: 1px solid rgba(248, 113, 113, 0.42) !important;
+    border-left: 4px solid #ef4444 !important;
+    border-radius: 16px !important;
+    padding: 14px 16px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 18px rgba(239, 68, 68, 0.14) !important;
+    animation: none !important;
+}
+
+.alerta-penitencia-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border-bottom: 1px solid rgba(248, 113, 113, 0.22) !important;
+    padding-bottom: 10px;
+}
+
+.alerta-penitencia-title {
+    margin: 0 !important;
+    color: #fecaca !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.35px;
+    line-height: 1.3;
+}
+
+.alerta-penitencia-subtitle {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    color: #fca5a5 !important;
+    line-height: 1.4;
+}
+
+.alerta-penitencia-item {
+    background: rgba(11, 14, 22, 0.88) !important;
+    border: 1px solid rgba(248, 113, 113, 0.26) !important;
+    border-radius: 12px !important;
+    padding: 12px 14px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.alerta-penitencia-item-body {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.alerta-penitencia-item-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.alerta-penitencia-item-title {
+    font-weight: 800;
+    font-size: 13.5px;
+    color: #f8fafc !important;
+}
+
+.alerta-penitencia-castigo {
+    font-size: 12.5px;
+    color: #fecaca !important;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.alerta-penitencia-castigo strong {
+    color: #f87171 !important;
+}
+
+.alerta-penitencia-desc {
+    font-size: 11.5px;
+    color: #cbd5e1 !important;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.alerta-penitencia-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-cumplir-penitencia-sm {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(248, 113, 113, 0.45) !important;
+    border-radius: 9px !important;
+    padding: 8px 13px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-cumplir-penitencia-sm:hover {
+    filter: brightness(1.1);
+}
+
+.btn-ya-complete-rutina-sm {
+    background: rgba(16, 185, 129, 0.16) !important;
+    color: #6ee7b7 !important;
+    border: 1px solid rgba(52, 211, 153, 0.42) !important;
+    border-radius: 9px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-ya-complete-rutina-sm:hover {
+    background: rgba(16, 185, 129, 0.28) !important;
+    color: #ecfdf5 !important;
+}
+
+/* Badges de estado de Quests Diarios en Dark Glass (elimina fondos blancos heredados) */
+.qd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    letter-spacing: 0.2px;
+}
+
+.qd-badge-danger {
+    background: rgba(239, 68, 68, 0.18) !important;
+    color: #fca5a5 !important;
+    border: 1px solid rgba(248, 113, 113, 0.42) !important;
+}
+
+.qd-badge-success {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #6ee7b7 !important;
+    border: 1px solid rgba(52, 211, 153, 0.4) !important;
+}
+
+.qd-badge-active {
+    background: rgba(56, 189, 248, 0.18) !important;
+    color: #7dd3fc !important;
+    border: 1px solid rgba(56, 189, 248, 0.42) !important;
+}
+
+.qd-badge-pending {
+    background: rgba(148, 163, 184, 0.14) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+.qd-badge-neutral {
+    background: rgba(100, 116, 139, 0.18) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.32) !important;
+}
+
+@media (max-width: 560px) {
+    .alerta-penitencia-item-actions {
+        width: 100%;
+    }
+    .alerta-penitencia-item-actions .btn-cumplir-penitencia-sm,
+    .alerta-penitencia-item-actions .btn-ya-complete-rutina-sm {
+        flex: 1 1 auto;
+        text-align: center;
+        justify-content: center;
+    }
+}
+
+
 
 

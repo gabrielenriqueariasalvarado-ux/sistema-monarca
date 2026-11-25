@@ -464,6 +464,10 @@ function actualizarDesgasteDiarioAutomatico(forzarReinicio) {
                 q.temporizadorActivo = false;
                 q.pospuestaHasta = null;
                 q.ultimaActivacionFecha = null;
+                q.ultimaActivacionTs = null;
+                q.fechaCompletadaDia = null;
+                q.ultimaPenitenciaTs = null;
+                q.penalizacionExpDevuelta = false;
                 var mins = Number(q.tiempoMinutos) || 15;
                 q.tiempoRestante = (q.tipoTiempo === 'libre') ? 0 : mins * 60;
                 q.fechaActualizacion = Date.now();
@@ -8615,11 +8619,20 @@ function ejecutarRutina(tipo) {
     APP_STATE.fatiga.ultimoCierre = "Entrenamiento: " + nombre;
 
     var fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fechaHoyISO = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
     if (!APP_STATE.gym) APP_STATE.gym = [];
     APP_STATE.gym.unshift({
         fecha: fechaHoy,
+        fechaISO: fechaHoyISO,
+        rutinaId: tipo,
+        rutinaNombre: nombre,
+        rutinaCompletadaOk: true,
         detalle: "Sesión completada al 100%: " + nombre + " (+Fatiga muscular registrada)"
     });
+
+    if (typeof marcarQuestsPorRutinaCompletada === 'function') {
+        marcarQuestsPorRutinaCompletada({ id: tipo, codigo: tipo, nombre: nombre }, -1);
+    }
 
     sumarExp(50);
     MonarcaDB.save(APP_STATE);
@@ -8929,39 +8942,56 @@ function ejecutarRutinaDinamica(opts) {
             detalleFaltantes: evalProg.faltantesPorEjercicio
         });
     } else {
+        var fechaHoyISODin = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
         APP_STATE.gym.unshift({
             fecha: fechaHoy,
+            fechaISO: fechaHoyISODin,
+            rutinaId: rutina.id || rutina.codigo || '',
+            rutinaCodigo: rutina.codigo || '',
+            rutinaNombre: rutina.nombre || '',
+            rutinaCompletadaOk: true,
             detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
         });
     }
 
     // Auto-completar Hábitos y Misiones Diarias vinculadas SOLO si la rutina se terminó al 100%
+    // (actualiza fechaActualizacion, fechaCompletadaDia, historialQuests, limpia falsas penitencias y sincroniza cloud)
     var habitosCompletadosAuto = 0;
-    if (!esIncompleta && APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
-        APP_STATE.questsDiarios.forEach(function(q) {
-            if (!q) return;
-            var coincideId = q.rutinaId && (
-                q.rutinaId === rutina.id ||
-                q.rutinaId === rutina.codigo ||
-                String(q.rutinaId) === String(RUTINA_ACTIVA.idx)
-            );
-            var coincideNombre = q.rutinaNombre && rutina.nombre && (
-                q.rutinaNombre.trim().toLowerCase() === rutina.nombre.trim().toLowerCase()
-            );
-            var coincideTitulo = q.titulo && rutina.nombre && (
-                q.titulo.trim().toLowerCase().includes(rutina.nombre.trim().toLowerCase())
-            );
-            if (coincideId || coincideNombre || (q.rutinaId && coincideTitulo)) {
-                if (q.estado !== 'completada' && q.estado !== 'penalizada' && q.estado !== 'penitencia_cumplida') {
-                    q.estado = 'completada';
-                    q.temporizadorActivo = false;
-                    q.fechaCompletada = new Date().toISOString();
-                    habitosCompletadosAuto++;
+    if (!esIncompleta) {
+        if (typeof marcarQuestsPorRutinaCompletada === 'function') {
+            habitosCompletadosAuto = marcarQuestsPorRutinaCompletada(rutina, RUTINA_ACTIVA.idx);
+        } else if (APP_STATE.questsDiarios && Array.isArray(APP_STATE.questsDiarios)) {
+            var hoyFallbackISO = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
+            var ahoraFallbackMs = Date.now();
+            APP_STATE.questsDiarios.forEach(function(q) {
+                if (!q) return;
+                var coincideId = q.rutinaId && (
+                    q.rutinaId === rutina.id ||
+                    q.rutinaId === rutina.codigo ||
+                    String(q.rutinaId) === String(RUTINA_ACTIVA.idx)
+                );
+                var coincideNombre = q.rutinaNombre && rutina.nombre && (
+                    q.rutinaNombre.trim().toLowerCase() === rutina.nombre.trim().toLowerCase()
+                );
+                var coincideTitulo = q.titulo && rutina.nombre && (
+                    q.titulo.trim().toLowerCase().includes(rutina.nombre.trim().toLowerCase())
+                );
+                if (coincideId || coincideNombre || (q.rutinaId && coincideTitulo)) {
+                    if (q.estado !== 'completada') {
+                        q.estado = 'completada';
+                        q.temporizadorActivo = false;
+                        q.pospuestaHasta = null;
+                        q.ultimaActivacionFecha = hoyFallbackISO;
+                        q.fechaCompletadaDia = hoyFallbackISO;
+                        q.fechaCompletada = new Date(ahoraFallbackMs).toISOString();
+                        q.fechaActualizacion = ahoraFallbackMs;
+                        habitosCompletadosAuto++;
+                    }
                 }
+            });
+            if (habitosCompletadosAuto > 0 && typeof renderizarQuestsDiarios === 'function') {
+                renderizarQuestsDiarios();
             }
-        });
-        if (habitosCompletadosAuto > 0 && typeof renderizarQuestsDiarios === 'function') {
-            renderizarQuestsDiarios();
         }
     }
 

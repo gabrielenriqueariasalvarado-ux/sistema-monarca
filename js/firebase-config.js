@@ -403,6 +403,100 @@ function fusionarColeccionPorId(listaLocal, listaRemota, tombstones) {
 }
 
 /**
+ * Fusión inteligente específica para Quests Diarios (v11.23):
+ * Si cualquiera de los dos dispositivos ya marcó la quest como 'completada' HOY,
+ * ese estado SIEMPRE prevalece sobre 'pendiente', 'en_progreso', 'pospuesta' o 'penalizada'
+ * del mismo día (evita que una PC inactiva cuya alarma venció más tarde sobrescriba
+ * una rutina que ya culminaste en tu teléfono).
+ */
+function _obtenerClaveHoyLocalCloud() {
+    if (typeof obtenerClaveFechaLocal === 'function') return obtenerClaveFechaLocal();
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function _esMismaFechaLocalDeTs(ts, hoyISO) {
+    var n = Number(ts);
+    if (!n || isNaN(n)) return false;
+    var d = new Date(n);
+    if (isNaN(d.getTime())) return false;
+    var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return k === hoyISO;
+}
+
+function _esQuestCompletadaHoyMerge(q, hoyISO) {
+    if (!q || q.estado !== 'completada') return false;
+    if (q.fechaCompletadaDia && String(q.fechaCompletadaDia).slice(0, 10) === hoyISO) return true;
+    if (q.ultimaActivacionFecha && String(q.ultimaActivacionFecha).slice(0, 10) === hoyISO) return true;
+    if (q.fechaCompletada) {
+        var parsed = Date.parse(q.fechaCompletada);
+        if (!isNaN(parsed) && _esMismaFechaLocalDeTs(parsed, hoyISO)) return true;
+    }
+    var ts = obtenerTimestampNumerico(q);
+    return _esMismaFechaLocalDeTs(ts, hoyISO);
+}
+
+function fusionarQuestsDiariosInteligente(listaLocal, listaRemota, tombstones) {
+    var resultadoMap = {};
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones.map(String) : []);
+    var hoyISO = _obtenerClaveHoyLocalCloud();
+
+    if (Array.isArray(listaRemota)) {
+        listaRemota.forEach(function(item) {
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                }
+            }
+        });
+    }
+
+    if (Array.isArray(listaLocal)) {
+        listaLocal.forEach(function(item) {
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    if (!resultadoMap[keyId]) {
+                        resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                    } else {
+                        var itemRemoto = resultadoMap[keyId];
+                        var localCompHoy = _esQuestCompletadaHoyMerge(item, hoyISO);
+                        var remotoCompHoy = _esQuestCompletadaHoyMerge(itemRemoto, hoyISO);
+
+                        if (localCompHoy && !remotoCompHoy) {
+                            resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                            return;
+                        }
+                        if (remotoCompHoy && !localCompHoy) {
+                            return; // Conservar remoto completada hoy
+                        }
+                        // Si uno saldó penitencia hoy y el otro sigue en penalizada hoy, gana saldada
+                        var localSald = item.estado === 'penitencia_cumplida' && _esMismaFechaLocalDeTs(obtenerTimestampNumerico(item), hoyISO);
+                        var remotoSald = itemRemoto.estado === 'penitencia_cumplida' && _esMismaFechaLocalDeTs(obtenerTimestampNumerico(itemRemoto), hoyISO);
+                        if (localSald && itemRemoto.estado === 'penalizada') {
+                            resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                            return;
+                        }
+                        if (remotoSald && item.estado === 'penalizada') {
+                            return;
+                        }
+
+                        var tsLocal = obtenerTimestampNumerico(item);
+                        var tsRemoto = obtenerTimestampNumerico(itemRemoto);
+                        if (tsLocal > tsRemoto) {
+                            resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    return Object.values(resultadoMap);
+}
+
+/**
  * Fusión inteligente de todo el estado entre Local y Remoto (Smart Merge).
  * Garantiza que abrir un dispositivo con datos antiguos nunca borre datos nuevos de otro dispositivo.
  */
@@ -457,7 +551,7 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.misiones = deduplicarColeccionPorNombre(misMerged, tombstones.misiones, 'titulo');
     }
     if (Array.isArray(local.questsDiarios) || Array.isArray(remoto.questsDiarios)) {
-        var questsCombinados = fusionarColeccionPorId(local.questsDiarios, remoto.questsDiarios, tombstones.questsDiarios);
+        var questsCombinados = fusionarQuestsDiariosInteligente(local.questsDiarios, remoto.questsDiarios, tombstones.questsDiarios);
         fusion.questsDiarios = deduplicarColeccionQuests(questsCombinados, tombstones.questsDiarios);
     }
     if (Array.isArray(local.habilidades) || Array.isArray(remoto.habilidades)) {
@@ -1412,6 +1506,9 @@ async function inicializarFirebase() {
                     if (typeof sanitizarQuestsDiarios === 'function') {
                         sanitizarQuestsDiarios();
                     }
+                    if (typeof reconciliarQuestsConRutinasCompletadasHoy === 'function') {
+                        reconciliarQuestsConRutinasCompletadasHoy(true);
+                    }
 
                     // Refrescar vistas en pantalla manteniendo en RAM el estado recién fusionado
                     if (typeof inicializarSistema === 'function') inicializarSistema(true);
@@ -1536,6 +1633,9 @@ async function inicializarFirebase() {
 
                     if (typeof sanitizarQuestsDiarios === 'function') {
                         sanitizarQuestsDiarios();
+                    }
+                    if (typeof reconciliarQuestsConRutinasCompletadasHoy === 'function') {
+                        reconciliarQuestsConRutinasCompletadasHoy(true);
                     }
 
                     // Refrescar UI suavemente
