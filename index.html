@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.17">
+    <link rel="stylesheet" href="style.css?v=11.18">
 </head>
 <body>
 
@@ -4759,10 +4759,10 @@
                         <div class="modal-form-group">
                             <label>Aviso Previo (Campana):</label>
                             <select id="cal-ev-aviso" class="modal-input">
-                                <option value="15" selected>🔔 15 minutos antes</option>
-                                <option value="5">🔔 5 minutos antes</option>
+                                <option value="30" selected>🔔 30 minutos antes (media hora)</option>
+                                <option value="15">🔔 15 minutos antes</option>
                                 <option value="10">🔔 10 minutos antes</option>
-                                <option value="30">🔔 30 minutos antes</option>
+                                <option value="5">🔔 5 minutos antes</option>
                                 <option value="60">🔔 1 hora antes</option>
                                 <option value="0">Sin aviso previo</option>
                             </select>
@@ -4887,6 +4887,17 @@
                                 <option value="#64748b">🪨 Pizarra</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="modal-form-group">
+                        <label>Aviso Previo en Notificaciones:</label>
+                        <select id="cal-cro-aviso" class="modal-input">
+                            <option value="30" selected>🔔 30 minutos antes (media hora)</option>
+                            <option value="15">🔔 15 minutos antes</option>
+                            <option value="10">🔔 10 minutos antes</option>
+                            <option value="5">🔔 5 minutos antes</option>
+                            <option value="60">🔔 1 hora antes</option>
+                            <option value="0">Sin aviso previo</option>
+                        </select>
                     </div>
                     <div class="modal-form-group" style="margin-bottom: 0;">
                         <label id="cal-cro-dias-label">Días de la Semana en que se repite:</label>
@@ -7238,26 +7249,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.17"></script>
-    <script src="js/perfil.js?v=11.17"></script>
-    <script src="js/progresion.js?v=11.17"></script>
-    <script src="js/estado-personal.js?v=11.17"></script>
-    <script src="js/finanzas.js?v=11.17"></script>
-    <script src="js/ideas.js?v=11.17"></script>
-    <script src="js/dinamicas.js?v=11.17"></script>
-    <script src="js/calendario.js?v=11.17"></script>
-    <script src="js/inventario.js?v=11.17"></script>
-    <script src="js/reproductor.js?v=11.17"></script>
-    <script src="js/jarvis-voz.js?v=11.17"></script>
+    <script src="js/core.js?v=11.18"></script>
+    <script src="js/perfil.js?v=11.18"></script>
+    <script src="js/progresion.js?v=11.18"></script>
+    <script src="js/estado-personal.js?v=11.18"></script>
+    <script src="js/finanzas.js?v=11.18"></script>
+    <script src="js/ideas.js?v=11.18"></script>
+    <script src="js/dinamicas.js?v=11.18"></script>
+    <script src="js/calendario.js?v=11.18"></script>
+    <script src="js/inventario.js?v=11.18"></script>
+    <script src="js/reproductor.js?v=11.18"></script>
+    <script src="js/jarvis-voz.js?v=11.18"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.17"></script>
+    <script type="module" src="js/firebase-config.js?v=11.18"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.17')
+                navigator.serviceWorker.register('sw.js?v=11.18')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

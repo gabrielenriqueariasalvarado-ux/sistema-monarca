@@ -490,6 +490,7 @@ function fusionarEstadosInteligente(local, remoto) {
         });
         var tombIdeasSet = new Set(tombstones.ideas || []);
         var vistasNotifSol = {};
+        var vistasNotifFirma = {};
         fusion.notificacionesAutoPC = rawNotifs.filter(function(n) {
             if (!n || !n.id) return false;
             var nid = String(n.id);
@@ -505,6 +506,12 @@ function fusionarEstadosInteligente(local, remoto) {
             if (solId) {
                 if (vistasNotifSol[solId]) return false;
                 vistasNotifSol[solId] = true;
+            }
+            var txtNorm = String(n.texto || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 96);
+            if (txtNorm) {
+                var fKey = txtNorm + '@' + Math.floor((Number(n.timestamp) || 0) / 300000);
+                if (vistasNotifFirma[fKey]) return false;
+                vistasNotifFirma[fKey] = true;
             }
             return true;
         });

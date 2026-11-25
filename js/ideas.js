@@ -2153,6 +2153,15 @@ function _esNotificacionAutoPCDescartada(notifKey, solicitudId, docRemoto, ideaA
     return false;
 }
 
+function _firmaContenidoNotifAutoPC(n) {
+    if (!n || typeof n !== 'object') return '';
+    var txt = String(n.texto || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 96);
+    if (!txt) return '';
+    var ts = Number(n.timestamp) || 0;
+    var bucket = ts > 0 ? Math.floor(ts / 300000) : 0; // ventana de 5 min
+    return txt + '@' + bucket;
+}
+
 function _silenciarNotifAutoPCPorSolicitud(idOrNotifKey, opts) {
     if (!APP_STATE || !idOrNotifKey) return [];
     var opciones = opts || {};
@@ -2163,22 +2172,47 @@ function _silenciarNotifAutoPCPorSolicitud(idOrNotifKey, opts) {
     var safeSolId = solId ? solId.replace(/[^a-zA-Z0-9_@.-]/g, '_') : '';
 
     var keysACancelar = [keyRaw, safeKey];
-    if (solId) keysACancelar.push(solId);
+    var solsAConfirmar = [];
+    if (solId) {
+        keysACancelar.push(solId);
+        solsAConfirmar.push(solId);
+    }
     if (safeSolId) keysACancelar.push(safeSolId);
 
     if (!APP_STATE._eliminados) APP_STATE._eliminados = {};
     if (!Array.isArray(APP_STATE._eliminados.notificacionesAutoPC)) APP_STATE._eliminados.notificacionesAutoPC = [];
 
+    // Detectar firma de contenido del ítem seleccionado para silenciar también posibles duplicados hermanos
+    var firmaObjetivo = '';
     if (Array.isArray(APP_STATE.notificacionesAutoPC)) {
+        var matchTarget = APP_STATE.notificacionesAutoPC.find(function(n) {
+            if (!n) return false;
+            var nId = String(n.id || '');
+            var nSafe = nId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+            var nSol = _extraerSolicitudIdAutoPC(n);
+            return nId === keyRaw || nSafe === safeKey || (solId && nSol === solId);
+        });
+        if (matchTarget) firmaObjetivo = _firmaContenidoNotifAutoPC(matchTarget);
+
         APP_STATE.notificacionesAutoPC = APP_STATE.notificacionesAutoPC.filter(function(n) {
             if (!n) return false;
             var nId = String(n.id || '');
             var nSafe = nId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
             var nSol = _extraerSolicitudIdAutoPC(n);
-            var coincide = (nId === keyRaw || nSafe === safeKey || (solId && nSol === solId));
+            var nFirma = firmaObjetivo ? _firmaContenidoNotifAutoPC(n) : '';
+            var coincide = (
+                nId === keyRaw ||
+                nSafe === safeKey ||
+                (solId && nSol === solId) ||
+                (firmaObjetivo && nFirma && nFirma === firmaObjetivo)
+            );
             if (coincide) {
                 keysACancelar.push(nId);
                 keysACancelar.push(nSafe);
+                if (nSol) {
+                    keysACancelar.push(nSol);
+                    if (solsAConfirmar.indexOf(nSol) === -1) solsAConfirmar.push(nSol);
+                }
             }
             return !coincide;
         });
@@ -2194,17 +2228,19 @@ function _silenciarNotifAutoPCPorSolicitud(idOrNotifKey, opts) {
     });
 
     var ahoraMs = Date.now();
-    if (solId && Array.isArray(APP_STATE.ideas)) {
+    if (solsAConfirmar.length > 0 && Array.isArray(APP_STATE.ideas)) {
         APP_STATE.ideas.forEach(function(ideaItem) {
-            if (ideaItem && String(ideaItem.id) === solId) {
+            if (ideaItem && solsAConfirmar.indexOf(String(ideaItem.id)) !== -1) {
                 ideaItem.autopcNotifConfirmada = true;
                 ideaItem.fechaActualizacion = ahoraMs;
             }
         });
     }
-    if (solId && AUTOPC_SOLICITUDES_MAP[solId]) {
-        AUTOPC_SOLICITUDES_MAP[solId].notifConfirmada = true;
-    }
+    solsAConfirmar.forEach(function(sid) {
+        if (AUTOPC_SOLICITUDES_MAP[sid]) {
+            AUTOPC_SOLICITUDES_MAP[sid].notifConfirmada = true;
+        }
+    });
 
     if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
         Array.from(new Set(keysACancelar)).forEach(function(k) {
@@ -2212,14 +2248,14 @@ function _silenciarNotifAutoPCPorSolicitud(idOrNotifKey, opts) {
         });
     }
 
-    if (!opciones.omitirNube && solId && window.MonarcaCloud && typeof window.MonarcaCloud.confirmarNotificacionesAutoPCNube === 'function') {
-        window.MonarcaCloud.confirmarNotificacionesAutoPCNube([solId]).catch(function() {});
+    if (!opciones.omitirNube && solsAConfirmar.length > 0 && window.MonarcaCloud && typeof window.MonarcaCloud.confirmarNotificacionesAutoPCNube === 'function') {
+        window.MonarcaCloud.confirmarNotificacionesAutoPCNube(solsAConfirmar).catch(function() {});
     }
 
     if (!opciones.omitirSave) {
         MonarcaDB.save(APP_STATE);
     }
-    return solId ? [solId] : [];
+    return solsAConfirmar;
 }
 
 function registrarNotificacionSolicitudAutoPC(docRemoto, ideaAsociada) {
@@ -2238,17 +2274,20 @@ function registrarNotificacionSolicitudAutoPC(docRemoto, ideaAsociada) {
         return false;
     }
 
+    var rawTexto = (docRemoto && docRemoto.text) || (ideaAsociada && (ideaAsociada.textoPrompt || ideaAsociada.texto)) || ('Solicitud #' + solicitudId);
+    var textoLimpio = obtenerTextoPromptLimpio(rawTexto);
+    var tsNotif = Number(docRemoto && docRemoto.updatedAt) || Number(docRemoto && docRemoto.createdAt) || Date.now();
+    var nuevaFirma = _firmaContenidoNotifAutoPC({ texto: textoLimpio, timestamp: tsNotif });
+
     var yaActiva = APP_STATE.notificacionesAutoPC.some(function(n) {
         if (!n) return false;
-        return String(n.id) === notifKey || _extraerSolicitudIdAutoPC(n) === solicitudId;
+        if (String(n.id) === notifKey || _extraerSolicitudIdAutoPC(n) === solicitudId) return true;
+        return Boolean(nuevaFirma && _firmaContenidoNotifAutoPC(n) === nuevaFirma);
     });
     if (yaActiva) return false;
 
-    var rawTexto = (docRemoto && docRemoto.text) || (ideaAsociada && (ideaAsociada.textoPrompt || ideaAsociada.texto)) || ('Solicitud #' + solicitudId);
-    var textoLimpio = obtenerTextoPromptLimpio(rawTexto);
     var cat = String((docRemoto && docRemoto.categoria) || (ideaAsociada && ideaAsociada.categoria) || '🤖 Auto-PC Local');
     var subcat = String((docRemoto && docRemoto.subcategoria) || (ideaAsociada && ideaAsociada.subcategoria) || 'Lista');
-    var tsNotif = Number(docRemoto && docRemoto.updatedAt) || Number(docRemoto && docRemoto.createdAt) || Date.now();
 
     APP_STATE.notificacionesAutoPC.unshift({
         id: notifKey,
@@ -2274,6 +2313,7 @@ function obtenerAlertasAutoPCActivas() {
         });
     }
     var vistosSol = {};
+    var vistasFirma = {};
 
     return APP_STATE.notificacionesAutoPC
         .filter(function(n) {
@@ -2286,7 +2326,10 @@ function obtenerAlertasAutoPCActivas() {
             }
             var dedupKey = solId || String(n.id);
             if (vistosSol[dedupKey]) return false;
+            var firma = _firmaContenidoNotifAutoPC(n);
+            if (firma && vistasFirma[firma]) return false;
             vistosSol[dedupKey] = true;
+            if (firma) vistasFirma[firma] = true;
             return true;
         })
         .map(function(n) {

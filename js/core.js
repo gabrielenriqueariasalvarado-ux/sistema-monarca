@@ -1666,7 +1666,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.17';
+var MONARCA_APP_VERSION = '11.18';
 var MONARCA_APP_VERSION_FECHA = '2026-11-24';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
@@ -2315,6 +2315,27 @@ function confirmarAlertaOkeySistema(metaOrId) {
         if (typeof window.descartarAvisoEventoCalendario === 'function') {
             window.descartarAvisoEventoCalendario(calEvId);
         }
+    } else if (tipo === 'cal-cro' || alertId.indexOf('alerta-cal-cro-') === 0) {
+        var croId = (extra && extra.calCroId) ? extra.calCroId : '';
+        var croFecha = (extra && extra.fechaClave) ? extra.fechaClave : '';
+        if (!croId && alertId.indexOf('alerta-cal-cro-') === 0) {
+            var sufCro = alertId.replace('alerta-cal-cro-', '');
+            var mF = sufCro.match(/^(.*)-(\d{4}-\d{2}-\d{2})$/);
+            if (mF) {
+                croId = mF[1];
+                croFecha = croFecha || mF[2];
+            } else {
+                croId = sufCro;
+            }
+        }
+        if (typeof window.confirmarOkeyAvisoCronograma === 'function') {
+            window.confirmarOkeyAvisoCronograma(croId, croFecha);
+        }
+    } else if (tipo === 'cal-boom' || alertId.indexOf('alerta-cal-boom-') === 0) {
+        var boomFecha = (extra && extra.fechaClave) ? extra.fechaClave : alertId.replace('alerta-cal-boom-', '');
+        if (typeof window.confirmarOkeyAvisoBoom === 'function') {
+            window.confirmarOkeyAvisoBoom(boomFecha);
+        }
     } else if (tipo === 'quest' || alertId.indexOf('alerta-quest-act-') === 0) {
         var qId = (extra && extra.questId) ? extra.questId : alertId.replace('alerta-quest-act-', '');
         if (typeof window.confirmarAlertaOkeyQuest === 'function') {
@@ -2707,20 +2728,26 @@ function renderizarCentroNotificaciones() {
         });
     }
 
-    // Mostrar próximos recordatorios programados de hoy sin inflar la campana
+    // Mostrar próximos eventos, bloques de horario y recordatorios programados hoy sin inflar la campana
     if (typeof window.obtenerProximosRecordatoriosHoy === 'function') {
         try {
             var proximos = window.obtenerProximosRecordatoriosHoy() || [];
             if (proximos.length > 0) {
                 html += '<div style="margin-top: 8px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1);">' +
-                    '<div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 8px;">Programados más tarde hoy</div>';
+                    '<div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 8px;">Próximos hoy · Horario y Eventos (aviso 30 min antes)</div>';
                 proximos.forEach(function(p) {
-                    html += '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 6px;">' +
-                        '<div style="min-width: 0;">' +
-                            '<div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">🔔 ' + monarcaEscHtml(p.hora || '--:--') + ' · ' + monarcaEscHtml(p.titulo) + '</div>' +
-                            (p.personaNombre ? '<div style="font-size: 11px; color: #64748b;">👤 ' + monarcaEscHtml(p.personaNombre) + '</div>' : '') +
+                    var ico = p.icono || '🔔';
+                    var badgeAviso = p.etiquetaAviso || 'Pendiente';
+                    var esAvisoPrevio = badgeAviso.indexOf('Aviso') !== -1;
+                    var badgeStyle = esAvisoPrevio
+                        ? 'font-size: 10px; font-weight: 700; color: #7dd3fc; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 7px; border-radius: 9999px; white-space: nowrap;'
+                        : 'font-size: 10px; color: #94a3b8; white-space: nowrap;';
+                    html += '<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;">' +
+                        '<div style="min-width: 0; flex: 1;">' +
+                            '<div style="font-size: 12px; font-weight: 600; color: #e2e8f0; word-break: break-word;">' + ico + ' ' + monarcaEscHtml(p.hora || '--:--') + ' · ' + monarcaEscHtml(p.titulo) + '</div>' +
+                            (p.personaNombre ? '<div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">' + monarcaEscHtml(p.personaNombre) + '</div>' : '') +
                         '</div>' +
-                        '<span style="font-size: 10px; color: #64748b; white-space: nowrap;">Pendiente</span>' +
+                        '<span style="' + badgeStyle + '">' + monarcaEscHtml(badgeAviso) + '</span>' +
                     '</div>';
                 });
                 html += '</div>';

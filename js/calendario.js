@@ -176,6 +176,74 @@ function esAnioBisiesto(anio) {
     return (anio % 4 === 0 && anio % 100 !== 0) || (anio % 400 === 0);
 }
 
+var CAL_AVISO_PREVIO_DEFAULT_MIN = 30;
+
+function obtenerMinutosAvisoPrevioEvento(item) {
+    if (!item || typeof item !== 'object') return CAL_AVISO_PREVIO_DEFAULT_MIN;
+    if (item.avisoPrevioMin === 0 || item.avisoPrevioMin === '0') return 0;
+    var val = parseInt(item.avisoPrevioMin, 10);
+    if (isNaN(val) || val < 0) return CAL_AVISO_PREVIO_DEFAULT_MIN;
+    // Eventos antiguos guardados con el viejo predeterminado 15 sin personalización explícita pasan a 30 min (media hora)
+    if (!item.avisoPersonalizado && val === 15) return CAL_AVISO_PREVIO_DEFAULT_MIN;
+    return val;
+}
+
+function obtenerMinutosAvisoPrevioCronograma(bloque) {
+    if (!bloque || typeof bloque !== 'object') return CAL_AVISO_PREVIO_DEFAULT_MIN;
+    if (bloque.avisoPrevioMin === 0 || bloque.avisoPrevioMin === '0') return 0;
+    var val = parseInt(bloque.avisoPrevioMin, 10);
+    if (isNaN(val) || val < 0) return CAL_AVISO_PREVIO_DEFAULT_MIN;
+    return val;
+}
+
+function formatearTextoAnticipacionMin(mins) {
+    var m = parseInt(mins, 10) || 0;
+    if (m === 30) return 'media hora';
+    if (m === 60) return '1 hora';
+    return m + ' min';
+}
+
+function formatearAvisoAnticipadoEvento(startMs, ahoraMs, esHorario) {
+    var diffMs = startMs - ahoraMs;
+    var faltanMin = Math.ceil(diffMs / 60000);
+    var enCurso = diffMs <= 0;
+    var prefijoTitulo = '';
+    var badgeTiempo = '';
+
+    if (enCurso) {
+        var pasadosMin = Math.floor(Math.abs(diffMs) / 60000);
+        prefijoTitulo = pasadosMin <= 3 ? '¡Inicia ahora!:' : 'En curso:';
+        badgeTiempo = esHorario ? 'Horario · En curso' : 'Evento en Curso';
+    } else if (faltanMin >= 28 && faltanMin <= 31) {
+        prefijoTitulo = esHorario ? 'En media hora en tu horario:' : 'En media hora tienes:';
+        badgeTiempo = esHorario ? 'Horario · En 30 min' : 'En 30 min';
+    } else if (faltanMin >= 58 && faltanMin <= 61) {
+        prefijoTitulo = esHorario ? 'En 1 hora en tu horario:' : 'En 1 hora tienes:';
+        badgeTiempo = esHorario ? 'Horario · En 1 h' : 'En 1 hora';
+    } else if (faltanMin <= 1) {
+        prefijoTitulo = esHorario ? 'En 1 min en tu horario:' : 'En 1 min tienes:';
+        badgeTiempo = esHorario ? 'Horario · Ya inicia' : 'Ya inicia';
+    } else {
+        prefijoTitulo = esHorario ? ('En ' + faltanMin + ' min en tu horario:') : ('En ' + faltanMin + ' min tienes:');
+        badgeTiempo = (esHorario ? 'Horario · En ' : 'En ') + faltanMin + ' min';
+    }
+
+    return {
+        enCurso: enCurso,
+        faltanMin: Math.max(0, faltanMin),
+        prefijoTitulo: prefijoTitulo,
+        badgeTiempo: badgeTiempo
+    };
+}
+
+function _obtenerClaveHoyCalendario() {
+    if (typeof obtenerClaveFechaLocal === 'function') {
+        return obtenerClaveFechaLocal();
+    }
+    var h = new Date();
+    return formatearClaveFecha(h.getFullYear(), h.getMonth(), h.getDate());
+}
+
 function normalizarItemCalendario(item) {
     if (!item || typeof item !== 'object') return null;
     var copy = Object.assign({}, item);
@@ -195,6 +263,7 @@ function normalizarItemCalendario(item) {
         copy.horaInicio = hIni;
         var dur = parseInt(copy.duracionMinutos, 10) || (hIni ? 60 : 0);
         copy.duracionMinutos = dur;
+        copy.avisoPrevioMin = obtenerMinutosAvisoPrevioEvento(copy);
         if (hIni && dur > 0) {
             var calc = calcularHoraFinDesdeDuracion(hIni, dur, 'min');
             if (calc) {
@@ -1749,9 +1818,11 @@ function renderizarApartadoCronograma() {
             html += '<div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">';
             delDia.forEach(function(b) {
                 var col = b.color || '#6366f1';
+                var avMin = obtenerMinutosAvisoPrevioCronograma(b);
+                var avTag = avMin > 0 ? (' · <span style="color:#7dd3fc;">🔔 ' + avMin + 'm antes</span>') : '';
                 html += '<div class="cal-cronograma-block-card" style="border-left:3px solid ' + col + ';">' +
                     '<div style="flex:1; min-width:0;">' +
-                        '<div style="font-size:11px; font-weight:700; color:#94a3b8;">' + calEscHtml(b.horaInicio) + ' – ' + calEscHtml(b.horaFin) + ' · <span style="color:' + col + ';">' + calEscHtml(b.etiqueta || 'Rutina') + '</span></div>' +
+                        '<div style="font-size:11px; font-weight:700; color:#94a3b8;">' + calEscHtml(b.horaInicio) + ' – ' + calEscHtml(b.horaFin) + ' · <span style="color:' + col + ';">' + calEscHtml(b.etiqueta || 'Rutina') + '</span>' + avTag + '</div>' +
                         '<div style="font-size:13px; font-weight:700; color:#f8fafc; margin-top:2px;">' + calEscHtml(b.titulo) + '</div>' +
                     '</div>' +
                     '<div style="display:flex; gap:4px;">' +
@@ -2016,7 +2087,7 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
     document.getElementById('cal-ev-inicio').value = horaDefault;
     document.getElementById('cal-ev-duracion-val').value = 60;
     document.getElementById('cal-ev-duracion-unit').value = 'min';
-    document.getElementById('cal-ev-aviso').value = '15';
+    document.getElementById('cal-ev-aviso').value = '30';
     document.getElementById('cal-ev-color').value = '#38bdf8';
     var elEvLab = document.getElementById('cal-ev-labor');
     if (elEvLab) elEvLab.value = laborDefault;
@@ -2034,6 +2105,8 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
     document.getElementById('cal-cro-fin').value = formatearMinutosAHora((parseHoraAMinutos(horaDefault) || 540) + 60);
     document.getElementById('cal-cro-etiqueta').value = 'Rutina';
     document.getElementById('cal-cro-color').value = '#6366f1';
+    var elCroAviso = document.getElementById('cal-cro-aviso');
+    if (elCroAviso) elCroAviso.value = '30';
 
     var diaSelSemana = obtenerIndiceDiaSemana(fechaBase);
     var selCroDia = document.getElementById('cal-cro-dia');
@@ -2063,6 +2136,7 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
                 document.getElementById('cal-cro-fin').value = bloque.horaFin || '10:00';
                 document.getElementById('cal-cro-etiqueta').value = bloque.etiqueta || 'Rutina';
                 document.getElementById('cal-cro-color').value = bloque.color || '#6366f1';
+                if (elCroAviso) elCroAviso.value = String(obtenerMinutosAvisoPrevioCronograma(bloque));
                 if (selCroDia) selCroDia.value = String(bloque.diaSemana || 0);
             }
         } else {
@@ -2089,7 +2163,7 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
                         document.getElementById('cal-ev-duracion-val').value = durMin;
                         document.getElementById('cal-ev-duracion-unit').value = 'min';
                     }
-                    document.getElementById('cal-ev-aviso').value = String(typeof item.avisoPrevioMin === 'number' ? item.avisoPrevioMin : 15);
+                    document.getElementById('cal-ev-aviso').value = String(obtenerMinutosAvisoPrevioEvento(item));
                     document.getElementById('cal-ev-color').value = item.color || '#38bdf8';
                     if (elEvLab) elEvLab.value = item.laborId || '';
                     CALENDARIO_ESTADO.personaIdsSeleccionadosModal = (item.personaIds || []).map(String);
@@ -2295,8 +2369,9 @@ function guardarNuevoEvento() {
                     personaIds: personaIds,
                     grupoIds: grupoIds,
                     avisoPrevioMin: evAviso,
-                    avisoDisparadoParaTs: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio || oldEv.avisoPrevioMin !== evAviso) ? null : oldEv.avisoDisparadoParaTs,
-                    avisoDescartado: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio) ? false : !!oldEv.avisoDescartado,
+                    avisoPersonalizado: true,
+                    avisoDisparadoParaTs: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio || obtenerMinutosAvisoPrevioEvento(oldEv) !== evAviso) ? null : oldEv.avisoDisparadoParaTs,
+                    avisoDescartado: (oldEv.fecha !== evFecha || oldEv.horaInicio !== evInicio || obtenerMinutosAvisoPrevioEvento(oldEv) !== evAviso) ? false : !!oldEv.avisoDescartado,
                     color: evColor,
                     laborId: evLaborId,
                     fechaActualizacion: ahora
@@ -2317,6 +2392,7 @@ function guardarNuevoEvento() {
                 personaIds: personaIds,
                 grupoIds: grupoIds,
                 avisoPrevioMin: evAviso,
+                avisoPersonalizado: true,
                 avisoDisparadoParaTs: null,
                 avisoDisparadoEn: null,
                 avisoDescartado: false,
@@ -2384,6 +2460,9 @@ function guardarNuevoEvento() {
         var cFin = document.getElementById('cal-cro-fin').value;
         var cEtiqueta = document.getElementById('cal-cro-etiqueta').value || 'Rutina';
         var cColor = document.getElementById('cal-cro-color').value || '#6366f1';
+        var cAvisoEl = document.getElementById('cal-cro-aviso');
+        var cAvisoRaw = cAvisoEl ? parseInt(cAvisoEl.value, 10) : CAL_AVISO_PREVIO_DEFAULT_MIN;
+        var cAviso = isNaN(cAvisoRaw) ? CAL_AVISO_PREVIO_DEFAULT_MIN : cAvisoRaw;
 
         if (!cTitulo) { alert('Ingresa el nombre de la actividad del cronograma.'); return; }
         var mIni = parseHoraAMinutos(cInicio);
@@ -2397,13 +2476,18 @@ function guardarNuevoEvento() {
             var diaUnico = parseInt(document.getElementById('cal-cro-dia').value, 10);
             var idxC = APP_STATE.cronogramaSemanal.findIndex(function(b) { return String(b.id) === String(editId); });
             if (idxC !== -1) {
-                APP_STATE.cronogramaSemanal[idxC] = Object.assign({}, APP_STATE.cronogramaSemanal[idxC], {
+                var oldCro = APP_STATE.cronogramaSemanal[idxC];
+                var cambioHoraCro = (oldCro.horaInicio !== cInicio || Number(oldCro.diaSemana) !== (isNaN(diaUnico) ? 0 : diaUnico) || obtenerMinutosAvisoPrevioCronograma(oldCro) !== cAviso);
+                APP_STATE.cronogramaSemanal[idxC] = Object.assign({}, oldCro, {
                     diaSemana: isNaN(diaUnico) ? 0 : diaUnico,
                     horaInicio: cInicio,
                     horaFin: cFin,
                     titulo: cTitulo,
                     etiqueta: cEtiqueta,
                     color: cColor,
+                    avisoPrevioMin: cAviso,
+                    avisoDisparadoFecha: cambioHoraCro ? null : (oldCro.avisoDisparadoFecha || null),
+                    avisoOkeyFecha: cambioHoraCro ? null : (oldCro.avisoOkeyFecha || null),
                     fechaActualizacion: ahora
                 });
             }
@@ -2426,6 +2510,9 @@ function guardarNuevoEvento() {
                     titulo: cTitulo,
                     etiqueta: cEtiqueta,
                     color: cColor,
+                    avisoPrevioMin: cAviso,
+                    avisoDisparadoFecha: null,
+                    avisoOkeyFecha: null,
                     timestamp: ahora,
                     fechaActualizacion: ahora
                 });
@@ -2507,8 +2594,16 @@ function eliminarBloqueCronograma(id) {
     APP_STATE.cronogramaSemanal = APP_STATE.cronogramaSemanal.filter(function(b) {
         return String(b.id) !== String(id);
     });
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        var hoyCl = _obtenerClaveHoyCalendario();
+        var mananaCl = sumarDiasAFechaStr(hoyCl, 1);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-cro-' + id + '-' + hoyCl);
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-cro-' + id + '-' + mananaCl);
+    }
     if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     renderizarCalendario();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
 }
 
 // ==========================================================================
@@ -2525,8 +2620,94 @@ function iniciarMotorRecordatoriosCalendario() {
     }, 5000);
 }
 
+function _obtenerOcurrenciasHorarioParaFecha(fechaStr) {
+    if (!window.APP_STATE || !fechaStr) return [];
+    var diaIdx = obtenerIndiceDiaSemana(fechaStr);
+    var eventosDia = obtenerEventosParaFecha(fechaStr).filter(function(ev) { return !ev.completado; });
+    var bloques = obtenerCronogramaParaDiaSemana(diaIdx);
+    var lista = [];
+    var tieneBloqueBoom08 = false;
+
+    bloques.forEach(function(b) {
+        if (!b || !b.horaInicio || !b.horaFin) return;
+        var rStart = parseHoraAMinutos(b.horaInicio);
+        var rEnd = parseHoraAMinutos(b.horaFin);
+        if (rStart === null || rEnd === null || rEnd <= rStart) return;
+        if (/boom/i.test(String(b.titulo || '')) && rStart >= 450 && rStart <= 510) {
+            tieneBloqueBoom08 = true;
+        }
+        var desplazado = eventosDia.some(function(ev) {
+            return typeof ev._startMin === 'number' && typeof ev._endMinRaw === 'number' && intervalosSolapan(rStart, rEnd, ev._startMin, ev._endMinRaw);
+        });
+        if (desplazado) return;
+
+        var avisoMin = obtenerMinutosAvisoPrevioCronograma(b);
+        var startMs = obtenerFechaHoraMs(fechaStr, b.horaInicio);
+        var endMs = obtenerFechaHoraMs(fechaStr, b.horaFin);
+        var alertMs = avisoMin > 0 ? (startMs - (avisoMin * 60000)) : NaN;
+        lista.push({
+            esBoom: false,
+            bloqueRef: b,
+            id: String(b.id),
+            fecha: fechaStr,
+            diaIdx: diaIdx,
+            titulo: b.titulo || 'Actividad de horario',
+            etiqueta: b.etiqueta || 'Horario',
+            horaInicio: b.horaInicio,
+            horaFin: b.horaFin,
+            color: b.color || '#6366f1',
+            avisoMin: avisoMin,
+            startMs: startMs,
+            endMs: endMs,
+            alertMs: alertMs,
+            yaOkey: String(b.avisoOkeyFecha || '') === fechaStr,
+            yaDisparado: String(b.avisoDisparadoFecha || '') === fechaStr
+        });
+    });
+
+    // Turno laboral Boom Solutions (08:00-16:30) si corresponde ese día y no hay ya un bloque Boom en Cronograma
+    if (!tieneBloqueBoom08) {
+        var boomData = obtenerInfoBoomParaDiaCal(fechaStr);
+        var bdi = boomData && boomData.diaInfo ? boomData.diaInfo : null;
+        if (bdi && (bdi.tipo === 'laborable' || bdi.tipo === 'sabado_trabajo') && !bdi.cumplido) {
+            var evCubreInicioBoom = eventosDia.some(function(ev) {
+                return typeof ev._startMin === 'number' && typeof ev._endMinRaw === 'number' && ev._startMin <= 480 && ev._endMinRaw > 480;
+            });
+            if (!evCubreInicioBoom) {
+                var regDia = (APP_STATE.registroDiarioCalendario && APP_STATE.registroDiarioCalendario[fechaStr])
+                    ? APP_STATE.registroDiarioCalendario[fechaStr]
+                    : null;
+                var boomStartMs = obtenerFechaHoraMs(fechaStr, '08:00');
+                var boomEndMs = obtenerFechaHoraMs(fechaStr, '16:30');
+                var boomAvisoMin = CAL_AVISO_PREVIO_DEFAULT_MIN;
+                lista.push({
+                    esBoom: true,
+                    bloqueRef: null,
+                    id: 'BOOM',
+                    fecha: fechaStr,
+                    diaIdx: diaIdx,
+                    titulo: 'Turno Boom Solutions',
+                    etiqueta: 'Trabajo',
+                    horaInicio: '08:00',
+                    horaFin: '16:30',
+                    color: '#6366f1',
+                    avisoMin: boomAvisoMin,
+                    startMs: boomStartMs,
+                    endMs: boomEndMs,
+                    alertMs: boomStartMs - (boomAvisoMin * 60000),
+                    yaOkey: Boolean(regDia && regDia.boomAvisoOkey),
+                    yaDisparado: Boolean(regDia && regDia.boomAvisoDisparado)
+                });
+            }
+        }
+    }
+
+    return lista;
+}
+
 function verificarDisparadoresCalendario() {
-    if (!window.APP_STATE || !Array.isArray(APP_STATE.calendario)) return;
+    if (!window.APP_STATE) return;
+    if (!Array.isArray(APP_STATE.calendario)) APP_STATE.calendario = [];
     var ahora = Date.now();
     var huboCambios = false;
     var nuevosRecordatoriosDisparados = [];
@@ -2550,13 +2731,14 @@ function verificarDisparadoresCalendario() {
             }
         }
 
-        // 2. Aviso previo de Eventos
-        if (item.tipo === 'evento' && !item.completado && !item.avisoDescartado && item.avisoPrevioMin > 0 && item.fecha && (item.horaInicio || item.hora)) {
+        // 2. Aviso previo de Eventos (predeterminado 30 min antes)
+        var avisoEvMin = (item.tipo === 'evento') ? obtenerMinutosAvisoPrevioEvento(item) : 0;
+        if (item.tipo === 'evento' && !item.completado && !item.avisoDescartado && avisoEvMin > 0 && item.fecha && (item.horaInicio || item.hora)) {
             var hIni = item.horaInicio || item.hora;
             var startMs = obtenerFechaHoraMs(item.fecha, hIni);
             var durMs = (parseInt(item.duracionMinutos, 10) || 60) * 60000;
             var endMs = startMs + durMs;
-            var alertMs = startMs - (Number(item.avisoPrevioMin) * 60000);
+            var alertMs = startMs - (avisoEvMin * 60000);
             if (!isNaN(startMs) && ahora >= alertMs && ahora <= endMs && (!item.avisoDisparadoParaTs || item.avisoDisparadoParaTs < alertMs)) {
                 item.avisoDisparadoParaTs = alertMs;
                 item.avisoDisparadoEn = ahora;
@@ -2564,10 +2746,37 @@ function verificarDisparadoresCalendario() {
                 huboCambios = true;
                 reproducirSonidoCalendario('tono_zen');
                 if (typeof mostrarToastMonarca === 'function') {
-                    mostrarToastMonarca('Evento próximo (' + hIni + '): ' + item.titulo, '📆');
+                    var infoEv = formatearAvisoAnticipadoEvento(startMs, ahora, false);
+                    mostrarToastMonarca(infoEv.prefijoTitulo + ' ' + item.titulo + ' (' + hIni + ')', '📆');
                 }
             }
         }
+    });
+
+    // 3. Aviso previo de Bloques del Horario Semanal y Turno Boom (media hora antes por defecto)
+    var hoyClave = _obtenerClaveHoyCalendario();
+    var mananaClave = sumarDiasAFechaStr(hoyClave, 1);
+    [hoyClave, mananaClave].forEach(function(fStr) {
+        _obtenerOcurrenciasHorarioParaFecha(fStr).forEach(function(oc) {
+            if (!oc || oc.yaOkey || oc.yaDisparado || oc.avisoMin <= 0) return;
+            if (isNaN(oc.startMs) || isNaN(oc.alertMs)) return;
+            if (ahora >= oc.alertMs && ahora <= oc.endMs) {
+                if (oc.esBoom) {
+                    if (!APP_STATE.registroDiarioCalendario) APP_STATE.registroDiarioCalendario = {};
+                    if (!APP_STATE.registroDiarioCalendario[fStr]) APP_STATE.registroDiarioCalendario[fStr] = {};
+                    APP_STATE.registroDiarioCalendario[fStr].boomAvisoDisparado = true;
+                } else if (oc.bloqueRef) {
+                    oc.bloqueRef.avisoDisparadoFecha = fStr;
+                    oc.bloqueRef.fechaActualizacion = ahora;
+                }
+                huboCambios = true;
+                reproducirSonidoCalendario('tono_zen');
+                if (typeof mostrarToastMonarca === 'function') {
+                    var infoHor = formatearAvisoAnticipadoEvento(oc.startMs, ahora, true);
+                    mostrarToastMonarca(infoHor.prefijoTitulo + ' ' + oc.titulo + ' (' + oc.horaInicio + ')', oc.esBoom ? '🚀' : '🗓️');
+                }
+            }
+        });
     });
 
     if (huboCambios) {
@@ -2737,11 +2946,12 @@ function verRecordatorioDesdePopup() {
 // ==========================================================================
 
 function obtenerAlertasCalendarioActivas() {
-    if (!window.APP_STATE || !Array.isArray(APP_STATE.calendario)) return [];
+    if (!window.APP_STATE) return [];
     var ahora = Date.now();
     var alertas = [];
+    var calLista = Array.isArray(APP_STATE.calendario) ? APP_STATE.calendario : [];
 
-    APP_STATE.calendario.forEach(function(raw) {
+    calLista.forEach(function(raw) {
         var item = normalizarItemCalendario(raw);
         if (!item) return;
 
@@ -2781,27 +2991,33 @@ function obtenerAlertasCalendarioActivas() {
             }
         }
 
-        // 2. Avisos previos de Eventos próximos o en curso
-        if (item.tipo === 'evento' && !item.completado && !item.avisoDescartado && item.avisoPrevioMin > 0 && item.fecha && item.horaInicio) {
+        // 2. Avisos previos de Eventos próximos o en curso (predeterminado 30 min antes)
+        var avisoEvMin = (item.tipo === 'evento') ? obtenerMinutosAvisoPrevioEvento(item) : 0;
+        if (item.tipo === 'evento' && !item.completado && !item.avisoDescartado && avisoEvMin > 0 && item.fecha && item.horaInicio) {
             var startMs = obtenerFechaHoraMs(item.fecha, item.horaInicio);
             var endMs = startMs + ((item.duracionMinutos || 60) * 60000);
-            var alertMs = startMs - (Number(item.avisoPrevioMin) * 60000);
+            var alertMs = startMs - (avisoEvMin * 60000);
             if (!isNaN(startMs) && ahora >= alertMs && ahora <= endMs) {
                 var badges = resolverBadgesVinculadosEvento(item.personaIds, item.grupoIds);
                 var vincTexto = badges.length > 0 ? (' · ' + badges.map(function(b) { return b.icono + ' ' + b.nombre; }).join(', ')) : '';
                 var safeEvId = String(item.id).replace(/'/g, "\\'");
                 var safeEvFecha = String(item.fecha).replace(/'/g, "\\'");
-                var enCurso = ahora >= startMs;
+                var tiempoInfo = formatearAvisoAnticipadoEvento(startMs, ahora, false);
+                var descEv = item.descripcion
+                    ? item.descripcion
+                    : (tiempoInfo.enCurso
+                        ? ('Tu evento programado está en curso (' + item.horaInicio + (item.horaFin ? '–' + item.horaFin : '') + ').')
+                        : ('Prepárate: inicia a las ' + item.horaInicio + (item.horaFin ? ' hasta las ' + item.horaFin : '') + '.'));
                 alertas.push({
                     id: 'alerta-cal-ev-' + item.id,
                     calId: item.id,
                     tipo: 'info',
                     icono: '📆',
-                    badge: enCurso ? 'Evento en Curso' : 'Evento Próximo',
-                    color: '#38bdf8',
-                    titulo: item.titulo || 'Evento',
+                    badge: tiempoInfo.badgeTiempo,
+                    color: item.color || '#38bdf8',
+                    titulo: tiempoInfo.prefijoTitulo + ' ' + (item.titulo || 'Evento'),
                     metaLinea: '🕒 ' + item.horaInicio + (item.horaFin ? '–' + item.horaFin : '') + ' · ' + formatearFechaLegibleCorta(item.fecha) + vincTexto,
-                    descripcion: item.descripcion || '',
+                    descripcion: descEv,
                     acciones: [
                         { tipo: 'primary', texto: '✓ Okey', fn: "descartarAvisoEventoCalendario('" + safeEvId + "')" },
                         { tipo: 'secondary', texto: '📅 Ver', fn: "cerrarCentroNotificaciones(); irAFechaEnCalendario('" + safeEvFecha + "', 'mes')" }
@@ -2819,6 +3035,78 @@ function obtenerAlertasCalendarioActivas() {
         }
     });
 
+    // 3. Avisos previos (media hora antes) de tu Horario Semanal (Cronograma Base) y Turno Boom
+    var hoyClave = _obtenerClaveHoyCalendario();
+    var mananaClave = sumarDiasAFechaStr(hoyClave, 1);
+    [hoyClave, mananaClave].forEach(function(fStr) {
+        _obtenerOcurrenciasHorarioParaFecha(fStr).forEach(function(oc) {
+            if (!oc || oc.yaOkey || oc.avisoMin <= 0) return;
+            if (isNaN(oc.startMs) || isNaN(oc.alertMs)) return;
+            if (ahora >= oc.alertMs && ahora <= oc.endMs) {
+                var tiempoHor = formatearAvisoAnticipadoEvento(oc.startMs, ahora, true);
+                var safeFStr = String(fStr).replace(/'/g, "\\'");
+                if (oc.esBoom) {
+                    var boomAlertId = 'alerta-cal-boom-' + fStr;
+                    alertas.push({
+                        id: boomAlertId,
+                        calBoomFecha: fStr,
+                        tipo: 'horario',
+                        icono: '🚀',
+                        badge: tiempoHor.badgeTiempo,
+                        color: '#6366f1',
+                        titulo: tiempoHor.prefijoTitulo + ' ' + oc.titulo,
+                        metaLinea: '💼 Horario Laboral · 🕒 ' + oc.horaInicio + '–' + oc.horaFin + ' · ' + formatearFechaLegibleCorta(fStr),
+                        descripcion: tiempoHor.enCurso
+                            ? 'Tu turno laboral en Boom Solutions ya inició.'
+                            : 'Tu jornada de 8.0h en Boom Solutions comienza a las ' + oc.horaInicio + '.',
+                        acciones: [
+                            { tipo: 'primary', texto: '✓ Okey', fn: "confirmarOkeyAvisoBoom('" + safeFStr + "')" },
+                            { tipo: 'secondary', texto: '🗓️ Ver Horario', fn: "cerrarCentroNotificaciones(); irAFechaEnCalendario('" + safeFStr + "', 'semana')" }
+                        ],
+                        _sortTs: oc.startMs,
+                        _dispatchKey: boomAlertId + '@' + oc.alertMs,
+                        _phoneMeta: {
+                            monarcaAlertId: boomAlertId,
+                            monarcaAlertTipo: 'cal-boom',
+                            fechaClave: fStr,
+                            alertMs: oc.alertMs
+                        }
+                    });
+                } else {
+                    var croAlertId = 'alerta-cal-cro-' + oc.id + '-' + fStr;
+                    var safeCroId = String(oc.id).replace(/'/g, "\\'");
+                    alertas.push({
+                        id: croAlertId,
+                        calCroId: String(oc.id),
+                        calCroFecha: fStr,
+                        tipo: 'horario',
+                        icono: '🗓️',
+                        badge: tiempoHor.badgeTiempo,
+                        color: oc.color || '#818cf8',
+                        titulo: tiempoHor.prefijoTitulo + ' ' + oc.titulo,
+                        metaLinea: '🕒 ' + oc.horaInicio + '–' + oc.horaFin + ' · ' + (oc.etiqueta || 'Horario') + ' · ' + DIAS_SEMANA_NOMBRES[oc.diaIdx],
+                        descripcion: tiempoHor.enCurso
+                            ? ('Bloque de tu horario en curso hasta las ' + oc.horaFin + '.')
+                            : ('Tienes este evento de tu horario a las ' + oc.horaInicio + ' (hasta las ' + oc.horaFin + ').'),
+                        acciones: [
+                            { tipo: 'primary', texto: '✓ Okey', fn: "confirmarOkeyAvisoCronograma('" + safeCroId + "', '" + safeFStr + "')" },
+                            { tipo: 'secondary', texto: '🗓️ Ver Horario', fn: "cerrarCentroNotificaciones(); irAFechaEnCalendario('" + safeFStr + "', 'semana')" }
+                        ],
+                        _sortTs: oc.startMs,
+                        _dispatchKey: croAlertId + '@' + oc.alertMs,
+                        _phoneMeta: {
+                            monarcaAlertId: croAlertId,
+                            monarcaAlertTipo: 'cal-cro',
+                            calCroId: String(oc.id),
+                            fechaClave: fStr,
+                            alertMs: oc.alertMs
+                        }
+                    });
+                }
+            }
+        });
+    });
+
     alertas.sort(function(a, b) {
         return (a._sortTs || 0) - (b._sortTs || 0);
     });
@@ -2826,25 +3114,73 @@ function obtenerAlertasCalendarioActivas() {
 }
 
 function obtenerProximosRecordatoriosHoy() {
-    if (!window.APP_STATE || !Array.isArray(APP_STATE.calendario)) return [];
-    var hoy = (typeof obtenerClaveFechaLocal === 'function')
-        ? obtenerClaveFechaLocal()
-        : formatearClaveFecha(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    if (!window.APP_STATE) return [];
+    var hoy = _obtenerClaveHoyCalendario();
     var ahora = Date.now();
-    return obtenerRecordatoriosParaFecha(hoy).filter(function(r) {
-        if (r.completado) return false;
+    var lista = [];
+
+    // 1. Recordatorios pendientes más tarde hoy
+    obtenerRecordatoriosParaFecha(hoy).forEach(function(r) {
+        if (r.completado) return;
         var targetMs = obtenerFechaHoraMs(r.fecha, r.hora);
         var dueMs = (r.pospuestoHasta && r.pospuestoHasta > targetMs) ? r.pospuestoHasta : targetMs;
-        return !isNaN(dueMs) && dueMs > ahora;
-    }).map(function(r) {
-        var per = resolverPersonaPorId(r.personaId, r.personaNombre);
-        return {
-            id: r.id,
-            hora: r.hora,
-            titulo: r.titulo,
-            personaNombre: per ? per.nombre : ''
-        };
+        if (!isNaN(dueMs) && dueMs > ahora) {
+            var per = resolverPersonaPorId(r.personaId, r.personaNombre);
+            lista.push({
+                id: r.id,
+                tipo: 'recordatorio',
+                icono: '🔔',
+                hora: r.hora,
+                titulo: r.titulo,
+                personaNombre: per ? per.nombre : '',
+                etiquetaAviso: 'Hora exacta',
+                _sortTs: dueMs
+            });
+        }
     });
+
+    // 2. Eventos de hoy cuyo aviso previo aún no se activa
+    obtenerEventosParaFecha(hoy).forEach(function(ev) {
+        if (ev.completado || ev.avisoDescartado || !ev.horaInicio) return;
+        var startMs = obtenerFechaHoraMs(ev.fecha, ev.horaInicio);
+        var avisoMin = obtenerMinutosAvisoPrevioEvento(ev);
+        var alertMs = avisoMin > 0 ? (startMs - avisoMin * 60000) : startMs;
+        if (!isNaN(startMs) && alertMs > ahora) {
+            lista.push({
+                id: ev.id,
+                tipo: 'evento',
+                icono: '📆',
+                hora: ev.horaInicio + (ev.horaFin ? '–' + ev.horaFin : ''),
+                titulo: ev.titulo,
+                personaNombre: '',
+                etiquetaAviso: avisoMin > 0 ? ('⏰ Aviso ' + avisoMin + 'm antes') : 'Sin aviso',
+                _sortTs: startMs
+            });
+        }
+    });
+
+    // 3. Bloques de tu Horario Semanal y Boom que siguen más tarde hoy
+    _obtenerOcurrenciasHorarioParaFecha(hoy).forEach(function(oc) {
+        if (!oc || oc.yaOkey || isNaN(oc.startMs)) return;
+        var umbral = (oc.avisoMin > 0 && !isNaN(oc.alertMs)) ? oc.alertMs : oc.startMs;
+        if (umbral > ahora) {
+            lista.push({
+                id: oc.id,
+                tipo: 'horario',
+                icono: oc.esBoom ? '🚀' : '🗓️',
+                hora: oc.horaInicio + '–' + oc.horaFin,
+                titulo: oc.titulo,
+                personaNombre: oc.etiqueta ? ('Tu horario · ' + oc.etiqueta) : 'Tu horario',
+                etiquetaAviso: oc.avisoMin > 0 ? ('⏰ Aviso ' + oc.avisoMin + 'm antes') : 'Sin aviso',
+                _sortTs: oc.startMs
+            });
+        }
+    });
+
+    lista.sort(function(a, b) {
+        return (a._sortTs || 0) - (b._sortTs || 0);
+    });
+    return lista;
 }
 
 function confirmarOkeyRecordatorioCalendario(id, dueMsOpcional) {
@@ -2896,17 +3232,52 @@ function descartarAvisoEventoCalendario(id) {
     if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
 }
 
+function confirmarOkeyAvisoCronograma(bloqueId, fechaClave) {
+    var fClave = String(fechaClave || _obtenerClaveHoyCalendario());
+    if (window.APP_STATE && Array.isArray(APP_STATE.cronogramaSemanal)) {
+        var b = APP_STATE.cronogramaSemanal.find(function(item) { return item && String(item.id) === String(bloqueId); });
+        if (b) {
+            b.avisoOkeyFecha = fClave;
+            b.avisoDisparadoFecha = fClave;
+            b.fechaActualizacion = Date.now();
+            if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+        }
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-cro-' + bloqueId + '-' + fClave);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+function confirmarOkeyAvisoBoom(fechaClave) {
+    var fClave = String(fechaClave || _obtenerClaveHoyCalendario());
+    if (window.APP_STATE) {
+        if (!APP_STATE.registroDiarioCalendario) APP_STATE.registroDiarioCalendario = {};
+        if (!APP_STATE.registroDiarioCalendario[fClave]) APP_STATE.registroDiarioCalendario[fClave] = {};
+        APP_STATE.registroDiarioCalendario[fClave].boomAvisoOkey = true;
+        APP_STATE.registroDiarioCalendario[fClave].boomAvisoDisparado = true;
+        if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
+    }
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-cal-boom-' + fClave);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
 function programarAlarmasCalendarioNativas() {
     try {
         var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
         var ln = plugins ? plugins.LocalNotifications : null;
-        if (!ln || typeof ln.schedule !== 'function' || !window.APP_STATE || !Array.isArray(APP_STATE.calendario)) return;
+        if (!ln || typeof ln.schedule !== 'function' || !window.APP_STATE) return;
 
         var ahora = Date.now();
         var notifs = [];
         var futurasMeta = [];
+        var calLista = Array.isArray(APP_STATE.calendario) ? APP_STATE.calendario : [];
 
-        APP_STATE.calendario.forEach(function(raw) {
+        calLista.forEach(function(raw) {
             var item = normalizarItemCalendario(raw);
             if (!item || item.completado) return;
 
@@ -2940,21 +3311,24 @@ function programarAlarmasCalendarioNativas() {
                     });
                     futurasMeta.push({ dispatchKey: dispatchRecKey, idNum: numRecId, futureAt: dueMs });
                 }
-            } else if (item.tipo === 'evento' && !item.avisoDescartado && item.avisoPrevioMin > 0 && item.fecha && (item.horaInicio || item.hora)) {
+            } else if (item.tipo === 'evento' && !item.avisoDescartado && item.fecha && (item.horaInicio || item.hora)) {
+                var avisoMin = obtenerMinutosAvisoPrevioEvento(item);
+                if (avisoMin <= 0) return;
                 var hIni = item.horaInicio || item.hora;
                 var startMs = obtenerFechaHoraMs(item.fecha, hIni);
-                var alertMs = startMs - (Number(item.avisoPrevioMin) * 60000);
+                var alertMs = startMs - (avisoMin * 60000);
                 if (!isNaN(startMs) && !isNaN(alertMs) && alertMs > ahora + 3000) {
                     var alertEvId = 'alerta-cal-ev-' + item.id;
                     var numEvId = (typeof window.obtenerIdNumericoNotifMonarca === 'function')
                         ? window.obtenerIdNumericoNotifMonarca(alertEvId)
                         : (80000 + Math.abs(String(item.id).split('').reduce(function(acc, ch) { return ((acc * 31) + ch.charCodeAt(0)) % 10000; }, 0)));
                     var dispatchEvKey = alertEvId + '@' + alertMs;
+                    var antTxt = formatearTextoAnticipacionMin(avisoMin);
 
                     notifs.push({
                         id: numEvId,
-                        title: '📆 Próximo evento: ' + (item.titulo || 'Evento'),
-                        body: 'Inicia a las ' + hIni + (item.descripcion ? ' · ' + item.descripcion : ''),
+                        title: '⏰ En ' + antTxt + ': ' + (item.titulo || 'Evento'),
+                        body: 'Tienes "' + (item.titulo || 'Evento') + '" a las ' + hIni + (item.horaFin ? '–' + item.horaFin : '') + (item.descripcion ? ' · ' + item.descripcion : ''),
                         schedule: { at: new Date(alertMs), allowWhileIdle: true },
                         channelId: 'monarca_alerts_channel',
                         actionTypeId: 'MONARCA_ALERT_OKEY',
@@ -2970,6 +3344,43 @@ function programarAlarmasCalendarioNativas() {
                     futurasMeta.push({ dispatchKey: dispatchEvKey, idNum: numEvId, futureAt: alertMs });
                 }
             }
+        });
+
+        // Programar alarmas nativas (hoy y mañana) para los bloques del Horario Semanal y Boom Solutions
+        var hoyClave = _obtenerClaveHoyCalendario();
+        var mananaClave = sumarDiasAFechaStr(hoyClave, 1);
+        [hoyClave, mananaClave].forEach(function(fStr) {
+            _obtenerOcurrenciasHorarioParaFecha(fStr).forEach(function(oc) {
+                if (!oc || oc.yaOkey || oc.avisoMin <= 0) return;
+                if (isNaN(oc.alertMs) || oc.alertMs <= ahora + 3000) return;
+                var antHorTxt = formatearTextoAnticipacionMin(oc.avisoMin);
+                var alertHorId = oc.esBoom
+                    ? ('alerta-cal-boom-' + fStr)
+                    : ('alerta-cal-cro-' + oc.id + '-' + fStr);
+                var numHorId = (typeof window.obtenerIdNumericoNotifMonarca === 'function')
+                    ? window.obtenerIdNumericoNotifMonarca(alertHorId)
+                    : (90000 + Math.abs(alertHorId.split('').reduce(function(acc, ch) { return ((acc * 31) + ch.charCodeAt(0)) % 9000; }, 0)));
+                var dispatchHorKey = alertHorId + '@' + oc.alertMs;
+
+                notifs.push({
+                    id: numHorId,
+                    title: (oc.esBoom ? '🚀 En ' : '🗓️ En ') + antHorTxt + ': ' + oc.titulo,
+                    body: 'En tu horario (' + oc.horaInicio + '–' + oc.horaFin + ') · ' + (oc.etiqueta || 'Rutina'),
+                    schedule: { at: new Date(oc.alertMs), allowWhileIdle: true },
+                    channelId: 'monarca_alerts_channel',
+                    actionTypeId: 'MONARCA_ALERT_OKEY',
+                    autoCancel: true,
+                    extra: {
+                        monarcaAlertId: alertHorId,
+                        monarcaAlertTipo: oc.esBoom ? 'cal-boom' : 'cal-cro',
+                        calCroId: oc.esBoom ? null : String(oc.id),
+                        fechaClave: fStr,
+                        alertMs: oc.alertMs,
+                        dispatchKey: dispatchHorKey
+                    }
+                });
+                futurasMeta.push({ dispatchKey: dispatchHorKey, idNum: numHorId, futureAt: oc.alertMs });
+            });
         });
 
         if (notifs.length > 0) {
@@ -2992,3 +3403,10 @@ function programarAlarmasCalendarioNativas() {
 window.crearGuardarRecordatorioCalendario = crearGuardarRecordatorioCalendario;
 window.refrescarSelectoresPersonasCalendario = refrescarSelectoresPersonasCalendario;
 window.confirmarOkeyRecordatorioCalendario = confirmarOkeyRecordatorioCalendario;
+window.descartarAvisoEventoCalendario = descartarAvisoEventoCalendario;
+window.confirmarOkeyAvisoCronograma = confirmarOkeyAvisoCronograma;
+window.confirmarOkeyAvisoBoom = confirmarOkeyAvisoBoom;
+window.obtenerAlertasCalendarioActivas = obtenerAlertasCalendarioActivas;
+window.obtenerProximosRecordatoriosHoy = obtenerProximosRecordatoriosHoy;
+window.verificarDisparadoresCalendario = verificarDisparadoresCalendario;
+window.programarAlarmasCalendarioNativas = programarAlarmasCalendarioNativas;

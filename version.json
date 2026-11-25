@@ -1,5 +1,5 @@
 {
-  "version": "11.17",
+  "version": "11.18",
   "fecha": "2026-11-24",
-  "resumen": "Monitoreo Preciso de Antigravity, Resúmenes Desplegables en Hechas y Colores de Perfil v11.17: En Perfil ahora ves en vivo qué fase ejecuta Antigravity (Analizar → Programar → Probar → Publicar), el porcentaje de progreso, la acción exacta, los archivos modificados, una bitácora desplegable y cero falsas alertas de 'sin latido'; todos los colores de Perfil pasan a Dark Glass; y cada solicitud completada en Ideas → Hechas incluye una barra desplegable con el resumen completo de Antigravity."
+  "resumen": "Alertas de Eventos y Horario 30 Minutos Antes v11.18: El Centro de Notificaciones y las alarmas nativas del teléfono ahora te avisan automáticamente media hora antes de cada Evento del Calendario, bloque de tu Horario Semanal (Cronograma) y turno laboral (ej. 'En media hora en tu horario: Gimnasio Fuerza'), con vista previa de próximos bloques del día, selector personalizable (30 min por defecto) y corrección de duplicados en alertas de Auto-PC."
 }
