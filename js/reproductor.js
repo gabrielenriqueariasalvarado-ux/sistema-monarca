@@ -2573,13 +2573,216 @@
         reproducirMetaCancion(lista[anteriorIdx], anteriorIdx);
     }
 
-    function cambiarSeek(porcentaje) {
+    function actualizarVisualSeek(porcentaje, previewSegundos) {
+        var pct = Math.max(0, Math.min(100, Number(porcentaje) || 0));
         var slider = document.getElementById('player-seek-slider');
         if (slider) {
-            slider.style.setProperty('--seek-pct', (Number(porcentaje) || 0).toFixed(1) + '%');
+            slider.style.setProperty('--seek-pct', pct.toFixed(2) + '%');
+            slider.setAttribute('aria-valuenow', String(Math.round(pct)));
+            if (slider.tagName === 'INPUT') {
+                slider.value = pct;
+            }
         }
-        if (!state.audio.duration || isNaN(state.audio.duration)) return;
-        state.audio.currentTime = (porcentaje / 100) * state.audio.duration;
+        var tooltip = document.getElementById('player-seek-tooltip');
+        if (tooltip && typeof previewSegundos === 'number' && !isNaN(previewSegundos)) {
+            tooltip.textContent = formatearTiempo(previewSegundos);
+        }
+        if (typeof previewSegundos === 'number' && !isNaN(previewSegundos)) {
+            var elCur = document.getElementById('player-time-current');
+            if (elCur) elCur.textContent = formatearTiempo(previewSegundos);
+        }
+    }
+
+    function cambiarSeek(porcentaje) {
+        var pct = Math.max(0, Math.min(100, Number(porcentaje) || 0));
+        var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+        var targetSec = dur > 0 ? (pct / 100) * dur : 0;
+        actualizarVisualSeek(pct, dur > 0 ? targetSec : undefined);
+        if (dur <= 0) return;
+        state.audio.currentTime = targetSec;
+        actualizarPositionStateMediaSession();
+    }
+
+    function initScrubberAntiAccidente() {
+        var slider = document.getElementById('player-seek-slider');
+        if (!slider || slider.dataset.antiAccidenteBound === '1') return;
+        slider.dataset.antiAccidenteBound = '1';
+
+        var scrub = {
+            activo: false,
+            pendiente: false,
+            pointerId: null,
+            pointerType: '',
+            startX: 0,
+            startY: 0,
+            startPct: 0,
+            previewPct: 0,
+            empezoEnThumb: false,
+            longPressTimer: null
+        };
+        state._scrub = scrub;
+
+        var limpiarTimer = function() {
+            if (scrub.longPressTimer) {
+                clearTimeout(scrub.longPressTimer);
+                scrub.longPressTimer = null;
+            }
+        };
+
+        var calcularPctDesdeX = function(clientX) {
+            var rect = slider.getBoundingClientRect();
+            if (!rect || rect.width <= 0) return scrub.startPct;
+            var ratio = (clientX - rect.left) / rect.width;
+            return Math.max(0, Math.min(100, ratio * 100));
+        };
+
+        var activarScrubbing = function(pctInicial) {
+            limpiarTimer();
+            if (scrub.activo) return;
+            scrub.activo = true;
+            scrub.previewPct = Math.max(0, Math.min(100, pctInicial));
+            slider.classList.add('is-scrubbing');
+            try {
+                if (scrub.pointerId !== null && typeof slider.setPointerCapture === 'function') {
+                    slider.setPointerCapture(scrub.pointerId);
+                }
+            } catch (e) {}
+            try {
+                if (scrub.pointerType === 'touch' && navigator.vibrate) {
+                    navigator.vibrate(10);
+                }
+            } catch (e) {}
+            var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+            actualizarVisualSeek(scrub.previewPct, dur > 0 ? (scrub.previewPct / 100) * dur : 0);
+        };
+
+        var cancelarScrubbing = function(restaurarVisual) {
+            limpiarTimer();
+            var estabaActivo = scrub.activo;
+            scrub.activo = false;
+            scrub.pendiente = false;
+            try {
+                if (scrub.pointerId !== null && typeof slider.releasePointerCapture === 'function') {
+                    slider.releasePointerCapture(scrub.pointerId);
+                }
+            } catch (e) {}
+            scrub.pointerId = null;
+            slider.classList.remove('is-scrubbing');
+            if (restaurarVisual && estabaActivo) {
+                var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+                var cur = (state.audio && state.audio.currentTime) ? state.audio.currentTime : 0;
+                var realPct = dur > 0 ? (cur / dur) * 100 : 0;
+                actualizarVisualSeek(realPct, cur);
+            }
+        };
+
+        slider.addEventListener('pointerdown', function(e) {
+            if (e.button && e.button !== 0) return;
+            var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+            if (dur <= 0) return;
+
+            limpiarTimer();
+            var cur = (state.audio && state.audio.currentTime) ? state.audio.currentTime : 0;
+            var pctActual = (cur / dur) * 100;
+            var rect = slider.getBoundingClientRect();
+            var thumbX = rect.left + (pctActual / 100) * rect.width;
+
+            scrub.pendiente = true;
+            scrub.activo = false;
+            scrub.pointerId = e.pointerId;
+            scrub.pointerType = e.pointerType || 'touch';
+            scrub.startX = e.clientX;
+            scrub.startY = e.clientY;
+            scrub.startPct = pctActual;
+            scrub.previewPct = pctActual;
+            scrub.empezoEnThumb = Math.abs(e.clientX - thumbX) <= 28;
+
+            if (scrub.pointerType === 'mouse') {
+                e.preventDefault();
+                activarScrubbing(calcularPctDesdeX(e.clientX));
+                return;
+            }
+
+            // En pantalla táctil: jamás salta con un toque accidental ni al deslizar verticalmente.
+            // Solo activa el avance/retroceso al arrastrar horizontalmente de forma intencional
+            // o al mantener presionado (~260ms) sobre el punto deseado.
+            var startClientX = e.clientX;
+            scrub.longPressTimer = setTimeout(function() {
+                if (!scrub.pendiente || scrub.activo) return;
+                activarScrubbing(scrub.empezoEnThumb ? scrub.startPct : calcularPctDesdeX(startClientX));
+            }, 260);
+        });
+
+        slider.addEventListener('pointermove', function(e) {
+            if (!scrub.pendiente || (scrub.pointerId !== null && e.pointerId !== scrub.pointerId)) return;
+            var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+            if (dur <= 0) {
+                cancelarScrubbing(false);
+                return;
+            }
+
+            var dx = e.clientX - scrub.startX;
+            var dy = e.clientY - scrub.startY;
+            var absDx = Math.abs(dx);
+            var absDy = Math.abs(dy);
+
+            if (!scrub.activo) {
+                // Si el usuario está haciendo scroll vertical hacia la biblioteca, cancelar de inmediato
+                if (absDy > 8 && absDy >= absDx * 0.9) {
+                    cancelarScrubbing(false);
+                    return;
+                }
+                // Umbral horizontal anti-roce (10px desde el punto blanco, 16px desde cualquier punto de la barra)
+                var umbralHorizontal = scrub.empezoEnThumb ? 10 : 16;
+                if (absDx >= umbralHorizontal && absDx > absDy * 1.35) {
+                    var rect0 = slider.getBoundingClientRect();
+                    var pctIni = scrub.empezoEnThumb
+                        ? (scrub.startPct + (dx / Math.max(1, rect0.width)) * 100)
+                        : calcularPctDesdeX(e.clientX);
+                    activarScrubbing(pctIni);
+                } else {
+                    return;
+                }
+            }
+
+            if (scrub.activo) {
+                if (e.cancelable) e.preventDefault();
+                var rect = slider.getBoundingClientRect();
+                var nuevoPct = scrub.empezoEnThumb
+                    ? (scrub.startPct + (dx / Math.max(1, rect.width)) * 100)
+                    : calcularPctDesdeX(e.clientX);
+                scrub.previewPct = Math.max(0, Math.min(100, nuevoPct));
+                actualizarVisualSeek(scrub.previewPct, (scrub.previewPct / 100) * dur);
+            }
+        });
+
+        slider.addEventListener('pointerup', function(e) {
+            if (!scrub.pendiente || (scrub.pointerId !== null && e.pointerId !== scrub.pointerId)) return;
+            var confirmar = scrub.activo;
+            var pctFinal = scrub.previewPct;
+            cancelarScrubbing(false);
+            if (confirmar) {
+                cambiarSeek(pctFinal);
+            }
+        });
+
+        slider.addEventListener('pointercancel', function(e) {
+            if (scrub.pointerId !== null && e.pointerId !== scrub.pointerId) return;
+            cancelarScrubbing(true);
+        });
+
+        slider.addEventListener('keydown', function(e) {
+            var dur = (state.audio && state.audio.duration && !isNaN(state.audio.duration)) ? state.audio.duration : 0;
+            if (dur <= 0) return;
+            var cur = state.audio.currentTime || 0;
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                cambiarSeek(Math.min(100, ((cur + 5) / dur) * 100));
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                cambiarSeek(Math.max(0, ((cur - 5) / dur) * 100));
+            }
+        });
     }
 
     function cambiarVolumen(val) {
@@ -2975,15 +3178,10 @@
             var dur = state.audio.duration || 0;
             var pct = dur > 0 ? (cur / dur) * 100 : 0;
 
-            var slider = document.getElementById('player-seek-slider');
-            if (slider) {
-                slider.style.setProperty('--seek-pct', pct.toFixed(1) + '%');
-                if (!slider.matches(':active')) {
-                    slider.value = pct;
-                }
+            var estaArrastrandoSeek = !!(state._scrub && state._scrub.activo);
+            if (!estaArrastrandoSeek) {
+                actualizarVisualSeek(pct, cur);
             }
-            var elCur = document.getElementById('player-time-current');
-            if (elCur) elCur.textContent = formatearTiempo(cur);
             var elDur = document.getElementById('player-time-duration');
             if (elDur) elDur.textContent = formatearTiempo(dur);
 
@@ -4626,6 +4824,7 @@
         if (!state._listenersBound) {
             state._listenersBound = true;
             initAudioListeners();
+            initScrubberAntiAccidente();
             initMediaSession();
             initMonitorDesconexionAudifonos();
         }

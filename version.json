@@ -1,5 +1,5 @@
 {
-  "version": "11.15",
+  "version": "11.16",
   "fecha": "2026-11-24",
-  "resumen": "Ruleta Conectada a tus Playlists + Pulido Finanzas v11.15: La categoría Música de la Ruleta de Variabilidad ahora trabaja en tiempo real con las Listas de Reproducción de tu Reproductor MP3 (con reproducción directa ▶️ y opción de activar/omitir listas sin borrarlas), además de gráfica 50/40/10 con respaldo Canvas 2D offline y pulido móvil de Movimientos y Cola de Pagos en Finanzas."
+  "resumen": "Barra de Reproducción Anti-Toques Accidentales v11.16: En el Reproductor MP3, la barra de progreso ya no adelanta ni retrasa la canción al rozarla o hacer scroll vertical; ahora exige un arrastre horizontal intencional (o mantener presionado 0.26s), muestra una burbuja con el minuto exacto antes de soltar y aplica el cambio suavemente al levantar el dedo."
 }
