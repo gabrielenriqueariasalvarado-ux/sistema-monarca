@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.23">
+    <link rel="stylesheet" href="style.css?v=11.24">
 </head>
 <body>
 
@@ -1206,11 +1206,12 @@
                         </div>
                         <span style="font-size: 10.5px; color: #94a3b8;">Aparecerá automáticamente entre cada serie al marcarla hecha</span>
                     </div>
-                    <div style="display: flex; gap: 5px;">
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <button type="button" class="btn-rest-quick" id="btn-rest-30" onclick="seleccionarTiempoDescanso(30)">30s</button>
-                        <button type="button" class="btn-rest-quick active" id="btn-rest-60" onclick="seleccionarTiempoDescanso(60)">60s</button>
+                        <button type="button" class="btn-rest-quick" id="btn-rest-60" onclick="seleccionarTiempoDescanso(60)">60s</button>
                         <button type="button" class="btn-rest-quick" id="btn-rest-90" onclick="seleccionarTiempoDescanso(90)">90s</button>
-                        <button type="button" class="btn-rest-quick" id="btn-rest-120" onclick="seleccionarTiempoDescanso(120)">120s</button>
+                        <button type="button" class="btn-rest-quick" id="btn-rest-120" onclick="seleccionarTiempoDescanso(120)">2m</button>
+                        <button type="button" class="btn-rest-quick active" id="btn-rest-180" onclick="seleccionarTiempoDescanso(180)">3m</button>
                     </div>
                 </div>
             </div>
@@ -7382,26 +7383,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.23"></script>
-    <script src="js/perfil.js?v=11.23"></script>
-    <script src="js/progresion.js?v=11.23"></script>
-    <script src="js/estado-personal.js?v=11.23"></script>
-    <script src="js/finanzas.js?v=11.23"></script>
-    <script src="js/ideas.js?v=11.23"></script>
-    <script src="js/dinamicas.js?v=11.23"></script>
-    <script src="js/calendario.js?v=11.23"></script>
-    <script src="js/inventario.js?v=11.23"></script>
-    <script src="js/reproductor.js?v=11.23"></script>
-    <script src="js/jarvis-voz.js?v=11.23"></script>
+    <script src="js/core.js?v=11.24"></script>
+    <script src="js/perfil.js?v=11.24"></script>
+    <script src="js/progresion.js?v=11.24"></script>
+    <script src="js/estado-personal.js?v=11.24"></script>
+    <script src="js/finanzas.js?v=11.24"></script>
+    <script src="js/ideas.js?v=11.24"></script>
+    <script src="js/dinamicas.js?v=11.24"></script>
+    <script src="js/calendario.js?v=11.24"></script>
+    <script src="js/inventario.js?v=11.24"></script>
+    <script src="js/reproductor.js?v=11.24"></script>
+    <script src="js/jarvis-voz.js?v=11.24"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.23"></script>
+    <script type="module" src="js/firebase-config.js?v=11.24"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.23')
+                navigator.serviceWorker.register('sw.js?v=11.24')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

@@ -5630,16 +5630,23 @@ function cerrarModalDetalleEjercicio() {
     if (modal) modal.style.display = 'none';
 }
 
-// --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER + PANTALLA APAGADA v11.07) ---
+// --- ASISTENTE DE GIMNASIO: DESCANSO ENTRE SERIES (REST TIMER + PANTALLA APAGADA v11.24 · 3 MIN) ---
 
-var MONARCA_REST_PREF_KEY = 'monarca_rest_tiempo_default';
+var MONARCA_REST_DEFAULT_SEG = 180;
+var MONARCA_REST_PREF_KEY = 'monarca_rest_tiempo_default_v2';
 var TIEMPO_DESCANSO_SELECCIONADO = (function() {
     try {
         var v = parseInt(localStorage.getItem(MONARCA_REST_PREF_KEY), 10);
-        if ([30, 60, 90, 120].indexOf(v) !== -1) return v;
+        if ([30, 60, 90, 120, 180].indexOf(v) !== -1) return v;
     } catch (e) {}
-    return 60;
+    return MONARCA_REST_DEFAULT_SEG;
 })();
+
+function _formatearEtiquetaDescanso(segs) {
+    var n = Math.max(1, parseInt(segs, 10) || MONARCA_REST_DEFAULT_SEG);
+    if (n >= 120 && n % 60 === 0) return (n / 60) + ' min';
+    return n + 's';
+}
 var MONARCA_REST_NOTIF_ID = 77790;
 var MONARCA_REST_CHANNEL_ID = 'monarca_rest_timer_channel_v1';
 var _MONARCA_REST_BRIDGE_INIT = false;
@@ -5712,12 +5719,12 @@ function programarNotificacionDescansoGym(finTimestampMs, duracionSegs) {
     inicializarPuenteDescansoGymNativo();
     _asegurarPermisoNotifDescansoGym();
 
-    var segs = Math.max(1, parseInt(duracionSegs, 10) || 60);
+    var segs = Math.max(1, parseInt(duracionSegs, 10) || MONARCA_REST_DEFAULT_SEG);
     var rutinaNombre = (window.RUTINA_ACTIVA && window.RUTINA_ACTIVA.rutina && window.RUTINA_ACTIVA.rutina.nombre)
         ? String(window.RUTINA_ACTIVA.rutina.nombre).trim()
         : '';
     var titulo = '⏱️ ¡Descanso terminado! ¡A entrenar!';
-    var cuerpo = 'Finalizó tu descanso de ' + segs + 's' + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
+    var cuerpo = 'Finalizó tu descanso de ' + _formatearEtiquetaDescanso(segs) + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
 
     var p = _obtenerPluginsNativosDescansoGym();
 
@@ -5834,7 +5841,7 @@ function _notificarWebFinDescansoGym(duracionSegs) {
         ? String(window.RUTINA_ACTIVA.rutina.nombre).trim()
         : '';
     var titulo = '⏱️ ¡Descanso terminado! ¡A entrenar!';
-    var cuerpo = 'Finalizó tu descanso de ' + (duracionSegs || 60) + 's' + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
+    var cuerpo = 'Finalizó tu descanso de ' + _formatearEtiquetaDescanso(duracionSegs || MONARCA_REST_DEFAULT_SEG) + (rutinaNombre ? (' · ' + rutinaNombre) : '') + ' — ¡Siguiente serie lista!';
 
     try {
         if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -5858,7 +5865,7 @@ function _notificarWebFinDescansoGym(duracionSegs) {
 }
 
 function _sincronizarBotonesPresetDescanso() {
-    var botones = [30, 60, 90, 120];
+    var botones = [30, 60, 90, 120, 180];
     botones.forEach(function(s) {
         var b = document.getElementById('btn-rest-' + s);
         if (b) b.classList.toggle('active', s === TIEMPO_DESCANSO_SELECCIONADO);
@@ -6006,7 +6013,7 @@ function _construirElementoRestTimerInline() {
                 '<span class="gym-rest-inline-icon" id="rest-timer-icon">⏱️</span>' +
                 '<div class="gym-rest-inline-copy">' +
                     '<div class="gym-rest-inline-headline">' +
-                        '<span id="rest-timer-num" class="gym-rest-inline-num">01:00</span>' +
+                        '<span id="rest-timer-num" class="gym-rest-inline-num">03:00</span>' +
                         '<span id="rest-timer-next-pill" class="gym-rest-inline-next-pill" style="display: none;"></span>' +
                     '</div>' +
                     '<span id="rest-timer-status-txt" class="gym-rest-inline-status">Descanso en curso · 🔔 Aviso activo</span>' +
@@ -6022,7 +6029,8 @@ function _construirElementoRestTimerInline() {
             '<button type="button" class="btn-rest-inline-chip" data-rest-seg="30" onclick="seleccionarTiempoDescanso(30)">30s</button>' +
             '<button type="button" class="btn-rest-inline-chip" data-rest-seg="60" onclick="seleccionarTiempoDescanso(60)">60s</button>' +
             '<button type="button" class="btn-rest-inline-chip" data-rest-seg="90" onclick="seleccionarTiempoDescanso(90)">90s</button>' +
-            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="120" onclick="seleccionarTiempoDescanso(120)">120s</button>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="120" onclick="seleccionarTiempoDescanso(120)">2m</button>' +
+            '<button type="button" class="btn-rest-inline-chip" data-rest-seg="180" onclick="seleccionarTiempoDescanso(180)">3m</button>' +
             '<button type="button" class="btn-rest-inline-chip is-plus" onclick="extenderDescansoGym(15)">+15s</button>' +
         '</div>';
 
@@ -6120,7 +6128,7 @@ function _desmontarCajaRestTimerInline() {
 }
 
 function seleccionarTiempoDescanso(segundos) {
-    TIEMPO_DESCANSO_SELECCIONADO = segundos || 60;
+    TIEMPO_DESCANSO_SELECCIONADO = segundos || MONARCA_REST_DEFAULT_SEG;
     try { localStorage.setItem(MONARCA_REST_PREF_KEY, String(TIEMPO_DESCANSO_SELECCIONADO)); } catch (e) {}
     _sincronizarBotonesPresetDescanso();
 
@@ -6182,7 +6190,7 @@ function finalizarDescansoGym(opts) {
         ASISTENTE_GYM.intervaloId = null;
     }
 
-    var duracionUsada = ASISTENTE_GYM.descansoTotal || TIEMPO_DESCANSO_SELECCIONADO || 60;
+    var duracionUsada = ASISTENTE_GYM.descansoTotal || TIEMPO_DESCANSO_SELECCIONADO || MONARCA_REST_DEFAULT_SEG;
     ASISTENTE_GYM.descansoRestante = 0;
     ASISTENTE_GYM.finTimestamp = 0;
 
@@ -6253,7 +6261,7 @@ function iniciarDescansoGym(segundos, finTimestampExistente, ancla) {
         return;
     }
 
-    var duracion = Math.max(1, parseInt(segundos || TIEMPO_DESCANSO_SELECCIONADO || 60, 10) || 60);
+    var duracion = Math.max(1, parseInt(segundos || TIEMPO_DESCANSO_SELECCIONADO || MONARCA_REST_DEFAULT_SEG, 10) || MONARCA_REST_DEFAULT_SEG);
     var ahora = Date.now();
     var finTs = (finTimestampExistente && Number(finTimestampExistente) > ahora + 300)
         ? Number(finTimestampExistente)
@@ -6812,7 +6820,7 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         if (anclaDescanso && anclaDescanso.rutinaCompleta) {
             detenerDescansoGym();
         } else {
-            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60, null, anclaDescanso);
+            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || MONARCA_REST_DEFAULT_SEG, null, anclaDescanso);
         }
     } else {
         if (ASISTENTE_GYM.ancla && ASISTENTE_GYM.ancla.ejIdx === ejIdx && ASISTENTE_GYM.ancla.serieNum === serieNum) {
@@ -7047,7 +7055,7 @@ function toggleCheckEjercicio(e, idx) {
         if (anclaEj && anclaEj.rutinaCompleta) {
             detenerDescansoGym();
         } else {
-            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || 60, null, anclaEj);
+            iniciarDescansoGym(TIEMPO_DESCANSO_SELECCIONADO || MONARCA_REST_DEFAULT_SEG, null, anclaEj);
         }
     } else {
         if (ASISTENTE_GYM.ancla && ASISTENTE_GYM.ancla.ejIdx === idx) {
@@ -7637,7 +7645,7 @@ function guardarEstadoSesionActivaEnStorage() {
         var descansoData = null;
         if (ASISTENTE_GYM && ASISTENTE_GYM.finTimestamp > 0 && !ASISTENTE_GYM.finalizado) {
             descansoData = {
-                total: ASISTENTE_GYM.descansoTotal || 60,
+                total: ASISTENTE_GYM.descansoTotal || MONARCA_REST_DEFAULT_SEG,
                 restante: Math.max(0, Math.ceil((ASISTENTE_GYM.finTimestamp - Date.now()) / 1000)),
                 activo: true,
                 finalizado: false,
@@ -7646,7 +7654,7 @@ function guardarEstadoSesionActivaEnStorage() {
             };
         } else if (ASISTENTE_GYM && ASISTENTE_GYM.finalizado && ASISTENTE_GYM.ancla) {
             descansoData = {
-                total: ASISTENTE_GYM.descansoTotal || 60,
+                total: ASISTENTE_GYM.descansoTotal || MONARCA_REST_DEFAULT_SEG,
                 restante: 0,
                 activo: false,
                 finalizado: true,
@@ -7752,14 +7760,14 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
                 if (segsRestantes > 0) {
                     iniciarDescansoGym(sesion.descanso.total || segsRestantes, sesion.descanso.timestampFin, anclaRestaurada);
                 } else if (sesion.descanso.activo && anclaRestaurada && !anclaRestaurada.rutinaCompleta) {
-                    ASISTENTE_GYM.descansoTotal = sesion.descanso.total || 60;
+                    ASISTENTE_GYM.descansoTotal = sesion.descanso.total || MONARCA_REST_DEFAULT_SEG;
                     ASISTENTE_GYM.finTimestamp = sesion.descanso.timestampFin;
                     ASISTENTE_GYM.ancla = anclaRestaurada;
                     ASISTENTE_GYM.finalizado = false;
                     finalizarDescansoGym({ desdeFondo: true });
                 }
             } else if (sesion.descanso.finalizado && anclaRestaurada && !anclaRestaurada.rutinaCompleta) {
-                ASISTENTE_GYM.descansoTotal = sesion.descanso.total || 60;
+                ASISTENTE_GYM.descansoTotal = sesion.descanso.total || MONARCA_REST_DEFAULT_SEG;
                 ASISTENTE_GYM.ancla = anclaRestaurada;
                 ASISTENTE_GYM.finalizado = false;
                 finalizarDescansoGym({ desdeFondo: true });

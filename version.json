@@ -1,5 +1,5 @@
 {
-  "version": "11.23",
+  "version": "11.24",
   "fecha": "2026-11-25",
-  "resumen": "Blindaje Total Rutina ↔ Hábito Diario & Colores Dark Glass en Hábitos/Penitencias v11.23: Corregido el conflicto que hacía aparecer como penalizada una rutina ya culminada hoy (reconciliación automática con historial de entrenamiento y devolución de EXP, protección durante la sesión activa, sincronización blindada en la nube donde 'completada hoy' siempre gana) y migración total del panel de Penitencias Activas y badges de estado al tema Dark Glass legible."
+  "resumen": "Descanso Entre Series a 3 Minutos (180s) por Defecto v11.24: El temporizador de descanso entre series y ejercicios ahora arranca por defecto en 3 min (03:00), añadiendo el botón rápido 3m junto a 30s, 60s, 90s y 2m tanto en la barra superior de la rutina como en el panel inline entre series y en los avisos nativos."
 }
