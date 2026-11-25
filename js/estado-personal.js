@@ -2516,6 +2516,28 @@ function construirTarjetaRutinaNoirHtml(rut, idx, ctx) {
         ctx.cancionesMap
     );
 
+    var duracionChipHtml = '';
+    if (typeof analizarTendenciaDuracionRutina === 'function') {
+        var statsDur = analizarTendenciaDuracionRutina(rut);
+        if (statsDur && statsDur.total > 0 && statsDur.ultimaSeg > 0) {
+            var durTxt = formatearDuracionLargaRutina(statsDur.ultimaSeg);
+            var trendSuffix = '';
+            var chipCls = 'rutina-card-duracion-chip';
+            if (statsDur.deltaUltimaVsPrevSeg !== null && statsDur.deltaUltimaVsPrevSeg <= -15) {
+                trendSuffix = ' · 📉 ' + formatearDeltaDuracionRutina(statsDur.deltaUltimaVsPrevSeg);
+                chipCls += ' is-shorter';
+            } else if (statsDur.deltaUltimaVsPrevSeg !== null && statsDur.deltaUltimaVsPrevSeg >= 15) {
+                trendSuffix = ' · 📈 ' + formatearDeltaDuracionRutina(statsDur.deltaUltimaVsPrevSeg);
+                chipCls += ' is-longer';
+            }
+            var chipTitle = 'Última sesión: ' + durTxt
+                + (statsDur.mejorSeg ? (' · Récord: ' + formatearDuracionLargaRutina(statsDur.mejorSeg)) : '')
+                + (statsDur.promedioSeg ? (' · Prom: ' + formatearDuracionLargaRutina(statsDur.promedioSeg)) : '')
+                + ' (' + statsDur.total + ' reg.)';
+            duracionChipHtml = `<span class="${chipCls}" title="${escaparHtmlRutina(chipTitle)}">⏱️ ${durTxt}${trendSuffix}</span>`;
+        }
+    }
+
     return `
         <div class="rutina-card-noir" onclick="abrirDetalleRutina('${safeId}')" style="border-left-color: ${borderAccent};">
             <div class="rutina-card-top">
@@ -2524,6 +2546,7 @@ function construirTarjetaRutinaNoirHtml(rut, idx, ctx) {
                     <span class="rutina-rank-chip">${escaparHtmlRutina(cleanRank)}</span>
                     <span class="rutina-type-chip ${tipoClase}">${tipoTexto}</span>
                     ${penPorSerie > 0 ? `<span class="rutina-penalty-chip" title="Penitencia en EXP por cada serie no realizada">💀 -${penPorSerie} EXP/serie</span>` : ''}
+                    ${duracionChipHtml}
                 </div>
                 <div class="rutina-card-icon-actions" onclick="event.stopPropagation();">
                     <button type="button" class="rutina-icon-btn edit" title="Editar rutina" aria-label="Editar ${safeNombre}" onclick="event.stopPropagation(); event.stopImmediatePropagation(); abrirModalEditarRutina('${safeId}', event)">
@@ -3997,12 +4020,16 @@ function generarCardEjercicioFisicoHtml(ej) {
             : '<span class="muscle-tag arsenal-type-chip arsenal-type-chip--gym">🏋️ Gym</span>');
 
     var specsTexto = ej.especificaciones || ej.descripcion || 'Técnica de ejecución biomecánica controlada.';
-    var esTiempo = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+    var esTiempo = esEjercicioDeTiempo(ej);
     var esSerieCeroCard = !!(ej.series === 0 || ej.esSerieCero);
     var repsDisplay = '';
     var repsShort = '';
-    if (esTiempo) {
-        var tSeg = ej.tiempoSegundos || 60;
+    if (esTiempo && esSerieCeroCard) {
+        var tRecSeg = obtenerTiempoBaseEjercicio(ej);
+        repsDisplay = `🏆 Serie 0 · ⏱️ ${tRecSeg}s (${formatearTiempoMMSS(tRecSeg)}) récord`;
+        repsShort = `🏆 Serie 0 · ⏱️ ${tRecSeg}s`;
+    } else if (esTiempo) {
+        var tSeg = obtenerTiempoBaseEjercicio(ej);
         repsDisplay = (ej.series && ej.series > 1)
             ? `${ej.series} Series × ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico`
             : `1 Serie · ⏱️ ${tSeg}s (${formatearTiempoMMSS(tSeg)}) isométrico`;
@@ -4622,11 +4649,16 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
             html += '<div style="color: #9ca3af; font-size: 12px; padding: 12px; text-align: center;">No tienes ejercicios físicos creados en tu Arsenal.</div>';
         } else {
             eFisicos.forEach(function(ej) {
-                var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
-                var repsBase = esTiempoEj 
-                    ? (`⏱️ ${ej.tiempoSegundos || 60}s (${formatearTiempoMMSS(ej.tiempoSegundos || 60)}) isométrico`) 
+                var esTiempoEj = (typeof esEjercicioDeTiempo === 'function')
+                    ? esEjercicioDeTiempo(ej)
+                    : ((ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0));
+                var tBaseEditor = esTiempoEj
+                    ? ((typeof obtenerTiempoBaseEjercicio === 'function') ? obtenerTiempoBaseEjercicio(ej) : (ej.tiempoSegundos || 60))
+                    : 0;
+                var repsBase = esTiempoEj
+                    ? (`⏱️ ${tBaseEditor}s (${formatearTiempoMMSS(tBaseEditor)}) isométrico`)
                     : (ej.repeticiones || '8-10 reps');
-                var repsDefault = esTiempoEj ? (ej.tiempoSegundos || 60) : obtenerRepsPromedioEjercicio(ej);
+                var repsDefault = esTiempoEj ? tBaseEditor : obtenerRepsPromedioEjercicio(ej);
                 var labelReps = esTiempoEj ? "⏱️ Segs:" : "Reps:";
                 var pesoDefault = (ej.peso != null && !isNaN(ej.peso)) ? ej.peso : (ej.pesoReferencia || ((ej.tipo === 'calistenia' || ej.tipo === 'movilidad') ? 0 : 80));
                 var seriesDefault = (ej.series && ej.series > 1) ? ej.series : 3;
@@ -4655,7 +4687,10 @@ function actualizarChecklistRutinaSegunTipo(tipo) {
                 }
 
                 if (ej.recordSerieCero) {
-                    badgesHtml += `<span class="badge-record-target" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(192, 132, 252, 0.35); color: #d8b4fe; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px;">🏆 Récord: ${ej.recordSerieCero} reps</span>`;
+                    var recBadgeVal = esTiempoEj
+                        ? `${Math.max(Number(ej.recordSerieCero) || 0, tBaseEditor)}s (${formatearTiempoMMSS(Math.max(Number(ej.recordSerieCero) || 0, tBaseEditor))})`
+                        : `${ej.recordSerieCero} reps`;
+                    badgesHtml += `<span class="badge-record-target" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(192, 132, 252, 0.35); color: #d8b4fe; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px;">🏆 Récord: ${recBadgeVal}</span>`;
                 }
 
                 html += `
@@ -4784,7 +4819,10 @@ function toggleSerieCeroRutina(ejId, forzarEstado) {
         if (inS) inS.value = 0;
         if (inP) inP.value = (ejCat && ejCat.ultimoPesoSerieCero != null) ? ejCat.ultimoPesoSerieCero : 0;
         if (inR) {
-            var repsGuardadas = (ejCat && (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero)) ? (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero) : (ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10);
+            var esT = (ejCat && typeof esEjercicioDeTiempo === 'function') ? esEjercicioDeTiempo(ejCat) : false;
+            var repsGuardadas = esT
+                ? obtenerTiempoBaseEjercicio(ejCat)
+                : ((ejCat && (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero)) ? (ejCat.ultimaSerieCeroReps || ejCat.recordSerieCero) : (ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10));
             inR.value = repsGuardadas;
         }
     } else {
@@ -4800,7 +4838,8 @@ function toggleSerieCeroRutina(ejId, forzarEstado) {
             inP.value = (ejCat && ejCat.peso != null) ? ejCat.peso : ((ejCat && ejCat.tipo === 'calistenia') ? 0 : 80);
         }
         if (inR) {
-            inR.value = ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10;
+            var esTOff = (ejCat && typeof esEjercicioDeTiempo === 'function') ? esEjercicioDeTiempo(ejCat) : false;
+            inR.value = esTOff ? obtenerTiempoBaseEjercicio(ejCat) : (ejCat ? obtenerRepsPromedioEjercicio(ejCat) : 10);
         }
     }
 }
@@ -5024,8 +5063,12 @@ function confirmarAgregarRutina() {
             var btnFallo = document.getElementById('btn_fallo_rutina_' + e.id);
             var btnSerieCero = document.getElementById('btn_serie_cero_' + e.id);
 
-            var esTiempoEj = (e.modalidadEsfuerzo === 'tiempo') || (e.tiempoSegundos != null && e.tiempoSegundos > 0);
-            var repsDefault = esTiempoEj ? (e.tiempoSegundos || 60) : obtenerRepsPromedioEjercicio(e);
+            var esTiempoEj = (typeof esEjercicioDeTiempo === 'function')
+                ? esEjercicioDeTiempo(e)
+                : ((e.modalidadEsfuerzo === 'tiempo') || (e.tiempoSegundos != null && e.tiempoSegundos > 0));
+            var repsDefault = esTiempoEj
+                ? ((typeof obtenerTiempoBaseEjercicio === 'function') ? obtenerTiempoBaseEjercicio(e) : (e.tiempoSegundos || 60))
+                : obtenerRepsPromedioEjercicio(e);
             
             var parsedSeries = inCustomSeries ? parseInt(inCustomSeries.value) : (e.series != null ? e.series : 1);
             if (isNaN(parsedSeries) || parsedSeries < 0) parsedSeries = 0;
@@ -5042,8 +5085,12 @@ function confirmarAgregarRutina() {
             item.tiempoReferencia = esTiempoEj ? customReps : 0;
             item.series = customSeries;
             item.esSerieCero = esSerieCero;
-            item.recordSerieCero = e.recordSerieCero || item.recordSerieCero || (esSerieCero ? customReps : 0);
-            item.ultimaSerieCeroReps = e.ultimaSerieCeroReps || item.ultimaSerieCeroReps || (esSerieCero ? customReps : 0);
+            item.recordSerieCero = esTiempoEj
+                ? (esSerieCero ? Math.max(Number(e.recordSerieCero) || 0, Number(item.recordSerieCero) || 0, customReps) : (e.recordSerieCero || 0))
+                : (e.recordSerieCero || item.recordSerieCero || (esSerieCero ? customReps : 0));
+            item.ultimaSerieCeroReps = esTiempoEj
+                ? (esSerieCero ? customReps : (e.ultimaSerieCeroReps || 0))
+                : (e.ultimaSerieCeroReps || item.ultimaSerieCeroReps || (esSerieCero ? customReps : 0));
             item.ultimoPesoSerieCero = e.ultimoPesoSerieCero || item.ultimoPesoSerieCero || customPeso;
             item.repeticionesPromedio = customReps;
             item.repeticiones = esTiempoEj ? (customReps + 's isométrico (' + formatearTiempoMMSS(customReps) + ')') : (customReps + ' reps');
@@ -6404,15 +6451,211 @@ function obtenerRepsPromedioEjercicio(ej) {
     return Math.round(((n1 + n2) / 2) * 10) / 10;
 }
 
+// ==========================================================================
+// HELPERS UNIFICADOS DE EJERCICIOS POR TIEMPO & PROGRESIÓN DE RÉCORD (v11.25)
+// ==========================================================================
+
+function esEjercicioDeTiempo(ej) {
+    if (!ej || ej.esMental) return false;
+    if (ej.modalidadEsfuerzo === 'tiempo') return true;
+    if (ej.tiempoSegundos != null && Number(ej.tiempoSegundos) > 0) return true;
+    if (ej.tiempoReferencia != null && Number(ej.tiempoReferencia) > 0) return true;
+    return false;
+}
+
+function obtenerTiempoBaseEjercicio(ej) {
+    if (!ej) return 60;
+    var esCero = !!(ej.series === 0 || ej.esSerieCero);
+    var tSeg = Number(ej.tiempoSegundos) || 0;
+    var tRef = Number(ej.tiempoReferencia) || 0;
+    var cands = [tSeg, tRef];
+    if (esCero) {
+        cands.push(Number(ej.recordSerieCero) || 0);
+        cands.push(Number(ej.ultimaSerieCeroReps) || 0);
+    }
+    var maximo = Math.max.apply(null, cands);
+    if (maximo > 0) return Math.round(maximo);
+    var fallback = (typeof obtenerRepsPromedioEjercicio === 'function') ? Number(obtenerRepsPromedioEjercicio(ej)) : 60;
+    return Math.max(1, Math.round(fallback || 60));
+}
+
+function _actualizarUIChipTiempoEjercicio(ejIdx, ej, nuevoTiempo) {
+    if (ejIdx === undefined || ejIdx === null || !ej) return;
+    var segs = Math.max(1, Math.round(Number(nuevoTiempo) || 60));
+    var fmt = segs + 's (' + formatearTiempoMMSS(segs) + ')';
+    var esSerieCero = !!(ej.series === 0 || ej.esSerieCero);
+
+    var recChip = document.getElementById('record-chip-ej-' + ejIdx);
+    if (recChip) recChip.textContent = '🏆 Récord: ' + fmt;
+
+    var metaSub = document.getElementById('meta-sub-ej-' + ejIdx);
+    if (metaSub) {
+        var uPeso = ej.unidadPeso || 'kg';
+        var pesoVal = (!ej.esMental && ej.peso) ? parseFloat(ej.peso) : null;
+        metaSub.textContent = (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + fmt;
+    }
+
+    var seriesChip = document.getElementById('series-chip-ej-' + ejIdx);
+    if (seriesChip && !esSerieCero) {
+        var numSeries = Math.max(1, parseInt(ej.series, 10) || 3);
+        seriesChip.textContent = numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + fmt;
+    }
+}
+
+function sincronizarTiempoEjercicioEnEstado(ej, nuevoTiempoSeg, opts) {
+    if (!ej) return;
+    opts = opts || {};
+    var segs = Math.max(1, Math.round(Number(nuevoTiempoSeg) || 60));
+    var esSerieCero = opts.esSerieCero !== undefined ? !!opts.esSerieCero : !!(ej.series === 0 || ej.esSerieCero);
+    var repStr = segs + 's isométrico (' + formatearTiempoMMSS(segs) + ')';
+    var ahora = Date.now();
+    var ultimoT = (opts.ultimoTiempo !== undefined && Number(opts.ultimoTiempo) > 0) ? Math.round(Number(opts.ultimoTiempo)) : segs;
+    var ejNomNorm = (ej.nombre || '').trim().toLowerCase();
+
+    var aplicarCampos = function(target) {
+        if (!target) return;
+        target.modalidadEsfuerzo = 'tiempo';
+        target.tiempoSegundos = segs;
+        target.tiempoReferencia = segs;
+        target.repeticionesPromedio = segs;
+        target.repeticiones = repStr;
+        if (esSerieCero) {
+            target.esSerieCero = true;
+            target.series = 0;
+            target.recordSerieCero = segs;
+            target.ultimaSerieCeroReps = ultimoT;
+            if (opts.pesoLogrado !== undefined) {
+                target.ultimoPesoSerieCero = opts.pesoLogrado;
+                target.peso = opts.pesoLogrado;
+            }
+        }
+        target.fechaActualizacion = ahora;
+    };
+
+    aplicarCampos(ej);
+
+    // 1. Propagar al banco general de ejercicios (APP_STATE.ejercicios)
+    if (window.APP_STATE && Array.isArray(APP_STATE.ejercicios)) {
+        APP_STATE.ejercicios.forEach(function(item) {
+            if (!item) return;
+            var matchId = ej.id && item.id && String(item.id) === String(ej.id);
+            var matchNom = ejNomNorm && item.nombre && item.nombre.trim().toLowerCase() === ejNomNorm;
+            if (matchId || matchNom) {
+                aplicarCampos(item);
+            }
+        });
+    }
+
+    // 2. Propagar a TODAS las rutinas guardadas que contengan este ejercicio
+    if (window.APP_STATE && Array.isArray(APP_STATE.rutinas)) {
+        APP_STATE.rutinas.forEach(function(rut) {
+            if (!rut || !Array.isArray(rut.ejercicios)) return;
+            var tocada = false;
+            rut.ejercicios.forEach(function(itemEj) {
+                if (!itemEj) return;
+                var matchId = ej.id && itemEj.id && String(itemEj.id) === String(ej.id);
+                var matchNom = ejNomNorm && itemEj.nombre && itemEj.nombre.trim().toLowerCase() === ejNomNorm;
+                if (matchId || matchNom) {
+                    aplicarCampos(itemEj);
+                    tocada = true;
+                }
+            });
+            if (tocada) {
+                rut.fechaActualizacion = ahora;
+            }
+        });
+    }
+
+    if (opts.ejIdx !== undefined) {
+        _actualizarUIChipTiempoEjercicio(opts.ejIdx, ej, segs);
+    }
+
+    if (!opts.omitirSave && typeof MonarcaDB !== 'undefined' && typeof MonarcaDB.save === 'function' && window.APP_STATE) {
+        MonarcaDB.save(APP_STATE);
+    }
+}
+
+function actualizarTiempoRecordEnVivoPorSerie(ejIdx, serieNum, tiempoLogrado) {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios) return null;
+    var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    if (!ej || !esEjercicioDeTiempo(ej)) return null;
+
+    var baseSesion = (ej._tiempoBaseSesion && ej._tiempoBaseSesion > 0)
+        ? ej._tiempoBaseSesion
+        : obtenerTiempoBaseEjercicio(ej);
+    ej._tiempoBaseSesion = baseSesion;
+
+    var logrado = Math.round(Number(tiempoLogrado) || 0);
+    var actualGuardado = obtenerTiempoBaseEjercicio(ej);
+    var objetivo = Math.max(baseSesion, actualGuardado);
+
+    if (logrado > objetivo) {
+        var esSerieCero = !!(ej.series === 0 || ej.esSerieCero);
+        var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + serieNum);
+        var pesoVal = inPeso ? (parseFloat(inPeso.value) || 0) : undefined;
+        sincronizarTiempoEjercicioEnEstado(ej, logrado, {
+            esSerieCero: esSerieCero,
+            ultimoTiempo: logrado,
+            pesoLogrado: esSerieCero ? pesoVal : undefined,
+            ejIdx: ejIdx,
+            omitirSave: false
+        });
+        return {
+            superado: true,
+            anterior: baseSesion,
+            nuevo: logrado,
+            diff: logrado - baseSesion
+        };
+    }
+    return {
+        superado: false,
+        anterior: baseSesion,
+        nuevo: objetivo,
+        diff: 0
+    };
+}
+
+function recalcularTiempoRecordEnVivoTrasDesmarcar(ejIdx) {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios) return;
+    var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
+    if (!ej || !esEjercicioDeTiempo(ej) || !ej._tiempoBaseSesion) return;
+
+    var esSerieCero = !!(ej.series === 0 || ej.esSerieCero);
+    var numSeries = esSerieCero ? 1 : Math.max(1, parseInt(ej.series, 10) || 3);
+    var maxChequeado = ej._tiempoBaseSesion;
+    for (var s = 1; s <= numSeries; s++) {
+        var chk = document.getElementById('check-ej-' + ejIdx + '-s-' + s);
+        if (chk && chk.checked) {
+            var inR = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + s);
+            var v = inR ? Math.round(parseFloat(inR.value) || 0) : 0;
+            if (v > maxChequeado) maxChequeado = v;
+        }
+    }
+    sincronizarTiempoEjercicioEnEstado(ej, maxChequeado, {
+        esSerieCero: esSerieCero,
+        ultimoTiempo: maxChequeado,
+        ejIdx: ejIdx,
+        omitirSave: false
+    });
+}
+
+if (typeof window !== 'undefined') {
+    window.esEjercicioDeTiempo = esEjercicioDeTiempo;
+    window.obtenerTiempoBaseEjercicio = obtenerTiempoBaseEjercicio;
+    window.sincronizarTiempoEjercicioEnEstado = sincronizarTiempoEjercicioEnEstado;
+}
+
 function calcularFactorSerie(ejIdx, serieNum) {
     if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !RUTINA_ACTIVA.rutina.ejercicios || !RUTINA_ACTIVA.rutina.ejercicios[ejIdx]) {
         return { factorTotal: 1, factorPeso: 1, factorReps: 1, pesoReal: 0, pesoBase: 0, repsHechas: 10, repsProm: 10, esTiempo: false, esSerieCero: false };
     }
     var ej = RUTINA_ACTIVA.rutina.ejercicios[ejIdx];
     var esSerieCero = (ej.series === 0 || ej.esSerieCero);
-    var esTiempo = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+    var esTiempo = esEjercicioDeTiempo(ej);
     var pesoBase = obtenerPesoBaseEjercicio(ej);
-    var repsProm = esTiempo ? (ej.tiempoSegundos || obtenerRepsPromedioEjercicio(ej) || 60) : (ej.ultimaSerieCeroReps || ej.recordSerieCero || obtenerRepsPromedioEjercicio(ej));
+    var repsProm = esTiempo
+        ? (ej._tiempoBaseSesion || obtenerTiempoBaseEjercicio(ej))
+        : (ej.ultimaSerieCeroReps || ej.recordSerieCero || obtenerRepsPromedioEjercicio(ej));
 
     var inPeso = document.getElementById('input-peso-ej-' + ejIdx + '-s-' + serieNum);
     var inReps = document.getElementById('input-reps-ej-' + ejIdx + '-s-' + serieNum);
@@ -6531,7 +6774,7 @@ function iniciarTimerSerie(ejIdx, serieNum, event) {
     }
 
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
-    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+    var tBase = ejActual ? (ejActual._tiempoBaseSesion || obtenerTiempoBaseEjercicio(ejActual)) : 60;
 
     timer.intervalId = setInterval(function() {
         var segPasados = Math.floor((Date.now() - timer.inicioTimestamp) / 1000);
@@ -6599,7 +6842,7 @@ function reiniciarTimerSerie(ejIdx, serieNum, event) {
         clearInterval(timer.intervalId);
     }
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
-    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+    var tBase = ejActual ? (ejActual._tiempoBaseSesion || obtenerTiempoBaseEjercicio(ejActual)) : 60;
 
     TIMERS_SERIES_ACTIVAS[key] = {
         ejIdx: ejIdx,
@@ -6645,7 +6888,7 @@ function cambiarTiempoSerieManual(ejIdx, serieNum) {
     if (display) display.innerText = formatearTiempoMMSS(val);
 
     var ejActual = (RUTINA_ACTIVA && RUTINA_ACTIVA.rutina && RUTINA_ACTIVA.rutina.ejercicios) ? RUTINA_ACTIVA.rutina.ejercicios[ejIdx] : null;
-    var tBase = ejActual ? (ejActual.tiempoSegundos || obtenerRepsPromedioEjercicio(ejActual) || 60) : 60;
+    var tBase = ejActual ? (ejActual._tiempoBaseSesion || obtenerTiempoBaseEjercicio(ejActual)) : 60;
 
     var key = ejIdx + '_' + serieNum;
     var timer = TIMERS_SERIES_ACTIVAS[key];
@@ -6804,17 +7047,27 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
             btnAction.classList.add('active');
             btnAction.innerHTML = '<span>✓</span> Completada <span style="font-size: 10px; margin-left: 5px; opacity: 0.8; text-decoration: underline;" onclick="editarSerieYaHecha(event, ' + ejIdx + ', ' + serieNum + ')">Editar</span>';
         }
+        var recTiempoRes = null;
+        if (data.esTiempo && typeof actualizarTiempoRecordEnVivoPorSerie === 'function') {
+            recTiempoRes = actualizarTiempoRecordEnVivoPorSerie(ejIdx, serieNum, data.repsHechas);
+        }
+        if (typeof registrarHitoSerieCronometro === 'function') {
+            registrarHitoSerieCronometro(ejIdx, serieNum);
+        }
         if (targetEl) {
             if (data.esTiempo) {
                 var lastreTxt = data.pesoReal > 0 ? (' · Lastre: ' + data.pesoReal + ' ' + uPeso) : '';
-                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
+                var recBadgeLive = (recTiempoRes && recTiempoRes.superado)
+                    ? ('<div><span class="series-record-saved-pill">🏆 ¡Marca superada (+' + recTiempoRes.diff + 's)! Guardado por defecto: ' + recTiempoRes.nuevo + 's (' + formatearTiempoMMSS(recTiempoRes.nuevo) + ')</span></div>')
+                    : '';
+                targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + data.repsHechas + 's (' + formatearTiempoMMSS(data.repsHechas) + ')' + lastreTxt + '</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>' + recBadgeLive;
             } else {
                 var cargaHechaTxt = data.pesoReal > 0 ? (data.pesoReal + ' ' + uPeso) : 'Corporal';
                 targetEl.innerHTML = '<strong style="color: #10b981;">✓ ' + cargaHechaTxt + ' × ' + data.repsHechas + ' reps</strong> <span style="font-size: 11px; opacity: 0.85; color: #94a3b8;">(' + Math.round(data.factorTotal * 100) + '% fatiga)</span>';
             }
         }
-        emitirTonoAudio(880, 0.12, 'sine');
-        if (navigator.vibrate) navigator.vibrate(60);
+        emitirTonoAudio(recTiempoRes && recTiempoRes.superado ? 1040 : 880, 0.14, 'sine');
+        if (navigator.vibrate) navigator.vibrate(recTiempoRes && recTiempoRes.superado ? [60, 40, 90] : 60);
         // Hacer emerger el contador de descanso justo entre esta serie y la siguiente (o siguiente ejercicio)
         var anclaDescanso = _resolverAnclaDescansoTrasSerie(ejIdx, serieNum);
         if (anclaDescanso && anclaDescanso.rutinaCompleta) {
@@ -6826,6 +7079,9 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
         if (ASISTENTE_GYM.ancla && ASISTENTE_GYM.ancla.ejIdx === ejIdx && ASISTENTE_GYM.ancla.serieNum === serieNum) {
             detenerDescansoGym();
         }
+        if (data.esTiempo && typeof recalcularTiempoRecordEnVivoTrasDesmarcar === 'function') {
+            recalcularTiempoRecordEnVivoTrasDesmarcar(ejIdx);
+        }
         if (wrapper) wrapper.classList.remove('checked-active');
         if (row) row.classList.remove('checked-active');
         if (ind) ind.classList.remove('checked');
@@ -6836,13 +7092,18 @@ function toggleCheckSerie(e, ejIdx, serieNum) {
             btnAction.innerHTML = '<span>✓</span> Marcar Hecha';
         }
         if (targetEl && ejActual) {
-            var esTiempoEj = (ejActual.modalidadEsfuerzo === 'tiempo') || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0);
+            var esTiempoEj = (typeof esEjercicioDeTiempo === 'function')
+                ? esEjercicioDeTiempo(ejActual)
+                : ((ejActual.modalidadEsfuerzo === 'tiempo') || (ejActual.tiempoSegundos != null && ejActual.tiempoSegundos > 0));
             var pesoVal = (!ejActual.esMental && ejActual.peso) ? parseFloat(ejActual.peso) : null;
-            if (esSerieCeroEj) {
+            if (esSerieCeroEj && esTiempoEj) {
+                var segsBaseCero = (typeof obtenerTiempoBaseEjercicio === 'function') ? obtenerTiempoBaseEjercicio(ejActual) : (ejActual.tiempoSegundos || 60);
+                targetEl.innerText = '⏱️ Objetivo: superar ' + segsBaseCero + 's (' + formatearTiempoMMSS(segsBaseCero) + ')' + (pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : '');
+            } else if (esSerieCeroEj) {
                 var baseCero = ejActual.ultimaSerieCeroReps || ejActual.recordSerieCero || obtenerRepsPromedioEjercicio(ejActual);
                 targetEl.innerText = 'Objetivo: superar ' + baseCero + ' reps' + (pesoVal ? (' · ' + pesoVal + ' ' + uPeso) : '');
             } else if (esTiempoEj) {
-                var segsBase = ejActual.tiempoSegundos || 60;
+                var segsBase = (typeof obtenerTiempoBaseEjercicio === 'function') ? obtenerTiempoBaseEjercicio(ejActual) : (ejActual.tiempoSegundos || 60);
                 targetEl.innerText = '⏱️ Objetivo: ' + segsBase + 's (' + formatearTiempoMMSS(segsBase) + ')';
             } else {
                 var repsStr = ejActual.repeticiones || '8-10 reps';
@@ -7286,11 +7547,37 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         var impKey = ej.implemento || ej.equipamiento || (ej.tipo === 'calistenia' ? 'peso_corporal' : null);
         var impObj = mapaImp[impKey];
         var impLabel = impObj ? (' · ' + impObj.icon + ' ' + impObj.label) : '';
-        var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+        var esTiempoEj = (typeof esEjercicioDeTiempo === 'function')
+            ? esEjercicioDeTiempo(ej)
+            : ((ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0));
         var repsProm = obtenerRepsPromedioEjercicio(ej);
-        var tiempoBase = esTiempoEj ? (ej.tiempoSegundos || repsProm || 60) : 0;
-        var repsStr = esTiempoEj 
-            ? ('⏱️ ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ') isométrico') 
+        var tiempoBase = 0;
+        if (esTiempoEj) {
+            var baseLocal = (typeof obtenerTiempoBaseEjercicio === 'function')
+                ? obtenerTiempoBaseEjercicio(ej)
+                : (ej.tiempoSegundos || repsProm || 60);
+            var baseCatalogo = 0;
+            if (APP_STATE && Array.isArray(APP_STATE.ejercicios)) {
+                var matchCatT = APP_STATE.ejercicios.find(function(item) {
+                    return item && ((ej.id && item.id === ej.id) || (item.nombre && ej.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                });
+                if (matchCatT && typeof obtenerTiempoBaseEjercicio === 'function') {
+                    baseCatalogo = obtenerTiempoBaseEjercicio(matchCatT);
+                }
+            }
+            tiempoBase = Math.max(baseLocal || 0, baseCatalogo || 0) || 60;
+            // Auto-calibrar posibles desfases previos (ej. recordSerieCero=152 con tiempoSegundos=120)
+            ej.modalidadEsfuerzo = 'tiempo';
+            ej.tiempoSegundos = tiempoBase;
+            ej.tiempoReferencia = tiempoBase;
+            if (esSerieCero) {
+                ej.recordSerieCero = Math.max(Number(ej.recordSerieCero) || 0, tiempoBase);
+                ej.ultimaSerieCeroReps = Math.max(Number(ej.ultimaSerieCeroReps) || 0, tiempoBase);
+            }
+            ej._tiempoBaseSesion = tiempoBase;
+        }
+        var repsStr = esTiempoEj
+            ? ('⏱️ ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ') isométrico')
             : (ej.repeticiones || (esM ? (ej.duracionMinutos ? ej.duracionMinutos + ' min' : '1 sesión') : '8-10 reps'));
 
         var progressChipHtml = '<span class="exercise-meta-chip exercise-meta-chip--progress" id="prog-chip-ej-' + ejIdx + '">0/' + numSeries + (esM ? ' sesión' : (numSeries === 1 ? ' hecha' : ' series')) + '</span>';
@@ -7299,18 +7586,28 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
         if (esM) {
             headerChips = progressChipHtml + '<span class="exercise-meta-chip">🧠 Enfoque</span><span>1 sesión × ' + repsStr + '</span>';
         } else if (esSerieCero) {
-            var recReps = ej.recordSerieCero || repsProm || 0;
-            var ultReps = ej.ultimaSerieCeroReps || repsProm || 0;
-            headerChips =
-                progressChipHtml +
-                '<span class="exercise-meta-chip exercise-meta-chip--cero">Serie 0 · Modo Récord</span>' +
-                '<span class="exercise-meta-chip exercise-meta-chip--record">🏆 Récord: ' + recReps + ' reps</span>' +
-                '<span>' + (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + ultReps + ' reps</span>';
+            if (esTiempoEj) {
+                var recSegs = Math.max(Number(ej.recordSerieCero) || 0, tiempoBase);
+                var recFmt = recSegs + 's (' + formatearTiempoMMSS(recSegs) + ')';
+                headerChips =
+                    progressChipHtml +
+                    '<span class="exercise-meta-chip exercise-meta-chip--cero">Serie 0 · Modo Récord</span>' +
+                    '<span class="exercise-meta-chip exercise-meta-chip--record" id="record-chip-ej-' + ejIdx + '">🏆 Récord: ' + recFmt + '</span>' +
+                    '<span id="meta-sub-ej-' + ejIdx + '">' + (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + recFmt + '</span>';
+            } else {
+                var recReps = ej.recordSerieCero || repsProm || 0;
+                var ultReps = ej.ultimaSerieCeroReps || repsProm || 0;
+                headerChips =
+                    progressChipHtml +
+                    '<span class="exercise-meta-chip exercise-meta-chip--cero">Serie 0 · Modo Récord</span>' +
+                    '<span class="exercise-meta-chip exercise-meta-chip--record" id="record-chip-ej-' + ejIdx + '">🏆 Récord: ' + recReps + ' reps</span>' +
+                    '<span id="meta-sub-ej-' + ejIdx + '">' + (pesoVal ? (pesoVal + ' ' + uPeso) : '🤸 Corporal') + ' · Meta: ' + ultReps + ' reps</span>';
+            }
         } else {
             var impTxt = impObj ? (impObj.icon + ' ' + impObj.label) : '';
             headerChips =
                 progressChipHtml +
-                '<span class="exercise-meta-chip">' + numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + (esTiempoEj ? (tiempoBase + 's') : repsStr) + '</span>' +
+                '<span class="exercise-meta-chip" id="series-chip-ej-' + ejIdx + '">' + numSeries + ' ' + (numSeries === 1 ? 'serie' : 'series') + ' × ' + (esTiempoEj ? (tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : repsStr) + '</span>' +
                 (pesoVal ? '<span class="exercise-meta-chip">⚖️ ' + pesoVal + ' ' + uPeso + '</span>' : '') +
                 (impTxt ? '<span>' + impTxt + '</span>' : '') +
                 (muscleList ? '<span>· ' + muscleList + '</span>' : '');
@@ -7350,7 +7647,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             var dropsetHtml = '';
 
             var pesoInicialSerie = esSerieCero ? (ej.ultimoPesoSerieCero || 0) : (pesoVal != null ? pesoVal : ((ej.tipo === 'calistenia' || ej.implemento === 'peso_corporal') ? 0 : (uPeso === 'lb' ? 175 : 80)));
-            var repsInicialesSerie = esSerieCero ? (ej.ultimaSerieCeroReps || ej.recordSerieCero || repsProm) : repsProm;
+            var repsInicialesSerie = esTiempoEj ? tiempoBase : (esSerieCero ? (ej.ultimaSerieCeroReps || ej.recordSerieCero || repsProm) : repsProm);
 
             if (esFallo) {
                 var etapas = [];
@@ -7398,7 +7695,9 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             }
 
             var badgeFatigaTxt = '';
-            if (esSerieCero || pesoInicialSerie === 0) {
+            if (esTiempoEj) {
+                badgeFatigaTxt = '100% fatiga · Meta base: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')';
+            } else if (esSerieCero || pesoInicialSerie === 0) {
                 badgeFatigaTxt = '100% fatiga · Base corporal: ' + repsInicialesSerie + ' reps';
             } else {
                 badgeFatigaTxt = '100% fatiga · Base: ' + pesoInicialSerie + ' ' + uPeso + ' × ' + repsProm + ' reps';
@@ -7407,7 +7706,9 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
             var tieneControlPeso = (!esSerieCero && pesoInicialSerie > 0) || (esSerieCero && pesoInicialSerie > 0);
             var labelSerie = esM ? 'SESIÓN COMPLETA' : (esSerieCero ? 'SERIE 0 · SUPERAR RÉCORD' : (esFallo ? ('SERIE ' + s + ' · FINAL AL FALLO') : ('SERIE ' + s)));
             var targetSerie = esSerieCero
-                ? ('Objetivo: superar ' + repsInicialesSerie + ' reps' + (pesoInicialSerie > 0 ? (' · ' + pesoInicialSerie + ' ' + uPeso) : ''))
+                ? (esTiempoEj
+                    ? ('⏱️ Objetivo: superar ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')' + (pesoInicialSerie > 0 ? (' · ' + pesoInicialSerie + ' ' + uPeso) : ''))
+                    : ('Objetivo: superar ' + repsInicialesSerie + ' reps' + (pesoInicialSerie > 0 ? (' · ' + pesoInicialSerie + ' ' + uPeso) : '')))
                 : (esTiempoEj ? ('⏱️ Meta: ' + tiempoBase + 's (' + formatearTiempoMMSS(tiempoBase) + ')') : (repsStr + (pesoVal ? (' · Base: ' + pesoVal + ' ' + uPeso) : '')));
             var metaAccionSerie = esFallo ? '<span class="series-badge-dropset">🔥 Dropset</span>' : (!esSerieCero && !esM ? '<span class="series-tag-muted">+Descanso</span>' : '');
 
@@ -7476,7 +7777,7 @@ function renderizarTarjetasEjerciciosSesion(ejercicios) {
                     </div>
 
                     <div id="badge-fatiga-ej-${ejIdx}-s-${s}" class="badge-fatiga-reps" style="margin-top: 6px; font-size: 11px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3);">
-                        100% fatiga · Meta base: ${tiempoBase}s
+                        100% fatiga · Meta base: ${tiempoBase}s (${formatearTiempoMMSS(tiempoBase)})
                     </div>
                 </div>` : `
                 <div class="series-reps-control-panel" id="panel-reps-ej-${ejIdx}-s-${s}" onclick="event.stopPropagation()">
@@ -7602,6 +7903,488 @@ if (typeof window !== 'undefined') {
 }
 
 // ==========================================================================
+// ==========================================================================
+// MOTOR DE CRONÓMETRO TOTAL DE RUTINA & ANALIZADOR DE TENDENCIA (v11.25)
+// ==========================================================================
+
+var CRONOMETRO_RUTINA_SESION = {
+    rutinaKey: null,
+    rutinaId: '',
+    rutinaNombre: '',
+    inicioOriginalMs: 0,
+    inicioSegmentoMs: 0,
+    acumuladoMs: 0,
+    corriendo: false,
+    pausadoAutomatico: false,
+    intervalId: null,
+    hitosSeries: [],
+    historialAbierto: false
+};
+
+function _claveIdentidadRutinaCrono(rutina) {
+    if (!rutina) return '';
+    return String(rutina.id || rutina.codigo || (rutina.nombre || '').trim().toLowerCase() || '');
+}
+
+function formatearDuracionLargaRutina(totalSegundos) {
+    var segs = Math.max(0, Math.round(Number(totalSegundos) || 0));
+    var h = Math.floor(segs / 3600);
+    var m = Math.floor((segs % 3600) / 60);
+    var s = segs % 60;
+    var mm = (m < 10 ? '0' : '') + m;
+    var ss = (s < 10 ? '0' : '') + s;
+    if (h > 0) return h + ':' + mm + ':' + ss;
+    return mm + ':' + ss;
+}
+
+function formatearDeltaDuracionRutina(deltaSegundos) {
+    var abs = Math.abs(Math.round(Number(deltaSegundos) || 0));
+    var signo = deltaSegundos < 0 ? '-' : (deltaSegundos > 0 ? '+' : '');
+    if (abs < 60) return signo + abs + 's';
+    var m = Math.floor(abs / 60);
+    var s = abs % 60;
+    if (m >= 60) {
+        var h = Math.floor(m / 60);
+        var rm = m % 60;
+        return signo + h + 'h ' + rm + 'm';
+    }
+    return signo + m + 'm' + (s > 0 ? (' ' + (s < 10 ? '0' : '') + s + 's') : '');
+}
+
+function obtenerHistorialDuracionesParaRutina(rutina, soloCompletadas) {
+    if (!rutina || !window.APP_STATE || !Array.isArray(APP_STATE.historialDuracionesRutinas)) return [];
+    var rId = rutina.id ? String(rutina.id).trim() : '';
+    var rCod = rutina.codigo ? String(rutina.codigo).trim() : '';
+    var rNom = (rutina.nombre || '').trim().toLowerCase();
+
+    return APP_STATE.historialDuracionesRutinas
+        .filter(function(item) {
+            if (!item || !(Number(item.duracionSegundos) > 0)) return false;
+            if (soloCompletadas && item.esIncompleta) return false;
+            var itemId = item.rutinaId ? String(item.rutinaId).trim() : '';
+            var itemNom = (item.rutinaNombre || '').trim().toLowerCase();
+            var matchId = Boolean(itemId && ((rId && itemId === rId) || (rCod && itemId === rCod)));
+            var matchNom = Boolean(rNom && itemNom && itemNom === rNom);
+            return matchId || matchNom;
+        })
+        .slice()
+        .sort(function(a, b) {
+            return (Number(b.timestamp || b.finMs) || 0) - (Number(a.timestamp || a.finMs) || 0);
+        });
+}
+
+function analizarTendenciaDuracionRutina(rutina) {
+    var lista = obtenerHistorialDuracionesParaRutina(rutina, true);
+    if (!lista.length) {
+        return {
+            total: 0,
+            ultimaSeg: null,
+            mejorSeg: null,
+            peorSeg: null,
+            promedioSeg: null,
+            deltaUltimaVsPrevSeg: null,
+            tendenciaCodigo: 'sin_datos',
+            tendenciaTexto: '',
+            historial: []
+        };
+    }
+
+    var suma = 0;
+    var minSeg = Infinity;
+    var maxSeg = 0;
+    lista.forEach(function(it) {
+        var d = Number(it.duracionSegundos) || 0;
+        suma += d;
+        if (d < minSeg) minSeg = d;
+        if (d > maxSeg) maxSeg = d;
+    });
+    var promedio = Math.round(suma / lista.length);
+    var ultima = Number(lista[0].duracionSegundos) || 0;
+    var prev = lista.length >= 2 ? (Number(lista[1].duracionSegundos) || 0) : null;
+    var deltaUlt = prev !== null ? (ultima - prev) : null;
+
+    var tendCode = 'estable';
+    var tendTxt = '';
+    if (lista.length >= 2) {
+        // Comparar la última marca (o promedio de las últimas 2) contra el resto previo
+        var basePrevSum = 0;
+        var basePrevCount = 0;
+        for (var i = 1; i < Math.min(lista.length, 6); i++) {
+            basePrevSum += (Number(lista[i].duracionSegundos) || 0);
+            basePrevCount++;
+        }
+        var basePrevProm = basePrevCount > 0 ? Math.round(basePrevSum / basePrevCount) : promedio;
+        var diffTend = ultima - basePrevProm;
+        if (diffTend <= -20) {
+            tendCode = 'mas_corta';
+            tendTxt = '📉 Se hacen más cortas (' + formatearDeltaDuracionRutina(diffTend) + ' vs prom.)';
+        } else if (diffTend >= 20) {
+            tendCode = 'mas_larga';
+            tendTxt = '📈 Se están alargando (' + formatearDeltaDuracionRutina(diffTend) + ' vs prom.)';
+        } else {
+            tendCode = 'estable';
+            tendTxt = '⚖️ Duración estable';
+        }
+    }
+
+    return {
+        total: lista.length,
+        ultimaSeg: ultima,
+        mejorSeg: minSeg === Infinity ? null : minSeg,
+        peorSeg: maxSeg || null,
+        promedioSeg: promedio,
+        deltaUltimaVsPrevSeg: deltaUlt,
+        tendenciaCodigo: tendCode,
+        tendenciaTexto: tendTxt,
+        historial: lista
+    };
+}
+
+function obtenerDuracionActualCronometroRutinaSeg() {
+    var ms = Number(CRONOMETRO_RUTINA_SESION.acumuladoMs) || 0;
+    if (CRONOMETRO_RUTINA_SESION.corriendo && CRONOMETRO_RUTINA_SESION.inicioSegmentoMs > 0) {
+        ms += Math.max(0, Date.now() - CRONOMETRO_RUTINA_SESION.inicioSegmentoMs);
+    }
+    return Math.max(0, Math.floor(ms / 1000));
+}
+
+function _serializarCronometroRutina() {
+    if (!CRONOMETRO_RUTINA_SESION.rutinaKey) return null;
+    return {
+        rutinaKey: CRONOMETRO_RUTINA_SESION.rutinaKey,
+        rutinaId: CRONOMETRO_RUTINA_SESION.rutinaId,
+        rutinaNombre: CRONOMETRO_RUTINA_SESION.rutinaNombre,
+        inicioOriginalMs: CRONOMETRO_RUTINA_SESION.inicioOriginalMs,
+        inicioSegmentoMs: CRONOMETRO_RUTINA_SESION.inicioSegmentoMs,
+        acumuladoMs: CRONOMETRO_RUTINA_SESION.acumuladoMs,
+        corriendo: !!CRONOMETRO_RUTINA_SESION.corriendo,
+        pausadoAutomatico: !!CRONOMETRO_RUTINA_SESION.pausadoAutomatico,
+        hitosSeries: Array.isArray(CRONOMETRO_RUTINA_SESION.hitosSeries) ? CRONOMETRO_RUTINA_SESION.hitosSeries.slice(0, 60) : []
+    };
+}
+
+function detenerCronometroRutina() {
+    if (CRONOMETRO_RUTINA_SESION.intervalId) {
+        clearInterval(CRONOMETRO_RUTINA_SESION.intervalId);
+        CRONOMETRO_RUTINA_SESION.intervalId = null;
+    }
+    CRONOMETRO_RUTINA_SESION.corriendo = false;
+    CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = 0;
+    CRONOMETRO_RUTINA_SESION.pausadoAutomatico = false;
+}
+
+function iniciarCronometroRutina(rutina, estadoGuardado) {
+    if (!rutina) return;
+    if (CRONOMETRO_RUTINA_SESION.intervalId) {
+        clearInterval(CRONOMETRO_RUTINA_SESION.intervalId);
+        CRONOMETRO_RUTINA_SESION.intervalId = null;
+    }
+    var rKey = _claveIdentidadRutinaCrono(rutina);
+    var ahora = Date.now();
+
+    if (estadoGuardado && typeof estadoGuardado === 'object') {
+        CRONOMETRO_RUTINA_SESION.rutinaKey = rKey;
+        CRONOMETRO_RUTINA_SESION.rutinaId = rutina.id || rutina.codigo || '';
+        CRONOMETRO_RUTINA_SESION.rutinaNombre = rutina.nombre || 'Rutina';
+        CRONOMETRO_RUTINA_SESION.inicioOriginalMs = Number(estadoGuardado.inicioOriginalMs) || ahora;
+        CRONOMETRO_RUTINA_SESION.acumuladoMs = Math.max(0, Number(estadoGuardado.acumuladoMs) || 0);
+        CRONOMETRO_RUTINA_SESION.corriendo = !!estadoGuardado.corriendo;
+        CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = CRONOMETRO_RUTINA_SESION.corriendo
+            ? (Number(estadoGuardado.inicioSegmentoMs) || ahora)
+            : 0;
+        CRONOMETRO_RUTINA_SESION.pausadoAutomatico = !!estadoGuardado.pausadoAutomatico;
+        CRONOMETRO_RUTINA_SESION.hitosSeries = Array.isArray(estadoGuardado.hitosSeries) ? estadoGuardado.hitosSeries.slice() : [];
+    } else {
+        CRONOMETRO_RUTINA_SESION.rutinaKey = rKey;
+        CRONOMETRO_RUTINA_SESION.rutinaId = rutina.id || rutina.codigo || '';
+        CRONOMETRO_RUTINA_SESION.rutinaNombre = rutina.nombre || 'Rutina';
+        CRONOMETRO_RUTINA_SESION.inicioOriginalMs = ahora;
+        CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = ahora;
+        CRONOMETRO_RUTINA_SESION.acumuladoMs = 0;
+        CRONOMETRO_RUTINA_SESION.corriendo = true;
+        CRONOMETRO_RUTINA_SESION.pausadoAutomatico = false;
+        CRONOMETRO_RUTINA_SESION.hitosSeries = [];
+        CRONOMETRO_RUTINA_SESION.historialAbierto = false;
+    }
+
+    renderizarCronometroRutinaSesion(true);
+    CRONOMETRO_RUTINA_SESION.intervalId = setInterval(function() {
+        if (window.VISTA_ACTUAL === 'vista-detalle-rutina-dinamica' && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) {
+            renderizarCronometroRutinaSesion(false);
+        }
+    }, 1000);
+}
+
+function reanudarCronometroSiCorrespondeAlAbrir(rutina) {
+    if (!rutina) return;
+    if (CRONOMETRO_RUTINA_SESION.rutinaKey !== _claveIdentidadRutinaCrono(rutina)) {
+        iniciarCronometroRutina(rutina, null);
+        return;
+    }
+    if (!CRONOMETRO_RUTINA_SESION.corriendo && CRONOMETRO_RUTINA_SESION.pausadoAutomatico) {
+        reanudarCronometroRutina();
+    } else {
+        renderizarCronometroRutinaSesion(true);
+    }
+}
+
+function pausarCronometroRutina(esAutomatico) {
+    if (CRONOMETRO_RUTINA_SESION.corriendo && CRONOMETRO_RUTINA_SESION.inicioSegmentoMs > 0) {
+        CRONOMETRO_RUTINA_SESION.acumuladoMs += Math.max(0, Date.now() - CRONOMETRO_RUTINA_SESION.inicioSegmentoMs);
+    }
+    CRONOMETRO_RUTINA_SESION.corriendo = false;
+    CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = 0;
+    CRONOMETRO_RUTINA_SESION.pausadoAutomatico = !!esAutomatico;
+    renderizarCronometroRutinaSesion(false);
+    if (!esAutomatico && typeof guardarEstadoSesionActivaEnStorage === 'function') {
+        guardarEstadoSesionActivaEnStorage();
+    }
+}
+
+function reanudarCronometroRutina() {
+    if (CRONOMETRO_RUTINA_SESION.corriendo) return;
+    CRONOMETRO_RUTINA_SESION.corriendo = true;
+    CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = Date.now();
+    CRONOMETRO_RUTINA_SESION.pausadoAutomatico = false;
+    if (!CRONOMETRO_RUTINA_SESION.intervalId) {
+        CRONOMETRO_RUTINA_SESION.intervalId = setInterval(function() {
+            if (window.VISTA_ACTUAL === 'vista-detalle-rutina-dinamica' && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) {
+                renderizarCronometroRutinaSesion(false);
+            }
+        }, 1000);
+    }
+    renderizarCronometroRutinaSesion(false);
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') {
+        guardarEstadoSesionActivaEnStorage();
+    }
+}
+
+function togglePausaCronometroRutina() {
+    if (CRONOMETRO_RUTINA_SESION.corriendo) {
+        pausarCronometroRutina(false);
+    } else {
+        reanudarCronometroRutina();
+    }
+}
+
+function reiniciarCronometroRutina() {
+    var ahora = Date.now();
+    CRONOMETRO_RUTINA_SESION.inicioOriginalMs = ahora;
+    CRONOMETRO_RUTINA_SESION.acumuladoMs = 0;
+    CRONOMETRO_RUTINA_SESION.inicioSegmentoMs = CRONOMETRO_RUTINA_SESION.corriendo ? ahora : 0;
+    CRONOMETRO_RUTINA_SESION.hitosSeries = [];
+    renderizarCronometroRutinaSesion(false);
+    if (typeof guardarEstadoSesionActivaEnStorage === 'function') {
+        guardarEstadoSesionActivaEnStorage();
+    }
+}
+
+function registrarHitoSerieCronometro(ejIdx, serieNum) {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return;
+    var ej = (RUTINA_ACTIVA.rutina.ejercicios || [])[ejIdx];
+    var enSeg = obtenerDuracionActualCronometroRutinaSeg();
+    CRONOMETRO_RUTINA_SESION.hitosSeries.push({
+        ejIdx: ejIdx,
+        ejNombre: ej ? String(ej.nombre || 'Ejercicio') : 'Ejercicio',
+        serieNum: serieNum,
+        enSegundo: enSeg
+    });
+}
+
+function toggleHistorialDuracionRutina() {
+    CRONOMETRO_RUTINA_SESION.historialAbierto = !CRONOMETRO_RUTINA_SESION.historialAbierto;
+    renderizarCronometroRutinaSesion(true);
+}
+
+function renderizarCronometroRutinaSesion(actualizarHistorial) {
+    var panel = document.getElementById('panel-cronometro-rutina-sesion');
+    if (!panel || !RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return;
+
+    var segs = obtenerDuracionActualCronometroRutinaSeg();
+    var relojEl = document.getElementById('rutina-duracion-reloj');
+    var dotEl = document.getElementById('rutina-duracion-dot');
+    var estEl = document.getElementById('rutina-duracion-estado-pill');
+    var btnToggle = document.getElementById('btn-rutina-crono-toggle');
+    var trendEl = document.getElementById('rutina-duracion-tendencia-pill');
+    var paceEl = document.getElementById('rutina-duracion-pace-badge');
+    var refsRow = document.getElementById('rutina-duracion-refs-row');
+    var refUlt = document.getElementById('rutina-duracion-ref-ultima');
+    var refMej = document.getElementById('rutina-duracion-ref-mejor');
+    var refProm = document.getElementById('rutina-duracion-ref-promedio');
+    var btnHist = document.getElementById('btn-rutina-duracion-hist-toggle');
+    var histPanel = document.getElementById('rutina-duracion-hist-panel');
+
+    if (relojEl) relojEl.textContent = formatearDuracionLargaRutina(segs);
+    if (dotEl) {
+        dotEl.classList.toggle('is-running', !!CRONOMETRO_RUTINA_SESION.corriendo);
+        dotEl.classList.toggle('is-paused', !CRONOMETRO_RUTINA_SESION.corriendo);
+    }
+    if (estEl) {
+        estEl.textContent = CRONOMETRO_RUTINA_SESION.corriendo ? 'En curso' : 'Pausado';
+        estEl.classList.toggle('is-paused', !CRONOMETRO_RUTINA_SESION.corriendo);
+    }
+    if (btnToggle) {
+        btnToggle.textContent = CRONOMETRO_RUTINA_SESION.corriendo ? '⏸ Pausar' : '▶ Reanudar';
+        btnToggle.classList.toggle('is-paused', !CRONOMETRO_RUTINA_SESION.corriendo);
+    }
+
+    var stats = analizarTendenciaDuracionRutina(RUTINA_ACTIVA.rutina);
+    if (stats.total > 0 && stats.ultimaSeg !== null) {
+        if (refsRow) refsRow.style.display = 'flex';
+        if (refUlt) refUlt.textContent = 'Última: ' + formatearDuracionLargaRutina(stats.ultimaSeg);
+        if (refMej) refMej.textContent = '🏆 Mejor: ' + formatearDuracionLargaRutina(stats.mejorSeg);
+        if (refProm) refProm.textContent = 'Prom: ' + formatearDuracionLargaRutina(stats.promedioSeg);
+        if (btnHist) {
+            btnHist.textContent = '📊 Registros (' + stats.total + ') ' + (CRONOMETRO_RUTINA_SESION.historialAbierto ? '▴' : '▾');
+        }
+
+        if (trendEl) {
+            if (stats.tendenciaTexto) {
+                trendEl.style.display = 'inline-flex';
+                trendEl.textContent = stats.tendenciaTexto;
+                trendEl.className = 'rutina-duracion-trend-pill ' +
+                    (stats.tendenciaCodigo === 'mas_corta' ? 'is-shorter' : (stats.tendenciaCodigo === 'mas_larga' ? 'is-longer' : ''));
+            } else {
+                trendEl.style.display = 'none';
+            }
+        }
+
+        if (paceEl) {
+            var diffVivo = segs - stats.ultimaSeg;
+            if (diffVivo < -30) {
+                var margen = Math.abs(diffVivo);
+                paceEl.className = 'rutina-duracion-pace-badge is-shorter';
+                paceEl.textContent = '⚡ Ritmo más corto · Te quedan ' + formatearDuracionLargaRutina(margen) + ' para igualar tu última marca (' + formatearDuracionLargaRutina(stats.ultimaSeg) + ')';
+            } else if (diffVivo <= 30) {
+                paceEl.className = 'rutina-duracion-pace-badge is-steady';
+                paceEl.textContent = '⚖️ Igualando tu última marca (' + formatearDuracionLargaRutina(stats.ultimaSeg) + ')';
+            } else {
+                paceEl.className = 'rutina-duracion-pace-badge is-longer';
+                paceEl.textContent = '⏳ ' + formatearDeltaDuracionRutina(diffVivo) + ' más larga que tu última sesión (' + formatearDuracionLargaRutina(stats.ultimaSeg) + ')';
+            }
+        }
+
+        if (histPanel && actualizarHistorial) {
+            if (CRONOMETRO_RUTINA_SESION.historialAbierto) {
+                var recientes = stats.historial.slice(0, 6);
+                var maxDur = Math.max.apply(null, recientes.map(function(x) { return Number(x.duracionSegundos) || 1; })) || 1;
+                histPanel.innerHTML = recientes.map(function(reg, idxR) {
+                    var durR = Number(reg.duracionSegundos) || 0;
+                    var prevReg = stats.historial[idxR + 1] || null;
+                    var deltaR = prevReg ? (durR - (Number(prevReg.duracionSegundos) || 0)) : null;
+                    var esBest = (stats.mejorSeg !== null && durR === stats.mejorSeg);
+                    var pctW = Math.max(12, Math.min(100, Math.round((durR / maxDur) * 100)));
+                    var deltaBadge = '<span class="rutina-duracion-hist-delta is-steady">Base inicial</span>';
+                    var barCls = '';
+                    if (deltaR !== null) {
+                        if (deltaR <= -15) {
+                            deltaBadge = '<span class="rutina-duracion-hist-delta is-shorter">⚡ ' + formatearDeltaDuracionRutina(deltaR) + ' más corta</span>';
+                            barCls = 'is-shorter';
+                        } else if (deltaR >= 15) {
+                            deltaBadge = '<span class="rutina-duracion-hist-delta is-longer">⏳ ' + formatearDeltaDuracionRutina(deltaR) + ' más larga</span>';
+                            barCls = 'is-longer';
+                        } else {
+                            deltaBadge = '<span class="rutina-duracion-hist-delta is-steady">⚖️ Similar (' + formatearDeltaDuracionRutina(deltaR) + ')</span>';
+                        }
+                    }
+                    var fechaLbl = escaparHtmlRutina((reg.fecha || reg.fechaISO || '') + (reg.horaFin ? (' · ' + reg.horaFin) : ''));
+                    return '<div class="rutina-duracion-hist-item' + (esBest ? ' is-best' : '') + '">' +
+                        '<div class="rutina-duracion-hist-head">' +
+                            '<span class="rutina-duracion-hist-date">' + (esBest ? '🏆 ' : '📅 ') + fechaLbl + '</span>' +
+                            '<span class="rutina-duracion-hist-val">' + formatearDuracionLargaRutina(durR) + '</span>' +
+                            deltaBadge +
+                        '</div>' +
+                        '<div class="rutina-duracion-hist-track"><div class="rutina-duracion-hist-bar ' + barCls + '" style="width:' + pctW + '%;"></div></div>' +
+                    '</div>';
+                }).join('');
+                histPanel.style.display = 'flex';
+            } else {
+                histPanel.style.display = 'none';
+            }
+        }
+    } else {
+        if (refsRow) refsRow.style.display = 'none';
+        if (trendEl) trendEl.style.display = 'none';
+        if (histPanel) histPanel.style.display = 'none';
+        if (paceEl) {
+            paceEl.className = 'rutina-duracion-pace-badge is-baseline';
+            paceEl.textContent = '⏱️ Primera medición · Se guardará como referencia base para comparar próximas sesiones';
+        }
+    }
+}
+
+function guardarDuracionSesionEnHistorial(rutina, evalProg, esIncompleta) {
+    if (!rutina || !window.APP_STATE) return null;
+    var durSeg = Math.max(1, obtenerDuracionActualCronometroRutinaSeg());
+    if (!Array.isArray(APP_STATE.historialDuracionesRutinas)) {
+        APP_STATE.historialDuracionesRutinas = [];
+    }
+
+    var statsPrev = analizarTendenciaDuracionRutina(rutina);
+    var anteriorSeg = (!esIncompleta && statsPrev.ultimaSeg !== null) ? statsPrev.ultimaSeg : null;
+    var deltaAnterior = anteriorSeg !== null ? (durSeg - anteriorSeg) : null;
+    var tendencia = 'igual';
+    if (deltaAnterior !== null) {
+        if (deltaAnterior < -15) tendencia = 'mas_corta';
+        else if (deltaAnterior > 15) tendencia = 'mas_larga';
+    }
+    var esMejorMarca = (!esIncompleta && statsPrev.mejorSeg !== null && durSeg < statsPrev.mejorSeg);
+
+    var ahora = Date.now();
+    var iniMs = CRONOMETRO_RUTINA_SESION.inicioOriginalMs || (ahora - durSeg * 1000);
+    var dIni = new Date(iniMs);
+    var dFin = new Date(ahora);
+    var fechaHoy = dFin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fechaISO = (typeof obtenerClaveFechaLocal === 'function') ? obtenerClaveFechaLocal(dFin) : dFin.toISOString().slice(0, 10);
+
+    var registro = {
+        id: 'DUR-' + ahora + '-' + Math.random().toString(36).slice(2, 6),
+        rutinaId: String(rutina.id || rutina.codigo || ''),
+        rutinaNombre: String(rutina.nombre || 'Rutina'),
+        fecha: fechaHoy,
+        fechaISO: fechaISO,
+        horaInicio: dIni.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        horaFin: dFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        inicioMs: iniMs,
+        finMs: ahora,
+        duracionSegundos: durSeg,
+        seriesCompletadas: evalProg ? evalProg.seriesCompletadas : 0,
+        seriesTotales: evalProg ? evalProg.totalSeries : 0,
+        esIncompleta: !!esIncompleta,
+        hitosSeries: Array.isArray(CRONOMETRO_RUTINA_SESION.hitosSeries) ? CRONOMETRO_RUTINA_SESION.hitosSeries.slice(0, 60) : [],
+        anteriorSeg: anteriorSeg,
+        deltaAnteriorSeg: deltaAnterior,
+        tendencia: tendencia,
+        esMejorMarca: esMejorMarca,
+        timestamp: ahora,
+        fechaActualizacion: ahora
+    };
+
+    APP_STATE.historialDuracionesRutinas.unshift(registro);
+    if (APP_STATE.historialDuracionesRutinas.length > 400) {
+        APP_STATE.historialDuracionesRutinas = APP_STATE.historialDuracionesRutinas.slice(0, 400);
+    }
+    return registro;
+}
+
+if (typeof window !== 'undefined') {
+    window.CRONOMETRO_RUTINA_SESION = CRONOMETRO_RUTINA_SESION;
+    window.formatearDuracionLargaRutina = formatearDuracionLargaRutina;
+    window.formatearDeltaDuracionRutina = formatearDeltaDuracionRutina;
+    window.obtenerHistorialDuracionesParaRutina = obtenerHistorialDuracionesParaRutina;
+    window.analizarTendenciaDuracionRutina = analizarTendenciaDuracionRutina;
+    window.obtenerDuracionActualCronometroRutinaSeg = obtenerDuracionActualCronometroRutinaSeg;
+    window.iniciarCronometroRutina = iniciarCronometroRutina;
+    window.pausarCronometroRutina = pausarCronometroRutina;
+    window.reanudarCronometroRutina = reanudarCronometroRutina;
+    window.togglePausaCronometroRutina = togglePausaCronometroRutina;
+    window.reiniciarCronometroRutina = reiniciarCronometroRutina;
+    window.detenerCronometroRutina = detenerCronometroRutina;
+    window.toggleHistorialDuracionRutina = toggleHistorialDuracionRutina;
+    window.renderizarCronometroRutinaSesion = renderizarCronometroRutinaSesion;
+}
+
+// ==========================================================================
 // MOTOR DE PERSISTENCIA INDESTRUCTIBLE DE SESIÓN DE ENTRENAMIENTO (v10.28)
 // ==========================================================================
 
@@ -7671,7 +8454,8 @@ function guardarEstadoSesionActivaEnStorage() {
             seriesData: seriesData,
             expandedEjIndices: expandedEjIndices,
             historialFactores: HISTORIAL_FACTOR_SERIES || {},
-            descanso: descansoData
+            descanso: descansoData,
+            cronometro: _serializarCronometroRutina()
         };
 
         localStorage.setItem(MONARCA_SESION_ENTRENAMIENTO_KEY, JSON.stringify(sesionObj));
@@ -7772,6 +8556,10 @@ function restaurarEstadoSesionActivaDeStorage(rutinaIdOIdx) {
                 ASISTENTE_GYM.finalizado = false;
                 finalizarDescansoGym({ desdeFondo: true });
             }
+        }
+
+        if (sesion.cronometro && typeof iniciarCronometroRutina === 'function' && RUTINA_ACTIVA && RUTINA_ACTIVA.rutina) {
+            iniciarCronometroRutina(RUTINA_ACTIVA.rutina, sesion.cronometro);
         }
 
         actualizarProgresoRutinaDinamica();
@@ -8194,6 +8982,43 @@ function seleccionarMotivoRapidoPenitencia(texto, btnEl) {
     limpiarErrorMotivoPenitenciaRutina();
 }
 
+var MONARCA_QUEST_ORIGEN_RUTINA_ID = null;
+
+function setQuestOrigenRutinaActiva(questId) {
+    MONARCA_QUEST_ORIGEN_RUTINA_ID = questId ? String(questId) : null;
+}
+
+function obtenerQuestObligatoriaVinculadaARutinaActiva() {
+    if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina || !window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) {
+        return null;
+    }
+    var rutina = RUTINA_ACTIVA.rutina;
+    var rId = rutina.id ? String(rutina.id) : '';
+    var rCod = rutina.codigo ? String(rutina.codigo) : '';
+    var rIdx = (RUTINA_ACTIVA.idx !== undefined && RUTINA_ACTIVA.idx !== null && RUTINA_ACTIVA.idx >= 0) ? String(RUTINA_ACTIVA.idx) : '';
+    var rNom = (rutina.nombre || '').trim().toLowerCase();
+
+    for (var i = 0; i < APP_STATE.questsDiarios.length; i++) {
+        var q = APP_STATE.questsDiarios[i];
+        if (!q || q.esOmitible !== false) continue;
+        if (q.estado === 'completada' || q.estado === 'penalizada' || q.estado === 'penitencia_cumplida') continue;
+
+        if (MONARCA_QUEST_ORIGEN_RUTINA_ID && String(q.id) === String(MONARCA_QUEST_ORIGEN_RUTINA_ID)) {
+            return q;
+        }
+        var qRid = q.rutinaId ? String(q.rutinaId) : (q.rutinaVinculada ? String(q.rutinaVinculada) : '');
+        var coincideId = qRid && ((rId && qRid === rId) || (rCod && qRid === rCod) || (rIdx && qRid === rIdx));
+        var qRnom = (q.rutinaNombre || '').trim().toLowerCase();
+        var coincideNom = Boolean(rNom && qRnom && qRnom === rNom);
+        var qTit = (q.titulo || '').trim().toLowerCase();
+        var coincideTit = Boolean(rNom && qRid && qTit.indexOf(rNom) !== -1);
+        if (coincideId || coincideNom || coincideTit) {
+            return q;
+        }
+    }
+    return null;
+}
+
 function abrirModalConfirmarPenitenciaRutina(opts) {
     opts = opts || {};
     if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return;
@@ -8217,12 +9042,14 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
         MONARCA_RUTINA_SALIDA_PENDIENTE = null;
     }
 
+    var questOblig = opts.questObligatoria || obtenerQuestObligatoriaVinculadaARutinaActiva();
     var jug = APP_STATE.jugador || { nivel: 1, exp: 0, expMax: 100 };
     var expAntes = Number(jug.exp) || 0;
     var expDespues = Math.max(0, expAntes - ev.penitenciaTotal);
     var rutNom = RUTINA_ACTIVA.rutina.nombre || 'esta rutina';
     var sufFalt = ev.seriesFaltantes === 1 ? 'serie sin realizar' : 'series sin realizar';
 
+    var tituloEl = document.getElementById('modal-pen-rutina-titulo');
     var introEl = document.getElementById('modal-pen-rutina-intro');
     var kpiHechas = document.getElementById('modal-pen-kpi-hechas');
     var kpiFalt = document.getElementById('modal-pen-kpi-faltantes');
@@ -8234,8 +9061,16 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
     var inMotivo = document.getElementById('modal-pen-rutina-motivo');
     var chips = document.querySelectorAll('#modal-confirmar-penitencia-rutina .penitencia-motivo-chip');
 
+    if (tituloEl) {
+        tituloEl.textContent = questOblig
+            ? 'QUEST OBLIGATORIA · RUTINA INCOMPLETA'
+            : 'RUTINA INCOMPLETA · PENITENCIA';
+    }
+
     if (introEl) {
-        var prefijoSalida = opts.desdeSalida ? 'Vas a salir sin terminar todos los ejercicios. ' : '';
+        var prefijoSalida = questOblig
+            ? ('<strong style="color:#fda4af;">🚨 Quest obligatoria activa (' + escaparHtmlRutina(questOblig.titulo || rutNom) + '):</strong> ')
+            : (opts.desdeSalida ? 'Vas a salir sin terminar todos los ejercicios. ' : '');
         introEl.innerHTML = prefijoSalida +
             'Llevas el <strong style="color:#38bdf8;">' + ev.pct + '% (' + ev.seriesCompletadas + '/' + ev.totalSeries + ' series)</strong> de <strong>' + escaparHtmlRutina(rutNom) + '</strong> y te ' +
             (ev.seriesFaltantes === 1 ? 'falta' : 'faltan') + ' <strong style="color:#fca5a5;">' + ev.seriesFaltantes + ' ' + sufFalt + '</strong>.' +
@@ -8246,7 +9081,7 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
     if (kpiExp) kpiExp.textContent = ev.penitenciaTotal > 0 ? ('-' + ev.penitenciaTotal + ' EXP') : '0 EXP';
 
     if (desgloseEl) {
-        desgloseEl.innerHTML = ev.faltantesPorEjercicio.map(function(item) {
+        var rowsHtml = ev.faltantesPorEjercicio.map(function(item) {
             var suf = item.faltantes === 1 ? 'serie faltante' : 'series faltantes';
             var lossTxt = item.expPenitencia > 0 ? ('-' + item.expPenitencia + ' EXP') : '0 EXP';
             return '<div class="modal-penitencia-ej-row">' +
@@ -8254,6 +9089,14 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
                 '<span class="modal-penitencia-ej-loss">' + lossTxt + '</span>' +
             '</div>';
         }).join('');
+        if (questOblig) {
+            var castigoQ = questOblig.penitenciaNombre || questOblig.penitencia || 'Penitencia obligatoria';
+            rowsHtml += '<div class="modal-penitencia-ej-row" style="border-top: 1px dashed rgba(248,113,113,0.35); margin-top: 4px; padding-top: 6px;">' +
+                '<div><strong style="color:#fda4af;">🚨 Quest Obligatoria: ' + escaparHtmlRutina(questOblig.titulo || rutNom) + '</strong> <span style="color:#94a3b8; font-size:11px;">(Quedará 💀 PENALIZADA · ' + escaparHtmlRutina(castigoQ) + ')</span></div>' +
+                '<span class="modal-penitencia-ej-loss">Obligatoria</span>' +
+            '</div>';
+        }
+        desgloseEl.innerHTML = rowsHtml;
     }
 
     if (expPrevEl) {
@@ -8269,11 +9112,12 @@ function abrirModalConfirmarPenitenciaRutina(opts) {
     if (btnConfirm) {
         btnConfirm.textContent = ev.penitenciaTotal > 0
             ? ('💀 Aceptar Penitencia (-' + ev.penitenciaTotal + ' EXP)')
-            : '✓ Cerrar Sesión Parcial';
+            : (questOblig ? '💀 Aceptar Penitencia y Salir' : '✓ Cerrar Sesión Parcial');
     }
 
     if (btnPausar) {
-        btnPausar.style.display = opts.desdeSalida ? 'block' : 'none';
+        // En quests obligatorias NO se permite el escape rápido sin penitencia (v11.25)
+        btnPausar.style.display = (opts.desdeSalida && !questOblig) ? 'block' : 'none';
     }
 
     modal.style.display = 'flex';
@@ -8316,8 +9160,9 @@ function interceptarSalidaRutinaIncompleta(vistaDestino, desdePopState) {
     }
     if (!RUTINA_ACTIVA || !RUTINA_ACTIVA.rutina) return false;
     var ev = evaluarProgresoSeriesRutinaActiva();
-    // Solo interceptar si ya empezó la rutina (>0 series hechas) y aún le faltan series
-    if (ev.totalSeries > 0 && ev.seriesCompletadas > 0 && ev.seriesFaltantes > 0) {
+    var questOblig = obtenerQuestObligatoriaVinculadaARutinaActiva();
+    // Interceptar si ya empezó (>0 series hechas) O si pertenece a una Quest Obligatoria activa (incluso en 0%)
+    if (ev.totalSeries > 0 && ev.seriesFaltantes > 0 && (ev.seriesCompletadas > 0 || !!questOblig)) {
         if (desdePopState) {
             try {
                 history.pushState({ vista: 'vista-detalle-rutina-dinamica' }, '', '#vista-detalle-rutina-dinamica');
@@ -8325,7 +9170,8 @@ function interceptarSalidaRutinaIncompleta(vistaDestino, desdePopState) {
         }
         abrirModalConfirmarPenitenciaRutina({
             desdeSalida: true,
-            vistaDestino: vistaDestino || 'vista-ejercicios'
+            vistaDestino: vistaDestino || 'vista-ejercicios',
+            questObligatoria: questOblig
         });
         return true;
     }
@@ -8337,7 +9183,9 @@ function intentarSalirDeRutinaActiva(vistaDestino) {
     if (interceptarSalidaRutinaIncompleta(destino, false)) {
         return;
     }
+    if (typeof detenerCronometroRutina === 'function') detenerCronometroRutina();
     if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries();
+    MONARCA_QUEST_ORIGEN_RUTINA_ID = null;
     if (typeof window !== 'undefined') window._MONARCA_OMITIR_GUARDIA_SALIDA_RUTINA = true;
     try {
         cambiarVista(destino, false, { forzarSalidaRutina: true });
@@ -8350,6 +9198,7 @@ function pausarYSalirDeRutinaActiva() {
     var destino = (MONARCA_RUTINA_SALIDA_PENDIENTE && MONARCA_RUTINA_SALIDA_PENDIENTE.vistaDestino)
         ? MONARCA_RUTINA_SALIDA_PENDIENTE.vistaDestino
         : 'vista-ejercicios';
+    if (typeof pausarCronometroRutina === 'function') pausarCronometroRutina(true);
     if (typeof guardarEstadoSesionActivaEnStorage === 'function') guardarEstadoSesionActivaEnStorage();
     if (typeof limpiarTodosLosTimersSeries === 'function') limpiarTodosLosTimersSeries();
     cerrarModalConfirmarPenitenciaRutina();
@@ -8372,6 +9221,8 @@ if (typeof window !== 'undefined') {
     window.cerrarModalResumenFinalizacionRutina = cerrarModalResumenFinalizacionRutina;
     window.obtenerPenitenciaExpPorSerieRutina = obtenerPenitenciaExpPorSerieRutina;
     window.evaluarProgresoSeriesRutinaActiva = evaluarProgresoSeriesRutinaActiva;
+    window.setQuestOrigenRutinaActiva = setQuestOrigenRutinaActiva;
+    window.obtenerQuestObligatoriaVinculadaARutinaActiva = obtenerQuestObligatoriaVinculadaARutinaActiva;
     window.abrirModalConfirmarPenitenciaRutina = abrirModalConfirmarPenitenciaRutina;
     window.cerrarModalConfirmarPenitenciaRutina = cerrarModalConfirmarPenitenciaRutina;
     window.confirmarFinalizarRutinaIncompleta = confirmarFinalizarRutinaIncompleta;
@@ -8452,7 +9303,12 @@ function abrirDetalleRutina(idxOrId, omitirAutoCalentamiento) {
     var sesionRestaurada = restaurarEstadoSesionActivaDeStorage(idxOrId);
     if (!sesionRestaurada) {
         _sincronizarBotonesPresetDescanso();
+        if (typeof iniciarCronometroRutina === 'function') {
+            iniciarCronometroRutina(rutina, null);
+        }
         actualizarProgresoRutinaDinamica();
+    } else if (typeof reanudarCronometroSiCorrespondeAlAbrir === 'function') {
+        reanudarCronometroSiCorrespondeAlAbrir(rutina);
     }
 
     if (CHART_FATIGA_RUTINA_SESION) {
@@ -8718,9 +9574,15 @@ function ejecutarRutinaDinamica(opts) {
             if (ej.esMental) return;
             var esSerieCero = (ej.series === 0 || ej.esSerieCero);
             var numSeries = esSerieCero ? 1 : Math.max(1, parseInt(ej.series) || 3);
-            var esTiempoEj = (ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0);
+            var esTiempoEj = (typeof esEjercicioDeTiempo === 'function')
+                ? esEjercicioDeTiempo(ej)
+                : ((ej.modalidadEsfuerzo === 'tiempo') || (ej.tiempoSegundos != null && ej.tiempoSegundos > 0));
             var pesoBaseAnterior = obtenerPesoBaseEjercicio(ej);
-            var tiempoBaseAnterior = ej.tiempoSegundos || ej.tiempoReferencia || obtenerRepsPromedioEjercicio(ej) || 60;
+            var tiempoBaseAnterior = (ej._tiempoBaseSesion && ej._tiempoBaseSesion > 0)
+                ? ej._tiempoBaseSesion
+                : ((typeof obtenerTiempoBaseEjercicio === 'function')
+                    ? obtenerTiempoBaseEjercicio(ej)
+                    : (ej.tiempoSegundos || ej.tiempoReferencia || obtenerRepsPromedioEjercicio(ej) || 60));
             var maxPesoLevantado = 0;
             var maxTiempoLogrado = 0;
             var seriesCompletadas = 0;
@@ -8738,7 +9600,36 @@ function ejecutarRutinaDinamica(opts) {
                 }
             }
 
-            if (esSerieCero) {
+            if (esSerieCero && esTiempoEj) {
+                if (seriesCompletadas > 0) {
+                    var inPesoCeroT = document.getElementById('input-peso-ej-' + ejIdx + '-s-1');
+                    var pesoLogradoT = inPesoCeroT ? (parseFloat(inPesoCeroT.value) || 0) : 0;
+                    var tiempoLogradoT = Math.round(maxTiempoLogrado);
+                    var recPrevioT = tiempoBaseAnterior;
+                    var nuevoRecordT = Math.max(recPrevioT, tiempoLogradoT);
+                    var esNuevoRecordT = (tiempoLogradoT > recPrevioT && recPrevioT > 0);
+
+                    if (typeof sincronizarTiempoEjercicioEnEstado === 'function') {
+                        sincronizarTiempoEjercicioEnEstado(ej, nuevoRecordT, {
+                            esSerieCero: true,
+                            ultimoTiempo: tiempoLogradoT,
+                            pesoLogrado: pesoLogradoT,
+                            ejIdx: ejIdx,
+                            omitirSave: true
+                        });
+                    }
+
+                    recordsSerieCero.push({
+                        nombre: ej.nombre,
+                        reps: tiempoLogradoT,
+                        anterior: recPrevioT,
+                        esNuevoRecord: esNuevoRecordT,
+                        record: nuevoRecordT,
+                        peso: pesoLogradoT,
+                        esTiempo: true
+                    });
+                }
+            } else if (esSerieCero) {
                 if (seriesCompletadas > 0) {
                     var inRepsCero = document.getElementById('input-reps-ej-' + ejIdx + '-s-1');
                     var inPesoCero = document.getElementById('input-peso-ej-' + ejIdx + '-s-1');
@@ -8796,45 +9687,27 @@ function ejecutarRutinaDinamica(opts) {
                         anterior: recPrevio,
                         esNuevoRecord: esNuevoRecord,
                         record: nuevoRecord,
-                        peso: pesoLogrado
+                        peso: pesoLogrado,
+                        esTiempo: false
                     });
                 }
             } else if (esTiempoEj) {
                 if (seriesCompletadas > 0 && maxTiempoLogrado > tiempoBaseAnterior) {
-                    var diffT = Math.round(maxTiempoLogrado - tiempoBaseAnterior);
-                    ej.tiempoSegundos = maxTiempoLogrado;
-                    ej.tiempoReferencia = maxTiempoLogrado;
-                    ej.repeticionesPromedio = maxTiempoLogrado;
-                    ej.repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
+                    var nuevoTiempoM = Math.round(maxTiempoLogrado);
+                    var diffT = Math.round(nuevoTiempoM - tiempoBaseAnterior);
 
-                    // Actualizar en el catálogo general de ejercicios
-                    if (APP_STATE.ejercicios && Array.isArray(APP_STATE.ejercicios)) {
-                        var ejCatT = APP_STATE.ejercicios.find(function(item) {
-                            return item && ((ej.id && item.id === ej.id) || (item.nombre && item.nombre.trim().toLowerCase() === ej.nombre.trim().toLowerCase()));
+                    if (typeof sincronizarTiempoEjercicioEnEstado === 'function') {
+                        sincronizarTiempoEjercicioEnEstado(ej, nuevoTiempoM, {
+                            esSerieCero: false,
+                            ejIdx: ejIdx,
+                            omitirSave: true
                         });
-                        if (ejCatT) {
-                            ejCatT.tiempoSegundos = maxTiempoLogrado;
-                            ejCatT.tiempoReferencia = maxTiempoLogrado;
-                            ejCatT.repeticionesPromedio = maxTiempoLogrado;
-                            ejCatT.repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
-                        }
-                    }
-
-                    // Actualizar en la rutina guardada
-                    if (RUTINA_ACTIVA.idx >= 0 && APP_STATE.rutinas && APP_STATE.rutinas[RUTINA_ACTIVA.idx]) {
-                        var rutGuardadaT = APP_STATE.rutinas[RUTINA_ACTIVA.idx];
-                        if (rutGuardadaT.ejercicios && rutGuardadaT.ejercicios[ejIdx]) {
-                            rutGuardadaT.ejercicios[ejIdx].tiempoSegundos = maxTiempoLogrado;
-                            rutGuardadaT.ejercicios[ejIdx].tiempoReferencia = maxTiempoLogrado;
-                            rutGuardadaT.ejercicios[ejIdx].repeticionesPromedio = maxTiempoLogrado;
-                            rutGuardadaT.ejercicios[ejIdx].repeticiones = maxTiempoLogrado + 's isométrico (' + formatearTiempoMMSS(maxTiempoLogrado) + ')';
-                        }
                     }
 
                     sobrecargas.push({
                         nombre: ej.nombre,
                         anterior: tiempoBaseAnterior,
-                        nuevo: maxTiempoLogrado,
+                        nuevo: nuevoTiempoM,
                         diff: diffT,
                         esTiempo: true,
                         unidad: 'seg'
@@ -8897,7 +9770,21 @@ function ejecutarRutinaDinamica(opts) {
 
     // Registrar primero los sub-logs (Serie 0 / sobrecarga) para que el resumen principal quede arriba del todo
     recordsSerieCero.forEach(function(rc) {
-        if (rc.esNuevoRecord) {
+        if (rc.esTiempo) {
+            var curTxt = rc.reps + 's (' + formatearTiempoMMSS(rc.reps) + ')';
+            var antTxt = rc.anterior + 's (' + formatearTiempoMMSS(rc.anterior) + ')';
+            if (rc.esNuevoRecord) {
+                APP_STATE.gym.unshift({
+                    fecha: fechaHoy,
+                    detalle: "⏱️🏆 ¡NUEVO RÉCORD DE TIEMPO (SERIE 0)!: " + rc.nombre + " superó su marca previa de " + antTxt + " alcanzando " + curTxt + " (+" + Math.round(rc.reps - rc.anterior) + "s). Nuevo tiempo guardado por defecto."
+                });
+            } else {
+                APP_STATE.gym.unshift({
+                    fecha: fechaHoy,
+                    detalle: "⏱️ SERIE 0 COMPLETADA: " + rc.nombre + " - " + curTxt + " registrados (Récord actual: " + rc.record + "s / " + formatearTiempoMMSS(rc.record) + ")."
+                });
+            }
+        } else if (rc.esNuevoRecord) {
             APP_STATE.gym.unshift({
                 fecha: fechaHoy,
                 detalle: "🏆 ¡NUEVO RÉCORD SERIE 0!: " + rc.nombre + " superó su marca previa de " + rc.anterior + " reps alcanzando " + rc.reps + " reps. Próxima sesión calibrada en " + rc.reps + " reps."
@@ -8914,7 +9801,7 @@ function ejecutarRutinaDinamica(opts) {
         if (sc.esTiempo) {
             APP_STATE.gym.unshift({
                 fecha: fechaHoy,
-                detalle: "⏱️ RÉCORD ISOMÉTRICO: " + sc.nombre + " subió de " + sc.anterior + "s a " + sc.nuevo + "s (+" + sc.diff + "s extra). Nuevo tiempo promedio calibrado."
+                detalle: "⏱️🏆 RÉCORD DE TIEMPO: " + sc.nombre + " subió de " + sc.anterior + "s (" + formatearTiempoMMSS(sc.anterior) + ") a " + sc.nuevo + "s (" + formatearTiempoMMSS(sc.nuevo) + ") (+" + sc.diff + "s extra). Nuevo valor guardado por defecto."
             });
         } else {
             var u = sc.unidad || 'kg';
@@ -8924,6 +9811,14 @@ function ejecutarRutinaDinamica(opts) {
             });
         }
     });
+
+    // Registrar duración total de la rutina y verificar si fue más corta o más larga (v11.25)
+    var duracionRegistro = (typeof guardarDuracionSesionEnHistorial === 'function')
+        ? guardarDuracionSesionEnHistorial(rutina, evalProg, esIncompleta)
+        : null;
+    if (typeof detenerCronometroRutina === 'function') {
+        detenerCronometroRutina();
+    }
 
     if (esIncompleta) {
         var motivoLimpio = (opts.motivoIncompleta && String(opts.motivoIncompleta).trim())
@@ -8947,8 +9842,30 @@ function ejecutarRutinaDinamica(opts) {
             penitenciaPorSerie: evalProg.penitenciaPorSerie,
             penitenciaExp: evalProg.penitenciaTotal,
             motivoIncompleta: motivoLimpio,
-            detalleFaltantes: evalProg.faltantesPorEjercicio
+            detalleFaltantes: evalProg.faltantesPorEjercicio,
+            duracionSegundos: duracionRegistro ? duracionRegistro.duracionSegundos : null,
+            deltaAnteriorSeg: duracionRegistro ? duracionRegistro.deltaAnteriorSeg : null,
+            tendenciaDuracion: duracionRegistro ? duracionRegistro.tendencia : null
         });
+
+        // Si esta rutina pertenecía a una Quest Obligatoria activa, marcarla penalizada con el motivo (v11.25)
+        var questObligAbandono = (typeof obtenerQuestObligatoriaVinculadaARutinaActiva === 'function')
+            ? obtenerQuestObligatoriaVinculadaARutinaActiva()
+            : null;
+        if (questObligAbandono && questObligAbandono.estado !== 'completada') {
+            var ahoraPenQ = Date.now();
+            questObligAbandono.estado = 'penalizada';
+            questObligAbandono.temporizadorActivo = false;
+            questObligAbandono.pospuestaHasta = null;
+            questObligAbandono.ultimaPenitenciaTs = ahoraPenQ;
+            questObligAbandono.fechaActualizacion = ahoraPenQ;
+            if (motivoLimpio) {
+                questObligAbandono.motivoAbandono = motivoLimpio;
+            }
+            if (typeof renderizarQuestsDiarios === 'function') {
+                renderizarQuestsDiarios();
+            }
+        }
     } else {
         var fechaHoyISODin = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
         APP_STATE.gym.unshift({
@@ -8958,6 +9875,9 @@ function ejecutarRutinaDinamica(opts) {
             rutinaCodigo: rutina.codigo || '',
             rutinaNombre: rutina.nombre || '',
             rutinaCompletadaOk: true,
+            duracionSegundos: duracionRegistro ? duracionRegistro.duracionSegundos : null,
+            deltaAnteriorSeg: duracionRegistro ? duracionRegistro.deltaAnteriorSeg : null,
+            tendenciaDuracion: duracionRegistro ? duracionRegistro.tendencia : null,
             detalle: "Rutina completada" + tagTipoHist + ": " + rutina.nombre + " (" + (rutina.ejercicios ? rutina.ejercicios.length : 0) + " ejercicios)"
         });
     }
@@ -9017,6 +9937,7 @@ function ejecutarRutinaDinamica(opts) {
     detenerDescansoGym();
     limpiarTodosLosTimersSeries();
     limpiarSesionActivaStorage();
+    MONARCA_QUEST_ORIGEN_RUTINA_ID = null;
     MonarcaDB.save(APP_STATE);
     if (window.MonarcaPlayer && typeof window.MonarcaPlayer.detenerMusicaDeRutina === 'function') {
         window.MonarcaPlayer.detenerMusicaDeRutina(true);
@@ -9064,10 +9985,38 @@ function ejecutarRutinaDinamica(opts) {
         }
     }
 
+    if (duracionRegistro && duracionRegistro.duracionSegundos > 0) {
+        var fmtDur = formatearDuracionLargaRutina(duracionRegistro.duracionSegundos);
+        msgAviso += "\n\n⏱️ DURACIÓN DE LA RUTINA: " + fmtDur;
+        if (!esIncompleta && typeof duracionRegistro.anteriorSeg === 'number' && duracionRegistro.anteriorSeg > 0) {
+            var fmtAnt = formatearDuracionLargaRutina(duracionRegistro.anteriorSeg);
+            if (duracionRegistro.deltaAnteriorSeg < -15) {
+                msgAviso += "\n⚡ ¡" + formatearDeltaDuracionRutina(duracionRegistro.deltaAnteriorSeg) + " MÁS CORTA que tu sesión anterior (" + fmtAnt + ")!";
+            } else if (duracionRegistro.deltaAnteriorSeg > 15) {
+                msgAviso += "\n⏳ " + formatearDeltaDuracionRutina(duracionRegistro.deltaAnteriorSeg) + " MÁS LARGA que tu sesión anterior (" + fmtAnt + ").";
+            } else {
+                msgAviso += "\n⚖️ Tiempo muy parejo a tu sesión anterior (" + fmtAnt + ").";
+            }
+            if (duracionRegistro.esMejorMarca) {
+                msgAviso += "\n🏆 ¡NUEVO RÉCORD DE RAPIDEZ en esta rutina!";
+            }
+        } else if (!esIncompleta) {
+            msgAviso += "\n📌 Guardada como tu tiempo base inicial para comparar próximas sesiones.";
+        }
+    }
+
     if (recordsSerieCero.length > 0) {
         msgAviso += "\n\n🏆 ¡PROGRESIÓN SERIE 0 REGISTRADA!";
         recordsSerieCero.forEach(function(rc) {
-            if (rc.esNuevoRecord) {
+            if (rc.esTiempo) {
+                var cStr = rc.reps + 's (' + formatearTiempoMMSS(rc.reps) + ')';
+                var aStr = rc.anterior + 's (' + formatearTiempoMMSS(rc.anterior) + ')';
+                if (rc.esNuevoRecord) {
+                    msgAviso += "\n• " + rc.nombre + ": ¡NUEVO RÉCORD DE TIEMPO! Superaste " + aStr + " llegando a " + cStr + " (+" + Math.round(rc.reps - rc.anterior) + "s). Guardado como nuevo valor por defecto.";
+                } else {
+                    msgAviso += "\n• " + rc.nombre + ": " + cStr + " registrados (Récord por defecto: " + rc.record + "s / " + formatearTiempoMMSS(rc.record) + ").";
+                }
+            } else if (rc.esNuevoRecord) {
                 msgAviso += "\n• " + rc.nombre + ": ¡NUEVO RÉCORD HISTÓRICO! Superaste tu marca con " + rc.reps + " reps (anterior: " + rc.anterior + " reps). En tu próxima rutina arrancarás desde " + rc.reps + " reps.";
             } else {
                 msgAviso += "\n• " + rc.nombre + ": " + rc.reps + " reps completadas. Guardado para tu próxima sesión (Récord: " + rc.record + " reps).";
@@ -9079,7 +10028,7 @@ function ejecutarRutinaDinamica(opts) {
         msgAviso += "\n\n🚀 ¡SOBRECARGA / RÉCORD REGISTRADO!";
         sobrecargas.forEach(function(sc) {
             if (sc.esTiempo) {
-                msgAviso += "\n• " + sc.nombre + ": Récord isométrico superado de " + sc.anterior + "s a " + sc.nuevo + "s (+" + sc.diff + "s extra). Tu nuevo tiempo promedio ha sido actualizado.";
+                msgAviso += "\n• " + sc.nombre + ": ¡NUEVA MARCA DE TIEMPO! Subió de " + sc.anterior + "s (" + formatearTiempoMMSS(sc.anterior) + ") a " + sc.nuevo + "s (" + formatearTiempoMMSS(sc.nuevo) + ") (+" + sc.diff + "s extra). Guardado como valor por defecto en el ejercicio y tus rutinas.";
             } else {
                 msgAviso += "\n• " + sc.nombre + ": Nuevo récord de base " + sc.nuevo + " " + sc.unidad + " (+" + sc.diff + " " + sc.unidad + " sobre el anterior de " + sc.anterior + " " + sc.unidad + "). En tu próxima sesión, tu 100% de fatiga base se medirá sobre " + sc.nuevo + " " + sc.unidad + ".";
             }
@@ -9092,6 +10041,9 @@ function ejecutarRutinaDinamica(opts) {
 
     if (typeof renderizarEjercicios === 'function' && APP_STATE.ejercicios) {
         renderizarEjercicios(APP_STATE.ejercicios);
+    }
+    if (typeof renderizarPortalesRutinasEjercicios === 'function') {
+        renderizarPortalesRutinasEjercicios();
     }
     if (typeof renderizarGym === 'function') {
         renderizarGym(APP_STATE.gym);
@@ -9175,6 +10127,18 @@ function renderizarGym(registros) {
             var motivoHtml = reg.motivoIncompleta
                 ? '<div class="gym-log-motivo-box"><strong>📝 Motivo:</strong> ' + escaparHtmlRutina(reg.motivoIncompleta) + '</div>'
                 : '';
+            var durHtmlHoy = '';
+            if (typeof reg.duracionSegundos === 'number' && reg.duracionSegundos > 0) {
+                var durTxtH = (typeof formatearDuracionLargaRutina === 'function') ? formatearDuracionLargaRutina(reg.duracionSegundos) : (Math.round(reg.duracionSegundos / 60) + 'm');
+                var deltaPillH = '';
+                if (typeof reg.deltaAnteriorSeg === 'number' && reg.deltaAnteriorSeg !== 0 && typeof formatearDeltaDuracionRutina === 'function') {
+                    var clsDH = reg.deltaAnteriorSeg < 0 ? 'is-shorter' : 'is-longer';
+                    var icoDH = reg.deltaAnteriorSeg < 0 ? '⚡' : '⏳';
+                    var dirDH = reg.deltaAnteriorSeg < 0 ? 'más corta' : 'más larga';
+                    deltaPillH = '<span class="gym-log-duracion-pill ' + clsDH + '">' + icoDH + ' ' + formatearDeltaDuracionRutina(reg.deltaAnteriorSeg) + ' ' + dirDH + '</span>';
+                }
+                durHtmlHoy = '<div class="gym-log-duracion-row"><span class="gym-log-duracion-pill">⏱️ Duración: ' + durTxtH + '</span>' + deltaPillH + '</div>';
+            }
 
             html += `
             <div style="background: #0b0e15; border: 1px solid ${cardBorder}; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;">
@@ -9187,6 +10151,7 @@ function renderizarGym(registros) {
                         ${badgeLabel}
                     </span>
                 </div>
+                ${durHtmlHoy}
                 ${motivoHtml}
             </div>`;
         });
@@ -9211,12 +10176,24 @@ function renderizarGym(registros) {
             var motivoAntHtml = reg.motivoIncompleta
                 ? '<div class="gym-log-motivo-box"><strong>📝 Motivo:</strong> ' + escaparHtmlRutina(reg.motivoIncompleta) + '</div>'
                 : '';
+            var durHtmlAnt = '';
+            if (typeof reg.duracionSegundos === 'number' && reg.duracionSegundos > 0) {
+                var durTxtA = (typeof formatearDuracionLargaRutina === 'function') ? formatearDuracionLargaRutina(reg.duracionSegundos) : (Math.round(reg.duracionSegundos / 60) + 'm');
+                var deltaPillA = '';
+                if (typeof reg.deltaAnteriorSeg === 'number' && reg.deltaAnteriorSeg !== 0 && typeof formatearDeltaDuracionRutina === 'function') {
+                    var clsDA = reg.deltaAnteriorSeg < 0 ? 'is-shorter' : 'is-longer';
+                    var icoDA = reg.deltaAnteriorSeg < 0 ? '⚡' : '⏳';
+                    deltaPillA = '<span class="gym-log-duracion-pill ' + clsDA + '">' + icoDA + ' ' + formatearDeltaDuracionRutina(reg.deltaAnteriorSeg) + '</span>';
+                }
+                durHtmlAnt = '<div class="gym-log-duracion-row"><span class="gym-log-duracion-pill">⏱️ ' + durTxtA + '</span>' + deltaPillA + '</div>';
+            }
             html += `
             <div style="background: #0b0e15; border: 1px solid ${antBorder}; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                     <span style="font-weight: 600; color: ${esIncompAnt ? '#fecaca' : '#f8fafc'}; font-size: 13px;">${reg.detalle}</span>
                     <span style="color: #64748b; font-size: 11.5px; white-space: nowrap;">${reg.fecha}</span>
                 </div>
+                ${durHtmlAnt}
                 ${motivoAntHtml}
             </div>`;
         });
@@ -11173,6 +12150,9 @@ function abrirDetalleRutinaDinamicaGenerada(rutina) {
     }
 
     cont.innerHTML = renderizarTarjetasEjerciciosSesion(rutina.ejercicios);
+    if (typeof iniciarCronometroRutina === 'function') {
+        iniciarCronometroRutina(rutina, null);
+    }
     actualizarProgresoRutinaDinamica();
     if (CHART_FATIGA_RUTINA_SESION) {
         CHART_FATIGA_RUTINA_SESION.destroy();

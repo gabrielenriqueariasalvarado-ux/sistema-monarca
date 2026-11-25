@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.24">
+    <link rel="stylesheet" href="style.css?v=11.25">
 </head>
 <body>
 
@@ -1214,6 +1214,48 @@
                         <button type="button" class="btn-rest-quick active" id="btn-rest-180" onclick="seleccionarTiempoDescanso(180)">3m</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- CRONÓMETRO TOTAL DE DURACIÓN DE RUTINA & TENDENCIA (v11.25) -->
+            <div id="panel-cronometro-rutina-sesion" class="rutina-duracion-hud" role="region" aria-label="Cronómetro de duración total de la rutina">
+                <div class="rutina-duracion-top">
+                    <div class="rutina-duracion-left">
+                        <div class="rutina-duracion-eyebrow">
+                            <span id="rutina-duracion-dot" class="rutina-duracion-dot is-running"></span>
+                            <span class="rutina-duracion-label">DURACIÓN DE LA RUTINA</span>
+                            <span id="rutina-duracion-estado-pill" class="rutina-duracion-estado-pill is-running">En curso</span>
+                        </div>
+                        <div class="rutina-duracion-clock-row">
+                            <span id="rutina-duracion-reloj" class="rutina-duracion-clock">00:00</span>
+                            <span id="rutina-duracion-tendencia-pill" class="rutina-duracion-trend-pill" style="display: none;"></span>
+                        </div>
+                    </div>
+                    <div class="rutina-duracion-actions">
+                        <button type="button" id="btn-rutina-crono-toggle" class="btn-rutina-crono" onclick="togglePausaCronometroRutina()" title="Pausar o reanudar cronómetro">
+                            ⏸ Pausar
+                        </button>
+                        <button type="button" id="btn-rutina-crono-reset" class="btn-rutina-crono is-subtle" onclick="reiniciarCronometroRutina()" title="Reiniciar cronómetro a 00:00">
+                            ↺
+                        </button>
+                    </div>
+                </div>
+
+                <div id="rutina-duracion-pace-row" class="rutina-duracion-pace-row">
+                    <span id="rutina-duracion-pace-badge" class="rutina-duracion-pace-badge is-baseline">
+                        ⏱️ Primera medición · Se guardará como referencia base al finalizar
+                    </span>
+                </div>
+
+                <div id="rutina-duracion-refs-row" class="rutina-duracion-refs-row" style="display: none;">
+                    <span class="rutina-duracion-ref-chip" id="rutina-duracion-ref-ultima">Última: --:--</span>
+                    <span class="rutina-duracion-ref-chip is-best" id="rutina-duracion-ref-mejor">🏆 Mejor: --:--</span>
+                    <span class="rutina-duracion-ref-chip" id="rutina-duracion-ref-promedio">Prom: --:--</span>
+                    <button type="button" id="btn-rutina-duracion-hist-toggle" class="btn-rutina-duracion-hist" onclick="toggleHistorialDuracionRutina()">
+                        📊 Registros (0) ▾
+                    </button>
+                </div>
+
+                <div id="rutina-duracion-hist-panel" class="rutina-duracion-hist-panel" style="display: none;"></div>
             </div>
 
             <!-- Barra de Progreso en Vivo -->
@@ -5196,6 +5238,79 @@
         </div>
     </div>
 
+    <!-- MODAL CONFIRMACIÓN DE PENITENCIA POR QUEST OBLIGATORIA INCOMPLETA (v11.25) -->
+    <div id="modal-confirmar-penitencia-quest" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-pen-quest-titulo" style="display: none; z-index: 100020;" onclick="if(event.target === this && typeof cerrarModalConfirmarPenitenciaQuest === 'function') cerrarModalConfirmarPenitenciaQuest();">
+        <div class="modal-system-window" style="max-width: 470px; max-height: 92vh; overflow-y: auto; border-color: rgba(239, 68, 68, 0.45);">
+            <div class="modal-system-header" style="border-bottom-color: rgba(239, 68, 68, 0.25);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">💀</span>
+                    <span id="modal-pen-quest-titulo" style="font-weight: 800; font-size: 13.5px; text-transform: uppercase; color: #fca5a5;">QUEST OBLIGATORIA INCOMPLETA · PENITENCIA</span>
+                </div>
+                <button type="button" onclick="cerrarModalConfirmarPenitenciaQuest()" class="modal-close-btn" title="Cerrar">&times;</button>
+            </div>
+            <div style="padding: 15px 18px; display: flex; flex-direction: column; gap: 11px;">
+                <p id="modal-pen-quest-intro" style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.45;"></p>
+
+                <div class="modal-penitencia-kpi-grid">
+                    <div class="modal-penitencia-kpi">
+                        <div class="modal-penitencia-kpi-label">Estado</div>
+                        <div id="modal-pen-quest-kpi-estado" class="modal-penitencia-kpi-val">En curso</div>
+                    </div>
+                    <div class="modal-penitencia-kpi is-danger">
+                        <div class="modal-penitencia-kpi-label">Tipo</div>
+                        <div id="modal-pen-quest-kpi-tipo" class="modal-penitencia-kpi-val">Obligatoria</div>
+                    </div>
+                    <div class="modal-penitencia-kpi is-danger">
+                        <div class="modal-penitencia-kpi-label">Penitencia</div>
+                        <div id="modal-pen-quest-kpi-exp" class="modal-penitencia-kpi-val">-30 EXP</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #94a3b8; margin-bottom: 6px;">
+                        Detalle de la quest y castigo asignado:
+                    </div>
+                    <div id="modal-pen-quest-desglose" class="modal-penitencia-desglose"></div>
+                </div>
+
+                <div id="modal-pen-quest-motivo-wrap">
+                    <label for="modal-pen-quest-motivo" style="display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: #f8fafc; margin-bottom: 6px;">
+                        <span>📝 ¿Por qué no terminaste esta quest obligatoria?</span>
+                        <span style="font-size: 10.5px; color: #f87171; font-weight: 700;">*Obligatorio</span>
+                    </label>
+                    <div class="penitencia-motivo-chips">
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitenciaQuest('Falta de tiempo', this)">⏱️ Falta de tiempo</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitenciaQuest('Fatiga / Agotamiento', this)">😮‍💨 Fatiga</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitenciaQuest('Molestia o dolor físico', this)">🩹 Molestia física</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitenciaQuest('Imprevisto / Trabajo', this)">🚨 Imprevisto</button>
+                        <button type="button" class="penitencia-motivo-chip" onclick="seleccionarMotivoRapidoPenitenciaQuest('Falta de energía / Disciplina', this)">😴 Sin energía</button>
+                    </div>
+                    <textarea id="modal-pen-quest-motivo" class="modal-penitencia-motivo-input" rows="2" maxlength="240"
+                        placeholder="Escribe el motivo (ej: me surgió un imprevisto, sin tiempo, agotamiento...)"
+                        oninput="limpiarErrorMotivoPenitenciaQuest()"></textarea>
+                    <div id="modal-pen-quest-motivo-error" class="modal-penitencia-motivo-error" style="display: none;">
+                        ⚠️ Selecciona o escribe el motivo por el cual abandonas esta quest obligatoria.
+                    </div>
+                </div>
+
+                <div id="modal-pen-quest-exp-preview" class="modal-penitencia-exp-bar"></div>
+
+                <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
+                    ⚠️ Al salir sin terminarla <strong style="color: #e2e8f0;">no recibirás la recompensa de EXP</strong> y la quest quedará marcada como <strong style="color: #fca5a5;">💀 PENALIZADA</strong> con tu motivo registrado.
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
+                    <button type="button" onclick="cerrarModalConfirmarPenitenciaQuest()" class="btn-primary" style="flex: 1; min-width: 145px; padding: 11px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;">
+                        ↩ Seguir con la Quest
+                    </button>
+                    <button type="button" id="btn-confirmar-penitencia-quest" onclick="confirmarPenitenciaAbandonoQuest()" style="flex: 1.2; min-width: 170px; padding: 11px 14px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 1px solid rgba(248, 113, 113, 0.55); color: #ffffff; font-weight: 800; font-size: 13px; cursor: pointer;">
+                        💀 Aceptar Penitencia
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL FLOTANTE DEL SISTEMA: FASE DE ESTIRAMIENTO Y CALENTAMIENTO PREVIO -->
     <div id="modal-estiramientos" class="modal-overlay" style="display: none;">
         <div class="modal-system-window">
@@ -7383,26 +7498,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.24"></script>
-    <script src="js/perfil.js?v=11.24"></script>
-    <script src="js/progresion.js?v=11.24"></script>
-    <script src="js/estado-personal.js?v=11.24"></script>
-    <script src="js/finanzas.js?v=11.24"></script>
-    <script src="js/ideas.js?v=11.24"></script>
-    <script src="js/dinamicas.js?v=11.24"></script>
-    <script src="js/calendario.js?v=11.24"></script>
-    <script src="js/inventario.js?v=11.24"></script>
-    <script src="js/reproductor.js?v=11.24"></script>
-    <script src="js/jarvis-voz.js?v=11.24"></script>
+    <script src="js/core.js?v=11.25"></script>
+    <script src="js/perfil.js?v=11.25"></script>
+    <script src="js/progresion.js?v=11.25"></script>
+    <script src="js/estado-personal.js?v=11.25"></script>
+    <script src="js/finanzas.js?v=11.25"></script>
+    <script src="js/ideas.js?v=11.25"></script>
+    <script src="js/dinamicas.js?v=11.25"></script>
+    <script src="js/calendario.js?v=11.25"></script>
+    <script src="js/inventario.js?v=11.25"></script>
+    <script src="js/reproductor.js?v=11.25"></script>
+    <script src="js/jarvis-voz.js?v=11.25"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.24"></script>
+    <script type="module" src="js/firebase-config.js?v=11.25"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.24')
+                navigator.serviceWorker.register('sw.js?v=11.25')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

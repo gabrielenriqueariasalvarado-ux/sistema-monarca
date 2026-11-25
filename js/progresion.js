@@ -1814,6 +1814,7 @@ function emitirNotificacionQuest(titulo, cuerpo, requireInteraction, tag) {
 function emitirAlertaQuestActivada(q, esReactivacion) {
     var esOmitible = (q.esOmitible !== false);
     var mins = q.tiempoMinutos || 15;
+    MONARCA_ALERTA_QUEST_ACTUAL_ID = (q && q.id !== undefined && q.id !== null) ? String(q.id) : null;
     if (q && q.estado === 'en_progreso' && !q.ultimaActivacionTs) {
         q.ultimaActivacionTs = Date.now();
     }
@@ -1891,7 +1892,7 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
     if (txtAviso) {
         txtAviso.innerHTML = esOmitible
             ? `Puedes aceptar ahora o <strong style="color:#7dd3fc;">posponer 1 hora</strong> si estás ocupado.`
-            : `<strong style="color: #fda4af;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El cronómetro está corriendo; si expira, se aplicará tu penitencia (-30 EXP).`;
+            : `<strong style="color: #fda4af;">⚠️ ESTA QUEST NO ES OMITIBLE:</strong> El cronómetro está corriendo; si sales sin completarla o expira, se aplicará tu penitencia (-${(q.penitenciaExp !== undefined ? q.penitenciaExp : 30)} EXP).`;
     }
 
     var rutinaAsocId = q.rutinaId || q.rutinaVinculada || null;
@@ -1912,9 +1913,14 @@ function emitirAlertaQuestActivada(q, esReactivacion) {
             `;
         } else {
             contAcciones.innerHTML = `
-                <button type="button" class="btn-system" style="width: 100%; padding: 13px 18px; font-size: 14px; font-weight: 800; justify-content: center; background: ${btnBg}; color: #ffffff; border: none; border-radius: 9999px; margin-bottom: 0;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
-                    ${btnTexto}
-                </button>
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <button type="button" class="btn-system" style="width: 100%; padding: 13px 18px; font-size: 14px; font-weight: 800; justify-content: center; background: ${btnBg}; color: #ffffff; border: none; border-radius: 9999px; margin-bottom: 0;" onclick="aceptarYEmpezarQuestAlerta('${q.id}')">
+                        ${btnTexto}
+                    </button>
+                    <button type="button" class="btn-qd-omit" style="width: 100%; padding: 9px 14px; font-size: 12px; justify-content: center; border-radius: 9999px; color: #fca5a5; border-color: rgba(244, 63, 94, 0.35); background: rgba(244, 63, 94, 0.08);" onclick="manejarIntentoSalidaAlertaQuestObligatoria()">
+                        ✕ Salir sin completar (Penitencia)
+                    </button>
+                </div>
             `;
         }
     }
@@ -1933,6 +1939,7 @@ function detenerSonidoAlarmaNativa() {
 function cerrarAlertaQuestActivada() {
     detenerAlarmaContinuaQuest();
     detenerSonidoAlarmaNativa();
+    MONARCA_ALERTA_QUEST_ACTUAL_ID = null;
     var modal = document.getElementById('modal-alerta-quest-activada');
     if (modal) modal.style.display = 'none';
 }
@@ -2703,6 +2710,9 @@ function renderizarQuestsDiarios() {
                 var itemsPenitencia = questsPenalizadas.map(function(qp) {
                     var pNom = qp.penitenciaNombre || qp.penitencia || '30 Flexiones';
                     var pDesc = qp.penitenciaDesc ? `<div class="alerta-penitencia-desc">${qp.penitenciaDesc}</div>` : '';
+                    var pMotivo = qp.motivoAbandono
+                        ? `<div class="alerta-penitencia-desc" style="color: #cbd5e1; margin-top: 3px;">📝 <strong>Motivo:</strong> ${_escaparHtmlQuestPenitencia(qp.motivoAbandono)}</div>`
+                        : '';
                     var pExp = (qp.penitenciaExp !== undefined) ? qp.penitenciaExp : 30;
                     var btnYaCumpliRut = (qp.rutinaId || qp.rutinaNombre)
                         ? `<button type="button" class="btn-ya-complete-rutina-sm" onclick="confirmarRutinaYaRealizadaQuest('${qp.id}')" title="Si ya completaste esta rutina hoy, limpia la penitencia">✓ Ya la completé</button>`
@@ -2718,6 +2728,7 @@ function renderizarQuestsDiarios() {
                                 <strong>CASTIGO OBLIGATORIO:</strong> ${pNom}
                             </div>
                             ${pDesc}
+                            ${pMotivo}
                         </div>
                         <div class="alerta-penitencia-item-actions">
                             ${btnYaCumpliRut}
@@ -3050,11 +3061,325 @@ function pausarTemporizadorQuest(id) {
     var q = APP_STATE.questsDiarios.find(function(item) { return String(item.id) === String(id); });
     if (!q) return;
 
+    // v11.25: Quest obligatoria en curso no se puede pausar gratis -> exige panel de penitencia con motivo
+    if (q.esOmitible === false && (q.estado === 'en_progreso' || q.temporizadorActivo)) {
+        abrirModalConfirmarPenitenciaQuest(q.id, { desdePausa: true });
+        return;
+    }
+
     q.temporizadorActivo = false;
     q.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarQuestsDiarios();
 }
+
+// ==========================================================================
+// GUARDIÁN DE SALIDA & PANEL DE PENITENCIA PARA QUESTS OBLIGATORIAS (v11.25)
+// ==========================================================================
+
+var MONARCA_ALERTA_QUEST_ACTUAL_ID = null;
+var MONARCA_PENITENCIA_QUEST_CONTEXTO = null;
+
+function _escaparHtmlQuestPenitencia(texto) {
+    return String(texto == null ? '' : texto)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function obtenerQuestObligatoriaEnProgresoParaGuardia() {
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return null;
+    for (var i = 0; i < APP_STATE.questsDiarios.length; i++) {
+        var q = APP_STATE.questsDiarios[i];
+        if (!q || q.esOmitible !== false) continue;
+        if (q.estado === 'completada' || q.estado === 'penalizada' || q.estado === 'penitencia_cumplida') continue;
+        if (q.estado === 'en_progreso' || q.temporizadorActivo === true) {
+            return q;
+        }
+    }
+    return null;
+}
+
+function abrirModalConfirmarPenitenciaQuest(questId, opts) {
+    opts = opts || {};
+    if (!window.APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return false;
+    var q = APP_STATE.questsDiarios.find(function(item) {
+        return item && String(item.id) === String(questId);
+    });
+    if (!q || q.estado === 'completada' || q.estado === 'penalizada' || q.estado === 'penitencia_cumplida') {
+        return false;
+    }
+
+    var modal = document.getElementById('modal-confirmar-penitencia-quest');
+    if (!modal) return false;
+
+    var pExp = (q.penitenciaExp !== undefined && !isNaN(Number(q.penitenciaExp))) ? Math.max(0, Number(q.penitenciaExp)) : 30;
+    var pNom = q.penitenciaNombre || q.penitencia || '30 Flexiones inmediatas';
+    var pDesc = q.penitenciaDesc || '';
+    var expActual = (APP_STATE.jugador && typeof APP_STATE.jugador.exp === 'number') ? APP_STATE.jugador.exp : 0;
+    var expDespues = Math.max(0, expActual - pExp);
+    var expMaxActual = (APP_STATE.jugador && APP_STATE.jugador.expMax) ? APP_STATE.jugador.expMax : 100;
+    var pctRecompensa = Math.max(1, Number(q.exp) || 40);
+    var expRecompensa = Math.max(5, Math.round((pctRecompensa / 100) * expMaxActual));
+
+    var segsRest = (q.tiempoRestante !== undefined) ? Number(q.tiempoRestante) : ((q.tiempoMinutos || 15) * 60);
+    var tiempoRestTxt = (q.tipoTiempo === 'libre') ? 'En curso' : ('⏱️ ' + formatearSegundos(segsRest));
+
+    MONARCA_PENITENCIA_QUEST_CONTEXTO = {
+        questId: String(q.id),
+        penalizacionExp: pExp,
+        desdeSalida: !!opts.desdeSalida,
+        desdeSalidaTab: !!opts.desdeSalidaTab,
+        tabDestino: opts.tabDestino || null,
+        desdePausa: !!opts.desdePausa,
+        desdeAlerta: !!opts.desdeAlerta,
+        vistaDestino: opts.vistaDestino || null
+    };
+
+    var elTitulo = document.getElementById('modal-pen-quest-titulo');
+    var elIntro = document.getElementById('modal-pen-quest-intro');
+    var elKpiEstado = document.getElementById('modal-pen-quest-kpi-estado');
+    var elKpiTipo = document.getElementById('modal-pen-quest-kpi-tipo');
+    var elKpiExp = document.getElementById('modal-pen-quest-kpi-exp');
+    var elDesglose = document.getElementById('modal-pen-quest-desglose');
+    var elPreview = document.getElementById('modal-pen-quest-exp-preview');
+    var elBtnConf = document.getElementById('btn-confirmar-penitencia-quest');
+
+    if (elTitulo) {
+        elTitulo.textContent = q.rutinaId
+            ? 'QUEST OBLIGATORIA DE RUTINA · PENITENCIA'
+            : 'QUEST OBLIGATORIA INCOMPLETA · PENITENCIA';
+    }
+
+    var safeNombre = _escaparHtmlQuestPenitencia(q.titulo || 'Quest Obligatoria');
+    if (elIntro) {
+        if (opts.desdePausa) {
+            elIntro.innerHTML = 'Estás intentando detener la quest obligatoria <strong style="color:#f8fafc;">' + safeNombre + '</strong> antes de completarla. Esta misión es <strong style="color:#fda4af;">NO OMITIBLE</strong>; si la abandonas ahora, se aplicará su penitencia.';
+        } else if (opts.desdeAlerta) {
+            elIntro.innerHTML = 'Estás intentando cerrar la alerta de la quest obligatoria <strong style="color:#f8fafc;">' + safeNombre + '</strong> sin completarla. Si sales ahora sin cumplirla, se aplicará la penitencia asignada.';
+        } else {
+            elIntro.innerHTML = 'Estás intentando salir de la quest obligatoria <strong style="color:#f8fafc;">' + safeNombre + '</strong> sin haberla terminado. Si abandonas ahora, se aplicará la penitencia correspondiente.';
+        }
+    }
+
+    if (elKpiEstado) elKpiEstado.textContent = tiempoRestTxt;
+    if (elKpiTipo) elKpiTipo.textContent = q.rutinaId ? 'Rutina Oblig.' : 'Obligatoria';
+    if (elKpiExp) elKpiExp.textContent = pExp > 0 ? ('-' + pExp + ' EXP') : 'Castigo físico';
+
+    if (elDesglose) {
+        var filasHtml = '';
+        filasHtml += '<div class="modal-penitencia-ej-row">'
+            + '<span>⚔️ ' + safeNombre + '</span>'
+            + '<span class="modal-penitencia-ej-loss" style="color:#fda4af;">Sin completar</span>'
+            + '</div>';
+        if (q.rutinaId || q.rutinaNombre) {
+            filasHtml += '<div class="modal-penitencia-ej-row">'
+                + '<span>🏋️ Rutina vinculada: ' + _escaparHtmlQuestPenitencia(q.rutinaNombre || 'Sesión de entrenamiento') + '</span>'
+                + '<span class="modal-penitencia-ej-loss" style="color:#38bdf8;">Pendiente</span>'
+                + '</div>';
+        }
+        filasHtml += '<div class="modal-penitencia-ej-row">'
+            + '<span>💀 Castigo: ' + _escaparHtmlQuestPenitencia(pNom) + (pDesc ? (' — ' + _escaparHtmlQuestPenitencia(pDesc)) : '') + '</span>'
+            + '<span class="modal-penitencia-ej-loss">' + (pExp > 0 ? ('-' + pExp + ' EXP') : 'Obligatorio') + '</span>'
+            + '</div>';
+        filasHtml += '<div class="modal-penitencia-ej-row">'
+            + '<span>🎁 Recompensa perdida</span>'
+            + '<span class="modal-penitencia-ej-loss" style="color:#94a3b8;">+' + expRecompensa + ' EXP</span>'
+            + '</div>';
+        elDesglose.innerHTML = filasHtml;
+    }
+
+    var inputMotivo = document.getElementById('modal-pen-quest-motivo');
+    if (inputMotivo) inputMotivo.value = '';
+    var errMotivo = document.getElementById('modal-pen-quest-motivo-error');
+    if (errMotivo) errMotivo.style.display = 'none';
+    modal.querySelectorAll('.penitencia-motivo-chip').forEach(function(chip) {
+        chip.classList.remove('active');
+    });
+
+    if (elPreview) {
+        elPreview.innerHTML = '<span>Tu EXP actual: <strong>' + expActual + '</strong> → tras penitencia: <strong style="color:#fca5a5;">' + expDespues + '</strong></span>'
+            + '<strong style="color:#f87171;">' + (pExp > 0 ? ('-' + pExp + ' EXP') : '0 EXP') + '</strong>';
+    }
+
+    if (elBtnConf) {
+        elBtnConf.textContent = pExp > 0 ? ('💀 Aceptar Penitencia (-' + pExp + ' EXP)') : '💀 Aceptar Penitencia';
+    }
+
+    modal.style.display = 'flex';
+    var modalBodyScroll = modal.querySelector('.modal-body-scroll');
+    if (modalBodyScroll) modalBodyScroll.scrollTop = 0;
+    return true;
+}
+
+function cerrarModalConfirmarPenitenciaQuest() {
+    var modal = document.getElementById('modal-confirmar-penitencia-quest');
+    if (modal) modal.style.display = 'none';
+    MONARCA_PENITENCIA_QUEST_CONTEXTO = null;
+}
+
+function seleccionarMotivoRapidoPenitenciaQuest(texto, btn) {
+    var input = document.getElementById('modal-pen-quest-motivo');
+    if (input) {
+        input.value = String(texto || '');
+        input.focus();
+    }
+    var modal = document.getElementById('modal-confirmar-penitencia-quest');
+    if (modal) {
+        modal.querySelectorAll('.penitencia-motivo-chip').forEach(function(c) {
+            c.classList.remove('active');
+        });
+    }
+    if (btn && btn.classList) btn.classList.add('active');
+    limpiarErrorMotivoPenitenciaQuest();
+}
+
+function limpiarErrorMotivoPenitenciaQuest() {
+    var err = document.getElementById('modal-pen-quest-motivo-error');
+    if (err) err.style.display = 'none';
+}
+
+function confirmarPenitenciaAbandonoQuest() {
+    var ctx = MONARCA_PENITENCIA_QUEST_CONTEXTO;
+    if (!ctx || !ctx.questId) {
+        cerrarModalConfirmarPenitenciaQuest();
+        return;
+    }
+
+    var inputMotivo = document.getElementById('modal-pen-quest-motivo');
+    var motivo = inputMotivo ? String(inputMotivo.value || '').trim() : '';
+    if (!motivo || motivo.length < 3) {
+        var errEl = document.getElementById('modal-pen-quest-motivo-error');
+        if (errEl) {
+            errEl.textContent = '⚠️ Selecciona o escribe el motivo por el cual abandonas esta quest obligatoria.';
+            errEl.style.display = 'block';
+        }
+        if (inputMotivo) {
+            inputMotivo.focus();
+            try { inputMotivo.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
+        }
+        return;
+    }
+
+    var q = (window.APP_STATE && Array.isArray(APP_STATE.questsDiarios))
+        ? APP_STATE.questsDiarios.find(function(item) { return item && String(item.id) === String(ctx.questId); })
+        : null;
+
+    var destino = ctx.vistaDestino;
+    var desdeSalida = !!ctx.desdeSalida;
+    var desdeSalidaTab = !!ctx.desdeSalidaTab;
+    var tabDestino = ctx.tabDestino;
+
+    cerrarModalConfirmarPenitenciaQuest();
+    cerrarAlertaQuestActivada();
+
+    if (q) {
+        var ahoraMs = Date.now();
+        var pExp = Math.max(0, Number(ctx.penalizacionExp) || 0);
+        q.estado = 'penalizada';
+        q.temporizadorActivo = false;
+        q.ultimaPenitenciaTs = ahoraMs;
+        q.penalizacionExpDevuelta = false;
+        q.motivoAbandono = motivo;
+        q.fechaActualizacion = ahoraMs;
+
+        if (pExp > 0 && typeof restarExp === 'function') {
+            restarExp(pExp);
+        }
+
+        if (!Array.isArray(APP_STATE.historialQuests)) APP_STATE.historialQuests = [];
+        APP_STATE.historialQuests.push({
+            id: 'HQ-PEN-' + ahoraMs + '-' + Math.random().toString(36).substr(2, 4),
+            questId: q.id,
+            titulo: q.titulo,
+            categoria: q.categoria || 'Disciplina',
+            estado: 'penalizada',
+            expGanada: -pExp,
+            motivoAbandono: motivo,
+            fecha: new Date(ahoraMs).toISOString(),
+            fechaDia: obtenerClaveHoyQuestLocal()
+        });
+
+        if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+            window.cancelarNotificacionTelefonoPorAlerta('alerta-quest-act-' + q.id);
+        }
+        if (typeof MonarcaDB !== 'undefined' && typeof MonarcaDB.save === 'function') {
+            MonarcaDB.save(APP_STATE);
+        }
+        if (typeof reproducirGolpeAlarmaSintetizada === 'function') {
+            try { reproducirGolpeAlarmaSintetizada('tono_tactico'); } catch(e) {}
+        }
+        if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        if (typeof renderizarQuestsDiarios === 'function') renderizarQuestsDiarios();
+
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Penitencia aplicada a "' + q.titulo + '"' + (pExp > 0 ? (' (-' + pExp + ' EXP)') : '') + ' · Motivo guardado.', '💀');
+        }
+    }
+
+    if (desdeSalidaTab && tabDestino && typeof cambiarTabAccionesDesarrollo === 'function') {
+        cambiarTabAccionesDesarrollo(tabDestino, { forzarSalidaQuest: true });
+    } else if (desdeSalida && destino && typeof cambiarVista === 'function') {
+        cambiarVista(destino, false, { forzarSalidaQuest: true });
+    }
+}
+
+function manejarIntentoSalidaAlertaQuestObligatoria() {
+    var modalPen = document.getElementById('modal-confirmar-penitencia-quest');
+    if (modalPen && modalPen.style && modalPen.style.display && modalPen.style.display !== 'none') {
+        cerrarModalConfirmarPenitenciaQuest();
+        return true;
+    }
+
+    var modalAlerta = document.getElementById('modal-alerta-quest-activada');
+    if (!modalAlerta || !modalAlerta.style || !modalAlerta.style.display || modalAlerta.style.display === 'none') {
+        return false;
+    }
+
+    var q = null;
+    if (MONARCA_ALERTA_QUEST_ACTUAL_ID && window.APP_STATE && Array.isArray(APP_STATE.questsDiarios)) {
+        q = APP_STATE.questsDiarios.find(function(item) {
+            return item && String(item.id) === String(MONARCA_ALERTA_QUEST_ACTUAL_ID);
+        });
+    }
+    if (!q) {
+        q = obtenerQuestObligatoriaEnProgresoParaGuardia();
+    }
+
+    if (q && q.esOmitible === false && q.estado !== 'completada' && q.estado !== 'penalizada') {
+        abrirModalConfirmarPenitenciaQuest(q.id, { desdeAlerta: true });
+        return true;
+    }
+    return false;
+}
+
+function interceptarSalidaQuestObligatoria(vistaDestino, desdePopState) {
+    var q = obtenerQuestObligatoriaEnProgresoParaGuardia();
+    if (!q) return false;
+
+    if (desdePopState) {
+        var vistaQuedar = window.VISTA_ACTUAL || 'vista-acciones-progresion';
+        try {
+            history.pushState({ vista: vistaQuedar }, '', '#' + vistaQuedar);
+        } catch(e) {}
+    }
+
+    return abrirModalConfirmarPenitenciaQuest(q.id, {
+        desdeSalida: true,
+        vistaDestino: vistaDestino || 'vista-home'
+    });
+}
+
+window.obtenerQuestObligatoriaEnProgresoParaGuardia = obtenerQuestObligatoriaEnProgresoParaGuardia;
+window.abrirModalConfirmarPenitenciaQuest = abrirModalConfirmarPenitenciaQuest;
+window.cerrarModalConfirmarPenitenciaQuest = cerrarModalConfirmarPenitenciaQuest;
+window.seleccionarMotivoRapidoPenitenciaQuest = seleccionarMotivoRapidoPenitenciaQuest;
+window.limpiarErrorMotivoPenitenciaQuest = limpiarErrorMotivoPenitenciaQuest;
+window.confirmarPenitenciaAbandonoQuest = confirmarPenitenciaAbandonoQuest;
+window.manejarIntentoSalidaAlertaQuestObligatoria = manejarIntentoSalidaAlertaQuestObligatoria;
+window.interceptarSalidaQuestObligatoria = interceptarSalidaQuestObligatoria;
 
 function completarQuestDiaria(id) {
     if (!APP_STATE.questsDiarios) return;
@@ -3261,6 +3586,10 @@ function iniciarRutinaDesdeHabito(rutinaId, questId) {
         if (q && !q.temporizadorActivo && q.estado !== 'completada' && q.estado !== 'penalizada') {
             iniciarTemporizadorQuest(questId);
         }
+    }
+
+    if (typeof window.setQuestOrigenRutinaActiva === 'function') {
+        window.setQuestOrigenRutinaActiva(questId || null);
     }
 
     if (typeof abrirDetalleRutina === 'function') {
@@ -4461,15 +4790,16 @@ const PROTOCOLOS_DEEP_WORK = [
     }
 ];
 
-function cambiarTabAccionesDesarrollo(tabId) {
+function cambiarTabAccionesDesarrollo(tabId, opts) {
+    opts = opts || {};
     if (tabId === 'gimnasio' || tabId === 'gimnasio-mental') {
-        cambiarVista('vista-ejercicios');
-        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('gimnasio-mental');
+        cambiarVista('vista-ejercicios', false, opts);
+        if (window.VISTA_ACTUAL === 'vista-ejercicios' && typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('gimnasio-mental');
         return;
     }
     if (tabId === 'banco-mental') {
-        cambiarVista('vista-ejercicios');
-        if (typeof cambiarCategoriaEjercicios === 'function') {
+        cambiarVista('vista-ejercicios', false, opts);
+        if (window.VISTA_ACTUAL === 'vista-ejercicios' && typeof cambiarCategoriaEjercicios === 'function') {
             cambiarCategoriaEjercicios('banco');
             if (typeof filtrarSubcategoriaEjercicios === 'function') filtrarSubcategoriaEjercicios('mental');
         }
@@ -4477,6 +4807,26 @@ function cambiarTabAccionesDesarrollo(tabId) {
     }
 
     if (!tabId || tabId === 'conocimiento' || tabId === 'quests') tabId = 'habitos';
+
+    // Guardián v11.25: si hay una quest obligatoria en progreso y el usuario intenta cambiar de pestaña dentro de Progresión
+    var tabAnterior = window.TAB_ACCIONES_DESARROLLO_ACTIVA || 'habitos';
+    if (
+        window.VISTA_ACTUAL === 'vista-acciones-progresion' &&
+        tabAnterior === 'habitos' &&
+        tabId !== 'habitos' &&
+        !opts.forzarSalidaQuest &&
+        typeof obtenerQuestObligatoriaEnProgresoParaGuardia === 'function'
+    ) {
+        var qGuardiaTab = obtenerQuestObligatoriaEnProgresoParaGuardia();
+        if (qGuardiaTab) {
+            abrirModalConfirmarPenitenciaQuest(qGuardiaTab.id, {
+                desdeSalidaTab: true,
+                tabDestino: tabId
+            });
+            return;
+        }
+    }
+
     window.TAB_ACCIONES_DESARROLLO_ACTIVA = tabId;
 
     var tabs = ['habitos', 'skills'];

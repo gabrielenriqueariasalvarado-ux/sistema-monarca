@@ -59,6 +59,7 @@ const DEFAULT_STATE = {
     },
     registroDiarioCalendario: {},
     gym: [],
+    historialDuracionesRutinas: [],
     rutinas: [],
     splitPersonal: null,
     rutinaCalentamiento: [],
@@ -216,6 +217,7 @@ const DEFAULT_STATE = {
         gruposPersonas: [],
         ejercicios: [],
         rutinas: [],
+        historialDuracionesRutinas: [],
         ejerciciosMentales: [],
         ejerciciosCerebrales: [],
         conocimientos: [],
@@ -691,17 +693,17 @@ function cambiarVista(vistaId, noPushState, opts) {
     // Redirecciones de conveniencia hacia pestañas internas
     if (vistaId === 'vista-misiones') {
         cambiarVista('vista-acciones-progresion', noPushState, opts);
-        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos');
+        if (window.VISTA_ACTUAL === 'vista-acciones-progresion' && typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('habitos', opts);
         return;
     }
     if (vistaId === 'vista-quests-diarios') {
         cambiarVista('vista-acciones-progresion', noPushState, opts);
-        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests');
+        if (window.VISTA_ACTUAL === 'vista-acciones-progresion' && typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('quests', opts);
         return;
     }
     if (vistaId === 'vista-habilidades') {
         cambiarVista('vista-acciones-progresion', noPushState, opts);
-        if (typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills');
+        if (window.VISTA_ACTUAL === 'vista-acciones-progresion' && typeof cambiarTabAccionesDesarrollo === 'function') cambiarTabAccionesDesarrollo('skills', opts);
         return;
     }
     if (vistaId === 'vista-mente' || vistaId === 'vista-gimnasio-mental') {
@@ -710,18 +712,18 @@ function cambiarVista(vistaId, noPushState, opts) {
     }
     if (vistaId === 'vista-banco-mental') {
         cambiarVista('vista-ejercicios', noPushState, opts);
-        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('banco-mental');
+        if (window.VISTA_ACTUAL === 'vista-ejercicios' && typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('banco-mental');
         return;
     }
     if (vistaId === 'vista-gym') {
         cambiarVista('vista-ejercicios', noPushState, opts);
-        if (typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
+        if (window.VISTA_ACTUAL === 'vista-ejercicios' && typeof cambiarCategoriaEjercicios === 'function') cambiarCategoriaEjercicios('rutinas');
         return;
     }
 
     var vistaAnterior = window.VISTA_ACTUAL || 'vista-home';
 
-    // Guardián de salida de rutina activa incompleta (v11.09): pregunta motivo y muestra % + penitencia EXP
+    // Guardián de salida de rutina activa incompleta (v11.09 / v11.25): pregunta motivo y muestra % + penitencia EXP
     if (
         vistaAnterior === 'vista-detalle-rutina-dinamica' &&
         vistaId !== 'vista-detalle-rutina-dinamica' &&
@@ -729,6 +731,23 @@ function cambiarVista(vistaId, noPushState, opts) {
         typeof window.interceptarSalidaRutinaIncompleta === 'function'
     ) {
         if (window.interceptarSalidaRutinaIncompleta(vistaId, !!noPushState)) {
+            return;
+        }
+    }
+
+    // Guardián de salida de Quest Diaria Obligatoria activa (v11.25)
+    var saliendoDeVistaQuests = (
+        vistaAnterior === 'vista-quests-diarios' ||
+        (vistaAnterior === 'vista-acciones-progresion' && (!window.TAB_ACCIONES_DESARROLLO_ACTIVA || window.TAB_ACCIONES_DESARROLLO_ACTIVA === 'habitos'))
+    );
+    if (
+        saliendoDeVistaQuests &&
+        vistaId !== vistaAnterior &&
+        vistaId !== 'vista-detalle-rutina-dinamica' &&
+        !opts.forzarSalidaQuest &&
+        typeof window.interceptarSalidaQuestObligatoria === 'function'
+    ) {
+        if (window.interceptarSalidaQuestObligatoria(vistaId, !!noPushState)) {
             return;
         }
     }
@@ -864,7 +883,23 @@ function mostrarToastRetrocesoSalir() {
 }
 
 function retrocederNavegacionMonarca() {
-    // 1. Cerrar modales abiertos prioritariamente
+    // 1. Cerrar modales abiertos prioritariamente (protegiendo alertas de quests obligatorias v11.25)
+    var modalQuestAlerta = document.getElementById('modal-alerta-quest-activada');
+    if (
+        modalQuestAlerta &&
+        modalQuestAlerta.style &&
+        modalQuestAlerta.style.display &&
+        modalQuestAlerta.style.display !== 'none' &&
+        typeof window.manejarIntentoSalidaAlertaQuestObligatoria === 'function'
+    ) {
+        if (window.manejarIntentoSalidaAlertaQuestObligatoria()) {
+            try {
+                history.pushState({ vista: window.VISTA_ACTUAL || 'vista-home' }, '', '#' + (window.VISTA_ACTUAL || 'vista-home'));
+            } catch(e) {}
+            return true;
+        }
+    }
+
     var modales = document.querySelectorAll('.modal-overlay, #modal-jarvis-voz, #modal-asistente-rapido, #modal-alerta-quest-activada, #modal-calentamiento-sesion');
     for (var i = 0; i < modales.length; i++) {
         var m = modales[i];
@@ -1671,7 +1706,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.24';
+var MONARCA_APP_VERSION = '11.25';
 var MONARCA_APP_VERSION_FECHA = '2026-11-25';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
@@ -2396,6 +2431,22 @@ function manejarAccionNotificacionTelefono(event) {
 
         if (actionId === 'okey') {
             confirmarAlertaOkeySistema(extra);
+            return;
+        }
+
+        if (extra.monarcaAlertTipo === 'autopc-plan' || extra.openView === 'vista-perfil') {
+            if (typeof cambiarVista === 'function') {
+                cambiarVista('vista-perfil');
+            }
+            if (typeof cargarPerfil === 'function') {
+                cargarPerfil();
+            }
+            setTimeout(function() {
+                var targetPlan = document.getElementById('perfil-autopc-plan-box') || document.getElementById('perfil-autopc-monitor-card');
+                if (targetPlan && typeof targetPlan.scrollIntoView === 'function') {
+                    targetPlan.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 180);
             return;
         }
 

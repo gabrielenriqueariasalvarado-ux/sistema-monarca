@@ -51,6 +51,7 @@ function iniciarTimerMonitorAutoPCPerfil() {
 }
 
 function obtenerTextoEstadoFilaMonitor(st) {
+    if (st === 'awaiting_plan') return { icon: '📋', label: 'Plan pendiente', cls: 'is-plan' };
     if (st === 'running') return { icon: '⚙️', label: 'En curso', cls: 'is-running' };
     if (st === 'pending') return { icon: '⏳', label: 'En cola', cls: 'is-pending' };
     if (st === 'offline') return { icon: '📶', label: 'Por subir', cls: 'is-offline' };
@@ -74,6 +75,137 @@ function toggleResumenRecienteMonitorPerfil(itemId) {
     if (btn) btn.classList.toggle('is-open', !abierto);
 }
 
+function enviarAprobacionPlanPerfil() {
+    if (typeof window.enviarDecisionPlanDesdePerfil === 'function') {
+        window.enviarDecisionPlanDesdePerfil('approve', '');
+    }
+}
+
+function enviarRespuestaPlanPerfil() {
+    var input = document.getElementById('perfil-autopc-plan-reply-input');
+    var txt = input ? String(input.value || '').trim() : '';
+    if (typeof window.enviarDecisionPlanDesdePerfil === 'function') {
+        window.enviarDecisionPlanDesdePerfil('reply', txt).then(function(ok) {
+            if (ok && input) input.value = '';
+        });
+    }
+}
+
+function _renderizarBloquePlanPendientePerfil(plan) {
+    if (!plan) return '';
+    var fmtHtml = function(txt) {
+        if (!txt) return '';
+        if (typeof window.formatearResumenAntigravityHtml === 'function') {
+            return window.formatearResumenAntigravityHtml(txt);
+        }
+        return '<p class="ag-md-p">' + escapeHtmlPerfil(txt).replace(/\n/g, '<br>') + '</p>';
+    };
+
+    var planTimeTxt = '';
+    if (plan.planUpdatedAt) {
+        try {
+            var d = new Date(Number(plan.planUpdatedAt));
+            planTimeTxt = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {}
+    }
+
+    var msgHtml = plan.planMessage
+        ? `<div class="perfil-ag-plan-msg">
+               <div class="perfil-ag-plan-section-lbl">💬 Mensaje de Antigravity</div>
+               <div class="perfil-ag-plan-msg-body">${fmtHtml(plan.planMessage)}</div>
+           </div>`
+        : '';
+
+    var mdHtml = plan.planMarkdown
+        ? `<div class="perfil-ag-plan-md-wrap">
+               <div class="perfil-ag-plan-section-lbl">📄 implementation_plan.md</div>
+               <div id="perfil-autopc-plan-reader" class="perfil-ag-plan-reader">${fmtHtml(plan.planMarkdown)}</div>
+           </div>`
+        : `<div class="perfil-ag-plan-msg-body" style="color: #cbd5e1; font-size: 12px;">Antigravity solicitó revisión del Implementation Plan y Auto-PC detuvo la cola hasta recibir tu decisión.</div>`;
+
+    var accionesHtml = '';
+    if (plan.decisionEnviada) {
+        var decLabel = plan.decisionAction === 'reply'
+            ? '📨 Indicaciones enviadas a Auto-PC'
+            : '✅ Aprobación enviada a Auto-PC';
+        accionesHtml = `
+        <div class="perfil-ag-plan-sent-note">
+            <strong>${decLabel}</strong>
+            ${plan.decisionTexto ? `<div class="perfil-ag-plan-sent-quote">"${escapeHtmlPerfil(plan.decisionTexto)}"</div>` : ''}
+            <span>Auto-PC enviará tu respuesta a Antigravity en segundos y reanudará el trabajo.</span>
+        </div>`;
+    } else {
+        accionesHtml = `
+        <div class="perfil-ag-plan-actions">
+            <button type="button" class="btn-perfil-plan-approve" onclick="enviarAprobacionPlanPerfil()">
+                ✅ Aprobar Plan (Proceed)
+            </button>
+            <div class="perfil-ag-plan-reply-box">
+                <label for="perfil-autopc-plan-reply-input" class="perfil-ag-plan-reply-lbl">
+                    ✏️ O escribe ajustes / indicaciones para Antigravity:
+                </label>
+                <textarea id="perfil-autopc-plan-reply-input" class="perfil-ag-plan-reply-input" rows="2" maxlength="1200"
+                    placeholder="Ej: Sí, hazlo pero también cambia X, o descarta la parte Y..."></textarea>
+                <button type="button" class="btn-perfil-plan-reply" onclick="enviarRespuestaPlanPerfil()">
+                    📨 Enviar indicaciones a Antigravity
+                </button>
+            </div>
+        </div>`;
+    }
+
+    return `
+    <div id="perfil-autopc-plan-box" class="perfil-ag-plan-card">
+        <div class="perfil-ag-plan-head">
+            <div class="perfil-ag-plan-title-row">
+                <span class="perfil-ag-plan-badge">📋 IMPLEMENTATION PLAN</span>
+                <span class="perfil-ag-plan-hold-pill">⏸ Cola detenida hasta tu decisión</span>
+            </div>
+            ${planTimeTxt ? `<span class="perfil-ag-plan-time">🕒 ${escapeHtmlPerfil(planTimeTxt)}</span>` : ''}
+        </div>
+        <div class="perfil-ag-plan-req">
+            <span class="perfil-ag-plan-req-lbl">Solicitud:</span>
+            <span class="perfil-ag-plan-req-txt">${escapeHtmlPerfil(plan.requestText || 'Solicitud activa')}</span>
+        </div>
+        ${msgHtml}
+        ${mdHtml}
+        ${accionesHtml}
+    </div>`;
+}
+
+function _renderizarBloqueUltimaRespuestaPerfil(ultima) {
+    if (!ultima || !ultima.respuesta) return '';
+    var fmtHtml = (typeof window.formatearResumenAntigravityHtml === 'function')
+        ? window.formatearResumenAntigravityHtml(ultima.respuesta)
+        : ('<p class="ag-md-p">' + escapeHtmlPerfil(ultima.respuesta).replace(/\n/g, '<br>') + '</p>');
+
+    var ageTxt = (ultima.ageMs !== null && ultima.ageMs !== undefined)
+        ? ('Hace ' + formatearTiempoMonitorPerfil(ultima.ageMs))
+        : '';
+
+    var filesHtml = '';
+    if (Array.isArray(ultima.archivos) && ultima.archivos.length > 0) {
+        filesHtml = `<div class="perfil-ag-files-row">` +
+            ultima.archivos.slice(0, 8).map(function(f) {
+                return `<span class="perfil-ag-file-chip">📄 ${escapeHtmlPerfil(f)}</span>`;
+            }).join('') +
+        `</div>`;
+    }
+
+    return `
+    <div class="perfil-ag-last-response-card">
+        <div class="perfil-ag-last-response-head">
+            <div class="perfil-ag-last-response-title">
+                <span>💬 Última Respuesta de Antigravity</span>
+                ${ultima.version ? `<span class="perfil-autopc-chip is-version" style="padding: 2px 7px; font-size: 10.5px;">🏷️ ${escapeHtmlPerfil(ultima.version)}</span>` : ''}
+            </div>
+            ${ageTxt ? `<span class="perfil-ag-last-response-age">${escapeHtmlPerfil(ageTxt)}</span>` : ''}
+        </div>
+        ${ultima.requestText ? `<div class="perfil-ag-last-response-req">Solicitud: <strong>${escapeHtmlPerfil(ultima.requestText)}</strong></div>` : ''}
+        <div id="perfil-autopc-last-response-body" class="perfil-ag-last-response-body">${fmtHtml}</div>
+        ${filesHtml}
+    </div>`;
+}
+
 function renderizarContenidoMonitorAutoPCPerfil() {
     var resumen = (typeof window.obtenerResumenMonitoreoAutoPC === 'function')
         ? window.obtenerResumenMonitoreoAutoPC()
@@ -86,6 +218,8 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             heartbeatAgeMs: null,
             enCursoAgeMs: 0,
             antigravity: null,
+            planPendiente: null,
+            ultimaRespuesta: null,
             cola: { running: 0, pending: 0, offlinePending: 0, done: 0, totalActive: 0 },
             solicitudActual: null,
             recientes: [],
@@ -123,9 +257,12 @@ function renderizarContenidoMonitorAutoPCPerfil() {
         ? `<div class="perfil-autopc-alert"><span>⚠️</span><span>${escapeHtmlPerfil(resumen.alertaStuck)}</span></div>`
         : '';
 
+    var planPendienteHtml = _renderizarBloquePlanPendientePerfil(resumen.planPendiente);
+    var ultimaRespuestaHtml = _renderizarBloqueUltimaRespuestaPerfil(resumen.ultimaRespuesta);
+
     // Bloque detallado de actividad precisa en Antigravity
     var agLivePanelHtml = '';
-    if (ag && (resumen.nivel === 'working' || (resumen.solicitudActual && resumen.solicitudActual.status === 'running') || ag.stepsCount > 0)) {
+    if (ag && !resumen.planPendiente && (resumen.nivel === 'working' || (resumen.solicitudActual && resumen.solicitudActual.status === 'running') || ag.stepsCount > 0)) {
         var faseIdx = obtenerFaseIndiceAntigravity(ag.phaseCode);
         var pct = Math.max(5, Math.min(100, Number(ag.progressPct) || 15));
         var hitos = [
@@ -186,26 +323,28 @@ function renderizarContenidoMonitorAutoPCPerfil() {
     }
 
     var actualHtml = '';
-    if (resumen.solicitudActual) {
-        var tiempoAct = resumen.solicitudActual.elapsedMs > 0
-            ? `<span class="perfil-autopc-timer">⏱️ ${formatearTiempoMonitorPerfil(resumen.solicitudActual.elapsedMs)}</span>`
-            : '';
-        var tagEstadoAct = resumen.solicitudActual.status === 'running' ? 'TRABAJANDO AHORA' : 'SIGUIENTE EN COLA';
-        actualHtml = `
-        <div class="perfil-autopc-current">
-            <div class="perfil-autopc-current-top">
-                <span class="perfil-autopc-current-label">${tagEstadoAct}</span>
-                ${tiempoAct}
-            </div>
-            <div class="perfil-autopc-current-text">${escapeHtmlPerfil(resumen.solicitudActual.texto)}</div>
-            ${agLivePanelHtml || `<div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>`}
-        </div>`;
-    } else {
-        actualHtml = `
-        <div class="perfil-autopc-current is-empty">
-            <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
-            ${agLivePanelHtml}
-        </div>`;
+    if (!resumen.planPendiente) {
+        if (resumen.solicitudActual) {
+            var tiempoAct = resumen.solicitudActual.elapsedMs > 0
+                ? `<span class="perfil-autopc-timer">⏱️ ${formatearTiempoMonitorPerfil(resumen.solicitudActual.elapsedMs)}</span>`
+                : '';
+            var tagEstadoAct = resumen.solicitudActual.status === 'running' ? 'TRABAJANDO AHORA' : 'SIGUIENTE EN COLA';
+            actualHtml = `
+            <div class="perfil-autopc-current">
+                <div class="perfil-autopc-current-top">
+                    <span class="perfil-autopc-current-label">${tagEstadoAct}</span>
+                    ${tiempoAct}
+                </div>
+                <div class="perfil-autopc-current-text">${escapeHtmlPerfil(resumen.solicitudActual.texto)}</div>
+                ${agLivePanelHtml || `<div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>`}
+            </div>`;
+        } else {
+            actualHtml = `
+            <div class="perfil-autopc-current is-empty">
+                <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
+                ${agLivePanelHtml}
+            </div>`;
+        }
     }
 
     var recientesHtml = '';
@@ -219,7 +358,7 @@ function renderizarContenidoMonitorAutoPCPerfil() {
                 var safeId = String(item.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
                 var tieneResumen = item.status === 'done' && item.resumenAntigravity;
                 var resumenBtn = tieneResumen
-                    ? `<button type="button" id="perfil-autopc-resumen-btn-${safeId}" class="perfil-autopc-row-sum-btn" onclick="toggleResumenRecienteMonitorPerfil('${safeId}')">📋 Resumen ▾</button>`
+                    ? `<button type="button" id="perfil-autopc-resumen-btn-${safeId}" class="perfil-autopc-row-sum-btn" onclick="toggleResumenRecienteMonitorPerfil('${safeId}')">💬 Ver respuesta ▾</button>`
                     : '';
                 var resumenBody = tieneResumen
                     ? `<div id="perfil-autopc-resumen-${safeId}" class="perfil-autopc-row-sum-body" style="display: none;">
@@ -260,7 +399,9 @@ function renderizarContenidoMonitorAutoPCPerfil() {
 
         ${(proyectoChip || agChip || verChip) ? `<div class="perfil-autopc-chips">${proyectoChip}${agChip}${verChip}</div>` : ''}
         ${alertaHtml}
+        ${planPendienteHtml}
         ${actualHtml}
+        ${ultimaRespuestaHtml}
 
         <div class="perfil-autopc-kpis">
             <div class="perfil-autopc-kpi is-running">
@@ -293,14 +434,29 @@ function renderizarContenidoMonitorAutoPCPerfil() {
 function actualizarTarjetaMonitorAutoPCPerfil() {
     var card = document.getElementById('perfil-autopc-monitor-card');
     if (!card) return;
-    // Preservar estado abierto de <details> y resúmenes expandidos si el usuario los abrió
+
+    // Preservar estado abierto de <details>, resúmenes expandidos, textarea de respuesta al plan y scroll
     var det = card.querySelector('.perfil-ag-steps-details');
     var detAbierto = !!(det && det.open);
     var abiertosIds = [];
     card.querySelectorAll('.perfil-autopc-row-sum-body').forEach(function(b) {
         if (b.style.display === 'block' && b.id) abiertosIds.push(b.id);
     });
+
+    var replyInput = document.getElementById('perfil-autopc-plan-reply-input');
+    var replyVal = replyInput ? replyInput.value : '';
+    var replyFocused = Boolean(replyInput && document.activeElement === replyInput);
+    var replySelStart = replyFocused && typeof replyInput.selectionStart === 'number' ? replyInput.selectionStart : null;
+    var replySelEnd = replyFocused && typeof replyInput.selectionEnd === 'number' ? replyInput.selectionEnd : null;
+
+    var planReader = document.getElementById('perfil-autopc-plan-reader');
+    var planScrollTop = planReader ? planReader.scrollTop : 0;
+
+    var lastRespBody = document.getElementById('perfil-autopc-last-response-body');
+    var lastRespScrollTop = lastRespBody ? lastRespBody.scrollTop : 0;
+
     card.innerHTML = renderizarContenidoMonitorAutoPCPerfil();
+
     if (detAbierto) {
         var detNuevo = card.querySelector('.perfil-ag-steps-details');
         if (detNuevo) detNuevo.open = true;
@@ -312,6 +468,29 @@ function actualizarTarjetaMonitorAutoPCPerfil() {
         var btnNew = document.getElementById(btnId);
         if (btnNew) btnNew.classList.add('is-open');
     });
+
+    var newReplyInput = document.getElementById('perfil-autopc-plan-reply-input');
+    if (newReplyInput && replyVal) {
+        newReplyInput.value = replyVal;
+    }
+    if (newReplyInput && replyFocused) {
+        try {
+            newReplyInput.focus({ preventScroll: true });
+            if (replySelStart !== null && replySelEnd !== null) {
+                newReplyInput.setSelectionRange(replySelStart, replySelEnd);
+            }
+        } catch (e) {}
+    }
+
+    var newPlanReader = document.getElementById('perfil-autopc-plan-reader');
+    if (newPlanReader && planScrollTop > 0) {
+        newPlanReader.scrollTop = planScrollTop;
+    }
+
+    var newLastRespBody = document.getElementById('perfil-autopc-last-response-body');
+    if (newLastRespBody && lastRespScrollTop > 0) {
+        newLastRespBody.scrollTop = lastRespScrollTop;
+    }
 }
 
 function renderizarPerfil(perfil) {
@@ -539,5 +718,7 @@ function analizarCodigoSincronizacion(codigo) {
 
 if (typeof window !== 'undefined') {
     window.toggleResumenRecienteMonitorPerfil = toggleResumenRecienteMonitorPerfil;
+    window.enviarAprobacionPlanPerfil = enviarAprobacionPlanPerfil;
+    window.enviarRespuestaPlanPerfil = enviarRespuestaPlanPerfil;
 }
 

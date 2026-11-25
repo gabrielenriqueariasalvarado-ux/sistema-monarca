@@ -1,5 +1,5 @@
 {
-  "version": "11.24",
+  "version": "11.25",
   "fecha": "2026-11-25",
-  "resumen": "Descanso Entre Series a 3 Minutos (180s) por Defecto v11.24: El temporizador de descanso entre series y ejercicios ahora arranca por defecto en 3 min (03:00), añadiendo el botón rápido 3m junto a 30s, 60s, 90s y 2m tanto en la barra superior de la rutina como en el panel inline entre series y en los avisos nativos."
+  "resumen": "Cronómetro Total de Rutina + Récord de Tiempo por Defecto + Guardián de Quests Obligatorias + Aprobación Remota de Implementation Plan (v11.25): Mide la duración completa de tus rutinas comparando si son más cortas o más largas, guarda automáticamente tu nuevo récord de tiempo por defecto en ejercicios isométricos/Serie 0, muestra el panel de penitencia al intentar salir de una quest/rutina obligatoria sin terminarla, y frena Auto-PC cuando Antigravity solicita un Implementation Plan para leerlo, recibir notificación en el teléfono y aprobarlo/responderlo desde Perfil junto a las respuestas completas de Antigravity."
 }

@@ -84,6 +84,9 @@ var ESTADO_IDEAS = {
 
 var AUTOPC_SOLICITUDES_MAP = {};
 var AUTOPC_TELEMETRIA_PC = null;
+var AUTOPC_PLAN_DECISION_DOC = null;
+var AUTOPC_PLAN_DECISION_LOCAL = {};
+var AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = '';
 
 function esCategoriaEmily(cat) {
     return Boolean(cat && String(cat).toLowerCase().includes('emily'));
@@ -1086,7 +1089,10 @@ function abrirDetalleCategoriaIdeas(catNombre) {
                 var autopcBtnHtml = '';
 
                 if (ideaEsEmily) {
-                    if (autopcEstado === 'running') {
+                    if (autopcEstado === 'awaiting_plan') {
+                        autopcBadgeHtml = `<span class="idea-autopc-badge is-plan" style="background: rgba(168, 85, 247, 0.16); color: #d8b4fe; border-color: rgba(192, 132, 252, 0.4);">📋 Plan esperando</span>`;
+                        autopcBtnHtml = `<button class="btn-idea-autopc" style="background: rgba(168, 85, 247, 0.22); border-color: rgba(192, 132, 252, 0.45); color: #e9d5ff;" onclick="cambiarVista('vista-perfil'); if(typeof cargarPerfil==='function') cargarPerfil();" title="Leer y aprobar Implementation Plan en Perfil">📖 Revisar Plan</button>`;
+                    } else if (autopcEstado === 'running') {
                         autopcBadgeHtml = `<span class="idea-autopc-badge is-running">⚙️ Programando en PC</span>`;
                     } else if (autopcEstado === 'pending') {
                         autopcBadgeHtml = `<span class="idea-autopc-badge is-pending">⏳ En cola PC</span>`;
@@ -2303,8 +2309,50 @@ function registrarNotificacionSolicitudAutoPC(docRemoto, ideaAsociada) {
 }
 
 function obtenerAlertasAutoPCActivas() {
+    var alertasPlan = [];
+    var planPend = (typeof obtenerPlanPendienteAutoPC === 'function') ? obtenerPlanPendienteAutoPC() : null;
+    if (planPend && planPend.planId && !planPend.decisionEnviada) {
+        var safePlanId = String(planPend.planId).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+        var tsPlan = Number(planPend.planUpdatedAt) || Date.now();
+        var dPlan = new Date(tsPlan);
+        var horaPlan = dPlan.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        var reqPreview = planPend.requestText
+            ? (planPend.requestText.length > 62 ? (planPend.requestText.slice(0, 59) + '...') : planPend.requestText)
+            : 'Solicitud actual';
+        var rawPlanPreview = (planPend.planMessage || planPend.planMarkdown || '').replace(/[#*`_>]+/g, ' ').replace(/\s+/g, ' ').trim();
+        var descPlan = rawPlanPreview
+            ? (rawPlanPreview.length > 180 ? (rawPlanPreview.slice(0, 177) + '...') : rawPlanPreview)
+            : 'Antigravity generó un Implementation Plan y detuvo toda la cola hasta que apruebes o envíes tus indicaciones desde tu Perfil.';
+
+        alertasPlan.push({
+            id: 'alerta-autopc-plan-' + safePlanId,
+            tipo: 'autopc-plan',
+            icono: '📋',
+            badge: 'Implementation Plan · Esperando',
+            color: '#a855f7',
+            titulo: 'Antigravity pide aprobación de plan: "' + reqPreview + '"',
+            metaLinea: '⏸ Cola detenida · 🕒 ' + horaPlan + ' · Toca para leer y aprobar en Perfil',
+            descripcion: descPlan,
+            acciones: [
+                {
+                    tipo: 'primary',
+                    texto: '📖 Leer y Aprobar en Perfil',
+                    fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-perfil'); if(typeof cargarPerfil==='function') cargarPerfil(); setTimeout(function(){ var el = document.getElementById('perfil-autopc-plan-box'); if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 180);"
+                }
+            ],
+            _sortTs: tsPlan + 1000000000,
+            _dispatchKey: 'alerta-autopc-plan-' + safePlanId + '@' + tsPlan,
+            _phoneMeta: {
+                monarcaAlertId: 'alerta-autopc-plan-' + safePlanId,
+                monarcaAlertTipo: 'autopc-plan',
+                openView: 'vista-perfil',
+                planId: String(planPend.planId)
+            }
+        });
+    }
+
     if (typeof APP_STATE === 'undefined' || !APP_STATE || !Array.isArray(APP_STATE.notificacionesAutoPC)) {
-        return [];
+        return alertasPlan;
     }
     var ideasPorId = {};
     if (Array.isArray(APP_STATE.ideas)) {
@@ -2315,7 +2363,7 @@ function obtenerAlertasAutoPCActivas() {
     var vistosSol = {};
     var vistasFirma = {};
 
-    return APP_STATE.notificacionesAutoPC
+    var alertasDone = APP_STATE.notificacionesAutoPC
         .filter(function(n) {
             if (!n || !n.id) return false;
             var solId = _extraerSolicitudIdAutoPC(n);
@@ -2341,18 +2389,31 @@ function obtenerAlertasAutoPCActivas() {
             var resumen = texto.length > 68 ? (texto.slice(0, 65) + '...') : texto;
             var safeId = String(n.id).replace(/[^a-zA-Z0-9_@.-]/g, '_');
 
+            var solId = _extraerSolicitudIdAutoPC(n);
+            var docRemoto = solId ? AUTOPC_SOLICITUDES_MAP[solId] : null;
+            var ideaAsoc = solId ? ideasPorId[solId] : null;
+            var respAgRaw = String((docRemoto && docRemoto.resumenAntigravity) || (ideaAsoc && ideaAsoc.resumenAntigravity) || '').replace(/[#*`_>]+/g, ' ').replace(/\s+/g, ' ').trim();
+            var descFinal = respAgRaw
+                ? ('💬 Antigravity: ' + (respAgRaw.length > 160 ? (respAgRaw.slice(0, 157) + '...') : respAgRaw))
+                : ('La solicitud "' + texto + '" terminó en tu Auto-PC y ya fue añadida correctamente.');
+
             var acciones = [
                 {
                     tipo: 'primary',
                     texto: '✓ Okey',
                     fn: "descartarNotificacionAutoPC('" + safeId + "')"
+                },
+                {
+                    tipo: 'secondary',
+                    texto: '💬 Ver en Perfil',
+                    fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-perfil'); if(typeof cargarPerfil==='function') cargarPerfil();"
                 }
             ];
             if (n.esDeEmily) {
                 var safeSolId = String(n.solicitudId || '').replace(/[^a-zA-Z0-9_@.-]/g, '');
                 acciones.push({
                     tipo: 'secondary',
-                    texto: '📋 Ver Resumen',
+                    texto: '📋 Operatividad',
                     fn: "cerrarCentroNotificaciones(); verSolicitudAutoPCEnOperatividad('" + safeSolId + "')"
                 });
             }
@@ -2364,20 +2425,23 @@ function obtenerAlertasAutoPCActivas() {
                 icono: '🤖',
                 badge: 'Auto-PC · Lista',
                 color: '#10b981',
-                titulo: 'Solicitud ya fue añadida: "' + resumen + '"',
+                titulo: 'Solicitud completada: "' + resumen + '"',
                 metaLinea: '🕒 ' + horaTxt + ' · ' + fechaTxt + ' · ' + (n.esDeEmily ? '✨ Emily → Hecha' : '💻 Cola local Auto-PC'),
-                descripcion: 'La solicitud "' + texto + '" terminó en tu Auto-PC y ya fue añadida correctamente.',
+                descripcion: descFinal,
                 acciones: acciones,
                 _sortTs: ts,
                 _dispatchKey: 'alerta-autopc-' + safeId + '@' + ts,
                 _phoneMeta: {
                     monarcaAlertId: 'alerta-autopc-' + safeId,
                     monarcaAlertTipo: 'autopc',
+                    openView: 'vista-perfil',
                     autopcNotifId: String(n.id)
                 }
             };
         })
         .sort(function(a, b) { return (b._sortTs || 0) - (a._sortTs || 0); });
+
+    return alertasPlan.concat(alertasDone);
 }
 
 function descartarNotificacionAutoPC(notifId) {
@@ -2518,10 +2582,118 @@ function _sincronizarCamposResumenAutoPCEnIdea(idea, docRemoto) {
     return cambio;
 }
 
+function _obtenerDecisionLocalOremotaParaPlan(planId, docRemoto) {
+    if (!planId) return null;
+    var pid = String(planId).trim();
+    if (AUTOPC_PLAN_DECISION_LOCAL[pid]) {
+        return AUTOPC_PLAN_DECISION_LOCAL[pid];
+    }
+    if (docRemoto && docRemoto.planDecision && String(docRemoto.planDecision).trim()) {
+        return {
+            action: String(docRemoto.planDecision).trim().toLowerCase(),
+            mensaje: String(docRemoto.planDecisionText || '').trim(),
+            ts: Number(docRemoto.planDecisionAt) || Date.now()
+        };
+    }
+    if (
+        AUTOPC_PLAN_DECISION_DOC &&
+        String(AUTOPC_PLAN_DECISION_DOC.planId || '').trim() === pid &&
+        String(AUTOPC_PLAN_DECISION_DOC.action || '').trim() &&
+        String(AUTOPC_PLAN_DECISION_DOC.status || 'pending').toLowerCase() !== 'consumed'
+    ) {
+        return {
+            action: String(AUTOPC_PLAN_DECISION_DOC.action || '').trim().toLowerCase(),
+            mensaje: String(AUTOPC_PLAN_DECISION_DOC.mensaje || '').trim(),
+            ts: Number(AUTOPC_PLAN_DECISION_DOC.updatedAt || AUTOPC_PLAN_DECISION_DOC.createdAt) || Date.now()
+        };
+    }
+    return null;
+}
+
+function obtenerPlanPendienteAutoPC() {
+    var tel = AUTOPC_TELEMETRIA_PC || null;
+    var planDoc = null;
+    var planDocTs = 0;
+
+    Object.keys(AUTOPC_SOLICITUDES_MAP || {}).forEach(function(key) {
+        var d = AUTOPC_SOLICITUDES_MAP[key];
+        if (!d) return;
+        if (String(d.status || '').toLowerCase() !== 'awaiting_plan') return;
+        var ts = Number(d.planUpdatedAt || d.updatedAt || d.createdAt) || 0;
+        if (!planDoc || ts >= planDocTs) {
+            planDoc = d;
+            planDocTs = ts;
+        }
+    });
+
+    var telAwaiting = Boolean(
+        tel && (
+            tel.agAwaitingPlan === true ||
+            String(tel.phase || '').toUpperCase() === 'WAITING_PLAN_APPROVAL'
+        )
+    );
+
+    if (!planDoc && !telAwaiting) {
+        return null;
+    }
+
+    var requestId = String(
+        (planDoc && (planDoc.ideaId || planDoc.id)) ||
+        (tel && tel.activeSourceId) ||
+        ''
+    ).trim();
+
+    var planId = String(
+        (planDoc && planDoc.planId) ||
+        (tel && tel.agPlanId) ||
+        (requestId ? ('plan-' + requestId) : '') ||
+        ('plan-' + String((tel && tel.agPlanUpdatedAt) || (planDoc && planDoc.planUpdatedAt) || 'activo'))
+    ).trim();
+
+    var requestText = String(
+        (planDoc && planDoc.text) ||
+        (tel && tel.activeText) ||
+        ''
+    ).trim();
+
+    var planMessage = String(
+        (planDoc && planDoc.planMessage) ||
+        (tel && tel.agPlanMessage) ||
+        ''
+    ).trim();
+
+    var planMarkdown = String(
+        (planDoc && planDoc.planMarkdown) ||
+        (tel && tel.agPlanMarkdown) ||
+        ''
+    ).trim();
+
+    var planUpdatedAt = Number(
+        (planDoc && (planDoc.planUpdatedAt || planDoc.updatedAt)) ||
+        (tel && (tel.agPlanUpdatedAt || tel.phaseChangedAt || tel.heartbeatAt)) ||
+        Date.now()
+    );
+
+    var dec = _obtenerDecisionLocalOremotaParaPlan(planId, planDoc);
+
+    return {
+        planId: planId,
+        requestId: requestId,
+        requestText: requestText || 'Solicitud activa en Antigravity',
+        planMessage: planMessage,
+        planMarkdown: planMarkdown,
+        planUpdatedAt: planUpdatedAt,
+        decisionEnviada: Boolean(dec),
+        decisionAction: dec ? dec.action : '',
+        decisionTexto: dec ? dec.mensaje : ''
+    };
+}
+
 function procesarSnapshotAutoPCIdeas(lista) {
     var nuevoMapa = {};
     var docsDone = [];
     var nuevaTelemetria = null;
+    var nuevaDecisionPlan = null;
     if (Array.isArray(lista)) {
         lista.forEach(function(item) {
             if (!item) return;
@@ -2529,6 +2701,10 @@ function procesarSnapshotAutoPCIdeas(lista) {
             var docType = String(item.docType || '').toLowerCase();
             // Ignorar explícitamente el documento _signal para que nunca sobrescriba _estado_pc
             if (docType === 'signal' || key === '_signal') {
+                return;
+            }
+            if (docType === 'plan_decision' || key === '_plan_decision') {
+                nuevaDecisionPlan = Object.assign({}, item);
                 return;
             }
             if (docType === 'telemetry' || key === '_estado_pc') {
@@ -2549,6 +2725,9 @@ function procesarSnapshotAutoPCIdeas(lista) {
     AUTOPC_SOLICITUDES_MAP = nuevoMapa;
     if (nuevaTelemetria) {
         AUTOPC_TELEMETRIA_PC = nuevaTelemetria;
+    }
+    if (nuevaDecisionPlan) {
+        AUTOPC_PLAN_DECISION_DOC = nuevaDecisionPlan;
     }
 
     if (!APP_STATE) {
@@ -2590,6 +2769,18 @@ function procesarSnapshotAutoPCIdeas(lista) {
                     completadasAhora++;
                 } else if (huboCambioEstado) {
                     idea.fechaActualizacion = Math.max(Number(idea.fechaActualizacion) || 0, Number(docRemoto.updatedAt) || Date.now());
+                }
+            } else if (statusRemoto === 'awaiting_plan') {
+                // v11.25: NUNCA marcar como hecha cuando Antigravity solo pide aprobación del Implementation Plan
+                if (!idea.hecha) {
+                    if (idea.autopcStatus !== 'awaiting_plan' || idea.autopcPendienteSubida) {
+                        huboCambioEstado = true;
+                    }
+                    idea.autopcStatus = 'awaiting_plan';
+                    idea.autopcPendienteSubida = false;
+                    if (docRemoto.planId && idea.autopcPlanId !== String(docRemoto.planId)) {
+                        idea.autopcPlanId = String(docRemoto.planId);
+                    }
                 }
             } else if (statusRemoto === 'running' || statusRemoto === 'pending') {
                 if (!idea.hecha) {
@@ -2642,6 +2833,26 @@ function procesarSnapshotAutoPCIdeas(lista) {
         }
     }
 
+    // v11.25: Detectar nuevo Implementation Plan esperando aprobación y disparar alerta al teléfono
+    var planPend = obtenerPlanPendienteAutoPC();
+    var cambioPlanNotif = false;
+    if (planPend && planPend.planId && !planPend.decisionEnviada) {
+        if (AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID !== planPend.planId) {
+            AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = planPend.planId;
+            cambioPlanNotif = true;
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Antigravity espera tu aprobación del Implementation Plan · Ábrelo en Perfil', '📋');
+            }
+        }
+    } else if (AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID) {
+        var prevSafePlanId = String(AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+        if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+            window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-plan-' + prevSafePlanId);
+        }
+        AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = '';
+        cambioPlanNotif = true;
+    }
+
     if (completadasAhora > 0) {
         if (typeof sumarExp === 'function') {
             sumarExp(15 * completadasAhora);
@@ -2667,7 +2878,7 @@ function procesarSnapshotAutoPCIdeas(lista) {
         }
     }
 
-    if (nuevasNotificaciones > 0 || notificacionesPurgadas > 0) {
+    if (nuevasNotificaciones > 0 || notificacionesPurgadas > 0 || cambioPlanNotif) {
         if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
         var modalNotif = document.getElementById('modal-centro-notificaciones');
         if (modalNotif && modalNotif.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
@@ -2683,7 +2894,8 @@ function procesarSnapshotAutoPCIdeas(lista) {
         completadasAhora: completadasAhora,
         huboCambioEstado: huboCambioEstado,
         nuevasNotificaciones: nuevasNotificaciones,
-        notificacionesPurgadas: notificacionesPurgadas
+        notificacionesPurgadas: notificacionesPurgadas,
+        planPendiente: Boolean(planPend)
     };
 }
 
@@ -2714,6 +2926,7 @@ function obtenerResumenMonitoreoAutoPC() {
         porId[String(idea.id)] = idea;
     });
 
+    var planItems = [];
     var runningItems = [];
     var pendingItems = [];
     var doneItems = [];
@@ -2745,7 +2958,8 @@ function obtenerResumenMonitoreoAutoPC() {
             resumenVersion: versionAg
         };
         vistos[key] = true;
-        if (st === 'running') runningItems.push(itemObj);
+        if (st === 'awaiting_plan') planItems.push(itemObj);
+        else if (st === 'running') runningItems.push(itemObj);
         else if (st === 'pending') pendingItems.push(itemObj);
         else if (st === 'done') doneItems.push(itemObj);
     });
@@ -2771,7 +2985,8 @@ function obtenerResumenMonitoreoAutoPC() {
             resumenArchivos: Array.isArray(idea.resumenArchivos) ? idea.resumenArchivos : [],
             resumenVersion: String(idea.resumenVersion || '').trim()
         };
-        if (stLocal === 'running') runningItems.push(obj);
+        if (stLocal === 'awaiting_plan') planItems.push(obj);
+        else if (stLocal === 'running') runningItems.push(obj);
         else if (stLocal === 'pending' || stLocal === 'offline') {
             if (stLocal === 'offline') offlinePending++;
             pendingItems.push(obj);
@@ -2780,6 +2995,7 @@ function obtenerResumenMonitoreoAutoPC() {
         }
     });
 
+    planItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
     runningItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
     pendingItems.sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
     doneItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
@@ -2795,12 +3011,16 @@ function obtenerResumenMonitoreoAutoPC() {
     var engState = (tel && tel.engineState) ? String(tel.engineState).toUpperCase() : '';
     var phaseTel = (tel && tel.phase) ? String(tel.phase).toUpperCase() : '';
 
+    var planPendiente = obtenerPlanPendienteAutoPC();
+
     var agLastStepAt = (tel && Number(tel.agLastStepAt) > 0) ? Number(tel.agLastStepAt) : 0;
     var agLastStepAgeMs = agLastStepAt > 0 ? Math.max(0, now - agLastStepAt) : null;
-    var antigravityLive = (tel && (tel.agPhaseCode || tel.agCurrentAction || Number(tel.agStepsCount) > 0))
+    var agLastResponse = String((tel && (tel.agLastResponse || tel.agFinalSummary)) || '').trim();
+    var agLastResponseAt = Number((tel && (tel.agLastResponseAt || tel.agLastStepAt || tel.heartbeatAt)) || 0);
+    var antigravityLive = (tel && (tel.agPhaseCode || tel.agCurrentAction || Number(tel.agStepsCount) > 0 || tel.agAwaitingPlan || agLastResponse))
         ? {
-            phaseCode: String(tel.agPhaseCode || 'thinking'),
-            phaseLabel: String(tel.agPhaseLabel || '⚙️ Trabajando en Antigravity'),
+            phaseCode: String(tel.agPhaseCode || (tel.agAwaitingPlan ? 'awaiting_plan' : 'thinking')),
+            phaseLabel: String(tel.agPhaseLabel || (tel.agAwaitingPlan ? '📋 Esperando aprobación de Plan' : '⚙️ Trabajando en Antigravity')),
             progressPct: Math.max(0, Math.min(100, Number(tel.agProgressPct) || 0)),
             currentAction: String(tel.agCurrentAction || '').trim(),
             stepsCount: Number(tel.agStepsCount) || 0,
@@ -2809,11 +3029,13 @@ function obtenerResumenMonitoreoAutoPC() {
             lastStepAt: agLastStepAt,
             lastStepAgeMs: agLastStepAgeMs,
             versionDetected: String(tel.agVersionDetected || '').trim(),
-            conversationId: String(tel.agConversationId || '').trim()
+            conversationId: String(tel.agConversationId || '').trim(),
+            awaitingPlan: Boolean(tel.agAwaitingPlan),
+            lastResponse: agLastResponse
         }
         : null;
 
-    var countRunning = runningItems.length;
+    var countRunning = runningItems.length + planItems.length;
     var countPending = pendingItems.length;
     var countDone = doneItems.length;
     if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
@@ -2822,13 +3044,13 @@ function obtenerResumenMonitoreoAutoPC() {
         countDone = Math.max(countDone, Number(tel.doneCount) || 0);
     }
 
-    var primaryRunning = runningItems[0] || null;
+    var primaryRunning = planItems[0] || runningItems[0] || null;
     if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
         var phTs = Number(tel.agStartedAt || tel.phaseChangedAt || tel.heartbeatAt) || now;
         primaryRunning = {
             id: String(tel.activeSourceId || 'pc-active'),
             texto: String(tel.activeText),
-            status: 'running',
+            status: planPendiente ? 'awaiting_plan' : 'running',
             updatedAt: phTs,
             createdAt: phTs,
             ageMs: Math.max(0, now - phTs)
@@ -2849,7 +3071,7 @@ function obtenerResumenMonitoreoAutoPC() {
     var agRecienActivo = agLastStepAgeMs !== null && agLastStepAgeMs <= 180000;
 
     if (tel && engState === 'OFFLINE') {
-        nivel = countPending > 0 || countRunning > 0 ? 'warning' : 'offline';
+        nivel = (countPending > 0 || countRunning > 0 || planPendiente) ? 'warning' : 'offline';
         badgeTexto = 'Auto-PC cerrado';
         resumenTexto = (countPending > 0 || countRunning > 0)
             ? ('Auto-PC se cerró con ' + (countPending + countRunning) + ' solicitud(es) pendiente(s).')
@@ -2857,6 +3079,14 @@ function obtenerResumenMonitoreoAutoPC() {
         if (countPending > 0 || countRunning > 0) {
             alertaStuck = 'El programa Auto-PC fue cerrado en la PC; ábrelo para continuar la cola.';
         }
+    } else if (planPendiente) {
+        nivel = 'plan';
+        badgeTexto = planPendiente.decisionEnviada
+            ? 'Enviando tu respuesta...'
+            : 'Plan esperando aprobación';
+        resumenTexto = planPendiente.decisionEnviada
+            ? 'Decisión enviada a Auto-PC. Retomando Antigravity con tus indicaciones...'
+            : 'Cola detenida automáticamente hasta que apruebes o indiques qué hacer con este Implementation Plan.';
     } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
         if (engState === 'ERROR') {
             nivel = 'stalled';
@@ -2966,22 +3196,54 @@ function obtenerResumenMonitoreoAutoPC() {
             status: primaryCandidate.status,
             elapsedMs: primaryRunning ? enCursoAgeMs : (primaryCandidate.ageMs || 0)
         };
-    } else if (tel && tel.activeText && (nivel === 'working' || nivel === 'stalled' || nivel === 'warning')) {
+    } else if (tel && tel.activeText && (nivel === 'working' || nivel === 'plan' || nivel === 'stalled' || nivel === 'warning')) {
         solicitudActual = {
             id: String(tel.activeSourceId || 'pc'),
             texto: String(tel.activeText),
-            status: countRunning > 0 ? 'running' : 'pending',
+            status: planPendiente ? 'awaiting_plan' : (countRunning > 0 ? 'running' : 'pending'),
             elapsedMs: enCursoAgeMs
         };
     }
 
+    // Última respuesta completa de Antigravity (prioriza la más reciente entre solicitudes terminadas y telemetría directa)
+    var ultimaRespuesta = null;
+    var doneConRespuesta = doneItems.find(function(it) {
+        return it && it.resumenAntigravity && it.resumenAntigravity.trim().length > 0;
+    }) || null;
+    var tsDoneResp = doneConRespuesta ? (Number(doneConRespuesta.updatedAt) || 0) : 0;
+
+    if (doneConRespuesta && (!agLastResponse || tsDoneResp >= agLastResponseAt)) {
+        ultimaRespuesta = {
+            id: doneConRespuesta.id,
+            requestText: doneConRespuesta.texto,
+            respuesta: doneConRespuesta.resumenAntigravity,
+            version: doneConRespuesta.resumenVersion || '',
+            archivos: Array.isArray(doneConRespuesta.resumenArchivos) ? doneConRespuesta.resumenArchivos : [],
+            updatedAt: tsDoneResp,
+            ageMs: tsDoneResp > 0 ? Math.max(0, now - tsDoneResp) : null
+        };
+    } else if (agLastResponse) {
+        ultimaRespuesta = {
+            id: String((tel && tel.agLastResponseRequestId) || (tel && tel.activeSourceId) || 'ag-last'),
+            requestText: String((tel && (tel.agLastResponseRequestText || tel.activeText)) || 'Última solicitud en Antigravity').trim(),
+            respuesta: agLastResponse,
+            version: String((tel && tel.agVersionDetected) || '').trim(),
+            archivos: (tel && Array.isArray(tel.agFilesTouched)) ? tel.agFilesTouched.slice(0, 10) : [],
+            updatedAt: agLastResponseAt,
+            ageMs: agLastResponseAt > 0 ? Math.max(0, now - agLastResponseAt) : null
+        };
+    }
+
     var recientes = [];
-    runningItems.slice(0, 1).forEach(function(it) { recientes.push(it); });
+    planItems.slice(0, 1).forEach(function(it) { recientes.push(it); });
+    runningItems.slice(0, 1).forEach(function(it) {
+        if (recientes.length < 4) recientes.push(it);
+    });
     pendingItems.slice(0, 2).forEach(function(it) {
         if (recientes.length < 4) recientes.push(it);
     });
-    doneItems.slice(0, 3).forEach(function(it) {
-        if (recientes.length < 4) recientes.push(it);
+    doneItems.slice(0, 4).forEach(function(it) {
+        if (recientes.length < 5) recientes.push(it);
     });
 
     return {
@@ -2993,6 +3255,8 @@ function obtenerResumenMonitoreoAutoPC() {
         heartbeatAgeMs: heartbeatAgeMs,
         enCursoAgeMs: enCursoAgeMs,
         antigravity: antigravityLive,
+        planPendiente: planPendiente,
+        ultimaRespuesta: ultimaRespuesta,
         cola: {
             running: countRunning,
             pending: countPending,
@@ -3007,6 +3271,91 @@ function obtenerResumenMonitoreoAutoPC() {
     };
 }
 
+async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
+    var plan = obtenerPlanPendienteAutoPC();
+    if (!plan || !plan.planId) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('No hay ningún Implementation Plan pendiente en este momento.', 'ℹ️');
+        }
+        return false;
+    }
+
+    var act = String(action || 'approve').toLowerCase() === 'reply' ? 'reply' : 'approve';
+    var msg = String(mensajePersonalizado || '').trim();
+    if (act === 'reply' && !msg) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Escribe tus indicaciones sobre el plan antes de enviar.', '⚠️');
+        }
+        var inp = document.getElementById('perfil-autopc-plan-reply-input');
+        if (inp) inp.focus();
+        return false;
+    }
+    if (act === 'approve' && !msg) {
+        msg = 'Aprobado, procede con la implementación del plan.';
+    }
+
+    var payload = {
+        planId: plan.planId,
+        requestId: plan.requestId || '',
+        action: act,
+        mensaje: msg
+    };
+
+    AUTOPC_PLAN_DECISION_LOCAL[plan.planId] = {
+        action: act,
+        mensaje: msg,
+        ts: Date.now()
+    };
+
+    // Cancelar alerta del teléfono inmediatamente para UX limpia
+    var safePlanId = String(plan.planId).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-plan-' + safePlanId);
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
+
+    var enviadoCloud = false;
+    try {
+        if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarDecisionPlanAntigravity === 'function') {
+            enviadoCloud = await window.MonarcaCloud.enviarDecisionPlanAntigravity(payload);
+        }
+    } catch (err) {
+        console.warn('[AutoPC Plan] Error enviando decisión a Firestore:', err);
+    }
+
+    // Best-effort por LAN Bridge si está en la misma Wi-Fi para respuesta instantánea (<1s)
+    try {
+        var urls = (typeof obtenerUrlsCandidatasAutoPCLAN === 'function') ? obtenerUrlsCandidatasAutoPCLAN() : [];
+        if (Array.isArray(urls) && urls.length > 0 && urls[0]) {
+            fetch(String(urls[0]).replace(/\/+$/, '') + '/api/plan-decision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(function() {});
+        }
+    } catch (eLan) {}
+
+    if (typeof mostrarToastMonarca === 'function') {
+        if (enviadoCloud) {
+            mostrarToastMonarca(
+                act === 'approve'
+                    ? 'Aprobación enviada a Auto-PC · Antigravity retomará la implementación.'
+                    : 'Indicaciones enviadas a Auto-PC · Antigravity ajustará el plan.',
+                act === 'approve' ? '✅' : '📨'
+            );
+        } else {
+            mostrarToastMonarca('No se pudo confirmar envío en la nube; verifica tu conexión.', '⚠️');
+        }
+    }
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
+    return enviadoCloud;
+}
+
 if (typeof window !== 'undefined') {
     window.reRenderSiVistaIdeasActiva = reRenderSiVistaIdeasActiva;
     window._silenciarNotifAutoPCPorSolicitud = _silenciarNotifAutoPCPorSolicitud;
@@ -3016,6 +3365,8 @@ if (typeof window !== 'undefined') {
     window.procesarSnapshotAutoPCIdeas = procesarSnapshotAutoPCIdeas;
     window.obtenerEstadoTelemetryAutoPC = obtenerEstadoTelemetryAutoPC;
     window.obtenerResumenMonitoreoAutoPC = obtenerResumenMonitoreoAutoPC;
+    window.obtenerPlanPendienteAutoPC = obtenerPlanPendienteAutoPC;
+    window.enviarDecisionPlanDesdePerfil = enviarDecisionPlanDesdePerfil;
     window.formatearDuracionCortaAutoPC = formatearDuracionCortaAutoPC;
     window.formatearResumenAntigravityHtml = formatearResumenAntigravityHtml;
     window.obtenerAlertasAutoPCActivas = obtenerAlertasAutoPCActivas;

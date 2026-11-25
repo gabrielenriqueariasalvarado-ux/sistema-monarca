@@ -514,7 +514,7 @@ function fusionarEstadosInteligente(local, remoto) {
 
     var baseKeys = [
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
-        'ideas', 'notificacionesAutoPC', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
+        'ideas', 'notificacionesAutoPC', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'historialDuracionesRutinas', 'ejerciciosMentales',
         'ejerciciosCerebrales', 'conocimientos', 'vocabulario', 'registrosLabores', 'calendario', 'cronogramaSemanal',
         'reproductorPlaylists',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
@@ -660,6 +660,13 @@ function fusionarEstadosInteligente(local, remoto) {
     if (Array.isArray(local.rutinas) || Array.isArray(remoto.rutinas)) {
         var rutMerged = fusionarColeccionPorId(local.rutinas, remoto.rutinas, tombstones.rutinas);
         fusion.rutinas = deduplicarColeccionPorNombre(rutMerged, tombstones.rutinas, 'nombre');
+    }
+    if (Array.isArray(local.historialDuracionesRutinas) || Array.isArray(remoto.historialDuracionesRutinas)) {
+        var durMerged = fusionarColeccionPorId(local.historialDuracionesRutinas || [], remoto.historialDuracionesRutinas || [], tombstones.historialDuracionesRutinas || []);
+        durMerged.sort(function(a, b) {
+            return (Number(b && (b.timestamp || b.finMs)) || 0) - (Number(a && (a.timestamp || a.finMs)) || 0);
+        });
+        fusion.historialDuracionesRutinas = durMerged.slice(0, 400);
     }
     if (Array.isArray(local.ejerciciosMentales) || Array.isArray(remoto.ejerciciosMentales)) {
         fusion.ejerciciosMentales = fusionarColeccionPorId(local.ejerciciosMentales, remoto.ejerciciosMentales, tombstones.ejerciciosMentales);
@@ -1340,6 +1347,55 @@ window.MonarcaCloud = {
             }
         }));
         return ok;
+    },
+
+    /**
+     * Envía desde el APK/Web la decisión del usuario sobre un Implementation Plan de Antigravity
+     * (`approve` = Proceed, `reply` = indicaciones personalizadas, `cancel` = cancelar sin ejecutar)
+     */
+    enviarDecisionPlanAntigravity: async function(decision) {
+        if (!db) throw new Error('Firebase Firestore no inicializado');
+        var d = decision || {};
+        var ahoraMs = Date.now();
+        var planId = String(d.planId || '').trim();
+        var requestId = String(d.requestId || '').trim();
+        var action = String(d.action || 'approve').trim().toLowerCase();
+        var mensaje = String(d.mensaje || '').trim();
+        if (action === 'approve' && !mensaje) {
+            mensaje = 'Procede con el plan de implementación aprobado.';
+        }
+
+        var payload = {
+            docType: 'plan_decision',
+            ideaId: '_plan_decision',
+            status: 'plan_decision',
+            planId: planId,
+            requestId: requestId,
+            action: action,
+            mensaje: mensaje,
+            createdAt: ahoraMs,
+            updatedAt: ahoraMs,
+            consumed: false
+        };
+        var refDecision = doc(db, FIRESTORE_COL_AUTOPC, '_plan_decision');
+        await setDoc(refDecision, payload);
+
+        if (requestId && requestId.indexOf('_') !== 0) {
+            try {
+                var refReq = doc(db, FIRESTORE_COL_AUTOPC, requestId);
+                await updateDoc(refReq, {
+                    planDecision: action,
+                    planDecisionText: mensaje,
+                    planDecisionAt: ahoraMs,
+                    updatedAt: ahoraMs
+                });
+            } catch (e) {
+                console.warn('[Auto-PC Plan Decision Req Update]', e);
+            }
+        }
+
+        _tocarSenalAutoPC('plan_decision');
+        return payload;
     },
 
     /**
