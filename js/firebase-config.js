@@ -421,7 +421,7 @@ function fusionarEstadosInteligente(local, remoto) {
     var baseKeys = [
         'productos', 'categorias', 'ventas', 'questsDiarios', 'misiones', 'habilidades',
         'ideas', 'notificacionesAutoPC', 'agendaPersonas', 'gruposPersonas', 'ejercicios', 'rutinas', 'ejerciciosMentales',
-        'ejerciciosCerebrales', 'conocimientos', 'registrosLabores', 'calendario', 'cronogramaSemanal',
+        'ejerciciosCerebrales', 'conocimientos', 'vocabulario', 'registrosLabores', 'calendario', 'cronogramaSemanal',
         'reproductorPlaylists',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
@@ -577,6 +577,10 @@ function fusionarEstadosInteligente(local, remoto) {
     if (Array.isArray(local.conocimientos) || Array.isArray(remoto.conocimientos)) {
         var conMerged = fusionarColeccionPorId(local.conocimientos, remoto.conocimientos, tombstones.conocimientos);
         fusion.conocimientos = deduplicarColeccionPorNombre(conMerged, tombstones.conocimientos, 'titulo');
+    }
+    if (Array.isArray(local.vocabulario) || Array.isArray(remoto.vocabulario)) {
+        var vocMerged = fusionarColeccionPorId(local.vocabulario, remoto.vocabulario, tombstones.vocabulario);
+        fusion.vocabulario = deduplicarColeccionPorNombre(vocMerged, tombstones.vocabulario, 'palabra');
     }
     if (Array.isArray(local.registrosLabores) || Array.isArray(remoto.registrosLabores)) {
         fusion.registrosLabores = fusionarColeccionPorId(local.registrosLabores, remoto.registrosLabores, tombstones.registrosLabores);

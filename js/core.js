@@ -102,6 +102,7 @@ const DEFAULT_STATE = {
     },
     ejerciciosCerebrales: [],
     conocimientos: [],
+    vocabulario: [],
     categoriasLabores: [
         { id: "LAB-BOOM", nombre: "Boom Solutions", icono: "🚀", descripcion: "Agencia de software, desarrollo web y soluciones digitales.", color: "#6366f1" },
         { id: "LAB-BARBER", nombre: "Barbería", icono: "💈", descripcion: "Corte de cabello masculino, degradados, afeitado y estética capilar.", color: "#38bdf8" },
@@ -218,6 +219,7 @@ const DEFAULT_STATE = {
         ejerciciosMentales: [],
         ejerciciosCerebrales: [],
         conocimientos: [],
+        vocabulario: [],
         registrosLabores: [],
         calendario: [],
         cronogramaSemanal: [],
@@ -310,6 +312,9 @@ const MonarcaDB = {
             }
             if (!data.conocimientos || !Array.isArray(data.conocimientos)) {
                 data.conocimientos = [];
+            }
+            if (!data.vocabulario || !Array.isArray(data.vocabulario)) {
+                data.vocabulario = [];
             }
             if (!data.categoriasLabores || !Array.isArray(data.categoriasLabores)) {
                 data.categoriasLabores = JSON.parse(JSON.stringify(DEFAULT_STATE.categoriasLabores));
@@ -1666,7 +1671,7 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.21';
+var MONARCA_APP_VERSION = '11.22';
 var MONARCA_APP_VERSION_FECHA = '2026-11-24';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

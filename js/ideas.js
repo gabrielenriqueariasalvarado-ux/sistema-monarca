@@ -3465,15 +3465,85 @@ function inicializarHojaIdeasDesdeUI() {
 }
 
 // ==========================================================================
-// 📚 BASE DE CONOCIMIENTOS & REVISIÓN SEMANAL DE APRENDIZAJES
+// 📚 BASE DE CONOCIMIENTOS & VOCABULARIO SEMANAL (v11.22)
 // ==========================================================================
 
 var FILTRO_AREA_CONOCIMIENTO = "TODAS";
+var TAB_CONOCIMIENTO_ACTIVO = "tecnicas";
+var FILTRO_VOCABULARIO_ACTIVO = "semana";
+var VOCAB_SUGERENCIA_IDX = 0;
+var VOCAB_TOAST_TIMER = null;
+
+var BANCO_SUGERENCIAS_VOCAB = [
+    { palabra: "Pragmático", contexto: "Profesional", significado: "Que se enfoca en resultados concretos y soluciones prácticas por encima de la teoría.", reemplazaA: "práctico, directo, realista", ejemplo: "Tomemos una decisión pragmática para destrabar el proyecto hoy mismo." },
+    { palabra: "Asertivo", contexto: "Conversación", significado: "Capaz de expresar ideas y límites con claridad, firmeza y respeto sin ser agresivo ni pasivo.", reemplazaA: "claro, seguro, firme", ejemplo: "Fue muy asertivo al explicar qué necesitaba para cumplir el plazo." },
+    { palabra: "Elocuente", contexto: "Persuasión", significado: "Que se expresa con fluidez, claridad y poder de convencimiento.", reemplazaA: "habla bien, convincente", ejemplo: "Dio una explicación tan elocuente que todo el equipo entendió la estrategia." },
+    { palabra: "Perspicaz", contexto: "Precisión", significado: "Que percibe detalles sutiles y comprende rápido situaciones complejas.", reemplazaA: "listo, atento, vivo", ejemplo: "Qué observación tan perspicaz; casi nadie habría notado ese detalle." },
+    { palabra: "Matiz", contexto: "Conversación", significado: "Diferencia sutil o grado particular que cambia el sentido exacto de una idea.", reemplazaA: "detalle, cosita, diferencia", ejemplo: "Hay un matiz importante en esa propuesta que conviene revisar antes de aceptar." },
+    { palabra: "Contundente", contexto: "Persuasión", significado: "Tan claro, firme y sólido que no deja lugar a dudas.", reemplazaA: "fuerte, claro, brutal", ejemplo: "Los resultados de esta semana fueron contundentes." },
+    { palabra: "Idóneo", contexto: "Profesional", significado: "Que reúne exactamente las condiciones adecuadas para un propósito.", reemplazaA: "bueno para eso, perfecto", ejemplo: "Ese enfoque es el más idóneo para optimizar el tiempo del cliente." },
+    { palabra: "Sucinto", contexto: "Escritura", significado: "Expresado de forma breve, precisa y sin rodeos innecesarios.", reemplazaA: "corto, resumido, breve", ejemplo: "Te dejo un resumen sucinto con los tres puntos clave de la reunión." },
+    { palabra: "Ponderar", contexto: "Precisión", significado: "Evaluar con calma el peso, valor y consecuencias de cada opción antes de decidir.", reemplazaA: "pensar bien, analizar", ejemplo: "Prefiero ponderar ambas alternativas antes de comprometer el presupuesto." },
+    { palabra: "Ecuanimidad", contexto: "Conversación", significado: "Serenidad y equilibrio mental para mantener la calma incluso bajo presión.", reemplazaA: "calma, tranquilidad", ejemplo: "Mantuvo la ecuanimidad pese al imprevisto y resolvió todo rápido." },
+    { palabra: "Pertinente", contexto: "Profesional", significado: "Oportuno y directamente relacionado con el tema que se está tratando.", reemplazaA: "apropiado, útil ahora", ejemplo: "Tu pregunta es muy pertinente justo en esta fase del plan." },
+    { palabra: "Tangible", contexto: "Persuasión", significado: "Que se puede medir, percibir o comprobar de manera real y concreta.", reemplazaA: "real, visible, concreto", ejemplo: "Buscamos un avance tangible al cerrar cada viernes." },
+    { palabra: "Catalizador", contexto: "Profesional", significado: "Persona, acción o cambio que acelera drásticamente un resultado positivo.", reemplazaA: "impulsor, motor", ejemplo: "Ese nuevo hábito fue el catalizador de toda su disciplina actual." },
+    { palabra: "Cohesión", contexto: "Escritura", significado: "Unión lógica y armonía entre las partes de un equipo, discurso o plan.", reemplazaA: "unión, orden, sentido", ejemplo: "Cuando hay cohesión en la rutina, todo fluye sin fricción." },
+    { palabra: "Diligente", contexto: "Profesional", significado: "Cuidadoso, ágil y constante al ejecutar una responsabilidad.", reemplazaA: "aplicado, rápido, cumplido", ejemplo: "Es muy diligente con sus entregas; siempre se adelanta a los problemas." },
+    { palabra: "Consenso", contexto: "Conversación", significado: "Acuerdo general alcanzado entre varias personas tras dialogar.", reemplazaA: "acuerdo, quedar igual", ejemplo: "Llegamos a un consenso rápido sobre los horarios de la semana." },
+    { palabra: "Lucidez", contexto: "Precisión", significado: "Claridad mental extraordinaria para razonar y ver las cosas como son.", reemplazaA: "claridad, mente fresca", ejemplo: "Dormir bien me dio la lucidez necesaria para resolver ese bloqueo." },
+    { palabra: "Versátil", contexto: "Conversación", significado: "Capaz de adaptarse con soltura y eficacia a distintas situaciones o funciones.", reemplazaA: "multiusos, adaptable", ejemplo: "Me gusta mantener una rutina versátil que funcione incluso en días ocupados." }
+];
+
+function escaparHTMLVocab(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function cargarConocimientos(filtro) {
     if (filtro) FILTRO_AREA_CONOCIMIENTO = filtro;
     renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+    actualizarBadgeVocabularioConocimiento();
+    cambiarTabConocimiento(TAB_CONOCIMIENTO_ACTIVO || 'tecnicas', true);
+    if (TAB_CONOCIMIENTO_ACTIVO === 'vocabulario') {
+        renderizarVocabularioSemanal();
+    }
 }
+
+function cambiarTabConocimiento(tab, omitirRender) {
+    var dest = (tab === 'vocabulario') ? 'vocabulario' : 'tecnicas';
+    TAB_CONOCIMIENTO_ACTIVO = dest;
+    window.TAB_CONOCIMIENTO_ACTIVO = dest;
+
+    var btnTec = document.getElementById('tab-conocimiento-tecnicas');
+    var btnVoc = document.getElementById('tab-conocimiento-vocabulario');
+    var subTec = document.getElementById('subvista-conocimiento-tecnicas');
+    var subVoc = document.getElementById('subvista-conocimiento-vocabulario');
+
+    if (btnTec) {
+        btnTec.classList.toggle('active', dest === 'tecnicas');
+        btnTec.setAttribute('aria-selected', dest === 'tecnicas' ? 'true' : 'false');
+    }
+    if (btnVoc) {
+        btnVoc.classList.toggle('active', dest === 'vocabulario');
+        btnVoc.setAttribute('aria-selected', dest === 'vocabulario' ? 'true' : 'false');
+    }
+    if (subTec) subTec.style.display = dest === 'tecnicas' ? 'block' : 'none';
+    if (subVoc) subVoc.style.display = dest === 'vocabulario' ? 'block' : 'none';
+
+    if (!omitirRender) {
+        if (dest === 'vocabulario') {
+            renderizarVocabularioSemanal();
+        } else {
+            renderizarConocimientos(FILTRO_AREA_CONOCIMIENTO);
+        }
+    }
+}
+window.cambiarTabConocimiento = cambiarTabConocimiento;
 
 function renderizarConocimientos(filtro) {
     var cont = document.getElementById('contenedor-conocimientos-grid');
@@ -3495,10 +3565,10 @@ function renderizarConocimientos(filtro) {
         <div class="weekly-review-banner">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
                 <div>
-                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280;">Ciclo de Repaso Activo</div>
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8;">Ciclo de Repaso Activo</div>
                     <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #f8fafc;">Revisión Semanal de Conocimientos</h3>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span class="item-badge-pill" style="font-size: 12.5px; font-weight: 800; background: rgba(255, 255, 255, 0.05); color: #f8fafc;">${repasadosEstaSemana} / ${totalConocimientos} Repasados</span>
                     <button class="btn-sheet-action" onclick="reiniciarCicloSemanalConocimientos()" title="Reiniciar ciclo semanal para volver a estudiar">
                         🔄 Nuevo Ciclo Semanal
@@ -3523,8 +3593,8 @@ function renderizarConocimientos(filtro) {
 
     if (filtrados.length === 0) {
         cont.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 32px 16px; background: #0b0e15; border: 1px dashed #d1d5db; border-radius: 12px;">
-            <p style="margin: 0; color: #6b7280; font-size: 13.5px;">No hay conocimientos registrados en esta área.</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 32px 16px; background: #0b0e15; border: 1px dashed rgba(148, 163, 184, 0.25); border-radius: 12px;">
+            <p style="margin: 0; color: #94a3b8; font-size: 13.5px;">No hay conocimientos registrados en esta área.</p>
             <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevoConocimiento()">+ Registrar Nuevo Conocimiento</button>
         </div>`;
         return;
@@ -3694,7 +3764,520 @@ function filtrarConocimientosPorArea(area, btn) {
     renderizarConocimientos(area);
 }
 
+// ==========================================================================
+// 🗣️ VOCABULARIO SEMANAL — REPERTORIO ACTIVO DE PALABRAS (v11.22)
+// ==========================================================================
+
+function obtenerRangoSemanaActualVocab() {
+    var hoy = new Date();
+    var offsetLunes = (hoy.getDay() + 6) % 7;
+    var lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - offsetLunes);
+    var domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6);
+    var mesesCortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    var clave = lunes.getFullYear() + '-' + String(lunes.getMonth() + 1).padStart(2, '0') + '-' + String(lunes.getDate()).padStart(2, '0');
+    var etiqueta = (lunes.getMonth() === domingo.getMonth())
+        ? (lunes.getDate() + '–' + domingo.getDate() + ' ' + mesesCortos[domingo.getMonth()] + ' ' + domingo.getFullYear())
+        : (lunes.getDate() + ' ' + mesesCortos[lunes.getMonth()] + ' – ' + domingo.getDate() + ' ' + mesesCortos[domingo.getMonth()] + ' ' + domingo.getFullYear());
+    return { clave: clave, etiqueta: etiqueta };
+}
+
+function asegurarVocabularioState() {
+    if (!window.APP_STATE) return [];
+    if (!Array.isArray(APP_STATE.vocabulario)) APP_STATE.vocabulario = [];
+    return APP_STATE.vocabulario;
+}
+
+function actualizarBadgeVocabularioConocimiento() {
+    var badge = document.getElementById('badge-conocimiento-vocab-count');
+    if (!badge) return;
+    var lista = asegurarVocabularioState();
+    var activas = lista.filter(function(w) { return w && w.enSemanaActual !== false; }).length;
+    if (activas > 0) {
+        badge.textContent = String(activas);
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function mostrarToastVocabulario(msg) {
+    var el = document.getElementById('vocab-inline-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    if (VOCAB_TOAST_TIMER) clearTimeout(VOCAB_TOAST_TIMER);
+    VOCAB_TOAST_TIMER = setTimeout(function() {
+        el.style.display = 'none';
+    }, 3400);
+}
+
+function iconoContextoVocab(ctx) {
+    var map = {
+        'Conversación': '💬',
+        'Profesional': '💼',
+        'Persuasión': '🎯',
+        'Escritura': '✍️',
+        'Precisión': '🧠'
+    };
+    return map[ctx] || '💬';
+}
+
+function cambiarFiltroVocabulario(filtro) {
+    FILTRO_VOCABULARIO_ACTIVO = (filtro === 'dominadas' || filtro === 'todas') ? filtro : 'semana';
+    document.querySelectorAll('#vocab-filter-pills .vocab-filter-pill').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-vfilter') === FILTRO_VOCABULARIO_ACTIVO);
+    });
+    renderizarVocabularioSemanal();
+}
+window.cambiarFiltroVocabulario = cambiarFiltroVocabulario;
+
+function renderizarVocabularioSemanal() {
+    var heroEl = document.getElementById('contenedor-vocabulario-hero');
+    var gridEl = document.getElementById('contenedor-vocabulario-grid');
+    if (!heroEl && !gridEl) return;
+
+    var lista = asegurarVocabularioState();
+    actualizarBadgeVocabularioConocimiento();
+
+    var semanaInfo = obtenerRangoSemanaActualVocab();
+    var enSemana = lista.filter(function(w) { return w && w.enSemanaActual !== false; });
+    var dominadas = lista.filter(function(w) { return w && w.dominada; });
+    var dominadasSemana = enSemana.filter(function(w) { return w.dominada || (Number(w.usosSemana) || 0) >= (Number(w.metaSemanal) || 3); }).length;
+    var usosSemanaTotal = enSemana.reduce(function(acc, w) { return acc + (Number(w.usosSemana) || 0); }, 0);
+    var metasSemanaTotal = enSemana.reduce(function(acc, w) { return acc + Math.max(1, Number(w.metaSemanal) || 3); }, 0);
+    var pctProgreso = metasSemanaTotal > 0
+        ? Math.min(100, Math.round((enSemana.reduce(function(acc, w) {
+            var m = Math.max(1, Number(w.metaSemanal) || 3);
+            return acc + Math.min(m, Number(w.usosSemana) || 0);
+        }, 0) / metasSemanaTotal) * 100))
+        : 0;
+
+    var cntSem = document.getElementById('vocab-cnt-semana');
+    var cntDom = document.getElementById('vocab-cnt-dominadas');
+    var cntTod = document.getElementById('vocab-cnt-todas');
+    if (cntSem) cntSem.textContent = String(enSemana.length);
+    if (cntDom) cntDom.textContent = String(dominadas.length);
+    if (cntTod) cntTod.textContent = String(lista.length);
+
+    if (heroEl) {
+        heroEl.innerHTML =
+            '<div class="vocab-hero-card">' +
+                '<div class="vocab-hero-top">' +
+                    '<div>' +
+                        '<div class="vocab-hero-eyebrow">Reto Activo · ' + escaparHTMLVocab(semanaInfo.etiqueta) + '</div>' +
+                        '<h3 class="vocab-hero-title">Repertorio Semanal en Práctica</h3>' +
+                    '</div>' +
+                    '<div class="vocab-hero-actions">' +
+                        '<button type="button" class="vocab-action-pill" onclick="mostrarPalabraAlAzarVocab()" title="Sortear una palabra para usar ahora">🎲 Palabra al Azar</button>' +
+                        '<button type="button" class="vocab-action-pill" onclick="iniciarNuevaSemanaVocabulario()" title="Graduar palabras dominadas y abrir una nueva semana">🔄 Nueva Semana</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="vocab-kpi-row">' +
+                    '<div class="vocab-kpi-box">' +
+                        '<div class="vocab-kpi-num" style="color:#38bdf8;">' + enSemana.length + '</div>' +
+                        '<div class="vocab-kpi-lbl">Esta semana</div>' +
+                    '</div>' +
+                    '<div class="vocab-kpi-box">' +
+                        '<div class="vocab-kpi-num" style="color:#a78bfa;">' + usosSemanaTotal + '</div>' +
+                        '<div class="vocab-kpi-lbl">Usos reales</div>' +
+                    '</div>' +
+                    '<div class="vocab-kpi-box">' +
+                        '<div class="vocab-kpi-num" style="color:#34d399;">' + dominadasSemana + '/' + enSemana.length + '</div>' +
+                        '<div class="vocab-kpi-lbl">Meta cumplida</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="vocab-progress-track"><div class="vocab-progress-fill" style="width:' + pctProgreso + '%;"></div></div>' +
+                '<div style="display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-top:6px;">' +
+                    '<span>Avance semanal: <strong style="color:#f8fafc;">' + pctProgreso + '%</strong></span>' +
+                    '<span>Repertorio dominado total: <strong style="color:#6ee7b7;">' + dominadas.length + '</strong></span>' +
+                '</div>' +
+            '</div>';
+    }
+
+    if (!gridEl) return;
+
+    var qEl = document.getElementById('input-buscar-vocabulario');
+    var q = qEl ? qEl.value.trim().toLowerCase() : '';
+
+    var visibles = lista.filter(function(w) {
+        if (!w) return false;
+        if (FILTRO_VOCABULARIO_ACTIVO === 'semana' && w.enSemanaActual === false) return false;
+        if (FILTRO_VOCABULARIO_ACTIVO === 'dominadas' && !w.dominada) return false;
+        if (q) {
+            var blob = (String(w.palabra || '') + ' ' + String(w.significado || '') + ' ' + String(w.reemplazaA || '') + ' ' + String(w.ejemplo || '') + ' ' + String(w.contexto || '')).toLowerCase();
+            if (blob.indexOf(q) === -1) return false;
+        }
+        return true;
+    });
+
+    if (visibles.length === 0) {
+        var msgVacio = q
+            ? 'No se encontraron palabras que coincidan con tu búsqueda.'
+            : (FILTRO_VOCABULARIO_ACTIVO === 'dominadas'
+                ? 'Aún no tienes palabras dominadas. Usa tus palabras de la semana hasta cumplir su meta.'
+                : 'Aún no tienes palabras asignadas para esta semana. Agrega 3 a 5 palabras nuevas o pulsa "✨ Sugerir" dentro del formulario.');
+        gridEl.innerHTML =
+            '<div style="grid-column:1/-1; text-align:center; padding:32px 18px; background:#0b0e15; border:1px dashed rgba(148,163,184,0.28); border-radius:14px;">' +
+                '<div style="font-size:28px; margin-bottom:8px;">🗣️</div>' +
+                '<p style="margin:0 0 12px 0; color:#94a3b8; font-size:13px; line-height:1.45; max-width:440px; margin-inline:auto;">' + msgVacio + '</p>' +
+                '<button type="button" class="btn-system" style="font-size:12.5px;" onclick="abrirModalVocabulario()">➕ Agregar Palabra para esta Semana</button>' +
+            '</div>';
+        return;
+    }
+
+    var html = '';
+    visibles.forEach(function(w) {
+        var meta = Math.max(1, Number(w.metaSemanal) || 3);
+        var usos = Math.max(0, Number(w.usosSemana) || 0);
+        var cumplida = !!w.dominada || usos >= meta;
+        var ctx = w.contexto || 'Conversación';
+        var dotsHtml = '';
+        var totalDots = Math.min(10, meta);
+        for (var i = 0; i < totalDots; i++) {
+            dotsHtml += '<span class="vocab-dot ' + (i < usos ? 'filled' : '') + '"></span>';
+        }
+        var statusHtml = cumplida
+            ? '<span class="vocab-status-pill dominada">⭐ Dominada</span>'
+            : (w.enSemanaActual !== false
+                ? '<span class="vocab-status-pill en-reto">🔥 En reto</span>'
+                : '<span class="vocab-status-pill" style="background:rgba(148,163,184,0.12);color:#94a3b8;border:1px solid rgba(148,163,184,0.25);">📦 En banco</span>');
+
+        var toggleSemLabel = (w.enSemanaActual !== false) ? '📦 Quitar' : '🔥 Activar';
+        var toggleSemTitle = (w.enSemanaActual !== false) ? 'Sacar del reto de esta semana (guardar en banco)' : 'Activar para usar esta semana';
+
+        html +=
+            '<article class="vocab-card ' + (cumplida ? 'is-dominada' : '') + '" data-vocab-id="' + escaparHTMLVocab(w.id) + '">' +
+                '<div class="vocab-card-head">' +
+                    '<div style="min-width:0;">' +
+                        '<div>' +
+                            '<span class="vocab-ctx-badge">' + iconoContextoVocab(ctx) + ' ' + escaparHTMLVocab(ctx) + '</span>' +
+                            statusHtml +
+                        '</div>' +
+                        '<h4 class="vocab-word-title">' + escaparHTMLVocab(w.palabra) + '</h4>' +
+                    '</div>' +
+                    '<div class="vocab-card-tools">' +
+                        '<button type="button" class="vocab-icon-btn" onclick="abrirModalVocabulario(\'' + escaparHTMLVocab(w.id) + '\')" title="Editar palabra">✏️</button>' +
+                        '<button type="button" class="vocab-icon-btn danger" onclick="eliminarPalabraVocab(\'' + escaparHTMLVocab(w.id) + '\')" title="Eliminar palabra">🗑️</button>' +
+                    '</div>' +
+                '</div>' +
+                '<p class="vocab-meaning">' + escaparHTMLVocab(w.significado || '') + '</p>' +
+                (w.reemplazaA ? '<div class="vocab-replace-row">En lugar de decir: <strong>' + escaparHTMLVocab(w.reemplazaA) + '</strong></div>' : '') +
+                (w.ejemplo ? '<div class="vocab-example-box">“' + escaparHTMLVocab(w.ejemplo) + '”</div>' : '') +
+                '<div class="vocab-usage-box">' +
+                    '<div class="vocab-usage-meta">' +
+                        '<span>Usos esta semana: <strong style="color:#f8fafc;">' + usos + ' / ' + meta + '</strong></span>' +
+                        '<span>Total histórico: ' + (Number(w.usosTotales) || usos) + '</span>' +
+                    '</div>' +
+                    '<div class="vocab-usage-dots">' + dotsHtml + '</div>' +
+                    '<div class="vocab-card-footer">' +
+                        '<button type="button" class="vocab-use-btn" onclick="registrarUsoPalabraVocab(\'' + escaparHTMLVocab(w.id) + '\', 1)">🗣️ ¡La usé! (+1)</button>' +
+                        (usos > 0 ? '<button type="button" class="vocab-sub-btn" onclick="registrarUsoPalabraVocab(\'' + escaparHTMLVocab(w.id) + '\', -1)" title="Restar 1 uso">−1</button>' : '') +
+                        '<button type="button" class="vocab-sub-btn" onclick="toggleSemanaPalabraVocab(\'' + escaparHTMLVocab(w.id) + '\')" title="' + toggleSemTitle + '">' + toggleSemLabel + '</button>' +
+                    '</div>' +
+                '</div>' +
+            '</article>';
+    });
+
+    gridEl.innerHTML = html;
+}
+window.renderizarVocabularioSemanal = renderizarVocabularioSemanal;
+
+function abrirModalVocabulario(editId) {
+    var modal = document.getElementById('modal-vocabulario-palabra');
+    if (!modal) return;
+
+    var titEl = document.getElementById('modal-vocab-titulo');
+    var btnSave = document.getElementById('btn-guardar-vocab-modal');
+    var inId = document.getElementById('input-vocab-edit-id');
+    var inPal = document.getElementById('input-vocab-palabra');
+    var inCtx = document.getElementById('input-vocab-contexto');
+    var inMeta = document.getElementById('input-vocab-meta');
+    var inSig = document.getElementById('input-vocab-significado');
+    var inReemp = document.getElementById('input-vocab-reemplaza');
+    var inEj = document.getElementById('input-vocab-ejemplo');
+    var inSem = document.getElementById('input-vocab-en-semana');
+
+    var lista = asegurarVocabularioState();
+    var item = editId ? lista.find(function(w) { return w && w.id === editId; }) : null;
+
+    if (item) {
+        if (titEl) titEl.textContent = 'EDITAR PALABRA DE VOCABULARIO';
+        if (btnSave) btnSave.textContent = '✓ Guardar Cambios';
+        if (inId) inId.value = item.id;
+        if (inPal) inPal.value = item.palabra || '';
+        if (inCtx) inCtx.value = item.contexto || 'Conversación';
+        if (inMeta) inMeta.value = String(item.metaSemanal || 3);
+        if (inSig) inSig.value = item.significado || '';
+        if (inReemp) inReemp.value = item.reemplazaA || '';
+        if (inEj) inEj.value = item.ejemplo || '';
+        if (inSem) inSem.checked = (item.enSemanaActual !== false);
+    } else {
+        if (titEl) titEl.textContent = 'AGREGAR PALABRA A LA SEMANA';
+        if (btnSave) btnSave.textContent = '🗣️ Guardar Palabra (+15 EXP)';
+        if (inId) inId.value = '';
+        if (inPal) inPal.value = '';
+        if (inCtx) inCtx.value = 'Conversación';
+        if (inMeta) inMeta.value = '3';
+        if (inSig) inSig.value = '';
+        if (inReemp) inReemp.value = '';
+        if (inEj) inEj.value = '';
+        if (inSem) inSem.checked = true;
+    }
+
+    modal.style.display = 'flex';
+    if (inPal) setTimeout(function() { inPal.focus(); }, 60);
+}
+window.abrirModalVocabulario = abrirModalVocabulario;
+
+function cerrarModalVocabulario() {
+    var modal = document.getElementById('modal-vocabulario-palabra');
+    if (modal) modal.style.display = 'none';
+}
+window.cerrarModalVocabulario = cerrarModalVocabulario;
+
+function sugerirPalabraVocabModal() {
+    var existentes = asegurarVocabularioState().map(function(w) {
+        return String(w && w.palabra || '').trim().toLowerCase();
+    });
+    var disponibles = BANCO_SUGERENCIAS_VOCAB.filter(function(s) {
+        return existentes.indexOf(s.palabra.toLowerCase()) === -1;
+    });
+    var pool = disponibles.length > 0 ? disponibles : BANCO_SUGERENCIAS_VOCAB;
+    var pick = pool[VOCAB_SUGERENCIA_IDX % pool.length];
+    VOCAB_SUGERENCIA_IDX++;
+
+    var inPal = document.getElementById('input-vocab-palabra');
+    var inCtx = document.getElementById('input-vocab-contexto');
+    var inSig = document.getElementById('input-vocab-significado');
+    var inReemp = document.getElementById('input-vocab-reemplaza');
+    var inEj = document.getElementById('input-vocab-ejemplo');
+    if (inPal) inPal.value = pick.palabra;
+    if (inCtx) inCtx.value = pick.contexto;
+    if (inSig) inSig.value = pick.significado;
+    if (inReemp) inReemp.value = pick.reemplazaA;
+    if (inEj) inEj.value = pick.ejemplo;
+}
+window.sugerirPalabraVocabModal = sugerirPalabraVocabModal;
+
+function guardarPalabraVocabulario() {
+    var inId = document.getElementById('input-vocab-edit-id');
+    var inPal = document.getElementById('input-vocab-palabra');
+    var inCtx = document.getElementById('input-vocab-contexto');
+    var inMeta = document.getElementById('input-vocab-meta');
+    var inSig = document.getElementById('input-vocab-significado');
+    var inReemp = document.getElementById('input-vocab-reemplaza');
+    var inEj = document.getElementById('input-vocab-ejemplo');
+    var inSem = document.getElementById('input-vocab-en-semana');
+
+    var palabra = inPal ? inPal.value.trim() : '';
+    var significado = inSig ? inSig.value.trim() : '';
+    var contexto = inCtx ? inCtx.value : 'Conversación';
+    var metaSemanal = Math.min(10, Math.max(1, parseInt(inMeta ? inMeta.value : '3', 10) || 3));
+    var reemplazaA = inReemp ? inReemp.value.trim() : '';
+    var ejemplo = inEj ? inEj.value.trim() : '';
+    var enSemanaActual = inSem ? !!inSem.checked : true;
+    var editId = inId ? inId.value.trim() : '';
+
+    if (!palabra) {
+        alert("Escribe la palabra o expresión que quieres incorporar.");
+        if (inPal) inPal.focus();
+        return;
+    }
+    if (!significado) {
+        alert("Agrega un significado breve para recordar cómo usarla.");
+        if (inSig) inSig.focus();
+        return;
+    }
+
+    var lista = asegurarVocabularioState();
+    var ahora = Date.now();
+    var semClave = obtenerRangoSemanaActualVocab().clave;
+
+    if (editId) {
+        var existente = lista.find(function(w) { return w && w.id === editId; });
+        if (existente) {
+            existente.palabra = palabra;
+            existente.significado = significado;
+            existente.contexto = contexto;
+            existente.metaSemanal = metaSemanal;
+            existente.reemplazaA = reemplazaA;
+            existente.ejemplo = ejemplo;
+            existente.enSemanaActual = enSemanaActual;
+            existente.dominada = existente.dominada || ((Number(existente.usosSemana) || 0) >= metaSemanal);
+            existente.fechaActualizacion = ahora;
+        }
+        MonarcaDB.save(APP_STATE);
+        cerrarModalVocabulario();
+        renderizarVocabularioSemanal();
+        mostrarToastVocabulario('✏️ "' + palabra + '" actualizada.');
+        return;
+    }
+
+    var nueva = {
+        id: 'VOC-' + ahora,
+        palabra: palabra,
+        significado: significado,
+        reemplazaA: reemplazaA,
+        ejemplo: ejemplo,
+        contexto: contexto,
+        enSemanaActual: enSemanaActual,
+        usosSemana: 0,
+        usosTotales: 0,
+        metaSemanal: metaSemanal,
+        dominada: false,
+        semanaClave: semClave,
+        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        timestamp: ahora,
+        fechaActualizacion: ahora
+    };
+
+    lista.unshift(nueva);
+    if (typeof sumarExp === 'function') sumarExp(15);
+    MonarcaDB.save(APP_STATE);
+
+    cerrarModalVocabulario();
+    if (enSemanaActual && FILTRO_VOCABULARIO_ACTIVO === 'dominadas') {
+        FILTRO_VOCABULARIO_ACTIVO = 'semana';
+        cambiarFiltroVocabulario('semana');
+    } else {
+        renderizarVocabularioSemanal();
+    }
+    mostrarToastVocabulario('🗣️ "' + palabra + '" agregada a tu vocabulario semanal (+15 EXP).');
+}
+window.guardarPalabraVocabulario = guardarPalabraVocabulario;
+
+function registrarUsoPalabraVocab(id, delta) {
+    var lista = asegurarVocabularioState();
+    var w = lista.find(function(x) { return x && x.id === id; });
+    if (!w) return;
+
+    var d = Number(delta) || 1;
+    var meta = Math.max(1, Number(w.metaSemanal) || 3);
+    var antesDom = !!w.dominada;
+
+    if (d > 0) {
+        w.usosSemana = (Number(w.usosSemana) || 0) + 1;
+        w.usosTotales = (Number(w.usosTotales) || 0) + 1;
+        if (w.enSemanaActual === false) w.enSemanaActual = true;
+        if (typeof sumarExp === 'function') sumarExp(10);
+        if (APP_STATE.menteAtributos && APP_STATE.menteAtributos.conocimiento !== undefined) {
+            APP_STATE.menteAtributos.conocimiento = Math.min(100, (APP_STATE.menteAtributos.conocimiento || 0) + 2);
+        }
+        if (w.usosSemana >= meta && !antesDom) {
+            w.dominada = true;
+            if (typeof sumarExp === 'function') sumarExp(20);
+            mostrarToastVocabulario('⭐ ¡"' + w.palabra + '" dominada esta semana (' + w.usosSemana + '/' + meta + ')! +30 EXP.');
+        } else {
+            mostrarToastVocabulario('🗣️ Uso registrado para "' + w.palabra + '" (' + w.usosSemana + '/' + meta + ') · +10 EXP.');
+        }
+    } else {
+        w.usosSemana = Math.max(0, (Number(w.usosSemana) || 0) - 1);
+        w.usosTotales = Math.max(0, (Number(w.usosTotales) || 0) - 1);
+        if (w.usosSemana < meta) w.dominada = false;
+        mostrarToastVocabulario('↺ Ajuste en "' + w.palabra + '" (' + w.usosSemana + '/' + meta + ').');
+    }
+
+    w.fechaActualizacion = Date.now();
+    MonarcaDB.save(APP_STATE);
+
+    var flash = document.getElementById('contenedor-vocabulario-flash');
+    if (flash && flash.getAttribute('data-flash-id') === id) {
+        flash.style.display = 'none';
+    }
+    renderizarVocabularioSemanal();
+}
+window.registrarUsoPalabraVocab = registrarUsoPalabraVocab;
+
+function toggleSemanaPalabraVocab(id) {
+    var lista = asegurarVocabularioState();
+    var w = lista.find(function(x) { return x && x.id === id; });
+    if (!w) return;
+    w.enSemanaActual = (w.enSemanaActual === false);
+    if (w.enSemanaActual) {
+        w.semanaClave = obtenerRangoSemanaActualVocab().clave;
+    }
+    w.fechaActualizacion = Date.now();
+    MonarcaDB.save(APP_STATE);
+    renderizarVocabularioSemanal();
+    mostrarToastVocabulario(w.enSemanaActual
+        ? ('🔥 "' + w.palabra + '" activada para esta semana.')
+        : ('📦 "' + w.palabra + '" guardada en tu banco general.'));
+}
+window.toggleSemanaPalabraVocab = toggleSemanaPalabraVocab;
+
+function mostrarPalabraAlAzarVocab() {
+    var flash = document.getElementById('contenedor-vocabulario-flash');
+    if (!flash) return;
+    var lista = asegurarVocabularioState();
+    var activas = lista.filter(function(w) { return w && w.enSemanaActual !== false; });
+    if (activas.length === 0) {
+        mostrarToastVocabulario('Agrega al menos una palabra a esta semana para sortear tu reto.');
+        return;
+    }
+    var pendientes = activas.filter(function(w) { return (Number(w.usosSemana) || 0) < Math.max(1, Number(w.metaSemanal) || 3); });
+    var pool = pendientes.length > 0 ? pendientes : activas;
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+
+    flash.setAttribute('data-flash-id', pick.id);
+    flash.innerHTML =
+        '<div class="vocab-flash-card">' +
+            '<div style="min-width:0; flex:1;">' +
+                '<div style="font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:#6ee7b7;">🎯 Reto rápido de conversación</div>' +
+                '<div style="font-size:17px; font-weight:800; color:#f8fafc; margin-top:2px;">Usa “' + escaparHTMLVocab(pick.palabra) + '” hoy</div>' +
+                '<div style="font-size:12px; color:#cbd5e1; margin-top:3px;">' + escaparHTMLVocab(pick.significado) + '</div>' +
+            '</div>' +
+            '<div style="display:flex; align-items:center; gap:6px;">' +
+                '<button type="button" class="vocab-use-btn" style="padding:8px 12px;" onclick="registrarUsoPalabraVocab(\'' + escaparHTMLVocab(pick.id) + '\', 1)">🗣️ ¡La usé!</button>' +
+                '<button type="button" class="vocab-icon-btn" onclick="document.getElementById(\'contenedor-vocabulario-flash\').style.display=\'none\'" title="Cerrar">✕</button>' +
+            '</div>' +
+        '</div>';
+    flash.style.display = 'block';
+}
+window.mostrarPalabraAlAzarVocab = mostrarPalabraAlAzarVocab;
+
+function iniciarNuevaSemanaVocabulario() {
+    var lista = asegurarVocabularioState();
+    var activas = lista.filter(function(w) { return w && w.enSemanaActual !== false; });
+    if (activas.length === 0) {
+        mostrarToastVocabulario('No hay palabras activas esta semana todavía.');
+        return;
+    }
+    if (!confirm('¿Iniciar una nueva semana de vocabulario?\n\n• Las palabras que ya dominaste pasarán a tu banco de "⭐ Dominadas".\n• Las pendientes seguirán activas con su contador semanal en 0.')) return;
+
+    var semClave = obtenerRangoSemanaActualVocab().clave;
+    var graduadas = 0;
+    activas.forEach(function(w) {
+        var meta = Math.max(1, Number(w.metaSemanal) || 3);
+        if (w.dominada || (Number(w.usosSemana) || 0) >= meta) {
+            w.dominada = true;
+            w.enSemanaActual = false;
+            graduadas++;
+        } else {
+            w.usosSemana = 0;
+            w.semanaClave = semClave;
+        }
+        w.fechaActualizacion = Date.now();
+    });
+    MonarcaDB.save(APP_STATE);
+    renderizarVocabularioSemanal();
+    mostrarToastVocabulario('🔄 Nueva semana iniciada (' + graduadas + ' palabra' + (graduadas === 1 ? '' : 's') + ' graduada' + (graduadas === 1 ? '' : 's') + ' a Dominadas).');
+}
+window.iniciarNuevaSemanaVocabulario = iniciarNuevaSemanaVocabulario;
+
+function eliminarPalabraVocab(id) {
+    if (!confirm('¿Eliminar esta palabra de tu vocabulario?')) return;
+    var lista = asegurarVocabularioState();
+    if (typeof registrarTombstone === 'function') {
+        registrarTombstone('vocabulario', id);
+    }
+    APP_STATE.vocabulario = lista.filter(function(w) { return w && w.id !== id; });
+    MonarcaDB.save(APP_STATE);
+    renderizarVocabularioSemanal();
+}
+window.eliminarPalabraVocab = eliminarPalabraVocab;
+
 
 // ==========================================================================
 // 12. CALENDARIO
 // ==========================================================================
+
