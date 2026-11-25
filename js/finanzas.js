@@ -108,6 +108,7 @@ var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
     tabIngresosActivo: 'fijos',
     vistaQuincena: 'sem1',
     modoGrafico: 'comparativa',
+    reglaCorteCobro: 'auto',
     filtroGastos: 'todos',
     seccionActiva: 'panel',
     calDiaSeleccionado: null,
@@ -116,9 +117,18 @@ var ESTADO_FINANZAS = window.ESTADO_FINANZAS || {
 };
 window.ESTADO_FINANZAS = ESTADO_FINANZAS;
 
+function cambiarCorteRegla504010(corte) {
+    if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
+    var valido = (corte === 'dia15' || corte === 'ultimo' || corte === 'ambos') ? corte : 'auto';
+    window.ESTADO_FINANZAS.reglaCorteCobro = valido;
+    renderizarFinanzas(APP_STATE.finanzas);
+}
+window.cambiarCorteRegla504010 = cambiarCorteRegla504010;
+
 function cargarFinanzas() {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.mesOffset = 0; // Al entrar, siempre al mes actual
+    window.ESTADO_FINANZAS.reglaCorteCobro = 'auto';
     if (!window.ESTADO_FINANZAS.seccionActiva) window.ESTADO_FINANZAS.seccionActiva = 'panel';
     if (!window.ESTADO_FINANZAS.calFiltroTipo) window.ESTADO_FINANZAS.calFiltroTipo = 'todos';
     var fechaMes = obtenerFechaMesFinanzas();
@@ -1149,16 +1159,176 @@ function renderizarFinanzas(fin) {
     var resGasEl = document.getElementById('resumen-total-gastos');
     if (resGasEl) resGasEl.innerText = '$' + totGastos.toFixed(2);
 
-    // 4. Regla 50 / 40 / 10 (Estimado vs Real para el Período Activo)
-    var baseCalculoRegla = totIngresosVista > 0 ? totIngresosVista : totIngresosMes;
+    // 4. Regla 50 / 40 / 10 (EXCLUSIVA para días de cobro: 15 y último día de cada mes)
+    var ultimoDiaMes = new Date(anioActivo, mesActivo + 1, 0).getDate();
+    var baseCobro15 = 0;
+    var baseCobroUltimo = 0;
+    var ultimoUsaDia30EnMes31 = false;
+
+    (f.ingresos || []).forEach(function(item) {
+        if (!item) return;
+        var esRec = esItemRecurrenteMensualReal(item, false);
+        var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRec, anioActivo, mesActivo);
+        if (!fechaEff || typeof fechaEff !== 'string' || fechaEff.slice(0, 7) !== mesClaveVista) return;
+
+        var diaEff = parseInt(fechaEff.slice(8, 10), 10);
+        if (isNaN(diaEff)) return;
+
+        var mPlan = Number(item.monto) || 0;
+        var mUsar = (item.cobrado && item.montoCobrado !== undefined && item.montoCobrado !== null && item.montoCobrado !== '')
+            ? (Number(item.montoCobrado) || 0)
+            : mPlan;
+        if (mUsar <= 0) return;
+
+        var titStr = String(item.fuente || item.concepto || item.nombre || item.titulo || '');
+        var idStr = String(item.id || '').toLowerCase();
+        var esSueldoDia30EnMes31 = (
+            ultimoDiaMes === 31 &&
+            diaEff === 30 &&
+            (esRec || idStr.indexOf('quincena2') !== -1 || /quincena\s*2|d[ií]a\s*30|sueldo|n[oó]mina|boom/i.test(titStr))
+        );
+
+        if (diaEff === 15) {
+            baseCobro15 += mUsar;
+        } else if (diaEff === ultimoDiaMes || esSueldoDia30EnMes31) {
+            baseCobroUltimo += mUsar;
+            if (esSueldoDia30EnMes31) ultimoUsaDia30EnMes31 = true;
+        }
+    });
+
+    // Respaldo inteligente desde Boom Solutions solo si aún no se ha registrado ese cobro en f.ingresos para este mes
+    var boomCfg = (window.APP_STATE && APP_STATE.subappBoom && APP_STATE.subappBoom.config) ? APP_STATE.subappBoom.config : null;
+    var boomPlanMes = (window.APP_STATE && APP_STATE.subappBoom && APP_STATE.subappBoom.planificaciones) ? APP_STATE.subappBoom.planificaciones[mesClaveVista] : null;
+    if (boomCfg && boomPlanMes) {
+        if (baseCobro15 <= 0 && Number(boomCfg.sueldoQuincena1) > 0) {
+            baseCobro15 = Number(boomCfg.sueldoQuincena1) || 0;
+        }
+        if (baseCobroUltimo <= 0 && Number(boomCfg.sueldoQuincena2) > 0) {
+            baseCobroUltimo = Number(boomCfg.sueldoQuincena2) || 0;
+            if (ultimoDiaMes === 31) ultimoUsaDia30EnMes31 = true;
+        }
+    }
+
+    var baseCobroAmbos = baseCobro15 + baseCobroUltimo;
+    var fechaCobro15 = mesClaveVista + '-15';
+    var fechaCobroUltimo = mesClaveVista + '-' + String(ultimoDiaMes).padStart(2, '0');
+    var fechaCobroDia30 = mesClaveVista + '-30';
+    var semanaIncluye15 = (vq === 'mes') || (!!semanaActivaObj && fechaCobro15 >= semanaActivaObj.claveIni && fechaCobro15 <= semanaActivaObj.claveFin);
+    var semanaIncluyeUltimo = (vq === 'mes') || (!!semanaActivaObj && (
+        (fechaCobroUltimo >= semanaActivaObj.claveIni && fechaCobroUltimo <= semanaActivaObj.claveFin) ||
+        (ultimoUsaDia30EnMes31 && fechaCobroDia30 >= semanaActivaObj.claveIni && fechaCobroDia30 <= semanaActivaObj.claveFin)
+    ));
+
+    var corteSeleccionado = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.reglaCorteCobro) || 'auto';
+    var corteEfectivo = 'sin_cobro';
+    if (corteSeleccionado === 'dia15' || corteSeleccionado === 'ultimo' || corteSeleccionado === 'ambos') {
+        corteEfectivo = corteSeleccionado;
+    } else {
+        if (vq === 'mes' || (semanaIncluye15 && semanaIncluyeUltimo)) {
+            corteEfectivo = 'ambos';
+        } else if (semanaIncluye15) {
+            corteEfectivo = 'dia15';
+        } else if (semanaIncluyeUltimo) {
+            corteEfectivo = 'ultimo';
+        } else {
+            corteEfectivo = 'sin_cobro';
+        }
+    }
+
+    var baseCalculoRegla = 0;
+    var etiquetaBaseRegla = '';
+    if (corteEfectivo === 'dia15') {
+        baseCalculoRegla = baseCobro15;
+        etiquetaBaseRegla = 'Cobro Día 15';
+    } else if (corteEfectivo === 'ultimo') {
+        baseCalculoRegla = baseCobroUltimo;
+        etiquetaBaseRegla = 'Cobro Último (Día ' + ultimoDiaMes + ')';
+    } else if (corteEfectivo === 'ambos') {
+        baseCalculoRegla = baseCobroAmbos;
+        etiquetaBaseRegla = 'Cobros 15 y ' + ultimoDiaMes;
+    } else {
+        baseCalculoRegla = 0;
+        etiquetaBaseRegla = 'Sin cobro en ' + obtenerTituloPeriodo(vq);
+    }
+
+    // Calcular ejecución real correspondiente al alcance de la regla (para que consultar 15/Último/Ambos sea coherente)
+    var realInversionRegla = realInversionVista;
+    var realGastosRegla = realGastosVista;
+    var realCaprichosRegla = realCaprichosVista;
+    if (corteEfectivo === 'sin_cobro') {
+        realInversionRegla = 0;
+        realGastosRegla = 0;
+        realCaprichosRegla = 0;
+    } else if (corteSeleccionado !== 'auto') {
+        var rInvC = 0, rGasC = 0, rCapC = 0;
+        var enRangoCorte = function(diaVal, fechaVal, itemObj, esGasto) {
+            var esR = itemObj ? esItemRecurrenteMensualReal(itemObj, !!esGasto) : false;
+            var fEff = itemObj ? resolverFechaEfectivaMovFinanzas(itemObj, esR, anioActivo, mesActivo) : String(fechaVal || '');
+            if (fEff && fEff.length >= 7 && fEff.slice(0, 7) !== mesClaveVista) return false;
+            if (corteEfectivo === 'ambos') return true;
+            var dN = fEff && fEff.length >= 10 ? parseInt(fEff.slice(8, 10), 10) : (parseInt(diaVal, 10) || 15);
+            if (corteEfectivo === 'dia15') return dN >= 1 && dN <= 15;
+            return dN >= 16;
+        };
+        (f.aportesMetas || []).forEach(function(ap) {
+            if (enRangoCorte(ap.dia, ap.fecha, null, false)) rInvC += (Number(ap.monto) || 0);
+        });
+        (f.gastos || []).forEach(function(g) {
+            if (!enRangoCorte(g.dia, g.fecha, g, true)) return;
+            var gm = Number(g.monto) || 0;
+            var pG = obtenerPilarGasto(g);
+            if (pG === 'inversion') rInvC += gm;
+            else if (pG === 'caprichos') rCapC += gm;
+            else rGasC += gm;
+        });
+        realInversionRegla = rInvC;
+        realGastosRegla = rGasC;
+        realCaprichosRegla = rCapC;
+    }
+
     var meta50 = baseCalculoRegla * 0.50; // 50% Inversión y Multiplicación
     var meta40 = baseCalculoRegla * 0.40; // 40% Gastos Fijos y Necesidades
     var meta10 = baseCalculoRegla * 0.10; // 10% Caprichos y Ocio
 
-    // Actualizar subtítulo del período en la regla
+    // Actualizar subtítulo, barra de días de cobro y banner informativo cuando la semana no tiene día de cobro
     var reglaSub = document.getElementById('regla-subtitulo-periodo');
     if (reglaSub) {
-        reglaSub.innerText = `${obtenerTituloPeriodo(vq)} · Base: $${baseCalculoRegla.toFixed(2)}`;
+        reglaSub.innerText = corteEfectivo === 'sin_cobro'
+            ? ('Solo días de cobro (15 y ' + ultimoDiaMes + ') · No aplica a ingresos semanales')
+            : (etiquetaBaseRegla + ' · Base: $' + baseCalculoRegla.toFixed(2));
+    }
+
+    var barraCobroEl = document.getElementById('regla-dias-cobro-bar');
+    if (barraCobroEl) {
+        var semanaSinCobro = (!semanaIncluye15 && !semanaIncluyeUltimo && vq !== 'mes');
+        var pillSemanaSinCobro = semanaSinCobro
+            ? ('<button type="button" class="regla-cobro-pill ' + (corteEfectivo === 'sin_cobro' ? 'is-active' : '') + '" onclick="cambiarCorteRegla504010(\'auto\')">📌 ' + obtenerTituloPeriodo(vq) + '</button>')
+            : '';
+        barraCobroEl.innerHTML =
+            pillSemanaSinCobro +
+            '<button type="button" class="regla-cobro-pill ' + (corteEfectivo === 'dia15' ? 'is-active' : '') + '" onclick="cambiarCorteRegla504010(\'dia15\')">📅 Día 15 <span class="regla-pill-amt">$' + baseCobro15.toFixed(2) + '</span></button>' +
+            '<button type="button" class="regla-cobro-pill ' + (corteEfectivo === 'ultimo' ? 'is-active' : '') + '" onclick="cambiarCorteRegla504010(\'ultimo\')">📅 Último (' + ultimoDiaMes + ') <span class="regla-pill-amt">$' + baseCobroUltimo.toFixed(2) + '</span></button>' +
+            '<button type="button" class="regla-cobro-pill ' + (corteEfectivo === 'ambos' ? 'is-active' : '') + '" onclick="cambiarCorteRegla504010(\'ambos\')">⚖️ 15 y ' + ultimoDiaMes + ' <span class="regla-pill-amt">$' + baseCobroAmbos.toFixed(2) + '</span></button>';
+    }
+
+    var bannerSinCobroEl = document.getElementById('regla-sin-cobro-banner');
+    if (bannerSinCobroEl) {
+        if (corteEfectivo === 'sin_cobro') {
+            var extraSemTxt = totIngresosVista > 0
+                ? (' Tus ingresos semanales ($' + totIngresosVista.toFixed(2) + ') no alteran esta regla.')
+                : '';
+            bannerSinCobroEl.innerHTML =
+                '<span>📌</span>' +
+                '<div><strong>' + obtenerTituloPeriodo(vq) + ' no incluye día de cobro.</strong> La Regla 50/40/10 solo se aplica a tus cobros del <strong>día 15</strong> y <strong>último de mes (día ' + ultimoDiaMes + ')</strong>.' + extraSemTxt + ' Pulsa <strong>Día 15</strong>, <strong>Último (' + ultimoDiaMes + ')</strong> o <strong>15 y ' + ultimoDiaMes + '</strong> arriba para consultar tu distribución.</div>';
+            bannerSinCobroEl.style.display = 'flex';
+        } else if (baseCalculoRegla <= 0) {
+            bannerSinCobroEl.innerHTML =
+                '<span>💡</span>' +
+                '<div>Sin cobros registrados para <strong>' + etiquetaBaseRegla + '</strong> en este mes. Registra tus ingresos del día 15 o día ' + ultimoDiaMes + ' para activar la distribución 50/40/10.</div>';
+            bannerSinCobroEl.style.display = 'flex';
+        } else {
+            bannerSinCobroEl.style.display = 'none';
+        }
     }
 
     // Tarjeta 50% Inversión
@@ -1168,15 +1338,19 @@ function renderizarFinanzas(fin) {
     var el50PctLbl = document.getElementById('regla-pct-label-50');
     var el50Tag = document.getElementById('regla-tag-50');
     if (el50Monto) el50Monto.innerText = '$' + meta50.toFixed(2);
-    if (el50Real) el50Real.innerText = '$' + realInversionVista.toFixed(2);
-    var pct50 = meta50 > 0 ? Math.round((realInversionVista / meta50) * 100) : 0;
+    if (el50Real) el50Real.innerText = '$' + realInversionRegla.toFixed(2);
+    var pct50 = meta50 > 0 ? Math.round((realInversionRegla / meta50) * 100) : 0;
     if (el50Fill) {
         el50Fill.style.width = Math.min(100, pct50) + '%';
         el50Fill.style.background = pct50 >= 100 ? '#10b981' : '#06b6d4';
     }
-    if (el50PctLbl) el50PctLbl.innerText = pct50 + '% de meta';
+    if (el50PctLbl) el50PctLbl.innerText = corteEfectivo === 'sin_cobro' ? 'Solo días 15 y ' + ultimoDiaMes : (pct50 + '% de meta');
     if (el50Tag) {
-        if (pct50 >= 100) {
+        if (corteEfectivo === 'sin_cobro') {
+            el50Tag.innerText = 'Sin cobro';
+            el50Tag.style.background = 'rgba(148, 163, 184, 0.14)';
+            el50Tag.style.color = '#94a3b8';
+        } else if (pct50 >= 100) {
             el50Tag.innerText = "⭐ Meta Cumplida";
             el50Tag.style.background = "rgba(16, 185, 129, 0.15)";
             el50Tag.style.color = "#34d399";
@@ -1194,16 +1368,20 @@ function renderizarFinanzas(fin) {
     var el40PctLbl = document.getElementById('regla-pct-label-40');
     var el40Tag = document.getElementById('regla-tag-40');
     if (el40Monto) el40Monto.innerText = '$' + meta40.toFixed(2);
-    if (el40Real) el40Real.innerText = '$' + realGastosVista.toFixed(2);
-    var pct40 = meta40 > 0 ? Math.round((realGastosVista / meta40) * 100) : 0;
+    if (el40Real) el40Real.innerText = '$' + realGastosRegla.toFixed(2);
+    var pct40 = meta40 > 0 ? Math.round((realGastosRegla / meta40) * 100) : 0;
     if (el40Fill) {
         el40Fill.style.width = Math.min(100, pct40) + '%';
         el40Fill.style.background = pct40 > 100 ? '#ef4444' : '#f59e0b';
     }
-    if (el40PctLbl) el40PctLbl.innerText = pct40 + '% de límite';
+    if (el40PctLbl) el40PctLbl.innerText = corteEfectivo === 'sin_cobro' ? 'Solo días 15 y ' + ultimoDiaMes : (pct40 + '% de límite');
     if (el40Tag) {
-        if (pct40 > 100) {
-            el40Tag.innerText = `⚠️ Excedido (+$${(realGastosVista - meta40).toFixed(2)})`;
+        if (corteEfectivo === 'sin_cobro') {
+            el40Tag.innerText = 'Sin cobro';
+            el40Tag.style.background = 'rgba(148, 163, 184, 0.14)';
+            el40Tag.style.color = '#94a3b8';
+        } else if (pct40 > 100) {
+            el40Tag.innerText = `⚠️ Excedido (+$${(realGastosRegla - meta40).toFixed(2)})`;
             el40Tag.style.background = "rgba(239, 68, 68, 0.15)";
             el40Tag.style.color = "#f87171";
         } else {
@@ -1220,16 +1398,20 @@ function renderizarFinanzas(fin) {
     var el10PctLbl = document.getElementById('regla-pct-label-10');
     var el10Tag = document.getElementById('regla-tag-10');
     if (el10Monto) el10Monto.innerText = '$' + meta10.toFixed(2);
-    if (el10Real) el10Real.innerText = '$' + realCaprichosVista.toFixed(2);
-    var pct10 = meta10 > 0 ? Math.round((realCaprichosVista / meta10) * 100) : 0;
+    if (el10Real) el10Real.innerText = '$' + realCaprichosRegla.toFixed(2);
+    var pct10 = meta10 > 0 ? Math.round((realCaprichosRegla / meta10) * 100) : 0;
     if (el10Fill) {
         el10Fill.style.width = Math.min(100, pct10) + '%';
         el10Fill.style.background = pct10 > 100 ? '#f43f5e' : '#ec4899';
     }
-    if (el10PctLbl) el10PctLbl.innerText = pct10 + '% de límite';
+    if (el10PctLbl) el10PctLbl.innerText = corteEfectivo === 'sin_cobro' ? 'Solo días 15 y ' + ultimoDiaMes : (pct10 + '% de límite');
     if (el10Tag) {
-        if (pct10 > 100) {
-            el10Tag.innerText = `⚠️ Excedido (+$${(realCaprichosVista - meta10).toFixed(2)})`;
+        if (corteEfectivo === 'sin_cobro') {
+            el10Tag.innerText = 'Sin cobro';
+            el10Tag.style.background = 'rgba(148, 163, 184, 0.14)';
+            el10Tag.style.color = '#94a3b8';
+        } else if (pct10 > 100) {
+            el10Tag.innerText = `⚠️ Excedido (+$${(realCaprichosRegla - meta10).toFixed(2)})`;
             el10Tag.style.background = "rgba(244, 63, 94, 0.15)";
             el10Tag.style.color = "#f43f5e";
         } else {
@@ -1239,9 +1421,15 @@ function renderizarFinanzas(fin) {
         }
     }
 
-    // Actualizar tarjeta métrica superior: 50% Inversión y Multiplicación
+    // Actualizar tarjeta métrica superior: 50% Inversión y Multiplicación (solo días de cobro)
     var resInversionEl = document.getElementById('resumen-total-inversion') || document.getElementById('resumen-total-ahorro-inversion');
     if (resInversionEl) resInversionEl.innerText = '$' + meta50.toFixed(2);
+    var resInvSubEl = document.getElementById('resumen-inversion-sub-txt');
+    if (resInvSubEl) {
+        resInvSubEl.innerText = corteEfectivo === 'sin_cobro'
+            ? ('Solo días 15 y ' + ultimoDiaMes)
+            : (etiquetaBaseRegla + ' ($' + baseCalculoRegla.toFixed(2) + ')');
+    }
 
     // 5. Deudas y Cronograma de Pagos (Créditos en Cuotas)
     var resDeudas = renderizarDeudasYCronograma(f, vq, coincideQuincena);
@@ -1418,11 +1606,11 @@ function renderizarFinanzas(fin) {
         totIng: totIngresosVista,
         totGas: totGastos,
         estimadoInversion: meta50,
-        realInversion: realInversionVista,
+        realInversion: realInversionRegla,
         estimadoGastos: meta40,
-        realGastos: realGastosVista,
+        realGastos: realGastosRegla,
         estimadoCaprichos: meta10,
-        realCaprichos: realCaprichosVista,
+        realCaprichos: realCaprichosRegla,
         vq: vq
     });
 
@@ -4615,6 +4803,7 @@ function cambiarPeriodoFinanzas(periodo, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     var p = periodo || 'mes';
     window.ESTADO_FINANZAS.vistaQuincena = p;
+    window.ESTADO_FINANZAS.reglaCorteCobro = 'auto';
     if (p !== 'mes') {
         window.ESTADO_FINANZAS.ultimaSemanaSeleccionada = p;
     }
@@ -4755,6 +4944,7 @@ function alCambiarDatoGeneralFinanzas() {
 function cambiarMesFinanzas(delta) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
     window.ESTADO_FINANZAS.mesOffset = (window.ESTADO_FINANZAS.mesOffset || 0) + delta;
+    window.ESTADO_FINANZAS.reglaCorteCobro = 'auto';
     window.ESTADO_FINANZAS.calDiaSeleccionado = null;
     window.ESTADO_FINANZAS.calUltimoMovimiento = null;
 

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.19">
+    <link rel="stylesheet" href="style.css?v=11.20">
 </head>
 <body>
 
@@ -1689,6 +1689,7 @@
                         <div class="metric-card-ideas" style="border-top: 2px solid #06b6d4;">
                             <div class="metric-num" id="resumen-total-inversion" style="color: #06b6d4;">$0.00</div>
                             <div class="metric-title">Meta 50% Inversión</div>
+                            <div style="font-size: 10px; color: #64748b; margin-top: 2px;" id="resumen-inversion-sub-txt">Solo cobros 15 y último</div>
                         </div>
                         <div class="metric-card-ideas" style="border-top: 2px solid #f87171;">
                             <div class="metric-num" id="resumen-total-gastos" style="color: #f87171;">$0.00</div>
@@ -1728,7 +1729,7 @@
                             <h3 class="finanzas-section-title">
                                 <span>⚖️</span> ANÁLISIS VISUAL Y REGLA 50 / 40 / 10
                             </h3>
-                            <span style="font-size: 11px; color: #94a3b8;" id="regla-subtitulo-periodo">Presupuesto Estimado vs Ejecución Real</span>
+                            <span style="font-size: 11px; color: #94a3b8;" id="regla-subtitulo-periodo">Solo días de cobro (15 y último de mes)</span>
                         </div>
                         <div class="chart-mode-tabs">
                             <button type="button" class="btn-chart-mode active" id="btn-chart-504010" onclick="cambiarModoGrafico('comparativa')">
@@ -1739,6 +1740,9 @@
                             </button>
                         </div>
                     </div>
+
+                    <div id="regla-dias-cobro-bar" class="regla-dias-cobro-bar"></div>
+                    <div id="regla-sin-cobro-banner" class="regla-sin-cobro-banner" style="display: none;"></div>
 
                     <div class="finanzas-analytics-split">
                         <div class="finanzas-analytics-chart-pane">
@@ -7252,26 +7256,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.19"></script>
-    <script src="js/perfil.js?v=11.19"></script>
-    <script src="js/progresion.js?v=11.19"></script>
-    <script src="js/estado-personal.js?v=11.19"></script>
-    <script src="js/finanzas.js?v=11.19"></script>
-    <script src="js/ideas.js?v=11.19"></script>
-    <script src="js/dinamicas.js?v=11.19"></script>
-    <script src="js/calendario.js?v=11.19"></script>
-    <script src="js/inventario.js?v=11.19"></script>
-    <script src="js/reproductor.js?v=11.19"></script>
-    <script src="js/jarvis-voz.js?v=11.19"></script>
+    <script src="js/core.js?v=11.20"></script>
+    <script src="js/perfil.js?v=11.20"></script>
+    <script src="js/progresion.js?v=11.20"></script>
+    <script src="js/estado-personal.js?v=11.20"></script>
+    <script src="js/finanzas.js?v=11.20"></script>
+    <script src="js/ideas.js?v=11.20"></script>
+    <script src="js/dinamicas.js?v=11.20"></script>
+    <script src="js/calendario.js?v=11.20"></script>
+    <script src="js/inventario.js?v=11.20"></script>
+    <script src="js/reproductor.js?v=11.20"></script>
+    <script src="js/jarvis-voz.js?v=11.20"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.19"></script>
+    <script type="module" src="js/firebase-config.js?v=11.20"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.19')
+                navigator.serviceWorker.register('sw.js?v=11.20')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

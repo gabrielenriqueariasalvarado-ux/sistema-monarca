@@ -22987,3 +22987,71 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v11.20 · REGLA 50/40/10 SOLO EN DÍAS DE COBRO (15 Y ÚLTIMO DE MES)
+   ========================================================================== */
+.regla-dias-cobro-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.regla-cobro-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.regla-cobro-pill:hover {
+    background: rgba(56, 189, 248, 0.1);
+    color: #e2e8f0;
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.regla-cobro-pill.is-active {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(99, 102, 241, 0.24));
+    border-color: rgba(56, 189, 248, 0.55);
+    color: #f8fafc;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.16);
+}
+
+.regla-cobro-pill .regla-pill-amt {
+    color: #6ee7b7;
+    font-variant-numeric: tabular-nums;
+}
+
+.regla-sin-cobro-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(99, 102, 241, 0.11);
+    border: 1px solid rgba(129, 140, 248, 0.32);
+    color: #cbd5e1;
+    font-size: 11.5px;
+    line-height: 1.45;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.regla-sin-cobro-banner strong {
+    color: #f8fafc;
+}
+
+

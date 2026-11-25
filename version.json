@@ -1,5 +1,5 @@
 {
-  "version": "11.19",
+  "version": "11.20",
   "fecha": "2026-11-24",
-  "resumen": "Dinero Actual en Cuentas Persistente en Finanzas v11.19: Nuevo bloque prioritario fijo arriba en Finanzas que muestra siempre tu saldo real actual en cuentas (total en USD hoy, desglose en Bolívares y USDT, y chips interactivos por cada cuenta/tarjeta) sin cambiar al navegar entre semanas, meses o pestañas."
+  "resumen": "Regla 50/40/10 Exclusiva para Días de Cobro (15 y Último de Mes) v11.20: La Regla 50/40/10, su gráfica comparativa y la meta 50% Inversión ahora se calculan estrictamente con tus cobros del día 15 y último día de cada mes, ignorando ingresos sueltos de semanas intermedias, con selector rápido por día de cobro (Día 15, Último y 15 y Último) y aviso claro en semanas sin cobro."
 }
