@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.20">
+    <link rel="stylesheet" href="style.css?v=11.21">
 </head>
 <body>
 
@@ -1627,7 +1627,7 @@
             <!-- 1C. BLOQUE PRIORITARIO PERSISTENTE: DINERO ACTUAL EN CUENTAS (NO CAMBIA POR SEMANA/MES) -->
             <section id="finanzas-dinero-actual-hero" class="fin-saldo-actual-hero" aria-label="Dinero actual en cuentas"></section>
 
-            <!-- 2. NAVEGACIÓN PRINCIPAL EN 5 APARTADOS LIMPIOS -->
+            <!-- 2. NAVEGACIÓN PRINCIPAL EN 4 APARTADOS LIMPIOS -->
             <div class="finanzas-tabs-nav" id="finanzas-secciones-nav" style="margin-bottom: 14px;">
                 <button type="button" class="finanzas-tab-btn active" id="tab-finanzas-panel" onclick="cambiarSeccionFinanzas('panel')">
                     <span>📊</span> Resumen
@@ -1640,9 +1640,6 @@
                 </button>
                 <button type="button" class="finanzas-tab-btn" id="tab-finanzas-tarjetas" onclick="cambiarSeccionFinanzas('tarjetas')">
                     <span>💳</span> Tarjetas <span id="badge-finanzas-tarjetas-total" class="fin-tarjetas-tab-badge" style="display: none;">$0.00</span>
-                </button>
-                <button type="button" class="finanzas-tab-btn" id="tab-finanzas-calendario" onclick="cambiarSeccionFinanzas('calendario')">
-                    <span>📅</span> Calendario <span id="badge-cal-fin-pendientes" class="fin-cal-tab-badge" style="display: none;">0</span>
                 </button>
             </div>
 
@@ -1944,7 +1941,7 @@
             </div>
 
             <!-- ==============================================================
-                 SUBSECCIÓN C: PLANIFICACIÓN DE PAGOS, DEUDAS & METAS (SUBTABS)
+                 SUBSECCIÓN C: PLANIFICACIÓN DE PAGOS, DEUDAS, METAS & CALENDARIO
                  ============================================================== -->
             <div id="vista-finanzas-planificacion" style="display: none;">
                 <div class="plan-subtabs-nav" id="plan-subtabs-nav">
@@ -1956,6 +1953,9 @@
                     </button>
                     <button type="button" class="plan-subtab-btn" id="subtab-plan-metas" onclick="cambiarSubtabPlanificacionFin('metas')">
                         <span>🎯</span> Metas <span id="badge-plan-metas-count" class="fin-plan-tab-badge" style="display: none;">0</span>
+                    </button>
+                    <button type="button" class="plan-subtab-btn" id="subtab-plan-calendario" onclick="cambiarSubtabPlanificacionFin('calendario')">
+                        <span>📅</span> Calendario <span id="badge-cal-fin-pendientes" class="fin-plan-tab-badge" style="display: none;">0</span>
                     </button>
                 </div>
 
@@ -2017,6 +2017,11 @@
                         <div class="metas-grid" id="contenedor-metas-cards"></div>
                     </div>
                 </div>
+
+                <!-- SUB-VISTA C4: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS -->
+                <div id="plan-subvista-calendario" style="display: none;">
+                    <div id="contenedor-calendario-finanzas"></div>
+                </div>
             </div>
 
             <!-- ==============================================================
@@ -2040,13 +2045,6 @@
                     </div>
                 </div>
                 <div id="contenedor-tarjetas-finanzas-root"></div>
-            </div>
-
-            <!-- ==============================================================
-                 SUBSECCIÓN E: CALENDARIO CRONOLÓGICO DE COBROS Y PAGOS
-                 ============================================================== -->
-            <div id="vista-finanzas-calendario" style="display: none;">
-                <div id="contenedor-calendario-finanzas"></div>
             </div>
         </div>
     </div>
@@ -7256,26 +7254,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.20"></script>
-    <script src="js/perfil.js?v=11.20"></script>
-    <script src="js/progresion.js?v=11.20"></script>
-    <script src="js/estado-personal.js?v=11.20"></script>
-    <script src="js/finanzas.js?v=11.20"></script>
-    <script src="js/ideas.js?v=11.20"></script>
-    <script src="js/dinamicas.js?v=11.20"></script>
-    <script src="js/calendario.js?v=11.20"></script>
-    <script src="js/inventario.js?v=11.20"></script>
-    <script src="js/reproductor.js?v=11.20"></script>
-    <script src="js/jarvis-voz.js?v=11.20"></script>
+    <script src="js/core.js?v=11.21"></script>
+    <script src="js/perfil.js?v=11.21"></script>
+    <script src="js/progresion.js?v=11.21"></script>
+    <script src="js/estado-personal.js?v=11.21"></script>
+    <script src="js/finanzas.js?v=11.21"></script>
+    <script src="js/ideas.js?v=11.21"></script>
+    <script src="js/dinamicas.js?v=11.21"></script>
+    <script src="js/calendario.js?v=11.21"></script>
+    <script src="js/inventario.js?v=11.21"></script>
+    <script src="js/reproductor.js?v=11.21"></script>
+    <script src="js/jarvis-voz.js?v=11.21"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.20"></script>
+    <script type="module" src="js/firebase-config.js?v=11.21"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.20')
+                navigator.serviceWorker.register('sw.js?v=11.21')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

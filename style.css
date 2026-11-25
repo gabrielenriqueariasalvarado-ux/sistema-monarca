@@ -18899,7 +18899,7 @@ body.modal-open {
 
 .plan-subtabs-nav {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
     margin-bottom: 14px;
     background: #0b0e15;
@@ -18982,14 +18982,15 @@ body.modal-open {
         white-space: nowrap;
     }
     .plan-subtabs-nav {
-        gap: 4px;
-        padding: 4px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+        padding: 5px;
     }
     .plan-subtab-btn {
-        padding: 8px 6px;
-        font-size: 11px;
+        padding: 9px 8px;
+        font-size: 11.5px;
         flex-direction: row;
-        gap: 4px;
+        gap: 5px;
         white-space: nowrap;
     }
 }

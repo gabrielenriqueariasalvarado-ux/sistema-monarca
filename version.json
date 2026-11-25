@@ -1,5 +1,5 @@
 {
-  "version": "11.20",
+  "version": "11.21",
   "fecha": "2026-11-24",
-  "resumen": "Regla 50/40/10 Exclusiva para Días de Cobro (15 y Último de Mes) v11.20: La Regla 50/40/10, su gráfica comparativa y la meta 50% Inversión ahora se calculan estrictamente con tus cobros del día 15 y último día de cada mes, ignorando ingresos sueltos de semanas intermedias, con selector rápido por día de cobro (Día 15, Último y 15 y Último) y aviso claro en semanas sin cobro."
+  "resumen": "Calendario Financiero Integrado en Planificación v11.21: El Calendario Cronológico de Cobros y Pagos ahora vive dentro del apartado Planificación junto a Cola de Pagos, Deudas y Metas (con diseño 2x2 sin recortes en móvil y barra superior de Finanzas simplificada a 4 pestañas limpias)."
 }

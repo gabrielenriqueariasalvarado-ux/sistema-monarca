@@ -1627,16 +1627,18 @@ function renderizarFinanzas(fin) {
         actualizarBadgePlanificacionFinanzas(f);
     }
 
-    // Sincronizar badge y vista del Calendario Cronológico de Cobros y Pagos
+    // Sincronizar badge y vista del Calendario Cronológico de Cobros y Pagos (ahora dentro de Planificación)
     if (typeof actualizarBadgeCalendarioFinanzas === 'function') {
         actualizarBadgeCalendarioFinanzas(f, anioActivo, mesActivo);
     }
-    if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'calendario' && typeof renderizarCalendarioFinanzas === 'function') {
-        renderizarCalendarioFinanzas();
-    } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
+    if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
         renderizarTarjetasFinanzas();
-    } else if (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.seccionActiva === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
-        renderizarPlanificacionFinanzas();
+    } else if (window.ESTADO_FINANZAS && (window.ESTADO_FINANZAS.seccionActiva === 'planificacion' || window.ESTADO_FINANZAS.seccionActiva === 'calendario')) {
+        if (window.ESTADO_FINANZAS.seccionActiva === 'calendario' || window.ESTADO_FINANZAS.subtabPlanificacion === 'calendario') {
+            if (typeof renderizarCalendarioFinanzas === 'function') renderizarCalendarioFinanzas();
+        } else if (typeof renderizarPlanificacionFinanzas === 'function') {
+            renderizarPlanificacionFinanzas();
+        }
     }
 
     if (typeof renderizarBannerAlertaRetrasosFinanzas === 'function') {
@@ -5300,34 +5302,34 @@ function alCambiarMontoGastoModal(val) {
 
 function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    var validos = ['panel', 'movimientos', 'planificacion', 'tarjetas', 'calendario'];
-    var destino = validos.indexOf(seccion) !== -1 ? seccion : 'panel';
+    var esAliasCal = (seccion === 'calendario');
+    var validos = ['panel', 'movimientos', 'planificacion', 'tarjetas'];
+    var destino = esAliasCal ? 'planificacion' : (validos.indexOf(seccion) !== -1 ? seccion : 'panel');
     window.ESTADO_FINANZAS.seccionActiva = destino;
+    if (esAliasCal) {
+        window.ESTADO_FINANZAS.subtabPlanificacion = 'calendario';
+    }
 
     var tabPanel = document.getElementById('tab-finanzas-panel');
     var tabMov = document.getElementById('tab-finanzas-movimientos');
     var tabPlan = document.getElementById('tab-finanzas-planificacion');
     var tabTarj = document.getElementById('tab-finanzas-tarjetas');
-    var tabCal = document.getElementById('tab-finanzas-calendario');
 
     var vistaPanel = document.getElementById('vista-finanzas-panel');
     var vistaMov = document.getElementById('vista-finanzas-movimientos');
     var vistaPlan = document.getElementById('vista-finanzas-planificacion');
     var vistaTarj = document.getElementById('vista-finanzas-tarjetas');
-    var vistaCal = document.getElementById('vista-finanzas-calendario');
     var barraPeriodo = document.getElementById('quincena-selector-bar');
 
     if (tabPanel) tabPanel.classList.toggle('active', destino === 'panel');
     if (tabMov) tabMov.classList.toggle('active', destino === 'movimientos');
     if (tabPlan) tabPlan.classList.toggle('active', destino === 'planificacion');
     if (tabTarj) tabTarj.classList.toggle('active', destino === 'tarjetas');
-    if (tabCal) tabCal.classList.toggle('active', destino === 'calendario');
 
     var activeTabEl = destino === 'panel' ? tabPanel
         : destino === 'movimientos' ? tabMov
         : destino === 'planificacion' ? tabPlan
-        : destino === 'tarjetas' ? tabTarj
-        : tabCal;
+        : tabTarj;
     var navRail = document.getElementById('finanzas-secciones-nav');
     if (activeTabEl && navRail && navRail.scrollWidth > navRail.clientWidth) {
         var targetLeft = activeTabEl.offsetLeft - (navRail.clientWidth - activeTabEl.offsetWidth) / 2;
@@ -5338,44 +5340,50 @@ function cambiarSeccionFinanzas(seccion, omitirRender) {
     if (vistaMov) vistaMov.style.display = destino === 'movimientos' ? 'block' : 'none';
     if (vistaPlan) vistaPlan.style.display = destino === 'planificacion' ? 'block' : 'none';
     if (vistaTarj) vistaTarj.style.display = destino === 'tarjetas' ? 'block' : 'none';
-    if (vistaCal) vistaCal.style.display = destino === 'calendario' ? 'block' : 'none';
 
     if (barraPeriodo) {
         barraPeriodo.style.display = (destino === 'panel' || destino === 'movimientos') ? 'flex' : 'none';
     }
 
-    if (!omitirRender && destino === 'calendario') {
-        renderizarCalendarioFinanzas();
+    if (destino === 'planificacion') {
+        var subDest = window.ESTADO_FINANZAS.subtabPlanificacion || 'cola';
+        cambiarSubtabPlanificacionFin(subDest, !!omitirRender);
     } else if (!omitirRender && destino === 'tarjetas' && typeof renderizarTarjetasFinanzas === 'function') {
         renderizarTarjetasFinanzas();
-    } else if (!omitirRender && destino === 'planificacion' && typeof renderizarPlanificacionFinanzas === 'function') {
-        renderizarPlanificacionFinanzas();
     } else if (!omitirRender && destino === 'panel' && typeof renderizarFinanzas === 'function') {
         renderizarFinanzas(APP_STATE.finanzas);
     }
 }
 
-function cambiarSubtabPlanificacionFin(subtab) {
+function cambiarSubtabPlanificacionFin(subtab, omitirRender) {
     if (!window.ESTADO_FINANZAS) window.ESTADO_FINANZAS = {};
-    var sub = (subtab === 'deudas' || subtab === 'metas') ? subtab : 'cola';
+    var sub = (subtab === 'deudas' || subtab === 'metas' || subtab === 'calendario') ? subtab : 'cola';
     window.ESTADO_FINANZAS.subtabPlanificacion = sub;
 
     var btnCola = document.getElementById('subtab-plan-cola');
     var btnDeu = document.getElementById('subtab-plan-deudas');
     var btnMet = document.getElementById('subtab-plan-metas');
+    var btnCal = document.getElementById('subtab-plan-calendario');
     var vCola = document.getElementById('plan-subvista-cola');
     var vDeu = document.getElementById('plan-subvista-deudas');
     var vMet = document.getElementById('plan-subvista-metas');
+    var vCal = document.getElementById('plan-subvista-calendario');
 
     if (btnCola) btnCola.classList.toggle('active', sub === 'cola');
     if (btnDeu) btnDeu.classList.toggle('active', sub === 'deudas');
     if (btnMet) btnMet.classList.toggle('active', sub === 'metas');
+    if (btnCal) btnCal.classList.toggle('active', sub === 'calendario');
     if (vCola) vCola.style.display = sub === 'cola' ? 'block' : 'none';
     if (vDeu) vDeu.style.display = sub === 'deudas' ? 'block' : 'none';
     if (vMet) vMet.style.display = sub === 'metas' ? 'block' : 'none';
+    if (vCal) vCal.style.display = sub === 'calendario' ? 'block' : 'none';
 
-    if (sub === 'cola' && typeof renderizarPlanificacionFinanzas === 'function') {
-        renderizarPlanificacionFinanzas();
+    if (!omitirRender) {
+        if (sub === 'cola' && typeof renderizarPlanificacionFinanzas === 'function') {
+            renderizarPlanificacionFinanzas();
+        } else if (sub === 'calendario' && typeof renderizarCalendarioFinanzas === 'function') {
+            renderizarCalendarioFinanzas();
+        }
     }
 }
 if (typeof window !== 'undefined') {
@@ -5626,7 +5634,7 @@ function actualizarBadgeCalendarioFinanzas(fin, anio, mes) {
     var resumen = resolverOcurrenciasFinanzasMes(fin, anio, mes);
     if (resumen.countPendientesMes > 0) {
         badge.innerText = resumen.countPendientesMes;
-        badge.style.display = 'inline-block';
+        badge.style.display = 'inline-flex';
     } else {
         badge.style.display = 'none';
     }
@@ -5672,8 +5680,9 @@ function irADiaCalFinanzas(fechaISO) {
     window.ESTADO_FINANZAS.mesOffset = diffMeses;
     window.ESTADO_FINANZAS.calDiaSeleccionado = fechaISO;
     window.ESTADO_FINANZAS.calUltimoMovimiento = null;
-    window.ESTADO_FINANZAS.seccionActiva = 'calendario';
-    cambiarSeccionFinanzas('calendario', true);
+    window.ESTADO_FINANZAS.seccionActiva = 'planificacion';
+    window.ESTADO_FINANZAS.subtabPlanificacion = 'calendario';
+    cambiarSeccionFinanzas('planificacion', true);
     renderizarFinanzas(APP_STATE.finanzas);
 }
 
