@@ -71,10 +71,11 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.25)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.26)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.25
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.26
             Esta versión nativa incluye:
+            - 🎵 **Reproducción Inmediata desde Botones de Modo en Música MP3 (v11.26)**: Ahora al tocar **`Aleatorio`**, **`Inteligente`** o **`Todas / Repetir`** cuando la música está sin canción seleccionada o en pausa, comienza la reproducción de inmediato en ese modo (pista aleatoria en **Aleatorio**, tu canción #1 del Top en **Inteligente**, o inicio inmediato en **Repetir**) exactamente como pulsar **Play**, mientras que si ya está sonando música cambia el modo sin interrumpir la pista actual.
             - ⏱️ **Cronómetro Total de Rutina + Récord de Tiempo por Defecto + Guardián de Quests Obligatorias + Aprobación Remota de Implementation Plan (v11.25)**:
               - **Cronómetro de Duración Total de Rutina**: Mide automáticamente cuánto tardas en completar cada rutina de principio a fin (con pausa/reanudación, persistencia exacta con pantalla apagada, comparativa en vivo contra tu última sesión, mejor marca y promedio, indicador de si tus sesiones se hacen **más cortas** o **más largas**, historial desplegable con barras y chip de tiempo en las tarjetas de rutinas).
               - **Récord Automático de Tiempo por Defecto (Isométricos & Serie 0)**: Al superar tu marca de tiempo en ejercicios como `Plancha Abdominal` (Serie 0 o multi-serie), guarda automáticamente el nuevo tiempo por defecto en tu catálogo y en todas tus rutinas, actualizando las insignias a `s (MM:SS)` en lugar de `reps`.

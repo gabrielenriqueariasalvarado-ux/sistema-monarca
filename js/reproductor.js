@@ -2299,6 +2299,9 @@
             if (lista.length > 0) {
                 if (state.rutinaModoActivo) {
                     siguienteCancion(true);
+                } else if (state.shuffle && lista.length > 1) {
+                    var idxAleatorio = Math.floor(Math.random() * lista.length);
+                    reproducirIndice(idxAleatorio);
                 } else {
                     reproducirIndice(0);
                 }
@@ -2797,8 +2800,29 @@
         if (elVolTxt) elVolTxt.textContent = Math.round(num * 100) + '%';
     }
 
-    function toggleShuffle(forzarVal) {
-        state.shuffle = (typeof forzarVal === 'boolean') ? forzarVal : !state.shuffle;
+    function _debeIniciarReproduccionAlElegirModo(opts) {
+        if (opts && opts.sinAutoPlay) return false;
+        if (state._cargandoPlay) return false;
+        return !state.cancionActual || (state.audio && state.audio.paused);
+    }
+
+    function _iniciarReproduccionSiInactivo(opts) {
+        if (!_debeIniciarReproduccionAlElegirModo(opts)) return false;
+        var lista = obtenerListaParaReproduccionActiva();
+        if (!lista || lista.length === 0) return false;
+        reproducirActual();
+        return true;
+    }
+
+    function toggleShuffle(forzarVal, opts) {
+        var sinCancion = !state.cancionActual && !(opts && opts.sinAutoPlay);
+        if (typeof forzarVal === 'boolean') {
+            state.shuffle = forzarVal;
+        } else if (sinCancion) {
+            state.shuffle = true;
+        } else {
+            state.shuffle = !state.shuffle;
+        }
         if (state.shuffle) {
             state.modoInteligente = false;
         }
@@ -2809,10 +2833,23 @@
         if (state.subtabActual === 'todas' && state.playlistSeleccionada) {
             renderizarContenidoSegunSubtab();
         }
+        var inicioAuto = _iniciarReproduccionSiInactivo(opts);
+        if (inicioAuto && state.shuffle) {
+            notificarPlayerToast('Modo Aleatorio ON · Reproduciendo', '🔀');
+        }
+        return state.shuffle;
     }
 
-    function toggleModoInteligente(forzarVal) {
-        var activar = (typeof forzarVal === 'boolean') ? forzarVal : !state.modoInteligente;
+    function toggleModoInteligente(forzarVal, opts) {
+        var sinCancion = !state.cancionActual && !(opts && opts.sinAutoPlay);
+        var activar;
+        if (typeof forzarVal === 'boolean') {
+            activar = forzarVal;
+        } else if (sinCancion) {
+            activar = true;
+        } else {
+            activar = !state.modoInteligente;
+        }
         state.modoInteligente = activar;
         if (activar) {
             state.shuffle = false;
@@ -2825,6 +2862,7 @@
         if (state.subtabActual === 'todas' || state.subtabActual === 'top') {
             renderizarContenidoSegunSubtab();
         }
+        _iniciarReproduccionSiInactivo(opts);
         notificarPlayerToast(
             activar ? 'Modo Inteligente ON: reproduciendo según tu Top más escuchadas' : 'Modo Inteligente desactivado',
             activar ? '✨' : '🎵'
@@ -2832,8 +2870,13 @@
         return state.modoInteligente;
     }
 
-    function toggleRepeat() {
-        if (state.repeat === 'all') {
+    function toggleRepeat(opts) {
+        var sinCancion = !state.cancionActual && !(opts && opts.sinAutoPlay);
+        if (sinCancion) {
+            if (state.repeat === 'off') {
+                state.repeat = 'all';
+            }
+        } else if (state.repeat === 'all') {
             state.repeat = 'one';
         } else if (state.repeat === 'one') {
             state.repeat = 'off';
@@ -2845,6 +2888,11 @@
         if (state.subtabActual === 'todas' && state.playlistSeleccionada) {
             renderizarContenidoSegunSubtab();
         }
+        var inicioAuto = _iniciarReproduccionSiInactivo(opts);
+        if (inicioAuto) {
+            notificarPlayerToast(_textoEstadoRepeat(state.repeat) + ' · Reproduciendo', '🔁');
+        }
+        return state.repeat;
     }
 
     var SVG_REPEAT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>';

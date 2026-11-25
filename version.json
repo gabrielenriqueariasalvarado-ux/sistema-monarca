@@ -1,5 +1,5 @@
 {
-  "version": "11.25",
+  "version": "11.26",
   "fecha": "2026-11-25",
-  "resumen": "Cronómetro Total de Rutina + Récord de Tiempo por Defecto + Guardián de Quests Obligatorias + Aprobación Remota de Implementation Plan (v11.25): Mide la duración completa de tus rutinas comparando si son más cortas o más largas, guarda automáticamente tu nuevo récord de tiempo por defecto en ejercicios isométricos/Serie 0, muestra el panel de penitencia al intentar salir de una quest/rutina obligatoria sin terminarla, y frena Auto-PC cuando Antigravity solicita un Implementation Plan para leerlo, recibir notificación en el teléfono y aprobarlo/responderlo desde Perfil junto a las respuestas completas de Antigravity."
+  "resumen": "Reproducción Inmediata desde Botones de Modo en Música MP3 (v11.26): Al pulsar Aleatorio, Inteligente o Repetir (Todas/1) cuando la música está detenida o pausada, inicia la reproducción al instante en ese modo (canción aleatoria en Aleatorio, Top #1 más escuchada en Inteligente o inicio inmediato en Repetir) igual que pulsar Play."
 }
