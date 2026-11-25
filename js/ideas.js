@@ -2306,10 +2306,11 @@ function obtenerAlertasAutoPCActivas() {
                 }
             ];
             if (n.esDeEmily) {
+                var safeSolId = String(n.solicitudId || '').replace(/[^a-zA-Z0-9_@.-]/g, '');
                 acciones.push({
                     tipo: 'secondary',
-                    texto: '📈 Ver Hecha',
-                    fn: "cerrarCentroNotificaciones(); verSolicitudAutoPCEnOperatividad()"
+                    texto: '📋 Ver Resumen',
+                    fn: "cerrarCentroNotificaciones(); verSolicitudAutoPCEnOperatividad('" + safeSolId + "')"
                 });
             }
 
@@ -2371,13 +2372,107 @@ function descartarTodasNotificacionesAutoPC() {
     }
 }
 
-function verSolicitudAutoPCEnOperatividad() {
+function verSolicitudAutoPCEnOperatividad(focusIdeaId) {
+    if (focusIdeaId && typeof ESTADO_IDEAS !== 'undefined') {
+        if (!ESTADO_IDEAS.resumenesAbiertos) ESTADO_IDEAS.resumenesAbiertos = {};
+        ESTADO_IDEAS.resumenesAbiertos[String(focusIdeaId)] = true;
+    }
     if (typeof cambiarVista === 'function') {
         cambiarVista('vista-ideas');
     }
     if (typeof alternarSubvistaIdeas === 'function') {
         alternarSubvistaIdeas('operatividad');
     }
+}
+
+function formatearResumenAntigravityHtml(textoRaw) {
+    var limpio = String(textoRaw || '').trim();
+    if (!limpio) return '';
+    var esc = escapeHtmlIdea(limpio);
+    var lineas = esc.split(/\r?\n/);
+    var out = [];
+    var enLista = false;
+
+    var formatInline = function(s) {
+        return s
+            .replace(/`([^`]+)`/g, '<code class="ag-md-code">$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong class="ag-md-strong">$1</strong>');
+    };
+
+    lineas.forEach(function(linea) {
+        var t = linea.trim();
+        if (!t) {
+            if (enLista) {
+                out.push('</ul>');
+                enLista = false;
+            }
+            return;
+        }
+        if (t === '---' || t === '***') {
+            if (enLista) {
+                out.push('</ul>');
+                enLista = false;
+            }
+            out.push('<hr class="ag-md-hr">');
+            return;
+        }
+        var hMatch = t.match(/^#{1,4}\s+(.*)$/);
+        if (hMatch) {
+            if (enLista) {
+                out.push('</ul>');
+                enLista = false;
+            }
+            out.push('<div class="ag-md-heading">' + formatInline(hMatch[1]) + '</div>');
+            return;
+        }
+        var liMatch = t.match(/^[-*•]\s+(.*)$/) || t.match(/^\d+\.\s+(.*)$/);
+        if (liMatch) {
+            if (!enLista) {
+                out.push('<ul class="ag-md-list">');
+                enLista = true;
+            }
+            out.push('<li>' + formatInline(liMatch[1]) + '</li>');
+            return;
+        }
+        if (enLista) {
+            out.push('</ul>');
+            enLista = false;
+        }
+        out.push('<p class="ag-md-p">' + formatInline(t) + '</p>');
+    });
+    if (enLista) out.push('</ul>');
+    return out.join('');
+}
+
+function _sincronizarCamposResumenAutoPCEnIdea(idea, docRemoto) {
+    if (!idea || !docRemoto) return false;
+    var cambio = false;
+    var resTxt = typeof docRemoto.resumenAntigravity === 'string' ? docRemoto.resumenAntigravity.trim() : '';
+    if (resTxt && idea.resumenAntigravity !== resTxt) {
+        idea.resumenAntigravity = resTxt;
+        cambio = true;
+    }
+    if (Array.isArray(docRemoto.resumenArchivos) && docRemoto.resumenArchivos.length > 0) {
+        var prevArch = JSON.stringify(idea.resumenArchivos || []);
+        var nextArch = JSON.stringify(docRemoto.resumenArchivos);
+        if (prevArch !== nextArch) {
+            idea.resumenArchivos = docRemoto.resumenArchivos.slice(0, 12);
+            cambio = true;
+        }
+    }
+    if (Number(docRemoto.resumenPasos) > 0 && idea.resumenPasos !== Number(docRemoto.resumenPasos)) {
+        idea.resumenPasos = Number(docRemoto.resumenPasos);
+        cambio = true;
+    }
+    if (Number(docRemoto.resumenDuracionMs) > 0 && idea.resumenDuracionMs !== Number(docRemoto.resumenDuracionMs)) {
+        idea.resumenDuracionMs = Number(docRemoto.resumenDuracionMs);
+        cambio = true;
+    }
+    if (docRemoto.resumenVersion && idea.resumenVersion !== String(docRemoto.resumenVersion)) {
+        idea.resumenVersion = String(docRemoto.resumenVersion);
+        cambio = true;
+    }
+    return cambio;
 }
 
 function procesarSnapshotAutoPCIdeas(lista) {
@@ -2389,8 +2484,15 @@ function procesarSnapshotAutoPCIdeas(lista) {
             if (!item) return;
             var key = String(item.ideaId || item.id || '').trim();
             var docType = String(item.docType || '').toLowerCase();
-            if (docType === 'telemetry' || key === '_estado_pc' || key.indexOf('_') === 0) {
+            // Ignorar explícitamente el documento _signal para que nunca sobrescriba _estado_pc
+            if (docType === 'signal' || key === '_signal') {
+                return;
+            }
+            if (docType === 'telemetry' || key === '_estado_pc') {
                 nuevaTelemetria = Object.assign({}, item);
+                return;
+            }
+            if (key && key.indexOf('_') === 0) {
                 return;
             }
             if (key) {
@@ -2429,6 +2531,9 @@ function procesarSnapshotAutoPCIdeas(lista) {
                 }
                 idea.autopcStatus = 'done';
                 idea.autopcPendienteSubida = false;
+                if (_sincronizarCamposResumenAutoPCEnIdea(idea, docRemoto)) {
+                    huboCambioEstado = true;
+                }
                 if (docRemoto.notifConfirmada === true && !idea.autopcNotifConfirmada) {
                     idea.autopcNotifConfirmada = true;
                     huboCambioEstado = true;
@@ -2580,13 +2685,21 @@ function obtenerResumenMonitoreoAutoPC() {
         var texto = String(docRemoto.text || (ideaLocal && (ideaLocal.textoPrompt || ideaLocal.texto)) || '').trim() || 'Solicitud Auto-PC';
         var tsUpdated = Number(docRemoto.updatedAt || docRemoto.createdAt) || 0;
         var tsCreated = Number(docRemoto.createdAt || docRemoto.updatedAt) || tsUpdated;
+        var resumenAg = String(docRemoto.resumenAntigravity || (ideaLocal && ideaLocal.resumenAntigravity) || '').trim();
+        var archivosAg = Array.isArray(docRemoto.resumenArchivos) && docRemoto.resumenArchivos.length > 0
+            ? docRemoto.resumenArchivos
+            : ((ideaLocal && Array.isArray(ideaLocal.resumenArchivos)) ? ideaLocal.resumenArchivos : []);
+        var versionAg = String(docRemoto.resumenVersion || (ideaLocal && ideaLocal.resumenVersion) || '').trim();
         var itemObj = {
             id: key,
             texto: texto,
             status: st,
             updatedAt: tsUpdated,
             createdAt: tsCreated,
-            ageMs: tsUpdated > 0 ? Math.max(0, now - tsUpdated) : null
+            ageMs: tsUpdated > 0 ? Math.max(0, now - tsUpdated) : null,
+            resumenAntigravity: resumenAg,
+            resumenArchivos: archivosAg,
+            resumenVersion: versionAg
         };
         vistos[key] = true;
         if (st === 'running') runningItems.push(itemObj);
@@ -2610,7 +2723,10 @@ function obtenerResumenMonitoreoAutoPC() {
             status: stLocal,
             updatedAt: ts,
             createdAt: Number(idea.timestamp) || ts,
-            ageMs: ts > 0 ? Math.max(0, now - ts) : null
+            ageMs: ts > 0 ? Math.max(0, now - ts) : null,
+            resumenAntigravity: String(idea.resumenAntigravity || '').trim(),
+            resumenArchivos: Array.isArray(idea.resumenArchivos) ? idea.resumenArchivos : [],
+            resumenVersion: String(idea.resumenVersion || '').trim()
         };
         if (stLocal === 'running') runningItems.push(obj);
         else if (stLocal === 'pending' || stLocal === 'offline') {
@@ -2627,6 +2743,8 @@ function obtenerResumenMonitoreoAutoPC() {
 
     var heartbeatAt = (tel && Number(tel.heartbeatAt) > 0) ? Number(tel.heartbeatAt) : 0;
     var heartbeatAgeMs = heartbeatAt > 0 ? Math.max(0, now - heartbeatAt) : null;
+    // Ventana tolerante (210s) alineada con el ritmo ahorro-cuota de Auto-PC (75s activo / 180s reposo)
+    var HEARTBEAT_FRESH_MS = 210000;
     var proyecto = (tel && tel.projectTitle) ? String(tel.projectTitle).trim() : '';
     var detailTel = (tel && tel.detail) ? String(tel.detail).trim() : '';
     var busyTel = (tel && tel.busyReason) ? String(tel.busyReason).trim() : '';
@@ -2634,18 +2752,36 @@ function obtenerResumenMonitoreoAutoPC() {
     var engState = (tel && tel.engineState) ? String(tel.engineState).toUpperCase() : '';
     var phaseTel = (tel && tel.phase) ? String(tel.phase).toUpperCase() : '';
 
+    var agLastStepAt = (tel && Number(tel.agLastStepAt) > 0) ? Number(tel.agLastStepAt) : 0;
+    var agLastStepAgeMs = agLastStepAt > 0 ? Math.max(0, now - agLastStepAt) : null;
+    var antigravityLive = (tel && (tel.agPhaseCode || tel.agCurrentAction || Number(tel.agStepsCount) > 0))
+        ? {
+            phaseCode: String(tel.agPhaseCode || 'thinking'),
+            phaseLabel: String(tel.agPhaseLabel || '⚙️ Trabajando en Antigravity'),
+            progressPct: Math.max(0, Math.min(100, Number(tel.agProgressPct) || 0)),
+            currentAction: String(tel.agCurrentAction || '').trim(),
+            stepsCount: Number(tel.agStepsCount) || 0,
+            filesTouched: Array.isArray(tel.agFilesTouched) ? tel.agFilesTouched.slice(0, 8) : [],
+            recentSteps: Array.isArray(tel.agRecentSteps) ? tel.agRecentSteps.slice(-6) : [],
+            lastStepAt: agLastStepAt,
+            lastStepAgeMs: agLastStepAgeMs,
+            versionDetected: String(tel.agVersionDetected || '').trim(),
+            conversationId: String(tel.agConversationId || '').trim()
+        }
+        : null;
+
     var countRunning = runningItems.length;
     var countPending = pendingItems.length;
     var countDone = doneItems.length;
-    if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= 45000) {
+    if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
         countRunning = Math.max(countRunning, Number(tel.runningCount) || 0);
         countPending = Math.max(countPending, Number(tel.pendingCount) || 0);
         countDone = Math.max(countDone, Number(tel.doneCount) || 0);
     }
 
     var primaryRunning = runningItems[0] || null;
-    if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && heartbeatAgeMs !== null && heartbeatAgeMs <= 60000) {
-        var phTs = Number(tel.phaseChangedAt || tel.heartbeatAt) || now;
+    if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
+        var phTs = Number(tel.agStartedAt || tel.phaseChangedAt || tel.heartbeatAt) || now;
         primaryRunning = {
             id: String(tel.activeSourceId || 'pc-active'),
             texto: String(tel.activeText),
@@ -2667,6 +2803,8 @@ function obtenerResumenMonitoreoAutoPC() {
     var resumenTexto = 'No hay solicitudes en cola ni actividad pendiente en Auto-PC.';
     var alertaStuck = '';
 
+    var agRecienActivo = agLastStepAgeMs !== null && agLastStepAgeMs <= 180000;
+
     if (tel && engState === 'OFFLINE') {
         nivel = countPending > 0 || countRunning > 0 ? 'warning' : 'offline';
         badgeTexto = 'Auto-PC cerrado';
@@ -2676,7 +2814,7 @@ function obtenerResumenMonitoreoAutoPC() {
         if (countPending > 0 || countRunning > 0) {
             alertaStuck = 'El programa Auto-PC fue cerrado en la PC; ábrelo para continuar la cola.';
         }
-    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= 35000) {
+    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
         if (engState === 'ERROR') {
             nivel = 'stalled';
             badgeTexto = 'Error en Auto-PC';
@@ -2713,27 +2851,29 @@ function obtenerResumenMonitoreoAutoPC() {
                 badgeTexto = 'Sin Antigravity';
                 resumenTexto = detailTel || 'Auto-PC no detecta la ventana de Antigravity.';
                 alertaStuck = 'Abre o deja visible Antigravity con el proyecto en tu PC.';
-            } else if ((countRunning > 0 || phaseTel === 'WAITING_RESPONSE' || phaseTel === 'WAIT_CURRENT') && enCursoAgeMs > 600000) {
+            } else if ((countRunning > 0 || phaseTel === 'WAITING_RESPONSE' || phaseTel === 'WAIT_CURRENT') && enCursoAgeMs > 900000 && !agRecienActivo) {
                 nivel = 'stalled';
-                badgeTexto = 'Posible traba (>10m)';
-                resumenTexto = detailTel || ('Lleva ' + formatearDuracionCortaAutoPC(enCursoAgeMs) + ' en la misma solicitud.');
-                alertaStuck = 'La solicitud supera 10 minutos activa; verifica si Antigravity terminó o se quedó esperando.';
+                badgeTexto = 'Posible traba (>15m)';
+                resumenTexto = detailTel || ('Lleva ' + formatearDuracionCortaAutoPC(enCursoAgeMs) + ' sin nuevos pasos.');
+                alertaStuck = 'La solicitud supera 15 minutos sin nuevos pasos en Antigravity; verifica si terminó o espera confirmación.';
             } else if (countRunning > 0 || busyTel || phaseTel === 'WAITING_RESPONSE' || phaseTel === 'WAIT_CURRENT' || phaseTel === 'READY_TO_SEND') {
                 nivel = 'working';
-                badgeTexto = 'Trabajando en proyecto';
-                resumenTexto = detailTel || (busyTel ? ('Antigravity activo (' + busyTel + ')') : 'Ejecutando solicitud actual en Antigravity...');
+                badgeTexto = (antigravityLive && antigravityLive.phaseLabel) ? antigravityLive.phaseLabel : 'Trabajando en proyecto';
+                resumenTexto = (antigravityLive && antigravityLive.currentAction)
+                    ? antigravityLive.currentAction
+                    : (detailTel || (busyTel ? ('Antigravity activo (' + busyTel + ')') : 'Ejecutando solicitud actual en Antigravity...'));
             } else {
                 nivel = 'idle';
                 badgeTexto = 'Activo y vigilando';
                 resumenTexto = detailTel || 'Vigilando botón Submit y escuchando nuevas ideas desde Emily.';
             }
         }
-    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs > 35000) {
+    } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs > HEARTBEAT_FRESH_MS) {
         if (countRunning > 0 || countPending > 0) {
             nivel = 'stalled';
-            badgeTexto = 'Posible traba · Sin latido';
+            badgeTexto = 'Sin latido reciente';
             resumenTexto = 'Sin señal de Auto-PC desde hace ' + formatearDuracionCortaAutoPC(heartbeatAgeMs) + '.';
-            alertaStuck = 'No llega latido reciente desde tu PC; revisa si Auto-PC se congeló, la PC se suspendió o perdió internet.';
+            alertaStuck = 'No llega latido reciente desde tu PC; revisa si Auto-PC se cerró, la PC se suspendió o perdió internet.';
         } else {
             nivel = 'offline';
             badgeTexto = 'Sin señal reciente';
@@ -2741,11 +2881,11 @@ function obtenerResumenMonitoreoAutoPC() {
         }
     } else {
         if (countRunning > 0) {
-            if (enCursoAgeMs > 600000) {
+            if (enCursoAgeMs > 900000) {
                 nivel = 'stalled';
-                badgeTexto = 'Posible traba (>10m)';
+                badgeTexto = 'Posible traba (>15m)';
                 resumenTexto = 'Lleva ' + formatearDuracionCortaAutoPC(enCursoAgeMs) + ' en estado Programando en PC.';
-                alertaStuck = 'Más de 10 minutos sin pasar a Lista; verifica Auto-PC en tu computadora.';
+                alertaStuck = 'Más de 15 minutos sin pasar a Lista; verifica Auto-PC en tu computadora.';
             } else {
                 nivel = 'working';
                 badgeTexto = 'Programando en PC';
@@ -2795,10 +2935,10 @@ function obtenerResumenMonitoreoAutoPC() {
     var recientes = [];
     runningItems.slice(0, 1).forEach(function(it) { recientes.push(it); });
     pendingItems.slice(0, 2).forEach(function(it) {
-        if (recientes.length < 3) recientes.push(it);
+        if (recientes.length < 4) recientes.push(it);
     });
-    doneItems.slice(0, 2).forEach(function(it) {
-        if (recientes.length < 3) recientes.push(it);
+    doneItems.slice(0, 3).forEach(function(it) {
+        if (recientes.length < 4) recientes.push(it);
     });
 
     return {
@@ -2809,6 +2949,7 @@ function obtenerResumenMonitoreoAutoPC() {
         antigravityVisible: agVisible,
         heartbeatAgeMs: heartbeatAgeMs,
         enCursoAgeMs: enCursoAgeMs,
+        antigravity: antigravityLive,
         cola: {
             running: countRunning,
             pending: countPending,
@@ -2833,6 +2974,7 @@ if (typeof window !== 'undefined') {
     window.obtenerEstadoTelemetryAutoPC = obtenerEstadoTelemetryAutoPC;
     window.obtenerResumenMonitoreoAutoPC = obtenerResumenMonitoreoAutoPC;
     window.formatearDuracionCortaAutoPC = formatearDuracionCortaAutoPC;
+    window.formatearResumenAntigravityHtml = formatearResumenAntigravityHtml;
     window.obtenerAlertasAutoPCActivas = obtenerAlertasAutoPCActivas;
     window.descartarNotificacionAutoPC = descartarNotificacionAutoPC;
     window.descartarTodasNotificacionesAutoPC = descartarTodasNotificacionesAutoPC;
@@ -2949,7 +3091,8 @@ function renderizarGraficoOperatividad(conteoPorCat) {
     if (!canvas) return;
 
     if (ESTADO_IDEAS.graficoChartInstance) {
-        ESTADO_IDEAS.graficoChartInstance.destroy();
+        try { ESTADO_IDEAS.graficoChartInstance.destroy(); } catch (_) {}
+        ESTADO_IDEAS.graficoChartInstance = null;
     }
 
     var labels = Object.keys(conteoPorCat).map(function(c) {
@@ -2957,33 +3100,180 @@ function renderizarGraficoOperatividad(conteoPorCat) {
     });
     var dataValues = Object.values(conteoPorCat);
 
-    try {
-        var ctx = canvas.getContext('2d');
-        ESTADO_IDEAS.graficoChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Ideas Ejecutadas',
-                    data: dataValues,
-                    backgroundColor: '#111827',
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Plus Jakarta Sans' } } },
-                    x: { ticks: { font: { family: 'Plus Jakarta Sans', size: 10 } } }
+    if (typeof Chart !== 'undefined') {
+        try {
+            var ctx = canvas.getContext('2d');
+            ESTADO_IDEAS.graficoChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ideas Ejecutadas',
+                        data: dataValues,
+                        backgroundColor: 'rgba(99, 102, 241, 0.82)',
+                        borderColor: '#818cf8',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
                 },
-                plugins: {
-                    legend: { display: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(148, 163, 184, 0.12)' },
+                            ticks: { precision: 0, color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#cbd5e1', font: { family: 'Plus Jakarta Sans', size: 10.5 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
                 }
+            });
+            return;
+        } catch (e) {
+            console.warn("Chart.js para operatividad falló, usando respaldo Canvas 2D:", e);
+        }
+    }
+
+    // Respaldo HiDPI Canvas 2D nativo (funciona 100% offline en APK/PWA)
+    try {
+        var wrap = canvas.parentElement;
+        var w = Math.max(260, (wrap && wrap.clientWidth) ? wrap.clientWidth : 320);
+        var h = Math.max(200, (wrap && wrap.clientHeight) ? wrap.clientHeight : 240);
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        var c2 = canvas.getContext('2d');
+        c2.scale(dpr, dpr);
+        c2.clearRect(0, 0, w, h);
+
+        if (!labels.length) {
+            c2.fillStyle = '#94a3b8';
+            c2.font = '600 12.5px "Plus Jakarta Sans", system-ui, sans-serif';
+            c2.textAlign = 'center';
+            c2.fillText('Sin ideas ejecutadas este mes', w / 2, h / 2);
+            return;
+        }
+
+        var slotWPreview = (w - 48) / Math.max(1, labels.length);
+        var angledLabels = slotWPreview < 76;
+        var padL = 32, padR = 16, padT = 22, padB = angledLabels ? 56 : 34;
+        var plotW = w - padL - padR;
+        var plotH = h - padT - padB;
+        var maxV = Math.max.apply(null, dataValues.concat([1]));
+        var stepsY = Math.min(4, maxV);
+
+        c2.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+        c2.lineWidth = 1;
+        c2.fillStyle = '#94a3b8';
+        c2.font = '600 10.5px "Plus Jakarta Sans", system-ui, sans-serif';
+        c2.textAlign = 'right';
+        for (var s = 0; s <= stepsY; s++) {
+            var valY = Math.round((maxV / stepsY) * s);
+            var py = padT + plotH - (plotH * (valY / maxV));
+            c2.beginPath();
+            c2.moveTo(padL, py);
+            c2.lineTo(w - padR, py);
+            c2.stroke();
+            c2.fillText(String(valY), padL - 8, py + 4);
+        }
+
+        var slotW = plotW / labels.length;
+        var barW = Math.min(54, Math.max(18, slotW * 0.46));
+        labels.forEach(function(lbl, idx) {
+            var val = Number(dataValues[idx]) || 0;
+            var bh = Math.max(4, (val / maxV) * plotH);
+            var bx = padL + idx * slotW + (slotW - barW) / 2;
+            var by = padT + plotH - bh;
+
+            var grad = c2.createLinearGradient(0, by, 0, padT + plotH);
+            grad.addColorStop(0, '#818cf8');
+            grad.addColorStop(1, '#4f46e5');
+            c2.fillStyle = grad;
+            if (c2.roundRect) {
+                c2.beginPath();
+                c2.roundRect(bx, by, barW, bh, [7, 7, 2, 2]);
+                c2.fill();
+            } else {
+                c2.fillRect(bx, by, barW, bh);
+            }
+
+            c2.fillStyle = '#e0e7ff';
+            c2.font = '700 11.5px "Plus Jakarta Sans", system-ui, sans-serif';
+            c2.textAlign = 'center';
+            c2.fillText(String(val), bx + barW / 2, by - 6);
+
+            c2.fillStyle = '#cbd5e1';
+            c2.font = (angledLabels ? '600 9.5px' : '600 11px') + ' "Plus Jakarta Sans", system-ui, sans-serif';
+            var maxChars = angledLabels ? 11 : 14;
+            var shortLbl = lbl.length > maxChars ? (lbl.slice(0, maxChars - 1) + '…') : lbl;
+            if (angledLabels) {
+                c2.save();
+                c2.translate(bx + barW / 2 + 2, padT + plotH + 10);
+                c2.rotate(-Math.PI / 6);
+                c2.textAlign = 'right';
+                c2.fillText(shortLbl, 0, 0);
+                c2.restore();
+            } else {
+                c2.fillText(shortLbl, bx + barW / 2, padT + plotH + 18);
             }
         });
-    } catch (e) {
-        console.warn("Chart.js para operatividad no disponible:", e);
+    } catch (e2) {
+        console.warn("Respaldo Canvas 2D operatividad no disponible:", e2);
+    }
+}
+
+function _domSafeResumenIdeaId(id) {
+    return String(id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function toggleResumenAntigravityIdea(id) {
+    var idStr = String(id || '');
+    var safeId = _domSafeResumenIdeaId(idStr);
+    var box = document.getElementById('idea-resumen-ag-box-' + safeId);
+    if (!box) return;
+    var abierto = box.classList.toggle('is-open');
+    var btn = box.querySelector('.idea-resumen-ag-toggle');
+    if (btn) btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    if (!ESTADO_IDEAS.resumenesAbiertos) ESTADO_IDEAS.resumenesAbiertos = {};
+    ESTADO_IDEAS.resumenesAbiertos[idStr] = abierto;
+}
+
+function copiarResumenAntigravityIdea(id, btnEl) {
+    var idStr = String(id || '');
+    var idea = (APP_STATE && Array.isArray(APP_STATE.ideas))
+        ? APP_STATE.ideas.find(function(it) { return String(it.id) === idStr; })
+        : null;
+    var docRem = AUTOPC_SOLICITUDES_MAP[idStr] || null;
+    var texto = String((idea && idea.resumenAntigravity) || (docRem && docRem.resumenAntigravity) || '').trim();
+    if (!texto) return;
+
+    var marcarCopiado = function() {
+        if (btnEl) {
+            var orig = btnEl.getAttribute('data-orig-label') || btnEl.innerText;
+            btnEl.setAttribute('data-orig-label', orig);
+            btnEl.innerText = '✓ Copiado';
+            setTimeout(function() { btnEl.innerText = orig; }, 1800);
+        }
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Resumen de Antigravity copiado', '📋');
+        }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(marcarCopiado).catch(function() {
+            prompt('Copia el resumen de Antigravity:', texto);
+        });
+    } else {
+        prompt('Copia el resumen de Antigravity:', texto);
     }
 }
 
@@ -2998,27 +3288,45 @@ function renderizarListaOperatividad(ejecutadas) {
     if (!cont) return;
 
     if (!ejecutadas || ejecutadas.length === 0) {
-        cont.innerHTML = '<p style="color:#6b7280; font-size:13px; text-align:center; padding:16px;">Sin ideas completadas en este mes.</p>';
+        cont.innerHTML = '<p style="color:#94a3b8; font-size:13px; text-align:center; padding:16px;">Sin ideas completadas en este mes.</p>';
         return;
     }
 
+    var abiertosMap = ESTADO_IDEAS.resumenesAbiertos || {};
     var html = '';
     ejecutadas.forEach(function(i) {
-        var idAttr = escapeHtmlIdea(String(i.id));
+        var idStr = String(i.id);
+        var idAttr = escapeHtmlIdea(idStr);
+        var safeDomId = _domSafeResumenIdeaId(idStr);
         var catLimpia = (i.categoria || 'Idea').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}✨✦🤖💡🛒📊📚✅\s]+/u, '').trim();
         var imgOpHtml = renderizarMiniaturaImagenIdeaHtml(i);
-        html += `
-        <div class="idea-clean-item is-done">
+
+        var docRem = AUTOPC_SOLICITUDES_MAP[idStr] || null;
+        var resumenTxt = String(i.resumenAntigravity || (docRem && docRem.resumenAntigravity) || '').trim();
+        var archivos = (Array.isArray(i.resumenArchivos) && i.resumenArchivos.length > 0)
+            ? i.resumenArchivos
+            : ((docRem && Array.isArray(docRem.resumenArchivos)) ? docRem.resumenArchivos : []);
+        var pasos = Number(i.resumenPasos || (docRem && docRem.resumenPasos) || 0);
+        var durMs = Number(i.resumenDuracionMs || (docRem && docRem.resumenDuracionMs) || 0);
+        var ver = String(i.resumenVersion || (docRem && docRem.resumenVersion) || '').trim();
+        var esAutoPC = Boolean(
+            i.completadaPorAutoPC ||
+            i.autopcStatus === 'done' ||
+            (docRem && String(docRem.status || '').toLowerCase() === 'done') ||
+            resumenTxt
+        );
+
+        var topRowInner = `
             <div class="idea-item-left">
                 <span class="idea-dash" style="color: #10b981 !important;">✓</span>
                 <div class="idea-item-content">
-                    <span class="idea-text-line" style="text-decoration: line-through; color: #64748b;">${escapeHtmlIdea(i.texto)}</span>
+                    <span class="idea-text-line" style="text-decoration: line-through; color: #94a3b8;">${escapeHtmlIdea(i.texto)}</span>
                     ${imgOpHtml}
                     <div class="idea-meta-badges">
                         <span class="idea-category-badge">${escapeHtmlIdea(catLimpia)}</span>
                         ${i.subcategoria ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">• ${escapeHtmlIdea(i.subcategoria)}</span>` : ''}
-                        <span style="font-size: 10.5px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); padding: 2px 8px; border-radius: 9999px;">✓ Ejecutada</span>
-                        ${i.completadaPorAutoPC ? '<span class="idea-autopc-badge is-done">🤖 Auto-PC</span>' : ''}
+                        <span style="font-size: 10.5px; color: #34d399; font-weight: 700; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(52, 211, 153, 0.3); padding: 2px 8px; border-radius: 9999px;">✓ Ejecutada</span>
+                        ${esAutoPC ? '<span class="idea-autopc-badge is-done">🤖 Auto-PC</span>' : ''}
                     </div>
                 </div>
             </div>
@@ -3027,12 +3335,86 @@ function renderizarListaOperatividad(ejecutadas) {
                     Desmarcar ↩
                 </button>
                 <button class="btn-delete-row" onclick="eliminarIdea('${idAttr}')">✕</button>
-            </div>
-        </div>`;
+            </div>`;
+
+        if (esAutoPC) {
+            var estaAbierto = Boolean(abiertosMap[idStr]);
+            var chipsHtml = '';
+            if (ver) {
+                chipsHtml += `<span class="idea-resumen-ag-chip is-ver">🏷️ ${escapeHtmlIdea(ver)}</span>`;
+            }
+            if (archivos.length > 0) {
+                chipsHtml += `<span class="idea-resumen-ag-chip">📄 ${archivos.length} ${archivos.length === 1 ? 'archivo' : 'archivos'}</span>`;
+            }
+            if (pasos > 0) {
+                chipsHtml += `<span class="idea-resumen-ag-chip">⚙️ ${pasos} pasos</span>`;
+            }
+            if (durMs > 0) {
+                chipsHtml += `<span class="idea-resumen-ag-chip">⏱️ ${escapeHtmlIdea(formatearDuracionCortaAutoPC(durMs))}</span>`;
+            }
+            if (!resumenTxt) {
+                chipsHtml += `<span class="idea-resumen-ag-chip">Registro previo a v11.17</span>`;
+            }
+
+            var bodyHtml = '';
+            if (resumenTxt) {
+                var archivosHtml = archivos.length > 0
+                    ? `<div class="perfil-ag-files-row" style="margin-top: 10px;">` +
+                        archivos.map(function(f) {
+                            return `<span class="perfil-ag-file-chip">📄 ${escapeHtmlIdea(f)}</span>`;
+                        }).join('') +
+                      `</div>`
+                    : '';
+                var fechaPie = i.fechaHecha ? (' · ' + escapeHtmlIdea(i.fechaHecha)) : '';
+                bodyHtml = `
+                    <div class="idea-resumen-md">${formatearResumenAntigravityHtml(resumenTxt)}</div>
+                    ${archivosHtml}
+                    <div class="idea-resumen-ag-footer">
+                        <span style="font-size: 11px; color: #94a3b8;">🤖 Resumen capturado al terminar en Antigravity${fechaPie}</span>
+                        <button type="button" class="idea-resumen-copy-btn" onclick="copiarResumenAntigravityIdea('${idAttr}', this)">📋 Copiar resumen</button>
+                    </div>`;
+            } else {
+                var fechaLeg = i.fechaHecha ? (' el ' + escapeHtmlIdea(i.fechaHecha)) : '';
+                bodyHtml = `
+                    <div class="idea-resumen-md">
+                        <p class="ag-md-p">Esta solicitud fue completada automáticamente por Auto-PC${fechaLeg}, antes de activar la captura de resúmenes de Antigravity (<code class="ag-md-code">v11.17</code>).</p>
+                        <p class="ag-md-p">A partir de ahora, cada nueva solicitud que termine en Antigravity guardará aquí su resumen completo con los cambios, archivos tocados y resultados.</p>
+                    </div>`;
+            }
+
+            html += `
+            <div class="idea-clean-item is-done has-ag-summary" data-idea-id="${idAttr}">
+                <div class="idea-done-top-row">
+                    ${topRowInner}
+                </div>
+                <div id="idea-resumen-ag-box-${safeDomId}" class="idea-resumen-ag-box${resumenTxt ? '' : ' is-pending-legacy'}${estaAbierto ? ' is-open' : ''}">
+                    <button type="button" class="idea-resumen-ag-toggle" aria-expanded="${estaAbierto ? 'true' : 'false'}" onclick="toggleResumenAntigravityIdea('${idAttr}')">
+                        <span class="idea-resumen-ag-toggle-left">
+                            <span class="idea-resumen-ag-title">${resumenTxt ? '🤖 Resumen de Antigravity' : '🤖 Detalle Auto-PC'}</span>
+                            ${chipsHtml}
+                        </span>
+                        <span class="idea-resumen-ag-chevron">▾</span>
+                    </button>
+                    <div class="idea-resumen-ag-body">
+                        ${bodyHtml}
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            html += `
+            <div class="idea-clean-item is-done" data-idea-id="${idAttr}">
+                ${topRowInner}
+            </div>`;
+        }
     });
 
     cont.innerHTML = html;
     hidratarImagenesIdeasEnDOM();
+}
+
+if (typeof window !== 'undefined') {
+    window.toggleResumenAntigravityIdea = toggleResumenAntigravityIdea;
+    window.copiarResumenAntigravityIdea = copiarResumenAntigravityIdea;
 }
 
 function inicializarHojaIdeasDesdeUI() {

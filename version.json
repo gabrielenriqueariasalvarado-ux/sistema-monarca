@@ -1,5 +1,5 @@
 {
-  "version": "11.16",
+  "version": "11.17",
   "fecha": "2026-11-24",
-  "resumen": "Barra de Reproducción Anti-Toques Accidentales v11.16: En el Reproductor MP3, la barra de progreso ya no adelanta ni retrasa la canción al rozarla o hacer scroll vertical; ahora exige un arrastre horizontal intencional (o mantener presionado 0.26s), muestra una burbuja con el minuto exacto antes de soltar y aplica el cambio suavemente al levantar el dedo."
+  "resumen": "Monitoreo Preciso de Antigravity, Resúmenes Desplegables en Hechas y Colores de Perfil v11.17: En Perfil ahora ves en vivo qué fase ejecuta Antigravity (Analizar → Programar → Probar → Publicar), el porcentaje de progreso, la acción exacta, los archivos modificados, una bitácora desplegable y cero falsas alertas de 'sin latido'; todos los colores de Perfil pasan a Dark Glass; y cada solicitud completada en Ideas → Hechas incluye una barra desplegable con el resumen completo de Antigravity."
 }

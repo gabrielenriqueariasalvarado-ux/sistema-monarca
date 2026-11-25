@@ -57,6 +57,23 @@ function obtenerTextoEstadoFilaMonitor(st) {
     return { icon: '✅', label: 'Lista', cls: 'is-done' };
 }
 
+function obtenerFaseIndiceAntigravity(phaseCode) {
+    if (phaseCode === 'completed') return 4;
+    if (phaseCode === 'deploying' || phaseCode === 'waiting_ci') return 3;
+    if (phaseCode === 'testing') return 2;
+    if (phaseCode === 'editing') return 1;
+    return 0;
+}
+
+function toggleResumenRecienteMonitorPerfil(itemId) {
+    var el = document.getElementById('perfil-autopc-resumen-' + itemId);
+    var btn = document.getElementById('perfil-autopc-resumen-btn-' + itemId);
+    if (!el) return;
+    var abierto = el.style.display === 'block';
+    el.style.display = abierto ? 'none' : 'block';
+    if (btn) btn.classList.toggle('is-open', !abierto);
+}
+
 function renderizarContenidoMonitorAutoPCPerfil() {
     var resumen = (typeof window.obtenerResumenMonitoreoAutoPC === 'function')
         ? window.obtenerResumenMonitoreoAutoPC()
@@ -68,15 +85,24 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             antigravityVisible: null,
             heartbeatAgeMs: null,
             enCursoAgeMs: 0,
+            antigravity: null,
             cola: { running: 0, pending: 0, offlinePending: 0, done: 0, totalActive: 0 },
             solicitudActual: null,
             recientes: [],
             alertaStuck: ''
         };
 
-    var hbTxt = (resumen.heartbeatAgeMs !== null && resumen.heartbeatAgeMs !== undefined)
-        ? ('Latido hace ' + formatearTiempoMonitorPerfil(resumen.heartbeatAgeMs))
-        : 'Sin latido directo aún';
+    var ag = resumen.antigravity || null;
+    var hbParts = [];
+    if (resumen.heartbeatAgeMs !== null && resumen.heartbeatAgeMs !== undefined) {
+        hbParts.push('Latido PC hace ' + formatearTiempoMonitorPerfil(resumen.heartbeatAgeMs));
+    } else {
+        hbParts.push('Sin latido directo aún');
+    }
+    if (ag && ag.lastStepAgeMs !== null && ag.lastStepAgeMs !== undefined) {
+        hbParts.push('Último paso AG hace ' + formatearTiempoMonitorPerfil(ag.lastStepAgeMs));
+    }
+    var hbTxt = hbParts.join(' · ');
 
     var proyectoChip = resumen.proyecto
         ? `<span class="perfil-autopc-chip">💻 ${escapeHtmlPerfil(resumen.proyecto)}</span>`
@@ -84,14 +110,80 @@ function renderizarContenidoMonitorAutoPCPerfil() {
 
     var agChip = '';
     if (resumen.antigravityVisible === true) {
-        agChip = `<span class="perfil-autopc-chip is-ok">Antigravity activo</span>`;
+        agChip = `<span class="perfil-autopc-chip is-ok">● Antigravity conectado</span>`;
     } else if (resumen.antigravityVisible === false && resumen.nivel !== 'offline') {
-        agChip = `<span class="perfil-autopc-chip is-warn">Sin ventana Antigravity</span>`;
+        agChip = `<span class="perfil-autopc-chip is-warn">⚠️ Sin ventana Antigravity</span>`;
     }
+
+    var verChip = (ag && ag.versionDetected)
+        ? `<span class="perfil-autopc-chip is-version">🏷️ ${escapeHtmlPerfil(ag.versionDetected)}</span>`
+        : '';
 
     var alertaHtml = resumen.alertaStuck
         ? `<div class="perfil-autopc-alert"><span>⚠️</span><span>${escapeHtmlPerfil(resumen.alertaStuck)}</span></div>`
         : '';
+
+    // Bloque detallado de actividad precisa en Antigravity
+    var agLivePanelHtml = '';
+    if (ag && (resumen.nivel === 'working' || (resumen.solicitudActual && resumen.solicitudActual.status === 'running') || ag.stepsCount > 0)) {
+        var faseIdx = obtenerFaseIndiceAntigravity(ag.phaseCode);
+        var pct = Math.max(5, Math.min(100, Number(ag.progressPct) || 15));
+        var hitos = [
+            { idx: 0, lbl: 'Analizar' },
+            { idx: 1, lbl: 'Programar' },
+            { idx: 2, lbl: 'Probar' },
+            { idx: 3, lbl: 'Publicar' }
+        ];
+        var hitosHtml = hitos.map(function(h) {
+            var cls = faseIdx > h.idx ? 'is-done' : (faseIdx === h.idx ? 'is-active' : '');
+            return `<span class="perfil-ag-step-pill ${cls}">${faseIdx > h.idx ? '✓ ' : ''}${h.lbl}</span>`;
+        }).join('');
+
+        var filesHtml = '';
+        if (Array.isArray(ag.filesTouched) && ag.filesTouched.length > 0) {
+            filesHtml = `<div class="perfil-ag-files-row">` +
+                ag.filesTouched.map(function(f) {
+                    return `<span class="perfil-ag-file-chip">📄 ${escapeHtmlPerfil(f)}</span>`;
+                }).join('') +
+            `</div>`;
+        }
+
+        var bitacoraHtml = '';
+        if (Array.isArray(ag.recentSteps) && ag.recentSteps.length > 0) {
+            bitacoraHtml = `
+            <details class="perfil-ag-steps-details">
+                <summary class="perfil-ag-steps-summary">
+                    <span>📋 Bitácora en vivo de Antigravity (${ag.stepsCount || ag.recentSteps.length} pasos)</span>
+                    <span class="perfil-ag-chev">▾</span>
+                </summary>
+                <div class="perfil-ag-steps-list">
+                    ${ag.recentSteps.slice().reverse().map(function(stepTxt, idxR) {
+                        return `<div class="perfil-ag-step-line ${idxR === 0 ? 'is-latest' : ''}">${escapeHtmlPerfil(stepTxt)}</div>`;
+                    }).join('')}
+                </div>
+            </details>`;
+        }
+
+        agLivePanelHtml = `
+        <div class="perfil-ag-live-panel">
+            <div class="perfil-ag-phase-row">
+                <span class="perfil-ag-phase-badge">${escapeHtmlPerfil(ag.phaseLabel || '⚙️ Trabajando en Antigravity')}</span>
+                <span class="perfil-ag-pct">${pct}% · ${Number(ag.stepsCount) || 0} pasos</span>
+            </div>
+            <div class="perfil-ag-progress-track">
+                <div class="perfil-ag-progress-fill ${ag.phaseCode === 'completed' ? 'is-done' : ''}" style="width: ${pct}%;"></div>
+            </div>
+            <div class="perfil-ag-milestones">${hitosHtml}</div>
+            ${ag.currentAction ? `
+                <div class="perfil-ag-action-now">
+                    <span class="perfil-ag-action-dot"></span>
+                    <span class="perfil-ag-action-txt">${escapeHtmlPerfil(ag.currentAction)}</span>
+                </div>
+            ` : ''}
+            ${filesHtml}
+            ${bitacoraHtml}
+        </div>`;
+    }
 
     var actualHtml = '';
     if (resumen.solicitudActual) {
@@ -106,12 +198,13 @@ function renderizarContenidoMonitorAutoPCPerfil() {
                 ${tiempoAct}
             </div>
             <div class="perfil-autopc-current-text">${escapeHtmlPerfil(resumen.solicitudActual.texto)}</div>
-            <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
+            ${agLivePanelHtml || `<div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>`}
         </div>`;
     } else {
         actualHtml = `
         <div class="perfil-autopc-current is-empty">
             <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
+            ${agLivePanelHtml}
         </div>`;
     }
 
@@ -123,11 +216,27 @@ function renderizarContenidoMonitorAutoPCPerfil() {
                 var tiempoItem = item.ageMs !== null && item.ageMs !== undefined
                     ? formatearTiempoMonitorPerfil(item.ageMs)
                     : '';
+                var safeId = String(item.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                var tieneResumen = item.status === 'done' && item.resumenAntigravity;
+                var resumenBtn = tieneResumen
+                    ? `<button type="button" id="perfil-autopc-resumen-btn-${safeId}" class="perfil-autopc-row-sum-btn" onclick="toggleResumenRecienteMonitorPerfil('${safeId}')">📋 Resumen ▾</button>`
+                    : '';
+                var resumenBody = tieneResumen
+                    ? `<div id="perfil-autopc-resumen-${safeId}" class="perfil-autopc-row-sum-body" style="display: none;">
+                           ${typeof window.formatearResumenAntigravityHtml === 'function'
+                               ? window.formatearResumenAntigravityHtml(item.resumenAntigravity)
+                               : escapeHtmlPerfil(item.resumenAntigravity)}
+                       </div>`
+                    : '';
                 return `
-                <div class="perfil-autopc-row">
-                    <span class="perfil-autopc-row-badge ${meta.cls}">${meta.icon} ${meta.label}</span>
-                    <span class="perfil-autopc-row-text">${escapeHtmlPerfil(item.texto)}</span>
-                    ${tiempoItem ? `<span class="perfil-autopc-row-time">${tiempoItem}</span>` : ''}
+                <div class="perfil-autopc-row-wrap">
+                    <div class="perfil-autopc-row">
+                        <span class="perfil-autopc-row-badge ${meta.cls}">${meta.icon} ${meta.label}</span>
+                        <span class="perfil-autopc-row-text">${escapeHtmlPerfil(item.texto)}</span>
+                        ${resumenBtn}
+                        ${tiempoItem ? `<span class="perfil-autopc-row-time">${tiempoItem}</span>` : ''}
+                    </div>
+                    ${resumenBody}
                 </div>`;
             }).join('') +
         `</div>`;
@@ -142,27 +251,27 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             <div class="perfil-autopc-title-wrap">
                 <div class="perfil-autopc-title-row">
                     <span class="perfil-autopc-dot nivel-${escapeHtmlPerfil(resumen.nivel)}"></span>
-                    <h3 style="margin: 0; font-size: 14.5px; color: #f8fafc;">🤖 Monitoreo Auto-PC</h3>
+                    <h3 style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 800;">🤖 Monitoreo Antigravity · Auto-PC</h3>
                 </div>
                 <span class="perfil-autopc-hb">${escapeHtmlPerfil(hbTxt)}</span>
             </div>
             <span class="perfil-autopc-status-pill nivel-${escapeHtmlPerfil(resumen.nivel)}">${escapeHtmlPerfil(resumen.badgeTexto)}</span>
         </div>
 
-        ${(proyectoChip || agChip) ? `<div class="perfil-autopc-chips">${proyectoChip}${agChip}</div>` : ''}
+        ${(proyectoChip || agChip || verChip) ? `<div class="perfil-autopc-chips">${proyectoChip}${agChip}${verChip}</div>` : ''}
         ${alertaHtml}
         ${actualHtml}
 
         <div class="perfil-autopc-kpis">
-            <div class="perfil-autopc-kpi">
+            <div class="perfil-autopc-kpi is-running">
                 <span class="perfil-autopc-kpi-val">${Number(resumen.cola.running) || 0}</span>
                 <span class="perfil-autopc-kpi-lbl">⚙️ En curso</span>
             </div>
-            <div class="perfil-autopc-kpi">
+            <div class="perfil-autopc-kpi is-pending">
                 <span class="perfil-autopc-kpi-val">${Number(resumen.cola.pending) || 0}</span>
                 <span class="perfil-autopc-kpi-lbl">⏳ En cola${escapeHtmlPerfil(offlineNote)}</span>
             </div>
-            <div class="perfil-autopc-kpi">
+            <div class="perfil-autopc-kpi is-done">
                 <span class="perfil-autopc-kpi-val">${Number(resumen.cola.done) || 0}</span>
                 <span class="perfil-autopc-kpi-lbl">✅ Listas</span>
             </div>
@@ -174,8 +283,8 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             <button type="button" class="btn-perfil-autopc-link" onclick="cambiarVista('vista-ideas'); if(typeof abrirDetalleCategoriaIdeas === 'function') abrirDetalleCategoriaIdeas('✨ Emily');">
                 💡 Ver cola en Ideas
             </button>
-            <button type="button" class="btn-perfil-autopc-link is-secondary" onclick="if(typeof abrirCentroNotificaciones === 'function') abrirCentroNotificaciones();">
-                🔔 Alertas
+            <button type="button" class="btn-perfil-autopc-link is-done-link" onclick="if(typeof verSolicitudAutoPCEnOperatividad === 'function') verSolicitudAutoPCEnOperatividad();">
+                📋 Ver Hechas &amp; Resúmenes
             </button>
         </div>
     `;
@@ -184,7 +293,25 @@ function renderizarContenidoMonitorAutoPCPerfil() {
 function actualizarTarjetaMonitorAutoPCPerfil() {
     var card = document.getElementById('perfil-autopc-monitor-card');
     if (!card) return;
+    // Preservar estado abierto de <details> y resúmenes expandidos si el usuario los abrió
+    var det = card.querySelector('.perfil-ag-steps-details');
+    var detAbierto = !!(det && det.open);
+    var abiertosIds = [];
+    card.querySelectorAll('.perfil-autopc-row-sum-body').forEach(function(b) {
+        if (b.style.display === 'block' && b.id) abiertosIds.push(b.id);
+    });
     card.innerHTML = renderizarContenidoMonitorAutoPCPerfil();
+    if (detAbierto) {
+        var detNuevo = card.querySelector('.perfil-ag-steps-details');
+        if (detNuevo) detNuevo.open = true;
+    }
+    abiertosIds.forEach(function(bid) {
+        var bNew = document.getElementById(bid);
+        if (bNew) bNew.style.display = 'block';
+        var btnId = bid.replace('perfil-autopc-resumen-', 'perfil-autopc-resumen-btn-');
+        var btnNew = document.getElementById(btnId);
+        if (btnNew) btnNew.classList.add('is-open');
+    });
 }
 
 function renderizarPerfil(perfil) {
@@ -193,22 +320,22 @@ function renderizarPerfil(perfil) {
 
     var html = `
     <!-- 1. ATRIBUTOS DEL JUGADOR -->
-    <div style="background: #0f131d; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px;">
-            <h3 style="margin: 0; font-size: 15px; color: #f8fafc;">⚔️ Atributos Principales</h3>
-            <span style="font-size: 12px; font-weight: 700; color: #94a3b8; background: rgba(255, 255, 255, 0.04); padding: 3px 9px; border-radius: 9999px;">Nivel ${j.nivel || 1}</span>
+    <div class="perfil-stats-card">
+        <div class="perfil-stats-header">
+            <h3 style="margin: 0; font-size: 15px; color: #f8fafc; font-weight: 800;">⚔️ Atributos Principales</h3>
+            <span class="perfil-level-pill">Nivel ${j.nivel || 1}</span>
         </div>
-        <table class="table-finanzas" style="margin-bottom: 0;">
+        <table class="table-finanzas perfil-stats-table" style="margin-bottom: 0;">
             <tbody>
-                <tr><td><strong>Fuerza (STR)</strong></td><td style="text-align: right; font-weight: 700;">${p.str || 10}</td></tr>
-                <tr><td><strong>Inteligencia (INT)</strong></td><td style="text-align: right; font-weight: 700;">${p.int || 10}</td></tr>
-                <tr><td><strong>Vitalidad (VIT)</strong></td><td style="text-align: right; font-weight: 700;">${p.vit || 10}</td></tr>
-                <tr><td><strong>Maná / Energía (MP)</strong></td><td style="text-align: right; font-weight: 700;">${p.mp || 100}</td></tr>
+                <tr><td><strong>Fuerza (STR)</strong></td><td class="perfil-stat-num">${p.str || 10}</td></tr>
+                <tr><td><strong>Inteligencia (INT)</strong></td><td class="perfil-stat-num">${p.int || 10}</td></tr>
+                <tr><td><strong>Vitalidad (VIT)</strong></td><td class="perfil-stat-num">${p.vit || 10}</td></tr>
+                <tr><td><strong>Maná / Energía (MP)</strong></td><td class="perfil-stat-num is-mp">${p.mp || 100}</td></tr>
             </tbody>
         </table>
     </div>
 
-    <!-- 2. MONITOREO EN VIVO DE AUTO-PC -->
+    <!-- 2. MONITOREO EN VIVO DE ANTIGRAVITY & AUTO-PC -->
     <div id="perfil-autopc-monitor-card" class="perfil-autopc-card">
         ${renderizarContenidoMonitorAutoPCPerfil()}
     </div>
@@ -380,11 +507,11 @@ function analizarCodigoSincronizacion(codigo) {
             var nEj = data.ejercicios ? data.ejercicios.length : 0;
 
             prev.innerHTML = `
-            <div style="color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 14px; font-size: 12.5px;">
-                <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <div style="color: #a7f3d0; background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 10px; padding: 10px 14px; font-size: 12.5px;">
+                <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; color: #6ee7b7;">
                     <span>✓</span> Respaldo verificado con éxito
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; color: #047857; margin-top: 6px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; color: #d1fae5; margin-top: 6px;">
                     <div>• 👤 Jugador: <strong>${nNom} (Nivel ${nNiv})</strong></div>
                     <div>• ⚡ Misiones: <strong>${nMis} hábitos</strong></div>
                     <div>• 🔮 Habilidades: <strong>${nHab} activas</strong></div>
@@ -403,9 +530,14 @@ function analizarCodigoSincronizacion(codigo) {
         }
     } catch(err) {
         prev.innerHTML = `
-        <div style="color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 12px;">
+        <div style="color: #fecaca; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(248, 113, 113, 0.35); border-radius: 10px; padding: 10px 14px; font-size: 12px;">
             ⚠️ El código ingresado no tiene un formato válido o está incompleto.
         </div>`;
         if (btn) btn.disabled = true;
     }
 }
+
+if (typeof window !== 'undefined') {
+    window.toggleResumenRecienteMonitorPerfil = toggleResumenRecienteMonitorPerfil;
+}
+
