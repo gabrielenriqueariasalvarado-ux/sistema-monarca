@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.14">
+    <link rel="stylesheet" href="style.css?v=11.15">
 </head>
 <body>
 
@@ -1671,7 +1671,7 @@
                         <h3 class="finanzas-section-title">
                             <span>📊</span> RESUMEN FINANCIERO DEL PERÍODO
                         </h3>
-                        <span id="badge-balance-estado" style="font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
+                        <span id="badge-balance-estado" style="font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
                             FLUJO SALUDABLE
                         </span>
                     </div>
@@ -1963,7 +1963,7 @@
                         </div>
                         <div class="plan-topbar-actions">
                             <button type="button" class="btn-add-finanza" onclick="abrirModalCompraPlanificada()" style="background: rgba(168, 85, 247, 0.2); border-color: #c084fc; color: #f3e8ff;">
-                                🛒 + Compra / Plan
+                                🛒 + Compra
                             </button>
                             <button type="button" class="btn-add-finanza" onclick="abrirModalGasto('programado')" style="background: rgba(245, 158, 11, 0.16); border-color: #f59e0b; color: #fbbf24;">
                                 📅 + Gasto Prog.
@@ -4241,7 +4241,7 @@
                     <span style="font-size: 26px;">🎲</span>
                     <div>
                         <h2 style="margin: 0; font-size: 18px; letter-spacing: -0.2px; color: #f8fafc;">Ruleta de Variabilidad Semanal</h2>
-                        <span style="font-size: 12px; color: #94a3b8;">Elimina la monotonía planificando de forma aleatoria Comidas, Vestimenta y Selección de Música.</span>
+                        <span style="font-size: 12px; color: #94a3b8;">Elimina la monotonía sorteando Comidas, Vestimenta y tus Listas de Reproducción de música.</span>
                     </div>
                 </div>
                 <button class="btn-system" onclick="girarRuletaCompleta()" style="font-size: 13px;">
@@ -4253,7 +4253,8 @@
             <div id="contenedor-resultado-ruleta"></div>
 
             <!-- DISCO DE LA RULETA INTERACTIVO -->
-            <div style="text-align: center; margin: 24px 0 20px 0; display: flex; flex-direction: column; align-items: center;">
+            <div style="text-align: center; margin: 20px 0 20px 0; display: flex; flex-direction: column; align-items: center;">
+                <span id="ruleta-disco-cat-pill" class="ruleta-wheel-cat-pill">🎵 En ruleta: Tus Playlists</span>
                 <div style="position: relative; display: inline-block; max-width: 100%;">
                     <div style="position: absolute; right: -12px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 14px solid transparent; border-bottom: 14px solid transparent; border-right: 22px solid #f43f5e; z-index: 10; filter: drop-shadow(-2px 1px 4px rgba(0,0,0,0.65));"></div>
                     <canvas id="canvas-ruleta" width="300" height="300" style="background: #141926; border-radius: 50%; border: 3px solid rgba(99, 102, 241, 0.45); box-shadow: 0 0 32px rgba(99, 102, 241, 0.25); cursor: pointer; max-width: 100%; height: auto;" onclick="girarRuletaIndividual(CATEGORIA_RULETA_ACTIVA)"></canvas>
@@ -7223,26 +7224,26 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.14"></script>
-    <script src="js/perfil.js?v=11.14"></script>
-    <script src="js/progresion.js?v=11.14"></script>
-    <script src="js/estado-personal.js?v=11.14"></script>
-    <script src="js/finanzas.js?v=11.14"></script>
-    <script src="js/ideas.js?v=11.14"></script>
-    <script src="js/dinamicas.js?v=11.14"></script>
-    <script src="js/calendario.js?v=11.14"></script>
-    <script src="js/inventario.js?v=11.14"></script>
-    <script src="js/reproductor.js?v=11.14"></script>
-    <script src="js/jarvis-voz.js?v=11.14"></script>
+    <script src="js/core.js?v=11.15"></script>
+    <script src="js/perfil.js?v=11.15"></script>
+    <script src="js/progresion.js?v=11.15"></script>
+    <script src="js/estado-personal.js?v=11.15"></script>
+    <script src="js/finanzas.js?v=11.15"></script>
+    <script src="js/ideas.js?v=11.15"></script>
+    <script src="js/dinamicas.js?v=11.15"></script>
+    <script src="js/calendario.js?v=11.15"></script>
+    <script src="js/inventario.js?v=11.15"></script>
+    <script src="js/reproductor.js?v=11.15"></script>
+    <script src="js/jarvis-voz.js?v=11.15"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.14"></script>
+    <script type="module" src="js/firebase-config.js?v=11.15"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.14')
+                navigator.serviceWorker.register('sw.js?v=11.15')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

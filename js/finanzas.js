@@ -1462,6 +1462,209 @@ function renderizarFinanzas(fin) {
     }
 }
 
+function dibujarGraficoFinanzasCanvasFallback(canvas, modo, opts) {
+    if (!canvas || !canvas.getContext) return;
+    var parent = canvas.parentElement;
+    var cssW = Math.max(260, Math.round((parent && parent.clientWidth) || canvas.clientWidth || 320));
+    var cssH = Math.max(220, Math.round((parent && parent.clientHeight) || canvas.clientHeight || 250));
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    if (modo === 'dona') {
+        var gastosPorCat = opts.gastosPorCat || {};
+        var catKeys = Object.keys(gastosPorCat).filter(function(k) { return (Number(gastosPorCat[k]) || 0) > 0; });
+        var palette = ['#6366f1', '#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#f43f5e', '#06b6d4'];
+        var total = catKeys.reduce(function(acc, k) { return acc + (Number(gastosPorCat[k]) || 0); }, 0);
+
+        var cx = cssW / 2;
+        var cy = Math.min(cssH * 0.43, 98);
+        var outerR = Math.min(68, cssW * 0.24, cy - 12);
+        var innerR = outerR * 0.64;
+
+        if (total <= 0) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+            ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.fill();
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '700 12px Plus Jakarta Sans, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Sin gastos', cx, cy);
+            return;
+        }
+
+        var ang = -Math.PI / 2;
+        catKeys.forEach(function(k, idx) {
+            var val = Number(gastosPorCat[k]) || 0;
+            var slice = (val / total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, outerR, ang, ang + slice);
+            ctx.closePath();
+            ctx.fillStyle = palette[idx % palette.length];
+            ctx.fill();
+            ctx.strokeStyle = '#0f131d';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ang += slice;
+        });
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f131d';
+        ctx.fill();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '700 9.5px Plus Jakarta Sans, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('TOTAL', cx, cy - 9);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '800 13px Plus Jakarta Sans, sans-serif';
+        ctx.fillText('$' + total.toFixed(0), cx, cy + 8);
+
+        var legY = cy + outerR + 18;
+        var cols = Math.min(2, catKeys.length);
+        var colW = (cssW - 20) / cols;
+        catKeys.slice(0, 6).forEach(function(k, idx) {
+            var col = idx % cols;
+            var row = Math.floor(idx / cols);
+            var lx = 12 + col * colW;
+            var ly = legY + row * 18;
+            if (ly > cssH - 8) return;
+            ctx.fillStyle = palette[idx % palette.length];
+            ctx.fillRect(lx, ly - 5, 9, 9);
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '600 10.5px Plus Jakarta Sans, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            var lbl = (k.length > 13 ? k.slice(0, 12) + '…' : k) + ' $' + Number(gastosPorCat[k]).toFixed(0);
+            ctx.fillText(lbl, lx + 13, ly);
+        });
+        return;
+    }
+
+    // Modo comparativa 50 / 40 / 10 (Barras agrupadas Estimado vs Real)
+    var groups = [
+        { lbl: '50% Inv.', est: Number(opts.estimadoInversion) || 0, real: Number(opts.realInversion) || 0, estCol: '#06b6d4', realCol: '#10b981' },
+        { lbl: '40% Fijos', est: Number(opts.estimadoGastos) || 0, real: Number(opts.realGastos) || 0, estCol: '#f59e0b', realCol: (Number(opts.realGastos) || 0) > (Number(opts.estimadoGastos) || 0) ? '#ef4444' : '#38bdf8' },
+        { lbl: '10% Ocio', est: Number(opts.estimadoCaprichos) || 0, real: Number(opts.realCaprichos) || 0, estCol: '#ec4899', realCol: (Number(opts.realCaprichos) || 0) > (Number(opts.estimadoCaprichos) || 0) ? '#f43f5e' : '#a855f7' }
+    ];
+
+    var maxVal = 10;
+    groups.forEach(function(g) {
+        if (g.est > maxVal) maxVal = g.est;
+        if (g.real > maxVal) maxVal = g.real;
+    });
+    maxVal = Math.ceil((maxVal * 1.18) / 10) * 10;
+
+    var padL = 42;
+    var padR = 14;
+    var padT = 22;
+    var padB = 46;
+    var plotW = cssW - padL - padR;
+    var plotH = cssH - padT - padB;
+
+    // Líneas guía horizontales
+    ctx.font = '600 10px Plus Jakarta Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (var s = 0; s <= 4; s++) {
+        var frac = s / 4;
+        var gy = padT + plotH - frac * plotH;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, gy);
+        ctx.lineTo(cssW - padR, gy);
+        ctx.stroke();
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('$' + Math.round(maxVal * frac), padL - 6, gy);
+    }
+
+    var slotW = plotW / groups.length;
+    var barW = Math.min(28, Math.max(16, slotW * 0.28));
+    var gapBar = 6;
+
+    var drawRoundedBar = function(x, y, w, h, r) {
+        if (h < 2) h = 2;
+        var rr = Math.min(r, w / 2, h);
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        ctx.lineTo(x, y + rr);
+        ctx.quadraticCurveTo(x, y, x + rr, y);
+        ctx.lineTo(x + w - rr, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+    };
+
+    groups.forEach(function(g, idx) {
+        var centerX = padL + slotW * idx + slotW / 2;
+        var xEst = centerX - barW - gapBar / 2;
+        var xReal = centerX + gapBar / 2;
+
+        var hEst = (g.est / maxVal) * plotH;
+        var yEst = padT + plotH - hEst;
+        drawRoundedBar(xEst, yEst, barW, hEst, 5);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fill();
+        ctx.strokeStyle = g.estCol;
+        ctx.lineWidth = 1.75;
+        ctx.stroke();
+
+        var hReal = (g.real / maxVal) * plotH;
+        var yReal = padT + plotH - hReal;
+        drawRoundedBar(xReal, yReal, barW, hReal, 5);
+        ctx.fillStyle = g.realCol;
+        ctx.fill();
+
+        // Etiquetas numéricas encima
+        ctx.font = '700 9.5px Plus Jakarta Sans, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('$' + Math.round(g.est), xEst + barW / 2, yEst - 4);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText('$' + Math.round(g.real), xReal + barW / 2, yReal - 4);
+
+        // Etiqueta eje X
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '700 11px Plus Jakarta Sans, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.fillText(g.lbl, centerX, padT + plotH + 8);
+    });
+
+    // Leyenda compacta inferior
+    var legY2 = cssH - 13;
+    ctx.font = '700 10.5px Plus Jakarta Sans, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    var startLegX = Math.max(12, cssW / 2 - 110);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(startLegX, legY2 - 5, 10, 10);
+    ctx.strokeRect(startLegX, legY2 - 5, 10, 10);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Estimado ($)', startLegX + 15, legY2);
+
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(startLegX + 106, legY2 - 5, 10, 10);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('Ejecución Real ($)', startLegX + 121, legY2);
+}
+
 function renderizarGraficoFinanzas(opts) {
     var ctx = document.getElementById('graficoFinanzas') || document.getElementById('chart-finanzas-resumen');
     if (!ctx) return;
@@ -1471,10 +1674,13 @@ function renderizarGraficoFinanzas(opts) {
         ESTADO_FINANZAS.chartInstance = null;
     }
 
-    try {
-        if (typeof Chart === 'undefined') return;
+    var modo = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.modoGrafico) || 'comparativa';
 
-        var modo = (window.ESTADO_FINANZAS && window.ESTADO_FINANZAS.modoGrafico) || 'comparativa';
+    try {
+        if (typeof Chart === 'undefined') {
+            dibujarGraficoFinanzasCanvasFallback(ctx, modo, opts || {});
+            return;
+        }
 
         if (modo === 'comparativa') {
             // GRÁFICO COMPARATIVO: ESTIMADO VS REAL (REGLA 50 / 40 / 10)
@@ -1626,6 +1832,7 @@ function renderizarGraficoFinanzas(opts) {
         }
     } catch (e) {
         console.warn("Chart.js no disponible para renderizar gráfico de finanzas:", e);
+        dibujarGraficoFinanzasCanvasFallback(ctx, modo, opts || {});
     }
 }
 

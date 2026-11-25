@@ -1046,6 +1046,9 @@
             if (typeof window.actualizarSelectoresPlaylistRutinas === 'function') {
                 window.actualizarSelectoresPlaylistRutinas();
             }
+            if (typeof window.renderizarRuletaSemanal === 'function') {
+                window.renderizarRuletaSemanal();
+            }
         } catch(e) {}
     }
 

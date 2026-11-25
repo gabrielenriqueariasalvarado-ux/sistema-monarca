@@ -1,5 +1,5 @@
 {
-  "version": "11.14",
+  "version": "11.15",
   "fecha": "2026-11-24",
-  "resumen": "Pulido Integral v11.14: Centro de Sincronización de Perfil migrado a Dark Glass (adiós tarjetas blancas ilegibles), rediseño completo de Metas de Ahorro en Finanzas (barra esmeralda, 3 métricas, cuotas restantes y estado 100% cumplida), pestañas 3-segmentos en Inventario sin desbordarse en móvil y checklists oscuros en modales."
+  "resumen": "Ruleta Conectada a tus Playlists + Pulido Finanzas v11.15: La categoría Música de la Ruleta de Variabilidad ahora trabaja en tiempo real con las Listas de Reproducción de tu Reproductor MP3 (con reproducción directa ▶️ y opción de activar/omitir listas sin borrarlas), además de gráfica 50/40/10 con respaldo Canvas 2D offline y pulido móvil de Movimientos y Cola de Pagos en Finanzas."
 }

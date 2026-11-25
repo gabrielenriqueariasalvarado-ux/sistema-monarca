@@ -1993,7 +1993,154 @@ function eliminarGrupoPersonas(grupoId) {
 // ==========================================================================
 
 var RULETA_EN_GIRO = false;
-var CATEGORIA_RULETA_ACTIVA = "comidas";
+var CATEGORIA_RULETA_ACTIVA = "musica";
+
+function _ruletaEscapar(txt) {
+    if (typeof escaparHTML === 'function') return escaparHTML(txt == null ? '' : String(txt));
+    return String(txt == null ? '' : txt)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function obtenerPlaylistsReproductorParaRuleta() {
+    var mapa = {};
+    var elimSet = {};
+    if (APP_STATE && APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.reproductorPlaylists)) {
+        APP_STATE._eliminados.reproductorPlaylists.forEach(function(tid) { elimSet[String(tid)] = true; });
+    }
+
+    var agregar = function(lista) {
+        if (!Array.isArray(lista)) return;
+        lista.forEach(function(pl) {
+            if (!pl || !pl.id) return;
+            var idStr = String(pl.id);
+            if (elimSet[idStr]) return;
+            if (!mapa[idStr]) {
+                mapa[idStr] = pl;
+            } else {
+                var prevC = Array.isArray(mapa[idStr].cancionIds) ? mapa[idStr].cancionIds.length : 0;
+                var nextC = Array.isArray(pl.cancionIds) ? pl.cancionIds.length : 0;
+                if (nextC > prevC) mapa[idStr] = pl;
+            }
+        });
+    };
+
+    try {
+        if (window.MonarcaPlayer && typeof window.MonarcaPlayer.getPlaylists === 'function') {
+            agregar(window.MonarcaPlayer.getPlaylists());
+        }
+    } catch (e) {}
+
+    try {
+        var raw = localStorage.getItem('monarca_musica_playlists');
+        if (raw) agregar(JSON.parse(raw));
+    } catch (e) {}
+
+    if (APP_STATE && Array.isArray(APP_STATE.reproductorPlaylists)) {
+        agregar(APP_STATE.reproductorPlaylists);
+    }
+
+    var rs = (APP_STATE && APP_STATE.ruletaSemanal) ? APP_STATE.ruletaSemanal : {};
+    var excluidasArr = Array.isArray(rs.playlistsExcluidas) ? rs.playlistsExcluidas : [];
+    var excluidasMap = {};
+    excluidasArr.forEach(function(id) { excluidasMap[String(id)] = true; });
+
+    return Object.keys(mapa).map(function(k) {
+        var pl = mapa[k];
+        var count = Array.isArray(pl.cancionIds) ? pl.cancionIds.length : 0;
+        var idStr = String(pl.id);
+        return {
+            id: idStr,
+            playlistId: idStr,
+            nombre: (pl.nombre && String(pl.nombre).trim()) ? String(pl.nombre).trim() : 'Lista sin nombre',
+            cancionesCount: count,
+            incluidaEnRuleta: !excluidasMap[idStr],
+            esPlaylistReproductor: true,
+            genero: count + (count === 1 ? ' canción' : ' canciones') + ' · Lista del Reproductor'
+        };
+    });
+}
+
+function obtenerOpcionesRuletaCategoria(categoria) {
+    if (categoria === 'musica') {
+        return obtenerPlaylistsReproductorParaRuleta().filter(function(pl) {
+            return pl.incluidaEnRuleta;
+        });
+    }
+    var rs = (APP_STATE && APP_STATE.ruletaSemanal) || DEFAULT_STATE.ruletaSemanal;
+    return Array.isArray(rs[categoria]) ? rs[categoria] : [];
+}
+
+function togglePlaylistEnRuleta(playlistId) {
+    if (!APP_STATE.ruletaSemanal) {
+        APP_STATE.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
+    }
+    if (!Array.isArray(APP_STATE.ruletaSemanal.playlistsExcluidas)) {
+        APP_STATE.ruletaSemanal.playlistsExcluidas = [];
+    }
+    var idStr = String(playlistId || '');
+    var idx = APP_STATE.ruletaSemanal.playlistsExcluidas.indexOf(idStr);
+    var incluidaAhora = false;
+    if (idx !== -1) {
+        APP_STATE.ruletaSemanal.playlistsExcluidas.splice(idx, 1);
+        incluidaAhora = true;
+    } else {
+        APP_STATE.ruletaSemanal.playlistsExcluidas.push(idStr);
+        incluidaAhora = false;
+    }
+    MonarcaDB.save(APP_STATE);
+    renderizarRuletaSemanal();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(incluidaAhora ? 'Lista activada en la ruleta' : 'Lista omitida de la ruleta', incluidaAhora ? '🎲' : '⏸️');
+    }
+}
+
+function reproducirPlaylistDesdeRuleta(playlistId) {
+    var idStr = String(playlistId || '');
+    if (!idStr) return;
+    var todas = obtenerPlaylistsReproductorParaRuleta();
+    var pl = todas.find(function(p) { return p.id === idStr; });
+    if (!pl) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Esa lista ya no existe en el Reproductor', '⚠️');
+        }
+        renderizarRuletaSemanal();
+        return;
+    }
+    if (pl.cancionesCount === 0) {
+        if (typeof cambiarVista === 'function') cambiarVista('vista-reproductor');
+        if (window.MonarcaPlayer && typeof window.MonarcaPlayer.cambiarSubtab === 'function') {
+            window.MonarcaPlayer.cambiarSubtab('playlists');
+        }
+        if (window.MonarcaPlayer && typeof window.MonarcaPlayer.reproducirPlaylistDirecto === 'function') {
+            window.MonarcaPlayer.reproducirPlaylistDirecto(idStr);
+        }
+        return;
+    }
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.reproducirPlaylistDirecto === 'function') {
+        window.MonarcaPlayer.reproducirPlaylistDirecto(idStr);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Reproduciendo: ' + pl.nombre, '🎧');
+        }
+    } else {
+        if (typeof cambiarVista === 'function') cambiarVista('vista-reproductor');
+    }
+}
+
+function irACrearPlaylistDesdeRuleta(abrirModal) {
+    if (typeof cambiarVista === 'function') cambiarVista('vista-reproductor');
+    if (window.MonarcaPlayer && typeof window.MonarcaPlayer.cambiarSubtab === 'function') {
+        window.MonarcaPlayer.cambiarSubtab('playlists');
+    }
+    if (abrirModal && window.MonarcaPlayer && typeof window.MonarcaPlayer.abrirModalCrearPlaylist === 'function') {
+        setTimeout(function() {
+            window.MonarcaPlayer.abrirModalCrearPlaylist();
+        }, 120);
+    }
+}
 
 function cargarRuletaSemanal() {
     renderizarRuletaSemanal();
@@ -2008,14 +2155,52 @@ function renderizarRuletaSemanal() {
         APP_STATE.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
     }
     var rs = APP_STATE.ruletaSemanal;
+    var todasPlaylists = obtenerPlaylistsReproductorParaRuleta();
+    var playlistsActivas = todasPlaylists.filter(function(p) { return p.incluidaEnRuleta; });
+
+    // Resolver si la selección activa de música apunta a una playlist real del reproductor
+    var act = rs.seleccionActiva || {};
+    var playlistElegida = null;
+    if (act.musicaPlaylistId) {
+        playlistElegida = todasPlaylists.find(function(p) { return p.id === String(act.musicaPlaylistId); }) || null;
+    }
+    if (!playlistElegida && act.musica) {
+        playlistElegida = todasPlaylists.find(function(p) { return p.nombre.toLowerCase() === String(act.musica).trim().toLowerCase(); }) || null;
+    }
 
     // 1. Banner de Selección Activa de Variabilidad
     if (contResultado) {
-        var act = rs.seleccionActiva || {};
-        var com = act.comida || "Sin girar aún";
-        var ves = act.vestimenta || "Sin girar aún";
-        var mus = act.musica || "Sin girar aún";
-        var fec = act.fechaGiro || "Hoy";
+        var com = _ruletaEscapar(act.comida || "Sin girar aún");
+        var ves = _ruletaEscapar(act.vestimenta || "Sin girar aún");
+        var fec = _ruletaEscapar(act.fechaGiro || "Hoy");
+
+        var musTituloHtml = '';
+        var musSubHtml = '';
+        var musAccionesHtml = '';
+
+        if (playlistElegida) {
+            musTituloHtml = _ruletaEscapar(playlistElegida.nombre);
+            musSubHtml = `<div class="ruleta-pl-meta-line">🎶 ${playlistElegida.cancionesCount} ${playlistElegida.cancionesCount === 1 ? 'canción' : 'canciones'} · Lista del Reproductor</div>`;
+            musAccionesHtml = `
+                <div class="ruleta-result-actions">
+                    <button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Lista</button>
+                    <button type="button" class="ruleta-pl-play-pill" onclick="reproducirPlaylistDesdeRuleta('${_ruletaEscapar(playlistElegida.id)}')">▶️ Escuchar</button>
+                </div>`;
+        } else if (todasPlaylists.length > 0) {
+            musTituloHtml = 'Sin girar lista aún';
+            musSubHtml = `<div class="ruleta-pl-meta-line">🎧 ${playlistsActivas.length} ${playlistsActivas.length === 1 ? 'lista activa' : 'listas activas'} desde tu Reproductor</div>`;
+            musAccionesHtml = `
+                <div class="ruleta-result-actions">
+                    <button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Lista</button>
+                </div>`;
+        } else {
+            musTituloHtml = 'Sin listas en tu Reproductor';
+            musSubHtml = `<div class="ruleta-pl-meta-line">Crea listas en Música para sortearlas aquí</div>`;
+            musAccionesHtml = `
+                <div class="ruleta-result-actions">
+                    <button type="button" class="ruleta-pl-play-pill" onclick="irACrearPlaylistDesdeRuleta(true)">➕ Crear Lista</button>
+                </div>`;
+        }
 
         contResultado.innerHTML = `
         <div class="weekly-review-banner" style="border-left-color: #818cf8;">
@@ -2024,70 +2209,136 @@ function renderizarRuletaSemanal() {
                     <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px;">Protocolo Anti-Monotonía</div>
                     <h3 style="margin: 2px 0 0 0; font-size: 17px; font-weight: 800; color: #f8fafc;">Selección Activa de Variabilidad</h3>
                 </div>
-                <button class="btn-system" onclick="girarRuletaCompleta()" style="font-size: 12.5px; padding: 7px 14px;">
-                    🎲 Giro Completo Diario
-                </button>
+                <span class="ruleta-sync-chip">🎧 Conectada a tus Playlists</span>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px;">
-                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">🍲 Comida Elegida</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${com}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('comidas')">🔄 Girar Comida</button>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
+                <div class="ruleta-sel-card">
+                    <div class="ruleta-sel-label">🍲 Comida Elegida</div>
+                    <div class="ruleta-sel-value">${com}</div>
+                    <div class="ruleta-result-actions">
+                        <button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="girarRuletaIndividual('comidas')">🔄 Girar Comida</button>
+                    </div>
                 </div>
-                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">👔 Outfit del Día</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${ves}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('vestimenta')">🔄 Girar Outfit</button>
+                <div class="ruleta-sel-card">
+                    <div class="ruleta-sel-label">👔 Outfit del Día</div>
+                    <div class="ruleta-sel-value">${ves}</div>
+                    <div class="ruleta-result-actions">
+                        <button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="girarRuletaIndividual('vestimenta')">🔄 Girar Outfit</button>
+                    </div>
                 </div>
-                <div style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">🎵 Música / Foco</div>
-                    <div style="font-size: 13.5px; font-weight: 700; color: #f8fafc; margin: 4px 0;">${mus}</div>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 4px 10px; margin-top: 4px;" onclick="girarRuletaIndividual('musica')">🔄 Girar Música</button>
+                <div class="ruleta-sel-card ruleta-sel-card-musica">
+                    <div class="ruleta-sel-label">🎵 Lista de Reproducción</div>
+                    <div class="ruleta-sel-value">${musTituloHtml}</div>
+                    ${musSubHtml}
+                    ${musAccionesHtml}
                 </div>
             </div>
             <div style="font-size: 11px; color: #94a3b8; margin-top: 10px; text-align: right;">Último giro: ${fec}</div>
         </div>`;
     }
 
-    // 2. Visualizador de la Ruleta (Canvas o Ruleta Animada)
+    // 2. Visualizador de la Ruleta (Canvas + indicador de categoría cargada en el disco)
     dibujarRuletaEnCanvas();
+    var indDisco = document.getElementById('ruleta-disco-cat-pill');
+    if (indDisco) {
+        if (CATEGORIA_RULETA_ACTIVA === 'musica') {
+            indDisco.textContent = '🎵 En ruleta: Tus Playlists (' + playlistsActivas.length + ')';
+        } else if (CATEGORIA_RULETA_ACTIVA === 'vestimenta') {
+            indDisco.textContent = '👔 En ruleta: Vestimenta (' + ((rs.vestimenta || []).length) + ')';
+        } else {
+            indDisco.textContent = '🍲 En ruleta: Comidas (' + ((rs.comidas || []).length) + ')';
+        }
+    }
 
     // 3. Banco de Opciones por Categoría
     if (contOpciones) {
-        var items = rs[CATEGORIA_RULETA_ACTIVA] || [];
+        var esMusica = CATEGORIA_RULETA_ACTIVA === 'musica';
+        var countMusicaLabel = playlistsActivas.length === todasPlaylists.length
+            ? String(todasPlaylists.length)
+            : (playlistsActivas.length + '/' + todasPlaylists.length);
+
+        var botonDerechaHtml = esMusica
+            ? `<div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                   <button type="button" class="btn-sheet-action" onclick="irACrearPlaylistDesdeRuleta(true)">➕ Nueva Lista</button>
+                   <button type="button" class="btn-sheet-action" onclick="irACrearPlaylistDesdeRuleta(false)">🎧 Reproductor</button>
+               </div>`
+            : `<button type="button" class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar Opción</button>`;
+
         var htmlOps = `
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'comidas' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('comidas')">🍲 Comidas (${(rs.comidas||[]).length})</button>
-                <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'vestimenta' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('vestimenta')">👔 Vestimenta (${(rs.vestimenta||[]).length})</button>
-                <button class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'musica' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('musica')">🎵 Música (${(rs.musica||[]).length})</button>
+                <button type="button" class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'comidas' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('comidas')">🍲 Comidas (${(rs.comidas||[]).length})</button>
+                <button type="button" class="btn-tab-con-area ${CATEGORIA_RULETA_ACTIVA === 'vestimenta' ? 'active' : ''}" onclick="cambiarTabBancoRuleta('vestimenta')">👔 Vestimenta (${(rs.vestimenta||[]).length})</button>
+                <button type="button" class="btn-tab-con-area ${esMusica ? 'active' : ''}" onclick="cambiarTabBancoRuleta('musica')">🎵 Playlists (${countMusicaLabel})</button>
             </div>
-            <button class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar Opción</button>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">`;
+            ${botonDerechaHtml}
+        </div>`;
 
-        if (items.length === 0) {
+        if (esMusica) {
             htmlOps += `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.16); border-radius: 10px;">
-                <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
-                <button class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar tu primera opción</button>
-            </div>`;
-        } else {
-            items.forEach(function(item) {
-                var subtag = item.tipo || item.estilo || item.genero || 'Variabilidad';
+            <div class="ruleta-playlist-sync-bar">
+                <span>🎧 Sincronizado en vivo con las <strong>Listas de Reproducción</strong> de tu Reproductor de Música.</span>
+                <span style="color: #7dd3fc; font-weight: 700;">${playlistsActivas.length} de ${todasPlaylists.length} en ruleta</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px;">`;
+
+            if (todasPlaylists.length === 0) {
                 htmlOps += `
-                <div class="ruleta-option-item" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <div style="min-width: 0;">
-                        <strong style="font-size: 13px; color: #f8fafc; display: block;">${item.nombre}</strong>
-                        <span style="font-size: 11px; color: #94a3b8;">${subtag}</span>
-                    </div>
-                    <button onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${item.id}')" title="Eliminar opción" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; flex-shrink: 0;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">✕</button>
+                <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed rgba(129, 140, 248, 0.35); border-radius: 12px;">
+                    <div style="font-size: 26px; margin-bottom: 6px;">🎶</div>
+                    <p style="margin: 0 0 6px 0; color: #f8fafc; font-size: 13.5px; font-weight: 700;">Aún no tienes listas de reproducción</p>
+                    <p style="margin: 0 0 12px 0; color: #94a3b8; font-size: 12px;">Crea tus playlists en el Reproductor MP3 (ej: Entrenamiento, Salsa, Llaneras, Focus) y aparecerán automáticamente aquí para girarlas.</p>
+                    <button type="button" class="ruleta-pl-play-pill" onclick="irACrearPlaylistDesdeRuleta(true)">➕ Crear mi primera Playlist</button>
                 </div>`;
-            });
+            } else {
+                todasPlaylists.forEach(function(pl) {
+                    var esElegida = playlistElegida && playlistElegida.id === pl.id;
+                    var clsEstado = pl.incluidaEnRuleta ? 'is-included' : 'is-excluded';
+                    htmlOps += `
+                    <div class="ruleta-option-item ruleta-playlist-card ${clsEstado} ${esElegida ? 'is-winner' : ''}">
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <strong style="font-size: 13px; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${_ruletaEscapar(pl.nombre)}</strong>
+                                ${esElegida ? '<span class="ruleta-pl-winner-tag">★ Elegida</span>' : ''}
+                            </div>
+                            <span style="font-size: 11px; color: #94a3b8;">🎶 ${pl.cancionesCount} ${pl.cancionesCount === 1 ? 'canción' : 'canciones'}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            <button type="button" class="ruleta-pl-play-btn" onclick="reproducirPlaylistDesdeRuleta('${_ruletaEscapar(pl.id)}')" title="Reproducir esta lista ahora">▶️</button>
+                            <button type="button" class="ruleta-pl-toggle-btn ${pl.incluidaEnRuleta ? 'active' : ''}" onclick="togglePlaylistEnRuleta('${_ruletaEscapar(pl.id)}')" title="${pl.incluidaEnRuleta ? 'Omitir de la ruleta (no borra tu playlist)' : 'Incluir nuevamente en la ruleta'}">
+                                ${pl.incluidaEnRuleta ? '✓ Activa' : 'Omitida'}
+                            </button>
+                        </div>
+                    </div>`;
+                });
+            }
+            htmlOps += `</div>`;
+        } else {
+            var items = rs[CATEGORIA_RULETA_ACTIVA] || [];
+            htmlOps += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">`;
+            if (items.length === 0) {
+                htmlOps += `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 26px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.16); border-radius: 10px;">
+                    <p style="margin: 0 0 10px 0; color: #94a3b8; font-size: 13px;">No hay opciones registradas en esta categoría aún.</p>
+                    <button type="button" class="btn-sheet-action" onclick="abrirModalNuevaOpcionRuleta()">+ Agregar tu primera opción</button>
+                </div>`;
+            } else {
+                items.forEach(function(item) {
+                    var subtag = _ruletaEscapar(item.tipo || item.estilo || item.genero || 'Variabilidad');
+                    htmlOps += `
+                    <div class="ruleta-option-item" style="background: #121725; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <div style="min-width: 0;">
+                            <strong style="font-size: 13px; color: #f8fafc; display: block;">${_ruletaEscapar(item.nombre)}</strong>
+                            <span style="font-size: 11px; color: #94a3b8;">${subtag}</span>
+                        </div>
+                        <button type="button" onclick="eliminarOpcionRuleta('${CATEGORIA_RULETA_ACTIVA}', '${_ruletaEscapar(item.id)}')" title="Eliminar opción" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; flex-shrink: 0;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">✕</button>
+                    </div>`;
+                });
+            }
+            htmlOps += `</div>`;
         }
 
-        htmlOps += `</div>`;
         contOpciones.innerHTML = htmlOps;
     }
 }
@@ -2105,8 +2356,7 @@ function dibujarRuletaEnCanvas() {
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    var rs = APP_STATE.ruletaSemanal || DEFAULT_STATE.ruletaSemanal;
-    var items = rs[CATEGORIA_RULETA_ACTIVA] || [];
+    var items = obtenerOpcionesRuletaCategoria(CATEGORIA_RULETA_ACTIVA);
 
     var width = canvas.width;
     var height = canvas.height;
@@ -2126,18 +2376,17 @@ function dibujarRuletaEnCanvas() {
         ctx.stroke();
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 12px sans-serif';
+        ctx.font = 'bold 12px Plus Jakarta Sans, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Sin opciones aún', cx, cy);
+        ctx.fillText(CATEGORIA_RULETA_ACTIVA === 'musica' ? 'Crea o activa playlists' : 'Sin opciones aún', cx, cy);
         return;
     }
+
     var numSectores = items.length;
     var arc = (2 * Math.PI) / numSectores;
 
-    ctx.clearRect(0, 0, width, height);
-
-    var colores = ['#1e293b', '#312e81', '#0f172a', '#164e63', '#27272a', '#1e1b4b', '#334155', '#172554'];
+    var colores = ['#312e81', '#0e7490', '#1e3a5f', '#4c1d95', '#065f46', '#1e293b', '#3730a3', '#155e75'];
 
     for (var i = 0; i < numSectores; i++) {
         var anguloInicio = ANGULO_ACTUAL_RULETA + i * arc;
@@ -2149,7 +2398,7 @@ function dibujarRuletaEnCanvas() {
         ctx.arc(cx, cy, radio, anguloInicio, anguloFin);
         ctx.lineTo(cx, cy);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(226, 232, 240, 0.22)';
+        ctx.strokeStyle = 'rgba(226, 232, 240, 0.24)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
@@ -2157,10 +2406,12 @@ function dibujarRuletaEnCanvas() {
         ctx.translate(cx, cy);
         ctx.rotate(anguloInicio + arc / 2);
         ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
-        var textoCorto = items[i].nombre.length > 20 ? items[i].nombre.substr(0, 18) + '...' : items[i].nombre;
-        ctx.fillText(textoCorto, radio - 16, 4);
+        ctx.font = 'bold 10.5px Plus Jakarta Sans, sans-serif';
+        var nombreRaw = String(items[i].nombre || '');
+        var textoCorto = nombreRaw.length > 17 ? nombreRaw.substr(0, 15) + '…' : nombreRaw;
+        ctx.fillText(textoCorto, radio - 14, 0, Math.max(60, radio - 38));
         ctx.restore();
     }
 
@@ -2189,7 +2440,7 @@ function animarGiroRuleta(items, callback) {
     var vueltasExtra = 5 + Math.floor(Math.random() * 3);
     var anguloObjetivo = vueltasExtra * 2 * Math.PI + (2 * Math.PI - (indexGanador * arc + arc / 2));
 
-    var duracion = 3200;
+    var duracion = 3000;
     var tiempoInicio = performance.now();
     var anguloInicial = ANGULO_ACTUAL_RULETA;
 
@@ -2217,48 +2468,85 @@ function animarGiroRuleta(items, callback) {
 function girarRuletaIndividual(categoria) {
     if (RULETA_EN_GIRO) return;
     CATEGORIA_RULETA_ACTIVA = categoria;
-    var rs = APP_STATE.ruletaSemanal || DEFAULT_STATE.ruletaSemanal;
-    var items = rs[categoria] || [];
+    var items = obtenerOpcionesRuletaCategoria(categoria);
     if (items.length === 0) {
-        alert("No hay opciones registradas en " + categoria + " para girar.");
+        renderizarRuletaSemanal();
+        if (categoria === 'musica') {
+            var todas = obtenerPlaylistsReproductorParaRuleta();
+            if (todas.length === 0) {
+                if (typeof mostrarToastMonarca === 'function') {
+                    mostrarToastMonarca('Crea al menos una lista de reproducción en tu Reproductor MP3 primero', '🎧');
+                }
+                irACrearPlaylistDesdeRuleta(true);
+            } else if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Activa al menos una playlist en la ruleta para poder girar', '🎵');
+            }
+        } else if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Agrega opciones en ' + categoria + ' para girar', '🎲');
+        }
         return;
     }
 
+    renderizarRuletaSemanal();
     animarGiroRuleta(items, function(ganador) {
+        if (!APP_STATE.ruletaSemanal) APP_STATE.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
         if (!APP_STATE.ruletaSemanal.seleccionActiva) APP_STATE.ruletaSemanal.seleccionActiva = {};
         if (categoria === 'comidas') APP_STATE.ruletaSemanal.seleccionActiva.comida = ganador.nombre;
         if (categoria === 'vestimenta') APP_STATE.ruletaSemanal.seleccionActiva.vestimenta = ganador.nombre;
-        if (categoria === 'musica') APP_STATE.ruletaSemanal.seleccionActiva.musica = ganador.nombre;
+        if (categoria === 'musica') {
+            APP_STATE.ruletaSemanal.seleccionActiva.musica = ganador.nombre;
+            APP_STATE.ruletaSemanal.seleccionActiva.musicaPlaylistId = ganador.playlistId || ganador.id || null;
+        }
 
         APP_STATE.ruletaSemanal.seleccionActiva.fechaGiro = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
         sumarExp(10);
         MonarcaDB.save(APP_STATE);
         renderizarRuletaSemanal();
-        alert("🎲 ¡Giro completado!\nHas seleccionado: " + ganador.nombre + " (+10 EXP por variabilidad).");
+        if (typeof mostrarToastMonarca === 'function') {
+            var prefijo = categoria === 'musica' ? '🎵 Playlist elegida: ' : '🎲 Elegido: ';
+            mostrarToastMonarca(prefijo + ganador.nombre + ' (+10 EXP)', categoria === 'musica' ? '🎧' : '🎲');
+        }
     });
 }
 
 function girarRuletaCompleta() {
     if (RULETA_EN_GIRO) return;
-    var rs = APP_STATE.ruletaSemanal || DEFAULT_STATE.ruletaSemanal;
-    var coms = rs.comidas || [];
-    var vess = rs.vestimenta || [];
-    var muss = rs.musica || [];
+    var coms = obtenerOpcionesRuletaCategoria('comidas');
+    var vess = obtenerOpcionesRuletaCategoria('vestimenta');
+    var muss = obtenerOpcionesRuletaCategoria('musica');
 
-    if (coms.length === 0 || vess.length === 0 || muss.length === 0) {
-        alert("Asegúrate de tener al menos una opción en Comidas, Vestimenta y Música.");
+    if (coms.length === 0 || vess.length === 0) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Agrega al menos una opción en Comidas y Vestimenta para el giro completo', '🎲');
+        }
         return;
     }
 
     var winCom = coms[Math.floor(Math.random() * coms.length)];
     var winVes = vess[Math.floor(Math.random() * vess.length)];
-    var winMus = muss[Math.floor(Math.random() * muss.length)];
+    var winMus = muss.length > 0 ? muss[Math.floor(Math.random() * muss.length)] : null;
 
-    animarGiroRuleta(coms, function() {
+    var itemsAnimar = (CATEGORIA_RULETA_ACTIVA === 'musica' && muss.length > 0)
+        ? muss
+        : (CATEGORIA_RULETA_ACTIVA === 'vestimenta' ? vess : coms);
+    if (CATEGORIA_RULETA_ACTIVA === 'musica' && muss.length === 0) {
+        CATEGORIA_RULETA_ACTIVA = 'comidas';
+    }
+    renderizarRuletaSemanal();
+
+    animarGiroRuleta(itemsAnimar, function(ganadorDisco) {
+        if (CATEGORIA_RULETA_ACTIVA === 'musica' && ganadorDisco) winMus = ganadorDisco;
+        else if (CATEGORIA_RULETA_ACTIVA === 'vestimenta' && ganadorDisco) winVes = ganadorDisco;
+        else if (CATEGORIA_RULETA_ACTIVA === 'comidas' && ganadorDisco) winCom = ganadorDisco;
+
+        if (!APP_STATE.ruletaSemanal) APP_STATE.ruletaSemanal = JSON.parse(JSON.stringify(DEFAULT_STATE.ruletaSemanal));
         if (!APP_STATE.ruletaSemanal.seleccionActiva) APP_STATE.ruletaSemanal.seleccionActiva = {};
         APP_STATE.ruletaSemanal.seleccionActiva.comida = winCom.nombre;
         APP_STATE.ruletaSemanal.seleccionActiva.vestimenta = winVes.nombre;
-        APP_STATE.ruletaSemanal.seleccionActiva.musica = winMus.nombre;
+        if (winMus) {
+            APP_STATE.ruletaSemanal.seleccionActiva.musica = winMus.nombre;
+            APP_STATE.ruletaSemanal.seleccionActiva.musicaPlaylistId = winMus.playlistId || winMus.id || null;
+        }
         APP_STATE.ruletaSemanal.seleccionActiva.fechaGiro = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
         if (!APP_STATE.ruletaSemanal.historialGiros) APP_STATE.ruletaSemanal.historialGiros = [];
@@ -2266,7 +2554,8 @@ function girarRuletaCompleta() {
             fecha: APP_STATE.ruletaSemanal.seleccionActiva.fechaGiro,
             comida: winCom.nombre,
             vestimenta: winVes.nombre,
-            musica: winMus.nombre
+            musica: winMus ? winMus.nombre : '',
+            musicaPlaylistId: winMus ? (winMus.playlistId || winMus.id || null) : null
         });
         if (APP_STATE.ruletaSemanal.historialGiros.length > 10) APP_STATE.ruletaSemanal.historialGiros.pop();
 
@@ -2274,16 +2563,23 @@ function girarRuletaCompleta() {
         MonarcaDB.save(APP_STATE);
         renderizarRuletaSemanal();
 
-        alert("🎲 ¡GIRO COMPLETO DE VARIABILIDAD SEMANAL!\n\n🍲 Comida: " + winCom.nombre + "\n👔 Outfit: " + winVes.nombre + "\n🎵 Música: " + winMus.nombre + "\n\n+25 EXP por romper la monotonía.");
+        if (typeof mostrarToastMonarca === 'function') {
+            var msgMus = winMus ? (' · 🎵 ' + winMus.nombre) : '';
+            mostrarToastMonarca('Giro completo listo (+25 EXP)' + msgMus, '🎲');
+        }
     });
 }
 
 function abrirModalNuevaOpcionRuleta() {
+    if (CATEGORIA_RULETA_ACTIVA === 'musica') {
+        irACrearPlaylistDesdeRuleta(true);
+        return;
+    }
     var m = document.getElementById('modal-nueva-opcion-ruleta');
     if (!m) return;
     var lbl = document.getElementById('label-opcion-ruleta-tipo');
     if (lbl) {
-        var nomCat = CATEGORIA_RULETA_ACTIVA === 'comidas' ? 'Comida' : (CATEGORIA_RULETA_ACTIVA === 'vestimenta' ? 'Outfit' : 'Música');
+        var nomCat = CATEGORIA_RULETA_ACTIVA === 'comidas' ? 'Comida' : 'Outfit';
         lbl.innerText = "Nueva Opción para " + nomCat + ":";
     }
     m.style.display = 'flex';
@@ -2318,10 +2614,16 @@ function guardarNuevaOpcionRuleta() {
 
     cerrarModalNuevaOpcionRuleta();
     renderizarRuletaSemanal();
-    alert("🎲 Opción agregada a la ruleta exitosamente.");
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Opción agregada a la ruleta', '🎲');
+    }
 }
 
 function eliminarOpcionRuleta(categoria, id) {
+    if (categoria === 'musica') {
+        togglePlaylistEnRuleta(id);
+        return;
+    }
     if (!confirm("¿Deseas eliminar esta opción de la ruleta?")) return;
     var rs = APP_STATE.ruletaSemanal;
     if (!rs || !rs[categoria]) return;
