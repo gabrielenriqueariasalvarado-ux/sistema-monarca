@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.29)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.30)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.29
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.30
             Esta versión nativa incluye:
+            - 🎙️ **Monarca Voz · Jarvis IA Conectado a tu App IA + Micrófono Nativo Android (v11.30)**:
+              - **Conexión Total con tu App IA (Gemini)**: Todo lo que le preguntes a Jarvis por voz o texto (que no sea un comando directo de saldo/inventario/nota/navegación) ahora lo responde tu **App IA con Gemini** en streaming con Markdown, tablas, lectura en voz alta y **Contexto Monarca**, guardando cada turno automáticamente dentro de tus conversaciones de la App IA (sincronizadas en Firestore) con botón **`✦ Ver en App IA`**, **`📋 Copiar`**, **`📚 Guardar`** y **`＋ Nuevo`**.
+              - **Modo Dual (`⚡ Comandos + IA` | `✦ Solo IA`) + Dark Glass**: Cambia al vuelo entre modo híbrido o conversación pura con Gemini, con indicador de estado en vivo y rediseño completo en **Monarca Dark Glass** (adiós botones y tarjetas blancas heredadas).
+              - **Fix Nativo de Micrófono en Android APK (`MonarcaVoicePlugin` + `RECORD_AUDIO`)**: Se añade el permiso `android.permission.RECORD_AUDIO`, `<queries>` para `RecognitionService` en Android 11+ y el plugin nativo `MonarcaVoice` usando `SpeechRecognizer` del sistema — solucionando definitivamente `"Permiso de micrófono denegado"` tanto en **Jarvis Voz** como en el botón `🎤` de la **App IA**.
             - 🔌 **Fix Definitivo Conexión Gemini IA — Adiós `Failed to fetch` (v11.29)**: Corregido el error CORS que bloqueaba las llamadas desde navegador/WebView al enviar el encabezado `Api-Revision` (Google responde `403` al preflight `OPTIONS` si se incluye ese header, y el esquema `steps` ya es el predeterminado). Ahora la app envía únicamente `Content-Type` y `x-goog-api-key` (100% compatible con claves **`AQ...`** y **`AIza...`**), decodifica correctamente respuestas de error en formato arreglo JSON y elimina el recorte prematuro de tokens en la prueba de conexión.
             - 🤖 **Blindaje de Auto-PC contra Finalizaciones Prematuras (v11.29)**: Auto-PC ahora reconoce el indicador **`Working.`** / **`Thinking...`** en Antigravity 2.0 y consulta directamente el transcript local (`transcript.jsonl`) antes de marcar una solicitud como **Completada** — evitando marcar solicitudes como terminadas mientras Antigravity sigue editando archivos o pensando entre pasos.
             - 🧭 **Home: Centro de Mando Diario en Vivo (v11.28)**: La pantalla de inicio ahora integra una **barra rápida para preguntarle directo a tu IA** (escribe y envía sin pasos intermedios), **4 tarjetas interactivas en tiempo real** (*Quests hoy*, *Nivel & Fatiga*, *Agenda de hoy* con próxima actividad y *Asistente IA*), spotlight dinámico de tu **Palabra de la Semana** y tira de **accesos directos de 1 toque**; además se corrigió la insignia de versión fija del Menú Principal (antes mostraba `v7.6`) para sincronizarse siempre automáticamente.

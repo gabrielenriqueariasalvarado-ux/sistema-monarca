@@ -1,5 +1,5 @@
 {
-  "version": "11.29",
+  "version": "11.30",
   "fecha": "2026-11-25",
-  "resumen": "Fix Definitivo Conexión Gemini IA (CORS) + Blindaje Auto-PC contra Finalizaciones Prematuras (v11.29): Elimina el encabezado 'Api-Revision' que hacía fallar el preflight CORS de Google con 'Failed to fetch' desde navegador/WebView (dejando únicamente Content-Type y x-goog-api-key para que funcionen de inmediato las llaves AQ... y AIza...), corrige el decodificador de errores en arreglo JSON de Gemini y refuerza Auto-PC para detectar 'Working.' y verificar el transcript real de Antigravity antes de marcar una solicitud como completada."
+  "resumen": "Monarca Voz · Jarvis IA Conectado a tu App IA + Micrófono Nativo Android (v11.30): Ahora Monarca Voz (Jarvis) funciona directamente con tu App IA (Gemini): incluye selector de modo '⚡ Comandos + IA' y '✦ Solo IA', responde cualquier pregunta libre en streaming con Markdown y lectura por voz, guarda cada conversación automáticamente en tu App IA sincronizada en la nube (con botón '✦ Ver en App IA'), migra todo el panel de Jarvis a Dark Glass y añade permiso RECORD_AUDIO + plugin nativo Android MonarcaVoice para resolver 'Permiso de micrófono denegado' en el APK."
 }

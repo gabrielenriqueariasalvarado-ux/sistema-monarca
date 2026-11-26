@@ -1172,7 +1172,73 @@ function renderizarPreviewImagenAdjuntaIA() {
         '<button type="button" class="ia-attach-remove" onclick="quitarImagenAdjuntaIA()" title="Quitar imagen">&times;</button>';
 }
 
+var _IA_NATIVE_VOICE_HANDLES = null;
+
+function _obtenerPluginMonarcaVoiceIA() {
+    try {
+        if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+            var p = window.Capacitor.Plugins && window.Capacitor.Plugins.MonarcaVoice;
+            if (p && typeof p.startListening === 'function') return p;
+        }
+    } catch (e) {}
+    return null;
+}
+
 function toggleDictadoVozIA() {
+    var nativeVoice = _obtenerPluginMonarcaVoiceIA();
+    if (nativeVoice) {
+        if (IA_RUNTIME.dictando) {
+            try { nativeVoice.stopListening(); } catch (e0) {}
+            IA_RUNTIME.dictando = false;
+            _actualizarBtnMicIA();
+            return;
+        }
+        if (!_IA_NATIVE_VOICE_HANDLES && typeof nativeVoice.addListener === 'function') {
+            _IA_NATIVE_VOICE_HANDLES = true;
+            nativeVoice.addListener('voiceResult', function(ev) {
+                if (!IA_RUNTIME._esperandoDictadoNativo) return;
+                IA_RUNTIME._esperandoDictadoNativo = false;
+                IA_RUNTIME.dictando = false;
+                _actualizarBtnMicIA();
+                var txt = ev && ev.text ? String(ev.text).trim() : '';
+                var inputEl = document.getElementById('ia-composer-input');
+                if (inputEl && txt) {
+                    inputEl.value = (inputEl.value ? (inputEl.value.trim() + ' ') : '') + txt;
+                    autoAjustarAlturaComposerIA();
+                    inputEl.focus();
+                }
+            });
+            nativeVoice.addListener('voiceError', function(ev) {
+                if (!IA_RUNTIME._esperandoDictadoNativo) return;
+                IA_RUNTIME._esperandoDictadoNativo = false;
+                IA_RUNTIME.dictando = false;
+                _actualizarBtnMicIA();
+                if (typeof mostrarToastMonarca === 'function') {
+                    mostrarToastMonarca((ev && ev.message) || 'No se pudo capturar audio', '🎤');
+                }
+            });
+            nativeVoice.addListener('voiceState', function(ev) {
+                if (!IA_RUNTIME._esperandoDictadoNativo) return;
+                if (ev && ev.listening === false) {
+                    IA_RUNTIME.dictando = false;
+                    _actualizarBtnMicIA();
+                }
+            });
+        }
+        IA_RUNTIME._esperandoDictadoNativo = true;
+        IA_RUNTIME.dictando = true;
+        _actualizarBtnMicIA();
+        Promise.resolve(nativeVoice.startListening({ lang: 'es-ES' })).catch(function(err) {
+            IA_RUNTIME._esperandoDictadoNativo = false;
+            IA_RUNTIME.dictando = false;
+            _actualizarBtnMicIA();
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca((err && err.message) || 'Permiso de micrófono requerido', '🎤');
+            }
+        });
+        return;
+    }
+
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
         if (typeof mostrarToastMonarca === 'function') {
@@ -1828,6 +1894,181 @@ function _vincularEventosComposerIA() {
     });
 }
 
+// ==========================================================================
+// 9. PUENTE DE INTEGRACIÓN CON MONARCA VOZ · JARVIS (v11.30)
+// ==========================================================================
+
+function obtenerResumenEstadoIA() {
+    asegurarEstadoIA();
+    var apiKey = obtenerApiKeyGeminiIA();
+    var modInfo = obtenerInfoModeloIA(APP_STATE.iaConfig.modelo);
+    var totalChats = Array.isArray(APP_STATE.iaConversaciones) ? APP_STATE.iaConversaciones.filter(Boolean).length : 0;
+    return {
+        conectada: !!apiKey,
+        modeloId: modInfo.id,
+        modeloNombre: modInfo.nombre,
+        totalChats: totalChats
+    };
+}
+
+function obtenerOCrearConversacionJarvisIA(forzarNueva) {
+    asegurarEstadoIA();
+    var conv = null;
+    if (!forzarNueva && IA_RUNTIME.jarvisConvId) {
+        conv = APP_STATE.iaConversaciones.find(function(c) {
+            return c && String(c.id) === String(IA_RUNTIME.jarvisConvId);
+        }) || null;
+    }
+    if (!forzarNueva && !conv) {
+        conv = APP_STATE.iaConversaciones.find(function(c) {
+            return c && c.origen === 'jarvis';
+        }) || null;
+    }
+    if (!conv) {
+        var ahora = Date.now();
+        conv = {
+            id: 'IA-CONV-VOZ-' + ahora + '-' + Math.random().toString(36).slice(2, 5),
+            titulo: '🎙️ Jarvis · Voz IA',
+            origen: 'jarvis',
+            fijada: false,
+            modelo: APP_STATE.iaConfig.modelo || 'gemini-3.8-flash',
+            usarContextoMonarca: true,
+            creadaEn: ahora,
+            fechaActualizacion: ahora,
+            mensajes: []
+        };
+        APP_STATE.iaConversaciones.unshift(conv);
+    }
+    IA_RUNTIME.jarvisConvId = conv.id;
+    return conv;
+}
+
+async function enviarPreguntaDesdeJarvisIA(preguntaTexto, opts) {
+    opts = opts || {};
+    asegurarEstadoIA();
+    var texto = String(preguntaTexto || '').trim();
+    if (!texto) throw new Error('Pregunta vacía.');
+
+    var apiKey = obtenerApiKeyGeminiIA();
+    if (!apiKey) {
+        var errNoKey = new Error('NO_API_KEY');
+        errNoKey.code = 'NO_API_KEY';
+        throw errNoKey;
+    }
+
+    var conv = obtenerOCrearConversacionJarvisIA(!!opts.nuevaConversacion);
+    if (!Array.isArray(conv.mensajes)) conv.mensajes = [];
+    if (typeof opts.usarContextoMonarca === 'boolean') {
+        conv.usarContextoMonarca = opts.usarContextoMonarca;
+    }
+
+    var ahora = Date.now();
+    var esPrimerMsg = conv.mensajes.length === 0;
+    var msgUser = {
+        id: 'IAM-VU-' + ahora + '-' + Math.random().toString(36).slice(2, 5),
+        rol: 'user',
+        texto: texto,
+        ts: ahora
+    };
+    conv.mensajes.push(msgUser);
+
+    if (esPrimerMsg || conv.titulo === '🎙️ Jarvis · Voz IA') {
+        conv.titulo = '🎙️ ' + _generarTituloAutomaticoIA(texto);
+    }
+    var modeloUsado = APP_STATE.iaConfig.modelo || conv.modelo || 'gemini-3.8-flash';
+    conv.modelo = modeloUsado;
+    conv.fechaActualizacion = ahora;
+
+    var msgBot = {
+        id: 'IAM-VM-' + (ahora + 1) + '-' + Math.random().toString(36).slice(2, 5),
+        rol: 'model',
+        texto: '',
+        modelo: modeloUsado,
+        ts: ahora + 1,
+        streaming: true
+    };
+    conv.mensajes.push(msgBot);
+
+    IA_RUNTIME.convActivaId = conv.id;
+    try { localStorage.setItem(MONARCA_IA_ACTIVE_CONV_STORAGE, conv.id); } catch (e0) {}
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+
+    try {
+        var steps = construirStepsHistorialParaGemini(conv.mensajes.slice(0, -1), null);
+        var sysInst = construirSystemInstructionIA(conv) +
+            '\n\nEsta consulta proviene de Monarca Voz (Jarvis). Da una respuesta clara, directa y útil (si es posible, concisa y fácil de escuchar en voz alta sin perder precisión).';
+
+        var res = await llamarGeminiInteractionsStream(
+            {
+                apiKey: apiKey,
+                modelo: modeloUsado,
+                steps: steps,
+                systemInstruction: sysInst,
+                googleSearch: !!APP_STATE.iaConfig.googleSearch
+            },
+            function(delta, acumulado) {
+                msgBot.texto = acumulado;
+                if (typeof opts.onDelta === 'function') opts.onDelta(acumulado, conv.id, delta);
+            },
+            opts.abortSignal
+        );
+
+        msgBot.texto = (res && res.texto) ? res.texto : (msgBot.texto || '(Sin respuesta de texto del modelo)');
+        if (res && res.usage && res.usage.total_tokens) {
+            msgBot.tokens = res.usage.total_tokens;
+        }
+        delete msgBot.streaming;
+        delete msgBot.error;
+        conv.fechaActualizacion = Date.now();
+
+        if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+        var vistaIa = document.getElementById('vista-ia');
+        if (vistaIa && vistaIa.classList.contains('active')) renderizarVistaIA();
+        if (typeof window.renderizarPulsoDiarioHome === 'function') window.renderizarPulsoDiarioHome();
+
+        return {
+            texto: msgBot.texto,
+            convId: conv.id,
+            msgId: msgBot.id,
+            modeloId: modeloUsado,
+            modeloNombre: obtenerInfoModeloIA(modeloUsado).nombre,
+            usage: (res && res.usage) || null
+        };
+    } catch (err) {
+        delete msgBot.streaming;
+        if (err && err.name === 'AbortError') {
+            if (!msgBot.texto) {
+                msgBot.texto = '_Generación detenida desde Jarvis._';
+            }
+        } else {
+            msgBot.error = true;
+            msgBot.texto = (err && err.message) ? err.message : '⚠️ No se pudo conectar con Gemini IA.';
+        }
+        conv.fechaActualizacion = Date.now();
+        if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+        var vistaIaErr = document.getElementById('vista-ia');
+        if (vistaIaErr && vistaIaErr.classList.contains('active')) renderizarVistaIA();
+        throw err;
+    }
+}
+
+function abrirConversacionIAEnApp(convId) {
+    if (typeof window.cerrarModalJarvisVoz === 'function') {
+        window.cerrarModalJarvisVoz();
+    }
+    if (convId) {
+        IA_RUNTIME.convActivaId = String(convId);
+        try { localStorage.setItem(MONARCA_IA_ACTIVE_CONV_STORAGE, String(convId)); } catch (e) {}
+    }
+    if (typeof window.cambiarVista === 'function') {
+        window.cambiarVista('vista-ia');
+    }
+    setTimeout(function() {
+        renderizarVistaIA();
+        _scrollChatAlFinalIA(true);
+    }, 60);
+}
+
 // Exponer funciones al ámbito global
 if (typeof window !== 'undefined') {
     window.cargarVistaIA = cargarVistaIA;
@@ -1865,5 +2106,9 @@ if (typeof window !== 'undefined') {
     window.obtenerApiKeyGeminiIA = obtenerApiKeyGeminiIA;
     window.guardarApiKeyGeminiIA = guardarApiKeyGeminiIA;
     window.renderizarMarkdownSeguroIA = renderizarMarkdownSeguroIA;
+    window.obtenerResumenEstadoIA = obtenerResumenEstadoIA;
+    window.obtenerOCrearConversacionJarvisIA = obtenerOCrearConversacionJarvisIA;
+    window.enviarPreguntaDesdeJarvisIA = enviarPreguntaDesdeJarvisIA;
+    window.abrirConversacionIAEnApp = abrirConversacionIAEnApp;
     window.IA_RUNTIME = IA_RUNTIME;
 }

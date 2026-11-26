@@ -3291,7 +3291,250 @@ public class MonarcaLocalBridgePlugin extends Plugin {
 
 
 # ------------------------------------------------------------------------------
-# 7. MainActivity.java: Registra MonarcaAlarm, MonarcaMedia y MonarcaLocalBridge
+# 6B. MonarcaVoicePlugin.java: Reconocimiento de voz nativo Android (RECORD_AUDIO)
+#     para Jarvis Voz IA y dictado de voz en la App IA sin bloqueos de WebView
+# ------------------------------------------------------------------------------
+write_java('MonarcaVoicePlugin.java', '''
+package com.monarca.app;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import androidx.core.content.ContextCompat;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import java.util.ArrayList;
+
+@CapacitorPlugin(
+    name = "MonarcaVoice",
+    permissions = {
+        @Permission(
+            alias = "microphone",
+            strings = { Manifest.permission.RECORD_AUDIO }
+        )
+    }
+)
+public class MonarcaVoicePlugin extends Plugin {
+    private SpeechRecognizer speechRecognizer;
+    private boolean isListening = false;
+
+    private boolean isMicGranted() {
+        Context ctx = getContext();
+        return ctx != null && ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void destroyRecognizerOnUi() {
+        if (speechRecognizer != null) {
+            try { speechRecognizer.stopListening(); } catch (Exception ignored) {}
+            try { speechRecognizer.cancel(); } catch (Exception ignored) {}
+            try { speechRecognizer.destroy(); } catch (Exception ignored) {}
+            speechRecognizer = null;
+        }
+        isListening = false;
+    }
+
+    private String mapSpeechError(int error) {
+        switch (error) {
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
+                return "Permiso de micrófono denegado. Actívalo en Ajustes > Aplicaciones > Emily > Permisos.";
+            case SpeechRecognizer.ERROR_NO_MATCH:
+                return "No se entendió voz clara. Toca el micrófono e intenta de nuevo.";
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+                return "No se detectó voz. Toca el micrófono para intentarlo de nuevo.";
+            case SpeechRecognizer.ERROR_NETWORK:
+            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
+                return "Error de red en el reconocimiento de voz.";
+            case SpeechRecognizer.ERROR_AUDIO:
+                return "Error al capturar el audio del micrófono.";
+            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
+                return "El micrófono está ocupado. Espera un segundo e intenta de nuevo.";
+            default:
+                return "No se pudo escuchar el micrófono (código " + error + ").";
+        }
+    }
+
+    private void beginListeningInternal(PluginCall call) {
+        Activity act = getActivity();
+        Context ctx = getContext();
+        if (act == null || ctx == null) {
+            call.reject("Actividad no disponible.");
+            return;
+        }
+        final String lang = call.getString("lang", "es-ES");
+
+        act.runOnUiThread(() -> {
+            try {
+                if (!SpeechRecognizer.isRecognitionAvailable(ctx)) {
+                    JSObject err = new JSObject();
+                    err.put("code", -1);
+                    err.put("message", "Servicio de reconocimiento de voz no disponible en este teléfono. Puedes escribir tu pregunta abajo.");
+                    notifyListeners("voiceError", err);
+                    JSObject res = new JSObject();
+                    res.put("started", false);
+                    call.resolve(res);
+                    return;
+                }
+
+                destroyRecognizerOnUi();
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(ctx);
+                speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                    @Override
+                    public void onReadyForSpeech(Bundle params) {
+                        isListening = true;
+                        JSObject st = new JSObject();
+                        st.put("listening", true);
+                        st.put("state", "ready");
+                        notifyListeners("voiceState", st);
+                    }
+
+                    @Override public void onBeginningOfSpeech() {}
+                    @Override public void onRmsChanged(float rmsdB) {}
+                    @Override public void onBufferReceived(byte[] buffer) {}
+
+                    @Override
+                    public void onEndOfSpeech() {
+                        isListening = false;
+                    }
+
+                    @Override
+                    public void onError(int error) {
+                        isListening = false;
+                        JSObject err = new JSObject();
+                        err.put("code", error);
+                        err.put("message", mapSpeechError(error));
+                        notifyListeners("voiceError", err);
+
+                        JSObject st = new JSObject();
+                        st.put("listening", false);
+                        st.put("state", "error");
+                        notifyListeners("voiceState", st);
+                    }
+
+                    @Override
+                    public void onResults(Bundle results) {
+                        isListening = false;
+                        String text = "";
+                        if (results != null) {
+                            ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                            if (matches != null && !matches.isEmpty() && matches.get(0) != null) {
+                                text = matches.get(0).trim();
+                            }
+                        }
+                        JSObject resObj = new JSObject();
+                        resObj.put("text", text);
+                        notifyListeners("voiceResult", resObj);
+
+                        JSObject st = new JSObject();
+                        st.put("listening", false);
+                        st.put("state", "done");
+                        notifyListeners("voiceState", st);
+                    }
+
+                    @Override
+                    public void onPartialResults(Bundle partialResults) {
+                        if (partialResults == null) return;
+                        ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        if (matches != null && !matches.isEmpty() && matches.get(0) != null) {
+                            String txt = matches.get(0).trim();
+                            if (!txt.isEmpty()) {
+                                JSObject part = new JSObject();
+                                part.put("text", txt);
+                                notifyListeners("voicePartial", part);
+                            }
+                        }
+                    }
+
+                    @Override public void onEvent(int eventType, Bundle params) {}
+                });
+
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, lang);
+                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+
+                isListening = true;
+                speechRecognizer.startListening(intent);
+
+                JSObject res = new JSObject();
+                res.put("started", true);
+                call.resolve(res);
+            } catch (Exception e) {
+                isListening = false;
+                JSObject err = new JSObject();
+                err.put("code", -2);
+                err.put("message", e.getMessage() != null ? e.getMessage() : "Error al iniciar el micrófono.");
+                notifyListeners("voiceError", err);
+                call.reject(e.getMessage() != null ? e.getMessage() : "Error al iniciar reconocimiento");
+            }
+        });
+    }
+
+    @PluginMethod
+    public void startListening(PluginCall call) {
+        if (!isMicGranted()) {
+            requestPermissionForAlias("microphone", call, "micPermsCallback");
+            return;
+        }
+        beginListeningInternal(call);
+    }
+
+    @PermissionCallback
+    private void micPermsCallback(PluginCall call) {
+        if (!isMicGranted()) {
+            JSObject err = new JSObject();
+            err.put("code", SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS);
+            err.put("message", "Permiso de micrófono denegado. Permite el micrófono a Emily en Ajustes para hablar con Jarvis IA.");
+            notifyListeners("voiceError", err);
+            call.reject("Permiso de micrófono denegado.");
+            return;
+        }
+        beginListeningInternal(call);
+    }
+
+    @PluginMethod
+    public void stopListening(PluginCall call) {
+        Activity act = getActivity();
+        if (act != null) {
+            act.runOnUiThread(() -> {
+                destroyRecognizerOnUi();
+                JSObject st = new JSObject();
+                st.put("listening", false);
+                st.put("state", "stopped");
+                notifyListeners("voiceState", st);
+            });
+        }
+        JSObject res = new JSObject();
+        res.put("stopped", true);
+        call.resolve(res);
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        Activity act = getActivity();
+        if (act != null) {
+            act.runOnUiThread(this::destroyRecognizerOnUi);
+        }
+        super.handleOnDestroy();
+    }
+}
+''')
+
+
+# ------------------------------------------------------------------------------
+# 7. MainActivity.java: Registra MonarcaAlarm, MonarcaMedia, MonarcaLocalBridge y MonarcaVoice
 # ------------------------------------------------------------------------------
 write_java('MainActivity.java', '''
 package com.monarca.app;
@@ -3308,6 +3551,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MonarcaAlarmPlugin.class);
         registerPlugin(MonarcaMediaPlugin.class);
         registerPlugin(MonarcaLocalBridgePlugin.class);
+        registerPlugin(MonarcaVoicePlugin.class);
         super.onCreate(savedInstanceState);
         handleAlarmIntent(getIntent());
     }
@@ -3363,7 +3607,7 @@ public class MainActivity extends BridgeActivity {
 
 
 # ------------------------------------------------------------------------------
-# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Wi-Fi LAN, Alarma)
+# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Micrófono, Wi-Fi LAN, Alarma)
 # ------------------------------------------------------------------------------
 manifest_path = 'android/app/src/main/AndroidManifest.xml'
 if os.path.exists(manifest_path):
@@ -3392,6 +3636,8 @@ if os.path.exists(manifest_path):
         'android.permission.READ_MEDIA_AUDIO',
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.CAMERA',
+        'android.permission.RECORD_AUDIO',
+        'android.permission.MODIFY_AUDIO_SETTINGS',
     ]
 
     perms_to_add = []
@@ -3404,6 +3650,20 @@ if os.path.exists(manifest_path):
 
     if 'android.hardware.camera' not in content:
         perms_to_add.append('    <uses-feature android:name="android.hardware.camera" android:required="false" />')
+
+    if 'android.hardware.microphone' not in content:
+        perms_to_add.append('    <uses-feature android:name="android.hardware.microphone" android:required="false" />')
+
+    if 'android.speech.RecognitionService' not in content:
+        perms_to_add.append(textwrap.dedent('''
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>''').strip('\n'))
 
     if perms_to_add:
         content = content.replace('</manifest>', '\n'.join(perms_to_add) + '\n</manifest>')
