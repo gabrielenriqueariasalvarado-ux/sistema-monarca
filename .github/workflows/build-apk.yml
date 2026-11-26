@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.34)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.35)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.34
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.35
             Esta versión nativa incluye:
+            - 🎵 **Reproducción Continua Blindada en Segundo Plano y Manejo (v11.35)**:
+              - **Cero Congelamiento al Terminar Canción (`03:19 / 03:19`)**: Mantiene `MediaSession` activa durante la transición entre pistas sin emitir `'paused'` falsos al finalizar una canción, pre-carga la siguiente canción de forma instantánea y activa un watchdog para garantizar el avance automático.
+              - **Protección Nativa contra Doze / Pantalla Apagada (`MonarcaMediaPlugin` + `MainActivity`)**: Integra `PowerManager.PARTIAL_WAKE_LOCK` mientras suena la música, prioridad continua del renderizador WebView (`RENDERER_PRIORITY_IMPORTANT`), caché rotativa segura y desbloqueo de reproducción programática entre pistas.
+              - **Auto-Reanudación al Manejar & Auto-Salto Resiliente**: Monitor pasivo (`AudioPlaybackCallback` + `estadoAudioSistema`) que reanuda automáticamente la música al finalizar indicaciones de GPS (Maps/Waze), notificaciones o llamadas sin robar foco a otras apps de música ni desactivar la pausa de seguridad al desconectar audífonos/Bluetooth; además reintenta y salta pistas corruptas también fuera de rutinas.
             - 🔐 **Centro Unificado de Permisos al Primer Ingreso (v11.34)**:
               - **Onboarding Automático de Permisos**: Justo al instalar e ingresar por primera vez en Emily aparece el panel Dark Glass con todos los permisos del dispositivo (**Notificaciones y Alertas**, **Música y Audio**, **Almacenamiento y Galería**, **Cámara**, **Ubicación** y **Micrófono**).
               - **1 Toque o Individuales (`MonarcaPermissionsPlugin`)**: Concede cada permiso por separado o pulsa **Aceptar Todos los Permisos** para responder los diálogos nativos del sistema en secuencia, con acceso rápido en **Perfil → Permisos del Dispositivo** y actualización instantánea de tu biblioteca SnapTube al conceder Audio.

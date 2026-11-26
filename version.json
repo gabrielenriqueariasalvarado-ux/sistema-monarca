@@ -1,5 +1,5 @@
 {
-  "version": "11.34",
+  "version": "11.35",
   "fecha": "2026-11-26",
-  "resumen": "Centro Unificado de Permisos al Primer Ingreso (v11.34): Al instalar e ingresar por primera vez en Emily aparece automáticamente la ventana Dark Glass con todos los permisos del dispositivo (Notificaciones, Música/Audio, Almacenamiento y Galería, Cámara, Ubicación y Micrófono) listos para conceder uno a uno o con 1 toque (Aceptar Todos), integrado nativamente en Android con MonarcaPermissionsPlugin y accesible en cualquier momento desde Perfil."
+  "resumen": "Reproducción Continua Blindada en Segundo Plano y Manejo (v11.35): Corrige el congelamiento al terminar canciones (03:19/03:19), mantiene MediaSession activa durante las transiciones entre pistas, pre-carga la siguiente canción para saltos sin cortes, salta automáticamente archivos dañados fuera de rutinas, añade WakeLock + prioridad continua de WebView en Android y reanuda automáticamente la música tras avisos de GPS/notificaciones sin perder la pausa de seguridad al desconectar audífonos."
 }

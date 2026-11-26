@@ -2110,6 +2110,7 @@ write_java('MonarcaMediaPlugin.java', '''
 package com.monarca.app;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -2120,9 +2121,11 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -2130,6 +2133,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
@@ -2151,6 +2155,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -2175,10 +2180,17 @@ import org.json.JSONObject;
 )
 public class MonarcaMediaPlugin extends Plugin {
     private static final ConcurrentHashMap<String, Boolean> noArtCache = new ConcurrentHashMap<>();
+    private final Object wakeLockSync = new Object();
+    private PowerManager.WakeLock playbackWakeLock = null;
+    private volatile boolean playbackModeActive = false;
     private Context registeredAudioCtx = null;
     private BroadcastReceiver noisyAudioReceiver = null;
     private AudioDeviceCallback audioDeviceCallback = null;
-    private long lastNoisyEmitMs = 0L;
+    private Object audioPlaybackCallbackObj = null;
+    private Handler audioMonitorHandler = null;
+    private volatile boolean transientInterruptionActive = false;
+    private volatile long lastNoisyEmitMs = 0L;
+    private volatile long lastInterruptionEndedEmitMs = 0L;
 
     @Override
     public void load() {
@@ -2188,8 +2200,71 @@ public class MonarcaMediaPlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
+        releasePlaybackWakeLock();
+        applyWebViewBackgroundPolicy(false);
         desregistrarMonitorSalidaAudio();
         super.handleOnDestroy();
+    }
+
+    private void acquireOrRefreshWakeLock() {
+        try {
+            Context baseCtx = getContext();
+            if (baseCtx == null) return;
+            Context appCtx = baseCtx.getApplicationContext();
+            if (appCtx == null) appCtx = baseCtx;
+            PowerManager pm = (PowerManager) appCtx.getSystemService(Context.POWER_SERVICE);
+            if (pm == null) return;
+            synchronized (wakeLockSync) {
+                if (playbackWakeLock == null) {
+                    playbackWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Monarca:MusicPlaybackLock");
+                    playbackWakeLock.setReferenceCounted(false);
+                }
+                playbackWakeLock.acquire(4L * 60L * 60L * 1000L);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void releasePlaybackWakeLock() {
+        try {
+            synchronized (wakeLockSync) {
+                if (playbackWakeLock != null && playbackWakeLock.isHeld()) {
+                    playbackWakeLock.release();
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void applyWebViewBackgroundPolicy(final boolean active) {
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                final WebView wv = getBridge().getWebView();
+                wv.post(() -> {
+                    try {
+                        if (active) {
+                            wv.resumeTimers();
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            wv.setRendererPriorityPolicy(
+                                active ? WebView.RENDERER_PRIORITY_IMPORTANT : WebView.RENDERER_PRIORITY_BOUND,
+                                !active
+                            );
+                        }
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private boolean isCommunicationOrCallMode(AudioManager am) {
+        if (am == null) return false;
+        try {
+            int mode = am.getMode();
+            return mode == AudioManager.MODE_IN_CALL
+                || mode == AudioManager.MODE_IN_COMMUNICATION
+                || mode == AudioManager.MODE_RINGTONE;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private boolean isExternalMediaOutputDevice(AudioDeviceInfo dev) {
@@ -2252,6 +2327,73 @@ public class MonarcaMediaPlugin extends Plugin {
         return "";
     }
 
+    @SuppressLint("NewApi")
+    private JSObject inspectAudioPlaybackSnapshot(AudioManager am, List<AudioPlaybackConfiguration> overrideConfigs) {
+        JSObject snap = new JSObject();
+        boolean inCall = isCommunicationOrCallMode(am);
+        boolean hasTransient = inCall;
+        boolean hasMedia = false;
+        boolean hasExt = hasExternalMediaOutput(am);
+        boolean isMusic = false;
+        try {
+            if (am != null) isMusic = am.isMusicActive();
+        } catch (Exception ignored) {}
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && am != null) {
+            try {
+                List<AudioPlaybackConfiguration> configs = overrideConfigs != null ? overrideConfigs : am.getActivePlaybackConfigurations();
+                if (configs != null) {
+                    for (AudioPlaybackConfiguration cfg : configs) {
+                        if (cfg == null) continue;
+                        AudioAttributes attrs = cfg.getAudioAttributes();
+                        if (attrs == null) continue;
+                        int usage = attrs.getUsage();
+                        if (usage == AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+                            || usage == AudioAttributes.USAGE_ASSISTANT
+                            || usage == AudioAttributes.USAGE_NOTIFICATION
+                            || usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE
+                            || usage == AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT
+                            || usage == AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED
+                            || usage == AudioAttributes.USAGE_NOTIFICATION_EVENT
+                            || usage == AudioAttributes.USAGE_VOICE_COMMUNICATION
+                            || usage == AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING
+                            || usage == AudioAttributes.USAGE_ALARM) {
+                            hasTransient = true;
+                        } else if (usage == AudioAttributes.USAGE_MEDIA || usage == AudioAttributes.USAGE_GAME) {
+                            hasMedia = true;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        snap.put("inCall", inCall);
+        snap.put("hasTransientAudio", hasTransient);
+        snap.put("hasMediaAudio", hasMedia);
+        snap.put("hasExternalOutput", hasExt);
+        snap.put("externalDeviceName", getFirstExternalMediaOutputName(am));
+        snap.put("isMusicActive", isMusic);
+        snap.put("recentlyBecomesNoisy", (System.currentTimeMillis() - lastNoisyEmitMs) < 2500L);
+        return snap;
+    }
+
+    private void emitAudioInterruptionEnded() {
+        long now = System.currentTimeMillis();
+        synchronized (this) {
+            if (now - lastInterruptionEndedEmitMs < 400L) {
+                return;
+            }
+            lastInterruptionEndedEmitMs = now;
+        }
+        try {
+            Context ctx = getContext();
+            AudioManager am = ctx != null ? (AudioManager) ctx.getApplicationContext().getSystemService(Context.AUDIO_SERVICE) : null;
+            JSObject payload = inspectAudioPlaybackSnapshot(am, null);
+            payload.put("timestamp", now);
+            notifyListeners("audioInterruptionEnded", payload);
+        } catch (Exception ignored) {}
+    }
+
     private void registrarMonitorSalidaAudio() {
         desregistrarMonitorSalidaAudio();
         try {
@@ -2260,6 +2402,9 @@ public class MonarcaMediaPlugin extends Plugin {
             Context appCtx = baseCtx.getApplicationContext();
             if (appCtx == null) appCtx = baseCtx;
             registeredAudioCtx = appCtx;
+            if (audioMonitorHandler == null) {
+                audioMonitorHandler = new Handler(Looper.getMainLooper());
+            }
 
             final AudioManager am = (AudioManager) appCtx.getSystemService(Context.AUDIO_SERVICE);
 
@@ -2307,13 +2452,48 @@ public class MonarcaMediaPlugin extends Plugin {
                                 } catch (Exception ignored) {}
                             }
                         }
-                        if (removedExternal && !hasExternalMediaOutput(am)) {
+                        if (removedExternal && !hasExternalMediaOutput(am) && !isCommunicationOrCallMode(am)) {
                             emitAudioBecomingNoisy("audio_device_removed", removedName);
                         }
                     }
                 };
-                am.registerAudioDeviceCallback(audioDeviceCallback, new Handler(Looper.getMainLooper()));
+                am.registerAudioDeviceCallback(audioDeviceCallback, audioMonitorHandler);
             }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && am != null) {
+                registerAudioPlaybackMonitorOreo(am);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @SuppressLint("NewApi")
+    private void registerAudioPlaybackMonitorOreo(final AudioManager am) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || am == null) return;
+        try {
+            AudioManager.AudioPlaybackCallback cb = new AudioManager.AudioPlaybackCallback() {
+                @Override
+                public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+                    JSObject snap = inspectAudioPlaybackSnapshot(am, configs);
+                    boolean transientNow = snap.optBoolean("hasTransientAudio", false);
+                    if (transientNow) {
+                        transientInterruptionActive = true;
+                    } else if (transientInterruptionActive) {
+                        transientInterruptionActive = false;
+                        if (audioMonitorHandler != null) {
+                            audioMonitorHandler.postDelayed(() -> {
+                                JSObject checkSnap = inspectAudioPlaybackSnapshot(am, null);
+                                if (!checkSnap.optBoolean("hasTransientAudio", false)
+                                    && !checkSnap.optBoolean("inCall", false)
+                                    && !checkSnap.optBoolean("recentlyBecomesNoisy", false)) {
+                                    emitAudioInterruptionEnded();
+                                }
+                            }, 350L);
+                        }
+                    }
+                }
+            };
+            audioPlaybackCallbackObj = cb;
+            am.registerAudioPlaybackCallback(cb, audioMonitorHandler);
         } catch (Exception ignored) {}
     }
 
@@ -2334,6 +2514,17 @@ public class MonarcaMediaPlugin extends Plugin {
             }
         } catch (Exception ignored) {}
         audioDeviceCallback = null;
+
+        try {
+            if (registeredAudioCtx != null && audioPlaybackCallbackObj != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioManager am = (AudioManager) registeredAudioCtx.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) {
+                    am.unregisterAudioPlaybackCallback((AudioManager.AudioPlaybackCallback) audioPlaybackCallbackObj);
+                }
+            }
+        } catch (Exception ignored) {}
+        audioPlaybackCallbackObj = null;
+        transientInterruptionActive = false;
         registeredAudioCtx = null;
     }
 
@@ -2345,6 +2536,10 @@ public class MonarcaMediaPlugin extends Plugin {
             }
             lastNoisyEmitMs = now;
         }
+
+        playbackModeActive = false;
+        releasePlaybackWakeLock();
+        applyWebViewBackgroundPolicy(false);
 
         final String safeReason = reason != null ? reason : "becoming_noisy";
         final String safeName = deviceName != null ? deviceName.trim() : "";
@@ -2370,6 +2565,44 @@ public class MonarcaMediaPlugin extends Plugin {
                 });
             }
         } catch (Exception ignored) {}
+    }
+
+    @PluginMethod
+    public void setModoReproduccionActiva(PluginCall call) {
+        boolean activo = Boolean.TRUE.equals(call.getBoolean("activo", false));
+        playbackModeActive = activo;
+        if (activo) {
+            acquireOrRefreshWakeLock();
+            applyWebViewBackgroundPolicy(true);
+        } else {
+            releasePlaybackWakeLock();
+            applyWebViewBackgroundPolicy(false);
+        }
+        JSObject res = new JSObject();
+        res.put("activo", activo);
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void estadoAudioSistema(PluginCall call) {
+        try {
+            Context ctx = getContext();
+            AudioManager am = ctx != null
+                ? (AudioManager) ctx.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)
+                : null;
+            JSObject snap = inspectAudioPlaybackSnapshot(am, null);
+            snap.put("playbackModeActive", playbackModeActive);
+            call.resolve(snap);
+        } catch (Exception e) {
+            JSObject fallback = new JSObject();
+            fallback.put("inCall", false);
+            fallback.put("hasTransientAudio", false);
+            fallback.put("hasMediaAudio", false);
+            fallback.put("hasExternalOutput", false);
+            fallback.put("isMusicActive", false);
+            fallback.put("recentlyBecomesNoisy", false);
+            call.resolve(fallback);
+        }
     }
 
     @PluginMethod
@@ -2748,6 +2981,28 @@ public class MonarcaMediaPlugin extends Plugin {
         });
     }
 
+    private void cleanupOldPlaybackCacheFiles(File cacheDir, String keepName, int maxKeep) {
+        try {
+            if (cacheDir == null || !cacheDir.exists()) return;
+            File[] files = cacheDir.listFiles((dir, name) -> name != null && name.startsWith("playback_"));
+            if (files == null || files.length <= maxKeep) return;
+            Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+            int kept = 0;
+            for (File f : files) {
+                if (f == null) continue;
+                if (keepName != null && keepName.equals(f.getName())) {
+                    kept++;
+                    continue;
+                }
+                if (kept < maxKeep) {
+                    kept++;
+                } else {
+                    try { f.delete(); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     @PluginMethod
     public void prepararAudioReproduccion(PluginCall call) {
         String ruta = safeStr(call.getString("ruta", ""));
@@ -2773,8 +3028,15 @@ public class MonarcaMediaPlugin extends Plugin {
                 }
 
                 String ext = getExtensionOrDefault(archivo, "mp3");
-                File outFile = new File(getContext().getCacheDir(), "current_playback_track." + ext);
-                copyContentUriToFile(Uri.parse(contentUriStr), outFile);
+                String cacheKey = Integer.toHexString((contentUriStr + "|" + archivo).hashCode());
+                File cacheDir = getContext().getCacheDir();
+                File outFile = new File(cacheDir, "playback_" + cacheKey + "." + ext);
+                if (!outFile.exists() || outFile.length() == 0) {
+                    copyContentUriToFile(Uri.parse(contentUriStr), outFile);
+                    cleanupOldPlaybackCacheFiles(cacheDir, outFile.getName(), 4);
+                } else {
+                    try { outFile.setLastModified(System.currentTimeMillis()); } catch (Exception ignored) {}
+                }
 
                 if (outFile.exists() && outFile.length() > 0) {
                     JSObject res = new JSObject();
@@ -3929,6 +4191,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -3940,6 +4204,15 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MonarcaVoicePlugin.class);
         registerPlugin(MonarcaPermissionsPlugin.class);
         super.onCreate(savedInstanceState);
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                WebView wv = getBridge().getWebView();
+                WebSettings ws = wv.getSettings();
+                if (ws != null) {
+                    ws.setMediaPlaybackRequiresUserGesture(false);
+                }
+            }
+        } catch (Exception ignored) {}
         handleAlarmIntent(getIntent());
     }
 

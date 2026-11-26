@@ -61,6 +61,23 @@
         _lastAutoScanTs: 0,
         _playSeqId: 0,
         _cargandoPlay: false,
+        _transicionandoCancion: false,
+        _endHandledSeqId: 0,
+        _errorHandledSeqId: 0,
+        _usandoUrlCacheadaEnSeq: 0,
+        _pausaManualUsuario: false,
+        _pausadoPorDesconexion: false,
+        _esperandoReanudarPorInterrupcion: false,
+        _interrupcionTs: 0,
+        _interrupcionCheckTimerId: null,
+        _interrupcionPollTimerId: null,
+        _interrupcionListenerRegistered: false,
+        _consecPlayErrors: 0,
+        _playWatchdogIntervalId: null,
+        _nextPreselectedShuffle: null,
+        _preparedUrlCache: {},
+        _preparedBlobCache: null,
+        _preparingNextIds: {},
         _cancelarCargaPorDesconexionSeq: -1,
         _lastNoisyPauseTs: 0,
         _noisyListenerRegistered: false,
@@ -599,9 +616,53 @@
         }
     }
 
-    function prepararUrlReproduccion(meta) {
-        if (!meta) return Promise.reject(new Error('Sin pista'));
+    function _limpiarCacheUrlCancion(songId) {
+        if (!songId) return;
+        if (state._preparedUrlCache && state._preparedUrlCache[songId]) {
+            delete state._preparedUrlCache[songId];
+        }
+        if (state._preparedBlobCache && state._preparedBlobCache.songId === songId) {
+            if (state._preparedBlobCache.src && state._preparedBlobCache.src !== state.blobUrlActual) {
+                try { URL.revokeObjectURL(state._preparedBlobCache.src); } catch (e) {}
+            }
+            state._preparedBlobCache = null;
+        }
+    }
+
+    function _obtenerPrepSincronoSiListo(meta) {
+        if (!meta || !meta.id) return null;
         if (meta.origen === 'mediastore') {
+            var entry = state._preparedUrlCache && state._preparedUrlCache[meta.id];
+            if (entry && entry.src) {
+                return { src: entry.src, esBlobUrl: false, esNativo: true, fromPreCache: true };
+            }
+            return null;
+        }
+        if (state._preparedBlobCache && state._preparedBlobCache.songId === meta.id && state._preparedBlobCache.src) {
+            var consumed = {
+                src: state._preparedBlobCache.src,
+                esBlobUrl: true,
+                esNativo: false,
+                fromPreCache: true
+            };
+            state._preparedBlobCache = null;
+            return consumed;
+        }
+        return null;
+    }
+
+    function prepararUrlReproduccion(meta, bypassCache) {
+        if (!meta) return Promise.reject(new Error('Sin pista'));
+        if (bypassCache && meta.id) {
+            _limpiarCacheUrlCancion(meta.id);
+        }
+        if (meta.origen === 'mediastore') {
+            if (!bypassCache && meta.id && state._preparedUrlCache && state._preparedUrlCache[meta.id]) {
+                var cached = state._preparedUrlCache[meta.id];
+                if (cached && cached.src) {
+                    return Promise.resolve({ src: cached.src, esBlobUrl: false, esNativo: true, fromPreCache: true });
+                }
+            }
             var plugin = obtenerPluginMonarcaMedia();
             if (plugin && typeof plugin.prepararAudioReproduccion === 'function') {
                 return plugin.prepararAudioReproduccion({
@@ -611,13 +672,26 @@
                 }).then(function(res) {
                     var url = convertirArchivoAWebUrl(res && res.filePath ? res.filePath : meta.ruta);
                     if (!url) throw new Error('Ruta nativa vacía');
+                    if (meta.id && state._preparedUrlCache) {
+                        state._preparedUrlCache[meta.id] = { src: url, esBlobUrl: false, esNativo: true, ts: Date.now() };
+                    }
                     return { src: url, esBlobUrl: false, esNativo: true };
                 });
             }
             if (meta.ruta) {
-                return Promise.resolve({ src: convertirArchivoAWebUrl(meta.ruta), esBlobUrl: false, esNativo: true });
+                var directUrl = convertirArchivoAWebUrl(meta.ruta);
+                if (meta.id && directUrl && state._preparedUrlCache) {
+                    state._preparedUrlCache[meta.id] = { src: directUrl, esBlobUrl: false, esNativo: true, ts: Date.now() };
+                }
+                return Promise.resolve({ src: directUrl, esBlobUrl: false, esNativo: true });
             }
             return Promise.reject(new Error('Plugin nativo no disponible'));
+        }
+
+        if (!bypassCache && state._preparedBlobCache && state._preparedBlobCache.songId === meta.id && state._preparedBlobCache.src) {
+            var preBlob = state._preparedBlobCache.src;
+            state._preparedBlobCache = null;
+            return Promise.resolve({ src: preBlob, esBlobUrl: true, esNativo: false, fromPreCache: true });
         }
 
         return abrirDB().then(function(db) {
@@ -1915,12 +1989,486 @@
         intentarSeek();
     }
 
+    function _sincronizarModoActivoNativo(activo) {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.setModoReproduccionActiva !== 'function') return;
+        try {
+            var p = plugin.setModoReproduccionActiva({ activo: !!activo });
+            if (p && typeof p.catch === 'function') p.catch(function() {});
+        } catch (e) {}
+    }
+
+    function _cancelarEsperaInterrupcion() {
+        state._esperandoReanudarPorInterrupcion = false;
+        if (state._interrupcionCheckTimerId) {
+            clearTimeout(state._interrupcionCheckTimerId);
+            state._interrupcionCheckTimerId = null;
+        }
+        if (state._interrupcionPollTimerId) {
+            clearTimeout(state._interrupcionPollTimerId);
+            state._interrupcionPollTimerId = null;
+        }
+    }
+
+    function _intentarReanudarTrasInterrupcion() {
+        if (!state._esperandoReanudarPorInterrupcion) return;
+        if (state._pausaManualUsuario || state._pausadoPorDesconexion || !state.cancionActual) {
+            _cancelarEsperaInterrupcion();
+            return;
+        }
+        _cancelarEsperaInterrupcion();
+        var dur = (state.audio && state.audio.duration) || 0;
+        var cur = (state.audio && state.audio.currentTime) || 0;
+        if (state.audio && (state.audio.ended || (dur > 0 && cur >= dur - 0.25))) {
+            _manejarFinCancion('resume_at_end');
+            return;
+        }
+        reproducirActual();
+    }
+
+    function _consultarYActuarSobreInterrupcion() {
+        state._interrupcionPollTimerId = null;
+        if (!state._esperandoReanudarPorInterrupcion || state._pausaManualUsuario || state._pausadoPorDesconexion || !state.cancionActual) {
+            _cancelarEsperaInterrupcion();
+            return;
+        }
+        if (state.audio && !state.audio.paused) {
+            _cancelarEsperaInterrupcion();
+            state.reproduciendo = true;
+            _sincronizarModoActivoNativo(true);
+            actualizarUIPlayerCompleto();
+            actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
+            actualizarMediaSession();
+            return;
+        }
+        if (Date.now() - (state._interrupcionTs || 0) > 5 * 60 * 1000) {
+            _cancelarEsperaInterrupcion();
+            state.reproduciendo = false;
+            _detenerWatchdogReproduccion();
+            _sincronizarModoActivoNativo(false);
+            actualizarUIPlayerCompleto();
+            actualizarMiniPlayer();
+            actualizarMediaSession();
+            return;
+        }
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.estadoAudioSistema !== 'function') {
+            _cancelarEsperaInterrupcion();
+            _sincronizarModoActivoNativo(false);
+            return;
+        }
+        plugin.estadoAudioSistema().then(function(info) {
+            if (!state._esperandoReanudarPorInterrupcion || state._pausaManualUsuario || state._pausadoPorDesconexion || !state.cancionActual) {
+                return;
+            }
+            if (info && info.recentlyBecomesNoisy) {
+                _cancelarEsperaInterrupcion();
+                pausarPorDesconexionAudio('system_noisy', (info && info.externalDeviceName) || '');
+                return;
+            }
+            if (info && (info.hasMediaAudio || info.isMusicActive) && !info.hasTransientAudio && !info.inCall) {
+                _cancelarEsperaInterrupcion();
+                state._pausaManualUsuario = true;
+                state.reproduciendo = false;
+                _detenerWatchdogReproduccion();
+                _sincronizarModoActivoNativo(false);
+                actualizarUIPlayerCompleto();
+                actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
+                actualizarMediaSession();
+                return;
+            }
+            if (info && (info.inCall || info.hasTransientAudio)) {
+                state._interrupcionPollTimerId = setTimeout(_consultarYActuarSobreInterrupcion, 1200);
+                return;
+            }
+            _intentarReanudarTrasInterrupcion();
+        }).catch(function() {
+            if (state._esperandoReanudarPorInterrupcion) {
+                state._interrupcionPollTimerId = setTimeout(_consultarYActuarSobreInterrupcion, 1800);
+            }
+        });
+    }
+
+    function _programarEvaluacionPausaInesperada() {
+        var plugin = obtenerPluginMonarcaMedia();
+        if (!plugin || typeof plugin.estadoAudioSistema !== 'function') {
+            return;
+        }
+        if (state._pausaManualUsuario || state._pausadoPorDesconexion || state._transicionandoCancion || !state.cancionActual) {
+            return;
+        }
+        if (!state._esperandoReanudarPorInterrupcion) {
+            state._esperandoReanudarPorInterrupcion = true;
+            state._interrupcionTs = Date.now();
+        }
+        _sincronizarModoActivoNativo(true);
+        if (state._interrupcionCheckTimerId) {
+            clearTimeout(state._interrupcionCheckTimerId);
+        }
+        state._interrupcionCheckTimerId = setTimeout(function() {
+            state._interrupcionCheckTimerId = null;
+            _consultarYActuarSobreInterrupcion();
+        }, 550);
+    }
+
+    function initMonitorInterrupcionesAudio() {
+        if (state._interrupcionListenerRegistered) return;
+        state._interrupcionListenerRegistered = true;
+        var plugin = obtenerPluginMonarcaMedia();
+        if (plugin && typeof plugin.addListener === 'function') {
+            try {
+                var p = plugin.addListener('audioInterruptionEnded', function(info) {
+                    if (!state._esperandoReanudarPorInterrupcion || state._pausaManualUsuario || state._pausadoPorDesconexion) return;
+                    if (info && (info.recentlyBecomesNoisy || info.inCall)) return;
+                    if (info && (info.hasMediaAudio || info.isMusicActive) && !info.hasTransientAudio) {
+                        _cancelarEsperaInterrupcion();
+                        state._pausaManualUsuario = true;
+                        state.reproduciendo = false;
+                        _detenerWatchdogReproduccion();
+                        _sincronizarModoActivoNativo(false);
+                        actualizarUIPlayerCompleto();
+                        actualizarMiniPlayer();
+                        actualizarMediaSession();
+                        return;
+                    }
+                    setTimeout(_intentarReanudarTrasInterrupcion, 180);
+                });
+                if (p && typeof p.catch === 'function') p.catch(function() {});
+            } catch (e) {}
+        }
+    }
+
+    function _detenerWatchdogReproduccion() {
+        if (state._playWatchdogIntervalId) {
+            clearInterval(state._playWatchdogIntervalId);
+            state._playWatchdogIntervalId = null;
+        }
+    }
+
+    function _verificarEstadoPlaybackEnVivo(origen) {
+        if (!state.cancionActual) {
+            _detenerWatchdogReproduccion();
+            return;
+        }
+        if (state._pausaManualUsuario || state._pausadoPorDesconexion) {
+            return;
+        }
+        var audio = state.audio;
+        if (!audio) return;
+        var cur = audio.currentTime || 0;
+        var dur = audio.duration || 0;
+
+        if ((audio.ended || (dur > 0 && cur >= dur - 0.15 && audio.paused)) && (state.reproduciendo || state._transicionandoCancion)) {
+            if (!state._cargandoPlay && state._endHandledSeqId !== state._playSeqId) {
+                _manejarFinCancion(origen || 'watchdog_end');
+            }
+            return;
+        }
+
+        if (state._transicionandoCancion && !state._cargandoPlay && audio.paused) {
+            if (state._transicionStartTs && (Date.now() - state._transicionStartTs > 8500)) {
+                state._transicionStartTs = Date.now();
+                _manejarFalloPistaYAvanzar(state._playSeqId, { desdeFinCancion: true, silencioso: true }, 'Transición de pista interrumpida');
+            }
+            return;
+        }
+
+        if (state.reproduciendo && !state._transicionandoCancion && !state._cargandoPlay && audio.paused && !audio.ended) {
+            _programarEvaluacionPausaInesperada();
+        }
+    }
+
+    function _iniciarWatchdogReproduccion() {
+        if (state._playWatchdogIntervalId) return;
+        state._playWatchdogIntervalId = setInterval(function() {
+            _verificarEstadoPlaybackEnVivo('interval');
+        }, 2000);
+    }
+
+    function _manejarFinCancion(origen) {
+        if (state._pausaManualUsuario || state._pausadoPorDesconexion) return false;
+        if (state._endHandledSeqId === state._playSeqId) return false;
+        state._endHandledSeqId = state._playSeqId;
+        state._transicionandoCancion = true;
+        state._transicionStartTs = Date.now();
+
+        var lsEnd = state._playListenState;
+        if (lsEnd && !lsEnd.counted && !lsEnd.esPreview && lsEnd.seqId === state._playSeqId && state.cancionActual && state.cancionActual.id === lsEnd.songId) {
+            lsEnd.counted = true;
+            registrarReproduccionCancion(state.cancionActual);
+        }
+        siguienteCancion(false);
+        return true;
+    }
+
+    function _obtenerSiguienteTrackPrecalentable() {
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+            var tracksRut = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+            if (!tracksRut || tracksRut.length === 0) return null;
+            if (state.rutinaColaAleatoria && state.rutinaColaAleatoria.length > 0) {
+                var nextIdRut = state.rutinaColaAleatoria[0];
+                var foundRut = tracksRut.find(function(c) { return c && c.id === nextIdRut; });
+                if (foundRut) return foundRut;
+            }
+            return tracksRut[0] || null;
+        }
+
+        var lista = obtenerListaReproducibleActual();
+        if (!lista || lista.length === 0) return null;
+        if (state.repeat === 'one') return null;
+
+        var currentId = state.cancionActual ? state.cancionActual.id : null;
+        if (state.modoInteligente) {
+            var ctxKey = _claveContextoActual();
+            var visitedMap = (state._smartVisitedIds && state._smartVisitedIds[ctxKey]) ? state._smartVisitedIds[ctxKey] : {};
+            for (var i = 0; i < lista.length; i++) {
+                var cand = lista[i];
+                if (!cand || !cand.id) continue;
+                if (!visitedMap[cand.id] && (!currentId || cand.id !== currentId || lista.length === 1)) {
+                    return cand;
+                }
+            }
+            return (lista.length > 1 && currentId && lista[0] && lista[0].id === currentId) ? lista[1] : lista[0];
+        }
+
+        if (state.shuffle && lista.length > 1) {
+            var sCtx = _claveContextoActual();
+            var prevPre = state._nextPreselectedShuffle;
+            if (prevPre && prevPre.ctxKey === sCtx && prevPre.currentId === currentId && prevPre.nextId) {
+                var cachedShuffleCand = lista.find(function(c) { return c && c.id === prevPre.nextId; });
+                if (cachedShuffleCand) return cachedShuffleCand;
+            }
+            var rIdx = -1;
+            do {
+                rIdx = Math.floor(Math.random() * lista.length);
+            } while (rIdx === state.indiceActual);
+            var chosen = lista[rIdx];
+            if (chosen && chosen.id) {
+                state._nextPreselectedShuffle = { ctxKey: sCtx, currentId: currentId, nextId: chosen.id };
+            }
+            return chosen || null;
+        }
+
+        var seqIdx = state.indiceActual + 1;
+        if (seqIdx >= lista.length) {
+            if (state.repeat === 'off') return null;
+            seqIdx = 0;
+        }
+        return lista[seqIdx] || null;
+    }
+
+    function precalentarSiguienteCancion() {
+        if (!state.cancionActual || state._pausaManualUsuario || state._pausadoPorDesconexion) return;
+        var nextMeta = _obtenerSiguienteTrackPrecalentable();
+        if (!nextMeta || !nextMeta.id) return;
+        if (state.cancionActual && nextMeta.id === state.cancionActual.id) return;
+
+        if (nextMeta.origen === 'mediastore') {
+            if (state._preparedUrlCache && state._preparedUrlCache[nextMeta.id]) return;
+            if (state._preparingNextIds[nextMeta.id]) return;
+            state._preparingNextIds[nextMeta.id] = true;
+            var cacheKeys = state._preparedUrlCache ? Object.keys(state._preparedUrlCache) : [];
+            if (cacheKeys.length > 24) {
+                delete state._preparedUrlCache[cacheKeys[0]];
+            }
+            prepararUrlReproduccion(nextMeta).then(function() {
+                delete state._preparingNextIds[nextMeta.id];
+            }).catch(function() {
+                delete state._preparingNextIds[nextMeta.id];
+            });
+            return;
+        }
+
+        if (state._preparedBlobCache && state._preparedBlobCache.songId === nextMeta.id) return;
+        if (state._preparingNextIds[nextMeta.id]) return;
+        state._preparingNextIds[nextMeta.id] = true;
+        prepararUrlReproduccion(nextMeta).then(function(prep) {
+            delete state._preparingNextIds[nextMeta.id];
+            if (!prep || !prep.esBlobUrl || !prep.src) return;
+            if ((state.cancionActual && state.cancionActual.id === nextMeta.id) || prep.src === state.blobUrlActual) {
+                try { URL.revokeObjectURL(prep.src); } catch (e) {}
+                return;
+            }
+            if (state._preparedBlobCache && state._preparedBlobCache.src && state._preparedBlobCache.src !== state.blobUrlActual) {
+                try { URL.revokeObjectURL(state._preparedBlobCache.src); } catch (e) {}
+            }
+            state._preparedBlobCache = { songId: nextMeta.id, src: prep.src };
+        }).catch(function() {
+            delete state._preparingNextIds[nextMeta.id];
+        });
+    }
+
+    function _manejarFalloPistaYAvanzar(playSeq, opciones, toastFallback) {
+        if (playSeq !== state._playSeqId) return false;
+        if (state._falloHandledSeqId === playSeq) return false;
+        state._falloHandledSeqId = playSeq;
+        state._cargandoPlay = false;
+
+        if (state._pausaManualUsuario || state._pausadoPorDesconexion) {
+            state._transicionandoCancion = false;
+            _sincronizarModoActivoNativo(false);
+            return false;
+        }
+
+        if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
+            var tracksRut = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
+            state.rutinaConsecErrors++;
+            if (tracksRut.length > 1 && state.rutinaConsecErrors < tracksRut.length) {
+                state._transicionandoCancion = true;
+                state._transicionStartTs = Date.now();
+                setTimeout(function() {
+                    if (state.rutinaModoActivo && !state._pausaManualUsuario && !state._pausadoPorDesconexion) {
+                        siguienteCancion(false);
+                    }
+                }, 220);
+                return false;
+            }
+        } else {
+            var listaAct = obtenerListaParaReproduccionActiva();
+            var maxSkips = Math.min(6, Math.max(0, (listaAct ? listaAct.length : 0) - 1));
+            state._consecPlayErrors = (state._consecPlayErrors || 0) + 1;
+            if (maxSkips > 0 && state._consecPlayErrors <= maxSkips && state.repeat !== 'one') {
+                state._transicionandoCancion = true;
+                state._transicionStartTs = Date.now();
+                setTimeout(function() {
+                    if (!state._pausaManualUsuario && !state._pausadoPorDesconexion && !state.rutinaModoActivo) {
+                        siguienteCancion(false);
+                    }
+                }, 250);
+                return false;
+            }
+        }
+
+        state._transicionandoCancion = false;
+        state.reproduciendo = false;
+        _detenerWatchdogReproduccion();
+        _sincronizarModoActivoNativo(false);
+        actualizarUIPlayerCompleto();
+        actualizarMiniPlayer();
+        actualizarBarraAudioRutina();
+        actualizarMediaSession();
+        if (toastFallback && !(opciones && opciones.silencioso)) {
+            notificarPlayerToast(toastFallback, '⚠️');
+        }
+        return false;
+    }
+
+    function _ejecutarPlayAudioConReintentos(playSeq, meta, idxEnLista, fadeInMs, seekToSec, opciones, attempt) {
+        var intento = attempt || 0;
+        var playPromise = state.audio.play();
+        if (playPromise !== undefined) {
+            return playPromise.then(function() {
+                if (state._cancelarCargaPorDesconexionSeq === playSeq || state._pausadoPorDesconexion || state._pausaManualUsuario) {
+                    state._cargandoPlay = false;
+                    state._transicionandoCancion = false;
+                    try { if (!state.audio.paused) state.audio.pause(); } catch (e) {}
+                    state.reproduciendo = false;
+                    if (state.audio.volume < 0.01 && state.volumen > 0.01) {
+                        state.audio.volume = clampVol01(state.volumen);
+                    }
+                    _detenerWatchdogReproduccion();
+                    _sincronizarModoActivoNativo(false);
+                    actualizarUIPlayerCompleto();
+                    actualizarMiniPlayer();
+                    actualizarBarraAudioRutina();
+                    actualizarMediaSession();
+                    return false;
+                }
+                if (playSeq !== state._playSeqId) return false;
+                state._cargandoPlay = false;
+                state._transicionandoCancion = false;
+                state._pausaManualUsuario = false;
+                state._pausadoPorDesconexion = false;
+                state._esperandoReanudarPorInterrupcion = false;
+                state.reproduciendo = true;
+                state._consecPlayErrors = 0;
+                state.rutinaConsecErrors = 0;
+
+                if (seekToSec > 0 && state.audio.readyState >= 1 && Math.abs((state.audio.currentTime || 0) - seekToSec) > 0.6) {
+                    aplicarSeekAlCargarAudio(seekToSec, playSeq);
+                }
+                if (fadeInMs > 0) {
+                    hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
+                } else {
+                    state.audio.volume = clampVol01(state.volumen);
+                }
+
+                _sincronizarModoActivoNativo(true);
+                _iniciarWatchdogReproduccion();
+                actualizarUIPlayerCompleto();
+                actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
+                renderizarContenidoSegunSubtab();
+                actualizarMediaSession();
+                setTimeout(precalentarSiguienteCancion, 500);
+                return true;
+            }).catch(function(err) {
+                if (playSeq !== state._playSeqId) return false;
+                if (state._pausaManualUsuario || state._pausadoPorDesconexion) {
+                    state._cargandoPlay = false;
+                    state._transicionandoCancion = false;
+                    _sincronizarModoActivoNativo(false);
+                    return false;
+                }
+                console.warn('[Reproductor] Error en play() intento #' + intento + ':', err);
+                var errName = err && err.name ? String(err.name) : '';
+                var esRecoverable = errName === 'AbortError' || errName === 'InvalidStateError'
+                    || (errName === 'NotAllowedError' && (!!obtenerPluginMonarcaMedia() || !!(opciones && opciones.desdeFinCancion)));
+
+                if (esRecoverable && intento < 2) {
+                    var delayMs = intento === 0 ? 300 : 800;
+                    return new Promise(function(resolve) {
+                        setTimeout(function() {
+                            if (playSeq !== state._playSeqId || state._pausaManualUsuario || state._pausadoPorDesconexion) {
+                                resolve(false);
+                                return;
+                            }
+                            _ejecutarPlayAudioConReintentos(playSeq, meta, idxEnLista, fadeInMs, seekToSec, opciones, intento + 1).then(resolve);
+                        }, delayMs);
+                    });
+                }
+
+                if (state._usandoUrlCacheadaEnSeq === playSeq && meta && meta.id && !(opciones && opciones.bypassCache)) {
+                    _limpiarCacheUrlCancion(meta.id);
+                    var retryOpts = Object.assign({}, opciones || {}, { bypassCache: true });
+                    return reproducirMetaCancion(meta, idxEnLista, retryOpts);
+                }
+
+                state.audio.volume = clampVol01(state.volumen);
+                return _manejarFalloPistaYAvanzar(playSeq, opciones, 'No se pudo reproducir la canción');
+            });
+        }
+
+        state._cargandoPlay = false;
+        state._transicionandoCancion = false;
+        state.reproduciendo = true;
+        _sincronizarModoActivoNativo(true);
+        _iniciarWatchdogReproduccion();
+        if (fadeInMs > 0) {
+            hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
+        }
+        setTimeout(precalentarSiguienteCancion, 500);
+        return Promise.resolve(true);
+    }
+
     function reproducirMetaCancion(meta, idxEnLista, opciones) {
         if (!meta) return Promise.resolve(false);
         solicitarPermisoNotifReproductorSiFalta();
         cancelarFadeAudio();
+        _cancelarEsperaInterrupcion();
+
+        var yaEstabaSonandoOTransicionando = !!(state.reproduciendo || state._transicionandoCancion || (opciones && opciones.desdeFinCancion));
+        state._pausaManualUsuario = false;
+        state._pausadoPorDesconexion = false;
+        state._endHandledSeqId = 0;
+        state._errorHandledSeqId = 0;
+
         var playSeq = ++state._playSeqId;
         state._cargandoPlay = true;
+        state._transicionandoCancion = yaEstabaSonandoOTransicionando;
+        state._transicionStartTs = Date.now();
         state.indiceActual = (typeof idxEnLista === 'number') ? idxEnLista : -1;
         state._playListenState = {
             seqId: playSeq,
@@ -1938,19 +2486,23 @@
         }
         var fadeInMs = (opciones && typeof opciones.fadeInMs === 'number' && opciones.fadeInMs > 0) ? opciones.fadeInMs : 0;
         var seekToSec = (opciones && typeof opciones.seekToSec === 'number' && opciones.seekToSec > 0) ? opciones.seekToSec : 0;
+        var bypassCache = !!(opciones && opciones.bypassCache);
 
-        return prepararUrlReproduccion(meta).then(function(prep) {
-            if (playSeq !== state._playSeqId) {
-                if (prep && prep.esBlobUrl && prep.src) {
+        _sincronizarModoActivoNativo(true);
+        _iniciarWatchdogReproduccion();
+
+        function iniciarConPrep(prep) {
+            if (playSeq !== state._playSeqId || state._pausaManualUsuario || state._pausadoPorDesconexion) {
+                if (prep && prep.esBlobUrl && prep.src && prep.src !== state.blobUrlActual) {
                     try { URL.revokeObjectURL(prep.src); } catch (e) {}
                 }
-                return false;
+                return Promise.resolve(false);
             }
             if (!prep || !prep.src) {
-                throw new Error('URL de audio vacía');
+                return Promise.reject(new Error('URL de audio vacía'));
             }
 
-            if (state.blobUrlActual) {
+            if (state.blobUrlActual && state.blobUrlActual !== prep.src) {
                 try { URL.revokeObjectURL(state.blobUrlActual); } catch (e) {}
                 state.blobUrlActual = null;
             }
@@ -1958,6 +2510,8 @@
             if (prep.esBlobUrl) {
                 state.blobUrlActual = prep.src;
             }
+            state._usandoUrlCacheadaEnSeq = prep.fromPreCache ? playSeq : 0;
+            state._transicionandoCancion = true;
             state.audio.src = prep.src;
             state.audio.volume = (fadeInMs > 0) ? 0 : clampVol01(state.volumen);
             state.cancionActual = meta;
@@ -1977,81 +2531,18 @@
                 actualizarMediaSession();
             }).catch(function() {});
 
-            var playPromise = state.audio.play();
-            if (playPromise !== undefined) {
-                return playPromise.then(function() {
-                    if (state._cancelarCargaPorDesconexionSeq === playSeq) {
-                        state._cargandoPlay = false;
-                        try { if (!state.audio.paused) state.audio.pause(); } catch (e) {}
-                        state.reproduciendo = false;
-                        if (state.audio.volume < 0.01 && state.volumen > 0.01) {
-                            state.audio.volume = clampVol01(state.volumen);
-                        }
-                        actualizarUIPlayerCompleto();
-                        actualizarMiniPlayer();
-                        actualizarBarraAudioRutina();
-                        actualizarMediaSession();
-                        return false;
-                    }
-                    if (playSeq !== state._playSeqId) return false;
-                    state._cargandoPlay = false;
-                    state.reproduciendo = true;
-                    state.rutinaConsecErrors = 0;
+            return _ejecutarPlayAudioConReintentos(playSeq, meta, idxEnLista, fadeInMs, seekToSec, opciones, 0);
+        }
 
-                    if (seekToSec > 0 && state.audio.readyState >= 1 && Math.abs((state.audio.currentTime || 0) - seekToSec) > 0.6) {
-                        aplicarSeekAlCargarAudio(seekToSec, playSeq);
-                    }
-                    if (fadeInMs > 0) {
-                        hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
-                    } else {
-                        state.audio.volume = clampVol01(state.volumen);
-                    }
+        var prepSync = !bypassCache ? _obtenerPrepSincronoSiListo(meta) : null;
+        if (prepSync && prepSync.src) {
+            return iniciarConPrep(prepSync);
+        }
 
-                    actualizarUIPlayerCompleto();
-                    actualizarMiniPlayer();
-                    actualizarBarraAudioRutina();
-                    renderizarContenidoSegunSubtab();
-                    actualizarMediaSession();
-                    return true;
-                }).catch(function(err) {
-                    if (playSeq !== state._playSeqId) return false;
-                    state._cargandoPlay = false;
-                    console.warn('[Reproductor] Autoplay prevenido o error:', err);
-                    state.audio.volume = clampVol01(state.volumen);
-                    state.reproduciendo = false;
-                    actualizarUIPlayerCompleto();
-                    actualizarMiniPlayer();
-                    actualizarBarraAudioRutina();
-                    actualizarMediaSession();
-                    if (err && err.name !== 'NotAllowedError' && state.rutinaModoActivo) {
-                        var tracksErr = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
-                        state.rutinaConsecErrors++;
-                        if (tracksErr.length > 1 && state.rutinaConsecErrors < tracksErr.length) {
-                            siguienteCancion(false);
-                        }
-                    }
-                    return false;
-                });
-            }
-            state._cargandoPlay = false;
-            if (fadeInMs > 0) {
-                hacerFadeVolumenAudio(0, clampVol01(state.volumen), fadeInMs);
-            }
-            return true;
-        }).catch(function(err) {
+        return prepararUrlReproduccion(meta, bypassCache).then(iniciarConPrep).catch(function(err) {
             if (playSeq !== state._playSeqId) return false;
-            state._cargandoPlay = false;
             console.warn('[Reproductor] Error abriendo audio:', err);
-            if (opciones && opciones.silencioso && state.rutinaModoActivo) {
-                var tracksFallback = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
-                state.rutinaConsecErrors++;
-                if (tracksFallback.length > 1 && state.rutinaConsecErrors < tracksFallback.length) {
-                    siguienteCancion(false);
-                }
-                return false;
-            }
-            notificarPlayerToast('No se pudo cargar el archivo de audio', '⚠️');
-            return false;
+            return _manejarFalloPistaYAvanzar(playSeq, opciones, 'No se pudo cargar el archivo de audio');
         });
     }
 
@@ -2290,6 +2781,10 @@
     }
 
     function reproducirActual() {
+        _cancelarEsperaInterrupcion();
+        state._pausaManualUsuario = false;
+        state._pausadoPorDesconexion = false;
+
         if (state.rutinaModoActivo && !state.cancionActual && state.rutinaPlaylistActivaId) {
             iniciarMusicaDeRutina(state.rutinaPlaylistActivaId, state.rutinaNombreActiva);
             return;
@@ -2309,28 +2804,42 @@
             return;
         }
 
+        var dur = (state.audio && state.audio.duration) || 0;
+        var cur = (state.audio && state.audio.currentTime) || 0;
+        if (state.audio && (state.audio.ended || (dur > 0 && cur >= dur - 0.25))) {
+            _manejarFinCancion('manual_resume_end');
+            return;
+        }
+
         if (state.audio.paused) {
             cancelarFadeAudio();
             if (state.audio.volume < 0.01 && state.volumen > 0.01) {
                 state.audio.volume = clampVol01(state.volumen);
             }
-            state.audio.play().then(function() {
-                state.reproduciendo = true;
-                actualizarUIPlayerCompleto();
-                actualizarMiniPlayer();
-                actualizarBarraAudioRutina();
-                renderizarContenidoSegunSubtab();
-                actualizarMediaSession();
-            }).catch(function(e) {
-                console.error('[Reproductor] Error al reproducir:', e);
-            });
+            state._endHandledSeqId = 0;
+            _sincronizarModoActivoNativo(true);
+            _iniciarWatchdogReproduccion();
+            var playSeqResume = state._playSeqId;
+            _ejecutarPlayAudioConReintentos(playSeqResume, state.cancionActual, state.indiceActual, 0, 0, { desdeFinCancion: false }, 0)
+                .catch(function(e) {
+                    console.error('[Reproductor] Error al reanudar:', e);
+                });
         }
     }
 
     function pausarActual() {
+        state._pausaManualUsuario = true;
+        state._transicionandoCancion = false;
+        _cancelarEsperaInterrupcion();
+        if (state._cargandoPlay) {
+            state._playSeqId++;
+            state._cargandoPlay = false;
+        }
+        _detenerWatchdogReproduccion();
+        _sincronizarModoActivoNativo(false);
         if (!state.cancionActual) return;
         if (!state.audio.paused) {
-            state.audio.pause();
+            try { state.audio.pause(); } catch (e) {}
         }
         state.reproduciendo = false;
         actualizarUIPlayerCompleto();
@@ -2343,14 +2852,22 @@
     function pausarPorDesconexionAudio(motivo, nombreDispositivo) {
         var ahora = Date.now();
         var estabaCargando = !!state._cargandoPlay;
+        var estabaTransicionando = !!state._transicionandoCancion;
+        var estabaEsperandoInterrupcion = !!state._esperandoReanudarPorInterrupcion;
         var estabaReproduciendo = !!(state.reproduciendo || (state.audio && !state.audio.paused));
 
-        if (!estabaReproduciendo && !estabaCargando) {
+        if (!estabaReproduciendo && !estabaCargando && !estabaTransicionando && !estabaEsperandoInterrupcion) {
             return false;
         }
 
+        state._pausadoPorDesconexion = true;
+        state._transicionandoCancion = false;
+        _cancelarEsperaInterrupcion();
+        _detenerWatchdogReproduccion();
+        _sincronizarModoActivoNativo(false);
+
         cancelarFadeAudio();
-        if (estabaCargando) {
+        if (estabaCargando || estabaTransicionando) {
             state._cancelarCargaPorDesconexionSeq = state._playSeqId;
             state._playSeqId++;
             state._cargandoPlay = false;
@@ -2457,10 +2974,16 @@
     }
 
     function detenerReproductor() {
+        state._pausaManualUsuario = true;
+        state._transicionandoCancion = false;
+        state._cargandoPlay = false;
+        _cancelarEsperaInterrupcion();
+        _detenerWatchdogReproduccion();
+        _sincronizarModoActivoNativo(false);
         cancelarFadeAudio();
         state._rutinaTransicionandoSalida = false;
         state._playSeqId++;
-        state.audio.pause();
+        try { state.audio.pause(); } catch (e) {}
         state.audio.removeAttribute('src');
         state.audio.load();
         state.audio.volume = clampVol01(state.volumen);
@@ -2479,6 +3002,14 @@
     }
 
     function siguienteCancion(esManual) {
+        if (esManual) {
+            state._pausaManualUsuario = false;
+            state._pausadoPorDesconexion = false;
+            state._consecPlayErrors = 0;
+            state.rutinaConsecErrors = 0;
+        }
+        var optsBase = { desdeFinCancion: !esManual };
+
         if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
             var tracksRut = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
             if (tracksRut.length === 0) {
@@ -2489,23 +3020,36 @@
             var nextId = siguienteIdEnColaRutina(tracksRut, evitar);
             var nextIdx = tracksRut.findIndex(function(c) { return c.id === nextId; });
             if (nextIdx === -1) nextIdx = 0;
-            reproducirMetaCancion(tracksRut[nextIdx], nextIdx, { silencioso: true, fadeInMs: esManual ? 0 : 900 });
+            reproducirMetaCancion(tracksRut[nextIdx], nextIdx, {
+                silencioso: true,
+                fadeInMs: esManual ? 0 : 900,
+                desdeFinCancion: !esManual
+            });
             return;
         }
 
         var lista = obtenerListaReproducibleActual();
         if (lista.length === 0) return;
 
-        if (!esManual && state.repeat === 'one') {
+        if (!esManual && state.repeat === 'one' && state.cancionActual) {
+            var replaySeq = ++state._playSeqId;
+            state._endHandledSeqId = 0;
+            state._errorHandledSeqId = 0;
+            state._transicionandoCancion = true;
+            state._transicionStartTs = Date.now();
             if (state._playListenState) {
+                state._playListenState.seqId = replaySeq;
                 state._playListenState.counted = false;
                 state._playListenState.elapsedSec = 0;
                 state._playListenState.lastTickTs = Date.now();
             }
-            state.audio.currentTime = 0;
-            state.audio.play().then(function() {
-                actualizarPositionStateMediaSession();
-            }).catch(function() {});
+            _sincronizarModoActivoNativo(true);
+            _iniciarWatchdogReproduccion();
+            try { state.audio.currentTime = 0; } catch (e) {}
+            _ejecutarPlayAudioConReintentos(replaySeq, state.cancionActual, state.indiceActual, 0, 0, optsBase, 0)
+                .then(function(ok) {
+                    if (ok) actualizarPositionStateMediaSession();
+                });
             return;
         }
 
@@ -2538,9 +3082,20 @@
                 siguienteIdx = (lista.length > 1 && state.cancionActual && lista[0] && lista[0].id === state.cancionActual.id) ? 1 : 0;
             }
         } else if (state.shuffle && lista.length > 1) {
-            do {
-                siguienteIdx = Math.floor(Math.random() * lista.length);
-            } while (siguienteIdx === state.indiceActual);
+            var preShuf = state._nextPreselectedShuffle;
+            state._nextPreselectedShuffle = null;
+            var curIdShuf = state.cancionActual ? state.cancionActual.id : null;
+            if (!esManual && preShuf && preShuf.ctxKey === _claveContextoActual() && preShuf.currentId === curIdShuf && preShuf.nextId) {
+                var preIdx = lista.findIndex(function(c) { return c && c.id === preShuf.nextId; });
+                if (preIdx !== -1 && preIdx !== state.indiceActual) {
+                    siguienteIdx = preIdx;
+                }
+            }
+            if (siguienteIdx === -1) {
+                do {
+                    siguienteIdx = Math.floor(Math.random() * lista.length);
+                } while (siguienteIdx === state.indiceActual);
+            }
         } else {
             siguienteIdx = state.indiceActual + 1;
             if (siguienteIdx >= lista.length) {
@@ -2552,7 +3107,7 @@
             }
         }
 
-        reproducirMetaCancion(lista[siguienteIdx], siguienteIdx);
+        reproducirMetaCancion(lista[siguienteIdx], siguienteIdx, optsBase);
     }
 
     function anteriorCancion() {
@@ -3236,6 +3791,22 @@
             var miniBar = document.getElementById('mini-player-fill');
             if (miniBar) miniBar.style.width = pct + '%';
 
+            // Pre-cargar URL de la siguiente pista antes de llegar al final
+            if (dur > 0 && !state.audio.paused && !state._transicionandoCancion && (cur >= 3 || (dur - cur) <= 22)) {
+                if (state._precalentadoSeqId !== state._playSeqId) {
+                    state._precalentadoSeqId = state._playSeqId;
+                    precalentarSiguienteCancion();
+                }
+            }
+
+            // Respaldo inmediato si el elemento llegó al final y quedó pausado sin disparar ended
+            if (state.audio.ended || (dur > 0 && cur >= dur - 0.08 && state.audio.paused && state.reproduciendo && !state._pausaManualUsuario && !state._pausadoPorDesconexion)) {
+                if (!state._cargandoPlay && state._endHandledSeqId !== state._playSeqId) {
+                    _manejarFinCancion('timeupdate_end');
+                    return;
+                }
+            }
+
             // Registrar reproducción real cuando el usuario escucha >= 8s (o >=45% de clips cortos)
             var ls = state._playListenState;
             if (ls && !ls.counted && !ls.esPreview && ls.seqId === state._playSeqId && state.cancionActual && state.cancionActual.id === ls.songId && !state.audio.paused) {
@@ -3271,49 +3842,131 @@
         });
 
         state.audio.addEventListener('ended', function() {
-            var lsEnd = state._playListenState;
-            if (lsEnd && !lsEnd.counted && !lsEnd.esPreview && lsEnd.seqId === state._playSeqId && state.cancionActual && state.cancionActual.id === lsEnd.songId) {
-                lsEnd.counted = true;
-                registrarReproduccionCancion(state.cancionActual);
-            }
-            siguienteCancion(false);
+            _manejarFinCancion('ended');
         });
 
         state.audio.addEventListener('play', function() {
+            _cancelarEsperaInterrupcion();
+            state._pausaManualUsuario = false;
+            state._pausadoPorDesconexion = false;
             state.reproduciendo = true;
+            state._consecPlayErrors = 0;
             state.rutinaConsecErrors = 0;
             if (state._playListenState && state._playListenState.seqId === state._playSeqId) {
                 state._playListenState.lastTickTs = Date.now();
             }
+            _sincronizarModoActivoNativo(true);
+            _iniciarWatchdogReproduccion();
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
             actualizarBarraAudioRutina();
             actualizarMediaSession();
         });
 
+        state.audio.addEventListener('playing', function() {
+            _cancelarEsperaInterrupcion();
+            state._transicionandoCancion = false;
+            state._cargandoPlay = false;
+            state._pausaManualUsuario = false;
+            state._pausadoPorDesconexion = false;
+            state.reproduciendo = true;
+            state._consecPlayErrors = 0;
+            state.rutinaConsecErrors = 0;
+            _sincronizarModoActivoNativo(true);
+            _iniciarWatchdogReproduccion();
+            actualizarUIPlayerCompleto();
+            actualizarMiniPlayer();
+            actualizarBarraAudioRutina();
+            actualizarMediaSession();
+            if (state._precalentadoSeqId !== state._playSeqId) {
+                state._precalentadoSeqId = state._playSeqId;
+                setTimeout(precalentarSiguienteCancion, 400);
+            }
+        });
+
         state.audio.addEventListener('pause', function() {
+            var curP = (state.audio && state.audio.currentTime) || 0;
+            var durP = (state.audio && state.audio.duration) || 0;
+            var cercaDelFinal = durP > 0 && curP >= durP - 0.35;
+
+            if (state._transicionandoCancion || state.audio.ended || (cercaDelFinal && !state._pausaManualUsuario && !state._pausadoPorDesconexion)) {
+                var seqAtPause = state._playSeqId;
+                if ((state.audio.ended || (durP > 0 && curP >= durP - 0.15)) && !state._pausaManualUsuario && !state._pausadoPorDesconexion && !state._cargandoPlay && state._endHandledSeqId !== seqAtPause) {
+                    setTimeout(function() {
+                        if (state._playSeqId !== seqAtPause || state._pausaManualUsuario || state._pausadoPorDesconexion) return;
+                        if (state._cargandoPlay || state._transicionandoCancion || state._endHandledSeqId === seqAtPause) return;
+                        var curAfter = (state.audio && state.audio.currentTime) || 0;
+                        var durAfter = (state.audio && state.audio.duration) || 0;
+                        if (state.audio && (state.audio.ended || (durAfter > 0 && curAfter >= durAfter - 0.15 && state.audio.paused))) {
+                            _manejarFinCancion('pause_deferred_end');
+                        }
+                    }, 280);
+                }
+                return;
+            }
+
             state.reproduciendo = false;
             actualizarUIPlayerCompleto();
             actualizarMiniPlayer();
             actualizarBarraAudioRutina();
             actualizarMediaSession();
+
+            if (state._pausaManualUsuario || state._pausadoPorDesconexion) {
+                _detenerWatchdogReproduccion();
+                _sincronizarModoActivoNativo(false);
+                return;
+            }
+
+            if (state.cancionActual) {
+                _programarEvaluacionPausaInesperada();
+            }
+        });
+
+        state.audio.addEventListener('stalled', function() {
+            if (!state.cancionActual || state._pausaManualUsuario || state._pausadoPorDesconexion) return;
+            setTimeout(function() {
+                _verificarEstadoPlaybackEnVivo('stalled');
+            }, 1500);
         });
 
         state.audio.addEventListener('error', function(err) {
             console.error('[Audio] Error al reproducir archivo:', err);
-            state.reproduciendo = false;
-            actualizarUIPlayerCompleto();
-            actualizarMiniPlayer();
-            actualizarBarraAudioRutina();
-            if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
-                var tracks = obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
-                state.rutinaConsecErrors++;
-                if (tracks.length > 1 && state.rutinaConsecErrors < tracks.length) {
-                    setTimeout(function() {
-                        if (state.rutinaModoActivo) siguienteCancion(false);
-                    }, 200);
-                }
+            if (!state.cancionActual || state._pausaManualUsuario || state._pausadoPorDesconexion) {
+                state._transicionandoCancion = false;
+                state.reproduciendo = false;
+                _detenerWatchdogReproduccion();
+                _sincronizarModoActivoNativo(false);
+                actualizarUIPlayerCompleto();
+                actualizarMiniPlayer();
+                actualizarBarraAudioRutina();
+                return;
             }
+
+            var seqNow = state._playSeqId;
+            if (state._errorHandledSeqId === seqNow || state._falloHandledSeqId === seqNow) return;
+            state._errorHandledSeqId = seqNow;
+
+            if (state._usandoUrlCacheadaEnSeq === seqNow && state.cancionActual && state.cancionActual.id) {
+                var retrySong = state.cancionActual;
+                var retryIdx = state.indiceActual;
+                var retryWasTransition = !!state._transicionandoCancion;
+                _limpiarCacheUrlCancion(retrySong.id);
+                setTimeout(function() {
+                    if (state._playSeqId === seqNow && !state._pausaManualUsuario && !state._pausadoPorDesconexion) {
+                        reproducirMetaCancion(retrySong, retryIdx, {
+                            bypassCache: true,
+                            desdeFinCancion: retryWasTransition,
+                            silencioso: !!state.rutinaModoActivo
+                        });
+                    }
+                }, 150);
+                return;
+            }
+
+            _manejarFalloPistaYAvanzar(seqNow, {
+                desdeFinCancion: true,
+                silencioso: !!state.rutinaModoActivo
+            }, 'No se pudo reproducir el archivo');
         });
     }
 
@@ -4864,6 +5517,13 @@
         var elAudio = document.getElementById('monarca-player-audio');
         if (elAudio) {
             state.audio = elAudio;
+        } else if (state.audio && document.body && !state.audio.parentNode) {
+            state.audio.id = 'monarca-player-audio';
+            state.audio.preload = 'auto';
+            state.audio.setAttribute('playsinline', '');
+            state.audio.setAttribute('webkit-playsinline', '');
+            state.audio.style.display = 'none';
+            document.body.appendChild(state.audio);
         }
 
         cargarPlaylistsStorage();
@@ -4875,6 +5535,7 @@
             initScrubberAntiAccidente();
             initMediaSession();
             initMonitorDesconexionAudifonos();
+            initMonitorInterrupcionesAudio();
         }
         actualizarControlesFuenteBiblioteca();
         actualizarControlesModo();
@@ -4900,6 +5561,10 @@
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
                 verificarPermisoNativoAlVolver(true);
+                _verificarEstadoPlaybackEnVivo('visibility');
+                if (state._esperandoReanudarPorInterrupcion) {
+                    _consultarYActuarSobreInterrupcion();
+                }
             }
         });
 
@@ -4907,6 +5572,7 @@
             if (window.VISTA_ACTUAL === 'vista-reproductor' && (Date.now() - state._lastAutoScanTs) > 1200) {
                 verificarPermisoNativoAlVolver(true);
             }
+            _verificarEstadoPlaybackEnVivo('focus');
         });
 
         // Enganchar input de archivos individuales (Navegador / PC o respaldo manual)
@@ -5057,6 +5723,8 @@
         obtenerAudioBlob: obtenerAudioBlob,
         buscarCancionPorIdOSig: buscarCancionPorIdOSig,
         prepararUrlReproduccion: prepararUrlReproduccion,
+        precalentarSiguienteCancion: precalentarSiguienteCancion,
+        verificarEstadoPlaybackEnVivo: _verificarEstadoPlaybackEnVivo,
         solicitarPermisoYScanNativo: solicitarPermisoYScanNativo,
         reescanearBibliotecaNativa: reescanearBibliotecaNativa,
         sincronizarBibliotecaAlEntrar: sincronizarBibliotecaAlEntrar,
