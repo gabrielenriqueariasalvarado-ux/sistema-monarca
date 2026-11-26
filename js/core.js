@@ -926,7 +926,11 @@ function retrocederNavegacionMonarca() {
     for (var i = 0; i < modales.length; i++) {
         var m = modales[i];
         if (m && m.style && m.style.display && m.style.display !== 'none') {
-            m.style.display = 'none';
+            if (m.id === 'modal-permisos-sistema' && typeof cerrarModalPermisosSistema === 'function') {
+                cerrarModalPermisosSistema('back');
+            } else {
+                m.style.display = 'none';
+            }
             if (typeof detenerEscuchaJarvis === 'function') {
                 try { detenerEscuchaJarvis(); } catch(e) {}
             }
@@ -1992,7 +1996,7 @@ if (typeof window !== 'undefined') {
     window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
 }
 
-var MONARCA_APP_VERSION = '11.33';
+var MONARCA_APP_VERSION = '11.34';
 var MONARCA_APP_VERSION_FECHA = '2026-11-26';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.33">
+    <link rel="stylesheet" href="style.css?v=11.34">
 </head>
 <body>
 
@@ -185,7 +185,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.33</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.34</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -231,7 +231,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.33</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.34</div>
                     </div>
                 </div>
             </div>
@@ -7836,33 +7836,76 @@
         </div>
     </div>
 
+    <!-- MODAL: CENTRO UNIFICADO DE PERMISOS DEL DISPOSITIVO (v11.34) -->
+    <div id="modal-permisos-sistema" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-permisos-titulo" style="display: none; z-index: 100002;" onclick="if(event.target === this) cerrarModalPermisosSistema('overlay');">
+        <div class="modal-system-window permisos-modal-window">
+            <div class="modal-system-header" style="flex-shrink: 0;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                    <span style="font-size: 20px;" aria-hidden="true">🔐</span>
+                    <div style="min-width: 0;">
+                        <h3 id="modal-permisos-titulo" style="margin: 0; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.4px; color: #f8fafc;">Permisos del Dispositivo</h3>
+                        <p id="modal-permisos-subtitulo" style="margin: 2px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.35;">Activa los permisos una sola vez para usar todas las funciones desde el primer minuto</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalPermisosSistema('close_btn')" class="modal-close-btn" aria-label="Cerrar permisos">&times;</button>
+            </div>
+
+            <div class="modal-system-body permisos-modal-body">
+                <div id="permisos-entorno-banner" class="permisos-hero-banner is-pending">
+                    Comprobando permisos del dispositivo...
+                </div>
+
+                <div id="permisos-lista-items" class="permisos-grid-lista">
+                    <!-- Poblado dinámicamente por js/permisos.js -->
+                </div>
+
+                <div id="permisos-alarma-extra-box" class="permisos-alarm-extra-box"></div>
+            </div>
+
+            <div class="modal-system-footer permisos-modal-footer">
+                <button type="button" id="btn-permisos-aceptar-todos" class="btn-permisos-all" onclick="solicitarTodosPermisosSistema()">
+                    <span>⚡</span>
+                    <span>Aceptar Todos los Permisos</span>
+                </button>
+                <button type="button" id="btn-permisos-abrir-ajustes" class="btn-permisos-settings-global" style="display: none;" onclick="abrirAjustesPermisosSistema('app')">
+                    <span>⚙️</span>
+                    <span>Abrir Ajustes</span>
+                </button>
+                <button type="button" id="btn-permisos-footer-cerrar" class="btn-permisos-close-foot" onclick="cerrarModalPermisosSistema('later')">
+                    Más tarde
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- PUENTE NATIVO ANDROID CAPACITOR -->
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.33"></script>
-    <script src="js/perfil.js?v=11.33"></script>
-    <script src="js/progresion.js?v=11.33"></script>
-    <script src="js/estado-personal.js?v=11.33"></script>
-    <script src="js/finanzas.js?v=11.33"></script>
-    <script src="js/ideas.js?v=11.33"></script>
-    <script src="js/mqtt-autopc.js?v=11.33"></script>
-    <script src="js/dinamicas.js?v=11.33"></script>
-    <script src="js/calendario.js?v=11.33"></script>
-    <script src="js/inventario.js?v=11.33"></script>
-    <script src="js/reproductor.js?v=11.33"></script>
-    <script src="js/ia.js?v=11.33"></script>
-    <script src="js/jarvis-voz.js?v=11.33"></script>
+    <script src="js/core.js?v=11.34"></script>
+    <script src="js/permisos.js?v=11.34"></script>
+    <script src="js/perfil.js?v=11.34"></script>
+    <script src="js/progresion.js?v=11.34"></script>
+    <script src="js/estado-personal.js?v=11.34"></script>
+    <script src="js/finanzas.js?v=11.34"></script>
+    <script src="js/ideas.js?v=11.34"></script>
+    <script src="js/mqtt-autopc.js?v=11.34"></script>
+    <script src="js/dinamicas.js?v=11.34"></script>
+    <script src="js/calendario.js?v=11.34"></script>
+    <script src="js/inventario.js?v=11.34"></script>
+    <script src="js/reproductor.js?v=11.34"></script>
+    <script src="js/ia.js?v=11.34"></script>
+    <script src="js/jarvis-voz.js?v=11.34"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.33"></script>
+    <script type="module" src="js/firebase-config.js?v=11.34"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.33')
+                navigator.serviceWorker.register('sw.js?v=11.34')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
@@ -7871,9 +7914,10 @@
                         console.warn('[PWA] Service Worker:', error.message);
                     });
             });
+            var hadController = Boolean(navigator.serviceWorker.controller);
             var refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', function() {
-                if (!refreshing) {
+                if (hadController && !refreshing) {
                     refreshing = true;
                     console.log('[PWA] Nueva versión del Service Worker activada.'); window.location.reload();
                 }

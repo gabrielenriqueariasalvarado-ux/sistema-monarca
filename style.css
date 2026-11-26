@@ -26922,4 +26922,438 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v11.34 · CENTRO UNIFICADO DE PERMISOS DEL DISPOSITIVO & ONBOARDING INICIAL
+   ========================================================================== */
+
+.permisos-modal-window {
+    max-width: 520px !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    background: linear-gradient(165deg, rgba(14, 19, 34, 0.98), rgba(9, 13, 24, 0.99)) !important;
+}
+
+.permisos-modal-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.permisos-hero-banner {
+    padding: 12px 14px;
+    border-radius: 13px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(56, 189, 248, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.permisos-hero-banner.is-all-ok {
+    border-color: rgba(16, 185, 129, 0.38);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.permisos-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.permisos-hero-pill {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 3px 9px;
+    border-radius: 9999px;
+}
+
+.permisos-hero-banner.is-all-ok .permisos-hero-pill {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+.permisos-hero-count {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #e2e8f0;
+}
+
+.permisos-hero-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #cbd5e1;
+}
+
+.permisos-grid-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.permiso-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.permiso-item-row.is-granted {
+    background: rgba(16, 185, 129, 0.07);
+    border-color: rgba(16, 185, 129, 0.28);
+}
+
+.permiso-item-row.is-denied {
+    background: rgba(244, 63, 94, 0.07);
+    border-color: rgba(244, 63, 94, 0.32);
+}
+
+.permiso-item-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.permiso-item-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+}
+
+.permiso-item-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.permiso-item-title-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.permiso-item-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #f8fafc;
+    word-break: break-word;
+}
+
+.permiso-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.permiso-badge.is-ok {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #6ee7b7;
+}
+
+.permiso-badge.is-pending {
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.32);
+    color: #fcd34d;
+}
+
+.permiso-badge.is-denied {
+    background: rgba(244, 63, 94, 0.16);
+    border: 1px solid rgba(251, 113, 133, 0.38);
+    color: #fda4af;
+}
+
+.permiso-badge.is-ondemand {
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #cbd5e1;
+}
+
+.permiso-item-desc {
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: #94a3b8;
+    margin-top: 3px;
+}
+
+.permiso-item-right {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.btn-permiso-accion {
+    border-radius: 10px;
+    padding: 8px 13px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 36px;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-permiso-accion:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.btn-permiso-accion.is-allow {
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    border: 1px solid rgba(125, 211, 252, 0.45);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(56, 189, 248, 0.22);
+}
+
+.btn-permiso-accion.is-allow:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.btn-permiso-accion.is-settings {
+    background: rgba(244, 63, 94, 0.16);
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    color: #fecdd3;
+}
+
+.permiso-done-check {
+    font-size: 17px;
+    line-height: 1;
+    padding: 4px 6px;
+}
+
+.permiso-ondemand-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 5px 9px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.permisos-alarm-extra-box {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(99, 102, 241, 0.09);
+    border: 1px solid rgba(129, 140, 248, 0.28);
+}
+
+.permisos-alarm-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #e0e7ff;
+}
+
+.permisos-alarm-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    line-height: 1.35;
+    margin-top: 2px;
+}
+
+.btn-permiso-diag-link {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    color: #7dd3fc;
+    border-radius: 9px;
+    padding: 7px 11px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.permisos-modal-footer {
+    padding: 13px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: #101625;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    flex-shrink: 0;
+}
+
+.btn-permisos-all {
+    flex: 1.6;
+    min-width: 185px;
+    min-height: 42px;
+    border-radius: 11px;
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.26);
+}
+
+.btn-permisos-all:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+.btn-permisos-settings-global {
+    flex: 1;
+    min-width: 120px;
+    min-height: 42px;
+    border-radius: 11px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    background: rgba(14, 165, 233, 0.14);
+    color: #7dd3fc;
+    font-size: 12px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.btn-permisos-close-foot {
+    flex: 1;
+    min-width: 110px;
+    min-height: 42px;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e2e8f0;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.perfil-permisos-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: linear-gradient(145deg, rgba(16, 22, 38, 0.92), rgba(11, 16, 29, 0.96));
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.perfil-permisos-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1 1 220px;
+}
+
+.perfil-permisos-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+}
+
+.perfil-permisos-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.perfil-permisos-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.perfil-permisos-badge {
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 9999px;
+}
+
+.perfil-permisos-badge.is-ok {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #6ee7b7;
+}
+
+.perfil-permisos-badge.is-pending {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #fcd34d;
+}
+
+.perfil-permisos-desc {
+    margin: 3px 0 0;
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.btn-perfil-permisos-open {
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    color: #7dd3fc;
+    border-radius: 11px;
+    padding: 9px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .permisos-modal-body {
+        padding: 13px 13px;
+    }
+    .permiso-item-row {
+        padding: 10px 10px;
+    }
+    .btn-permiso-accion {
+        padding: 7px 11px;
+        font-size: 11.5px;
+    }
+    .permisos-modal-footer {
+        padding: 11px 13px;
+    }
+}
+
+
 

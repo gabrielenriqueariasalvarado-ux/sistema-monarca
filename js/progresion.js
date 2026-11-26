@@ -5783,6 +5783,12 @@ if (typeof window !== 'undefined') {
             procesarAccionesAlarmaNativa().finally(arrancarMotorQuests);
 
             setTimeout(function() {
+                var modalPerm = document.getElementById('modal-permisos-sistema');
+                var onboardingActivo = (
+                    (window.MonarcaPermisos && typeof window.MonarcaPermisos.debeMostrarOnboardingInicial === 'function' && window.MonarcaPermisos.debeMostrarOnboardingInicial()) ||
+                    (modalPerm && modalPerm.style && modalPerm.style.display === 'flex')
+                );
+                if (onboardingActivo) return;
                 var ln = window.Capacitor.Plugins.LocalNotifications;
                 if (ln && typeof ln.checkPermissions === 'function') {
                     ln.checkPermissions().then(function(perm) {

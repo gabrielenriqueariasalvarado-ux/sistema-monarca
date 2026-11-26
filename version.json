@@ -1,5 +1,5 @@
 {
-  "version": "11.33",
+  "version": "11.34",
   "fecha": "2026-11-26",
-  "resumen": "Sincronización Blindada Auto-PC ↔ Sistema Monarca (v11.33): Lectura progresiva multi-MB del transcript local (adiós cortes a 260 KB / 900 KB que congelaban el avance en versiones anteriores como v11.29), detección real de tareas/timers en segundo plano para evitar falsas finalizaciones prematuras, cierre automático de solicitudes y recuperación tras reinicio incluso con Antigravity minimizado o cubierto, reconciliación completa de completadas/EXP/resúmenes/notificaciones desde la instantánea retenida de MQTT al despertar el teléfono, y Smart Merge monótono para Ideas en Firestore."
+  "resumen": "Centro Unificado de Permisos al Primer Ingreso (v11.34): Al instalar e ingresar por primera vez en Emily aparece automáticamente la ventana Dark Glass con todos los permisos del dispositivo (Notificaciones, Música/Audio, Almacenamiento y Galería, Cámara, Ubicación y Micrófono) listos para conceder uno a uno o con 1 toque (Aceptar Todos), integrado nativamente en Android con MonarcaPermissionsPlugin y accesible en cualquier momento desde Perfil."
 }

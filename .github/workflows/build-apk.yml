@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.33)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.34)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.33
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.34
             Esta versión nativa incluye:
+            - 🔐 **Centro Unificado de Permisos al Primer Ingreso (v11.34)**:
+              - **Onboarding Automático de Permisos**: Justo al instalar e ingresar por primera vez en Emily aparece el panel Dark Glass con todos los permisos del dispositivo (**Notificaciones y Alertas**, **Música y Audio**, **Almacenamiento y Galería**, **Cámara**, **Ubicación** y **Micrófono**).
+              - **1 Toque o Individuales (`MonarcaPermissionsPlugin`)**: Concede cada permiso por separado o pulsa **Aceptar Todos los Permisos** para responder los diálogos nativos del sistema en secuencia, con acceso rápido en **Perfil → Permisos del Dispositivo** y actualización instantánea de tu biblioteca SnapTube al conceder Audio.
             - 🔄 **Sincronización Blindada Auto-PC ↔ Sistema Monarca (v11.33)**:
               - **Transcript Reader Progresivo Multi-MB (Auto-PC)**: Supera los límites anteriores de 260 KB / 900 KB leyendo progresivamente hasta 24 MB+ del historial real (`transcript.jsonl`) y recuperando resúmenes truncados desde `transcript_full.jsonl` — adiós avances congelados en versiones anteriores como `v11.29`.
               - **Detección Real de Tareas/Timers en Segundo Plano**: Auto-PC distingue mensajes intermedios durante comandos/esperas en segundo plano de la respuesta final real, eliminando falsas finalizaciones prematuras y recuperando solicitudes completadas incluso si Antigravity está **minimizado**, cubierto por otra ventana o tras reiniciar Auto-PC.

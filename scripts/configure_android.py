@@ -3534,7 +3534,393 @@ public class MonarcaVoicePlugin extends Plugin {
 
 
 # ------------------------------------------------------------------------------
-# 7. MainActivity.java: Registra MonarcaAlarm, MonarcaMedia, MonarcaLocalBridge y MonarcaVoice
+# 6D. MonarcaPermissionsPlugin.java: Centro unificado de permisos en tiempo real
+#     (Notificaciones, Música/Audio, Almacenamiento/Galería, Cámara, Micrófono, Ubicación)
+# ------------------------------------------------------------------------------
+write_java('MonarcaPermissionsPlugin.java', '''
+package com.monarca.app;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import org.json.JSONObject;
+
+@CapacitorPlugin(
+    name = "MonarcaPermissions",
+    permissions = {
+        @Permission(
+            alias = "notifications",
+            strings = { "android.permission.POST_NOTIFICATIONS" }
+        ),
+        @Permission(
+            alias = "music",
+            strings = { "android.permission.READ_MEDIA_AUDIO" }
+        ),
+        @Permission(
+            alias = "storage",
+            strings = { "android.permission.READ_MEDIA_IMAGES" }
+        ),
+        @Permission(
+            alias = "legacyStorage",
+            strings = { Manifest.permission.READ_EXTERNAL_STORAGE }
+        ),
+        @Permission(
+            alias = "camera",
+            strings = { Manifest.permission.CAMERA }
+        ),
+        @Permission(
+            alias = "microphone",
+            strings = { Manifest.permission.RECORD_AUDIO }
+        ),
+        @Permission(
+            alias = "location",
+            strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }
+        )
+    }
+)
+public class MonarcaPermissionsPlugin extends Plugin {
+    private static final String PREFS_ASKED = "monarca_perms_asked_prefs";
+
+    private SharedPreferences getAskedPrefs() {
+        return getContext().getApplicationContext().getSharedPreferences(PREFS_ASKED, Context.MODE_PRIVATE);
+    }
+
+    private boolean wasAskedBefore(String key) {
+        try {
+            return getAskedPrefs().getBoolean("asked_" + key, false);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void markAsked(String key) {
+        try {
+            getAskedPrefs().edit().putBoolean("asked_" + key, true).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private boolean isPermGranted(String perm) {
+        Context ctx = getContext();
+        return ctx != null && ContextCompat.checkSelfPermission(ctx, perm) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean shouldShowRationaleForAny(String[] perms) {
+        Activity act = getActivity();
+        if (act == null || perms == null) return false;
+        for (String p : perms) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(act, p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private JSObject buildPermEntry(String key, boolean granted, String[] permsToCheck, boolean canPromptRuntime) {
+        JSObject item = new JSObject();
+        item.put("granted", granted);
+        String state;
+        if (granted) {
+            state = "granted";
+        } else if (!canPromptRuntime) {
+            state = "denied";
+        } else if (!wasAskedBefore(key)) {
+            state = "prompt";
+        } else if (shouldShowRationaleForAny(permsToCheck)) {
+            state = "prompt-with-rationale";
+        } else {
+            state = "denied";
+        }
+        item.put("state", state);
+        item.put("canPrompt", canPromptRuntime);
+        return item;
+    }
+
+    private JSObject buildSnapshotPayload() {
+        Context ctx = getContext();
+        int sdk = Build.VERSION.SDK_INT;
+        boolean isTiramisuPlus = sdk >= Build.VERSION_CODES.TIRAMISU;
+
+        boolean notifEnabled = NotificationManagerCompat.from(ctx).areNotificationsEnabled();
+        boolean notifGranted = isTiramisuPlus
+            ? (notifEnabled && isPermGranted("android.permission.POST_NOTIFICATIONS"))
+            : notifEnabled;
+        boolean notifCanPrompt = isTiramisuPlus;
+
+        boolean musicGranted = isTiramisuPlus
+            ? isPermGranted("android.permission.READ_MEDIA_AUDIO")
+            : isPermGranted(Manifest.permission.READ_EXTERNAL_STORAGE);
+
+        boolean storageGranted;
+        if (isTiramisuPlus) {
+            boolean fullImages = isPermGranted("android.permission.READ_MEDIA_IMAGES");
+            boolean partialVisual = sdk >= 34 && isPermGranted("android.permission.READ_MEDIA_VISUAL_USER_SELECTED");
+            storageGranted = fullImages || partialVisual;
+        } else {
+            storageGranted = isPermGranted(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+
+        boolean cameraGranted = isPermGranted(Manifest.permission.CAMERA);
+        boolean micGranted = isPermGranted(Manifest.permission.RECORD_AUDIO);
+        boolean locGranted = isPermGranted(Manifest.permission.ACCESS_FINE_LOCATION)
+            || isPermGranted(Manifest.permission.ACCESS_COARSE_LOCATION);
+
+        JSObject perms = new JSObject();
+        perms.put("notifications", buildPermEntry(
+            "notifications",
+            notifGranted,
+            isTiramisuPlus ? new String[] { "android.permission.POST_NOTIFICATIONS" } : new String[0],
+            notifCanPrompt
+        ));
+        perms.put("music", buildPermEntry(
+            "music",
+            musicGranted,
+            new String[] { isTiramisuPlus ? "android.permission.READ_MEDIA_AUDIO" : Manifest.permission.READ_EXTERNAL_STORAGE },
+            true
+        ));
+        perms.put("storage", buildPermEntry(
+            "storage",
+            storageGranted,
+            new String[] { isTiramisuPlus ? "android.permission.READ_MEDIA_IMAGES" : Manifest.permission.READ_EXTERNAL_STORAGE },
+            true
+        ));
+        perms.put("camera", buildPermEntry(
+            "camera",
+            cameraGranted,
+            new String[] { Manifest.permission.CAMERA },
+            true
+        ));
+        perms.put("microphone", buildPermEntry(
+            "microphone",
+            micGranted,
+            new String[] { Manifest.permission.RECORD_AUDIO },
+            true
+        ));
+        perms.put("location", buildPermEntry(
+            "location",
+            locGranted,
+            new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION },
+            true
+        ));
+
+        int grantedCount = 0;
+        if (notifGranted) grantedCount++;
+        if (musicGranted) grantedCount++;
+        if (storageGranted) grantedCount++;
+        if (cameraGranted) grantedCount++;
+        if (micGranted) grantedCount++;
+        if (locGranted) grantedCount++;
+
+        AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        boolean exactAlarms = sdk < Build.VERSION_CODES.S || (am != null && am.canScheduleExactAlarms());
+        boolean fullScreenIntent = true;
+        if (sdk >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && nm != null) {
+            try { fullScreenIntent = nm.canUseFullScreenIntent(); } catch (Exception ignored) {}
+        }
+        boolean batteryOpt = true;
+        if (sdk >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) batteryOpt = pm.isIgnoringBatteryOptimizations(ctx.getPackageName());
+        }
+
+        JSObject special = new JSObject();
+        special.put("exactAlarms", exactAlarms);
+        special.put("fullScreenIntent", fullScreenIntent);
+        special.put("batteryOptimization", batteryOpt);
+
+        JSObject summary = new JSObject();
+        summary.put("grantedCount", grantedCount);
+        summary.put("totalCount", 6);
+        summary.put("allGranted", grantedCount == 6);
+        summary.put("sdk", sdk);
+
+        JSObject out = new JSObject();
+        out.put("sdk", sdk);
+        out.put("permissions", perms);
+        out.put("special", special);
+        out.put("summary", summary);
+        return out;
+    }
+
+    private String resolveAliasForTipo(String tipo) {
+        boolean isTiramisuPlus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
+        if ("notifications".equals(tipo)) return isTiramisuPlus ? "notifications" : null;
+        if ("music".equals(tipo)) return isTiramisuPlus ? "music" : "legacyStorage";
+        if ("storage".equals(tipo)) return isTiramisuPlus ? "storage" : "legacyStorage";
+        if ("camera".equals(tipo)) return "camera";
+        if ("microphone".equals(tipo)) return "microphone";
+        if ("location".equals(tipo)) return "location";
+        return null;
+    }
+
+    @PluginMethod
+    public void estadoPermisos(PluginCall call) {
+        call.resolve(buildSnapshotPayload());
+    }
+
+    @PluginMethod
+    public void solicitarPermiso(PluginCall call) {
+        String tipo = call.getString("tipo", "");
+        if (tipo == null || tipo.isEmpty()) {
+            call.reject("Tipo de permiso requerido");
+            return;
+        }
+
+        JSObject cur = buildSnapshotPayload();
+        JSONObject curPerms = cur.optJSONObject("permissions");
+        JSONObject item = curPerms != null ? curPerms.optJSONObject(tipo) : null;
+        if (item != null && item.optBoolean("granted", false)) {
+            cur.put("justRequested", tipo);
+            cur.put("needsSettings", false);
+            call.resolve(cur);
+            return;
+        }
+
+        String alias = resolveAliasForTipo(tipo);
+        if (alias == null) {
+            cur.put("justRequested", tipo);
+            cur.put("needsSettings", true);
+            call.resolve(cur);
+            return;
+        }
+
+        String currentState = item != null ? item.optString("state", "prompt") : "prompt";
+        if ("denied".equals(currentState)) {
+            cur.put("justRequested", tipo);
+            cur.put("needsSettings", true);
+            call.resolve(cur);
+            return;
+        }
+
+        markAsked(tipo);
+        if (!isTiramisuPlus() && ("music".equals(tipo) || "storage".equals(tipo))) {
+            markAsked("music");
+            markAsked("storage");
+        }
+        requestPermissionForAlias(alias, call, "singlePermCallback");
+    }
+
+    private boolean isTiramisuPlus() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
+    }
+
+    @PermissionCallback
+    private void singlePermCallback(PluginCall call) {
+        String tipo = call.getString("tipo", "");
+        JSObject out = buildSnapshotPayload();
+        JSONObject perms = out.optJSONObject("permissions");
+        JSONObject item = (perms != null && !tipo.isEmpty()) ? perms.optJSONObject(tipo) : null;
+        boolean grantedNow = item != null && item.optBoolean("granted", false);
+        String stNow = item != null ? item.optString("state", "prompt") : "prompt";
+        out.put("justRequested", tipo);
+        out.put("needsSettings", !grantedNow && "denied".equals(stNow));
+        call.resolve(out);
+    }
+
+    @PluginMethod
+    public void solicitarTodosLosPermisos(PluginCall call) {
+        boolean tPlus = isTiramisuPlus();
+        JSObject cur = buildSnapshotPayload();
+        JSONObject perms = cur.optJSONObject("permissions");
+
+        Set<String> aliasSet = new LinkedHashSet<>();
+        List<String> keysOrder = new ArrayList<>();
+        keysOrder.add("notifications");
+        keysOrder.add("music");
+        keysOrder.add("storage");
+        keysOrder.add("camera");
+        keysOrder.add("microphone");
+        keysOrder.add("location");
+
+        for (String key : keysOrder) {
+            JSONObject entry = perms != null ? perms.optJSONObject(key) : null;
+            boolean granted = entry != null && entry.optBoolean("granted", false);
+            if (granted) continue;
+            String st = entry != null ? entry.optString("state", "prompt") : "prompt";
+            if ("denied".equals(st)) continue;
+            String alias = resolveAliasForTipo(key);
+            if (alias != null) {
+                aliasSet.add(alias);
+                markAsked(key);
+                if (!tPlus && ("music".equals(key) || "storage".equals(key))) {
+                    markAsked("music");
+                    markAsked("storage");
+                }
+            }
+        }
+
+        if (aliasSet.isEmpty()) {
+            cur.put("promptedAliases", 0);
+            call.resolve(cur);
+            return;
+        }
+
+        String[] aliases = aliasSet.toArray(new String[0]);
+        requestPermissionForAliases(aliases, call, "allPermsCallback");
+    }
+
+    @PermissionCallback
+    private void allPermsCallback(PluginCall call) {
+        JSObject out = buildSnapshotPayload();
+        call.resolve(out);
+    }
+
+    @PluginMethod
+    public void abrirAjustesApp(PluginCall call) {
+        String tipo = call.getString("tipo", "app");
+        Context ctx = getContext();
+        String pkg = ctx.getPackageName();
+        boolean launched = false;
+        try {
+            if ("notifications".equals(tipo) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                i.putExtra(Settings.EXTRA_APP_PACKAGE, pkg);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(i);
+                launched = true;
+            }
+        } catch (Exception ignored) {}
+
+        if (!launched) {
+            try {
+                Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                i.setData(Uri.parse("package:" + pkg));
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ctx.startActivity(i);
+            } catch (Exception ignored) {}
+        }
+        call.resolve();
+    }
+}
+''')
+
+
+# ------------------------------------------------------------------------------
+# 7. MainActivity.java: Registra MonarcaAlarm, MonarcaMedia, MonarcaLocalBridge,
+#    MonarcaVoice y MonarcaPermissions
 # ------------------------------------------------------------------------------
 write_java('MainActivity.java', '''
 package com.monarca.app;
@@ -3552,6 +3938,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MonarcaMediaPlugin.class);
         registerPlugin(MonarcaLocalBridgePlugin.class);
         registerPlugin(MonarcaVoicePlugin.class);
+        registerPlugin(MonarcaPermissionsPlugin.class);
         super.onCreate(savedInstanceState);
         handleAlarmIntent(getIntent());
     }
@@ -3607,7 +3994,7 @@ public class MainActivity extends BridgeActivity {
 
 
 # ------------------------------------------------------------------------------
-# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Micrófono, Wi-Fi LAN, Alarma)
+# 8. AndroidManifest.xml: Permisos (incl. Audio MediaStore, Micrófono, Ubicación, Wi-Fi LAN, Alarma)
 # ------------------------------------------------------------------------------
 manifest_path = 'android/app/src/main/AndroidManifest.xml'
 if os.path.exists(manifest_path):
@@ -3638,6 +4025,8 @@ if os.path.exists(manifest_path):
         'android.permission.CAMERA',
         'android.permission.RECORD_AUDIO',
         'android.permission.MODIFY_AUDIO_SETTINGS',
+        'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.ACCESS_COARSE_LOCATION',
     ]
 
     perms_to_add = []
@@ -3653,6 +4042,9 @@ if os.path.exists(manifest_path):
 
     if 'android.hardware.microphone' not in content:
         perms_to_add.append('    <uses-feature android:name="android.hardware.microphone" android:required="false" />')
+
+    if 'android.hardware.location.gps' not in content:
+        perms_to_add.append('    <uses-feature android:name="android.hardware.location.gps" android:required="false" />')
 
     if 'android.speech.RecognitionService' not in content:
         perms_to_add.append(textwrap.dedent('''

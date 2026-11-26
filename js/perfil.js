@@ -583,6 +583,25 @@ function renderizarPerfil(perfil) {
     <div id="perfil-autopc-monitor-card" class="perfil-autopc-card">
         ${renderizarContenidoMonitorAutoPCPerfil()}
     </div>
+
+    <!-- 2B. PERMISOS DEL DISPOSITIVO -->
+    <div id="perfil-permisos-card" class="perfil-permisos-card">
+        <div class="perfil-permisos-left">
+            <div class="perfil-permisos-icon">🔐</div>
+            <div style="min-width: 0; flex: 1;">
+                <div class="perfil-permisos-title-row">
+                    <h3 class="perfil-permisos-title">Permisos del Dispositivo</h3>
+                    <span id="perfil-permisos-badge" class="perfil-permisos-badge is-pending">Verificando...</span>
+                </div>
+                <p id="perfil-permisos-desc" class="perfil-permisos-desc">
+                    Notificaciones, música, cámara, ubicación y almacenamiento disponibles aquí.
+                </p>
+            </div>
+        </div>
+        <button type="button" class="btn-perfil-permisos-open" onclick="if(typeof abrirModalPermisosSistema==='function') abrirModalPermisosSistema(false);">
+            Administrar ›
+        </button>
+    </div>
     
     <!-- 3. CENTRO DE SINCRONIZACIÓN MULTI-DISPOSITIVO -->
     <div class="sync-hub-card">
@@ -671,6 +690,9 @@ function renderizarPerfil(perfil) {
     var cont = document.getElementById('contenedor-perfil');
     if (cont) cont.innerHTML = html;
     iniciarTimerMonitorAutoPCPerfil();
+    if (window.MonarcaPermisos && typeof window.MonarcaPermisos.actualizarResumenPerfil === 'function') {
+        window.MonarcaPermisos.actualizarResumenPerfil();
+    }
 }
 
 // --- FUNCIONES DEL CENTRO DE SINCRONIZACIÓN ---

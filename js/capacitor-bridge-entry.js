@@ -28,4 +28,11 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         console.warn("[Monarca Native] MonarcaLocalBridge register error:", e);
     }
+
+    try {
+        window.Capacitor.Plugins.MonarcaPermissions = registerPlugin('MonarcaPermissions');
+        console.log("[Monarca Native] Plugin MonarcaPermissions registrado con éxito.");
+    } catch (e) {
+        console.warn("[Monarca Native] MonarcaPermissions register error:", e);
+    }
 }
