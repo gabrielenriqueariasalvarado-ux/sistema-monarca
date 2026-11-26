@@ -497,6 +497,99 @@ function fusionarQuestsDiariosInteligente(listaLocal, listaRemota, tombstones) {
 }
 
 /**
+ * Fusión inteligente específica para Banco de Ideas / Auto-PC (v11.33):
+ * Si una idea ya fue completada por Auto-PC (`autopcStatus === 'done'` y `hecha === true`),
+ * ese estado prevalece sobre copias en `'pending'`, `'running'` o `'awaiting_plan'`,
+ * conservando además resúmenes, versión y confirmación de notificaciones sin regresiones.
+ */
+function fusionarIdeasInteligente(listaLocal, listaRemota, tombstones) {
+    var resultadoMap = {};
+    var tombSet = new Set(Array.isArray(tombstones) ? tombstones.map(String) : []);
+
+    var mezclarCamposMonotonosIdea = function(prev, cand) {
+        if (!prev) return JSON.parse(JSON.stringify(cand));
+        if (!cand) return JSON.parse(JSON.stringify(prev));
+
+        var tsPrev = obtenerTimestampNumerico(prev);
+        var tsCand = obtenerTimestampNumerico(cand);
+        var candHechaPorAutoPC = Boolean(cand.hecha === true && (cand.completadaPorAutoPC || cand.autopcStatus === 'done'));
+        var prevHechaPorAutoPC = Boolean(prev.hecha === true && (prev.completadaPorAutoPC || prev.autopcStatus === 'done'));
+        var prevUncheckNewer = Boolean(prev.hecha === false && Number(prev.timestampManualUncheck || 0) > Number(cand.timestampHecha || 0));
+        var candUncheckNewer = Boolean(cand.hecha === false && Number(cand.timestampManualUncheck || 0) > Number(prev.timestampHecha || 0));
+
+        var winner = null;
+        var other = null;
+        if (candHechaPorAutoPC && !prevHechaPorAutoPC && !prevUncheckNewer) {
+            winner = JSON.parse(JSON.stringify(cand));
+            other = prev;
+        } else if (prevHechaPorAutoPC && !candHechaPorAutoPC && !candUncheckNewer) {
+            winner = JSON.parse(JSON.stringify(prev));
+            other = cand;
+        } else if (cand.hecha === true && prev.hecha !== true && tsCand >= tsPrev - 5000 && !prevUncheckNewer) {
+            winner = JSON.parse(JSON.stringify(cand));
+            other = prev;
+        } else if (prev.hecha === true && cand.hecha !== true && tsPrev >= tsCand - 5000 && !candUncheckNewer) {
+            winner = JSON.parse(JSON.stringify(prev));
+            other = cand;
+        } else {
+            winner = JSON.parse(JSON.stringify(tsCand >= tsPrev ? cand : prev));
+            other = tsCand >= tsPrev ? prev : cand;
+        }
+
+        if (other) {
+            if (!winner.resumenAntigravity && other.resumenAntigravity) {
+                winner.resumenAntigravity = String(other.resumenAntigravity);
+            }
+            if (!winner.resumenVersion && other.resumenVersion) {
+                winner.resumenVersion = String(other.resumenVersion);
+            }
+            if ((!Array.isArray(winner.resumenArchivos) || winner.resumenArchivos.length === 0) && Array.isArray(other.resumenArchivos) && other.resumenArchivos.length > 0) {
+                winner.resumenArchivos = other.resumenArchivos.slice(0, 12);
+            }
+            if (!(Number(winner.resumenPasos) > 0) && Number(other.resumenPasos) > 0) {
+                winner.resumenPasos = Number(other.resumenPasos);
+            }
+            if (!(Number(winner.resumenDuracionMs) > 0) && Number(other.resumenDuracionMs) > 0) {
+                winner.resumenDuracionMs = Number(other.resumenDuracionMs);
+            }
+            if (other.autopcNotifConfirmada === true) {
+                winner.autopcNotifConfirmada = true;
+            }
+            if (winner.autopcStatus === 'done') {
+                winner.autopcPendienteSubida = false;
+            }
+        }
+        return winner;
+    };
+
+    if (Array.isArray(listaRemota)) {
+        listaRemota.forEach(function(item) {
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    resultadoMap[keyId] = JSON.parse(JSON.stringify(item));
+                }
+            }
+        });
+    }
+
+    if (Array.isArray(listaLocal)) {
+        listaLocal.forEach(function(item) {
+            if (item && item.id) {
+                var keyId = String(item.id);
+                if (!tombSet.has(keyId)) {
+                    resultadoMap[keyId] = resultadoMap[keyId]
+                        ? mezclarCamposMonotonosIdea(resultadoMap[keyId], item)
+                        : JSON.parse(JSON.stringify(item));
+                }
+            }
+        });
+    }
+
+    return Object.values(resultadoMap);
+}
+
+/**
  * Fusión inteligente de todo el estado entre Local y Remoto (Smart Merge).
  * Garantiza que abrir un dispositivo con datos antiguos nunca borre datos nuevos de otro dispositivo.
  */
@@ -561,7 +654,7 @@ function fusionarEstadosInteligente(local, remoto) {
 
     // 3. IDEAS Y PENSAMIENTOS + NOTIFICACIONES AUTO-PC
     if (Array.isArray(local.ideas) || Array.isArray(remoto.ideas)) {
-        fusion.ideas = fusionarColeccionPorId(local.ideas, remoto.ideas, tombstones.ideas);
+        fusion.ideas = fusionarIdeasInteligente(local.ideas, remoto.ideas, tombstones.ideas);
     }
     if (Array.isArray(local.notificacionesAutoPC) || Array.isArray(remoto.notificacionesAutoPC)) {
         var rawNotifs = fusionarColeccionPorId(

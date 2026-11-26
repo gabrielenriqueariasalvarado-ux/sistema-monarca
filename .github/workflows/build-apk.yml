@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.32)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.33)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.32
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.33
             Esta versión nativa incluye:
+            - 🔄 **Sincronización Blindada Auto-PC ↔ Sistema Monarca (v11.33)**:
+              - **Transcript Reader Progresivo Multi-MB (Auto-PC)**: Supera los límites anteriores de 260 KB / 900 KB leyendo progresivamente hasta 24 MB+ del historial real (`transcript.jsonl`) y recuperando resúmenes truncados desde `transcript_full.jsonl` — adiós avances congelados en versiones anteriores como `v11.29`.
+              - **Detección Real de Tareas/Timers en Segundo Plano**: Auto-PC distingue mensajes intermedios durante comandos/esperas en segundo plano de la respuesta final real, eliminando falsas finalizaciones prematuras y recuperando solicitudes completadas incluso si Antigravity está **minimizado**, cubierto por otra ventana o tras reiniciar Auto-PC.
+              - **Reconciliación Total por MQTT y Firestore**: Al despertar el teléfono, `emily/queue` retenido marca automáticamente las ideas terminadas (`Hecha`, `+15 EXP`, notificación y resumen de Antigravity), evita falsas alertas de `Sin Antigravity` cuando la ventana está minimizada o trabajando activamente, protege `Ideas` con Smart Merge monótono en Firestore (`fusionarIdeasInteligente`) y pide instantáneamente el estado fresco al conectar por MQTT.
             - 🌿 **Árbol de Habilidades Pro — Enfoque en Vivo, Sesiones Cortas y Edición (v11.32)**:
               - **Cronómetro de Práctica en Vivo Persistente**: Inicia un cronómetro dedicado directamente desde cualquier habilidad con reloj en vivo (`HH:MM:SS`), vista previa de `+EXP`, **Pausa/Reanudación** y resistencia total a recargas, cambios de vista o pantalla apagada.
               - **Sesiones Cortas (+15m / +30m / +1h / +2h), Badge Diario & Historial Reciente**: Registra bloques rápidos desde 15 minutos con escalado proporcional de EXP y atributos, insignia **`Hoy: +Xm`** en cada habilidad y lista desplegable con tus últimas sesiones (y soporte decimal exacto en rangos y gráfica).

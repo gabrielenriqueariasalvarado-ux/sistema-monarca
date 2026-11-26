@@ -288,6 +288,8 @@ function renderizarContenidoMonitorAutoPCPerfil() {
     var agChip = '';
     if (resumen.antigravityVisible === true) {
         agChip = `<span class="perfil-autopc-chip is-ok">● Antigravity conectado</span>`;
+    } else if (resumen.antigravityVisible === false && resumen.antigravityMinimized && resumen.nivel !== 'offline') {
+        agChip = `<span class="perfil-autopc-chip is-minimized">⏸ Antigravity minimizado</span>`;
     } else if (resumen.antigravityVisible === false && resumen.nivel !== 'offline') {
         agChip = `<span class="perfil-autopc-chip is-warn">⚠️ Sin ventana Antigravity</span>`;
     }

@@ -524,6 +524,11 @@
                     }
                     startKeepalive();
                     notifyUiStatusChanged();
+                    setTimeout(function() {
+                        if (state.connected && state.ws && state.ws.readyState === WebSocket.OPEN) {
+                            enviarComandoPC('ping', { silent: true }).catch(function() {});
+                        }
+                    }, 250);
                 } else {
                     state.lastError = 'Broker rechazó conexión (código ' + returnCode + ')';
                     closeSocket(false);

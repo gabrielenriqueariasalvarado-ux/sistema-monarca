@@ -20462,6 +20462,12 @@ body.modal-open {
     border-color: rgba(245, 158, 11, 0.3);
 }
 
+.perfil-autopc-chip.is-minimized {
+    color: #bae6fd;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
 .perfil-autopc-alert {
     display: flex;
     align-items: flex-start;
