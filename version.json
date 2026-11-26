@@ -1,5 +1,5 @@
 {
-  "version": "11.28",
+  "version": "11.29",
   "fecha": "2026-11-25",
-  "resumen": "Home Centro de Mando en Vivo + Superpoderes IA (v11.28): Home ahora muestra una barra rápida para preguntarle directo a Gemini IA, 4 tarjetas en vivo de tu pulso diario (Quests, Nivel/EXP y Fatiga, Agenda de hoy y estado de IA), spotlight de Vocabulario Semanal y accesos directos de 1 toque; además la App IA suma renderizado nativo de tablas Markdown, checklists y tachado, selector rápido de modelo en la cabecera, exportación de chats a .md, guía actualizada para llaves AQ... y sincronización automática de la insignia de versión en el Menú Principal."
+  "resumen": "Fix Definitivo Conexión Gemini IA (CORS) + Blindaje Auto-PC contra Finalizaciones Prematuras (v11.29): Elimina el encabezado 'Api-Revision' que hacía fallar el preflight CORS de Google con 'Failed to fetch' desde navegador/WebView (dejando únicamente Content-Type y x-goog-api-key para que funcionen de inmediato las llaves AQ... y AIza...), corrige el decodificador de errores en arreglo JSON de Gemini y refuerza Auto-PC para detectar 'Working.' y verificar el transcript real de Antigravity antes de marcar una solicitud como completada."
 }

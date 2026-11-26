@@ -8,7 +8,8 @@
 var MONARCA_IA_API_KEY_STORAGE = 'monarca_ia_gemini_api_key';
 var MONARCA_IA_ACTIVE_CONV_STORAGE = 'monarca_ia_conv_activa_id';
 var MONARCA_IA_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-var MONARCA_IA_API_REVISION = '2026-05-20';
+// Nota CORS (v11.29): NO enviar encabezado 'Api-Revision' desde navegador (Google responde 403 al preflight OPTIONS);
+// el esquema moderno 'steps' ya es el predeterminado en /v1beta/interactions.
 var MONARCA_IA_MAX_HISTORY_TURNS = 24;
 
 var MONARCA_IA_MODELOS = [
@@ -685,8 +686,11 @@ function construirStepsHistorialParaGemini(mensajes, imagenActual) {
 function extraerTextoDeInteractionJson(data) {
     if (!data || typeof data !== 'object') return '';
     if (typeof data.output_text === 'string' && data.output_text) return data.output_text;
-    var steps = Array.isArray(data.steps) ? data.steps : (data.interaction && Array.isArray(data.interaction.steps) ? data.interaction.steps : []);
+    var root = data.interaction && typeof data.interaction === 'object' ? data.interaction : data;
+    if (typeof root.output_text === 'string' && root.output_text) return root.output_text;
+
     var chunks = [];
+    var steps = Array.isArray(root.steps) ? root.steps : [];
     for (var i = 0; i < steps.length; i++) {
         var st = steps[i];
         if (!st || st.type !== 'model_output' || !Array.isArray(st.content)) continue;
@@ -697,6 +701,16 @@ function extraerTextoDeInteractionJson(data) {
             }
         }
     }
+    if (chunks.length > 0) return chunks.join('');
+
+    // Respaldo defensivo si la respuesta incluyera arreglo outputs
+    var outputs = Array.isArray(root.outputs) ? root.outputs : [];
+    for (var k = 0; k < outputs.length; k++) {
+        var outItem = outputs[k];
+        if (outItem && outItem.type === 'text' && typeof outItem.text === 'string') {
+            chunks.push(outItem.text);
+        }
+    }
     return chunks.join('');
 }
 
@@ -704,14 +718,19 @@ function formatearErrorGeminiIA(status, bodyText, modelo) {
     var msgRaw = '';
     try {
         var parsed = JSON.parse(bodyText || '{}');
-        msgRaw = (parsed.error && parsed.error.message) ? String(parsed.error.message) : '';
+        var obj = Array.isArray(parsed) ? (parsed[0] || {}) : (parsed || {});
+        if (obj && obj.error && obj.error.message) {
+            msgRaw = String(obj.error.message);
+        } else if (obj && obj.message) {
+            msgRaw = String(obj.message);
+        }
     } catch (e) {
         msgRaw = String(bodyText || '').slice(0, 220);
     }
     var low = msgRaw.toLowerCase();
 
     if (status === 401 || (status === 400 && low.indexOf('api key') !== -1) || low.indexOf('api_key_invalid') !== -1) {
-        return '🔑 Tu API Key de Gemini no es válida o fue revocada. Abre ⚙️ Configurar API y pega una llave válida de Google AI Studio.';
+        return '🔑 Tu API Key de Gemini no es válida o fue revocada. Abre ⚙️ Configurar API y pega una llave válida de Google AI Studio (AQ... o AIza...).';
     }
     if (status === 403) {
         if (modelo === 'gemini-4-argon' || low.indexOf('free tier') !== -1 || low.indexOf('billing') !== -1) {
@@ -747,16 +766,21 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
         body.tools = [{ type: 'google_search' }];
     }
 
-    var resp = await fetch(MONARCA_IA_ENDPOINT + '?alt=sse', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-            'Api-Revision': MONARCA_IA_API_REVISION
-        },
-        body: JSON.stringify(body),
-        signal: abortSignal
-    });
+    var resp;
+    try {
+        resp = await fetch(MONARCA_IA_ENDPOINT + '?alt=sse', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify(body),
+            signal: abortSignal
+        });
+    } catch (netErr) {
+        if (netErr && netErr.name === 'AbortError') throw netErr;
+        throw new Error('🌐 No se pudo conectar con los servidores de Google Gemini. Verifica tu conexión a internet o prueba de nuevo en unos segundos.');
+    }
 
     if (!resp.ok) {
         var errTxt = '';
@@ -800,10 +824,10 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
             return;
         }
         var evType = (payload && payload.event_type) || sseEventType;
-        if (evType === 'step.delta' && payload.delta && payload.delta.type === 'text' && typeof payload.delta.text === 'string') {
+        if ((evType === 'step.delta' || evType === 'content.delta') && payload.delta && payload.delta.type === 'text' && typeof payload.delta.text === 'string') {
             acumulado += payload.delta.text;
             if (typeof onDelta === 'function') onDelta(payload.delta.text, acumulado);
-        } else if (evType === 'interaction.completed') {
+        } else if (evType === 'interaction.completed' || evType === 'interaction.complete') {
             if (payload.interaction && payload.interaction.usage) {
                 usage = payload.interaction.usage;
             }
@@ -1313,22 +1337,23 @@ async function probarConexionGeminiIA() {
     if (btnTest) btnTest.disabled = true;
 
     try {
-        var resp = await fetch(MONARCA_IA_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': key,
-                'Api-Revision': MONARCA_IA_API_REVISION
-            },
-            body: JSON.stringify({
-                model: modelo,
-                input: 'Responde únicamente con: OK',
-                store: false,
-                generation_config: {
-                    max_output_tokens: 32
-                }
-            })
-        });
+        var resp;
+        try {
+            resp = await fetch(MONARCA_IA_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': key
+                },
+                body: JSON.stringify({
+                    model: modelo,
+                    input: 'Responde únicamente con: OK',
+                    store: false
+                })
+            });
+        } catch (netErr) {
+            throw new Error('🌐 No se pudo conectar con Google Gemini. Verifica tu conexión a internet o prueba de nuevo.');
+        }
 
         if (!resp.ok) {
             var errBody = '';
