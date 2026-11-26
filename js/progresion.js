@@ -186,15 +186,19 @@ function quitarAtributoModal(contexto, clave) {
     renderizarFilasAtributos(contexto);
 }
 
-function aplicarImpactoAtributos(atributos) {
+function aplicarImpactoAtributos(atributos, multiplicador) {
     if (!atributos || !Array.isArray(atributos) || atributos.length === 0) return;
+
+    var mult = Number(multiplicador);
+    if (!isFinite(mult) || mult <= 0) mult = 1;
 
     if (!APP_STATE.fatiga) APP_STATE.fatiga = {};
     if (!APP_STATE.desgasteMente) APP_STATE.desgasteMente = {};
     if (!APP_STATE.menteAtributos) APP_STATE.menteAtributos = {};
 
     atributos.forEach(function(item) {
-        var pct = Number(item.porcentaje) || 15;
+        var basePct = Number(item.porcentaje) || 15;
+        var pct = Math.max(1, Math.round(basePct * mult));
         if (item.tipo === 'cuerpo') {
             var actual = Number(APP_STATE.fatiga[item.clave]) || 0;
             APP_STATE.fatiga[item.clave] = Math.min(100, actual + pct);
@@ -207,7 +211,7 @@ function aplicarImpactoAtributos(atributos) {
 
             if (APP_STATE.fatigaMentalDiaria) {
                 var actualSNC = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
-                APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, actualSNC + Math.round(pct * 0.5));
+                APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, actualSNC + Math.max(1, Math.round(pct * 0.5)));
             }
         }
     });
@@ -511,8 +515,50 @@ function eliminarMision(id) {
  * Rango SS: 210 - 340 horas (Meta: 340 hrs | Duración: 130 hrs)
  * Rango SSS (Máximo): 340+ horas (Maestría Legendaria Absoluta)
  */
+function redondearHorasSkill(val) {
+    return Math.round(Math.max(0, Number(val) || 0) * 100) / 100;
+}
+
+function formatearHorasSkill(val) {
+    var r = redondearHorasSkill(val);
+    return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function formatearDuracionCortoSkill(horas) {
+    var totalMin = Math.max(0, Math.round((Number(horas) || 0) * 60));
+    if (totalMin < 60) {
+        return totalMin + 'm';
+    }
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return m > 0 ? (h + 'h ' + m + 'm') : (h + 'h');
+}
+
 function calcularRangoYProgreso(horas) {
-    var h = Math.max(0, Number(horas) || 0);
+    var h = redondearHorasSkill(horas);
+
+    var construir = function(rango, badgeClass, descripcion, baseMin, metaMax) {
+        var enNivel = redondearHorasSkill(h - baseMin);
+        var req = metaMax - baseMin;
+        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
+        var faltan = redondearHorasSkill(metaMax - h);
+        var siguienteRank = rango === "Rango SS" ? "SSS"
+            : rango === "Rango S" ? "SS"
+            : rango === "Rango A" ? "S"
+            : rango === "Rango B" ? "A"
+            : rango === "Rango C" ? "B"
+            : rango === "Rango D" ? "C"
+            : "D";
+        return {
+            rango: rango,
+            badgeClass: badgeClass,
+            descripcion: descripcion,
+            horasEnNivel: enNivel,
+            horasReqNivel: req,
+            porcentaje: pct,
+            siguiente: "Faltan " + formatearHorasSkill(faltan) + " hrs para " + siguienteRank
+        };
+    };
 
     if (h >= 340) {
         return {
@@ -525,111 +571,283 @@ function calcularRangoYProgreso(horas) {
             siguiente: "¡Maestría Legendaria Alcanzada!"
         };
     } else if (h >= 210) {
-        // Rango SS: 210 - 340 hrs (meta 340 hrs, req 130 hrs)
-        var enNivel = h - 210;
-        var req = 130;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 340 - h;
-        return {
-            rango: "Rango SS",
-            badgeClass: "badge-rank-ss",
-            descripcion: "Dominio supremo, arquitectura y maestría avanzada.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para SSS"
-        };
+        return construir("Rango SS", "badge-rank-ss", "Dominio supremo, arquitectura y maestría avanzada.", 210, 340);
     } else if (h >= 125) {
-        // Rango S: 125 - 210 hrs (meta 210 hrs, req 85 hrs)
-        var enNivel = h - 125;
-        var req = 85;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 210 - h;
-        return {
-            rango: "Rango S",
-            badgeClass: "badge-rank-s",
-            descripcion: "Nivel élite profesional / resolución de problemas de máxima complejidad.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para SS"
-        };
+        return construir("Rango S", "badge-rank-s", "Nivel élite profesional / resolución de problemas de máxima complejidad.", 125, 210);
     } else if (h >= 70) {
-        // Rango A: 70 - 125 hrs (meta 125 hrs, req 55 hrs)
-        var enNivel = h - 70;
-        var req = 55;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 125 - h;
-        return {
-            rango: "Rango A",
-            badgeClass: "badge-rank-a",
-            descripcion: "Capacidad de estructuración eficiente y autonomía técnica total.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para S"
-        };
+        return construir("Rango A", "badge-rank-a", "Capacidad de estructuración eficiente y autonomía técnica total.", 70, 125);
     } else if (h >= 35) {
-        // Rango B: 35 - 70 hrs (meta 70 hrs, req 35 hrs)
-        var enNivel = h - 35;
-        var req = 35;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 70 - h;
-        return {
-            rango: "Rango B",
-            badgeClass: "badge-rank-b",
-            descripcion: "Dominas lógica avanzada, patrones y depuración de alto nivel.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para A"
-        };
+        return construir("Rango B", "badge-rank-b", "Dominas lógica avanzada, patrones y depuración de alto nivel.", 35, 70);
     } else if (h >= 15) {
-        // Rango C: 15 - 35 hrs (meta 35 hrs, req 20 hrs)
-        var enNivel = h - 15;
-        var req = 20;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 35 - h;
-        return {
-            rango: "Rango C",
-            badgeClass: "badge-rank-c",
-            descripcion: "Desarrollas soluciones funcionales y proyectos pequeños con soltura.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para B"
-        };
+        return construir("Rango C", "badge-rank-c", "Desarrollas soluciones funcionales y proyectos pequeños con soltura.", 15, 35);
     } else if (h >= 5) {
-        // Rango D: 5 - 15 hrs (meta 15 hrs, req 10 hrs)
-        var enNivel = h - 5;
-        var req = 10;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 15 - h;
-        return {
-            rango: "Rango D",
-            badgeClass: "badge-rank-d",
-            descripcion: "Ejecución práctica de conceptos y resolución de problemas guiados.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para C"
-        };
+        return construir("Rango D", "badge-rank-d", "Ejecución práctica de conceptos y resolución de problemas guiados.", 5, 15);
     } else {
-        // Rango E: 0 - 5 hrs (meta 5 hrs, req 5 hrs)
-        var enNivel = h;
-        var req = 5;
-        var pct = Math.min(100, Math.floor((enNivel / req) * 100));
-        var faltan = 5 - h;
-        return {
-            rango: "Rango E",
-            badgeClass: "badge-rank-e",
-            descripcion: "Iniciación y fundamentos básicos de la disciplina.",
-            horasEnNivel: enNivel,
-            horasReqNivel: req,
-            porcentaje: pct,
-            siguiente: "Faltan " + faltan + " hrs para D"
-        };
+        return construir("Rango E", "badge-rank-e", "Iniciación y fundamentos básicos de la disciplina.", 0, 5);
     }
+}
+
+var SKILL_EDITANDO_ID = (typeof SKILL_EDITANDO_ID !== 'undefined') ? SKILL_EDITANDO_ID : null;
+var SKILL_FOCUS_STORAGE_KEY = 'monarca_skill_focus_timer_v1';
+var SKILL_FOCUS_INTERVAL_ID = (typeof SKILL_FOCUS_INTERVAL_ID !== 'undefined') ? SKILL_FOCUS_INTERVAL_ID : null;
+
+function _cargarFocusTimerSkill() {
+    try {
+        var raw = localStorage.getItem(SKILL_FOCUS_STORAGE_KEY);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (!parsed || !parsed.skillId) return null;
+        return parsed;
+    } catch (e) {
+        return null;
+    }
+}
+
+function _guardarFocusTimerSkill(st) {
+    try {
+        if (!st) {
+            localStorage.removeItem(SKILL_FOCUS_STORAGE_KEY);
+        } else {
+            st.actualizadoEn = Date.now();
+            localStorage.setItem(SKILL_FOCUS_STORAGE_KEY, JSON.stringify(st));
+        }
+    } catch (e) {}
+}
+
+function obtenerSegundosTranscurridosFocusSkill(st) {
+    if (!st) return 0;
+    var base = Math.max(0, Math.floor(Number(st.acumuladoSegundos) || 0));
+    if (!st.pausado && st.iniciadoEnMs) {
+        base += Math.max(0, Math.floor((Date.now() - Number(st.iniciadoEnMs)) / 1000));
+    }
+    return base;
+}
+
+function formatearRelojFocusSkill(segTotal, compacto) {
+    var s = Math.max(0, Math.floor(Number(segTotal) || 0));
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var seg = s % 60;
+    var p = function(n) { return String(n).padStart(2, '0'); };
+    if (compacto && h === 0) {
+        return p(m) + ':' + p(seg);
+    }
+    return p(h) + ':' + p(m) + ':' + p(seg);
+}
+
+function _detenerIntervaloFocusSkill() {
+    if (SKILL_FOCUS_INTERVAL_ID) {
+        clearInterval(SKILL_FOCUS_INTERVAL_ID);
+        SKILL_FOCUS_INTERVAL_ID = null;
+    }
+}
+
+function _asegurarIntervaloFocusSkill() {
+    var st = _cargarFocusTimerSkill();
+    if (!st || st.pausado) {
+        _detenerIntervaloFocusSkill();
+        return;
+    }
+    if (!SKILL_FOCUS_INTERVAL_ID) {
+        SKILL_FOCUS_INTERVAL_ID = setInterval(actualizarTickEnfoqueSkill, 1000);
+    }
+}
+
+function actualizarTickEnfoqueSkill() {
+    var st = _cargarFocusTimerSkill();
+    if (!st) {
+        _detenerIntervaloFocusSkill();
+        var banOff = document.getElementById('skills-focus-banner');
+        if (banOff) {
+            banOff.style.display = 'none';
+            banOff.innerHTML = '';
+        }
+        return;
+    }
+
+    var seg = obtenerSegundosTranscurridosFocusSkill(st);
+    var clockEl = document.getElementById('skills-focus-clock');
+    if (clockEl) {
+        clockEl.textContent = formatearRelojFocusSkill(seg, false);
+    }
+
+    var mins = Math.floor(seg / 60);
+    var estHrs = mins >= 1 ? Math.max(0.02, redondearHorasSkill(mins / 60)) : 0;
+    var estXp = estHrs > 0 ? Math.max(1, Math.round(estHrs * 10)) : 0;
+    var rewardEl = document.getElementById('skills-focus-reward');
+    if (rewardEl) {
+        rewardEl.textContent = mins >= 1
+            ? ('+' + formatearDuracionCortoSkill(estHrs) + ' (+' + formatearHorasSkill(estHrs) + 'h) · +' + estXp + ' XP')
+            : 'Mínimo 1 min para acreditar';
+    }
+
+    var cardClocks = document.querySelectorAll('[data-skill-focus-clock="' + String(st.skillId) + '"]');
+    if (cardClocks && cardClocks.length > 0) {
+        var txtComp = formatearRelojFocusSkill(seg, true);
+        cardClocks.forEach(function(el) {
+            el.textContent = txtComp;
+        });
+    }
+}
+
+function renderizarBannerEnfoqueSkill() {
+    var banner = document.getElementById('skills-focus-banner');
+    if (!banner) return;
+
+    var st = _cargarFocusTimerSkill();
+    if (!st) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        _detenerIntervaloFocusSkill();
+        return;
+    }
+
+    var skill = (APP_STATE.habilidades || []).find(function(h) {
+        return String(h.id) === String(st.skillId);
+    });
+    if (!skill) {
+        _guardarFocusTimerSkill(null);
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        _detenerIntervaloFocusSkill();
+        return;
+    }
+
+    st.skillNombre = skill.nombre || st.skillNombre || 'Habilidad';
+    var seg = obtenerSegundosTranscurridosFocusSkill(st);
+    var mins = Math.floor(seg / 60);
+    var estHrs = mins >= 1 ? Math.max(0.02, redondearHorasSkill(mins / 60)) : 0;
+    var estXp = estHrs > 0 ? Math.max(1, Math.round(estHrs * 10)) : 0;
+    var calc = calcularRangoYProgreso(skill.horasTotales);
+    var pausaTxt = st.pausado ? '▶ Reanudar' : '⏸ Pausar';
+    var pillTxt = st.pausado ? 'ENFOQUE PAUSADO' : 'ENFOQUE EN VIVO';
+
+    banner.className = 'skills-focus-banner' + (st.pausado ? ' is-paused' : '');
+    banner.style.display = 'flex';
+    banner.innerHTML = `
+        <div class="skills-focus-top">
+            <div class="skills-focus-meta">
+                <span class="skills-focus-pill">
+                    <span class="skills-focus-dot" aria-hidden="true"></span>
+                    <span>${pillTxt} · ${escaparHtmlSkill(calc.rango)}</span>
+                </span>
+                <h4 class="skills-focus-name">${escaparHtmlSkill(skill.nombre)}</h4>
+            </div>
+            <div class="skills-focus-timer-box">
+                <div id="skills-focus-clock" class="skills-focus-clock">${formatearRelojFocusSkill(seg, false)}</div>
+                <div id="skills-focus-reward" class="skills-focus-reward">${
+                    mins >= 1
+                        ? ('+' + formatearDuracionCortoSkill(estHrs) + ' (+' + formatearHorasSkill(estHrs) + 'h) · +' + estXp + ' XP')
+                        : 'Mínimo 1 min para acreditar'
+                }</div>
+            </div>
+        </div>
+        <div class="skills-focus-controls">
+            <button type="button" id="btn-skill-focus-toggle" class="btn-skill-focus-ctrl" onclick="pausarReanudarEnfoqueSkill()">
+                ${pausaTxt}
+            </button>
+            <button type="button" id="btn-skill-focus-finish" class="btn-skill-focus-ctrl is-finish" onclick="finalizarEnfoqueSkill()">
+                ✓ Finalizar y Sumar
+            </button>
+            <button type="button" id="btn-skill-focus-discard" class="btn-skill-focus-ctrl is-discard" onclick="descartarEnfoqueSkill()">
+                ✕ Descartar
+            </button>
+        </div>
+    `;
+
+    _asegurarIntervaloFocusSkill();
+}
+
+function iniciarEnfoqueSkill(id) {
+    var sList = APP_STATE.habilidades || [];
+    var target = sList.find(function(h) { return String(h.id) === String(id); });
+    if (!target) return;
+
+    var actual = _cargarFocusTimerSkill();
+    if (actual) {
+        if (String(actual.skillId) === String(id)) {
+            pausarReanudarEnfoqueSkill();
+            return;
+        }
+        var segPrev = obtenerSegundosTranscurridosFocusSkill(actual);
+        if (segPrev >= 60) {
+            var ok = confirm("Tienes " + formatearRelojFocusSkill(segPrev, false) + " acumulados en «" + (actual.skillNombre || 'otra habilidad') + "». ¿Deseas acreditar y finalizar esa sesión antes de iniciar «" + target.nombre + "»?");
+            if (!ok) return;
+            finalizarEnfoqueSkill(true);
+        } else {
+            _guardarFocusTimerSkill(null);
+        }
+    }
+
+    var nuevo = {
+        skillId: String(target.id),
+        skillNombre: target.nombre || 'Habilidad',
+        iniciadoEnMs: Date.now(),
+        acumuladoSegundos: 0,
+        pausado: false,
+        actualizadoEn: Date.now()
+    };
+    _guardarFocusTimerSkill(nuevo);
+    renderizarHabilidades(APP_STATE.habilidades);
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Enfoque iniciado en «" + target.nombre + "»", "⏱️");
+    }
+}
+
+function pausarReanudarEnfoqueSkill() {
+    var st = _cargarFocusTimerSkill();
+    if (!st) return;
+
+    if (!st.pausado) {
+        st.acumuladoSegundos = obtenerSegundosTranscurridosFocusSkill(st);
+        st.iniciadoEnMs = 0;
+        st.pausado = true;
+    } else {
+        st.iniciadoEnMs = Date.now();
+        st.pausado = false;
+    }
+    _guardarFocusTimerSkill(st);
+    renderizarHabilidades(APP_STATE.habilidades);
+}
+
+function descartarEnfoqueSkill() {
+    var st = _cargarFocusTimerSkill();
+    if (!st) return;
+    var seg = obtenerSegundosTranscurridosFocusSkill(st);
+    if (seg >= 60 && !confirm("¿Descartar esta sesión de " + formatearRelojFocusSkill(seg, false) + " sin sumar horas?")) {
+        return;
+    }
+    _guardarFocusTimerSkill(null);
+    _detenerIntervaloFocusSkill();
+    renderizarHabilidades(APP_STATE.habilidades);
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Sesión de enfoque descartada", "✕");
+    }
+}
+
+function finalizarEnfoqueSkill(silencioso) {
+    var st = _cargarFocusTimerSkill();
+    if (!st) return;
+    var seg = obtenerSegundosTranscurridosFocusSkill(st);
+    if (seg < 60) {
+        if (!silencioso && typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca("Practica al menos 1 min para acreditar (o usa +15m / +30m)", "⏱️");
+        }
+        return false;
+    }
+
+    var mins = Math.max(1, Math.round(seg / 60));
+    var horas = Math.max(0.02, redondearHorasSkill(mins / 60));
+    var skillId = st.skillId;
+
+    _guardarFocusTimerSkill(null);
+    _detenerIntervaloFocusSkill();
+
+    sumarHorasHabilidad(skillId, horas, {
+        minutos: mins,
+        origen: 'enfoque'
+    });
+    return true;
 }
 
 function cargarHabilidades() {
@@ -637,18 +855,72 @@ function cargarHabilidades() {
 }
 
 function abrirModalNuevaHabilidad() {
+    SKILL_EDITANDO_ID = null;
     ATRIBUTOS_MODAL_TEMP.habilidad = [];
     poblarSelectAtributos('habilidad');
     renderizarFilasAtributos('habilidad');
+
+    var elTitulo = document.getElementById('modal-habilidad-titulo');
+    var elLblHrs = document.getElementById('modal-habilidad-horas-label');
+    var elHintHrs = document.getElementById('modal-habilidad-horas-hint');
+    var elBtn = document.getElementById('modal-habilidad-btn-confirmar');
+    if (elTitulo) elTitulo.textContent = "REGISTRAR NUEVA HABILIDAD";
+    if (elLblHrs) elLblHrs.textContent = "Horas Iniciales:";
+    if (elHintHrs) elHintHrs.innerHTML = "Toda habilidad nueva inicia estrictamente en <strong>Rango E</strong> (0 a 5 hrs) y escala progresivamente hasta <strong>Rango SSS</strong> (340+ hrs).";
+    if (elBtn) elBtn.textContent = "✓ Guardar Habilidad";
+
     var inNom = document.getElementById('modal-habilidad-nombre');
     var inBen = document.getElementById('modal-habilidad-beneficio');
+    var inHrs = document.getElementById('modal-habilidad-horas');
     if (inNom) inNom.value = "";
     if (inBen) inBen.value = "";
+    if (inHrs) {
+        inHrs.setAttribute('max', '4');
+        inHrs.value = "0";
+    }
+
+    var m = document.getElementById('modal-nueva-habilidad');
+    if (m) m.style.display = 'flex';
+}
+
+function abrirModalEditarHabilidad(id) {
+    var skill = (APP_STATE.habilidades || []).find(function(h) {
+        return String(h.id) === String(id);
+    });
+    if (!skill) return;
+
+    SKILL_EDITANDO_ID = String(skill.id);
+    ATRIBUTOS_MODAL_TEMP.habilidad = (Array.isArray(skill.atributos) && skill.atributos.length > 0)
+        ? JSON.parse(JSON.stringify(skill.atributos))
+        : [];
+    poblarSelectAtributos('habilidad');
+    renderizarFilasAtributos('habilidad');
+
+    var elTitulo = document.getElementById('modal-habilidad-titulo');
+    var elLblHrs = document.getElementById('modal-habilidad-horas-label');
+    var elHintHrs = document.getElementById('modal-habilidad-horas-hint');
+    var elBtn = document.getElementById('modal-habilidad-btn-confirmar');
+    if (elTitulo) elTitulo.textContent = "EDITAR HABILIDAD";
+    if (elLblHrs) elLblHrs.textContent = "Horas Acumuladas Totales:";
+    if (elHintHrs) elHintHrs.innerHTML = "Ajusta el nombre, recompensa, atributos o corrige el total de horas acumuladas (acepta decimales, ej. <strong>1.5</strong>).";
+    if (elBtn) elBtn.textContent = "✓ Guardar Cambios";
+
+    var inNom = document.getElementById('modal-habilidad-nombre');
+    var inBen = document.getElementById('modal-habilidad-beneficio');
+    var inHrs = document.getElementById('modal-habilidad-horas');
+    if (inNom) inNom.value = skill.nombre || "";
+    if (inBen) inBen.value = skill.beneficio || "";
+    if (inHrs) {
+        inHrs.removeAttribute('max');
+        inHrs.value = formatearHorasSkill(skill.horasTotales || 0);
+    }
+
     var m = document.getElementById('modal-nueva-habilidad');
     if (m) m.style.display = 'flex';
 }
 
 function cerrarModalNuevaHabilidad() {
+    SKILL_EDITANDO_ID = null;
     var m = document.getElementById('modal-nueva-habilidad');
     if (m) m.style.display = 'none';
 }
@@ -660,21 +932,47 @@ function confirmarAgregarHabilidad() {
 
     var nom = inNom ? inNom.value.trim() : "";
     var ben = inBen ? inBen.value.trim() : "";
-    var hrs = inHrs ? (Number(inHrs.value) || 0) : 0;
+    var hrs = inHrs ? redondearHorasSkill(inHrs.value) : 0;
 
     if (!nom) {
         alert("Por favor ingresa el nombre de la habilidad.");
         return;
     }
 
-    // Comienza estrictamente en Rango E (0 a 4 horas)
-    var hrsClamped = Math.min(4, Math.max(0, hrs));
-
     if (!APP_STATE.habilidades) APP_STATE.habilidades = [];
 
     var listaAtrsH = (ATRIBUTOS_MODAL_TEMP.habilidad && ATRIBUTOS_MODAL_TEMP.habilidad.length > 0)
         ? JSON.parse(JSON.stringify(ATRIBUTOS_MODAL_TEMP.habilidad))
         : [];
+
+    if (SKILL_EDITANDO_ID) {
+        var idxEdit = APP_STATE.habilidades.findIndex(function(h) {
+            return String(h.id) === String(SKILL_EDITANDO_ID);
+        });
+        if (idxEdit !== -1) {
+            var targetEdit = APP_STATE.habilidades[idxEdit];
+            targetEdit.nombre = nom;
+            targetEdit.beneficio = ben || "Incremento de destreza y capacidad técnica";
+            targetEdit.horasTotales = Math.max(0, hrs);
+            targetEdit.atributos = listaAtrsH;
+
+            var focusSt = _cargarFocusTimerSkill();
+            if (focusSt && String(focusSt.skillId) === String(targetEdit.id)) {
+                focusSt.skillNombre = nom;
+                _guardarFocusTimerSkill(focusSt);
+            }
+        }
+        MonarcaDB.save(APP_STATE);
+        cerrarModalNuevaHabilidad();
+        renderizarHabilidades(APP_STATE.habilidades);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca("Habilidad «" + nom + "» actualizada", "✏️");
+        }
+        return;
+    }
+
+    // Habilidad nueva: comienza estrictamente en Rango E (0 a 4 horas)
+    var hrsClamped = Math.min(4, Math.max(0, hrs));
 
     var nuevaHabilidad = {
         id: "SKILL-" + Date.now(),
@@ -693,6 +991,9 @@ function confirmarAgregarHabilidad() {
 
     cerrarModalNuevaHabilidad();
     renderizarHabilidades(APP_STATE.habilidades);
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca("Habilidad «" + nom + "» creada en Rango E", "🌿");
+    }
 }
 
 var SKILLS_EXPANDIDAS = (typeof SKILLS_EXPANDIDAS !== 'undefined') ? SKILLS_EXPANDIDAS : new Set();
@@ -724,13 +1025,59 @@ function obtenerTierSkill(badgeClass) {
     return SKILL_RANK_TIERS[0];
 }
 
+function calcularHorasHoySkill(skillId, nombre) {
+    var hist = APP_STATE.historialSkills;
+    if (!Array.isArray(hist) || hist.length === 0) return 0;
+    var hoy = typeof obtenerClaveFechaLocal === 'function'
+        ? obtenerClaveFechaLocal()
+        : new Date().toISOString().split('T')[0];
+
+    var total = 0;
+    for (var i = 0; i < hist.length; i++) {
+        var e = hist[i];
+        if (!e) continue;
+        var coincide = e.skillId
+            ? (String(e.skillId) === String(skillId))
+            : (String(e.nombre || '') === String(nombre || ''));
+        if (!coincide) continue;
+        var ts = Number(e.timestamp) || 0;
+        if (!ts) continue;
+        var fKey = typeof obtenerClaveFechaLocal === 'function'
+            ? obtenerClaveFechaLocal(new Date(ts))
+            : new Date(ts).toISOString().split('T')[0];
+        if (fKey === hoy) {
+            total += Number(e.horas) || 0;
+        }
+    }
+    return redondearHorasSkill(total);
+}
+
+function obtenerUltimasSesionesSkill(skillId, nombre, limite) {
+    var hist = APP_STATE.historialSkills;
+    if (!Array.isArray(hist) || hist.length === 0) return [];
+    var lim = Math.max(1, Number(limite) || 3);
+    var matches = [];
+    for (var i = hist.length - 1; i >= 0; i--) {
+        var e = hist[i];
+        if (!e) continue;
+        var coincide = e.skillId
+            ? (String(e.skillId) === String(skillId))
+            : (String(e.nombre || '') === String(nombre || ''));
+        if (coincide) {
+            matches.push(e);
+            if (matches.length >= lim) break;
+        }
+    }
+    return matches;
+}
+
 function renderizarHudSkillsResumen(sList) {
     var totalSkills = sList.length;
     var totalHoras = 0;
     var maxTierIdx = 0;
 
     sList.forEach(function(s) {
-        var h = Math.max(0, Number(s && s.horasTotales) || 0);
+        var h = redondearHorasSkill(s && s.horasTotales);
         totalHoras += h;
         var calc = calcularRangoYProgreso(h);
         for (var i = 0; i < SKILL_RANK_TIERS.length; i++) {
@@ -741,7 +1088,7 @@ function renderizarHudSkillsResumen(sList) {
     });
 
     var tierLider = SKILL_RANK_TIERS[maxTierIdx] || SKILL_RANK_TIERS[0];
-    var totalHrsFmt = (Math.round(totalHoras * 10) / 10);
+    var totalHrsFmt = formatearHorasSkill(totalHoras);
 
     return `
         <div class="skills-hud-grid" aria-label="Resumen de habilidades">
@@ -761,7 +1108,7 @@ function renderizarHudSkillsResumen(sList) {
 }
 
 function renderizarEscaleraRangosSkill(horasTotales, activeBadgeClass) {
-    var h = Math.max(0, Number(horasTotales) || 0);
+    var h = redondearHorasSkill(horasTotales);
     var activeIdx = 0;
     for (var i = 0; i < SKILL_RANK_TIERS.length; i++) {
         if (SKILL_RANK_TIERS[i].badgeClass === activeBadgeClass) {
@@ -799,15 +1146,18 @@ function toggleDetalleSkill(id) {
 }
 
 function renderizarHabilidades(skills) {
+    renderizarBannerEnfoqueSkill();
+
     var sList = skills || APP_STATE.habilidades || [];
+    var focusSt = _cargarFocusTimerSkill();
     var html = "";
 
     if (sList && sList.length > 0) {
         html += renderizarHudSkillsResumen(sList);
 
         sList.forEach(function(s) {
-            var horasTotales = Math.max(0, Number(s.horasTotales) || 0);
-            var horasFmt = (Math.round(horasTotales * 10) / 10);
+            var horasTotales = redondearHorasSkill(s.horasTotales);
+            var horasFmt = formatearHorasSkill(horasTotales);
             var calc = calcularRangoYProgreso(horasTotales);
             var tier = obtenerTierSkill(calc.badgeClass);
             var porcentaje = calc.porcentaje;
@@ -816,26 +1166,75 @@ function renderizarHabilidades(skills) {
             var safeNombre = escaparHtmlSkill(s.nombre);
             var safeBeneficio = escaparHtmlSkill(s.beneficio);
 
+            var horasHoy = calcularHorasHoySkill(s.id, s.nombre);
+            var hoyBadge = horasHoy > 0
+                ? `<span class="skill-today-pill">Hoy: +${formatearDuracionCortoSkill(horasHoy)}</span>`
+                : '';
+
+            var esFocused = focusSt && String(focusSt.skillId) === String(s.id);
+            var segFocused = esFocused ? obtenerSegundosTranscurridosFocusSkill(focusSt) : 0;
+            var btnFocusClass = 'btn-skill-focus-card' + (esFocused ? (focusSt.pausado ? ' is-paused' : ' is-running') : '');
+            var btnFocusHtml = esFocused
+                ? (focusSt.pausado
+                    ? `<span>▶ Reanudar enfoque · <strong data-skill-focus-clock="${safeId}">${formatearRelojFocusSkill(segFocused, true)}</strong></span>`
+                    : `<span>⏸ Pausar enfoque · <strong data-skill-focus-clock="${safeId}">${formatearRelojFocusSkill(segFocused, true)}</strong></span>`)
+                : `<span>⏱ Iniciar práctica en vivo</span>`;
+
+            var sesionesRecientes = obtenerUltimasSesionesSkill(s.id, s.nombre, 3);
+            var sesionesHtml = '';
+            if (sesionesRecientes.length > 0) {
+                sesionesHtml = `
+                    <div class="skill-recent-box">
+                        <span class="skill-recent-title">Últimas sesiones registradas</span>
+                        <div class="skill-recent-list">
+                            ${sesionesRecientes.map(function(ses) {
+                                var fSes = ses.timestamp ? new Date(ses.timestamp) : null;
+                                var fLabel = fSes
+                                    ? fSes.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) + ' · ' + fSes.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                    : 'Sesión';
+                                var durLbl = ses.minutos
+                                    ? (ses.minutos + ' min')
+                                    : formatearDuracionCortoSkill(ses.horas || 1);
+                                var tagOrigen = ses.origen === 'enfoque' ? ' · ⏱ En vivo' : '';
+                                return `
+                                    <div class="skill-recent-item">
+                                        <span>${escaparHtmlSkill(fLabel + tagOrigen)}</span>
+                                        <span class="skill-recent-dur">+${escaparHtmlSkill(durLbl)}</span>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+            }
+
             var metaProgresoIzq = (tier.id === 'SSS')
                 ? `Maestría máxima · <strong>${horasFmt} h</strong>`
-                : `En ${tier.id}: <strong>${calc.horasEnNivel} / ${calc.horasReqNivel} h</strong>`;
+                : `En ${tier.id}: <strong>${formatearHorasSkill(calc.horasEnNivel)} / ${calc.horasReqNivel} h</strong>`;
 
             var metaProgresoDer = (tier.id === 'SSS')
                 ? `100%`
                 : `<strong>${porcentaje}%</strong> · ${escaparHtmlSkill(calc.siguiente)}`;
 
             html += `
-            <div class="skill-card skill-noir-card" style="--skill-accent: ${tier.accent};">
+            <div class="skill-card skill-noir-card ${esFocused ? 'is-practicing' : ''}" style="--skill-accent: ${tier.accent};">
                 <div class="skill-card-top-row">
                     <div class="skill-card-badges">
                         <span class="skill-rank-badge ${calc.badgeClass}">${escaparHtmlSkill(calc.rango)}</span>
                         <span class="skill-total-pill">${horasFmt} h totales</span>
+                        ${hoyBadge}
                     </div>
-                    <button type="button" class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleSkill('${safeId}')" aria-expanded="${isExpanded ? 'true' : 'false'}" title="${isExpanded ? 'Ocultar árbol y detalles' : 'Ver árbol de rangos y detalles'}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
+                    <div class="skill-card-top-actions">
+                        <button type="button" class="btn-skill-icon-mini" onclick="abrirModalEditarHabilidad('${safeId}')" title="Editar habilidad" aria-label="Editar ${safeNombre}">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleSkill('${safeId}')" aria-expanded="${isExpanded ? 'true' : 'false'}" title="${isExpanded ? 'Ocultar árbol y detalles' : 'Ver árbol de rangos y detalles'}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <h3 class="skill-name-noir">${safeNombre}</h3>
@@ -849,7 +1248,15 @@ function renderizarHabilidades(skills) {
                     <span class="skill-progress-next" style="color: ${tier.accent};">${metaProgresoDer}</span>
                 </div>
 
-                <div class="skill-actions-grid">
+                <div class="skill-actions-grid skill-actions-4">
+                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 0.25)" class="btn-skill-hora" title="Sumar 15 minutos de práctica y +3 EXP">
+                        <span class="btn-hora-main">+15m</span>
+                        <span class="btn-hora-xp">+3 XP</span>
+                    </button>
+                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 0.5)" class="btn-skill-hora" title="Sumar 30 minutos de práctica y +5 EXP">
+                        <span class="btn-hora-main">+30m</span>
+                        <span class="btn-hora-xp">+5 XP</span>
+                    </button>
                     <button type="button" onclick="sumarHorasHabilidad('${safeId}', 1)" class="btn-skill-hora" title="Sumar 1 hora de práctica y +10 EXP">
                         <span class="btn-hora-main">+1h</span>
                         <span class="btn-hora-xp">+10 XP</span>
@@ -858,13 +1265,15 @@ function renderizarHabilidades(skills) {
                         <span class="btn-hora-main">+2h</span>
                         <span class="btn-hora-xp">+20 XP</span>
                     </button>
-                    <button type="button" onclick="sumarHorasHabilidad('${safeId}', 3)" class="btn-skill-hora" title="Sumar 3 horas de práctica y +30 EXP">
-                        <span class="btn-hora-main">+3h</span>
-                        <span class="btn-hora-xp">+30 XP</span>
+                </div>
+
+                <div class="skill-focus-launch-row">
+                    <button type="button" onclick="iniciarEnfoqueSkill('${safeId}')" class="${btnFocusClass}">
+                        ${btnFocusHtml}
                     </button>
                 </div>
 
-                <!-- PANEL DESPLEGABLE: RUTA DE RANGOS, BENEFICIO Y DESARROLLO -->
+                <!-- PANEL DESPLEGABLE: RUTA DE RANGOS, BENEFICIO, SESIONES Y EDICIÓN -->
                 <div class="card-detalle-desplegable skill-detalle-noir" id="skill-detalle-${safeId}" style="display: ${isExpanded ? 'flex' : 'none'};">
                     ${calc.descripcion ? `
                         <div class="skill-rank-desc-box">
@@ -887,7 +1296,11 @@ function renderizarHabilidades(skills) {
                             </div>
                         </div>
                     ` : ''}
+                    ${sesionesHtml}
                     <div class="skill-detail-footer">
+                        <button type="button" onclick="abrirModalEditarHabilidad('${safeId}')" class="btn-skill-edit-footer">
+                            ✏️ Editar Habilidad
+                        </button>
                         <button type="button" onclick="eliminarHabilidad('${safeId}')" class="btn-skill-delete">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -932,24 +1345,26 @@ function renderizarHabilidades(skills) {
     }, 50);
 }
 
-function sumarHorasHabilidad(id, cantidad) {
-    var cant = Math.max(1, parseInt(cantidad, 10) || 1);
+function sumarHorasHabilidad(id, cantidad, meta) {
+    var cant = redondearHorasSkill(cantidad);
+    if (!(cant > 0)) cant = 1;
+    meta = meta || {};
     if (!APP_STATE.habilidades) return;
+
     for (var i = 0; i < APP_STATE.habilidades.length; i++) {
         if (String(APP_STATE.habilidades[i].id) === String(id)) {
             var s = APP_STATE.habilidades[i];
             var prevCalc = calcularRangoYProgreso(s.horasTotales);
-            s.horasTotales = (s.horasTotales || 0) + cant;
+            s.horasTotales = redondearHorasSkill((Number(s.horasTotales) || 0) + cant);
             var newCalc = calcularRangoYProgreso(s.horasTotales);
 
-            // Recompensa de EXP (+10 EXP por cada hora)
-            sumarExp(10 * cant);
+            // Recompensa de EXP proporcional (+10 EXP por hora, mínimo +1 XP)
+            var expGanada = Math.max(1, Math.round(cant * 10));
+            sumarExp(expGanada);
 
-            // Desarrollo de atributos por cada hora sumada
+            // Desarrollo proporcional de atributos para sesiones fraccionales o completas
             if (s.atributos && s.atributos.length > 0) {
-                for (var k = 0; k < cant; k++) {
-                    aplicarImpactoAtributos(s.atributos);
-                }
+                aplicarImpactoAtributos(s.atributos, cant);
             }
 
             // Registrar en historial para métricas y gráficas de productividad
@@ -959,13 +1374,17 @@ function sumarHorasHabilidad(id, cantidad) {
                 skillId: s.id,
                 nombre: s.nombre,
                 horas: cant,
+                minutos: Number(meta.minutos) || Math.max(1, Math.round(cant * 60)),
+                origen: meta.origen || 'rapido',
                 timestamp: Date.now()
             });
 
-            if (newCalc.rango !== prevCalc.rango) {
-                setTimeout(function() {
-                    alert("🎖️ ¡ASCENSO DE RANGO! Has alcanzado " + newCalc.rango + " en " + s.nombre + " (Total: " + s.horasTotales + " hrs).");
-                }, 100);
+            if (typeof mostrarToastMonarca === 'function') {
+                if (newCalc.rango !== prevCalc.rango) {
+                    mostrarToastMonarca("¡Ascenso en «" + s.nombre + "»! Ahora eres " + newCalc.rango + " (" + formatearHorasSkill(s.horasTotales) + "h)", "🏆");
+                } else {
+                    mostrarToastMonarca("+" + formatearDuracionCortoSkill(cant) + " en «" + s.nombre + "» (+" + expGanada + " EXP)", "⚡");
+                }
             }
             break;
         }
@@ -981,6 +1400,13 @@ function sumarHora(id) {
 function eliminarHabilidad(id) {
     if (!confirm("¿Deseas eliminar esta habilidad y su progreso?")) return;
     if (!APP_STATE.habilidades) return;
+
+    var focusSt = _cargarFocusTimerSkill();
+    if (focusSt && String(focusSt.skillId) === String(id)) {
+        _guardarFocusTimerSkill(null);
+        _detenerIntervaloFocusSkill();
+    }
+
     if (typeof registrarTombstone === 'function') {
         registrarTombstone('habilidades', id);
     }
@@ -4625,11 +5051,15 @@ function renderizarChartProductividadSkills(filtro) {
     }
 
     var conteoHoras = {};
+    var idToName = {};
 
-    // Inicializar con todas las habilidades en 0
+    // Inicializar con todas las habilidades en 0 y mapa id -> nombre actual
     if (APP_STATE.habilidades && Array.isArray(APP_STATE.habilidades)) {
         APP_STATE.habilidades.forEach(function(s) {
-            if (s && s.nombre) conteoHoras[s.nombre] = 0;
+            if (s && s.nombre) {
+                conteoHoras[s.nombre] = 0;
+                if (s.id) idToName[String(s.id)] = s.nombre;
+            }
         });
     }
 
@@ -4639,20 +5069,23 @@ function renderizarChartProductividadSkills(filtro) {
 
     if (eventos.length > 0) {
         eventos.forEach(function(e) {
-            var n = e.nombre || 'Skill';
-            conteoHoras[n] = (conteoHoras[n] || 0) + (Number(e.horas) || 1);
+            var n = (e.skillId && idToName[String(e.skillId)])
+                ? idToName[String(e.skillId)]
+                : (e.nombre || 'Skill');
+            var hVal = (e.horas != null && !isNaN(Number(e.horas))) ? Number(e.horas) : 1;
+            conteoHoras[n] = redondearHorasSkill((conteoHoras[n] || 0) + hVal);
         });
     } else {
         // Si no hay eventos históricos específicos en este rango, reflejar las horas de las habilidades
         if (APP_STATE.habilidades && Array.isArray(APP_STATE.habilidades)) {
             APP_STATE.habilidades.forEach(function(s) {
-                conteoHoras[s.nombre] = Number(s.horasTotales) || 0;
+                conteoHoras[s.nombre] = redondearHorasSkill(s.horasTotales);
             });
         }
     }
 
     var labels = Object.keys(conteoHoras);
-    var data = Object.values(conteoHoras);
+    var data = Object.values(conteoHoras).map(function(v) { return redondearHorasSkill(v); });
     var isEmptyState = false;
 
     if (labels.length === 0) {
@@ -4669,6 +5102,9 @@ function renderizarChartProductividadSkills(filtro) {
     }
 
     var maxHoras = Math.max.apply(null, data.concat([0]));
+    var xSuggestedMax = maxHoras > 0 && maxHoras < 1
+        ? 1
+        : (maxHoras <= 2 ? 2 : Math.ceil(maxHoras * 1.15));
 
     if (_CHART_SKILLS_INSTANCE) {
         _CHART_SKILLS_INSTANCE.destroy();
@@ -4709,7 +5145,8 @@ function renderizarChartProductividadSkills(filtro) {
                             return (items && items[0]) ? items[0].label : '';
                         },
                         label: function(c) {
-                            return ' ' + c.raw + ' hr' + (c.raw === 1 ? '' : 's') + ' practicadas';
+                            var v = redondearHorasSkill(c.raw);
+                            return ' ' + formatearDuracionCortoSkill(v) + ' (' + formatearHorasSkill(v) + ' h) practicadas';
                         }
                     }
                 }
@@ -4717,14 +5154,13 @@ function renderizarChartProductividadSkills(filtro) {
             scales: {
                 x: {
                     beginAtZero: true,
-                    suggestedMax: maxHoras <= 2 ? 4 : Math.ceil(maxHoras * 1.15),
+                    suggestedMax: xSuggestedMax,
                     ticks: {
                         color: '#94a3b8',
-                        precision: 0,
                         maxTicksLimit: 5,
                         font: { size: 10.5 },
                         callback: function(v) {
-                            return Number.isInteger(v) ? (v + 'h') : '';
+                            return formatearHorasSkill(v) + 'h';
                         }
                     },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
@@ -5381,6 +5817,10 @@ if (typeof window !== 'undefined') {
                 renderizarQuestsDiarios();
             }
         });
+        if (typeof renderizarBannerEnfoqueSkill === 'function') {
+            renderizarBannerEnfoqueSkill();
+            actualizarTickEnfoqueSkill();
+        }
         actualizarBotonNotificacionesUI();
         var modalDiag = document.getElementById('modal-diagnostico-alarma');
         if (modalDiag && modalDiag.style.display && modalDiag.style.display !== 'none') {

@@ -254,12 +254,12 @@ function renderizarProductosInventario(listaManual) {
         var catIcono = prod.categoriaIcono || (esVU ? "✨" : "🏷️");
 
         var statusBadge = enStock
-            ? `<span style="font-size: 10.5px; font-weight: 800; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+            ? `<span class="inv-stock-pill is-in-stock" style="font-size: 10.5px; font-weight: 800; background: rgba(16, 185, 129, 0.14); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.32); padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span> ${stock} en Stock
                </span>`
             : (esVU
                 ? `<span class="badge-vendida-unica-inv">✅ Vendida</span>`
-                : `<span style="font-size: 10.5px; font-weight: 800; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                : `<span class="inv-stock-pill is-out-stock" style="font-size: 10.5px; font-weight: 800; background: rgba(239, 68, 68, 0.14); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.32); padding: 3px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
                     <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Agotado (0)
                    </span>`);
 

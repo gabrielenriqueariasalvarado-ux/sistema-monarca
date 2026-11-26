@@ -71,10 +71,15 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.31)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.32)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.31
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.32
             Esta versión nativa incluye:
+            - 🌿 **Árbol de Habilidades Pro — Enfoque en Vivo, Sesiones Cortas y Edición (v11.32)**:
+              - **Cronómetro de Práctica en Vivo Persistente**: Inicia un cronómetro dedicado directamente desde cualquier habilidad con reloj en vivo (`HH:MM:SS`), vista previa de `+EXP`, **Pausa/Reanudación** y resistencia total a recargas, cambios de vista o pantalla apagada.
+              - **Sesiones Cortas (+15m / +30m / +1h / +2h), Badge Diario & Historial Reciente**: Registra bloques rápidos desde 15 minutos con escalado proporcional de EXP y atributos, insignia **`Hoy: +Xm`** en cada habilidad y lista desplegable con tus últimas sesiones (y soporte decimal exacto en rangos y gráfica).
+              - **Edición Completa de Habilidades (`✏️`)**: Edita en cualquier momento el nombre, beneficio, horas totales o atributos que desarrolla una habilidad sin perder tu rango ni historial.
+              - **Limpieza Dark Glass**: Migradas las últimas tarjetas y píldoras claras del **Editor de Calentamiento**, **Centro de Copias de Seguridad** e **Inventario** al tema **Monarca Dark Glass**.
             - ⚡ **MQTT Bidireccional en Tiempo Real para Auto-PC y Sistema Monarca (v11.31)**:
               - **Telemetría, Progreso y Eventos en Vivo (< 1.5s, 0 cuota Firebase)**: Nuevo motor MQTT (`js/mqtt-autopc.js` WSS 3.1.1 + `AutoPCMqttBridge` TLS en Python) cifrado extremo a extremo con **AES-256-GCM** y emparejamiento automático entre tu PC y tu teléfono, más modal **`⚙️ MQTT`** para conectar cualquier broker privado (**HiveMQ Cloud**, **EMQX** o **Mosquitto**).
               - **Presencia Instantánea (LWT) & Notificaciones Reales**: Aviso inmediato si Auto-PC se cierra o cae la red, notificaciones instantáneas al teléfono cuando inicia/pide aprobación de Implementation Plan/termina una solicitud (con resumen completo de Antigravity y +15 EXP) y **controles remotos en Perfil** (**`▶ Iniciar`**, **`⏸ Pausar`**, **`⏹ Detener`**, **`🔄 Sync`**).

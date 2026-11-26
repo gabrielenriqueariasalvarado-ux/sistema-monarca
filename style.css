@@ -26589,3 +26589,331 @@ body.modal-open {
     margin-top: 10px;
 }
 
+/* ==========================================================================
+   SKILLS · ENFOQUE EN VIVO, SESIONES CORTAS Y EDICIÓN (v11.32)
+   ========================================================================== */
+
+.skills-focus-banner {
+    margin: 0 0 14px 0;
+    padding: 13px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(56, 189, 248, 0.08)), #0b1120;
+    border: 1px solid rgba(52, 211, 153, 0.34);
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.skills-focus-banner.is-paused {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(99, 102, 241, 0.08)), #0b1120;
+    border-color: rgba(251, 191, 36, 0.36);
+}
+
+.skills-focus-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.skills-focus-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 180px;
+}
+
+.skills-focus-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #6ee7b7;
+}
+
+.skills-focus-banner.is-paused .skills-focus-pill {
+    color: #fcd34d;
+}
+
+.skills-focus-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: skillsFocusPulse 1.5s infinite ease-in-out;
+}
+
+.skills-focus-banner.is-paused .skills-focus-dot {
+    background: #f59e0b;
+    box-shadow: none;
+    animation: none;
+}
+
+@keyframes skillsFocusPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+.skills-focus-name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #f8fafc;
+    word-break: break-word;
+}
+
+.skills-focus-timer-box {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.skills-focus-clock {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 22px;
+    font-weight: 800;
+    color: #f8fafc;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+
+.skills-focus-reward {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+
+.skills-focus-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.btn-skill-focus-ctrl {
+    min-height: 36px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f8fafc;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.14s ease;
+}
+
+.btn-skill-focus-ctrl:active {
+    transform: scale(0.97);
+}
+
+.btn-skill-focus-ctrl.is-finish {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(5, 150, 105, 0.25));
+    border-color: rgba(52, 211, 153, 0.45);
+    color: #a7f3d0;
+}
+
+.btn-skill-focus-ctrl.is-discard {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.28);
+    color: #fca5a5;
+}
+
+.skill-noir-card.is-practicing {
+    border-color: rgba(52, 211, 153, 0.55) !important;
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.22), 0 10px 24px rgba(2, 6, 23, 0.45) !important;
+}
+
+.skill-card-top-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.btn-skill-icon-mini {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.045);
+    color: #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.btn-skill-icon-mini:hover {
+    background: rgba(129, 140, 248, 0.16);
+    border-color: rgba(129, 140, 248, 0.35);
+    color: #f8fafc;
+}
+
+.skill-today-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.13);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    border-radius: 9999px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.skill-actions-grid.skill-actions-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.skill-actions-grid.skill-actions-4 .btn-skill-hora {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 7px 4px;
+    min-height: 44px;
+}
+
+.skill-actions-grid.skill-actions-4 .btn-hora-xp {
+    display: block;
+    font-size: 9.5px;
+    line-height: 1.1;
+    color: #94a3b8;
+}
+
+.skill-focus-launch-row {
+    margin-top: 8px;
+}
+
+.btn-skill-focus-card {
+    width: 100%;
+    min-height: 36px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(129, 140, 248, 0.32);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(56, 189, 248, 0.08));
+    color: #e0e7ff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-variant-numeric: tabular-nums;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.14s ease;
+}
+
+.btn-skill-focus-card.is-running {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.14));
+    border-color: rgba(52, 211, 153, 0.48);
+    color: #a7f3d0;
+}
+
+.btn-skill-focus-card.is-paused {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(251, 191, 36, 0.42);
+    color: #fde68a;
+}
+
+.btn-skill-focus-card:active {
+    transform: scale(0.985);
+}
+
+.skill-recent-box {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.skill-recent-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #94a3b8;
+}
+
+.skill-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.skill-recent-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11.5px;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 5px 9px;
+}
+
+.skill-recent-dur {
+    font-weight: 800;
+    color: #a5b4fc;
+    font-variant-numeric: tabular-nums;
+}
+
+.skill-detail-footer {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-skill-edit-footer {
+    background: rgba(99, 102, 241, 0.14);
+    border: 1px solid rgba(129, 140, 248, 0.32);
+    color: #c7d2fe;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 5px 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-skill-edit-footer:hover {
+    background: rgba(99, 102, 241, 0.24);
+}
+
+@media (max-width: 480px) {
+    .skills-focus-controls {
+        grid-template-columns: 1fr 1fr;
+    }
+    .btn-skill-focus-ctrl.is-finish {
+        grid-column: 1 / -1;
+        order: -1;
+    }
+    .skills-focus-clock {
+        font-size: 20px;
+    }
+}
+
+

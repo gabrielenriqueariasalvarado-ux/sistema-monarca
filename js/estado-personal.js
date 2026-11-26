@@ -5519,31 +5519,41 @@ function renderizarListaEditorCalentamiento() {
     var cont = document.getElementById('contenedor-editor-calentamiento');
     if (!cont) return;
 
+    var escCal = function(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
     var lista = APP_STATE.rutinaCalentamiento || [];
     var html = '';
 
     lista.forEach(function(item, idx) {
+        var seg = Math.max(10, Math.min(180, Number(item.duracionSegundos) || 30));
         html += `
-        <div class="editor-cal-item" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:12px 14px; margin-bottom:10px;">
+        <div class="editor-cal-item" style="background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <span style="font-size:12px; font-weight:800; color:#111827;">PASO ${idx + 1}</span>
-                <button type="button" onclick="eliminarPasoCalentamiento(${idx})" style="background:none; border:none; color:#ef4444; font-size:12px; font-weight:700; cursor:pointer;">
+                <span style="font-size:12px; font-weight:800; color:#f8fafc; letter-spacing: 0.3px;">PASO ${idx + 1}</span>
+                <button type="button" onclick="eliminarPasoCalentamiento(${idx})" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color:#fca5a5; font-size:11.5px; font-weight:700; cursor:pointer; padding: 3px 9px; border-radius: 7px;">
                     Eliminar
                 </button>
             </div>
-            <div style="margin-bottom:6px;">
-                <label style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Nombre del Calentamiento:</label>
-                <input type="text" class="finanzas-input-clean input-cal-nombre" value="${item.nombre}" style="background:#ffffff; border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; width:100%; box-sizing:border-box; font-size:13px; font-weight:600; margin-top:2px;">
+            <div style="margin-bottom:8px;">
+                <label style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase;">Nombre del Calentamiento:</label>
+                <input type="text" class="finanzas-input-clean input-cal-nombre" value="${escCal(item.nombre)}" style="background:#0b0e15; color:#f8fafc; border:1px solid rgba(255, 255, 255, 0.12); border-radius:8px; padding:7px 10px; width:100%; box-sizing:border-box; font-size:13px; font-weight:600; margin-top:4px;">
             </div>
-            <div style="display:flex; gap:10px; margin-bottom:6px;">
+            <div style="display:flex; gap:10px; margin-bottom:8px;">
                 <div style="flex:1;">
-                    <label style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Duración (Segundos):</label>
-                    <input type="number" class="finanzas-input-clean input-cal-seg" value="${item.duracionSegundos || 30}" min="10" max="180" style="background:#ffffff; border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; width:100%; box-sizing:border-box; font-size:13px; font-weight:700; margin-top:2px;">
+                    <label style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase;">Duración (Segundos):</label>
+                    <input type="number" class="finanzas-input-clean input-cal-seg" value="${seg}" min="10" max="180" style="background:#0b0e15; color:#f8fafc; border:1px solid rgba(255, 255, 255, 0.12); border-radius:8px; padding:7px 10px; width:100%; box-sizing:border-box; font-size:13px; font-weight:700; margin-top:4px;">
                 </div>
             </div>
             <div>
-                <label style="font-size:11px; color:#6b7280; font-weight:700; text-transform:uppercase;">Instrucciones de Movilidad:</label>
-                <input type="text" class="finanzas-input-clean input-cal-desc" value="${item.descripcion || ''}" placeholder="Ej: Rotaciones continuas de articulaciones..." style="background:#ffffff; border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; width:100%; box-sizing:border-box; font-size:12px; margin-top:2px;">
+                <label style="font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase;">Instrucciones de Movilidad:</label>
+                <input type="text" class="finanzas-input-clean input-cal-desc" value="${escCal(item.descripcion || '')}" placeholder="Ej: Rotaciones continuas de articulaciones..." style="background:#0b0e15; color:#e2e8f0; border:1px solid rgba(255, 255, 255, 0.12); border-radius:8px; padding:7px 10px; width:100%; box-sizing:border-box; font-size:12px; margin-top:4px;">
             </div>
         </div>`;
     });

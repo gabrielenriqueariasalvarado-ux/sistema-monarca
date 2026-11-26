@@ -1155,27 +1155,35 @@ window.MonarcaCloud = {
 
         var cont = document.getElementById('contenedor-lista-backups');
         if (cont) {
+            var escBk = function(s) {
+                return String(s == null ? '' : s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
             var historial = this.obtenerHistorialBackups();
             if (historial.length === 0) {
                 cont.innerHTML = `
-                <div style="text-align: center; padding: 25px; color: #6b7280; font-size: 13px;">
+                <div style="text-align: center; padding: 25px; color: #94a3b8; font-size: 13px;">
                     No hay copias de seguridad previas registradas aún. El sistema las generará automáticamente ante cada cambio.
                 </div>`;
             } else {
                 var html = '';
                 historial.forEach(function(bk) {
                     html += `
-                    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div class="backup-history-card-dark" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <div>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <span style="font-weight: 800; font-size: 13px; color: #111827;">📅 ${bk.fecha}</span>
-                                <span style="font-size: 10.5px; background: #f3f4f6; color: #374151; padding: 2px 7px; border-radius: 6px; font-weight: 700;">${bk.motivo}</span>
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <span style="font-weight: 800; font-size: 13px; color: #f8fafc;">📅 ${escBk(bk.fecha)}</span>
+                                <span style="font-size: 10.5px; background: rgba(99, 102, 241, 0.16); border: 1px solid rgba(129, 140, 248, 0.3); color: #c7d2fe; padding: 2px 7px; border-radius: 6px; font-weight: 700;">${escBk(bk.motivo)}</span>
                             </div>
-                            <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
-                                📦 Productos: <strong style="color: #111827;">${bk.prodsCount}</strong> · 💵 Ventas: <strong style="color: #111827;">${bk.ventasCount}</strong> · ⚔️ Misiones: ${bk.misionesCount}
+                            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                                📦 Productos: <strong style="color: #e2e8f0;">${Number(bk.prodsCount) || 0}</strong> · 💵 Ventas: <strong style="color: #e2e8f0;">${Number(bk.ventasCount) || 0}</strong> · ⚔️ Misiones: <strong style="color: #e2e8f0;">${Number(bk.misionesCount) || 0}</strong>
                             </div>
                         </div>
-                        <button class="btn-system" onclick="window.MonarcaCloud.restaurarBackupPorId('${bk.id}')" style="padding: 6px 12px; font-size: 11.5px; font-weight: 800; background: #111827; color: #ffffff; border-radius: 7px;">
+                        <button type="button" class="btn-system" onclick="window.MonarcaCloud.restaurarBackupPorId('${escBk(bk.id)}')" style="padding: 7px 13px; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, #4f46e5, #6366f1); color: #ffffff; border: 1px solid rgba(129, 140, 248, 0.45); border-radius: 8px; cursor: pointer;">
                             ↩ Restaurar
                         </button>
                     </div>`;
