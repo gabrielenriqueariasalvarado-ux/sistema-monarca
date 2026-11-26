@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.27">
+    <link rel="stylesheet" href="style.css?v=11.28">
 </head>
 <body>
 
@@ -95,6 +95,78 @@
             </div>
         </div>
 
+        <!-- CENTRO DE MANDO DIARIO EN VIVO (v11.28) -->
+        <section id="home-command-center" class="home-command-center" aria-label="Centro de mando diario y accesos rápidos">
+            <form class="home-ia-quickbar" onsubmit="enviarConsultaRapidaDesdeHome(event)">
+                <span class="home-ia-quick-star" aria-hidden="true">✦</span>
+                <input type="text" id="home-ia-quick-input" class="home-ia-quick-input" placeholder="Pregúntale a tu IA..." autocomplete="off">
+                <button type="submit" class="home-ia-quick-btn" title="Preguntar a Gemini IA">
+                    <span>Preguntar</span>
+                    <span aria-hidden="true">➤</span>
+                </button>
+            </form>
+
+            <div class="home-pulse-grid">
+                <button type="button" id="home-kpi-quests" class="home-pulse-card is-quests" onclick="cambiarVista('vista-acciones-progresion')">
+                    <div class="home-pulse-head">
+                        <span class="home-pulse-ico">⚡</span>
+                        <span class="home-pulse-lbl">Quests hoy</span>
+                    </div>
+                    <div id="home-kpi-quests-val" class="home-pulse-val">0 / 0</div>
+                    <div class="home-pulse-bar"><span id="home-kpi-quests-bar" style="width: 0%;"></span></div>
+                    <div id="home-kpi-quests-sub" class="home-pulse-sub">Cargando progreso...</div>
+                </button>
+
+                <button type="button" id="home-kpi-nivel" class="home-pulse-card is-level" onclick="cambiarVista('vista-perfil')">
+                    <div class="home-pulse-head">
+                        <span class="home-pulse-ico">🛡️</span>
+                        <span class="home-pulse-lbl">Nivel &amp; Estado</span>
+                    </div>
+                    <div id="home-kpi-nivel-val" class="home-pulse-val">Nivel 1</div>
+                    <div class="home-pulse-bar"><span id="home-kpi-nivel-bar" style="width: 0%;"></span></div>
+                    <div id="home-kpi-nivel-sub" class="home-pulse-sub">EXP 0 / 100</div>
+                </button>
+
+                <button type="button" id="home-kpi-agenda" class="home-pulse-card is-agenda" onclick="cambiarVista('vista-calendario')">
+                    <div class="home-pulse-head">
+                        <span class="home-pulse-ico">📅</span>
+                        <span class="home-pulse-lbl">Agenda hoy</span>
+                    </div>
+                    <div id="home-kpi-agenda-val" class="home-pulse-val">Despejada</div>
+                    <div id="home-kpi-agenda-sub" class="home-pulse-sub">Sin pendientes próximos</div>
+                </button>
+
+                <button type="button" id="home-kpi-ia" class="home-pulse-card is-ia" onclick="cambiarVista('vista-ia')">
+                    <div class="home-pulse-head">
+                        <span class="home-pulse-ico">✦</span>
+                        <span class="home-pulse-lbl">Asistente IA</span>
+                    </div>
+                    <div id="home-kpi-ia-val" class="home-pulse-val">Conectar</div>
+                    <div id="home-kpi-ia-sub" class="home-pulse-sub">Gemini Interactions</div>
+                </button>
+            </div>
+
+            <div id="home-vocab-spotlight" class="home-vocab-spotlight" style="display: none;" onclick="abrirVocabularioDesdeHome()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirVocabularioDesdeHome();}">
+                <div class="home-vocab-spot-left">
+                    <span class="home-vocab-spot-tag">🗣️ Palabra de la semana</span>
+                    <div class="home-vocab-spot-main">
+                        <strong id="home-vocab-spot-word">---</strong>
+                        <span id="home-vocab-spot-def">---</span>
+                    </div>
+                </div>
+                <span id="home-vocab-spot-cta" class="home-vocab-spot-cta">Practicar →</span>
+            </div>
+
+            <div class="home-shortcuts-row" aria-label="Accesos directos">
+                <button type="button" class="home-shortcut-pill" onclick="cambiarVista('vista-acciones-progresion')">⚡ Quests</button>
+                <button type="button" class="home-shortcut-pill" onclick="cambiarVista('vista-ejercicios')">🏋️ Entrenar</button>
+                <button type="button" class="home-shortcut-pill" onclick="cambiarVista('vista-reproductor')">🎵 Música</button>
+                <button type="button" class="home-shortcut-pill" onclick="cambiarVista('vista-finanzas')">💰 Finanzas</button>
+                <button type="button" class="home-shortcut-pill" onclick="cambiarVista('vista-calendario')">📅 Calendario</button>
+                <button type="button" class="home-shortcut-pill is-ia-pill" onclick="cambiarVista('vista-ia')">✦ IA</button>
+            </div>
+        </section>
+
         <div id="home-update-card" class="home-update-card is-checking" aria-live="polite">
             <div class="home-update-header">
                 <div class="home-update-title-wrap">
@@ -113,7 +185,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v10.72</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.28</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -159,7 +231,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v7.6</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.28</div>
                     </div>
                 </div>
             </div>
@@ -4792,10 +4864,14 @@
                 <span style="font-size: 16px;">◀</span> VOLVER AL MENÚ
             </button>
             <div class="ia-topbar-right">
-                <button type="button" id="ia-chat-model-pill" class="ia-model-pill" onclick="abrirModalConfigIA()" title="Configurar API Key y modelo de Gemini">
-                    <span class="ia-status-dot is-offline"></span>
-                    <span>Configurar Gemini</span>
-                </button>
+                <div class="ia-model-picker-wrap">
+                    <button type="button" id="ia-chat-model-pill" class="ia-model-pill" onclick="toggleMenuRapidoModeloIA(event)" aria-haspopup="menu" aria-expanded="false" title="Cambiar modelo de Gemini rápidamente">
+                        <span class="ia-status-dot is-offline"></span>
+                        <span>Configurar Gemini</span>
+                        <span class="ia-model-caret" aria-hidden="true">▾</span>
+                    </button>
+                    <div id="ia-model-quick-menu" class="ia-model-quick-menu" role="menu" style="display: none;"></div>
+                </div>
                 <button type="button" class="ia-head-chip-btn" onclick="abrirModalConfigIA()" title="Ajustes de Gemini API">
                     <span>⚙️</span><span class="ia-head-chip-label">API</span>
                 </button>
@@ -4837,6 +4913,9 @@
                         <button type="button" id="ia-btn-contexto-monarca" class="ia-head-chip-btn" onclick="toggleContextoMonarcaChatIA()" title="Activar Contexto Monarca">
                             <span>👑</span><span class="ia-head-chip-label">Contexto</span>
                         </button>
+                        <button type="button" id="ia-btn-exportar-md" class="ia-head-chip-btn" onclick="exportarConversacionActualIA()" title="Exportar conversación a Markdown (.md)">
+                            <span>⬇️</span><span class="ia-head-chip-label">.md</span>
+                        </button>
                         <button type="button" class="ia-head-chip-btn" onclick="crearNuevaConversacionIA({ forzarNueva: true })" title="Iniciar nueva conversación">
                             <span>＋</span><span class="ia-head-chip-label">Nuevo</span>
                         </button>
@@ -4868,7 +4947,7 @@
         </div>
     </div>
 
-    <!-- MODAL CONFIGURACIÓN DE CONEXIÓN GEMINI API (v11.27) -->
+    <!-- MODAL CONFIGURACIÓN DE CONEXIÓN GEMINI API (v11.28) -->
     <div id="modal-config-ia" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 520px; width: 94%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-system-header">
@@ -4884,7 +4963,7 @@
                     <div style="font-weight: 800; color: #e9d5ff; margin-bottom: 4px;">🔑 Cómo obtener tu llave gratuita de Gemini en 30 segundos:</div>
                     <ol>
                         <li>Entra a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio (API Keys)</a> con tu cuenta de Google.</li>
-                        <li>Pulsa <strong>Create API key</strong> y copia la llave (empieza por <code>AIza...</code>).</li>
+                        <li>Pulsa <strong>Create API key</strong> y copia la llave (empieza por <code>AQ...</code> o <code>AIza...</code>).</li>
                         <li>Pégala abajo, pulsa <strong>Probar conexión</strong> y luego <strong>Guardar</strong>.</li>
                     </ol>
                     <div style="font-size: 11px; color: #94a3b8;">🔒 Tu llave nunca se publica en el código; se guarda en tu dispositivo y se envía únicamente a los servidores oficiales de Google Gemini.</div>
@@ -4893,7 +4972,7 @@
                 <div class="modal-form-group">
                     <label for="ia-config-api-key">Gemini API Key:</label>
                     <div class="ia-key-input-row">
-                        <input type="password" id="ia-config-api-key" class="modal-input" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API Key (AIza...)">
+                        <input type="password" id="ia-config-api-key" class="modal-input" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API Key (AQ... o AIza...)">
                         <button type="button" id="ia-btn-toggle-key" class="ia-btn-eye" onclick="toggleVisibilidadApiKeyIA()" title="Mostrar / ocultar llave">👁️</button>
                     </div>
                     <div class="ia-config-test-row">
@@ -7676,27 +7755,27 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.27"></script>
-    <script src="js/perfil.js?v=11.27"></script>
-    <script src="js/progresion.js?v=11.27"></script>
-    <script src="js/estado-personal.js?v=11.27"></script>
-    <script src="js/finanzas.js?v=11.27"></script>
-    <script src="js/ideas.js?v=11.27"></script>
-    <script src="js/dinamicas.js?v=11.27"></script>
-    <script src="js/calendario.js?v=11.27"></script>
-    <script src="js/inventario.js?v=11.27"></script>
-    <script src="js/reproductor.js?v=11.27"></script>
-    <script src="js/ia.js?v=11.27"></script>
-    <script src="js/jarvis-voz.js?v=11.27"></script>
+    <script src="js/core.js?v=11.28"></script>
+    <script src="js/perfil.js?v=11.28"></script>
+    <script src="js/progresion.js?v=11.28"></script>
+    <script src="js/estado-personal.js?v=11.28"></script>
+    <script src="js/finanzas.js?v=11.28"></script>
+    <script src="js/ideas.js?v=11.28"></script>
+    <script src="js/dinamicas.js?v=11.28"></script>
+    <script src="js/calendario.js?v=11.28"></script>
+    <script src="js/inventario.js?v=11.28"></script>
+    <script src="js/reproductor.js?v=11.28"></script>
+    <script src="js/ia.js?v=11.28"></script>
+    <script src="js/jarvis-voz.js?v=11.28"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.27"></script>
+    <script type="module" src="js/firebase-config.js?v=11.28"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.27')
+                navigator.serviceWorker.register('sw.js?v=11.28')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

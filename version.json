@@ -1,5 +1,5 @@
 {
-  "version": "11.27",
+  "version": "11.28",
   "fecha": "2026-11-25",
-  "resumen": "Nueva App IA Conversacional con Gemini + Auto-cierre Garantizado de Quests al Finalizar Rutina (v11.27): Agrega la nueva app IA junto a Música MP3 con apartado de conversaciones sincronizadas en la nube, respuestas en streaming vía Google Gemini Interactions API (gemini-3.8-flash gratis con tu API Key de AI Studio), imágenes, dictado/lectura por voz y Contexto Monarca opcional; además corrige el cierre automático de Quests al finalizar una rutina parcial o completa para eliminar falsas alertas de 'Misión no completada a tiempo'."
+  "resumen": "Home Centro de Mando en Vivo + Superpoderes IA (v11.28): Home ahora muestra una barra rápida para preguntarle directo a Gemini IA, 4 tarjetas en vivo de tu pulso diario (Quests, Nivel/EXP y Fatiga, Agenda de hoy y estado de IA), spotlight de Vocabulario Semanal y accesos directos de 1 toque; además la App IA suma renderizado nativo de tablas Markdown, checklists y tachado, selector rápido de modelo en la cabecera, exportación de chats a .md, guía actualizada para llaves AQ... y sincronización automática de la insignia de versión en el Menú Principal."
 }

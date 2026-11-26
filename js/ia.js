@@ -195,11 +195,38 @@ function _formatearInlineMarkdownIA(textoEscapado) {
     s = s.replace(/`([^`\n]+)`/g, '<code class="ia-inline-code">$1</code>');
     // Enlaces seguros [texto](https://...)
     s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="ia-md-link">$1</a>');
+    // Tachado ~~...~~
+    s = s.replace(/~~([^~\n]+)~~/g, '<del class="ia-md-del">$1</del>');
     // Negrita **...**
     s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     // Cursiva *...*
     s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
     return s;
+}
+
+function _parsearFilaTablaMarkdownIA(linea) {
+    var t = String(linea || '').trim();
+    if (t.indexOf('|') === -1) return null;
+    if (t.charAt(0) === '|') t = t.slice(1);
+    if (t.charAt(t.length - 1) === '|') t = t.slice(0, -1);
+    var celdas = t.split('|').map(function(c) { return c.trim(); });
+    return celdas.length > 0 ? celdas : null;
+}
+
+function _parsearSeparadorTablaMarkdownIA(linea) {
+    var celdas = _parsearFilaTablaMarkdownIA(linea);
+    if (!celdas || celdas.length === 0) return null;
+    var alineaciones = [];
+    for (var i = 0; i < celdas.length; i++) {
+        var c = celdas[i];
+        if (!/^:?-{3,}:?$/.test(c)) return null;
+        var izq = c.charAt(0) === ':';
+        var der = c.charAt(c.length - 1) === ':';
+        if (izq && der) alineaciones.push('center');
+        else if (der) alineaciones.push('right');
+        else alineaciones.push('left');
+    }
+    return alineaciones;
 }
 
 function renderizarMarkdownSeguroIA(md) {
@@ -254,6 +281,48 @@ function renderizarMarkdownSeguroIA(md) {
             continue;
         }
 
+        // Tablas Markdown GFM (cabecera + fila separadora |---|---|)
+        if (trim.indexOf('|') !== -1 && (i + 1) < lines.length) {
+            var aligns = _parsearSeparadorTablaMarkdownIA(lines[i + 1]);
+            var headCells = aligns ? _parsearFilaTablaMarkdownIA(trim) : null;
+            if (aligns && headCells && headCells.length > 0) {
+                cerrarListas();
+                var colCount = Math.max(headCells.length, aligns.length);
+                var thHtml = [];
+                for (var hIdx = 0; hIdx < colCount; hIdx++) {
+                    var hAlign = aligns[hIdx] || 'left';
+                    var hText = headCells[hIdx] !== undefined ? headCells[hIdx] : '';
+                    thHtml.push('<th style="text-align:' + hAlign + ';">' + _formatearInlineMarkdownIA(escaparHtmlIA(hText)) + '</th>');
+                }
+                var bodyRowsHtml = [];
+                var rIdx = i + 2;
+                while (rIdx < lines.length) {
+                    var rTrim = lines[rIdx].trim();
+                    if (!rTrim || rTrim.indexOf('|') === -1 || /^@@IA_CODE_BLOCK_\d+@@$/.test(rTrim)) break;
+                    var rowCells = _parsearFilaTablaMarkdownIA(rTrim);
+                    if (!rowCells) break;
+                    var tdHtml = [];
+                    for (var cIdx = 0; cIdx < colCount; cIdx++) {
+                        var cAlign = aligns[cIdx] || 'left';
+                        var cText = rowCells[cIdx] !== undefined ? rowCells[cIdx] : '';
+                        tdHtml.push('<td style="text-align:' + cAlign + ';">' + _formatearInlineMarkdownIA(escaparHtmlIA(cText)) + '</td>');
+                    }
+                    bodyRowsHtml.push('<tr>' + tdHtml.join('') + '</tr>');
+                    rIdx++;
+                }
+                html.push(
+                    '<div class="ia-table-wrap">' +
+                        '<table class="ia-md-table">' +
+                            '<thead><tr>' + thHtml.join('') + '</tr></thead>' +
+                            (bodyRowsHtml.length ? ('<tbody>' + bodyRowsHtml.join('') + '</tbody>') : '') +
+                        '</table>' +
+                    '</div>'
+                );
+                i = rIdx - 1;
+                continue;
+            }
+        }
+
         // Separador horizontal
         if (/^(-{3,}|\*{3,})$/.test(trim)) {
             cerrarListas();
@@ -278,12 +347,23 @@ function renderizarMarkdownSeguroIA(md) {
             continue;
         }
 
-        // Lista con viñetas
+        // Lista con viñetas (incluyendo checklists - [x] / - [ ])
         var ulMatch = trim.match(/^[-*•]\s+(.+)$/);
         if (ulMatch) {
             if (inOl) { html.push('</ol>'); inOl = false; }
             if (!inUl) { html.push('<ul class="ia-md-list">'); inUl = true; }
-            html.push('<li>' + _formatearInlineMarkdownIA(escaparHtmlIA(ulMatch[1])) + '</li>');
+            var taskMatch = ulMatch[1].match(/^\[( |x|X)\]\s+(.+)$/);
+            if (taskMatch) {
+                var hecha = taskMatch[1].toLowerCase() === 'x';
+                html.push(
+                    '<li class="ia-md-task' + (hecha ? ' is-done' : '') + '">' +
+                        '<span class="ia-md-task-box" aria-hidden="true">' + (hecha ? '☑' : '☐') + '</span>' +
+                        '<span>' + _formatearInlineMarkdownIA(escaparHtmlIA(taskMatch[2])) + '</span>' +
+                    '</li>'
+                );
+            } else {
+                html.push('<li>' + _formatearInlineMarkdownIA(escaparHtmlIA(ulMatch[1])) + '</li>');
+            }
             continue;
         }
 
@@ -1366,11 +1446,13 @@ function renderizarCabeceraChatIA() {
     var elTitulo = document.getElementById('ia-chat-active-title');
     var elModeloPill = document.getElementById('ia-chat-model-pill');
     var btnCtx = document.getElementById('ia-btn-contexto-monarca');
+    var btnExport = document.getElementById('ia-btn-exportar-md');
     var elApiBanner = document.getElementById('ia-no-key-banner');
 
     var apiKey = obtenerApiKeyGeminiIA();
     var modInfo = obtenerInfoModeloIA((conv && conv.modelo) || APP_STATE.iaConfig.modelo);
     var ctxOn = conv ? !!conv.usarContextoMonarca : !!APP_STATE.iaConfig.contextoMonarcaDefault;
+    var tieneMsgs = !!(conv && Array.isArray(conv.mensajes) && conv.mensajes.length > 0);
 
     if (elTitulo) {
         elTitulo.textContent = conv ? (conv.titulo || 'Nueva conversación') : 'Asistente IA · Gemini';
@@ -1378,7 +1460,8 @@ function renderizarCabeceraChatIA() {
     if (elModeloPill) {
         elModeloPill.innerHTML =
             '<span class="ia-status-dot ' + (apiKey ? 'is-online' : 'is-offline') + '"></span>' +
-            '<span>' + escaparHtmlIA(apiKey ? modInfo.nombre : 'Sin API Key') + '</span>';
+            '<span>' + escaparHtmlIA(apiKey ? modInfo.nombre : 'Sin API Key') + '</span>' +
+            '<span class="ia-model-caret" aria-hidden="true">▾</span>';
     }
     if (btnCtx) {
         btnCtx.classList.toggle('active', ctxOn);
@@ -1386,8 +1469,174 @@ function renderizarCabeceraChatIA() {
             ? 'Contexto Monarca ACTIVO (clic para apagar y usar chat libre)'
             : 'Activar Contexto Monarca (quests, rutinas, metas)';
     }
+    if (btnExport) {
+        btnExport.disabled = !tieneMsgs;
+        btnExport.style.opacity = tieneMsgs ? '1' : '0.45';
+    }
     if (elApiBanner) {
         elApiBanner.style.display = apiKey ? 'none' : 'flex';
+    }
+}
+
+var _IA_MODEL_MENU_BOUND = false;
+
+function cerrarMenuRapidoModeloIA() {
+    var menu = document.getElementById('ia-model-quick-menu');
+    var pill = document.getElementById('ia-chat-model-pill');
+    if (menu) menu.style.display = 'none';
+    if (pill) pill.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMenuRapidoModeloIA(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    asegurarEstadoIA();
+    var menu = document.getElementById('ia-model-quick-menu');
+    var pill = document.getElementById('ia-chat-model-pill');
+    if (!menu) {
+        abrirModalConfigIA();
+        return;
+    }
+
+    var estaAbierto = menu.style.display === 'block';
+    if (estaAbierto) {
+        cerrarMenuRapidoModeloIA();
+        return;
+    }
+
+    var conv = obtenerConversacionActivaIA();
+    var modActivo = (conv && conv.modelo) || APP_STATE.iaConfig.modelo || 'gemini-3.8-flash';
+    var apiKey = obtenerApiKeyGeminiIA();
+
+    var itemsHtml = MONARCA_IA_MODELOS.map(function(m) {
+        var activo = m.id === modActivo;
+        return (
+            '<button type="button" class="ia-model-menu-item' + (activo ? ' is-active' : '') + '" role="menuitemradio" aria-checked="' + (activo ? 'true' : 'false') + '" onclick="seleccionarModeloRapidoIA(\'' + escaparHtmlIA(m.id) + '\')">' +
+                '<div class="ia-model-menu-top">' +
+                    '<span class="ia-model-menu-name">' + (activo ? '✓ ' : '') + escaparHtmlIA(m.nombre) + '</span>' +
+                    '<span class="ia-model-menu-tag' + (m.freeTier ? ' is-free' : ' is-paid') + '">' + (m.freeTier ? 'Gratis' : 'Paid') + '</span>' +
+                '</div>' +
+                '<div class="ia-model-menu-desc">' + escaparHtmlIA(m.descripcion) + '</div>' +
+            '</button>'
+        );
+    }).join('');
+
+    menu.innerHTML =
+        '<div class="ia-model-menu-header">Seleccionar modelo Gemini</div>' +
+        itemsHtml +
+        '<div class="ia-model-menu-divider"></div>' +
+        '<button type="button" class="ia-model-menu-config" onclick="cerrarMenuRapidoModeloIA(); abrirModalConfigIA();">' +
+            '<span>' + (apiKey ? '⚙️ Configurar API Key y ajustes' : '🔑 Conectar tu API Key (AQ... / AIza...)') + '</span>' +
+        '</button>';
+
+    menu.style.display = 'block';
+    if (pill) pill.setAttribute('aria-expanded', 'true');
+
+    if (!_IA_MODEL_MENU_BOUND && typeof document !== 'undefined') {
+        _IA_MODEL_MENU_BOUND = true;
+        document.addEventListener('click', function(e) {
+            var wrap = e.target && e.target.closest ? e.target.closest('.ia-model-picker-wrap') : null;
+            if (!wrap) cerrarMenuRapidoModeloIA();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cerrarMenuRapidoModeloIA();
+        });
+    }
+}
+
+function seleccionarModeloRapidoIA(modeloId) {
+    asegurarEstadoIA();
+    var info = obtenerInfoModeloIA(modeloId);
+    APP_STATE.iaConfig.modelo = info.id;
+    APP_STATE.iaConfig.fechaActualizacion = Date.now();
+    var conv = obtenerConversacionActivaIA();
+    if (conv) {
+        conv.modelo = info.id;
+        conv.fechaActualizacion = Date.now();
+    }
+    cerrarMenuRapidoModeloIA();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarVistaIA();
+    if (typeof window.renderizarPulsoDiarioHome === 'function') window.renderizarPulsoDiarioHome();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Modelo activo: ' + info.nombre, '✦');
+    }
+}
+
+function exportarConversacionActualIA() {
+    asegurarEstadoIA();
+    var conv = obtenerConversacionActivaIA();
+    if (!conv || !Array.isArray(conv.mensajes) || conv.mensajes.length === 0) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Esta conversación aún no tiene mensajes para exportar', '💬');
+        }
+        return;
+    }
+
+    var titulo = conv.titulo || 'Conversación IA';
+    var modInfo = obtenerInfoModeloIA(conv.modelo || APP_STATE.iaConfig.modelo);
+    var fechaStr = new Date().toLocaleString('es-ES');
+    var lineas = [
+        '# ' + titulo,
+        '',
+        '> Exportado desde **Emily · Sistema Monarca**  ',
+        '> Modelo: **' + modInfo.nombre + '** · Fecha: ' + fechaStr,
+        '',
+        '---',
+        ''
+    ];
+
+    for (var i = 0; i < conv.mensajes.length; i++) {
+        var m = conv.mensajes[i];
+        if (!m) continue;
+        var hora = formatearHoraMensajeIA(m.ts);
+        if (m.rol === 'user') {
+            lineas.push('## 👤 Tú' + (hora ? (' (' + hora + ')') : ''));
+        } else {
+            var mNom = obtenerInfoModeloIA(m.modelo || modInfo.id).nombre;
+            lineas.push('## ✦ ' + mNom + (hora ? (' (' + hora + ')') : ''));
+        }
+        lineas.push('');
+        lineas.push(String(m.texto || '').trim());
+        lineas.push('');
+    }
+
+    var contenidoMd = lineas.join('\n');
+    var slug = String(titulo)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'conversacion';
+    var filename = 'emily-ia-' + slug + '.md';
+
+    var descargado = false;
+    try {
+        var blob = new Blob([contenidoMd], { type: 'text/markdown;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            try { document.body.removeChild(a); } catch (e1) {}
+            try { URL.revokeObjectURL(url); } catch (e2) {}
+        }, 400);
+        descargado = true;
+    } catch (eDl) {}
+
+    if (descargado) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Conversación exportada (' + filename + ')', '⬇️');
+        }
+    } else {
+        _copiarTextoPortapapelesIA(contenidoMd).then(function() {
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Conversación copiada en formato Markdown', '📋');
+            }
+        });
     }
 }
 
@@ -1583,6 +1832,11 @@ if (typeof window !== 'undefined') {
     window.toggleVisibilidadApiKeyIA = toggleVisibilidadApiKeyIA;
     window.guardarConfigIA = guardarConfigIA;
     window.probarConexionGeminiIA = probarConexionGeminiIA;
+    window.obtenerConversacionActivaIA = obtenerConversacionActivaIA;
+    window.toggleMenuRapidoModeloIA = toggleMenuRapidoModeloIA;
+    window.cerrarMenuRapidoModeloIA = cerrarMenuRapidoModeloIA;
+    window.seleccionarModeloRapidoIA = seleccionarModeloRapidoIA;
+    window.exportarConversacionActualIA = exportarConversacionActualIA;
     window.obtenerApiKeyGeminiIA = obtenerApiKeyGeminiIA;
     window.guardarApiKeyGeminiIA = guardarApiKeyGeminiIA;
     window.renderizarMarkdownSeguroIA = renderizarMarkdownSeguroIA;

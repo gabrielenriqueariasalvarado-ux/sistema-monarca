@@ -1040,9 +1040,19 @@ function renderizarJugador(datos) {
     if (!datos) datos = APP_STATE.jugador || DEFAULT_STATE.jugador;
     var tituloElem = document.getElementById('player-title');
     var nivelElem = document.getElementById('player-level');
+    var verMenuElem = document.getElementById('menu-app-version');
     var titulo = datos.titulo || "Gabriel Arias";
     if (tituloElem) tituloElem.innerText = titulo;
     if (nivelElem) nivelElem.innerText = "Nivel: " + (datos.nivel || 1) + " · Progreso EXP: " + (datos.exp || 0) + " / " + (datos.expMax || 100);
+    if (verMenuElem && typeof MONARCA_APP_VERSION !== 'undefined') {
+        verMenuElem.textContent = 'v' + String(MONARCA_APP_VERSION).replace(/^v/i, '');
+    }
+    if (typeof renderizarPulsoDiarioHome === 'function') {
+        var vh = document.getElementById('vista-home');
+        if (vh && vh.classList.contains('active')) {
+            renderizarPulsoDiarioHome();
+        }
+    }
 }
 
 function sumarExp(cantidad) {
@@ -1720,6 +1730,10 @@ function renderizarVistaHome(fechaCustom) {
         actualizarRelojHome(ahora);
     }
 
+    if (typeof renderizarPulsoDiarioHome === 'function') {
+        renderizarPulsoDiarioHome(ahora);
+    }
+
     if (!(fechaCustom instanceof Date)) {
         if (typeof window !== 'undefined' && window.MONARCA_ESTADO_ACTUALIZACION && window.MONARCA_ESTADO_ACTUALIZACION.ultimaComprobacionMs) {
             aplicarUIEstadoActualizacionHome();
@@ -1728,7 +1742,257 @@ function renderizarVistaHome(fechaCustom) {
     }
 }
 
-var MONARCA_APP_VERSION = '11.27';
+function _formatearHora12CompactaHome(hhmm) {
+    if (!hhmm || typeof hhmm !== 'string') return '';
+    var p = hhmm.trim().split(':');
+    if (p.length < 2) return hhmm;
+    var h = parseInt(p[0], 10);
+    var m = parseInt(p[1], 10);
+    if (isNaN(h) || isNaN(m)) return hhmm;
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function renderizarPulsoDiarioHome(fechaRef) {
+    if (typeof document === 'undefined') return;
+    var ahora = (fechaRef instanceof Date && !isNaN(fechaRef.getTime())) ? fechaRef : new Date();
+    var st = (typeof window !== 'undefined' && window.APP_STATE) ? window.APP_STATE : DEFAULT_STATE;
+
+    // 1. Quests de hoy
+    var qList = Array.isArray(st.questsDiarios) ? st.questsDiarios.filter(Boolean) : [];
+    var qTotal = qList.length;
+    var qDone = 0;
+    var qActivas = 0;
+    var qPen = 0;
+    for (var i = 0; i < qList.length; i++) {
+        var est = qList[i].estado;
+        if (est === 'completada') qDone++;
+        else if (est === 'en_curso' || est === 'sonando') qActivas++;
+        else if (est === 'penalizada') qPen++;
+    }
+    var qPct = qTotal > 0 ? Math.round((qDone / qTotal) * 100) : 0;
+    var elQVal = document.getElementById('home-kpi-quests-val');
+    var elQBar = document.getElementById('home-kpi-quests-bar');
+    var elQSub = document.getElementById('home-kpi-quests-sub');
+    var elQCard = document.getElementById('home-kpi-quests');
+    if (elQVal) elQVal.textContent = qTotal > 0 ? (qDone + ' / ' + qTotal) : 'Sin quests';
+    if (elQBar) elQBar.style.width = qPct + '%';
+    if (elQSub) {
+        if (qTotal === 0) {
+            elQSub.textContent = 'Crea tu primera quest →';
+        } else if (qActivas > 0) {
+            elQSub.textContent = '⏳ ' + qActivas + ' en curso ahora';
+        } else if (qDone === qTotal) {
+            elQSub.textContent = '¡100% completado hoy! 🏆';
+        } else {
+            var pend = qTotal - qDone;
+            elQSub.textContent = pend + (pend === 1 ? ' pendiente' : ' pendientes') + (qPen > 0 ? (' · ' + qPen + ' 💀') : '');
+        }
+    }
+    if (elQCard) elQCard.classList.toggle('is-complete', qTotal > 0 && qDone === qTotal);
+
+    // 2. Nivel, EXP y Fatiga
+    var jug = st.jugador || {};
+    var lvl = Number(jug.nivel) || 1;
+    var exp = Math.max(0, Number(jug.exp) || 0);
+    var expMax = Math.max(1, Number(jug.expMax) || 100);
+    var expPct = Math.min(100, Math.round((exp / expMax) * 100));
+    var fatFis = (st.fatiga && typeof st.fatiga.promedioHoy === 'number') ? Math.round(st.fatiga.promedioHoy) : 0;
+    var fatMen = (st.fatigaMentalDiaria && typeof st.fatigaMentalDiaria.nivel === 'number') ? Math.round(st.fatigaMentalDiaria.nivel) : 0;
+    var elNVal = document.getElementById('home-kpi-nivel-val');
+    var elNBar = document.getElementById('home-kpi-nivel-bar');
+    var elNSub = document.getElementById('home-kpi-nivel-sub');
+    if (elNVal) elNVal.textContent = 'Nivel ' + lvl;
+    if (elNBar) elNBar.style.width = expPct + '%';
+    if (elNSub) elNSub.textContent = 'EXP ' + exp + '/' + expMax + ' · Fatiga ' + fatFis + '% / ' + fatMen + '%';
+
+    // 3. Agenda de hoy (eventos, recordatorios, destacados y cronograma semanal)
+    var hoyStr = obtenerClaveFechaLocal(ahora);
+    var mmddHoy = hoyStr.slice(5, 10);
+    var diaIdx = ahora.getDay();
+    var nowHHMM = String(ahora.getHours()).padStart(2, '0') + ':' + String(ahora.getMinutes()).padStart(2, '0');
+    var itemsHoy = [];
+
+    if (Array.isArray(st.calendario)) {
+        for (var j = 0; j < st.calendario.length; j++) {
+            var c = st.calendario[j];
+            if (!c) continue;
+            var tipo = c.tipo || 'recordatorio';
+            var matchHoy = (c.fecha === hoyStr);
+            if (!matchHoy && tipo === 'destacado' && c.repetirAnualmente && c.fecha && String(c.fecha).slice(5, 10) === mmddHoy) {
+                matchHoy = true;
+            }
+            if (!matchHoy) continue;
+            itemsHoy.push({
+                hora: String(c.horaInicio || c.hora || '').trim(),
+                titulo: String(c.titulo || c.nombre || 'Evento').trim()
+            });
+        }
+    }
+    if (Array.isArray(st.cronogramaSemanal)) {
+        for (var k = 0; k < st.cronogramaSemanal.length; k++) {
+            var b = st.cronogramaSemanal[k];
+            if (!b || Number(b.diaSemana) !== diaIdx) continue;
+            itemsHoy.push({
+                hora: String(b.horaInicio || '').trim(),
+                titulo: String(b.titulo || b.nombre || 'Bloque horario').trim()
+            });
+        }
+    }
+    itemsHoy.sort(function(a, b) {
+        return String(a.hora || '99:99').localeCompare(String(b.hora || '99:99'));
+    });
+
+    var proxItem = null;
+    for (var m = 0; m < itemsHoy.length; m++) {
+        if (itemsHoy[m].hora && itemsHoy[m].hora >= nowHHMM) {
+            proxItem = itemsHoy[m];
+            break;
+        }
+    }
+    var elAVal = document.getElementById('home-kpi-agenda-val');
+    var elASub = document.getElementById('home-kpi-agenda-sub');
+    if (elAVal) {
+        elAVal.textContent = itemsHoy.length > 0
+            ? (itemsHoy.length + (itemsHoy.length === 1 ? ' actividad' : ' actividades'))
+            : 'Despejada';
+    }
+    if (elASub) {
+        if (proxItem) {
+            elASub.textContent = _formatearHora12CompactaHome(proxItem.hora) + ' · ' + proxItem.titulo;
+        } else if (itemsHoy.length > 0) {
+            elASub.textContent = itemsHoy[itemsHoy.length - 1].titulo;
+        } else {
+            elASub.textContent = 'Sin eventos pendientes hoy';
+        }
+    }
+
+    // 4. Estado rápido de la App IA
+    var tieneKeyIA = false;
+    try {
+        if (typeof window.obtenerApiKeyGeminiIA === 'function') {
+            tieneKeyIA = !!window.obtenerApiKeyGeminiIA();
+        } else {
+            var rawK = localStorage.getItem('monarca_ia_gemini_api_key');
+            if (rawK && String(rawK).trim()) tieneKeyIA = true;
+            else if (st.iaConfig && st.iaConfig.sincronizarApiKeyNube && st.iaConfig.apiKeyCloud) tieneKeyIA = true;
+        }
+    } catch (eIa) {}
+
+    var iaConvs = Array.isArray(st.iaConversaciones) ? st.iaConversaciones.filter(Boolean) : [];
+    var modId = (st.iaConfig && st.iaConfig.modelo) ? st.iaConfig.modelo : 'gemini-3.8-flash';
+    var modLabelMap = {
+        'gemini-3.8-flash': 'Gemini 3.8 Flash',
+        'gemini-3.5-flash-lite': 'Gemini 3.5 Flash-Lite',
+        'gemini-4-argon': 'Gemini 4 Argon'
+    };
+    var modNombre = modLabelMap[modId] || 'Gemini 3.8 Flash';
+
+    var elIaVal = document.getElementById('home-kpi-ia-val');
+    var elIaSub = document.getElementById('home-kpi-ia-sub');
+    var elIaCard = document.getElementById('home-kpi-ia');
+    if (elIaVal) {
+        elIaVal.textContent = tieneKeyIA
+            ? (iaConvs.length > 0 ? (iaConvs.length + (iaConvs.length === 1 ? ' chat' : ' chats')) : 'Lista ✨')
+            : 'Conectar';
+    }
+    if (elIaSub) {
+        elIaSub.textContent = tieneKeyIA ? (modNombre + ' · En línea') : 'Pega tu llave AQ... gratis';
+    }
+    if (elIaCard) {
+        elIaCard.classList.toggle('is-online', tieneKeyIA);
+    }
+
+    // 5. Spotlight dinámico de Vocabulario Semanal (solo si hay palabras activas en práctica)
+    var spot = document.getElementById('home-vocab-spotlight');
+    if (spot) {
+        var voc = Array.isArray(st.vocabulario)
+            ? st.vocabulario.filter(function(w) { return w && w.enSemanaActual !== false && !w.dominada && w.palabra; })
+            : [];
+        if (voc.length > 0) {
+            var inicioAnio = new Date(ahora.getFullYear(), 0, 1);
+            var diaAnio = Math.floor((new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()) - inicioAnio) / 86400000) + 1;
+            var elegida = voc[diaAnio % voc.length];
+            var elWord = document.getElementById('home-vocab-spot-word');
+            var elDef = document.getElementById('home-vocab-spot-def');
+            var elCta = document.getElementById('home-vocab-spot-cta');
+            if (elWord) elWord.textContent = String(elegida.palabra);
+            if (elDef) elDef.textContent = String(elegida.significado || elegida.definicion || elegida.contexto || 'En práctica semanal');
+            if (elCta) elCta.textContent = (Number(elegida.usos) || 0) + '/' + (Number(elegida.metaUsos) || 5) + ' usos →';
+            spot.style.display = 'flex';
+        } else {
+            spot.style.display = 'none';
+        }
+    }
+
+    // Sincronizar también insignia de versión del Menú Principal
+    var verMenu = document.getElementById('menu-app-version');
+    if (verMenu && typeof MONARCA_APP_VERSION !== 'undefined') {
+        verMenu.textContent = 'v' + String(MONARCA_APP_VERSION).replace(/^v/i, '');
+    }
+}
+
+function enviarConsultaRapidaDesdeHome(ev) {
+    if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    var input = document.getElementById('home-ia-quick-input');
+    var texto = input ? String(input.value || '').trim() : '';
+    if (input) input.value = '';
+
+    cambiarVista('vista-ia');
+
+    if (!texto) {
+        setTimeout(function() {
+            var comp = document.getElementById('ia-composer-input');
+            if (comp) {
+                try { comp.focus(); } catch (e) {}
+            }
+        }, 120);
+        return;
+    }
+
+    setTimeout(function() {
+        var tieneKey = (typeof window.obtenerApiKeyGeminiIA === 'function') && !!window.obtenerApiKeyGeminiIA();
+        if (typeof window.crearNuevaConversacionIA === 'function') {
+            var convActual = (typeof window.obtenerConversacionActivaIA === 'function') ? window.obtenerConversacionActivaIA() : null;
+            if (!convActual || (Array.isArray(convActual.mensajes) && convActual.mensajes.length > 0)) {
+                window.crearNuevaConversacionIA({ forzarNueva: true, sinFocus: true });
+            }
+        }
+        if (!tieneKey) {
+            var comp = document.getElementById('ia-composer-input');
+            if (comp) {
+                comp.value = texto;
+                if (typeof window.autoAjustarAlturaComposerIA === 'function') window.autoAjustarAlturaComposerIA();
+            }
+            if (typeof window.mostrarToastMonarca === 'function') {
+                window.mostrarToastMonarca('Conecta tu API Key gratuita de Gemini para enviar tu pregunta', '🔑');
+            }
+            if (typeof window.abrirModalConfigIA === 'function') window.abrirModalConfigIA();
+            return;
+        }
+        if (typeof window.enviarMensajeIA === 'function') {
+            window.enviarMensajeIA(texto);
+        }
+    }, 80);
+}
+
+function abrirVocabularioDesdeHome() {
+    window.TAB_CONOCIMIENTO_ACTIVO = 'vocabulario';
+    cambiarVista('vista-conocimiento');
+    if (typeof window.cambiarTabConocimiento === 'function') {
+        window.cambiarTabConocimiento('vocabulario');
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.renderizarPulsoDiarioHome = renderizarPulsoDiarioHome;
+    window.enviarConsultaRapidaDesdeHome = enviarConsultaRapidaDesdeHome;
+    window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
+}
+
+var MONARCA_APP_VERSION = '11.28';
 var MONARCA_APP_VERSION_FECHA = '2026-11-25';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
