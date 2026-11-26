@@ -47,7 +47,36 @@ function iniciarTimerMonitorAutoPCPerfil() {
         } else {
             detenerTimerMonitorAutoPCPerfil();
         }
-    }, 3000);
+    }, 1500);
+}
+
+async function enviarComandoRemotoAutoPCPerfil(action) {
+    if (!window.MonarcaMQTT || typeof window.MonarcaMQTT.enviarComandoPC !== 'function') {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Módulo MQTT no cargado todavía.', '⚠️');
+        }
+        return;
+    }
+    var st = window.MonarcaMQTT.getStatus();
+    if (!st.connected) {
+        if (typeof window.abrirModalConfigMQTT === 'function') {
+            window.abrirModalConfigMQTT();
+        }
+        return;
+    }
+    var ok = await window.MonarcaMQTT.enviarComandoPC(action);
+    var labels = {
+        start: '▶ Orden Iniciar / Reanudar enviada a Auto-PC',
+        pause: '⏸ Orden Pausar enviada a Auto-PC',
+        stop: '⏹ Orden Detener enviada a Auto-PC',
+        sync_now: '🔄 Orden Sincronizar enviada a Auto-PC'
+    };
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(
+            ok ? (labels[action] || ('⚡ Comando ' + action + ' enviado')) : 'No se pudo enviar la orden por MQTT.',
+            ok ? '⚡' : '⚠️'
+        );
+    }
 }
 
 function obtenerTextoEstadoFilaMonitor(st) {
@@ -238,6 +267,20 @@ function renderizarContenidoMonitorAutoPCPerfil() {
     }
     var hbTxt = hbParts.join(' · ');
 
+    var mqttSt = resumen.mqtt || (window.MonarcaMQTT && typeof window.MonarcaMQTT.getStatus === 'function' ? window.MonarcaMQTT.getStatus() : null);
+    var mqttChip = '';
+    if (mqttSt && mqttSt.connected) {
+        var mqttLabel = mqttSt.pcOnline === true
+            ? ('⚡ MQTT en vivo' + (mqttSt.lastLatencyMs ? (' · ' + mqttSt.lastLatencyMs + 'ms') : (mqttSt.encrypted ? ' · E2E' : '')))
+            : (mqttSt.pcOnline === false ? '⚡ MQTT · PC cerrada' : '⚡ MQTT conectado');
+        var mqttCls = mqttSt.pcOnline === false ? 'is-warn' : 'is-mqtt-live';
+        mqttChip = `<button type="button" class="perfil-autopc-chip ${mqttCls} is-clickable" onclick="abrirModalConfigMQTT()" title="Estado y ajustes del canal MQTT">${escapeHtmlPerfil(mqttLabel)}</button>`;
+    } else if (mqttSt && mqttSt.connecting) {
+        mqttChip = `<button type="button" class="perfil-autopc-chip is-warn is-clickable" onclick="abrirModalConfigMQTT()">🟡 MQTT conectando...</button>`;
+    } else {
+        mqttChip = `<button type="button" class="perfil-autopc-chip is-clickable" onclick="abrirModalConfigMQTT()">⚙️ Conectar MQTT</button>`;
+    }
+
     var proyectoChip = resumen.proyecto
         ? `<span class="perfil-autopc-chip">💻 ${escapeHtmlPerfil(resumen.proyecto)}</span>`
         : '';
@@ -260,9 +303,13 @@ function renderizarContenidoMonitorAutoPCPerfil() {
     var planPendienteHtml = _renderizarBloquePlanPendientePerfil(resumen.planPendiente);
     var ultimaRespuestaHtml = _renderizarBloqueUltimaRespuestaPerfil(resumen.ultimaRespuesta);
 
-    // Bloque detallado de actividad precisa en Antigravity
+    // Bloque detallado de actividad precisa en Antigravity (solo cuando realmente está trabajando o en curso)
     var agLivePanelHtml = '';
-    if (ag && !resumen.planPendiente && (resumen.nivel === 'working' || (resumen.solicitudActual && resumen.solicitudActual.status === 'running') || ag.stepsCount > 0)) {
+    var hayTrabajoActivoReal = Boolean(
+        resumen.nivel === 'working' ||
+        (resumen.solicitudActual && resumen.solicitudActual.status === 'running')
+    );
+    if (ag && !resumen.planPendiente && hayTrabajoActivoReal) {
         var faseIdx = obtenerFaseIndiceAntigravity(ag.phaseCode);
         var pct = Math.max(5, Math.min(100, Number(ag.progressPct) || 15));
         var hitos = [
@@ -342,9 +389,24 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             actualHtml = `
             <div class="perfil-autopc-current is-empty">
                 <div class="perfil-autopc-current-detail">${escapeHtmlPerfil(resumen.resumenTexto)}</div>
-                ${agLivePanelHtml}
             </div>`;
         }
+    }
+
+    var remoteControlsHtml = '';
+    if (mqttSt && mqttSt.connected && mqttSt.pcOnline !== false && resumen.nivel !== 'offline') {
+        var engUp = String(resumen.engineState || '').toUpperCase();
+        var isRunningPc = engUp === 'RUNNING';
+        var isPausedPc = engUp === 'PAUSED';
+        remoteControlsHtml = `
+        <div class="perfil-mqtt-controls" aria-label="Control remoto Auto-PC por MQTT">
+            ${isRunningPc
+                ? `<button type="button" class="btn-perfil-mqtt-cmd is-amber" onclick="enviarComandoRemotoAutoPCPerfil('pause')">⏸ Pausar</button>`
+                : `<button type="button" class="btn-perfil-mqtt-cmd is-emerald" onclick="enviarComandoRemotoAutoPCPerfil('start')">▶ ${isPausedPc ? 'Reanudar' : 'Iniciar'}</button>`}
+            <button type="button" class="btn-perfil-mqtt-cmd is-rose" onclick="enviarComandoRemotoAutoPCPerfil('stop')">⏹ Detener</button>
+            <button type="button" class="btn-perfil-mqtt-cmd is-cyan" onclick="enviarComandoRemotoAutoPCPerfil('sync_now')">🔄 Sync</button>
+            <button type="button" class="btn-perfil-mqtt-cmd" onclick="abrirModalConfigMQTT()" title="Ajustes MQTT">⚙️ MQTT</button>
+        </div>`;
     }
 
     var recientesHtml = '';
@@ -397,7 +459,8 @@ function renderizarContenidoMonitorAutoPCPerfil() {
             <span class="perfil-autopc-status-pill nivel-${escapeHtmlPerfil(resumen.nivel)}">${escapeHtmlPerfil(resumen.badgeTexto)}</span>
         </div>
 
-        ${(proyectoChip || agChip || verChip) ? `<div class="perfil-autopc-chips">${proyectoChip}${agChip}${verChip}</div>` : ''}
+        ${(mqttChip || proyectoChip || agChip || verChip) ? `<div class="perfil-autopc-chips">${mqttChip}${proyectoChip}${agChip}${verChip}</div>` : ''}
+        ${remoteControlsHtml}
         ${alertaHtml}
         ${planPendienteHtml}
         ${actualHtml}

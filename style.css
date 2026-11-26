@@ -26413,4 +26413,179 @@ body.modal-open {
     }
 }
 
+/* ==========================================================================
+   v11.31 · MQTT EN TIEMPO REAL PARA AUTO-PC & MODAL DE CONFIGURACIÓN
+   ========================================================================== */
+
+.perfil-autopc-chip.is-clickable {
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s ease, filter 0.15s ease, border-color 0.2s ease;
+}
+
+.perfil-autopc-chip.is-clickable:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.perfil-autopc-chip.is-mqtt-live {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(56, 189, 248, 0.18)) !important;
+    border: 1px solid rgba(52, 211, 153, 0.45) !important;
+    color: #6ee7b7 !important;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.16);
+}
+
+.perfil-mqtt-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
+}
+
+.btn-perfil-mqtt-cmd {
+    flex: 1 1 auto;
+    min-width: 78px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    color: #e2e8f0;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.14s ease;
+}
+
+.btn-perfil-mqtt-cmd:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.btn-perfil-mqtt-cmd.is-emerald {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(52, 211, 153, 0.42);
+    color: #6ee7b7;
+}
+
+.btn-perfil-mqtt-cmd.is-amber {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(251, 191, 36, 0.42);
+    color: #fcd34d;
+}
+
+.btn-perfil-mqtt-cmd.is-rose {
+    background: rgba(244, 63, 94, 0.14);
+    border-color: rgba(251, 113, 133, 0.38);
+    color: #fda4af;
+}
+
+.btn-perfil-mqtt-cmd.is-cyan {
+    background: rgba(14, 165, 233, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #7dd3fc;
+}
+
+.mqtt-modal-card {
+    max-width: 500px !important;
+    width: 94%;
+    background: linear-gradient(160deg, rgba(13, 18, 34, 0.98), rgba(8, 11, 22, 0.99)) !important;
+    border: 1px solid rgba(56, 189, 248, 0.28) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 32px rgba(56, 189, 248, 0.1) !important;
+}
+
+.mqtt-status-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 11px 13px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    margin-bottom: 12px;
+}
+
+.mqtt-status-pill {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #e2e8f0;
+}
+
+.mqtt-status-pill.is-online { color: #34d399; }
+.mqtt-status-pill.is-connecting { color: #fbbf24; }
+.mqtt-status-pill.is-offline { color: #fb7185; }
+.mqtt-status-pill.is-idle { color: #94a3b8; }
+
+.mqtt-status-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    word-break: break-all;
+}
+
+.mqtt-preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.mqtt-preset-btn {
+    flex: 1 1 auto;
+    padding: 6px 10px;
+    border-radius: 9px;
+    background: rgba(99, 102, 241, 0.14);
+    border: 1px solid rgba(129, 140, 248, 0.34);
+    color: #c7d2fe;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mqtt-preset-btn:hover {
+    background: rgba(99, 102, 241, 0.24);
+}
+
+.mqtt-toggles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.mqtt-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mqtt-toggle-item input {
+    width: 15px;
+    height: 15px;
+    accent-color: #10b981;
+}
+
+.mqtt-ping-out {
+    font-size: 12px;
+    font-weight: 600;
+    min-height: 18px;
+    margin: 8px 0 4px;
+}
+
+.mqtt-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
 

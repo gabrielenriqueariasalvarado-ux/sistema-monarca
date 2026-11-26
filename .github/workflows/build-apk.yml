@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.30)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.31)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.30
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.31
             Esta versión nativa incluye:
+            - ⚡ **MQTT Bidireccional en Tiempo Real para Auto-PC y Sistema Monarca (v11.31)**:
+              - **Telemetría, Progreso y Eventos en Vivo (< 1.5s, 0 cuota Firebase)**: Nuevo motor MQTT (`js/mqtt-autopc.js` WSS 3.1.1 + `AutoPCMqttBridge` TLS en Python) cifrado extremo a extremo con **AES-256-GCM** y emparejamiento automático entre tu PC y tu teléfono, más modal **`⚙️ MQTT`** para conectar cualquier broker privado (**HiveMQ Cloud**, **EMQX** o **Mosquitto**).
+              - **Presencia Instantánea (LWT) & Notificaciones Reales**: Aviso inmediato si Auto-PC se cierra o cae la red, notificaciones instantáneas al teléfono cuando inicia/pide aprobación de Implementation Plan/termina una solicitud (con resumen completo de Antigravity y +15 EXP) y **controles remotos en Perfil** (**`▶ Iniciar`**, **`⏸ Pausar`**, **`⏹ Detener`**, **`🔄 Sync`**).
+              - **Fix Definitivo de Solicitudes Fantasma y Ventana Antigravity**: Reconciliación automática contra la cola autoritativa de Auto-PC (adiós falsos `TRABAJANDO AHORA · 12h 53m` / `Detenido con cola`) y sondeo real de la ventana de Antigravity incluso en reposo.
             - 🎙️ **Monarca Voz · Jarvis IA Conectado a tu App IA + Micrófono Nativo Android (v11.30)**:
               - **Conexión Total con tu App IA (Gemini)**: Todo lo que le preguntes a Jarvis por voz o texto (que no sea un comando directo de saldo/inventario/nota/navegación) ahora lo responde tu **App IA con Gemini** en streaming con Markdown, tablas, lectura en voz alta y **Contexto Monarca**, guardando cada turno automáticamente dentro de tus conversaciones de la App IA (sincronizadas en Firestore) con botón **`✦ Ver en App IA`**, **`📋 Copiar`**, **`📚 Guardar`** y **`＋ Nuevo`**.
               - **Modo Dual (`⚡ Comandos + IA` | `✦ Solo IA`) + Dark Glass**: Cambia al vuelo entre modo híbrido o conversación pura con Gemini, con indicador de estado en vivo y rediseño completo en **Monarca Dark Glass** (adiós botones y tarjetas blancas heredadas).

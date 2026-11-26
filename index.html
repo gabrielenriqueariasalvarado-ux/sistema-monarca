@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.30">
+    <link rel="stylesheet" href="style.css?v=11.31">
 </head>
 <body>
 
@@ -185,7 +185,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.30</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.31</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -231,7 +231,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.30</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.31</div>
                     </div>
                 </div>
             </div>
@@ -7761,32 +7761,106 @@
 
 
 
+    <!-- MODAL: CONFIGURACIÓN & DIAGNÓSTICO MQTT EN TIEMPO REAL (AUTO-PC · v11.31) -->
+    <div id="modal-mqtt-autopc" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="mqtt-modal-title" style="display: none;" onclick="if(event.target === this) cerrarModalConfigMQTT();">
+        <div class="modal-content mqtt-modal-card" style="padding: 20px; border-radius: 18px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px;">
+                <div>
+                    <div style="font-size: 10.5px; color: #38bdf8; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;">TIEMPO REAL · TLS / WSS</div>
+                    <h3 id="mqtt-modal-title" style="margin: 2px 0 0; font-size: 17px; color: #f8fafc; font-weight: 800;">⚡ Canal MQTT · Auto-PC</h3>
+                </div>
+                <button type="button" onclick="cerrarModalConfigMQTT()" aria-label="Cerrar modal MQTT" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #cbd5e1; width: 32px; height: 32px; border-radius: 10px; font-size: 15px; cursor: pointer;">✕</button>
+            </div>
+
+            <div class="mqtt-status-banner">
+                <span id="mqtt-modal-status-badge" class="mqtt-status-pill is-idle">⏳ Esperando emparejamiento...</span>
+                <span id="mqtt-modal-status-meta" class="mqtt-status-meta">Auto-PC publica automáticamente el canal privado cifrado al abrirse.</span>
+            </div>
+
+            <div class="mqtt-preset-row">
+                <button type="button" class="mqtt-preset-btn" onclick="aplicarPresetBrokerMQTT('emqx')">⚡ EMQX Auto (Cifrado)</button>
+                <button type="button" class="mqtt-preset-btn" onclick="aplicarPresetBrokerMQTT('hivemq_public')">🔄 HiveMQ Respaldo</button>
+                <button type="button" class="mqtt-preset-btn" onclick="aplicarPresetBrokerMQTT('hivemq_cloud')">🔒 HiveMQ Cloud Privado</button>
+            </div>
+
+            <div class="mqtt-toggles-grid">
+                <label class="mqtt-toggle-item">
+                    <input type="checkbox" id="mqtt-cfg-enabled" checked>
+                    <span>MQTT Activo</span>
+                </label>
+                <label class="mqtt-toggle-item">
+                    <input type="checkbox" id="mqtt-cfg-encrypt" checked>
+                    <span>Cifrado AES-256</span>
+                </label>
+                <label class="mqtt-toggle-item">
+                    <input type="checkbox" id="mqtt-cfg-custom">
+                    <span>Broker propio</span>
+                </label>
+            </div>
+
+            <div class="modal-form-group" style="margin-bottom: 10px;">
+                <label for="mqtt-cfg-ws-url" style="font-size: 11.5px; color: #cbd5e1;">URL WebSocket del Broker (WSS):</label>
+                <input type="url" id="mqtt-cfg-ws-url" class="modal-input" placeholder="wss://broker.emqx.io:8084/mqtt" style="font-family: monospace; font-size: 12px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <div class="modal-form-group" style="margin-bottom: 0;">
+                    <label for="mqtt-cfg-channel" style="font-size: 11.5px; color: #cbd5e1;">Canal privado:</label>
+                    <input type="text" id="mqtt-cfg-channel" class="modal-input" placeholder="mnc-..." style="font-family: monospace; font-size: 12px;">
+                </div>
+                <div class="modal-form-group" style="margin-bottom: 0;">
+                    <label for="mqtt-cfg-secret" style="font-size: 11.5px; color: #cbd5e1;">Clave E2E (Base64):</label>
+                    <input type="password" id="mqtt-cfg-secret" class="modal-input" placeholder="Auto-sincronizada" style="font-family: monospace; font-size: 12px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px;">
+                <div class="modal-form-group" style="margin-bottom: 0;">
+                    <label for="mqtt-cfg-user" style="font-size: 11.5px; color: #cbd5e1;">Usuario (opcional):</label>
+                    <input type="text" id="mqtt-cfg-user" class="modal-input" placeholder="Solo broker privado" autocomplete="off">
+                </div>
+                <div class="modal-form-group" style="margin-bottom: 0;">
+                    <label for="mqtt-cfg-pass" style="font-size: 11.5px; color: #cbd5e1;">Contraseña (opcional):</label>
+                    <input type="password" id="mqtt-cfg-pass" class="modal-input" placeholder="Solo broker privado" autocomplete="off">
+                </div>
+            </div>
+
+            <div id="mqtt-modal-ping-result" class="mqtt-ping-out" role="status" aria-live="polite"></div>
+
+            <div class="mqtt-actions-row">
+                <button type="button" class="btn-perfil-mqtt-cmd is-emerald" style="padding: 10px 14px;" onclick="guardarModalConfigMQTT()">💾 Guardar y Conectar</button>
+                <button type="button" class="btn-perfil-mqtt-cmd is-cyan" style="padding: 10px 14px;" onclick="probarPingDesdeModalMQTT()">📡 Probar Ping PC</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Motor de la Aplicación y LocalStorage -->
     <!-- PUENTE NATIVO ANDROID CAPACITOR -->
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.30"></script>
-    <script src="js/perfil.js?v=11.30"></script>
-    <script src="js/progresion.js?v=11.30"></script>
-    <script src="js/estado-personal.js?v=11.30"></script>
-    <script src="js/finanzas.js?v=11.30"></script>
-    <script src="js/ideas.js?v=11.30"></script>
-    <script src="js/dinamicas.js?v=11.30"></script>
-    <script src="js/calendario.js?v=11.30"></script>
-    <script src="js/inventario.js?v=11.30"></script>
-    <script src="js/reproductor.js?v=11.30"></script>
-    <script src="js/ia.js?v=11.30"></script>
-    <script src="js/jarvis-voz.js?v=11.30"></script>
+    <script src="js/core.js?v=11.31"></script>
+    <script src="js/perfil.js?v=11.31"></script>
+    <script src="js/progresion.js?v=11.31"></script>
+    <script src="js/estado-personal.js?v=11.31"></script>
+    <script src="js/finanzas.js?v=11.31"></script>
+    <script src="js/ideas.js?v=11.31"></script>
+    <script src="js/mqtt-autopc.js?v=11.31"></script>
+    <script src="js/dinamicas.js?v=11.31"></script>
+    <script src="js/calendario.js?v=11.31"></script>
+    <script src="js/inventario.js?v=11.31"></script>
+    <script src="js/reproductor.js?v=11.31"></script>
+    <script src="js/ia.js?v=11.31"></script>
+    <script src="js/jarvis-voz.js?v=11.31"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.30"></script>
+    <script type="module" src="js/firebase-config.js?v=11.31"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.30')
+                navigator.serviceWorker.register('sw.js?v=11.31')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

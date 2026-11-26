@@ -87,6 +87,9 @@ var AUTOPC_TELEMETRIA_PC = null;
 var AUTOPC_PLAN_DECISION_DOC = null;
 var AUTOPC_PLAN_DECISION_LOCAL = {};
 var AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = '';
+var AUTOPC_MQTT_QUEUE_SNAPSHOT = null;
+var AUTOPC_MQTT_PRESENCE = null;
+var AUTOPC_MQTT_PROCESSED_EVENTS = {};
 
 function esCategoriaEmily(cat) {
     return Boolean(cat && String(cat).toLowerCase().includes('emily'));
@@ -1955,7 +1958,23 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
         }]
     });
 
-    // En segundo plano intentar entrega instantánea si está en el mismo Wi-Fi o PC local
+    // En segundo plano intentar entrega instantánea vía MQTT (<200ms desde cualquier red) y LAN Wi-Fi
+    var mqttPayload = {
+        ideaId: String(idea.id),
+        text: promptLimpio,
+        subcategoria: String(idea.subcategoria || 'General'),
+        createdAt: Number(idea.timestamp) || ahoraMs,
+        updatedAt: ahoraMs,
+        hasImage: Boolean(idea.tieneImagen && idea.imagenId),
+        imageDocId: idea.imagenId ? String(idea.imagenId) : '',
+        imageName: String(idea.imagenNombre || 'captura.png'),
+        imageMime: String(idea.imagenMime || 'image/jpeg'),
+        imageDataUrl: (imgDataUrlLocal && imgDataUrlLocal.length <= 360000) ? imgDataUrlLocal : ''
+    };
+    var mqttPromise = (window.MonarcaMQTT && typeof window.MonarcaMQTT.enviarSolicitud === 'function')
+        ? window.MonarcaMQTT.enviarSolicitud(mqttPayload).catch(function() { return false; })
+        : Promise.resolve(false);
+
     var lanPromise = (_obtenerPluginPuenteLocalAutoPC() || !_esMovilOAPKAutoPC())
         ? _enviarViaPuenteDirectoAutoPC(loteIndividualJson).catch(function() { return { ok: false }; })
         : Promise.resolve({ ok: false });
@@ -1966,22 +1985,35 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
                 await asegurarImagenIdeaEnNube(idea);
             }
             await window.MonarcaCloud.enviarSolicitudAutoPC(payloadSolicitud);
+            var mqttOkNube = await mqttPromise;
             var lanOkNube = await lanPromise;
             idea.autopcPendienteSubida = false;
             idea.imagenPendienteSubida = false;
             MonarcaDB.save(APP_STATE);
             if (typeof mostrarToastMonarca === 'function') {
                 mostrarToastMonarca(
-                    (lanOkNube && lanOkNube.ok)
-                        ? 'Solicitud enviada a Auto-PC (Wi-Fi + Nube) 🚀'
-                        : (idea.tieneImagen ? 'Solicitud + imagen enviadas a Auto-PC' : 'Solicitud enviada a la cola de Auto-PC'),
+                    mqttOkNube
+                        ? 'Solicitud enviada a Auto-PC al instante (MQTT ⚡ + Nube)'
+                        : ((lanOkNube && lanOkNube.ok)
+                            ? 'Solicitud enviada a Auto-PC (Wi-Fi + Nube) 🚀'
+                            : (idea.tieneImagen ? 'Solicitud + imagen enviadas a Auto-PC' : 'Solicitud enviada a la cola de Auto-PC')),
                     '🤖'
                 );
             }
             reRenderSiVistaIdeasActiva();
             return true;
         } catch (err) {
+            var mqttRes = await mqttPromise;
             var lanRes = await lanPromise;
+            if (mqttRes) {
+                idea.autopcPendienteSubida = false;
+                MonarcaDB.save(APP_STATE);
+                if (typeof mostrarToastMonarca === 'function') {
+                    mostrarToastMonarca('Solicitud entregada a Auto-PC en tiempo real por MQTT ⚡', '🤖');
+                }
+                reRenderSiVistaIdeasActiva();
+                return true;
+            }
             if (lanRes && lanRes.ok) {
                 idea.autopcPendienteSubida = false;
                 MonarcaDB.save(APP_STATE);
@@ -2004,6 +2036,17 @@ async function enviarIdeaAAutoPC(id, desdeCreacion) {
             }
             return false;
         }
+    }
+
+    var mqttFallback = await mqttPromise;
+    if (mqttFallback) {
+        idea.autopcPendienteSubida = false;
+        MonarcaDB.save(APP_STATE);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Solicitud entregada a Auto-PC por MQTT ⚡', '🤖');
+        }
+        reRenderSiVistaIdeasActiva();
+        return true;
     }
 
     var lanFallback = await lanPromise;
@@ -2034,6 +2077,9 @@ async function cancelarIdeaAutoPC(id) {
     MonarcaDB.save(APP_STATE);
     reRenderVistaIdeasActual();
 
+    if (window.MonarcaMQTT && typeof window.MonarcaMQTT.cancelarSolicitud === 'function') {
+        window.MonarcaMQTT.cancelarSolicitud(String(id)).catch(function() {});
+    }
     if (window.MonarcaCloud && typeof window.MonarcaCloud.cancelarSolicitudAutoPC === 'function') {
         try {
             await window.MonarcaCloud.cancelarSolicitudAutoPC(String(id));
@@ -2689,11 +2735,319 @@ function obtenerPlanPendienteAutoPC() {
     };
 }
 
+function procesarPresenciaMqttAutoPC(data) {
+    if (!data || typeof data !== 'object') return;
+    AUTOPC_MQTT_PRESENCE = Object.assign({ receivedAt: Date.now() }, data);
+    if (data.online === false) {
+        var now = Date.now();
+        AUTOPC_TELEMETRIA_PC = Object.assign({}, AUTOPC_TELEMETRIA_PC || {}, {
+            engineState: 'OFFLINE',
+            phase: 'OFFLINE',
+            antigravityVisible: false,
+            mqttConnected: false,
+            _transport: 'mqtt',
+            heartbeatAt: Number(data.ts) || now,
+            updatedAt: now
+        });
+    } else if (data.online === true && AUTOPC_TELEMETRIA_PC && String(AUTOPC_TELEMETRIA_PC.engineState || '').toUpperCase() === 'OFFLINE') {
+        AUTOPC_TELEMETRIA_PC = Object.assign({}, AUTOPC_TELEMETRIA_PC, {
+            engineState: 'IDLE',
+            phase: 'IDLE',
+            mqttConnected: true,
+            _transport: 'mqtt',
+            heartbeatAt: Number(data.ts) || Date.now()
+        });
+    }
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
+}
+
+function procesarTelemetriaMqttAutoPC(data) {
+    if (!data || typeof data !== 'object') return;
+    var now = Date.now();
+    AUTOPC_TELEMETRIA_PC = Object.assign({}, data, {
+        _transport: 'mqtt',
+        _receivedAt: now,
+        heartbeatAt: Number(data.heartbeatAt) || now
+    });
+
+    // Verificar si llegó un Implementation Plan esperando aprobación al instante vía MQTT
+    var planPend = obtenerPlanPendienteAutoPC();
+    var cambioPlan = false;
+    if (planPend && planPend.planId && !planPend.decisionEnviada) {
+        if (AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID !== planPend.planId) {
+            AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = planPend.planId;
+            cambioPlan = true;
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Antigravity espera tu aprobación del Implementation Plan · Ábrelo en Perfil', '📋');
+            }
+        }
+    } else if (AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID && (!planPend || planPend.decisionEnviada)) {
+        var prevSafe = String(AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+        if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+            window.cancelarNotificacionTelefonoPorAlerta('alerta-autopc-plan-' + prevSafe);
+        }
+        AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = '';
+        cambioPlan = true;
+    }
+
+    if (cambioPlan && typeof actualizarBadgeNotificaciones === 'function') {
+        actualizarBadgeNotificaciones();
+    }
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
+}
+
+function procesarColaMqttAutoPC(snap) {
+    if (!snap || typeof snap !== 'object') return;
+    var now = Date.now();
+    var itemsById = {};
+    var runningIds = {};
+    var items = Array.isArray(snap.items) ? snap.items : [];
+    items.forEach(function(it) {
+        if (!it) return;
+        var sid = String(it.sourceId || it.id || '').trim();
+        if (!sid) return;
+        var st = String(it.status || 'pending').toLowerCase();
+        itemsById[sid] = Object.assign({}, it, { status: st });
+        if (st === 'running' || st === 'awaiting_plan') {
+            runningIds[sid] = true;
+        }
+        // Sincronizar mapa local con la verdad autoritativa de Auto-PC
+        if (AUTOPC_SOLICITUDES_MAP[sid]) {
+            if (AUTOPC_SOLICITUDES_MAP[sid].status !== st) {
+                AUTOPC_SOLICITUDES_MAP[sid].status = st;
+                AUTOPC_SOLICITUDES_MAP[sid].updatedAt = Number(snap.updatedAt || snap.ts) || now;
+            }
+        } else if (st === 'running' || st === 'awaiting_plan' || st === 'pending') {
+            AUTOPC_SOLICITUDES_MAP[sid] = {
+                ideaId: sid,
+                text: String(it.text || 'Solicitud Auto-PC'),
+                status: st,
+                updatedAt: Number(snap.updatedAt || snap.ts) || now,
+                createdAt: Number(snap.updatedAt || snap.ts) || now
+            };
+        }
+    });
+
+    // Purgar fantasmas 'running' heredados de Firestore cuando la cola autoritativa de Auto-PC confirma que no están corriendo
+    if (snap.authoritative) {
+        Object.keys(AUTOPC_SOLICITUDES_MAP || {}).forEach(function(key) {
+            var d = AUTOPC_SOLICITUDES_MAP[key];
+            if (!d) return;
+            var stOld = String(d.status || '').toLowerCase();
+            if (stOld === 'running' && !runningIds[key]) {
+                if (itemsById[key] && itemsById[key].status === 'done') {
+                    d.status = 'done';
+                } else if (snap.counts && Number(snap.counts.running) === 0) {
+                    d.status = 'done';
+                }
+            }
+        });
+    }
+
+    AUTOPC_MQTT_QUEUE_SNAPSHOT = {
+        ts: Number(snap.ts || snap.updatedAt) || now,
+        receivedAt: now,
+        authoritative: Boolean(snap.authoritative),
+        counts: snap.counts || { pending: 0, running: 0, awaitingPlan: 0, done: 0, total: items.length },
+        items: items,
+        itemsById: itemsById
+    };
+
+    if (APP_STATE && Array.isArray(APP_STATE.ideas)) {
+        var changedIdea = false;
+        APP_STATE.ideas.forEach(function(idea) {
+            if (!idea || !idea.id) return;
+            var entry = itemsById[String(idea.id)];
+            if (!entry) return;
+            if (!idea.hecha && (entry.status === 'running' || entry.status === 'awaiting_plan' || entry.status === 'pending')) {
+                if (idea.autopcStatus !== entry.status) {
+                    idea.autopcStatus = entry.status;
+                    idea.autopcPendienteSubida = false;
+                    changedIdea = true;
+                }
+            } else if (entry.status === 'done' && idea.autopcStatus !== 'done') {
+                idea.autopcStatus = 'done';
+                idea.autopcPendienteSubida = false;
+                changedIdea = true;
+            }
+        });
+        if (changedIdea) {
+            MonarcaDB.save(APP_STATE);
+            reRenderSiVistaIdeasActiva();
+        }
+    }
+
+    if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+        window.actualizarTarjetaMonitorAutoPCPerfil();
+    }
+}
+
+function procesarEventoMqttAutoPC(ev) {
+    if (!ev || typeof ev !== 'object') return;
+    var evId = String(ev.eventId || '').trim();
+    if (evId) {
+        if (AUTOPC_MQTT_PROCESSED_EVENTS[evId]) return;
+        AUTOPC_MQTT_PROCESSED_EVENTS[evId] = Date.now();
+        var keys = Object.keys(AUTOPC_MQTT_PROCESSED_EVENTS);
+        if (keys.length > 150) {
+            delete AUTOPC_MQTT_PROCESSED_EVENTS[keys[0]];
+        }
+    }
+
+    var evType = String(ev.type || '').toLowerCase();
+    var sid = String(ev.ideaId || ev.sourceId || '').trim();
+    var now = Number(ev.updatedAt || ev.ts) || Date.now();
+    var idea = (APP_STATE && Array.isArray(APP_STATE.ideas) && sid)
+        ? APP_STATE.ideas.find(function(i) { return i && String(i.id) === sid; })
+        : null;
+
+    if (evType === 'request_started' && sid) {
+        AUTOPC_SOLICITUDES_MAP[sid] = Object.assign({}, AUTOPC_SOLICITUDES_MAP[sid] || {}, {
+            ideaId: sid,
+            text: String(ev.text || (idea && (idea.textoPrompt || idea.texto)) || 'Solicitud Auto-PC'),
+            status: 'running',
+            updatedAt: now
+        });
+        if (idea && !idea.hecha) {
+            idea.autopcStatus = 'running';
+            idea.autopcPendienteSubida = false;
+            MonarcaDB.save(APP_STATE);
+        }
+        if (typeof mostrarToastMonarca === 'function') {
+            var prevStart = String(ev.text || '').trim();
+            mostrarToastMonarca(
+                'Auto-PC inició: "' + (prevStart.length > 48 ? (prevStart.slice(0, 45) + '...') : (prevStart || sid)) + '"',
+                '⚙️'
+            );
+        }
+        reRenderSiVistaIdeasActiva();
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+        return;
+    }
+
+    if (evType === 'plan_required') {
+        if (sid) {
+            AUTOPC_SOLICITUDES_MAP[sid] = Object.assign({}, AUTOPC_SOLICITUDES_MAP[sid] || {}, {
+                ideaId: sid,
+                text: String(ev.text || ev.requestText || (idea && (idea.textoPrompt || idea.texto)) || 'Solicitud Auto-PC'),
+                status: 'awaiting_plan',
+                planId: String(ev.planId || ''),
+                planMessage: String(ev.planMessage || ''),
+                planMarkdown: String(ev.planMarkdown || ''),
+                planUpdatedAt: Number(ev.planUpdatedAt) || now,
+                updatedAt: now
+            });
+        }
+        if (idea && !idea.hecha) {
+            idea.autopcStatus = 'awaiting_plan';
+            if (ev.planId) idea.autopcPlanId = String(ev.planId);
+            MonarcaDB.save(APP_STATE);
+        }
+        AUTOPC_TELEMETRIA_PC = Object.assign({}, AUTOPC_TELEMETRIA_PC || {}, {
+            _transport: 'mqtt',
+            phase: 'WAITING_PLAN_APPROVAL',
+            agAwaitingPlan: true,
+            agPlanId: String(ev.planId || ''),
+            agPlanMessage: String(ev.planMessage || ''),
+            agPlanMarkdown: String(ev.planMarkdown || ''),
+            agPlanUpdatedAt: Number(ev.planUpdatedAt) || now,
+            activeSourceId: sid || (AUTOPC_TELEMETRIA_PC && AUTOPC_TELEMETRIA_PC.activeSourceId) || '',
+            activeText: String(ev.text || ev.requestText || (AUTOPC_TELEMETRIA_PC && AUTOPC_TELEMETRIA_PC.activeText) || ''),
+            heartbeatAt: now
+        });
+        var planIdKey = String(ev.planId || ('plan-' + sid));
+        if (planIdKey && AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID !== planIdKey) {
+            AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = planIdKey;
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Antigravity pide aprobación del Implementation Plan · Ábrelo en Perfil', '📋');
+            }
+        }
+        if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        var modalNotifPlan = document.getElementById('modal-centro-notificaciones');
+        if (modalNotifPlan && modalNotifPlan.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+            renderizarCentroNotificaciones();
+        }
+        reRenderSiVistaIdeasActiva();
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+        return;
+    }
+
+    if (evType === 'request_completed' && sid) {
+        var docDone = Object.assign({}, AUTOPC_SOLICITUDES_MAP[sid] || {}, ev, {
+            ideaId: sid,
+            status: 'done',
+            updatedAt: now
+        });
+        AUTOPC_SOLICITUDES_MAP[sid] = docDone;
+
+        var completadaAhora = false;
+        if (idea) {
+            idea.autopcStatus = 'done';
+            idea.autopcPendienteSubida = false;
+            _sincronizarCamposResumenAutoPCEnIdea(idea, docDone);
+            if (!idea.hecha) {
+                idea.hecha = true;
+                idea.timestampHecha = now;
+                idea.fechaHecha = new Date(now).toLocaleDateString('es-ES');
+                idea.fechaActualizacion = Math.max(Number(idea.fechaActualizacion) || 0, now);
+                idea.completadaPorAutoPC = true;
+                completadaAhora = true;
+            }
+        }
+
+        var nuevaNotif = registrarNotificacionSolicitudAutoPC(docDone, idea);
+        if (completadaAhora && typeof sumarExp === 'function') {
+            sumarExp(15);
+        }
+        if (completadaAhora || nuevaNotif || idea) {
+            MonarcaDB.save(APP_STATE);
+        }
+        if (typeof mostrarToastMonarca === 'function') {
+            var txtDone = String(docDone.text || (idea && (idea.textoPrompt || idea.texto)) || '').trim();
+            var prevDone = txtDone.length > 48 ? (txtDone.slice(0, 45) + '...') : (txtDone || 'Solicitud');
+            mostrarToastMonarca(
+                completadaAhora
+                    ? ('Auto-PC completó "' + prevDone + '" (+15 EXP) ⚡')
+                    : ('Solicitud completada en Auto-PC: "' + prevDone + '" ⚡'),
+                '✅'
+            );
+        }
+        if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        var modalNotifDone = document.getElementById('modal-centro-notificaciones');
+        if (modalNotifDone && modalNotifDone.style.display === 'flex' && typeof renderizarCentroNotificaciones === 'function') {
+            renderizarCentroNotificaciones();
+        }
+        reRenderSiVistaIdeasActiva();
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+        return;
+    }
+
+    if (evType === 'queue_completed') {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Auto-PC completó toda la cola de solicitudes 🏁', '🏁');
+        }
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+    }
+}
+
 function procesarSnapshotAutoPCIdeas(lista) {
     var nuevoMapa = {};
     var docsDone = [];
     var nuevaTelemetria = null;
     var nuevaDecisionPlan = null;
+    var nuevaConfigMqtt = null;
     if (Array.isArray(lista)) {
         lista.forEach(function(item) {
             if (!item) return;
@@ -2701,6 +3055,10 @@ function procesarSnapshotAutoPCIdeas(lista) {
             var docType = String(item.docType || '').toLowerCase();
             // Ignorar explícitamente el documento _signal para que nunca sobrescriba _estado_pc
             if (docType === 'signal' || key === '_signal') {
+                return;
+            }
+            if (docType === 'mqtt_config' || key === '_mqtt_config') {
+                nuevaConfigMqtt = Object.assign({}, item);
                 return;
             }
             if (docType === 'plan_decision' || key === '_plan_decision') {
@@ -2722,9 +3080,39 @@ function procesarSnapshotAutoPCIdeas(lista) {
             }
         });
     }
+    if (nuevaConfigMqtt && window.MonarcaMQTT && typeof window.MonarcaMQTT.aplicarConfigPairingDesdeNube === 'function') {
+        window.MonarcaMQTT.aplicarConfigPairingDesdeNube(nuevaConfigMqtt);
+    }
+
+    // Preservar estados más frescos si MQTT autoritativo ya marcó algún ítem como done/running
+    if (AUTOPC_MQTT_QUEUE_SNAPSHOT && AUTOPC_MQTT_QUEUE_SNAPSHOT.authoritative) {
+        var mqttItems = AUTOPC_MQTT_QUEUE_SNAPSHOT.itemsById || {};
+        var mqttRunningZero = AUTOPC_MQTT_QUEUE_SNAPSHOT.counts && Number(AUTOPC_MQTT_QUEUE_SNAPSHOT.counts.running) === 0;
+        Object.keys(nuevoMapa).forEach(function(k) {
+            var d = nuevoMapa[k];
+            if (!d) return;
+            var stFs = String(d.status || '').toLowerCase();
+            if (mqttItems[k] && mqttItems[k].status === 'done' && stFs === 'running') {
+                d.status = 'done';
+            } else if (mqttRunningZero && stFs === 'running' && (!mqttItems[k] || mqttItems[k].status !== 'running')) {
+                d.status = 'done';
+            }
+        });
+    }
+
     AUTOPC_SOLICITUDES_MAP = nuevoMapa;
     if (nuevaTelemetria) {
-        AUTOPC_TELEMETRIA_PC = nuevaTelemetria;
+        var curTs = (AUTOPC_TELEMETRIA_PC && Number(AUTOPC_TELEMETRIA_PC.heartbeatAt)) || 0;
+        var fsTs = Number(nuevaTelemetria.heartbeatAt) || 0;
+        var curIsFreshMqtt = Boolean(
+            AUTOPC_TELEMETRIA_PC &&
+            AUTOPC_TELEMETRIA_PC._transport === 'mqtt' &&
+            curTs >= fsTs &&
+            (Date.now() - (Number(AUTOPC_TELEMETRIA_PC._receivedAt) || curTs)) < 120000
+        );
+        if (!curIsFreshMqtt) {
+            AUTOPC_TELEMETRIA_PC = nuevaTelemetria;
+        }
     }
     if (nuevaDecisionPlan) {
         AUTOPC_PLAN_DECISION_DOC = nuevaDecisionPlan;
@@ -3035,17 +3423,51 @@ function obtenerResumenMonitoreoAutoPC() {
         }
         : null;
 
+    var telFresh = Boolean(tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS);
+    var mqttQueueFresh = Boolean(
+        AUTOPC_MQTT_QUEUE_SNAPSHOT &&
+        AUTOPC_MQTT_QUEUE_SNAPSHOT.authoritative &&
+        (now - (Number(AUTOPC_MQTT_QUEUE_SNAPSHOT.receivedAt || AUTOPC_MQTT_QUEUE_SNAPSHOT.ts) || 0)) <= 120000
+    );
+
+    // Fix definitivo de solicitudes fantasma ('12h 53m · Detenido con cola'):
+    // Si Auto-PC vivo (o su cola autoritativa por MQTT) confirma que NO hay nada ejecutándose,
+    // no permitir que un documento viejo atascado en Firestore como 'running' falsifique TRABAJANDO AHORA.
+    var pcConfirmsNoRunning = Boolean(
+        (mqttQueueFresh && Number((AUTOPC_MQTT_QUEUE_SNAPSHOT.counts || {}).running) === 0) ||
+        (telFresh && engState !== 'OFFLINE' && Number(tel.runningCount || 0) === 0 && !tel.agAwaitingPlan)
+    );
+    if (pcConfirmsNoRunning && runningItems.length > 0) {
+        var mqttMap = (AUTOPC_MQTT_QUEUE_SNAPSHOT && AUTOPC_MQTT_QUEUE_SNAPSHOT.itemsById) || {};
+        var keptRunning = [];
+        runningItems.forEach(function(item) {
+            var mEntry = mqttMap[item.id];
+            if (mEntry && (mEntry.status === 'running' || mEntry.status === 'awaiting_plan')) {
+                keptRunning.push(item);
+            } else {
+                // Tratar como ya completada en la vista para evitar falsos avisos de 'Detenido con cola'
+                doneItems.push(Object.assign({}, item, { status: 'done' }));
+            }
+        });
+        runningItems = keptRunning;
+        doneItems.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    }
+
     var countRunning = runningItems.length + planItems.length;
     var countPending = pendingItems.length;
     var countDone = doneItems.length;
-    if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
+    if (mqttQueueFresh && AUTOPC_MQTT_QUEUE_SNAPSHOT.counts) {
+        countRunning = Math.max(countRunning, Number(AUTOPC_MQTT_QUEUE_SNAPSHOT.counts.running) || 0);
+        countPending = Math.max(countPending, Number(AUTOPC_MQTT_QUEUE_SNAPSHOT.counts.pending) || 0);
+        countDone = Math.max(countDone, Number(AUTOPC_MQTT_QUEUE_SNAPSHOT.counts.done) || 0);
+    } else if (telFresh) {
         countRunning = Math.max(countRunning, Number(tel.runningCount) || 0);
         countPending = Math.max(countPending, Number(tel.pendingCount) || 0);
         countDone = Math.max(countDone, Number(tel.doneCount) || 0);
     }
 
     var primaryRunning = planItems[0] || runningItems[0] || null;
-    if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
+    if (!primaryRunning && tel && (Number(tel.runningCount) || 0) > 0 && tel.activeText && telFresh) {
         var phTs = Number(tel.agStartedAt || tel.phaseChangedAt || tel.heartbeatAt) || now;
         primaryRunning = {
             id: String(tel.activeSourceId || 'pc-active'),
@@ -3246,11 +3668,18 @@ function obtenerResumenMonitoreoAutoPC() {
         if (recientes.length < 5) recientes.push(it);
     });
 
+    var mqttStatus = (window.MonarcaMQTT && typeof window.MonarcaMQTT.getStatus === 'function')
+        ? window.MonarcaMQTT.getStatus()
+        : null;
+
     return {
         nivel: nivel,
         badgeTexto: badgeTexto,
         resumenTexto: resumenTexto,
         proyecto: proyecto,
+        engineState: engState || '',
+        transport: (tel && tel._transport === 'mqtt') ? 'mqtt' : 'cloud',
+        mqtt: mqttStatus,
         antigravityVisible: agVisible,
         heartbeatAgeMs: heartbeatAgeMs,
         enCursoAgeMs: enCursoAgeMs,
@@ -3317,6 +3746,14 @@ async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
         window.actualizarTarjetaMonitorAutoPCPerfil();
     }
 
+    // Envío instantáneo por MQTT (<300ms) en paralelo con Firestore
+    var enviadoMqtt = false;
+    try {
+        if (window.MonarcaMQTT && typeof window.MonarcaMQTT.enviarDecisionPlan === 'function') {
+            enviadoMqtt = await window.MonarcaMQTT.enviarDecisionPlan(payload);
+        }
+    } catch (eMqtt) {}
+
     var enviadoCloud = false;
     try {
         if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarDecisionPlanAntigravity === 'function') {
@@ -3338,22 +3775,23 @@ async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
         }
     } catch (eLan) {}
 
+    var okFinal = Boolean(enviadoMqtt || enviadoCloud);
     if (typeof mostrarToastMonarca === 'function') {
-        if (enviadoCloud) {
+        if (okFinal) {
             mostrarToastMonarca(
                 act === 'approve'
-                    ? 'Aprobación enviada a Auto-PC · Antigravity retomará la implementación.'
-                    : 'Indicaciones enviadas a Auto-PC · Antigravity ajustará el plan.',
+                    ? (enviadoMqtt ? 'Aprobación enviada al instante vía MQTT ⚡ · Antigravity retomará ahora.' : 'Aprobación enviada a Auto-PC · Antigravity retomará la implementación.')
+                    : (enviadoMqtt ? 'Indicaciones enviadas al instante vía MQTT ⚡ · Antigravity ajustará el plan.' : 'Indicaciones enviadas a Auto-PC · Antigravity ajustará el plan.'),
                 act === 'approve' ? '✅' : '📨'
             );
         } else {
-            mostrarToastMonarca('No se pudo confirmar envío en la nube; verifica tu conexión.', '⚠️');
+            mostrarToastMonarca('No se pudo confirmar envío en la nube ni MQTT; verifica tu conexión.', '⚠️');
         }
     }
     if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
         window.actualizarTarjetaMonitorAutoPCPerfil();
     }
-    return enviadoCloud;
+    return okFinal;
 }
 
 if (typeof window !== 'undefined') {
@@ -3363,6 +3801,10 @@ if (typeof window !== 'undefined') {
     window.cancelarIdeaAutoPC = cancelarIdeaAutoPC;
     window.procesarPendientesOfflineAutoPC = procesarPendientesOfflineAutoPC;
     window.procesarSnapshotAutoPCIdeas = procesarSnapshotAutoPCIdeas;
+    window.procesarPresenciaMqttAutoPC = procesarPresenciaMqttAutoPC;
+    window.procesarTelemetriaMqttAutoPC = procesarTelemetriaMqttAutoPC;
+    window.procesarColaMqttAutoPC = procesarColaMqttAutoPC;
+    window.procesarEventoMqttAutoPC = procesarEventoMqttAutoPC;
     window.obtenerEstadoTelemetryAutoPC = obtenerEstadoTelemetryAutoPC;
     window.obtenerResumenMonitoreoAutoPC = obtenerResumenMonitoreoAutoPC;
     window.obtenerPlanPendienteAutoPC = obtenerPlanPendienteAutoPC;

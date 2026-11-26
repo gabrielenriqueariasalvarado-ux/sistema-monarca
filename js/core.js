@@ -1992,7 +1992,7 @@ if (typeof window !== 'undefined') {
     window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
 }
 
-var MONARCA_APP_VERSION = '11.30';
+var MONARCA_APP_VERSION = '11.31';
 var MONARCA_APP_VERSION_FECHA = '2026-11-25';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

@@ -1,5 +1,5 @@
 {
-  "version": "11.30",
+  "version": "11.31",
   "fecha": "2026-11-25",
-  "resumen": "Monarca Voz · Jarvis IA Conectado a tu App IA + Micrófono Nativo Android (v11.30): Ahora Monarca Voz (Jarvis) funciona directamente con tu App IA (Gemini): incluye selector de modo '⚡ Comandos + IA' y '✦ Solo IA', responde cualquier pregunta libre en streaming con Markdown y lectura por voz, guarda cada conversación automáticamente en tu App IA sincronizada en la nube (con botón '✦ Ver en App IA'), migra todo el panel de Jarvis a Dark Glass y añade permiso RECORD_AUDIO + plugin nativo Android MonarcaVoice para resolver 'Permiso de micrófono denegado' en el APK."
+  "resumen": "MQTT Bidireccional en Tiempo Real para Auto-PC y Sistema Monarca (v11.31): Conexión en vivo (<1.5s) cifrada extremo a extremo (AES-256-GCM sobre TLS/WSS con emparejamiento automático + soporte para broker privado HiveMQ Cloud/EMQX/Mosquitto), presencia instantánea LWT, progreso y pasos de Antigravity en vivo, notificaciones inmediatas al iniciar/pedir plan/completar cada solicitud, controles remotos desde Perfil (Iniciar/Pausar/Detener/Sync) y corrección definitiva de solicitudes fantasma ('12h 53m') y detección real de la ventana de Antigravity en reposo."
 }
