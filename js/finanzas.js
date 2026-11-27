@@ -548,6 +548,7 @@ function seleccionarTipoIngresoModal(tipo) {
     var btnAlm = document.getElementById('btn-modal-tipo-almacen');
     var grpDia = document.getElementById('grupo-ingreso-dia');
     var grpFecha = document.getElementById('grupo-ingreso-fecha');
+    var grpCobroWa = document.getElementById('grupo-ingreso-cobro-wa');
     var inF = document.getElementById('modal-ingreso-fuente');
 
     // Reset general de estilos
@@ -567,6 +568,7 @@ function seleccionarTipoIngresoModal(tipo) {
         }
         if (grpDia) grpDia.style.display = 'block';
         if (grpFecha) grpFecha.style.display = 'none';
+        if (grpCobroWa) grpCobroWa.style.display = 'none';
         if (inF) inF.placeholder = "Ej: Sueldo Principal, Renta, Nómina...";
     } else if (tipo === 'almacen') {
         if (btnAlm) {
@@ -576,6 +578,7 @@ function seleccionarTipoIngresoModal(tipo) {
         }
         if (grpDia) grpDia.style.display = 'none';
         if (grpFecha) grpFecha.style.display = 'block';
+        if (grpCobroWa) grpCobroWa.style.display = 'block';
         if (inF) inF.placeholder = "Ej: Venta de mercancía, Honorarios de diseño, Asesoría técnica...";
 
         var inFecha = document.getElementById('modal-ingreso-fecha');
@@ -586,6 +589,7 @@ function seleccionarTipoIngresoModal(tipo) {
             var d = String(hoy.getDate()).padStart(2, '0');
             inFecha.value = y + '-' + m + '-' + d;
         }
+        if (typeof poblarDatalistPersonasFinanzas === 'function') poblarDatalistPersonasFinanzas();
     } else {
         if (btnA) {
             btnA.style.background = '#1e263c';
@@ -594,6 +598,7 @@ function seleccionarTipoIngresoModal(tipo) {
         }
         if (grpDia) grpDia.style.display = 'none';
         if (grpFecha) grpFecha.style.display = 'block';
+        if (grpCobroWa) grpCobroWa.style.display = 'block';
         if (inF) inF.placeholder = "Ej: Bono Freelance, Venta Ocasional, Comisión...";
 
         var inFecha = document.getElementById('modal-ingreso-fecha');
@@ -604,6 +609,7 @@ function seleccionarTipoIngresoModal(tipo) {
             var d = String(hoy.getDate()).padStart(2, '0');
             inFecha.value = y + '-' + m + '-' + d;
         }
+        if (typeof poblarDatalistPersonasFinanzas === 'function') poblarDatalistPersonasFinanzas();
     }
 }
 
@@ -805,6 +811,9 @@ function renderizarFinanzas(fin) {
         var badgeConvIngHtml = (item.monedaOrigen === 'VES' && item.montoOriginalBs > 0)
             ? `<span class="badge-cat" style="background: rgba(56, 189, 248, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2);">Bs. ${Number(item.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
             : '';
+        var btnCobroWaIngHtml = (typeof generarBotonCobroWhatsAppIngresoHTML === 'function')
+            ? generarBotonCobroWhatsAppIngresoHTML(item, fechaEffIng, infoOrigen)
+            : '';
         var btnReprogIngHtml = !estaCobrado
             ? `<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza('ingreso', '${item.id}', '', '${retIng ? retIng.mesOrigenRegla : mesClaveVista}', '${retIng ? retIng.fechaISO : fechaEffIng}', ${esRecIng ? 'true' : 'false'})" title="Reprogramar fecha">📅 Reprogramar</button>`
             : '';
@@ -833,6 +842,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
+                    ${btnCobroWaIngHtml}
                     ${btnReprogIngHtml}
                     ${btnEditIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
@@ -862,6 +872,7 @@ function renderizarFinanzas(fin) {
                 <div class="finanzas-tx-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                     ${displayMontoHtml}
                     ${badgeCobroHtml}
+                    ${btnCobroWaIngHtml}
                     ${btnReprogIngHtml}
                     ${btnEditIngHtml}
                     <button class="btn-delete-row" title="Eliminar entrada" onclick="eliminarRegistroFinanzasUI('${item.id}', 'ingreso')">✕</button>
@@ -2516,6 +2527,9 @@ function abrirModalIngreso(tipoPorDefecto, fechaOpcional) {
     var selMon = document.getElementById('modal-ingreso-moneda');
     var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
     var selTrj = document.getElementById('modal-ingreso-tarjeta');
+    var inPers = document.getElementById('modal-ingreso-persona');
+    var inTel = document.getElementById('modal-ingreso-telefono');
+    var inMsgWa = document.getElementById('modal-ingreso-mensaje-wa');
     var btnSave = document.getElementById('btn-guardar-modal-ingreso');
 
     if (inEdit) inEdit.value = '';
@@ -2528,6 +2542,9 @@ function abrirModalIngreso(tipoPorDefecto, fechaOpcional) {
     if (selMon) selMon.value = 'USD';
     if (selTasa) selTasa.value = 'bcv';
     if (selTrj) selTrj.value = '';
+    if (inPers) inPers.value = '';
+    if (inTel) inTel.value = '';
+    if (inMsgWa) inMsgWa.value = '';
     establecerModoSplitTarjetasModal('ingreso', false);
 
     if (fechaOpcional && typeof fechaOpcional === 'string' && fechaOpcional.length >= 10) {
@@ -2558,10 +2575,14 @@ function editarIngresoFinanzasUI(id) {
     var selMon = document.getElementById('modal-ingreso-moneda');
     var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
     var selTrj = document.getElementById('modal-ingreso-tarjeta');
+    var inPers = document.getElementById('modal-ingreso-persona');
+    var inTel = document.getElementById('modal-ingreso-telefono');
+    var inMsgWa = document.getElementById('modal-ingreso-mensaje-wa');
     var btnSave = document.getElementById('btn-guardar-modal-ingreso');
 
     var infoOrig = clasificarOrigenIngreso(item);
     var tipoDest = infoOrig.tipoDestino || item.tipo || 'fija';
+    var datosCobro = (typeof resolverDatosCobroPersonaIngreso === 'function') ? resolverDatosCobroPersonaIngreso(item) : null;
 
     if (inEdit) inEdit.value = item.id;
     if (titEl) titEl.textContent = 'EDITAR ENTRADA Y TARJETAS';
@@ -2572,6 +2593,9 @@ function editarIngresoFinanzasUI(id) {
     if (selMon) selMon.value = 'USD';
     if (selTasa) selTasa.value = item.tasaTipo || 'bcv';
     if (inM) inM.value = Number(item.monto || 0).toFixed(2);
+    if (inPers) inPers.value = item.personaCobro || item.personaPrestamo || item.cliente || (datosCobro ? datosCobro.personaRaw : '') || '';
+    if (inTel) inTel.value = item.telefonoCobro || (datosCobro ? datosCobro.telefonoRaw : '') || '';
+    if (inMsgWa) inMsgWa.value = item.mensajeCobroPersonalizado || '';
 
     seleccionarTipoIngresoModal(tipoDest);
 
@@ -2607,6 +2631,9 @@ function confirmarAgregarIngreso() {
     var selTasa = document.getElementById('modal-ingreso-tasa-tipo');
     var inTipo = document.getElementById('modal-ingreso-tipo');
     var selTrj = document.getElementById('modal-ingreso-tarjeta');
+    var inPers = document.getElementById('modal-ingreso-persona');
+    var inTel = document.getElementById('modal-ingreso-telefono');
+    var inMsgWa = document.getElementById('modal-ingreso-mensaje-wa');
 
     var tipo = inTipo ? inTipo.value : 'fija';
     var f = inF ? inF.value.trim() : "";
@@ -2629,6 +2656,13 @@ function confirmarAgregarIngreso() {
     if (tipo !== 'fija' && fecha && fecha.length >= 10) {
         var diaParsed = parseInt(fecha.slice(8, 10), 10);
         if (!isNaN(diaParsed)) d = diaParsed;
+    }
+
+    var personaCobro = (tipo !== 'fija' && inPers) ? inPers.value.trim() : '';
+    var telefonoCobro = (tipo !== 'fija' && inTel) ? inTel.value.trim() : '';
+    var mensajeCobroPersonalizado = (tipo !== 'fija' && inMsgWa) ? inMsgWa.value.trim() : '';
+    if (personaCobro && !telefonoCobro && typeof buscarTelefonoPersonaEnMonarca === 'function') {
+        telefonoCobro = buscarTelefonoPersonaEnMonarca(personaCobro) || '';
     }
 
     // Tarjeta(s) destino
@@ -2680,6 +2714,12 @@ function confirmarAgregarIngreso() {
         exist.tasaUsada = conv.tasaUsada || 0;
         exist.tarjetaId = tarjetaIdUnica;
         exist.tarjetasDistribucion = tarjetasDistribucion.slice();
+        if (tipo !== 'fija') {
+            exist.personaCobro = personaCobro;
+            exist.telefonoCobro = telefonoCobro;
+            exist.mensajeCobroPersonalizado = mensajeCobroPersonalizado;
+            if (exist.esCobroPrestamo && personaCobro) exist.personaPrestamo = personaCobro;
+        }
         var infoEdit = clasificarOrigenIngreso(exist);
         exist.tipo = infoEdit.tipoDestino;
         if (infoEdit.origen === 'labor') exist.origenLabor = infoEdit.origenId;
@@ -2710,6 +2750,9 @@ function confirmarAgregarIngreso() {
         tasaUsada: conv.tasaUsada || 0,
         tarjetaId: tarjetaIdUnica,
         tarjetasDistribucion: tarjetasDistribucion,
+        personaCobro: (tipo !== 'fija') ? personaCobro : '',
+        telefonoCobro: (tipo !== 'fija') ? telefonoCobro : '',
+        mensajeCobroPersonalizado: (tipo !== 'fija') ? mensajeCobroPersonalizado : '',
         cobrado: false,
         timestamp: nowIng,
         fechaActualizacion: nowIng
@@ -2725,6 +2768,9 @@ function confirmarAgregarIngreso() {
 
     if (inF) inF.value = "";
     if (inM) inM.value = "";
+    if (inPers) inPers.value = "";
+    if (inTel) inTel.value = "";
+    if (inMsgWa) inMsgWa.value = "";
 
     MonarcaDB.save(APP_STATE);
     cerrarModalIngreso();
@@ -2818,6 +2864,7 @@ function abrirModalGasto(tipoPorDefecto, fechaOpcional, categoriaInicialOpt) {
     var selTrjG = document.getElementById('modal-gasto-tarjeta');
     var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
     var inPers = document.getElementById('modal-gasto-prestamo-persona');
+    var inTelPers = document.getElementById('modal-gasto-prestamo-telefono');
     var inFechaU = document.getElementById('modal-gasto-prestamo-fecha-unica');
     var listaPartes = document.getElementById('lista-partes-prestamo');
 
@@ -2831,6 +2878,7 @@ function abrirModalGasto(tipoPorDefecto, fechaOpcional, categoriaInicialOpt) {
     if (inDia) inDia.value = '16';
     if (inFecha) inFecha.value = '';
     if (inPers) inPers.value = '';
+    if (inTelPers) inTelPers.value = '';
     if (inFechaU) inFechaU.value = '';
     if (listaPartes) listaPartes.innerHTML = '';
 
@@ -2890,6 +2938,7 @@ function editarGastoFinanzasUI(id) {
     var selTrjG = document.getElementById('modal-gasto-tarjeta');
     var chkDesc = document.getElementById('modal-gasto-descontar-ahora');
     var inPers = document.getElementById('modal-gasto-prestamo-persona');
+    var inTelPers = document.getElementById('modal-gasto-prestamo-telefono');
     var inFechaU = document.getElementById('modal-gasto-prestamo-fecha-unica');
     var listaPartes = document.getElementById('lista-partes-prestamo');
 
@@ -2912,6 +2961,7 @@ function editarGastoFinanzasUI(id) {
 
     if (g.esPrestamo || esCategoriaPrestamoNombre(g.categoria)) {
         if (inPers) inPers.value = g.personaPrestamo || '';
+        if (inTelPers) inTelPers.value = g.telefonoPrestamo || (g.personaPrestamo && typeof buscarTelefonoPersonaEnMonarca === 'function' ? buscarTelefonoPersonaEnMonarca(g.personaPrestamo) : '') || '';
         if (listaPartes) listaPartes.innerHTML = '';
         var modDev = (g.tipoDevolucionPrestamo === 'partes' || (Array.isArray(g.cuotasPrestamo) && g.cuotasPrestamo.length > 1)) ? 'partes' : 'unico';
         seleccionarModalidadPrestamoGasto(modDev);
@@ -2979,11 +3029,17 @@ function confirmarAgregarGasto() {
     }
 
     var personaPres = '';
+    var telPres = '';
     var modDev = 'unico';
     var partesPrestamo = [];
     if (esPres) {
         var inPers = document.getElementById('modal-gasto-prestamo-persona');
+        var inTelPers = document.getElementById('modal-gasto-prestamo-telefono');
         personaPres = inPers ? inPers.value.trim() : '';
+        telPres = inTelPers ? inTelPers.value.trim() : '';
+        if (personaPres && !telPres && typeof buscarTelefonoPersonaEnMonarca === 'function') {
+            telPres = buscarTelefonoPersonaEnMonarca(personaPres) || '';
+        }
         if (!personaPres) {
             alert("Indica el nombre de la persona a quien le haces el préstamo.");
             if (inPers) inPers.focus();
@@ -3065,6 +3121,7 @@ function confirmarAgregarGasto() {
         targetGasto.tarjetaId = trjGId || null;
         targetGasto.esPrestamo = esPres;
         targetGasto.personaPrestamo = personaPres;
+        targetGasto.telefonoPrestamo = telPres;
         targetGasto.tipoDevolucionPrestamo = modDev;
         targetGasto.cuotasPrestamo = partesPrestamo;
         targetGasto.pagado = descontarAhora;
@@ -3105,6 +3162,8 @@ function confirmarAgregarGasto() {
                         prestamoGastoId: targetGasto.id,
                         cuotaPrestamoIdx: idxP + 1,
                         personaPrestamo: personaPres,
+                        personaCobro: personaPres,
+                        telefonoCobro: telPres,
                         dia: parseInt(pt.fecha.slice(8, 10), 10) || 15,
                         fecha: pt.fecha,
                         monto: pt.montoUsd,
@@ -3135,6 +3194,7 @@ function confirmarAgregarGasto() {
             tarjetaId: trjGId || null,
             esPrestamo: esPres,
             personaPrestamo: personaPres,
+            telefonoPrestamo: telPres,
             tipoDevolucionPrestamo: modDev,
             cuotasPrestamo: partesPrestamo,
             pagado: descontarAhora,
@@ -3166,6 +3226,8 @@ function confirmarAgregarGasto() {
                     prestamoGastoId: targetGasto.id,
                     cuotaPrestamoIdx: idxP + 1,
                     personaPrestamo: personaPres,
+                    personaCobro: personaPres,
+                    telefonoCobro: telPres,
                     dia: parseInt(pt.fecha.slice(8, 10), 10) || 15,
                     fecha: pt.fecha,
                     monto: pt.montoUsd,
@@ -5903,6 +5965,12 @@ function renderizarCalendarioFinanzas() {
             html += '<div class="fin-cal-subhead" style="color: #34d399;"><span>💰 Cobros del Día (' + filtradoSel.cobros.length + ')</span></div>' +
                     '<div class="fin-cal-tx-list">';
             filtradoSel.cobros.forEach(function(item) {
+                var ingOrig = (fin && Array.isArray(fin.ingresos))
+                    ? fin.ingresos.find(function(x) { return x && x.id === item.id; })
+                    : null;
+                var btnCobroWaCal = (!item.completado && ingOrig && typeof generarBotonCobroWhatsAppIngresoHTML === 'function')
+                    ? generarBotonCobroWhatsAppIngresoHTML(ingOrig, item.fecha, null, hoyISO)
+                    : '';
                 var estadoHtml = item.completado
                     ? '<span class="badge-ingreso-cobrado">✅ Cobrado</span><button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroIngresoUI(\'' + item.id + '\')" title="Revertir cobro">↩</button>'
                     : '<button type="button" class="btn-cobrar-ingreso" onclick="cobrarIngresoUI(\'' + item.id + '\')">💰 Cobrar</button>';
@@ -5924,6 +5992,7 @@ function renderizarCalendarioFinanzas() {
                     '<div class="finanzas-tx-right" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">' +
                         '<div class="finanzas-tx-monto monto-positivo">+$' + item.monto.toFixed(2) + '</div>' +
                         estadoHtml +
+                        btnCobroWaCal +
                         '<button type="button" class="btn-mover-fecha-fin" onclick="abrirModalMoverFechaFinanza(\'ingreso\', \'' + item.id + '\', \'\', \'' + item.mesOrigenRegla + '\', \'' + item.fecha + '\', ' + (item.esRecurrente ? 'true' : 'false') + ')">📅 Mover Día</button>' +
                     '</div>' +
                 '</div>';
@@ -6883,8 +6952,7 @@ function liquidarDesdeRetrasosFinanzas(uid) {
 
 function obtenerAlertasFinanzasRetrasadasActivas() {
     if (!window.APP_STATE || !APP_STATE.finanzas) return [];
-    var info = obtenerRetrasosFinanzas(APP_STATE.finanzas);
-    if (!info || info.totalCount === 0) return [];
+    var info = obtenerRetrasosFinanzas(APP_STATE.finanzas) || { totalCount: 0, countPagos: 0, countCobros: 0, pagos: [], cobros: [] };
 
     var alertas = [];
     if (info.countPagos > 0) {
@@ -6914,6 +6982,31 @@ function obtenerAlertasFinanzasRetrasadasActivas() {
         var listaC = info.cobros.slice(0, 3).map(function(c) {
             return c.titulo + ' (+$' + c.monto.toFixed(2) + ', ' + c.diasRetraso + 'd)';
         }).join(' · ');
+        var accionesCobros = [
+            {
+                tipo: 'primary',
+                texto: '📅 Reprogramar Cobros',
+                fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof abrirModalReprogramarRetrasadosFinanzas==='function') abrirModalReprogramarRetrasadosFinanzas('cobros'); }, 60);"
+            }
+        ];
+        var primerCobroWaVenc = null;
+        if (typeof evaluarEstadoCobroWhatsAppIngreso === 'function' && Array.isArray(APP_STATE.finanzas.ingresos)) {
+            for (var ci = 0; ci < info.cobros.length; ci++) {
+                var cObj = info.cobros[ci];
+                var ingRef = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === cObj.id; });
+                if (ingRef && evaluarEstadoCobroWhatsAppIngreso(ingRef, cObj.fechaISO)) {
+                    primerCobroWaVenc = ingRef.id;
+                    break;
+                }
+            }
+        }
+        if (primerCobroWaVenc) {
+            accionesCobros.push({
+                tipo: 'secondary',
+                texto: '💬 Cobrar por WhatsApp',
+                fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof abrirModalCobroWhatsAppFinanzas==='function') abrirModalCobroWhatsAppFinanzas('" + primerCobroWaVenc + "'); }, 80);"
+            });
+        }
         alertas.push({
             id: 'alerta-fin-retrasos-cobros',
             tipo: 'urgente',
@@ -6923,14 +7016,37 @@ function obtenerAlertasFinanzasRetrasadasActivas() {
             titulo: info.countCobros + ' ' + (info.countCobros === 1 ? 'Cobro Retrasado' : 'Cobros Retrasados') + ' (+$' + info.totalCobrosUsd.toFixed(2) + ')',
             metaLinea: '📅 Más antiguo: ' + info.cobros[0].fechaISO + ' (' + info.cobros[0].diasRetraso + 'd de atraso)',
             descripcion: listaC + (info.countCobros > 3 ? ' y ' + (info.countCobros - 3) + ' más' : ''),
-            acciones: [
-                {
-                    tipo: 'primary',
-                    texto: '📅 Reprogramar Cobros',
-                    fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof abrirModalReprogramarRetrasadosFinanzas==='function') abrirModalReprogramarRetrasadosFinanzas('cobros'); }, 60);"
-                }
-            ]
+            acciones: accionesCobros
         });
+    }
+
+    if (typeof obtenerCobrosProximosWhatsAppFinanzas === 'function') {
+        var proximosWa = obtenerCobrosProximosWhatsAppFinanzas(APP_STATE.finanzas);
+        if (proximosWa && proximosWa.length > 0) {
+            var totalProxUsd = proximosWa.reduce(function(acc, p) { return acc + (Number(p.item.monto) || 0); }, 0);
+            var listaProx = proximosWa.slice(0, 3).map(function(p) {
+                return (p.datos.personaDisplay || p.item.fuente || 'Cobro') + ' (+$' + (Number(p.item.monto) || 0).toFixed(2) + ', ' + p.estado.etiquetaTiempo + ')';
+            }).join(' · ');
+            var primeroProx = proximosWa[0];
+            var tabDest = primeroProx.tipoDestino === 'almacen' ? 'almacen' : 'aleatorios';
+            alertas.push({
+                id: 'alerta-fin-cobros-wa-proximos',
+                tipo: 'recordatorio',
+                icono: '💬',
+                badge: 'Cobros Próximos ≤3d (' + proximosWa.length + ')',
+                color: '#10b981',
+                titulo: proximosWa.length + ' ' + (proximosWa.length === 1 ? 'Cobro Próximo a Recordar' : 'Cobros Próximos a Recordar') + ' (+$' + totalProxUsd.toFixed(2) + ')',
+                metaLinea: '⏱️ Más cercano: ' + primeroProx.estado.fechaISO + ' (' + primeroProx.estado.etiquetaTiempo + ')',
+                descripcion: listaProx + (proximosWa.length > 3 ? ' y ' + (proximosWa.length - 3) + ' más' : ''),
+                acciones: [
+                    {
+                        tipo: 'primary',
+                        texto: '💬 Enviar Recordatorio WA',
+                        fn: "cerrarCentroNotificaciones(); if(typeof cambiarVista==='function') cambiarVista('vista-finanzas'); setTimeout(function(){ if(typeof cambiarTabIngresos==='function') cambiarTabIngresos('" + tabDest + "'); if(typeof abrirModalCobroWhatsAppFinanzas==='function') abrirModalCobroWhatsAppFinanzas('" + primeroProx.item.id + "'); }, 80);"
+                    }
+                ]
+            });
+        }
     }
 
     return alertas;
@@ -9305,3 +9421,615 @@ if (typeof window !== 'undefined') {
     window.alCambiarMontoGastoModal = alCambiarMontoGastoModal;
     window.alCambiarValoresModalDeuda = alCambiarValoresModalDeuda;
 }
+
+// ==========================================================================
+// RECORDATORIO AMABLE DE COBRO POR WHATSAPP (ALEATORIOS Y ALMACÉN · 3 DÍAS ANTES)
+// ==========================================================================
+
+function limpiarTelefonoWhatsAppFinanzas(tel) {
+    var digits = String(tel || '').replace(/[^\d]/g, '');
+    return digits.length >= 7 ? digits : '';
+}
+
+function formatearFechaLegibleCobroWA(fechaISO) {
+    if (!fechaISO || String(fechaISO).length < 10) return 'la fecha acordada';
+    var parts = String(fechaISO).slice(0, 10).split('-');
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1;
+    var d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return String(fechaISO).slice(0, 10);
+    var dt = new Date(y, m, d);
+    if (isNaN(dt.getTime())) return String(fechaISO).slice(0, 10);
+    var dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    var meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return dias[dt.getDay()] + ' ' + d + ' de ' + meses[dt.getMonth()];
+}
+
+function buscarTelefonoPersonaEnMonarca(nombrePersona) {
+    var target = String(nombrePersona || '').trim().toLowerCase();
+    if (!target || typeof window.APP_STATE !== 'object' || !APP_STATE) return '';
+
+    var matchNombre = function(cand) {
+        return String(cand || '').trim().toLowerCase() === target;
+    };
+
+    var fin = APP_STATE.finanzas || {};
+    var ings = Array.isArray(fin.ingresos) ? fin.ingresos : [];
+    for (var i = 0; i < ings.length; i++) {
+        var ig = ings[i];
+        if (!ig || !ig.telefonoCobro) continue;
+        if (matchNombre(ig.personaCobro) || matchNombre(ig.personaPrestamo) || matchNombre(ig.cliente)) {
+            return String(ig.telefonoCobro).trim();
+        }
+    }
+
+    var gsts = Array.isArray(fin.gastos) ? fin.gastos : [];
+    for (var g = 0; g < gsts.length; g++) {
+        var gt = gsts[g];
+        if (gt && gt.telefonoPrestamo && matchNombre(gt.personaPrestamo)) {
+            return String(gt.telefonoPrestamo).trim();
+        }
+    }
+
+    var ventas = (APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas)) ? APP_STATE.inventario.ventas : [];
+    for (var v = 0; v < ventas.length; v++) {
+        if (ventas[v] && ventas[v].telefonoCliente && matchNombre(ventas[v].cliente)) {
+            return String(ventas[v].telefonoCliente).trim();
+        }
+    }
+
+    var clientesBarb = (APP_STATE.subappBarberia && Array.isArray(APP_STATE.subappBarberia.clientes)) ? APP_STATE.subappBarberia.clientes : [];
+    for (var b = 0; b < clientesBarb.length; b++) {
+        if (clientesBarb[b] && clientesBarb[b].telefono && matchNombre(clientesBarb[b].nombre)) {
+            return String(clientesBarb[b].telefono).trim();
+        }
+    }
+
+    var alumnosTr = (APP_STATE.subappTrainer && Array.isArray(APP_STATE.subappTrainer.alumnos)) ? APP_STATE.subappTrainer.alumnos : [];
+    for (var a = 0; a < alumnosTr.length; a++) {
+        if (alumnosTr[a] && alumnosTr[a].telefono && matchNombre(alumnosTr[a].nombre)) {
+            return String(alumnosTr[a].telefono).trim();
+        }
+    }
+
+    var personasAg = Array.isArray(APP_STATE.agendaPersonas) ? APP_STATE.agendaPersonas : [];
+    for (var p = 0; p < personasAg.length; p++) {
+        var pa = personasAg[p];
+        var telAg = pa ? (pa.telefono || pa.whatsapp || '') : '';
+        if (pa && telAg && matchNombre(pa.nombre)) {
+            return String(telAg).trim();
+        }
+    }
+
+    return '';
+}
+
+function resolverDatosCobroPersonaIngreso(item) {
+    if (!item || typeof item !== 'object') {
+        return { personaRaw: '', personaDisplay: '', telefonoRaw: '', conceptoDisplay: 'este cobro', esPrestamo: false, esCuotaAlmacen: false };
+    }
+    var fin = (typeof APP_STATE === 'object' && APP_STATE && APP_STATE.finanzas) ? APP_STATE.finanzas : {};
+    var inv = (typeof APP_STATE === 'object' && APP_STATE && APP_STATE.inventario) ? APP_STATE.inventario : {};
+
+    var ventaPadre = item.ventaId && Array.isArray(inv.ventas)
+        ? inv.ventas.find(function(v) { return v && v.id === item.ventaId; })
+        : null;
+    var gastoPadre = item.prestamoGastoId && Array.isArray(fin.gastos)
+        ? fin.gastos.find(function(g) { return g && g.id === item.prestamoGastoId; })
+        : null;
+
+    var esPrestamo = !!(item.esCobroPrestamo || item.prestamoGastoId);
+    var esCuotaAlmacen = !!(item.ventaId || item.cuotaId || item.tipo === 'credito' || item.tipo === 'almacen');
+
+    var personaRaw = String(
+        item.personaCobro ||
+        item.personaPrestamo ||
+        item.cliente ||
+        (ventaPadre && ventaPadre.cliente) ||
+        (gastoPadre && gastoPadre.personaPrestamo) ||
+        ''
+    ).trim();
+
+    var fuenteStr = String(item.fuente || item.concepto || item.nombre || item.descripcion || '').trim();
+    if (!personaRaw && fuenteStr) {
+        var mPres = fuenteStr.match(/^Cobro Pr[eé]stamo\s+(.+?)(?:\s*\(Parte\s*\d+\/\d+\))?$/i);
+        if (mPres && mPres[1]) {
+            personaRaw = mPres[1].trim();
+        } else if (esCuotaAlmacen) {
+            var mCli = fuenteStr.match(/\s+-\s+([^-\n]+)$/);
+            if (mCli && mCli[1]) personaRaw = mCli[1].trim();
+        }
+    }
+
+    var telefonoRaw = String(
+        item.telefonoCobro ||
+        (ventaPadre && ventaPadre.telefonoCliente) ||
+        (gastoPadre && gastoPadre.telefonoPrestamo) ||
+        (personaRaw ? buscarTelefonoPersonaEnMonarca(personaRaw) : '') ||
+        ''
+    ).trim();
+
+    var conceptoDisplay = fuenteStr || 'este cobro pendiente';
+    if (esPrestamo) {
+        var mParte = fuenteStr.match(/(\(Parte\s*\d+\/\d+\))/i);
+        conceptoDisplay = 'el préstamo' + (mParte ? (' ' + mParte[1]) : '');
+    } else if (ventaPadre && ventaPadre.productoNombre) {
+        var varTxt = ventaPadre.varianteDetalle ? (' (' + ventaPadre.varianteDetalle + ')') : '';
+        var mCuota = fuenteStr.match(/(\((?:Cuota\s*\d+\/\d+|Pago Diferido)\))/i);
+        conceptoDisplay = ventaPadre.productoNombre + varTxt + (mCuota ? (' ' + mCuota[1]) : '');
+    } else if (personaRaw && fuenteStr) {
+        conceptoDisplay = fuenteStr.replace(new RegExp('\\s*-\\s*' + personaRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'), '').trim() || fuenteStr;
+    }
+
+    return {
+        personaRaw: personaRaw,
+        personaDisplay: personaRaw,
+        telefonoRaw: telefonoRaw,
+        conceptoDisplay: conceptoDisplay,
+        esPrestamo: esPrestamo,
+        esCuotaAlmacen: esCuotaAlmacen
+    };
+}
+
+function evaluarEstadoCobroWhatsAppIngreso(item, fechaEffIng, infoOrigen, hoyISO) {
+    if (!item || item.cobrado) return null;
+    var info = infoOrigen || clasificarOrigenIngreso(item);
+    if (!info || (info.tipoDestino !== 'aleatoria' && info.tipoDestino !== 'almacen')) return null;
+
+    var hoy = (hoyISO && String(hoyISO).length >= 10) ? String(hoyISO).slice(0, 10) : obtenerHoyISOFinanzas();
+    var hoyAnio = parseInt(hoy.slice(0, 4), 10);
+    var hoyMes = parseInt(hoy.slice(5, 7), 10) - 1;
+    var esRec = esItemRecurrenteMensualReal(item, false);
+
+    var fechaTarget = (fechaEffIng && String(fechaEffIng).length >= 10)
+        ? String(fechaEffIng).slice(0, 10)
+        : resolverFechaEfectivaMovFinanzas(item, esRec, hoyAnio, hoyMes);
+    if (!fechaTarget || fechaTarget.length < 10) return null;
+
+    var diasFaltantes = calcularDiasDiferenciaISOFinanzas(fechaTarget, hoy);
+    if (diasFaltantes > 3) return null;
+
+    var etiquetaTiempo = '';
+    var badgeCorto = '';
+    if (diasFaltantes === 3) {
+        etiquetaTiempo = 'En 3 días';
+        badgeCorto = 'En 3d';
+    } else if (diasFaltantes === 2) {
+        etiquetaTiempo = 'En 2 días';
+        badgeCorto = 'En 2d';
+    } else if (diasFaltantes === 1) {
+        etiquetaTiempo = 'Mañana';
+        badgeCorto = 'Mañana';
+    } else if (diasFaltantes === 0) {
+        etiquetaTiempo = 'Hoy';
+        badgeCorto = 'Hoy';
+    } else {
+        var diasAtras = Math.abs(diasFaltantes);
+        etiquetaTiempo = 'Hace ' + diasAtras + 'd';
+        badgeCorto = '-' + diasAtras + 'd';
+    }
+
+    return {
+        activo: true,
+        diasFaltantes: diasFaltantes,
+        fechaISO: fechaTarget,
+        etiquetaTiempo: etiquetaTiempo,
+        badgeCorto: badgeCorto,
+        esAtrasado: diasFaltantes < 0,
+        yaRecordadoHoy: item.ultimoRecordatorioWaISO === hoy,
+        tipoDestino: info.tipoDestino
+    };
+}
+
+function construirMensajeCobroWhatsAppFinanzas(item, tono, opts) {
+    if (!item) return '';
+    opts = opts || {};
+    var hoyISO = obtenerHoyISOFinanzas();
+    var infoOrig = clasificarOrigenIngreso(item);
+    var esRec = esItemRecurrenteMensualReal(item, false);
+    var hoyAnio = parseInt(hoyISO.slice(0, 4), 10);
+    var hoyMes = parseInt(hoyISO.slice(5, 7), 10) - 1;
+    var fechaISO = (opts.fechaISO && String(opts.fechaISO).length >= 10)
+        ? String(opts.fechaISO).slice(0, 10)
+        : resolverFechaEfectivaMovFinanzas(item, esRec, hoyAnio, hoyMes);
+    var estado = evaluarEstadoCobroWhatsAppIngreso(item, fechaISO, infoOrig, hoyISO);
+    var dias = estado ? estado.diasFaltantes : calcularDiasDiferenciaISOFinanzas(fechaISO, hoyISO);
+
+    var datos = resolverDatosCobroPersonaIngreso(item);
+    var persona = (typeof opts.personaOverride === 'string' ? opts.personaOverride : datos.personaDisplay).trim();
+    var saludoPersona = persona ? (' ' + persona) : '';
+
+    var montoUsd = Number(item.monto) || 0;
+    var montoTxt = '$' + montoUsd.toFixed(2) + ' USD';
+    if (item.monedaOrigen === 'VES' && Number(item.montoOriginalBs) > 0) {
+        montoTxt += ' (Bs. ' + Number(item.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ')';
+    }
+
+    var fechaLegible = formatearFechaLegibleCobroWA(fechaISO);
+    var fraseFecha = 'este ' + fechaLegible;
+    if (dias === 0) {
+        fraseFecha = 'hoy (' + fechaLegible + ')';
+    } else if (dias === 1) {
+        fraseFecha = 'mañana (' + fechaLegible + ')';
+    } else if (dias > 1) {
+        fraseFecha = 'el ' + fechaLegible + ' (en ' + dias + ' días)';
+    } else if (dias < 0) {
+        fraseFecha = 'el pasado ' + fechaLegible;
+    }
+
+    var tonoSel = tono || item.tonoCobroWaPreferido || (infoOrig.tipoDestino === 'almacen' && datos.esCuotaAlmacen ? 'formal' : 'cordial');
+    var concepto = datos.conceptoDisplay || 'este pago pendiente';
+
+    if (tonoSel === 'cercano') {
+        if (dias < 0) {
+            return '¡Hola' + saludoPersona + '! 👋 ¿Cómo estás? Paso por aquí rapidito para recordarte con todo cariño sobre ' + concepto + ' (' + montoTxt + '), que había quedado para ' + fraseFecha + '. Cuando te sea posible me avisas por aquí. ¡Un abrazo y feliz día!';
+        }
+        return '¡Hola' + saludoPersona + '! 👋 ¿Cómo vas? Te escribo con confianza solo para dejarte este recordatorio amable sobre ' + concepto + ' (' + montoTxt + '), acordado para ' + fraseFecha + '. Cualquier cosita me avisas sin apuro. ¡Un abrazo!';
+    }
+
+    if (tonoSel === 'formal') {
+        if (dias < 0) {
+            return 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para recordarle de manera amable el pago pendiente sobre ' + concepto + ' por un monto de ' + montoTxt + ', programado para ' + fraseFecha + '. Quedo atento(a) por este medio cuando le sea posible realizarlo. ¡Muchas gracias de antemano!';
+        }
+        return 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para hacerle un recordatorio amable sobre su compromiso de pago por ' + concepto + ' (' + montoTxt + '), pautado para ' + fraseFecha + '. Quedo atento(a) por aquí para confirmar apenas se realice. ¡Muchas gracias!';
+    }
+
+    // Tono por defecto: cordial / amable
+    if (dias < 0) {
+        return '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Te escribo para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', que teníamos programado para ' + fraseFecha + '. Cuando tengas un chance me comentas cómo vamos con eso. ¡Muchas gracias y bendiciones!';
+    }
+    return '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Paso por aquí para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', acordado para ' + fraseFecha + '. Cuando puedas me confirmas por aquí. ¡Muchas gracias y feliz día!';
+}
+
+function generarBotonCobroWhatsAppIngresoHTML(item, fechaEffIng, infoOrigen, hoyISO) {
+    var estado = evaluarEstadoCobroWhatsAppIngreso(item, fechaEffIng, infoOrigen, hoyISO);
+    if (!estado || !estado.activo) return '';
+
+    var clsExtra = estado.yaRecordadoHoy ? ' is-sent-today' : (estado.esAtrasado ? ' is-overdue' : '');
+    var textoBtn = estado.yaRecordadoHoy ? '✓ Recordado' : '💬 Cobrar WA';
+    var badgeTxt = estado.yaRecordadoHoy ? 'Hoy' : estado.badgeCorto;
+    var titleAttr = estado.yaRecordadoHoy
+        ? ('Ya abriste el recordatorio hoy (' + estado.etiquetaTiempo + '). Haz clic para verlo o reenviarlo.')
+        : ('Ventana activa (3 días antes: ' + estado.etiquetaTiempo + '). Haz clic para ver y enviar mensaje amable por WhatsApp.');
+
+    return '<button type="button" class="btn-cobro-wa-fin' + clsExtra + '" onclick="abrirModalCobroWhatsAppFinanzas(\'' + escaparHTML(item.id) + '\')" title="' + escaparHTML(titleAttr) + '">' +
+        '<span>' + textoBtn + '</span>' +
+        '<span class="fin-wa-pill-dias">' + escaparHTML(badgeTxt) + '</span>' +
+    '</button>';
+}
+
+function obtenerCobrosProximosWhatsAppFinanzas(fin) {
+    var f = fin || (typeof APP_STATE === 'object' && APP_STATE && APP_STATE.finanzas) || DEFAULT_STATE.finanzas;
+    var hoyISO = obtenerHoyISOFinanzas();
+    var hoyAnio = parseInt(hoyISO.slice(0, 4), 10);
+    var hoyMes = parseInt(hoyISO.slice(5, 7), 10) - 1;
+    var lista = [];
+
+    (f.ingresos || []).forEach(function(item) {
+        if (!item || !item.id || item.cobrado) return;
+        var info = clasificarOrigenIngreso(item);
+        if (info.tipoDestino !== 'aleatoria' && info.tipoDestino !== 'almacen') return;
+        var esRec = esItemRecurrenteMensualReal(item, false);
+        var fechaEff = resolverFechaEfectivaMovFinanzas(item, esRec, hoyAnio, hoyMes);
+        var estado = evaluarEstadoCobroWhatsAppIngreso(item, fechaEff, info, hoyISO);
+        if (!estado || estado.diasFaltantes < 0 || estado.diasFaltantes > 3) return;
+        lista.push({
+            item: item,
+            estado: estado,
+            tipoDestino: info.tipoDestino,
+            datos: resolverDatosCobroPersonaIngreso(item)
+        });
+    });
+
+    lista.sort(function(a, b) { return a.estado.diasFaltantes - b.estado.diasFaltantes; });
+    return lista;
+}
+
+function ajustarAlturaTextareaWaCobro() {
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(115, Math.min(300, ta.scrollHeight + 4)) + 'px';
+}
+
+function abrirModalCobroWhatsAppFinanzas(ingresoId) {
+    if (!APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) return;
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === ingresoId; });
+    if (!item) return;
+
+    var modal = document.getElementById('modal-enviar-cobro-whatsapp-finanzas');
+    if (!modal) return;
+    if (typeof poblarDatalistPersonasFinanzas === 'function') poblarDatalistPersonasFinanzas();
+
+    var infoOrig = clasificarOrigenIngreso(item);
+    var hoyISO = obtenerHoyISOFinanzas();
+    var hoyAnio = parseInt(hoyISO.slice(0, 4), 10);
+    var hoyMes = parseInt(hoyISO.slice(5, 7), 10) - 1;
+    var fechaEff = resolverFechaEfectivaMovFinanzas(item, esItemRecurrenteMensualReal(item, false), hoyAnio, hoyMes);
+    var estado = evaluarEstadoCobroWhatsAppIngreso(item, fechaEff, infoOrig, hoyISO);
+    var datos = resolverDatosCobroPersonaIngreso(item);
+
+    var inId = document.getElementById('modal-cobro-wa-ingreso-id');
+    var inPers = document.getElementById('modal-cobro-wa-persona');
+    var inTel = document.getElementById('modal-cobro-wa-telefono');
+    var inTono = document.getElementById('modal-cobro-wa-tono');
+    var resumenEl = document.getElementById('modal-cobro-wa-resumen-ctx');
+    var badgeEl = document.getElementById('modal-cobro-wa-card-badge');
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    var btnCopy = document.getElementById('btn-cobro-wa-card-copy');
+    var cardEl = document.getElementById('card-cobro-wa-msg');
+
+    var tonoDef = item.tonoCobroWaPreferido || (infoOrig.tipoDestino === 'almacen' && datos.esCuotaAlmacen ? 'formal' : 'cordial');
+
+    if (inId) inId.value = item.id;
+    if (inPers) inPers.value = datos.personaRaw || '';
+    if (inTel) inTel.value = datos.telefonoRaw || '';
+    if (inTono) inTono.value = tonoDef;
+
+    if (cardEl) cardEl.classList.remove('is-copied');
+    if (btnCopy) {
+        btnCopy.classList.remove('is-copied');
+        btnCopy.textContent = '📋 Copiar';
+    }
+
+    var montoStr = '+$' + (Number(item.monto) || 0).toFixed(2);
+    var etiquetaT = estado ? estado.etiquetaTiempo : ('Fecha: ' + fechaEff);
+    if (resumenEl) {
+        resumenEl.textContent = (datos.personaDisplay || item.fuente || 'Ingreso') + ' · ' + montoStr + ' · ' + fechaEff + ' (' + etiquetaT + ')';
+    }
+    if (badgeEl) {
+        badgeEl.textContent = (infoOrig.tipoDestino === 'almacen' ? '🏪 Almacén · ' : '⚡ Aleatorio · ') + etiquetaT;
+    }
+
+    document.querySelectorAll('#modal-enviar-cobro-whatsapp-finanzas .fin-wa-tone-btn[data-tono-wa]').forEach(function(b) {
+        b.classList.toggle('is-active', b.getAttribute('data-tono-wa') === tonoDef);
+    });
+
+    if (ta) {
+        ta.value = (item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim())
+            ? String(item.mensajeCobroPersonalizado).trim()
+            : construirMensajeCobroWhatsAppFinanzas(item, tonoDef, { fechaISO: fechaEff, personaOverride: datos.personaRaw });
+    }
+
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    setTimeout(ajustarAlturaTextareaWaCobro, 30);
+}
+
+function cerrarModalCobroWhatsAppFinanzas() {
+    var modal = document.getElementById('modal-enviar-cobro-whatsapp-finanzas');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function seleccionarTonoCobroWhatsApp(tono) {
+    var t = (tono === 'cercano' || tono === 'formal') ? tono : 'cordial';
+    var inTono = document.getElementById('modal-cobro-wa-tono');
+    if (inTono) inTono.value = t;
+    document.querySelectorAll('#modal-enviar-cobro-whatsapp-finanzas .fin-wa-tone-btn[data-tono-wa]').forEach(function(b) {
+        b.classList.toggle('is-active', b.getAttribute('data-tono-wa') === t);
+    });
+    regenerarMensajeCobroWhatsApp(true);
+}
+
+function regenerarMensajeCobroWhatsApp(forzarSobrePersonalizado) {
+    var inId = document.getElementById('modal-cobro-wa-ingreso-id');
+    var id = inId ? inId.value.trim() : '';
+    if (!id || !APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) return;
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === id; });
+    if (!item) return;
+
+    var inPers = document.getElementById('modal-cobro-wa-persona');
+    var inTel = document.getElementById('modal-cobro-wa-telefono');
+    var inTono = document.getElementById('modal-cobro-wa-tono');
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    var personaVal = inPers ? inPers.value.trim() : '';
+
+    if (inTel && !inTel.value.trim() && personaVal) {
+        var telAuto = buscarTelefonoPersonaEnMonarca(personaVal);
+        if (telAuto) inTel.value = telAuto;
+    }
+
+    if (!forzarSobrePersonalizado && item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim()) {
+        return;
+    }
+
+    var tono = inTono ? inTono.value : 'cordial';
+    if (ta) {
+        ta.value = construirMensajeCobroWhatsAppFinanzas(item, tono, { personaOverride: personaVal });
+        ajustarAlturaTextareaWaCobro();
+    }
+}
+
+function guardarDatosYMensajeCobroWhatsApp(silencioso) {
+    var inId = document.getElementById('modal-cobro-wa-ingreso-id');
+    var id = inId ? inId.value.trim() : '';
+    if (!id || !APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) return null;
+    var item = APP_STATE.finanzas.ingresos.find(function(x) { return x && x.id === id; });
+    if (!item) return null;
+
+    var inPers = document.getElementById('modal-cobro-wa-persona');
+    var inTel = document.getElementById('modal-cobro-wa-telefono');
+    var inTono = document.getElementById('modal-cobro-wa-tono');
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+
+    var persona = inPers ? inPers.value.trim() : '';
+    var tel = inTel ? inTel.value.trim() : '';
+    var tono = inTono ? inTono.value : 'cordial';
+    var msg = ta ? ta.value.trim() : '';
+
+    if (persona) {
+        item.personaCobro = persona;
+        if (item.esCobroPrestamo) item.personaPrestamo = persona;
+    }
+    if (tel !== item.telefonoCobro) {
+        item.telefonoCobro = tel;
+    }
+    item.tonoCobroWaPreferido = tono;
+    if (msg) {
+        item.mensajeCobroPersonalizado = msg;
+    }
+    item.fechaActualizacion = Date.now();
+
+    if (item.prestamoGastoId && Array.isArray(APP_STATE.finanzas.gastos) && tel) {
+        var gPres = APP_STATE.finanzas.gastos.find(function(g) { return g && g.id === item.prestamoGastoId; });
+        if (gPres) {
+            gPres.telefonoPrestamo = tel;
+            gPres.fechaActualizacion = Date.now();
+        }
+    }
+    if (item.ventaId && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas) && tel) {
+        var vObj = APP_STATE.inventario.ventas.find(function(v) { return v && v.id === item.ventaId; });
+        if (vObj) vObj.telefonoCliente = tel;
+    }
+
+    if (typeof MonarcaDB !== 'undefined' && typeof MonarcaDB.save === 'function') {
+        MonarcaDB.save(APP_STATE);
+    }
+
+    if (!silencioso && typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Contacto y mensaje de cobro guardados', '💾');
+    }
+    return item;
+}
+
+function copiarMensajeCobroWhatsAppFinanzas() {
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    var txt = ta ? ta.value.trim() : '';
+    if (!txt) {
+        if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('Escribe un mensaje antes de copiar', '⚠️');
+        return;
+    }
+    guardarDatosYMensajeCobroWhatsApp(true);
+
+    var doneUI = function() {
+        var cardEl = document.getElementById('card-cobro-wa-msg');
+        var btnCopy = document.getElementById('btn-cobro-wa-card-copy');
+        if (cardEl) cardEl.classList.add('is-copied');
+        if (btnCopy) {
+            btnCopy.classList.add('is-copied');
+            btnCopy.textContent = '✓ Copiado';
+        }
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Mensaje amable copiado al portapapeles', '📋');
+        }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(doneUI).catch(function() {
+            if (ta) { ta.select(); try { document.execCommand('copy'); } catch (e) {} }
+            doneUI();
+        });
+    } else if (ta) {
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        doneUI();
+    }
+}
+
+function enviarCobroPorWhatsAppFinanzas() {
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    var inTel = document.getElementById('modal-cobro-wa-telefono');
+    var msg = ta ? ta.value.trim() : '';
+    if (!msg) {
+        if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('El mensaje no puede estar vacío', '⚠️');
+        return;
+    }
+
+    var item = guardarDatosYMensajeCobroWhatsApp(true);
+    var hoyISO = obtenerHoyISOFinanzas();
+    if (item) {
+        item.ultimoRecordatorioWaISO = hoyISO;
+        item.fechaActualizacion = Date.now();
+        if (typeof MonarcaDB !== 'undefined' && typeof MonarcaDB.save === 'function') {
+            MonarcaDB.save(APP_STATE);
+        }
+    }
+
+    var telLimpio = limpiarTelefonoWhatsAppFinanzas(inTel ? inTel.value : '');
+    var baseUrl = telLimpio ? ('https://wa.me/' + telLimpio) : 'https://wa.me/';
+    var url = baseUrl + '?text=' + encodeURIComponent(msg);
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(msg).catch(function() {});
+    }
+
+    window.open(url, '_blank', 'noopener');
+    cerrarModalCobroWhatsAppFinanzas();
+    if (typeof renderizarFinanzas === 'function' && APP_STATE && APP_STATE.finanzas) {
+        renderizarFinanzas(APP_STATE.finanzas);
+    }
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(telLimpio ? 'Abriendo chat de WhatsApp con el mensaje amable' : 'Abriendo WhatsApp para elegir contacto', '💬');
+    }
+}
+
+async function pulirMensajeCobroConIAFinanzas() {
+    if (typeof window.pulirTextoRapidoGeminiIA !== 'function') {
+        if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('El módulo de Emily IA no está cargado', '⚠️');
+        return;
+    }
+    var btn = document.getElementById('btn-cobro-wa-pulir-ia');
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    var inPers = document.getElementById('modal-cobro-wa-persona');
+    var inTono = document.getElementById('modal-cobro-wa-tono');
+    var resumenEl = document.getElementById('modal-cobro-wa-resumen-ctx');
+
+    var baseTxt = ta ? ta.value.trim() : '';
+    if (!baseTxt) return;
+    var tono = inTono ? inTono.value : 'cordial';
+    var persona = inPers ? inPers.value.trim() : '';
+    var ctx = resumenEl ? resumenEl.textContent : '';
+
+    var txtOrigBtn = btn ? btn.textContent : '✨ Pulir con Emily IA';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Redactando...';
+    }
+
+    try {
+        var sys = 'Eres experta en redacción empática de mensajes cortos de WhatsApp en español. Devuelve ÚNICAMENTE el texto final del mensaje listo para enviar, sin comillas, sin explicaciones ni encabezados.';
+        var prompt = 'Mejora y haz aún más amable, cálido y natural este mensaje de recordatorio de cobro para WhatsApp (manteniendo exactamente el monto, la fecha, el concepto y el tono "' + tono + '")' +
+            (persona ? (' dirigido a "' + persona + '"') : '') +
+            (ctx ? (' (Contexto: ' + ctx + ')') : '') +
+            ':\n\n' + baseTxt;
+
+        var mejorado = await window.pulirTextoRapidoGeminiIA(sys, prompt);
+        if (mejorado && ta) {
+            ta.value = mejorado.replace(/^["']|["']$/g, '').trim();
+            ajustarAlturaTextareaWaCobro();
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca('Mensaje suavizado con Emily IA', '✨');
+            }
+        }
+    } catch (err) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca((err && err.message) ? err.message : 'No se pudo conectar con Emily IA', '⚠️');
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = txtOrigBtn;
+        }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.limpiarTelefonoWhatsAppFinanzas = limpiarTelefonoWhatsAppFinanzas;
+    window.buscarTelefonoPersonaEnMonarca = buscarTelefonoPersonaEnMonarca;
+    window.resolverDatosCobroPersonaIngreso = resolverDatosCobroPersonaIngreso;
+    window.evaluarEstadoCobroWhatsAppIngreso = evaluarEstadoCobroWhatsAppIngreso;
+    window.construirMensajeCobroWhatsAppFinanzas = construirMensajeCobroWhatsAppFinanzas;
+    window.generarBotonCobroWhatsAppIngresoHTML = generarBotonCobroWhatsAppIngresoHTML;
+    window.obtenerCobrosProximosWhatsAppFinanzas = obtenerCobrosProximosWhatsAppFinanzas;
+    window.ajustarAlturaTextareaWaCobro = ajustarAlturaTextareaWaCobro;
+    window.abrirModalCobroWhatsAppFinanzas = abrirModalCobroWhatsAppFinanzas;
+    window.cerrarModalCobroWhatsAppFinanzas = cerrarModalCobroWhatsAppFinanzas;
+    window.seleccionarTonoCobroWhatsApp = seleccionarTonoCobroWhatsApp;
+    window.regenerarMensajeCobroWhatsApp = regenerarMensajeCobroWhatsApp;
+    window.guardarDatosYMensajeCobroWhatsApp = guardarDatosYMensajeCobroWhatsApp;
+    window.copiarMensajeCobroWhatsAppFinanzas = copiarMensajeCobroWhatsAppFinanzas;
+    window.enviarCobroPorWhatsAppFinanzas = enviarCobroPorWhatsAppFinanzas;
+    window.pulirMensajeCobroConIAFinanzas = pulirMensajeCobroConIAFinanzas;
+}
+

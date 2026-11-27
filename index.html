@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.36">
+    <link rel="stylesheet" href="style.css?v=11.37">
 </head>
 <body>
 
@@ -185,7 +185,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.36</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.37</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -231,7 +231,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.36</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.37</div>
                     </div>
                 </div>
             </div>
@@ -2229,6 +2229,27 @@
                     <input type="date" id="modal-ingreso-fecha" class="modal-input">
                 </div>
 
+                <!-- Persona deudora y recordatorio amable por WhatsApp (solo Aleatoria / Almacén) -->
+                <div id="grupo-ingreso-cobro-wa" class="fin-cobro-wa-panel" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 11.5px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px;">💬 Recordatorio de Cobro (3 días antes)</span>
+                    </div>
+                    <div class="fin-cobro-wa-grid">
+                        <div class="modal-form-group" style="margin-bottom: 8px;">
+                            <label for="modal-ingreso-persona" style="font-size: 11px; color: #cbd5e1;">👤 Persona que te debe (opcional):</label>
+                            <input type="text" id="modal-ingreso-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Mamá, Carlos, Cliente..." style="margin-bottom: 0; font-size: 12.5px;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 8px;">
+                            <label for="modal-ingreso-telefono" style="font-size: 11px; color: #cbd5e1;">📱 WhatsApp (opcional):</label>
+                            <input type="tel" id="modal-ingreso-telefono" class="modal-input" placeholder="Ej: +584121234567" style="margin-bottom: 0; font-size: 12.5px;">
+                        </div>
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label for="modal-ingreso-mensaje-wa" style="font-size: 11px; color: #cbd5e1;">📝 Mensaje personalizado programado (opcional):</label>
+                        <textarea id="modal-ingreso-mensaje-wa" class="modal-input" rows="2" placeholder="Si lo dejas vacío, se generará un mensaje amable automático 3 días antes del cobro." style="margin-bottom: 0; font-size: 12px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+
                 <div class="modal-form-group">
                     <label>Monto del Ingreso:</label>
                     <div class="fin-currency-row">
@@ -2354,6 +2375,64 @@
         </div>
     </div>
 
+    <!-- MODAL: ENVIAR RECORDATORIO AMABLE DE COBRO POR WHATSAPP (FINANZAS) -->
+    <div id="modal-enviar-cobro-whatsapp-finanzas" class="modal-overlay" style="display: none;" onclick="if (event.target === this) cerrarModalCobroWhatsAppFinanzas()">
+        <div class="modal-content" style="max-width: 540px; width: 94%; max-height: 90vh; padding: 16px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid rgba(52, 211, 153, 0.35); color: #f8fafc;">
+            <input type="hidden" id="modal-cobro-wa-ingreso-id" value="">
+            <input type="hidden" id="modal-cobro-wa-tono" value="cordial">
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; flex-shrink: 0;">
+                <div style="min-width: 0;">
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">💬 Recordatorio Amable de Cobro · WhatsApp</h3>
+                    <div id="modal-cobro-wa-resumen-ctx" style="font-size: 11.5px; color: #94a3b8; margin-top: 3px; line-height: 1.35;">Vista previa lista para enviar</div>
+                </div>
+                <button type="button" onclick="cerrarModalCobroWhatsAppFinanzas()" class="modal-close-btn" style="flex-shrink: 0;">&times;</button>
+            </div>
+
+            <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px;">
+                <div class="fin-cobro-wa-grid">
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label for="modal-cobro-wa-persona" style="font-size: 11px; color: #cbd5e1;">👤 Persona / Destinatario:</label>
+                        <input type="text" id="modal-cobro-wa-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Mamá, Carlos, Cliente..." style="margin-bottom: 0; font-size: 12.5px;" oninput="regenerarMensajeCobroWhatsApp(false)">
+                    </div>
+                    <div class="modal-form-group" style="margin-bottom: 0;">
+                        <label for="modal-cobro-wa-telefono" style="font-size: 11px; color: #cbd5e1;">📱 Número WhatsApp (opcional):</label>
+                        <input type="tel" id="modal-cobro-wa-telefono" class="modal-input" placeholder="Ej: +584121234567" style="margin-bottom: 0; font-size: 12.5px;">
+                    </div>
+                </div>
+
+                <div class="fin-wa-tone-bar">
+                    <button type="button" class="fin-wa-tone-btn is-active" data-tono-wa="cordial" onclick="seleccionarTonoCobroWhatsApp('cordial')">🤝 Amable</button>
+                    <button type="button" class="fin-wa-tone-btn" data-tono-wa="cercano" onclick="seleccionarTonoCobroWhatsApp('cercano')">😊 Cercano</button>
+                    <button type="button" class="fin-wa-tone-btn" data-tono-wa="formal" onclick="seleccionarTonoCobroWhatsApp('formal')">🧾 Formal Suave</button>
+                    <button type="button" id="btn-cobro-wa-pulir-ia" class="fin-wa-tone-btn is-ai" onclick="pulirMensajeCobroConIAFinanzas()">✨ Pulir con Emily IA</button>
+                </div>
+
+                <div id="card-cobro-wa-msg" class="trainer-wa-msg-card">
+                    <div class="trainer-wa-msg-head" style="flex-wrap: wrap;">
+                        <span id="modal-cobro-wa-card-badge" class="trainer-wa-msg-badge">💬 Mensaje programado</span>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="regenerarMensajeCobroWhatsApp(true)" title="Volver a la plantilla amable automática">↺ Plantilla</button>
+                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="guardarDatosYMensajeCobroWhatsApp(false)" title="Guardar cambios de contacto y texto en este ingreso">💾 Guardar</button>
+                            <button type="button" id="btn-cobro-wa-card-copy" class="trainer-wa-copy-btn" onclick="copiarMensajeCobroWhatsAppFinanzas()">📋 Copiar</button>
+                        </div>
+                    </div>
+                    <textarea id="modal-cobro-wa-textarea" class="trainer-wa-msg-textarea" rows="5" placeholder="Escribe o ajusta el mensaje amable de cobro..." oninput="if(typeof ajustarAlturaTextareaWaCobro==='function') ajustarAlturaTextareaWaCobro();"></textarea>
+                </div>
+
+                <div style="font-size: 11px; color: #94a3b8; background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 9px; padding: 8px 10px; line-height: 1.4;">
+                    💡 Puedes editar libremente el texto. Si dejas el teléfono vacío, WhatsApp se abrirá con el mensaje listo para que elijas el contacto; si colocas su número (con código de país, ej. <strong style="color:#cbd5e1;">+58...</strong>), abrirá directo en su chat y lo recordaremos para próximos cobros.
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.16); flex-shrink: 0;">
+                <button type="button" class="btn-back-system" style="margin: 0;" onclick="cerrarModalCobroWhatsAppFinanzas()">Cerrar</button>
+                <button type="button" id="btn-cobro-wa-copiar-todo" class="btn-system" onclick="copiarMensajeCobroWhatsAppFinanzas()" style="background: rgba(16, 185, 129, 0.16); border-color: rgba(52, 211, 153, 0.5); color: #6ee7b7; padding: 8px 13px; font-size: 12.5px;">📋 Copiar Mensaje</button>
+                <button type="button" class="btn-system" onclick="enviarCobroPorWhatsAppFinanzas()" style="background: linear-gradient(135deg, #25d366 0%, #128c7e 100%); border-color: #34d399; color: #ffffff; padding: 8px 14px; font-size: 12.5px; font-weight: 800;">💬 Enviar por WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL CONFIRMAR REVERSIÓN DE COBRO A PENDIENTE -->
     <div id="modal-confirmar-reversion-cobro" class="modal-overlay" style="display: none;">
         <div class="modal-system-window" style="max-width: 400px;">
@@ -2472,10 +2551,16 @@
                         <span style="font-size: 12px; font-weight: 800; color: #7dd3fc; text-transform: uppercase; letter-spacing: 0.4px;">Detalles del Préstamo & Cobro en Ingresos</span>
                     </div>
 
-                    <div class="modal-form-group" style="margin-bottom: 10px;">
-                        <label for="modal-gasto-prestamo-persona" style="font-size: 11.5px; color: #cbd5e1;">👤 ¿A quién le prestas el dinero?</label>
-                        <input type="text" id="modal-gasto-prestamo-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Carlos, María, Mamá..." oninput="alCambiarMontoGastoModal()">
-                        <datalist id="datalist-personas-finanzas"></datalist>
+                    <div class="fin-cobro-wa-grid" style="margin-bottom: 10px;">
+                        <div class="modal-form-group" style="margin-bottom: 0;">
+                            <label for="modal-gasto-prestamo-persona" style="font-size: 11.5px; color: #cbd5e1;">👤 ¿A quién le prestas el dinero?</label>
+                            <input type="text" id="modal-gasto-prestamo-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Carlos, María, Mamá..." oninput="alCambiarMontoGastoModal()" style="margin-bottom: 0;">
+                            <datalist id="datalist-personas-finanzas"></datalist>
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 0;">
+                            <label for="modal-gasto-prestamo-telefono" style="font-size: 11.5px; color: #cbd5e1;">📱 WhatsApp (opcional):</label>
+                            <input type="tel" id="modal-gasto-prestamo-telefono" class="modal-input" placeholder="Ej: +584121234567" style="margin-bottom: 0;">
+                        </div>
                     </div>
 
                     <input type="hidden" id="modal-gasto-prestamo-devolucion" value="unico">
@@ -7333,9 +7418,15 @@
                         </div>
                     </div>
 
-                    <div class="modal-form-group" style="margin-bottom: 10px;">
-                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; display: block;">Nombre del Cliente / Comprador:</label>
-                        <input type="text" id="modal-venta-cliente" class="modal-input" placeholder="Ej: Juan Pérez, María Gómez...">
+                    <div class="fin-cobro-wa-grid" style="margin-bottom: 10px;">
+                        <div class="modal-form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; display: block;">Nombre del Cliente / Comprador:</label>
+                            <input type="text" id="modal-venta-cliente" class="modal-input" placeholder="Ej: Juan Pérez, María Gómez..." style="margin-bottom: 0;">
+                        </div>
+                        <div class="modal-form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 4px; display: block;">📱 WhatsApp Cliente (opcional):</label>
+                            <input type="tel" id="modal-venta-telefono" class="modal-input" placeholder="Ej: +584121234567" style="margin-bottom: 0;">
+                        </div>
                     </div>
 
                     <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block;">
@@ -7891,30 +7982,30 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.36"></script>
-    <script src="js/permisos.js?v=11.36"></script>
-    <script src="js/perfil.js?v=11.36"></script>
-    <script src="js/progresion.js?v=11.36"></script>
-    <script src="js/estado-personal.js?v=11.36"></script>
-    <script src="js/finanzas.js?v=11.36"></script>
-    <script src="js/ideas.js?v=11.36"></script>
-    <script src="js/mqtt-autopc.js?v=11.36"></script>
-    <script src="js/dinamicas.js?v=11.36"></script>
-    <script src="js/calendario.js?v=11.36"></script>
-    <script src="js/inventario.js?v=11.36"></script>
-    <script src="js/reproductor.js?v=11.36"></script>
-    <script src="js/ia-monarca-tools.js?v=11.36"></script>
-    <script src="js/ia.js?v=11.36"></script>
-    <script src="js/jarvis-voz.js?v=11.36"></script>
+    <script src="js/core.js?v=11.37"></script>
+    <script src="js/permisos.js?v=11.37"></script>
+    <script src="js/perfil.js?v=11.37"></script>
+    <script src="js/progresion.js?v=11.37"></script>
+    <script src="js/estado-personal.js?v=11.37"></script>
+    <script src="js/finanzas.js?v=11.37"></script>
+    <script src="js/ideas.js?v=11.37"></script>
+    <script src="js/mqtt-autopc.js?v=11.37"></script>
+    <script src="js/dinamicas.js?v=11.37"></script>
+    <script src="js/calendario.js?v=11.37"></script>
+    <script src="js/inventario.js?v=11.37"></script>
+    <script src="js/reproductor.js?v=11.37"></script>
+    <script src="js/ia-monarca-tools.js?v=11.37"></script>
+    <script src="js/ia.js?v=11.37"></script>
+    <script src="js/jarvis-voz.js?v=11.37"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.36"></script>
+    <script type="module" src="js/firebase-config.js?v=11.37"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.36')
+                navigator.serviceWorker.register('sw.js?v=11.37')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

@@ -1498,6 +1498,8 @@ function abrirModalRegistrarVenta(productoId) {
     seleccionarModalidadVentaModal('contado');
     var inCli = document.getElementById('modal-venta-cliente');
     if (inCli) inCli.value = '';
+    var inTelCli = document.getElementById('modal-venta-telefono');
+    if (inTelCli) inTelCli.value = '';
     var selNum = document.getElementById('modal-venta-num-cuotas');
     if (selNum) selNum.value = '2';
 
@@ -1725,6 +1727,8 @@ function confirmarVentaProducto() {
     var modalidad = inMod ? inMod.value : 'contado';
     var inCli = document.getElementById('modal-venta-cliente');
     var cliente = inCli ? inCli.value.trim() : '';
+    var inTelCli = document.getElementById('modal-venta-telefono');
+    var telefonoCliente = inTelCli ? inTelCli.value.trim() : '';
     var tarjetaContadoId = (modalidad === 'contado' && chkFin && chkFin.checked && selTarj) ? selTarj.value : '';
     var tarjetaContadoTitulo = '';
 
@@ -1809,6 +1813,7 @@ function confirmarVentaProducto() {
         totalVenta: totalVenta,
         modalidad: modalidad,
         cliente: cliente,
+        telefonoCliente: telefonoCliente,
         tarjetaId: tarjetaContadoId || '',
         tarjetaTitulo: tarjetaContadoTitulo || '',
         cuotas: cuotasArr,
@@ -1841,7 +1846,9 @@ function confirmarVentaProducto() {
                     cobrado: false,
                     esVentaUnica: esVU,
                     ventaId: nuevaVenta.id,
-                    cuotaId: cItem.id
+                    cuotaId: cItem.id,
+                    personaCobro: cliente || '',
+                    telefonoCobro: telefonoCliente || ''
                 });
             });
         } else {
@@ -1857,7 +1864,9 @@ function confirmarVentaProducto() {
                 dia: new Date().getDate(),
                 cobrado: true,
                 esVentaUnica: esVU,
-                ventaId: nuevaVenta.id
+                ventaId: nuevaVenta.id,
+                personaCobro: cliente || '',
+                telefonoCobro: telefonoCliente || ''
             };
 
             if (tarjetaContadoId && totalVenta > 0 && typeof aplicarTarjetasMovimientoFinanzas === 'function') {

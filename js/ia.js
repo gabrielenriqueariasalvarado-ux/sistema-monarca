@@ -2377,8 +2377,34 @@ function abrirConversacionIAEnApp(convId) {
     }, 60);
 }
 
+/**
+ * Redacta o pule un texto corto (ej. mensaje amable de WhatsApp) usando la Gemini API configurada.
+ */
+async function pulirTextoRapidoGeminiIA(systemInstruction, promptUsuario, abortSignal) {
+    var apiKey = obtenerApiKeyGeminiIA();
+    if (!apiKey) {
+        throw new Error('Configura primero tu API Key de Gemini en Emily IA (⚙️ Configurar API).');
+    }
+    asegurarEstadoIA();
+    var modelo = (APP_STATE.iaConfig && APP_STATE.iaConfig.modelo) ? APP_STATE.iaConfig.modelo : 'gemini-3.8-flash';
+    var res = await llamarGeminiInteractionsStream(
+        {
+            apiKey: apiKey,
+            modelo: modelo,
+            systemInstruction: String(systemInstruction || '').trim(),
+            steps: [{ type: 'user_input', content: [{ type: 'text', text: String(promptUsuario || '').trim() }] }],
+            tools: [],
+            googleSearch: false
+        },
+        null,
+        abortSignal
+    );
+    return String((res && res.texto) || '').trim();
+}
+
 // Exponer funciones al ámbito global
 if (typeof window !== 'undefined') {
+    window.pulirTextoRapidoGeminiIA = pulirTextoRapidoGeminiIA;
     window.cargarVistaIA = cargarVistaIA;
     window.renderizarVistaIA = renderizarVistaIA;
     window.crearNuevaConversacionIA = crearNuevaConversacionIA;

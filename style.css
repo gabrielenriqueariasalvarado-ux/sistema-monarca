@@ -27420,5 +27420,139 @@ button.ia-tool-chip.is-clickable:hover {
     }
 }
 
+/* ==========================================================================
+   COBRANZA AMABLE PROGRAMADA POR WHATSAPP (FINANZAS: ALEATORIOS Y ALMACÉN)
+   ========================================================================== */
+
+.btn-cobro-wa-fin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(37, 211, 102, 0.45);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.16));
+    color: #6ee7b7;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.14s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+    white-space: nowrap;
+}
+
+.btn-cobro-wa-fin:hover {
+    transform: translateY(-1px);
+    border-color: rgba(52, 211, 153, 0.8);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.32), rgba(5, 150, 105, 0.24));
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.22);
+    color: #ecfdf5;
+}
+
+.btn-cobro-wa-fin.is-sent-today {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.1);
+    color: #7dd3fc;
+}
+
+.fin-wa-pill-dias {
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    color: #a7f3d0;
+}
+
+.btn-cobro-wa-fin.is-overdue {
+    border-color: rgba(245, 158, 11, 0.5);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(16, 185, 129, 0.16));
+    color: #fde68a;
+}
+
+.btn-cobro-wa-fin.is-overdue .fin-wa-pill-dias {
+    border-color: rgba(251, 191, 36, 0.45);
+    color: #fcd34d;
+}
+
+.fin-cobro-wa-panel {
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(52, 211, 153, 0.24);
+    border-radius: 12px;
+    padding: 11px 12px;
+    margin-bottom: 14px;
+    box-sizing: border-box;
+}
+
+.fin-cobro-wa-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.fin-wa-tone-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.fin-wa-tone-btn {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.fin-wa-tone-btn:hover {
+    border-color: rgba(52, 211, 153, 0.5);
+    color: #f8fafc;
+}
+
+.fin-wa-tone-btn.is-active {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: #34d399;
+    color: #6ee7b7;
+}
+
+.fin-wa-tone-btn.is-ai {
+    margin-left: auto;
+    border-color: rgba(139, 92, 246, 0.45);
+    background: rgba(139, 92, 246, 0.14);
+    color: #c4b5fd;
+}
+
+.fin-wa-tone-btn.is-ai:hover {
+    border-color: rgba(167, 139, 250, 0.8);
+    background: rgba(139, 92, 246, 0.24);
+    color: #ede9fe;
+}
+
+@media (max-width: 560px) {
+    .fin-cobro-wa-grid {
+        grid-template-columns: 1fr;
+    }
+    .fin-wa-tone-btn.is-ai {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+    }
+    .btn-cobro-wa-fin {
+        font-size: 11px;
+        padding: 5px 8px;
+    }
+}
+
 
 
