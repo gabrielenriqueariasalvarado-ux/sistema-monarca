@@ -1688,6 +1688,17 @@ function renderizarAgendaPersonas() {
             return '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; background:rgba(255,255,255,0.06); border:1px solid ' + (g.color || '#6366f1') + '; color:#e2e8f0;">' + escHtmlPersona(g.icono || '👥') + ' ' + escHtmlPersona(g.nombre) + '</span>';
         }).join(' ');
 
+        var telPer = String(p.telefono || p.whatsapp || '').trim();
+        var pendPer = (typeof obtenerIngresosPendientesDePersonaAgenda === 'function')
+            ? obtenerIngresosPendientesDePersonaAgenda(p)
+            : { items: [], totalUsd: 0 };
+        var telBadgeHtml = telPer
+            ? '<button type="button" onclick="editarTelefonoPersonaRapido(\'' + p.id + '\')" title="Editar número WhatsApp" style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; background:rgba(16,185,129,0.12); border:1px solid rgba(52,211,153,0.32); color:#6ee7b7; cursor:pointer;">📱 ' + escHtmlPersona(telPer) + '</button>'
+            : '<button type="button" onclick="editarTelefonoPersonaRapido(\'' + p.id + '\')" title="Agregar número WhatsApp" style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:9999px; background:rgba(255,255,255,0.04); border:1px dashed rgba(148,163,184,0.3); color:#94a3b8; cursor:pointer;">+ 📱 Teléfono</button>';
+        var cobroBadgeHtml = pendPer.totalUsd > 0
+            ? '<span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:9999px; background:rgba(245,158,11,0.14); border:1px solid rgba(251,191,36,0.38); color:#fcd34d;">💵 Por cobrar: $' + pendPer.totalUsd.toFixed(2) + '</span>'
+            : '';
+
         var estadoColor = p.estado === 'Conversado' ? '#34d399' : (p.estado === 'Agendado' ? '#7dd3fc' : '#cbd5e1');
         var estadoBg = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.14)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(148, 163, 184, 0.14)');
         var estadoBorder = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.35)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.32)' : 'rgba(148, 163, 184, 0.28)');
@@ -1699,7 +1710,7 @@ function renderizarAgendaPersonas() {
                     <span class="knowledge-area-tag" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3);">${escHtmlPersona(p.ubicacionCategoria || '📍 Ubicación')}</span>
                     <h4 class="knowledge-title">${escHtmlPersona(p.nombre)}</h4>
                     <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">${escHtmlPersona(p.rol || 'Contacto')}</span>
-                    ${gruposBadges ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${gruposBadges}</div>` : ''}
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${telBadgeHtml}${cobroBadgeHtml}${gruposBadges}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <button onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">🗑️</button>
@@ -1728,7 +1739,8 @@ function renderizarAgendaPersonas() {
                 <span class="item-badge-pill" style="background: ${estadoBg}; color: ${estadoColor}; border: 1px solid ${estadoBorder}; font-weight: 700; font-size: 11px;">
                     ${escHtmlPersona(p.estado || 'Pendiente')}
                 </span>
-                <div style="display: flex; gap: 4px;">
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    <button type="button" class="btn-cobro-wa-fin ${pendPer.totalUsd > 0 ? '' : 'is-scheduled'}" style="padding: 4px 9px; font-size: 11px;" onclick="abrirCobroWhatsAppParaPersona('${p.id}')" title="${pendPer.totalUsd > 0 ? 'Cobrar saldo pendiente con tus tarjetas por WhatsApp' : 'Enviar tus datos de pago por WhatsApp'}">${pendPer.totalUsd > 0 ? '💬 Cobrar WA' : '💬 WA Datos'}</button>
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="cambiarEstadoPersona('${p.id}', 'Agendado')">📅 Agendar</button>
                     <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.38);" onclick="cambiarEstadoPersona('${p.id}', 'Conversado')">✓ Conversado</button>
                 </div>
@@ -1821,6 +1833,7 @@ function guardarNuevaPersona() {
     var inLug = document.getElementById('input-per-lugar');
     var inTem = document.getElementById('input-per-temas');
     var inFec = document.getElementById('input-per-fecha');
+    var inTel = document.getElementById('input-per-telefono');
 
     var nom = inNom ? inNom.value.trim() : '';
     var rol = inRol ? inRol.value.trim() : 'Contacto';
@@ -1828,6 +1841,7 @@ function guardarNuevaPersona() {
     var lug = inLug ? inLug.value.trim() : '';
     var rawTemas = inTem ? inTem.value.trim() : '';
     var fec = inFec ? inFec.value.trim() : 'Esta semana';
+    var tel = inTel ? inTel.value.trim() : '';
 
     if (!nom) { alert("Ingresa el nombre de la persona."); if (inNom) inNom.focus(); return; }
 
@@ -1844,6 +1858,7 @@ function guardarNuevaPersona() {
         id: "PER-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
         nombre: nom,
         rol: rol,
+        telefono: tel,
         ubicacionCategoria: ubi,
         lugarProyectado: lug || ubi,
         temasPendientes: temasList,
@@ -1861,6 +1876,7 @@ function guardarNuevaPersona() {
     if (inLug) inLug.value = '';
     if (inTem) inTem.value = '';
     if (inFec) inFec.value = '';
+    if (inTel) inTel.value = '';
 
     cerrarModalNuevaPersona();
     renderizarAgendaPersonas();
@@ -1870,6 +1886,76 @@ function guardarNuevaPersona() {
     } else {
         alert("👥 Contacto '" + nom + "' agregado a la agenda con sus temas pendientes.");
     }
+}
+
+function obtenerIngresosPendientesDePersonaAgenda(personaObj) {
+    if (!personaObj || !personaObj.nombre || !APP_STATE || !APP_STATE.finanzas || !Array.isArray(APP_STATE.finanzas.ingresos)) {
+        return { items: [], totalUsd: 0 };
+    }
+    var nomNorm = String(personaObj.nombre).trim().toLowerCase();
+    if (!nomNorm) return { items: [], totalUsd: 0 };
+
+    var items = [];
+    var totalUsd = 0;
+    APP_STATE.finanzas.ingresos.forEach(function(ing) {
+        if (!ing || ing.cobrado) return;
+        var cands = [ing.personaCobro, ing.personaPrestamo, ing.cliente].map(function(x) {
+            return String(x || '').trim().toLowerCase();
+        });
+        var fuenteLow = String(ing.fuente || '').toLowerCase();
+        var matchExact = cands.some(function(c) { return c && c === nomNorm; });
+        var matchFuente = !matchExact && nomNorm.length >= 3 && fuenteLow.indexOf(nomNorm) !== -1;
+        if (matchExact || matchFuente) {
+            items.push(ing);
+            totalUsd += (Number(ing.monto) || 0);
+        }
+    });
+    items.sort(function(a, b) {
+        return String(a.fecha || '').localeCompare(String(b.fecha || ''));
+    });
+    return { items: items, totalUsd: Math.round(totalUsd * 100) / 100 };
+}
+
+function editarTelefonoPersonaRapido(personaId) {
+    if (!APP_STATE || !Array.isArray(APP_STATE.agendaPersonas)) return;
+    var p = APP_STATE.agendaPersonas.find(function(x) { return x && x.id === personaId; });
+    if (!p) return;
+    var actual = String(p.telefono || p.whatsapp || '').trim();
+    var nuevoTel = prompt('WhatsApp / Teléfono para ' + (p.nombre || 'contacto') + ' (ej: +584121234567):', actual);
+    if (nuevoTel === null) return;
+    p.telefono = String(nuevoTel).trim();
+    p.fechaActualizacion = Date.now();
+    MonarcaDB.save(APP_STATE);
+    renderizarAgendaPersonas();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca(p.telefono ? ('Teléfono guardado en ' + p.nombre) : 'Teléfono borrado', '📱');
+    }
+}
+
+function abrirCobroWhatsAppParaPersona(personaId) {
+    if (!APP_STATE || !Array.isArray(APP_STATE.agendaPersonas)) return;
+    var p = APP_STATE.agendaPersonas.find(function(x) { return x && x.id === personaId; });
+    if (!p || typeof window.abrirModalCobroWhatsAppFinanzas !== 'function') return;
+
+    var resPend = obtenerIngresosPendientesDePersonaAgenda(p);
+    if (resPend.items.length > 0) {
+        window.abrirModalCobroWhatsAppFinanzas(resPend.items[0].id);
+        return;
+    }
+
+    var totalSug = resPend.totalUsd > 0 ? resPend.totalUsd : 0;
+    window.abrirModalCobroWhatsAppFinanzas({
+        modo: 'directo',
+        persona: p.nombre || '',
+        telefono: p.telefono || p.whatsapp || '',
+        concepto: totalSug > 0 ? 'saldo pendiente' : '',
+        monto: totalSug
+    });
+}
+
+if (typeof window !== 'undefined') {
+    window.editarTelefonoPersonaRapido = editarTelefonoPersonaRapido;
+    window.abrirCobroWhatsAppParaPersona = abrirCobroWhatsAppParaPersona;
 }
 
 function abrirModalGrupoPersonas(grupoId) {

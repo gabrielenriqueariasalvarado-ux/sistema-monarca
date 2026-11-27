@@ -380,8 +380,22 @@
                 });
                 menteCargada.sort(function(a, b) { return b.v - a.v; });
             }
+            var suenoRes = '';
+            if (typeof global.calcularProximoDespertarYHoraDormir === 'function') {
+                try {
+                    var cs = global.calcularProximoDespertarYHoraDormir();
+                    if (cs) {
+                        if (st.sueno && st.sueno.sesionActiva) {
+                            suenoRes = ' | 🌙 Durmiendo desde ' + (st.sueno.sesionActiva.horaDormir || 'noche');
+                        } else if (cs.horaDormirTxt) {
+                            suenoRes = ' | Sueño meta: acostarse ' + cs.horaDormirTxt;
+                        }
+                    }
+                } catch (eSu) {}
+            }
             bloques.push(
                 '• ESTADO PERSONAL: Desgaste físico ' + cuerpoPct + '% | Desgaste mental ' + mentePct + '%' +
+                suenoRes +
                 (musculosCargados.length ? (' · Músculos cargados: ' + musculosCargados.slice(0, 5).map(function(m) { return m.k + ' ' + m.v + '%'; }).join(', ')) : '') +
                 (menteCargada.length ? (' · Áreas mentales: ' + menteCargada.slice(0, 4).map(function(m) { return m.k + ' ' + m.v + '%'; }).join(', ')) : '')
             );
@@ -394,10 +408,11 @@
             var detalleTarjetas = tarjetas.slice(0, 8).map(function(t) {
                 var est = (typeof global.calcularEstadoTarjetaEnVivo === 'function') ? global.calcularEstadoTarjetaEnVivo(t, tasas) : null;
                 var nom = (typeof global.construirTituloTarjeta === 'function') ? global.construirTituloTarjeta(t) : (t.alias || t.banco || 'Cuenta');
-                if (!est) return nom;
+                var conDatos = (typeof global.tieneDatosPagoConfiguradosTarjeta === 'function' && global.tieneDatosPagoConfiguradosTarjeta(t)) ? ' [✓ datos pago]' : '';
+                if (!est) return nom + conDatos;
                 return est.monedaBase === 'VES'
-                    ? (nom + ': Bs. ' + (est.saldoBs || 0).toFixed(2) + ' (~$' + (est.valorActualUsd || 0).toFixed(2) + ')')
-                    : (nom + ': $' + (est.valorActualUsd || 0).toFixed(2));
+                    ? (nom + ': Bs. ' + (est.saldoBs || 0).toFixed(2) + ' (~$' + (est.valorActualUsd || 0).toFixed(2) + ')' + conDatos)
+                    : (nom + ': $' + (est.valorActualUsd || 0).toFixed(2) + conDatos);
             });
 
             var mesActual = hoyISO.slice(0, 7);
@@ -672,23 +687,31 @@
         {
             type: 'function',
             name: 'monarca_registrar_finanza',
-            description: 'Registra un gasto real, un ingreso real o un abono a una meta de ahorro en Finanzas, convirtiendo Bs. a USD si aplica y actualizando el saldo de la tarjeta/cuenta indicada.',
+            description: 'Registra gastos, ingresos o abonos a metas en Finanzas, configura datos bancarios/Pago Móvil/Binance afiliados de una tarjeta o prepara un mensaje de cobro/datos de pago para WhatsApp.',
             parameters: {
                 type: 'object',
                 properties: {
-                    accion: { type: 'string', enum: ['gasto', 'ingreso', 'abonar_meta'], description: 'Tipo de movimiento financiero.' },
-                    concepto: { type: 'string', description: 'Concepto del gasto o fuente del ingreso.' },
-                    monto: { type: 'number', description: 'Monto positivo en la moneda especificada.' },
+                    accion: { type: 'string', enum: ['gasto', 'ingreso', 'abonar_meta', 'configurar_tarjeta_pago', 'preparar_cobro_whatsapp'], description: 'Operación financiera o de tarjeta/cobro WhatsApp.' },
+                    concepto: { type: 'string', description: 'Concepto del gasto, fuente del ingreso o concepto del cobro.' },
+                    monto: { type: 'number', description: 'Monto positivo (requerido para gasto/ingreso/abonar_meta; opcional para preparar_cobro_whatsapp).' },
                     moneda: { type: 'string', enum: ['USD', 'VES'], description: 'Moneda del monto (por defecto USD).' },
                     tasa_tipo: { type: 'string', enum: ['bcv', 'euro', 'paralelo'], description: 'Tasa si moneda=VES (por defecto bcv).' },
                     categoria: { type: 'string', description: 'Categoría de gasto (Alimentación, Moto & Transporte, Servicios, Vivienda, Salud, Entretenimiento & Ocio, Inversión & Trabajo, Otros).' },
                     pilar: { type: 'string', enum: ['gastos', 'inversion', 'ahorro'], description: 'Pilar 50/40/10 del gasto (por defecto gastos).' },
                     fecha: { type: 'string', description: 'Fecha YYYY-MM-DD (por defecto hoy).' },
-                    tarjeta_nombre_o_id: { type: 'string', description: 'Nombre, alias, banco o ID de la tarjeta/cuenta (o "efectivo"). Si es gasto/ingreso aplicado y no se indica, se registra sin descontar tarjeta salvo coincidencia clara.' },
+                    tarjeta_nombre_o_id: { type: 'string', description: 'Nombre, alias, banco o ID de la tarjeta/cuenta (o "efectivo").' },
                     aplicado_ahora: { type: 'boolean', description: 'Si true (defecto), marca el gasto como pagado o ingreso como cobrado inmediatamente; false lo deja pendiente/programado.' },
-                    meta_nombre_o_id: { type: 'string', description: 'Nombre o ID de la meta si accion=abonar_meta.' }
+                    meta_nombre_o_id: { type: 'string', description: 'Nombre o ID de la meta si accion=abonar_meta.' },
+                    numero_cuenta: { type: 'string', description: 'Número de cuenta bancaria o Binance Pay ID si accion=configurar_tarjeta_pago.' },
+                    banco_pago: { type: 'string', description: 'Nombre del banco/red para pagos si accion=configurar_tarjeta_pago.' },
+                    cedula: { type: 'string', description: 'Cédula o RIF afiliado si accion=configurar_tarjeta_pago.' },
+                    telefono: { type: 'string', description: 'Teléfono Pago Móvil o WhatsApp del destinatario.' },
+                    correo: { type: 'string', description: 'Correo electrónico / Binance Email si accion=configurar_tarjeta_pago.' },
+                    titular: { type: 'string', description: 'Nombre del titular de la cuenta si accion=configurar_tarjeta_pago.' },
+                    persona: { type: 'string', description: 'Nombre de la persona/cliente para preparar_cobro_whatsapp.' },
+                    metodo_pago: { type: 'string', enum: ['pago_movil', 'transferencia', 'binance'], description: 'Método de pago a adjuntar si accion=preparar_cobro_whatsapp.' }
                 },
-                required: ['accion', 'monto']
+                required: ['accion']
             }
         },
         {
@@ -804,14 +827,15 @@
         {
             type: 'function',
             name: 'monarca_gestionar_personas',
-            description: 'Agrega una persona nueva a tu agenda de Personas o añade un tema pendiente/nota a un contacto existente.',
+            description: 'Agrega una persona nueva a tu agenda de Personas, actualiza su teléfono WhatsApp o añade un tema pendiente/nota a un contacto existente.',
             parameters: {
                 type: 'object',
                 properties: {
-                    accion: { type: 'string', enum: ['crear_persona', 'agregar_tema_nota'], description: 'Acción sobre agendaPersonas.' },
+                    accion: { type: 'string', enum: ['crear_persona', 'agregar_tema_nota', 'actualizar_contacto'], description: 'Acción sobre agendaPersonas.' },
                     persona_nombre_o_id: { type: 'string', description: 'Nombre o ID del contacto existente.' },
                     nombre: { type: 'string', description: 'Nombre para contacto nuevo.' },
                     rol: { type: 'string', description: 'Rol o relación (Cliente, Amigo, Familia, Colega).' },
+                    telefono: { type: 'string', description: 'Número WhatsApp o teléfono opcional (ej. +584121234567).' },
                     lugar: { type: 'string', description: 'Lugar donde sueles verlo o notas.' },
                     fecha_objetivo: { type: 'string', description: 'Fecha YYYY-MM-DD o texto corto.' },
                     tema_o_nota: { type: 'string', description: 'Tema pendiente o recordatorio sobre esta persona.' }
@@ -884,6 +908,8 @@
 
         var cards = (fin.tarjetas || []).map(function(t) {
             var est = (typeof global.calcularEstadoTarjetaEnVivo === 'function') ? global.calcularEstadoTarjetaEnVivo(t, tasas) : null;
+            var dp = (typeof global.normalizarDatosPagoTarjeta === 'function') ? global.normalizarDatosPagoTarjeta(t) : (t.datosPago || {});
+            var tieneDp = (typeof global.tieneDatosPagoConfiguradosTarjeta === 'function') ? global.tieneDatosPagoConfiguradosTarjeta(t) : Boolean(dp && (dp.numeroCuenta || dp.cedula || dp.telefono || dp.correo));
             return {
                 id: t.id,
                 nombre: (typeof global.construirTituloTarjeta === 'function') ? global.construirTituloTarjeta(t) : (t.alias || t.banco),
@@ -891,6 +917,8 @@
                 moneda: est ? est.monedaBase : 'USD',
                 saldo_bs: est ? Number((est.saldoBs || 0).toFixed(2)) : 0,
                 saldo_usd: est ? Number((est.valorActualUsd || 0).toFixed(2)) : (Number(t.saldoUsd) || 0),
+                tiene_datos_pago: tieneDp,
+                datos_pago: dp,
                 ultimos_movimientos: Array.isArray(t.historial) ? t.historial.slice(0, 5) : []
             };
         });
@@ -964,6 +992,7 @@
             }
             case 'estado_personal': {
                 var met = (typeof global.calcularMetricasPurasSinActualizar === 'function') ? global.calcularMetricasPurasSinActualizar() : null;
+                var cicloSueno = (typeof global.calcularProximoDespertarYHoraDormir === 'function') ? global.calcularProximoDespertarYHoraDormir() : null;
                 return {
                     data: {
                         ok: true,
@@ -971,10 +1000,12 @@
                         fatiga_fisica: st.fatiga || {},
                         desgaste_mente: st.desgasteMente || {},
                         fatiga_mental_diaria: st.fatigaMentalDiaria || {},
+                        sueno: st.sueno || {},
+                        ciclo_sueno: cicloSueno,
                         historial_reciente_dias: st.registroDiarioCalendario || {}
                     },
                     vista: 'vista-estado-personal',
-                    label: 'Consultó Estado Personal'
+                    label: 'Consultó Estado Personal y Sueño'
                 };
             }
             case 'boom':
@@ -1056,10 +1087,21 @@
                 return { data: { ok: true, total: vocs.length, vocabulario: vocs.slice(0, lim) }, vista: 'vista-conocimiento', label: 'Consultó Vocabulario' };
             }
             case 'personas': {
+                var finIngPers = (st.finanzas && Array.isArray(st.finanzas.ingresos)) ? st.finanzas.ingresos : [];
                 var pers = (st.agendaPersonas || []).filter(function(p) {
                     return p && filTxt((p.nombre || '') + ' ' + (p.rol || '') + ' ' + (p.lugarProyectado || ''));
+                }).slice(0, lim).map(function(p) {
+                    var nLow = _norm(p.nombre);
+                    var saldoCobrar = 0;
+                    finIngPers.forEach(function(ing) {
+                        if (!ing || ing.cobrado) return;
+                        var m1 = _norm(ing.personaCobro) === nLow || _norm(ing.personaPrestamo) === nLow || _norm(ing.cliente) === nLow;
+                        var m2 = !m1 && nLow.length >= 3 && _norm(ing.fuente).indexOf(nLow) !== -1;
+                        if (m1 || m2) saldoCobrar += (Number(ing.monto) || 0);
+                    });
+                    return Object.assign({}, p, { saldo_por_cobrar_usd: Math.round(saldoCobrar * 100) / 100 });
                 });
-                return { data: { ok: true, total: pers.length, personas: pers.slice(0, lim), grupos: st.gruposPersonas || [] }, vista: 'vista-personas', label: 'Consultó Personas' };
+                return { data: { ok: true, total: pers.length, personas: pers, grupos: st.gruposPersonas || [] }, vista: 'vista-personas', label: 'Consultó Personas' };
             }
             case 'inventario': {
                 var inv = st.inventario || {};
@@ -1512,6 +1554,93 @@
         if (!Array.isArray(APP_STATE.finanzas.aportesMetas)) APP_STATE.finanzas.aportesMetas = [];
 
         var accion = String(args.accion || '');
+
+        if (accion === 'configurar_tarjeta_pago') {
+            var resCfgTrj = _resolverTarjetaFinanzasPorNombre(args.tarjeta_nombre_o_id || '');
+            var tCfg = resCfgTrj.tarjeta;
+            if (!tCfg) {
+                return { data: { ok: false, error: 'Indica qué tarjeta deseas configurar (ej: Provincial, Venezuela, Binance o Todoticket).' }, vista: 'vista-finanzas', subtab: 'tarjetas', label: 'Tarjeta no encontrada' };
+            }
+            var dpPrev = (typeof global.normalizarDatosPagoTarjeta === 'function')
+                ? global.normalizarDatosPagoTarjeta(tCfg)
+                : Object.assign({}, tCfg.datosPago || {});
+            if (args.numero_cuenta !== undefined) dpPrev.numeroCuenta = String(args.numero_cuenta || '').trim();
+            if (args.banco_pago !== undefined) dpPrev.bancoPago = String(args.banco_pago || '').trim();
+            if (args.cedula !== undefined) dpPrev.cedula = String(args.cedula || '').trim();
+            if (args.telefono !== undefined) dpPrev.telefono = String(args.telefono || '').trim();
+            if (args.correo !== undefined) dpPrev.correo = String(args.correo || '').trim();
+            if (args.titular !== undefined) dpPrev.titular = String(args.titular || '').trim();
+            tCfg.datosPago = dpPrev;
+            tCfg.fechaActualizacion = Date.now();
+            _guardarYRefrescar(['finanzas']);
+            if (typeof global.renderizarTarjetasFinanzas === 'function') global.renderizarTarjetasFinanzas();
+            var nomTCfg = (typeof global.construirTituloTarjeta === 'function') ? global.construirTituloTarjeta(tCfg) : tCfg.banco;
+            _notificarToast('💳 Datos de pago guardados en ' + nomTCfg, '💳');
+            return {
+                data: { ok: true, tarjeta: nomTCfg, datos_pago: dpPrev },
+                vista: 'vista-finanzas',
+                subtab: 'tarjetas',
+                esEscritura: true,
+                label: 'Datos: ' + _recortar(nomTCfg, 16)
+            };
+        }
+
+        if (accion === 'preparar_cobro_whatsapp') {
+            var nomPersWA = String(args.persona || '').trim();
+            var conceptoWA = String(args.concepto || '').trim();
+            var resWaTrj = _resolverTarjetaFinanzasPorNombre(args.tarjeta_nombre_o_id || '');
+            var trjWA = resWaTrj.tarjeta;
+            var ingresoWA = null;
+            if (nomPersWA || conceptoWA) {
+                var pendientesIng = (APP_STATE.finanzas.ingresos || []).filter(function(i) { return i && !i.cobrado; });
+                ingresoWA = _buscarEnLista(pendientesIng, nomPersWA || conceptoWA, function(i) {
+                    return [i.personaCobro || '', i.personaPrestamo || '', i.cliente || '', i.fuente || ''];
+                });
+            }
+            var metodoReq = ['pago_movil', 'transferencia', 'binance'].indexOf(args.metodo_pago) !== -1 ? args.metodo_pago : '';
+            var payloadDirecto = ingresoWA
+                ? ingresoWA.id
+                : {
+                    modo: 'directo',
+                    tarjetaId: trjWA ? trjWA.id : '',
+                    metodoPago: metodoReq,
+                    persona: nomPersWA,
+                    telefono: String(args.telefono || '').trim(),
+                    concepto: conceptoWA,
+                    monto: Number(args.monto) || 0,
+                    fechaISO: String(args.fecha || '').slice(0, 10)
+                };
+            if (ingresoWA && trjWA) {
+                ingresoWA.tarjetaCobroWaId = trjWA.id;
+            }
+            if (typeof global.abrirModalCobroWhatsAppFinanzas === 'function') {
+                global.abrirModalCobroWhatsAppFinanzas(payloadDirecto);
+                if (ingresoWA && metodoReq && typeof global.seleccionarMetodoPagoCobroWA === 'function') {
+                    global.seleccionarMetodoPagoCobroWA(metodoReq);
+                }
+            }
+            var msgListo = '';
+            var taEl = (typeof document !== 'undefined') ? document.getElementById('modal-cobro-wa-textarea') : null;
+            if (taEl && taEl.value) {
+                msgListo = taEl.value;
+            } else if (trjWA && typeof global.construirBloquePagoTarjetaWhatsApp === 'function') {
+                msgListo = global.construirBloquePagoTarjetaWhatsApp(trjWA);
+            }
+            return {
+                data: {
+                    ok: true,
+                    modo: ingresoWA ? 'ingreso_pendiente' : 'directo',
+                    persona: nomPersWA || (ingresoWA && (ingresoWA.personaCobro || ingresoWA.cliente)) || '',
+                    tarjeta: trjWA ? ((typeof global.construirTituloTarjeta === 'function') ? global.construirTituloTarjeta(trjWA) : trjWA.banco) : null,
+                    metodo_pago: metodoReq || 'auto',
+                    mensaje_listo: msgListo
+                },
+                vista: 'vista-finanzas',
+                esEscritura: false,
+                label: 'WhatsApp Cobro listo'
+            };
+        }
+
         var rawMonto = Number(args.monto) || 0;
         if (!(rawMonto > 0)) return { data: { ok: false, error: 'El monto debe ser mayor a 0.' }, label: 'Monto inválido' };
 
@@ -2204,18 +2333,30 @@
         if (!Array.isArray(APP_STATE.agendaPersonas)) APP_STATE.agendaPersonas = [];
         var accion = String(args.accion || 'crear_persona');
         var ahora = Date.now();
+        var telArg = String(args.telefono || '').trim();
 
-        if (accion === 'agregar_tema_nota') {
+        if (accion === 'agregar_tema_nota' || accion === 'actualizar_contacto') {
             var pObj = _buscarEnLista(APP_STATE.agendaPersonas, args.persona_nombre_o_id || args.nombre || '', function(p) { return [p.nombre]; });
             if (!pObj) return { data: { ok: false, error: 'No encontré a esa persona en tu agenda.' }, vista: 'vista-personas', label: 'Persona no encontrada' };
+            if (telArg) pObj.telefono = telArg;
+            if (args.rol) pObj.rol = String(args.rol).trim();
+            if (args.lugar) pObj.lugarProyectado = String(args.lugar).trim();
+            if (args.fecha_objetivo) pObj.fechaObjetivo = String(args.fecha_objetivo).trim();
+
             var notaTxt = String(args.tema_o_nota || '').trim();
-            if (!notaTxt) return { data: { ok: false, error: 'Indica tema_o_nota.' }, label: 'Falta texto' };
-            if (!Array.isArray(pObj.temasPendientes)) pObj.temasPendientes = [];
-            pObj.temasPendientes.push({ id: 'T-' + Math.random().toString(36).substr(2, 9), texto: notaTxt, hecho: false });
+            if (notaTxt) {
+                if (!Array.isArray(pObj.temasPendientes)) pObj.temasPendientes = [];
+                pObj.temasPendientes.push({ id: 'T-' + Math.random().toString(36).substr(2, 9), texto: notaTxt, hecho: false });
+            }
             pObj.fechaActualizacion = ahora;
             _guardarYRefrescar(['personas']);
-            _notificarToast('👥 Nota agregada a ' + pObj.nombre, '👥');
-            return { data: { ok: true, persona: pObj.nombre, tema: notaTxt }, vista: 'vista-personas', esEscritura: true, label: 'Nota en ' + _recortar(pObj.nombre, 16) };
+            _notificarToast('👥 Contacto actualizado: ' + pObj.nombre, '👥');
+            return {
+                data: { ok: true, persona: pObj.nombre, telefono: pObj.telefono || '', tema: notaTxt || null },
+                vista: 'vista-personas',
+                esEscritura: true,
+                label: 'Actualizó ' + _recortar(pObj.nombre, 16)
+            };
         }
 
         var nombre = String(args.nombre || args.persona_nombre_o_id || '').trim();
@@ -2225,6 +2366,7 @@
             id: 'PER-' + ahora + '-' + Math.random().toString(36).substr(2, 4),
             nombre: nombre,
             rol: String(args.rol || 'Contacto'),
+            telefono: telArg,
             ubicacionCategoria: String(args.ubicacion || '💬 Otro'),
             lugarProyectado: String(args.lugar || ''),
             temasPendientes: temas,
@@ -2236,7 +2378,7 @@
         if (typeof global.sumarExp === 'function') global.sumarExp(15);
         _guardarYRefrescar(['personas']);
         _notificarToast('👥 Contacto agregado: ' + nombre + ' (+15 EXP)', '👥');
-        return { data: { ok: true, id: nuevo.id, nombre: nombre }, vista: 'vista-personas', esEscritura: true, label: 'Contacto: ' + _recortar(nombre, 18) };
+        return { data: { ok: true, id: nuevo.id, nombre: nombre, telefono: telArg }, vista: 'vista-personas', esEscritura: true, label: 'Contacto: ' + _recortar(nombre, 18) };
     }
 
     var EJECUTORES = {

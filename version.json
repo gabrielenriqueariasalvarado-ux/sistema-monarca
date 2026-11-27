@@ -1,5 +1,5 @@
 {
-  "version": "11.40",
+  "version": "11.41",
   "fecha": "2026-11-26",
-  "resumen": "Datos Afiliados de Tarjetas y Métodos de Pago en Cobros WhatsApp (v11.40): Guarda número de cuenta, banco, cédula, teléfono de Pago Móvil, correo/Pay ID y titular dentro de cada tarjeta en Finanzas, y selecciona directamente desde el mensaje de Cobro por WhatsApp qué tarjeta y qué datos/métodos deseas adjuntar."
+  "resumen": "Conexión Total de Pagos, Inventario, Personas y Emily IA (v11.41): envío directo de datos de tarjeta por WhatsApp, cobros WhatsApp en todo ingreso pendiente, cuotas de Inventario y contactos de Personas (con teléfono integrado), portapapeles blindado para Android APK y control completo desde Emily IA / Jarvis (datos bancarios, cobros WA y ciclo de sueño)."
 }

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.40">
+    <link rel="stylesheet" href="style.css?v=11.41">
 </head>
 <body>
 
@@ -187,7 +187,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.40</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.41</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -233,7 +233,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.40</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.41</div>
                     </div>
                 </div>
             </div>
@@ -7020,9 +7020,15 @@
                     <label class="label-finanza" style="margin-bottom: 6px; display: block;">Temas Pendientes a Tratar (Uno por línea):</label>
                     <textarea id="input-per-temas" class="finanzas-input-clean" rows="3" placeholder="Punto 1: Preguntar sobre su horario de entreno&#10;Punto 2: Proponer nuevo corte fade bajo..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;"></textarea>
                 </div>
-                <div style="margin-bottom: 18px;">
-                    <label class="label-finanza" style="margin-bottom: 6px; display: block;">Momento u Oportunidad Proyectada:</label>
-                    <input type="text" id="input-per-fecha" class="finanzas-input-clean" placeholder="Ej: Mañana en la tarde, Viernes de corte..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px;">
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">Momento u Oportunidad:</label>
+                        <input type="text" id="input-per-fecha" class="finanzas-input-clean" placeholder="Ej: Mañana tarde, Viernes..." style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
+                    <div>
+                        <label class="label-finanza" style="margin-bottom: 6px; display: block;">📱 WhatsApp / Teléfono:</label>
+                        <input type="tel" id="input-per-telefono" class="finanzas-input-clean" placeholder="Ej: +584121234567" style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.1); color: #f8fafc; border-radius: 10px; padding: 10px 14px; width: 100%; box-sizing: border-box; font-size: 13px;">
+                    </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalNuevaPersona()">Cancelar</button>
@@ -8048,30 +8054,30 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.40"></script>
-    <script src="js/permisos.js?v=11.40"></script>
-    <script src="js/perfil.js?v=11.40"></script>
-    <script src="js/progresion.js?v=11.40"></script>
-    <script src="js/estado-personal.js?v=11.40"></script>
-    <script src="js/finanzas.js?v=11.40"></script>
-    <script src="js/ideas.js?v=11.40"></script>
-    <script src="js/mqtt-autopc.js?v=11.40"></script>
-    <script src="js/dinamicas.js?v=11.40"></script>
-    <script src="js/calendario.js?v=11.40"></script>
-    <script src="js/inventario.js?v=11.40"></script>
-    <script src="js/reproductor.js?v=11.40"></script>
-    <script src="js/ia-monarca-tools.js?v=11.40"></script>
-    <script src="js/ia.js?v=11.40"></script>
-    <script src="js/jarvis-voz.js?v=11.40"></script>
+    <script src="js/core.js?v=11.41"></script>
+    <script src="js/permisos.js?v=11.41"></script>
+    <script src="js/perfil.js?v=11.41"></script>
+    <script src="js/progresion.js?v=11.41"></script>
+    <script src="js/estado-personal.js?v=11.41"></script>
+    <script src="js/finanzas.js?v=11.41"></script>
+    <script src="js/ideas.js?v=11.41"></script>
+    <script src="js/mqtt-autopc.js?v=11.41"></script>
+    <script src="js/dinamicas.js?v=11.41"></script>
+    <script src="js/calendario.js?v=11.41"></script>
+    <script src="js/inventario.js?v=11.41"></script>
+    <script src="js/reproductor.js?v=11.41"></script>
+    <script src="js/ia-monarca-tools.js?v=11.41"></script>
+    <script src="js/ia.js?v=11.41"></script>
+    <script src="js/jarvis-voz.js?v=11.41"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.40"></script>
+    <script type="module" src="js/firebase-config.js?v=11.41"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.40')
+                navigator.serviceWorker.register('sw.js?v=11.41')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

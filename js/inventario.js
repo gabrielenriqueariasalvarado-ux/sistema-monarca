@@ -1984,11 +1984,12 @@ function renderizarVendidosInventario(listaManual) {
                         <span style="font-size: 12px; font-weight: 800; color: #f8fafc;">${labelParteVendidos}: $${mMonto}</span>
                         <span style="font-size: 11px; color: #94a3b8;">📅 Acordado: ${escaparHTMLInv(cq.fecha)}</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                         ${yaCobrada
                             ? `<span style="font-size: 10.5px; font-weight: 800; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 2px 7px; border-radius: 5px;">✅ Cobrada</span>
                                <button type="button" class="btn-cobrar-ingreso btn-deshacer-cobro" onclick="deshacerCobroCuotaVentaUI('${escaparHTMLInv(venta.id)}', '${escaparHTMLInv(cq.id)}')" title="Desmarcar cobro de esta cuota">↩</button>`
                             : `<span style="font-size: 10.5px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.12); padding: 2px 7px; border-radius: 5px;">⏳ Pendiente</span>
+                               <button type="button" class="btn-cobro-wa-fin is-compact" onclick="abrirCobroWhatsAppDesdeCuotaInventario('${escaparHTMLInv(venta.id)}', '${escaparHTMLInv(cq.id)}')" title="Enviar cobro amable y datos de tarjeta por WhatsApp">💬 WA</button>
                                <button type="button" class="btn-cobrar-ingreso" onclick="cobrarCuotaVentaUI('${escaparHTMLInv(venta.id)}', '${escaparHTMLInv(cq.id)}')" title="Cobrar cuota (elige tarjeta en Finanzas)">💰 Cobrar</button>`
                         }
                     </div>
@@ -2422,5 +2423,43 @@ function actualizarGraficaCobrosCreditoInventario() {
             }
         }
     });
+}
+
+function abrirCobroWhatsAppDesdeCuotaInventario(ventaId, cuotaId) {
+    if (typeof window.abrirModalCobroWhatsAppFinanzas !== 'function') {
+        if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('Módulo de cobros WhatsApp no disponible', '⚠️');
+        return;
+    }
+    var fin = (APP_STATE && APP_STATE.finanzas) ? APP_STATE.finanzas : {};
+    var ingresos = Array.isArray(fin.ingresos) ? fin.ingresos : [];
+    var ingresoMatch = ingresos.find(function(x) {
+        return x && !x.cobrado && x.ventaId === ventaId && (!cuotaId || x.cuotaId === cuotaId);
+    });
+    if (ingresoMatch) {
+        window.abrirModalCobroWhatsAppFinanzas(ingresoMatch.id);
+        return;
+    }
+
+    var ventas = (APP_STATE && APP_STATE.inventario && Array.isArray(APP_STATE.inventario.ventas))
+        ? APP_STATE.inventario.ventas
+        : [];
+    var venta = ventas.find(function(v) { return v && v.id === ventaId; });
+    if (!venta) return;
+    var cuotas = Array.isArray(venta.cuotas) ? venta.cuotas : [];
+    var cuota = cuotaId ? cuotas.find(function(c) { return c && c.id === cuotaId; }) : cuotas.find(function(c) { return c && !c.cobrado; });
+
+    window.abrirModalCobroWhatsAppFinanzas({
+        modo: 'directo',
+        persona: venta.cliente || '',
+        telefono: venta.telefonoCliente || '',
+        concepto: (venta.productoNombre || 'venta') + (venta.varianteDetalle ? (' (' + venta.varianteDetalle + ')') : '') + (cuota && cuota.numero ? (' (Cuota ' + cuota.numero + ')') : ''),
+        monto: cuota ? (Number(cuota.monto) || 0) : (Number(venta.totalVenta) || 0),
+        fechaISO: (cuota && cuota.fecha) ? cuota.fecha : (venta.fecha || ''),
+        tarjetaId: venta.tarjetaId || ''
+    });
+}
+
+if (typeof window !== 'undefined') {
+    window.abrirCobroWhatsAppDesdeCuotaInventario = abrirCobroWhatsAppDesdeCuotaInventario;
 }
 
