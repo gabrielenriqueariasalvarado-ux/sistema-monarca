@@ -1,5 +1,5 @@
 {
-  "version": "11.39",
+  "version": "11.40",
   "fecha": "2026-11-26",
-  "resumen": "Aprobación Remota de Planes y Emparejamiento Auto-PC Blindados (v11.39): Corregida la incompatibilidad entre el teléfono y Auto-PC al aprobar o responder Implementation Plans (estado Firestore 'pending' + validación de canal MQTT + respaldo LAN real) y añadido botón inteligente de Reintento / Edición cuando Auto-PC tarda más de 12s en confirmar recepción."
+  "resumen": "Datos Afiliados de Tarjetas y Métodos de Pago en Cobros WhatsApp (v11.40): Guarda número de cuenta, banco, cédula, teléfono de Pago Móvil, correo/Pay ID y titular dentro de cada tarjeta en Finanzas, y selecciona directamente desde el mensaje de Cobro por WhatsApp qué tarjeta y qué datos/métodos deseas adjuntar."
 }

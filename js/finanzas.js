@@ -7433,6 +7433,7 @@ var MONARCA_BANCOS_TARJETAS = {
     provincial: {
         id: 'provincial',
         nombre: 'Provincial',
+        bancoPagoNombre: 'BBVA Provincial (0108)',
         subtitulo: 'BBVA Provincial · Bolívares (Bs.)',
         monedaBase: 'VES',
         tasaPorDefecto: 'bcv',
@@ -7442,6 +7443,7 @@ var MONARCA_BANCOS_TARJETAS = {
     venezuela: {
         id: 'venezuela',
         nombre: 'Venezuela',
+        bancoPagoNombre: 'Banco de Venezuela (0102)',
         subtitulo: 'Banco de Venezuela · Bolívares (Bs.)',
         monedaBase: 'VES',
         tasaPorDefecto: 'bcv',
@@ -7451,6 +7453,7 @@ var MONARCA_BANCOS_TARJETAS = {
     binance: {
         id: 'binance',
         nombre: 'Binance',
+        bancoPagoNombre: 'Binance Pay',
         subtitulo: 'Binance · Dólares / USDT',
         monedaBase: 'USD',
         tasaPorDefecto: 'paralelo',
@@ -7460,6 +7463,7 @@ var MONARCA_BANCOS_TARJETAS = {
     todoticket: {
         id: 'todoticket',
         nombre: 'Todoticket',
+        bancoPagoNombre: 'Todoticket',
         subtitulo: 'Todoticket · Bolívares (Bs.)',
         monedaBase: 'VES',
         tasaPorDefecto: 'bcv',
@@ -7480,6 +7484,24 @@ function asegurarArrayTarjetasFinanzas() {
 
 function obtenerInfoBancoTarjeta(bancoKey) {
     return MONARCA_BANCOS_TARJETAS[String(bancoKey || '').toLowerCase()] || MONARCA_BANCOS_TARJETAS.provincial;
+}
+
+function normalizarDatosPagoTarjeta(t) {
+    var d = (t && t.datosPago && typeof t.datosPago === 'object') ? t.datosPago : {};
+    var info = obtenerInfoBancoTarjeta(t && t.banco);
+    return {
+        numeroCuenta: String(d.numeroCuenta || (t && t.numeroCuenta) || '').trim(),
+        bancoPago: String(d.bancoPago || (t && t.bancoPago) || info.bancoPagoNombre || info.nombre || '').trim(),
+        cedula: String(d.cedula || (t && t.cedula) || '').trim(),
+        telefono: String(d.telefono || (t && t.telefono) || '').trim(),
+        correo: String(d.correo || (t && t.correo) || '').trim(),
+        titular: String(d.titular || (t && t.titular) || '').trim()
+    };
+}
+
+function tieneDatosPagoConfiguradosTarjeta(t) {
+    var dp = normalizarDatosPagoTarjeta(t);
+    return Boolean(dp.numeroCuenta || dp.cedula || dp.telefono || dp.correo || dp.titular);
 }
 
 function obtenerTasaParaTarjeta(tasaTipo, cacheOpt) {
@@ -7878,6 +7900,34 @@ function renderizarTarjetasFinanzas() {
             }).join('') + '</div>';
         }
 
+        var dp = normalizarDatosPagoTarjeta(t);
+        var tieneDp = tieneDatosPagoConfiguradosTarjeta(t);
+        var datosPagoHtml = '';
+        if (tieneDp) {
+            var partesDp = [];
+            if (dp.bancoPago) partesDp.push('🏦 ' + dp.bancoPago);
+            if (dp.numeroCuenta) {
+                var ctaCompacta = dp.numeroCuenta.length > 10 ? ('••••' + dp.numeroCuenta.slice(-4)) : dp.numeroCuenta;
+                partesDp.push((t.banco === 'binance' ? 'ID: ' : 'Cta: ') + ctaCompacta);
+            }
+            if (dp.cedula) partesDp.push(dp.cedula);
+            if (dp.telefono) partesDp.push('📞 ' + dp.telefono);
+            if (dp.correo) partesDp.push(dp.correo);
+            datosPagoHtml = `
+            <div class="tarjeta-datos-cobro-mini">
+                <div class="tarjeta-datos-cobro-txt">${escaparHTML(partesDp.join(' · '))}</div>
+                <div style="display: flex; gap: 5px; flex-shrink: 0;">
+                    <button type="button" class="btn-tarjeta-datos-copy" onclick="copiarDatosPagoTarjetaFinanzas('${escaparHTML(t.id)}')" title="Copiar datos bancarios / Pago Móvil">📋 Datos</button>
+                </div>
+            </div>`;
+        } else {
+            datosPagoHtml = `
+            <div class="tarjeta-datos-cobro-mini is-empty">
+                <span class="tarjeta-datos-cobro-txt">Sin cuenta / datos de cobro afiliados</span>
+                <button type="button" class="btn-tarjeta-datos-copy" onclick="abrirModalTarjeta('${escaparHTML(t.id)}', true)">+ Afiliar datos</button>
+            </div>`;
+        }
+
         return `
         <div class="tarjeta-banco-card" style="--banco-accent: ${info.accent};" data-tarjeta-id="${escaparHTML(t.id)}">
             <div class="tarjeta-banco-top">
@@ -7889,7 +7939,7 @@ function renderizarTarjetasFinanzas() {
                     </div>
                 </div>
                 <div style="display: flex; gap: 5px; flex-shrink: 0;">
-                    <button type="button" class="rutina-icon-btn edit" title="Editar tarjeta" onclick="abrirModalTarjeta('${escaparHTML(t.id)}')">✎</button>
+                    <button type="button" class="rutina-icon-btn edit" title="Editar tarjeta y datos de pago" onclick="abrirModalTarjeta('${escaparHTML(t.id)}')">✎</button>
                     <button type="button" class="rutina-icon-btn delete" title="Eliminar tarjeta" onclick="eliminarTarjetaFinanzas('${escaparHTML(t.id)}')">✕</button>
                 </div>
             </div>
@@ -7904,6 +7954,7 @@ function renderizarTarjetasFinanzas() {
             </div>
 
             ${devalPillHtml}
+            ${datosPagoHtml}
 
             <div class="tarjeta-actions-grid">
                 <button type="button" class="btn-tarjeta-op ingreso" onclick="abrirModalMovimientoTarjeta('${escaparHTML(t.id)}', 'ingreso')">+ Ingresar</button>
@@ -7918,7 +7969,27 @@ function renderizarTarjetasFinanzas() {
     cont.innerHTML = kpiHtml + '<div class="tarjetas-cards-grid">' + cardsHtml + '</div>';
 }
 
-function abrirModalTarjeta(idOpcional) {
+function copiarDatosPagoTarjetaFinanzas(idTarjeta) {
+    var t = asegurarArrayTarjetasFinanzas().find(function(x) { return x && x.id === idTarjeta; });
+    if (!t) return;
+    var bloque = typeof construirBloquePagoTarjetaWhatsApp === 'function'
+        ? construirBloquePagoTarjetaWhatsApp(t, { bancoPago: true, numeroCuenta: true, cedula: true, telefono: true, correo: true, titular: true })
+        : '';
+    if (!bloque) {
+        abrirModalTarjeta(idTarjeta, true);
+        return;
+    }
+    var done = function() {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Datos de ' + construirTituloTarjeta(t) + ' copiados', '📋');
+        }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(bloque).then(done).catch(function() {});
+    }
+}
+
+function abrirModalTarjeta(idOpcional, enfocarDatosPago) {
     var modal = document.getElementById('modal-finanzas-tarjeta');
     if (!modal) return;
 
@@ -7931,6 +8002,13 @@ function abrirModalTarjeta(idOpcional) {
     var wrapSaldoIni = document.getElementById('grupo-modal-tarjeta-saldo-inicial');
     var titEl = document.getElementById('modal-tarjeta-titulo');
 
+    var inCuenta = document.getElementById('modal-tarjeta-cuenta');
+    var inBancoPago = document.getElementById('modal-tarjeta-banco-pago');
+    var inCedula = document.getElementById('modal-tarjeta-cedula');
+    var inTel = document.getElementById('modal-tarjeta-telefono');
+    var inCorreo = document.getElementById('modal-tarjeta-correo');
+    var inTitular = document.getElementById('modal-tarjeta-titular');
+
     if (selBanco) {
         selBanco.innerHTML = ['provincial', 'venezuela', 'binance', 'todoticket'].map(function(k) {
             var b = MONARCA_BANCOS_TARJETAS[k];
@@ -7941,12 +8019,23 @@ function abrirModalTarjeta(idOpcional) {
     var existente = idOpcional ? asegurarArrayTarjetasFinanzas().find(function(t) { return t.id === idOpcional; }) : null;
 
     if (existente) {
+        var dp = normalizarDatosPagoTarjeta(existente);
+        var dGuardado = (existente.datosPago && typeof existente.datosPago === 'object') ? existente.datosPago : {};
         if (titEl) titEl.textContent = 'EDITAR TARJETA';
         if (inId) inId.value = existente.id;
         if (selBanco) selBanco.value = MONARCA_BANCOS_TARJETAS[existente.banco] ? existente.banco : 'provincial';
         if (inAlias) inAlias.value = existente.alias || '';
         if (selTasa) selTasa.value = existente.tasaTipo || obtenerInfoBancoTarjeta(existente.banco).tasaPorDefecto;
         if (wrapSaldoIni) wrapSaldoIni.style.display = 'none';
+        if (inCuenta) inCuenta.value = dp.numeroCuenta || '';
+        if (inBancoPago) {
+            inBancoPago.value = dp.bancoPago || '';
+            inBancoPago.dataset.customEdited = dGuardado.bancoPago ? '1' : '';
+        }
+        if (inCedula) inCedula.value = dp.cedula || '';
+        if (inTel) inTel.value = dp.telefono || '';
+        if (inCorreo) inCorreo.value = dp.correo || '';
+        if (inTitular) inTitular.value = dp.titular || '';
     } else {
         if (titEl) titEl.textContent = 'AGREGAR TARJETA O BILLETERA';
         if (inId) inId.value = '';
@@ -7956,10 +8045,28 @@ function abrirModalTarjeta(idOpcional) {
         if (inSaldo) inSaldo.value = '';
         if (selMonedaIn) selMonedaIn.value = 'VES';
         if (wrapSaldoIni) wrapSaldoIni.style.display = 'block';
+        if (inCuenta) inCuenta.value = '';
+        if (inBancoPago) {
+            inBancoPago.value = MONARCA_BANCOS_TARJETAS.provincial.bancoPagoNombre;
+            inBancoPago.dataset.customEdited = '';
+        }
+        if (inCedula) inCedula.value = '';
+        if (inTel) inTel.value = '';
+        if (inCorreo) inCorreo.value = '';
+        if (inTitular) inTitular.value = '';
     }
 
     alCambiarBancoTarjetaModal(!!existente);
     modal.style.display = 'flex';
+    if (enfocarDatosPago) {
+        setTimeout(function() {
+            var sec = document.getElementById('grupo-modal-tarjeta-datos-pago');
+            if (sec && typeof sec.scrollIntoView === 'function') {
+                sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (inCuenta) inCuenta.focus();
+        }, 60);
+    }
 }
 
 function cerrarModalTarjeta() {
@@ -7972,6 +8079,11 @@ function alCambiarBancoTarjetaModal(mantenerTasa) {
     var selTasa = document.getElementById('modal-tarjeta-tasa');
     var selMonedaIn = document.getElementById('modal-tarjeta-moneda-input');
     var lblSaldo = document.getElementById('label-modal-tarjeta-saldo');
+    var lblCuenta = document.getElementById('label-modal-tarjeta-cuenta');
+    var inCuenta = document.getElementById('modal-tarjeta-cuenta');
+    var lblCorreo = document.getElementById('label-modal-tarjeta-correo');
+    var inCorreo = document.getElementById('modal-tarjeta-correo');
+    var inBancoPago = document.getElementById('modal-tarjeta-banco-pago');
     var info = obtenerInfoBancoTarjeta(selBanco ? selBanco.value : 'provincial');
 
     if (!mantenerTasa && selTasa) {
@@ -7984,6 +8096,27 @@ function alCambiarBancoTarjetaModal(mantenerTasa) {
         lblSaldo.textContent = info.monedaBase === 'USD'
             ? 'Saldo Inicial en Binance ($ USDT):'
             : 'Saldo Actual en ' + info.nombre + ':';
+    }
+    if (lblCuenta && inCuenta) {
+        if (info.id === 'binance') {
+            lblCuenta.textContent = '🪙 Binance Pay ID / UID (Opcional):';
+            inCuenta.placeholder = 'Ej: 123456789 (Binance Pay ID)';
+        } else {
+            lblCuenta.textContent = '🔢 Número de Cuenta afiliado:';
+            inCuenta.placeholder = info.id === 'venezuela' ? 'Ej: 0102-0000-00-0000000000' : 'Ej: 0108-0000-00-0100000000';
+        }
+    }
+    if (lblCorreo && inCorreo) {
+        if (info.id === 'binance') {
+            lblCorreo.textContent = '✉️ Correo / Usuario Binance:';
+            inCorreo.placeholder = 'Ej: tucorreo@gmail.com';
+        } else {
+            lblCorreo.textContent = '✉️ Correo / Alias (Opcional):';
+            inCorreo.placeholder = 'Ej: tucorreo@gmail.com';
+        }
+    }
+    if (inBancoPago && inBancoPago.dataset.customEdited !== '1') {
+        inBancoPago.value = info.bancoPagoNombre || info.nombre;
     }
     alCambiarInputPreviewModalTarjeta();
 }
@@ -8016,6 +8149,22 @@ function alCambiarInputPreviewModalTarjeta() {
     }
 }
 
+function leerDatosPagoModalTarjeta(info) {
+    var val = function(id) {
+        var el = document.getElementById(id);
+        return el ? String(el.value || '').trim() : '';
+    };
+    var bancoPago = val('modal-tarjeta-banco-pago') || info.bancoPagoNombre || info.nombre;
+    return {
+        numeroCuenta: val('modal-tarjeta-cuenta'),
+        bancoPago: bancoPago,
+        cedula: val('modal-tarjeta-cedula'),
+        telefono: val('modal-tarjeta-telefono'),
+        correo: val('modal-tarjeta-correo'),
+        titular: val('modal-tarjeta-titular')
+    };
+}
+
 function confirmarGuardarTarjeta() {
     var inId = document.getElementById('modal-tarjeta-id');
     var selBanco = document.getElementById('modal-tarjeta-banco');
@@ -8033,9 +8182,11 @@ function confirmarGuardarTarjeta() {
     var info = MONARCA_BANCOS_TARJETAS[bancoKey];
     var alias = inAlias ? inAlias.value.trim() : '';
     var tasaTipo = selTasa ? selTasa.value : info.tasaPorDefecto;
+    var datosPago = leerDatosPagoModalTarjeta(info);
     var tarjetas = asegurarArrayTarjetasFinanzas();
     var editId = inId ? inId.value.trim() : '';
     var now = Date.now();
+    var tarjetaGuardada = null;
 
     if (editId) {
         var existing = tarjetas.find(function(t) { return t.id === editId; });
@@ -8044,63 +8195,69 @@ function confirmarGuardarTarjeta() {
         existing.monedaBase = info.monedaBase;
         existing.alias = alias;
         existing.tasaTipo = tasaTipo;
+        existing.datosPago = datosPago;
         existing.fechaActualizacion = now;
-        MonarcaDB.save(APP_STATE);
-        cerrarModalTarjeta();
-        renderizarTarjetasFinanzas();
-        return;
-    }
-
-    var montoInput = Math.max(0, parseFloat(inSaldo ? inSaldo.value : '0') || 0);
-    var monedaIn = selMonedaIn ? selMonedaIn.value : info.monedaBase;
-    var tasaInfo = obtenerTasaParaTarjeta(tasaTipo);
-    var tasaVal = tasaInfo.valor;
-
-    if (montoInput > 0 && ((info.monedaBase === 'VES' && monedaIn === 'USD') || (info.monedaBase === 'USD' && monedaIn === 'VES')) && !tasaVal) {
-        alert('Se requiere una tasa vigente del API para convertir el monto inicial.');
-        return;
-    }
-
-    var saldoBs = 0;
-    var saldoUsd = 0;
-    var usdRef = 0;
-    if (info.monedaBase === 'USD') {
-        saldoUsd = (monedaIn === 'VES' && tasaVal > 0) ? (montoInput / tasaVal) : montoInput;
-        saldoUsd = Math.round(saldoUsd * 100) / 100;
-        usdRef = saldoUsd;
+        tarjetaGuardada = existing;
     } else {
-        saldoBs = (monedaIn === 'USD' && tasaVal > 0) ? (montoInput * tasaVal) : montoInput;
-        saldoBs = Math.round(saldoBs * 100) / 100;
-        usdRef = tasaVal > 0 ? Math.round((saldoBs / tasaVal) * 100) / 100 : 0;
+        var montoInput = Math.max(0, parseFloat(inSaldo ? inSaldo.value : '0') || 0);
+        var monedaIn = selMonedaIn ? selMonedaIn.value : info.monedaBase;
+        var tasaInfo = obtenerTasaParaTarjeta(tasaTipo);
+        var tasaVal = tasaInfo.valor;
+
+        if (montoInput > 0 && ((info.monedaBase === 'VES' && monedaIn === 'USD') || (info.monedaBase === 'USD' && monedaIn === 'VES')) && !tasaVal) {
+            alert('Se requiere una tasa vigente del API para convertir el monto inicial.');
+            return;
+        }
+
+        var saldoBs = 0;
+        var saldoUsd = 0;
+        var usdRef = 0;
+        if (info.monedaBase === 'USD') {
+            saldoUsd = (monedaIn === 'VES' && tasaVal > 0) ? (montoInput / tasaVal) : montoInput;
+            saldoUsd = Math.round(saldoUsd * 100) / 100;
+            usdRef = saldoUsd;
+        } else {
+            saldoBs = (monedaIn === 'USD' && tasaVal > 0) ? (montoInput * tasaVal) : montoInput;
+            saldoBs = Math.round(saldoBs * 100) / 100;
+            usdRef = tasaVal > 0 ? Math.round((saldoBs / tasaVal) * 100) / 100 : 0;
+        }
+
+        tarjetaGuardada = {
+            id: 'TRJ-' + now,
+            banco: bancoKey,
+            alias: alias,
+            monedaBase: info.monedaBase,
+            tasaTipo: tasaTipo,
+            saldoBs: saldoBs,
+            saldoUsd: saldoUsd,
+            usdReferenciaBase: usdRef,
+            tasaRegistroInicial: tasaVal || 0,
+            datosPago: datosPago,
+            fechaCreacion: now,
+            fechaActualizacion: now,
+            historial: (montoInput > 0) ? [{
+                id: 'TMV-' + now,
+                tipo: 'ingreso',
+                montoBs: saldoBs,
+                montoUsd: usdRef,
+                tasaUsada: tasaVal || 0,
+                nota: 'Saldo inicial registrado',
+                fecha: new Date().toISOString()
+            }] : []
+        };
+
+        tarjetas.push(tarjetaGuardada);
     }
 
-    var nuevaTarjeta = {
-        id: 'TRJ-' + now,
-        banco: bancoKey,
-        alias: alias,
-        monedaBase: info.monedaBase,
-        tasaTipo: tasaTipo,
-        saldoBs: saldoBs,
-        saldoUsd: saldoUsd,
-        usdReferenciaBase: usdRef,
-        tasaRegistroInicial: tasaVal || 0,
-        fechaCreacion: now,
-        fechaActualizacion: now,
-        historial: (montoInput > 0) ? [{
-            id: 'TMV-' + now,
-            tipo: 'ingreso',
-            montoBs: saldoBs,
-            montoUsd: usdRef,
-            tasaUsada: tasaVal || 0,
-            nota: 'Saldo inicial registrado',
-            fecha: new Date().toISOString()
-        }] : []
-    };
-
-    tarjetas.push(nuevaTarjeta);
     MonarcaDB.save(APP_STATE);
     cerrarModalTarjeta();
     renderizarTarjetasFinanzas();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Tarjeta y datos de pago guardados', '💾');
+    }
+    if (tarjetaGuardada && typeof window.sincronizarTarjetaGuardadaEnModalCobroWA === 'function') {
+        window.sincronizarTarjetaGuardadaEnModalCobroWA(tarjetaGuardada.id);
+    }
 }
 
 function eliminarTarjetaFinanzas(id) {
@@ -9621,6 +9778,124 @@ function evaluarEstadoCobroWhatsAppIngreso(item, fechaEffIng, infoOrigen, hoyISO
     };
 }
 
+var FINANZAS_COBRO_WA_ESTADO = {
+    tarjetaId: '',
+    campos: {
+        bancoPago: false,
+        cedula: false,
+        telefono: false,
+        numeroCuenta: false,
+        correo: false,
+        titular: false
+    }
+};
+
+function _clonarCamposPagoCobroWA(src) {
+    var s = (src && typeof src === 'object') ? src : {};
+    return {
+        bancoPago: Boolean(s.bancoPago),
+        cedula: Boolean(s.cedula),
+        telefono: Boolean(s.telefono),
+        numeroCuenta: Boolean(s.numeroCuenta),
+        correo: Boolean(s.correo),
+        titular: Boolean(s.titular)
+    };
+}
+
+function _resolverTarjetaPorIdCobroWA(tarjetaId) {
+    if (!tarjetaId) return null;
+    return asegurarArrayTarjetasFinanzas().find(function(t) { return t && t.id === tarjetaId; }) || null;
+}
+
+function construirCamposPorDefectoTarjetaCobroWA(tarjeta, preferenciaPrevia) {
+    var base = _clonarCamposPagoCobroWA(null);
+    if (!tarjeta) return base;
+    var dp = normalizarDatosPagoTarjeta(tarjeta);
+    var tienePrev = Boolean(
+        preferenciaPrevia &&
+        typeof preferenciaPrevia === 'object' &&
+        ['bancoPago', 'cedula', 'telefono', 'numeroCuenta', 'correo', 'titular'].some(function(k) {
+            return Boolean(preferenciaPrevia[k]) && Boolean(dp[k]);
+        })
+    );
+    if (tienePrev) {
+        Object.keys(base).forEach(function(k) {
+            base[k] = Boolean(preferenciaPrevia[k]) && Boolean(dp[k]);
+        });
+        return base;
+    }
+
+    if (tarjeta.banco === 'binance') {
+        base.correo = Boolean(dp.correo);
+        base.numeroCuenta = Boolean(dp.numeroCuenta);
+        base.titular = Boolean(dp.titular && !dp.correo && !dp.numeroCuenta);
+        return base;
+    }
+
+    if (dp.telefono || dp.cedula) {
+        base.bancoPago = Boolean(dp.bancoPago);
+        base.cedula = Boolean(dp.cedula);
+        base.telefono = Boolean(dp.telefono);
+        if (dp.numeroCuenta && !dp.telefono) {
+            base.numeroCuenta = true;
+        }
+        return base;
+    }
+
+    if (dp.numeroCuenta) {
+        base.bancoPago = Boolean(dp.bancoPago);
+        base.numeroCuenta = true;
+        base.cedula = Boolean(dp.cedula);
+        base.titular = Boolean(dp.titular);
+        return base;
+    }
+
+    if (dp.correo) base.correo = true;
+    if (dp.titular) base.titular = true;
+    return base;
+}
+
+function construirBloquePagoTarjetaWhatsApp(tarjeta, camposOpt) {
+    if (!tarjeta) return '';
+    var dp = normalizarDatosPagoTarjeta(tarjeta);
+    var c = camposOpt ? _clonarCamposPagoCobroWA(camposOpt) : construirCamposPorDefectoTarjetaCobroWA(tarjeta, null);
+    var lineas = [];
+
+    if (c.bancoPago && dp.bancoPago) lineas.push('• Banco: ' + dp.bancoPago);
+    if (c.numeroCuenta && dp.numeroCuenta) {
+        var lblCuenta = (tarjeta.banco === 'binance') ? 'Pay ID / Binance ID' : 'Nro. de Cuenta';
+        lineas.push('• ' + lblCuenta + ': ' + dp.numeroCuenta);
+    }
+    if (c.cedula && dp.cedula) lineas.push('• Cédula / RIF: ' + dp.cedula);
+    if (c.telefono && dp.telefono) lineas.push('• Teléfono: ' + dp.telefono);
+    if (c.correo && dp.correo) {
+        var lblCorreo = (tarjeta.banco === 'binance') ? 'Correo Binance' : 'Correo';
+        lineas.push('• ' + lblCorreo + ': ' + dp.correo);
+    }
+    if (c.titular && dp.titular) lineas.push('• Titular: ' + dp.titular);
+
+    if (lineas.length === 0) return '';
+
+    var titulo = '💳 Datos de pago:';
+    if (c.telefono && !c.numeroCuenta && !c.correo) {
+        titulo = '💳 Datos para Pago Móvil:';
+    } else if (c.numeroCuenta && !c.telefono && tarjeta.banco !== 'binance') {
+        titulo = '💳 Datos para Transferencia:';
+    } else if (tarjeta.banco === 'binance' && (c.correo || c.numeroCuenta) && !c.telefono) {
+        titulo = '💳 Datos Binance:';
+    }
+
+    return titulo + '\n' + lineas.join('\n');
+}
+
+function aplicarBloquePagoEnTextoCobroWA(textoActual, bloquePago) {
+    var base = String(textoActual || '')
+        .replace(/\n{0,2}💳\s*Datos (?:para Pago M[óo]vil|para Transferencia|Binance|de pago):[\s\S]*$/i, '')
+        .trimEnd();
+    if (!bloquePago) return base;
+    return base ? (base + '\n\n' + bloquePago) : bloquePago;
+}
+
 function construirMensajeCobroWhatsAppFinanzas(item, tono, opts) {
     if (!item) return '';
     opts = opts || {};
@@ -9660,25 +9935,36 @@ function construirMensajeCobroWhatsAppFinanzas(item, tono, opts) {
     var tonoSel = tono || item.tonoCobroWaPreferido || (infoOrig.tipoDestino === 'almacen' && datos.esCuotaAlmacen ? 'formal' : 'cordial');
     var concepto = datos.conceptoDisplay || 'este pago pendiente';
 
+    var cuerpo = '';
     if (tonoSel === 'cercano') {
         if (dias < 0) {
-            return '¡Hola' + saludoPersona + '! 👋 ¿Cómo estás? Paso por aquí rapidito para recordarte con todo cariño sobre ' + concepto + ' (' + montoTxt + '), que había quedado para ' + fraseFecha + '. Cuando te sea posible me avisas por aquí. ¡Un abrazo y feliz día!';
+            cuerpo = '¡Hola' + saludoPersona + '! 👋 ¿Cómo estás? Paso por aquí rapidito para recordarte con todo cariño sobre ' + concepto + ' (' + montoTxt + '), que había quedado para ' + fraseFecha + '. Cuando te sea posible me avisas por aquí. ¡Un abrazo y feliz día!';
+        } else {
+            cuerpo = '¡Hola' + saludoPersona + '! 👋 ¿Cómo vas? Te escribo con confianza solo para dejarte este recordatorio amable sobre ' + concepto + ' (' + montoTxt + '), acordado para ' + fraseFecha + '. Cualquier cosita me avisas sin apuro. ¡Un abrazo!';
         }
-        return '¡Hola' + saludoPersona + '! 👋 ¿Cómo vas? Te escribo con confianza solo para dejarte este recordatorio amable sobre ' + concepto + ' (' + montoTxt + '), acordado para ' + fraseFecha + '. Cualquier cosita me avisas sin apuro. ¡Un abrazo!';
-    }
-
-    if (tonoSel === 'formal') {
+    } else if (tonoSel === 'formal') {
         if (dias < 0) {
-            return 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para recordarle de manera amable el pago pendiente sobre ' + concepto + ' por un monto de ' + montoTxt + ', programado para ' + fraseFecha + '. Quedo atento(a) por este medio cuando le sea posible realizarlo. ¡Muchas gracias de antemano!';
+            cuerpo = 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para recordarle de manera amable el pago pendiente sobre ' + concepto + ' por un monto de ' + montoTxt + ', programado para ' + fraseFecha + '. Quedo atento(a) por este medio cuando le sea posible realizarlo. ¡Muchas gracias de antemano!';
+        } else {
+            cuerpo = 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para hacerle un recordatorio amable sobre su compromiso de pago por ' + concepto + ' (' + montoTxt + '), pautado para ' + fraseFecha + '. Quedo atento(a) por aquí para confirmar apenas se realice. ¡Muchas gracias!';
         }
-        return 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para hacerle un recordatorio amable sobre su compromiso de pago por ' + concepto + ' (' + montoTxt + '), pautado para ' + fraseFecha + '. Quedo atento(a) por aquí para confirmar apenas se realice. ¡Muchas gracias!';
+    } else {
+        // Tono por defecto: cordial / amable
+        if (dias < 0) {
+            cuerpo = '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Te escribo para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', que teníamos programado para ' + fraseFecha + '. Cuando tengas un chance me comentas cómo vamos con eso. ¡Muchas gracias y bendiciones!';
+        } else {
+            cuerpo = '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Paso por aquí para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', acordado para ' + fraseFecha + '. Cuando puedas me confirmas por aquí. ¡Muchas gracias y feliz día!';
+        }
     }
 
-    // Tono por defecto: cordial / amable
-    if (dias < 0) {
-        return '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Te escribo para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', que teníamos programado para ' + fraseFecha + '. Cuando tengas un chance me comentas cómo vamos con eso. ¡Muchas gracias y bendiciones!';
+    var tarjetaObj = opts.tarjeta || _resolverTarjetaPorIdCobroWA(opts.tarjetaId);
+    if (tarjetaObj) {
+        var bloquePago = construirBloquePagoTarjetaWhatsApp(tarjetaObj, opts.camposPago);
+        if (bloquePago) {
+            cuerpo += '\n\n' + bloquePago;
+        }
     }
-    return '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Paso por aquí para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', acordado para ' + fraseFecha + '. Cuando puedas me confirmas por aquí. ¡Muchas gracias y feliz día!';
+    return cuerpo;
 }
 
 function generarBotonCobroWhatsAppIngresoHTML(item, fechaEffIng, infoOrigen, hoyISO) {
@@ -9729,7 +10015,203 @@ function ajustarAlturaTextareaWaCobro() {
     var ta = document.getElementById('modal-cobro-wa-textarea');
     if (!ta) return;
     ta.style.height = 'auto';
-    ta.style.height = Math.max(115, Math.min(300, ta.scrollHeight + 4)) + 'px';
+    ta.style.height = Math.max(115, Math.min(340, ta.scrollHeight + 4)) + 'px';
+}
+
+function poblarSelectTarjetasCobroWA(preferidaId) {
+    var sel = document.getElementById('modal-cobro-wa-tarjeta');
+    if (!sel) return '';
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    var html = '<option value="">Sin adjuntar datos de tarjeta</option>';
+    tarjetas.forEach(function(t) {
+        var tieneDp = tieneDatosPagoConfiguradosTarjeta(t);
+        var tag = tieneDp ? ' ✓ con datos' : ' · sin datos aún';
+        html += '<option value="' + escaparHTML(t.id) + '">' + escaparHTML(construirTituloTarjeta(t) + tag) + '</option>';
+    });
+    sel.innerHTML = html;
+
+    var elegida = '';
+    if (preferidaId && tarjetas.some(function(t) { return t.id === preferidaId; })) {
+        elegida = preferidaId;
+    }
+    sel.value = elegida;
+    FINANZAS_COBRO_WA_ESTADO.tarjetaId = elegida;
+    return elegida;
+}
+
+function renderizarEstadoMetodosPagoCobroWA() {
+    var wrap = document.getElementById('modal-cobro-wa-metodos-wrap');
+    var previewEl = document.getElementById('modal-cobro-wa-datos-preview');
+    var btnEdit = document.getElementById('btn-cobro-wa-editar-tarjeta');
+    var t = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
+
+    if (!t) {
+        if (wrap) wrap.style.display = 'none';
+        if (btnEdit) {
+            btnEdit.textContent = asegurarArrayTarjetasFinanzas().length > 0 ? '⚙️ Configurar tarjetas' : '➕ Agregar tarjeta';
+        }
+        return;
+    }
+
+    if (wrap) wrap.style.display = 'block';
+    if (btnEdit) btnEdit.textContent = '✏️ Editar datos tarjeta';
+
+    var dp = normalizarDatosPagoTarjeta(t);
+    var c = FINANZAS_COBRO_WA_ESTADO.campos;
+
+    // Resaltado activo en botones rápidos de método
+    var esPagoMovilActivo = Boolean(c.telefono && (c.bancoPago || c.cedula) && !c.numeroCuenta && !c.correo);
+    var esTransferActivo = Boolean(c.numeroCuenta && !c.telefono && t.banco !== 'binance');
+    var esBinanceActivo = Boolean((c.correo || (t.banco === 'binance' && c.numeroCuenta)) && !c.telefono);
+
+    document.querySelectorAll('#modal-cobro-wa-metodos-row .fin-wa-metodo-pill[data-metodo-cobro-wa]').forEach(function(b) {
+        var m = b.getAttribute('data-metodo-cobro-wa');
+        var act = (m === 'pago_movil' && esPagoMovilActivo) ||
+            (m === 'transferencia' && esTransferActivo) ||
+            (m === 'binance' && esBinanceActivo);
+        b.classList.toggle('is-active', act);
+    });
+
+    document.querySelectorAll('#modal-cobro-wa-campos-row .fin-wa-campo-chip[data-campo-cobro-wa]').forEach(function(chip) {
+        var campo = chip.getAttribute('data-campo-cobro-wa');
+        var tieneValor = Boolean(dp[campo]);
+        var activo = Boolean(c[campo]) && tieneValor;
+        chip.classList.toggle('is-active', activo);
+        chip.classList.toggle('is-empty', !tieneValor);
+        chip.title = tieneValor
+            ? (dp[campo] + ' (toca para incluir u omitir)')
+            : 'Sin configurar en esta tarjeta · toca para agregar';
+    });
+
+    if (previewEl) {
+        if (!tieneDatosPagoConfiguradosTarjeta(t)) {
+            previewEl.className = 'fin-wa-datos-preview is-missing';
+            previewEl.innerHTML = 'Esta tarjeta aún no tiene número de cuenta, cédula ni teléfono guardados. <button type="button" onclick="editarTarjetaSeleccionadaDesdeCobroWA()" style="background:none;border:none;color:#fde68a;font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font-size:11px;">Completar ahora →</button>';
+        } else {
+            var bloque = construirBloquePagoTarjetaWhatsApp(t, c);
+            previewEl.className = 'fin-wa-datos-preview';
+            if (bloque) {
+                var pLineas = bloque.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+                var pTit = pLineas.shift() || '';
+                var pBody = pLineas.map(function(l) { return l.replace(/^•\s*/, ''); }).join(' · ');
+                previewEl.textContent = pBody ? (pTit + ' ' + pBody) : pTit;
+            } else {
+                previewEl.textContent = 'Ningún campo seleccionado · marca arriba Cédula, Teléfono, Banco o Nro. de Cuenta para incluirlos.';
+            }
+        }
+    }
+}
+
+function sincronizarBloquePagoEnTextareaCobroWA() {
+    var ta = document.getElementById('modal-cobro-wa-textarea');
+    if (!ta) return;
+    var t = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
+    var bloque = t ? construirBloquePagoTarjetaWhatsApp(t, FINANZAS_COBRO_WA_ESTADO.campos) : '';
+    ta.value = aplicarBloquePagoEnTextoCobroWA(ta.value, bloque);
+    ajustarAlturaTextareaWaCobro();
+}
+
+function alCambiarTarjetaCobroWA() {
+    var sel = document.getElementById('modal-cobro-wa-tarjeta');
+    var tarjetaId = sel ? String(sel.value || '').trim() : '';
+    FINANZAS_COBRO_WA_ESTADO.tarjetaId = tarjetaId;
+    var t = _resolverTarjetaPorIdCobroWA(tarjetaId);
+    FINANZAS_COBRO_WA_ESTADO.campos = construirCamposPorDefectoTarjetaCobroWA(t, null);
+    renderizarEstadoMetodosPagoCobroWA();
+    sincronizarBloquePagoEnTextareaCobroWA();
+}
+
+function seleccionarMetodoPagoCobroWA(metodo) {
+    var t = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
+    if (!t) return;
+    var dp = normalizarDatosPagoTarjeta(t);
+
+    if (metodo === 'pago_movil') {
+        if (!dp.telefono && !dp.cedula) {
+            if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('Completa tu cédula y teléfono en la tarjeta', '⚠️');
+            abrirModalTarjeta(t.id, true);
+            return;
+        }
+        FINANZAS_COBRO_WA_ESTADO.campos = {
+            bancoPago: Boolean(dp.bancoPago),
+            cedula: Boolean(dp.cedula),
+            telefono: Boolean(dp.telefono),
+            numeroCuenta: false,
+            correo: false,
+            titular: false
+        };
+    } else if (metodo === 'transferencia') {
+        if (!dp.numeroCuenta) {
+            if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('Agrega primero el número de cuenta afiliado a esta tarjeta', '⚠️');
+            abrirModalTarjeta(t.id, true);
+            return;
+        }
+        FINANZAS_COBRO_WA_ESTADO.campos = {
+            bancoPago: Boolean(dp.bancoPago),
+            cedula: Boolean(dp.cedula),
+            telefono: false,
+            numeroCuenta: true,
+            correo: false,
+            titular: Boolean(dp.titular)
+        };
+    } else if (metodo === 'binance') {
+        if (!dp.correo && !(t.banco === 'binance' && dp.numeroCuenta)) {
+            if (typeof mostrarToastMonarca === 'function') mostrarToastMonarca('Agrega primero el correo o Binance Pay ID en la tarjeta', '⚠️');
+            abrirModalTarjeta(t.id, true);
+            return;
+        }
+        FINANZAS_COBRO_WA_ESTADO.campos = {
+            bancoPago: false,
+            cedula: false,
+            telefono: false,
+            numeroCuenta: Boolean(t.banco === 'binance' && dp.numeroCuenta),
+            correo: Boolean(dp.correo),
+            titular: Boolean(dp.titular)
+        };
+    }
+
+    renderizarEstadoMetodosPagoCobroWA();
+    sincronizarBloquePagoEnTextareaCobroWA();
+}
+
+function toggleCampoPagoCobroWA(campo) {
+    var t = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
+    if (!t || !campo) return;
+    var dp = normalizarDatosPagoTarjeta(t);
+    if (!dp[campo]) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Ese dato aún no está guardado en ' + construirTituloTarjeta(t) + ' · agrégalo aquí', '✏️');
+        }
+        abrirModalTarjeta(t.id, true);
+        return;
+    }
+    FINANZAS_COBRO_WA_ESTADO.campos[campo] = !Boolean(FINANZAS_COBRO_WA_ESTADO.campos[campo]);
+    renderizarEstadoMetodosPagoCobroWA();
+    sincronizarBloquePagoEnTextareaCobroWA();
+}
+
+function editarTarjetaSeleccionadaDesdeCobroWA() {
+    var tid = FINANZAS_COBRO_WA_ESTADO.tarjetaId;
+    if (tid && _resolverTarjetaPorIdCobroWA(tid)) {
+        abrirModalTarjeta(tid, true);
+        return;
+    }
+    var tarjetas = asegurarArrayTarjetasFinanzas();
+    if (tarjetas.length > 0) {
+        abrirModalTarjeta(tarjetas[0].id, true);
+    } else {
+        abrirModalTarjeta(null, true);
+    }
+}
+
+function sincronizarTarjetaGuardadaEnModalCobroWA(tarjetaId) {
+    var modal = document.getElementById('modal-enviar-cobro-whatsapp-finanzas');
+    if (!modal || modal.style.display !== 'flex') return;
+    var tid = poblarSelectTarjetasCobroWA(tarjetaId);
+    var t = _resolverTarjetaPorIdCobroWA(tid);
+    FINANZAS_COBRO_WA_ESTADO.campos = construirCamposPorDefectoTarjetaCobroWA(t, FINANZAS_COBRO_WA_ESTADO.campos);
+    renderizarEstadoMetodosPagoCobroWA();
+    sincronizarBloquePagoEnTextareaCobroWA();
 }
 
 function abrirModalCobroWhatsAppFinanzas(ingresoId) {
@@ -9772,6 +10254,12 @@ function abrirModalCobroWhatsAppFinanzas(ingresoId) {
         btnCopy.textContent = '📋 Copiar';
     }
 
+    var prefTarjetaId = item.tarjetaCobroWaId || '';
+    var elegidaId = poblarSelectTarjetasCobroWA(prefTarjetaId);
+    var tarjetaSel = _resolverTarjetaPorIdCobroWA(elegidaId);
+    FINANZAS_COBRO_WA_ESTADO.campos = construirCamposPorDefectoTarjetaCobroWA(tarjetaSel, item.camposPagoCobroWa || null);
+    renderizarEstadoMetodosPagoCobroWA();
+
     var montoStr = '+$' + (Number(item.monto) || 0).toFixed(2);
     var etiquetaT = estado ? estado.etiquetaTiempo : ('Fecha: ' + fechaEff);
     if (resumenEl) {
@@ -9786,9 +10274,22 @@ function abrirModalCobroWhatsAppFinanzas(ingresoId) {
     });
 
     if (ta) {
-        ta.value = (item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim())
-            ? String(item.mensajeCobroPersonalizado).trim()
-            : construirMensajeCobroWhatsAppFinanzas(item, tonoDef, { fechaISO: fechaEff, personaOverride: datos.personaRaw });
+        if (item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim()) {
+            ta.value = String(item.mensajeCobroPersonalizado).trim();
+            if (tarjetaSel) {
+                var bloque = construirBloquePagoTarjetaWhatsApp(tarjetaSel, FINANZAS_COBRO_WA_ESTADO.campos);
+                if (bloque && !/💳\s*Datos/i.test(ta.value)) {
+                    ta.value = aplicarBloquePagoEnTextoCobroWA(ta.value, bloque);
+                }
+            }
+        } else {
+            ta.value = construirMensajeCobroWhatsAppFinanzas(item, tonoDef, {
+                fechaISO: fechaEff,
+                personaOverride: datos.personaRaw,
+                tarjeta: tarjetaSel,
+                camposPago: FINANZAS_COBRO_WA_ESTADO.campos
+            });
+        }
     }
 
     modal.style.display = 'flex';
@@ -9835,8 +10336,13 @@ function regenerarMensajeCobroWhatsApp(forzarSobrePersonalizado) {
     }
 
     var tono = inTono ? inTono.value : 'cordial';
+    var tarjetaSel = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
     if (ta) {
-        ta.value = construirMensajeCobroWhatsAppFinanzas(item, tono, { personaOverride: personaVal });
+        ta.value = construirMensajeCobroWhatsAppFinanzas(item, tono, {
+            personaOverride: personaVal,
+            tarjeta: tarjetaSel,
+            camposPago: FINANZAS_COBRO_WA_ESTADO.campos
+        });
         ajustarAlturaTextareaWaCobro();
     }
 }
@@ -9866,6 +10372,11 @@ function guardarDatosYMensajeCobroWhatsApp(silencioso) {
         item.telefonoCobro = tel;
     }
     item.tonoCobroWaPreferido = tono;
+    item.tarjetaCobroWaId = FINANZAS_COBRO_WA_ESTADO.tarjetaId || '';
+    item.camposPagoCobroWa = _clonarCamposPagoCobroWA(FINANZAS_COBRO_WA_ESTADO.campos);
+    if (item.tarjetaCobroWaId) {
+        APP_STATE.finanzas.ultimaTarjetaCobroWaId = item.tarjetaCobroWaId;
+    }
     if (msg) {
         item.mensajeCobroPersonalizado = msg;
     }
@@ -9989,7 +10500,7 @@ async function pulirMensajeCobroConIAFinanzas() {
 
     try {
         var sys = 'Eres experta en redacción empática de mensajes cortos de WhatsApp en español. Devuelve ÚNICAMENTE el texto final del mensaje listo para enviar, sin comillas, sin explicaciones ni encabezados.';
-        var prompt = 'Mejora y haz aún más amable, cálido y natural este mensaje de recordatorio de cobro para WhatsApp (manteniendo exactamente el monto, la fecha, el concepto y el tono "' + tono + '")' +
+        var prompt = 'Mejora y haz aún más amable, cálido y natural este mensaje de recordatorio de cobro para WhatsApp (manteniendo exactamente el monto, la fecha, el concepto, todos los datos bancarios / métodos de pago si aparecen abajo y el tono "' + tono + '")' +
             (persona ? (' dirigido a "' + persona + '"') : '') +
             (ctx ? (' (Contexto: ' + ctx + ')') : '') +
             ':\n\n' + baseTxt;
@@ -10015,6 +10526,16 @@ async function pulirMensajeCobroConIAFinanzas() {
 }
 
 if (typeof window !== 'undefined') {
+    window.normalizarDatosPagoTarjeta = normalizarDatosPagoTarjeta;
+    window.tieneDatosPagoConfiguradosTarjeta = tieneDatosPagoConfiguradosTarjeta;
+    window.copiarDatosPagoTarjetaFinanzas = copiarDatosPagoTarjetaFinanzas;
+    window.construirBloquePagoTarjetaWhatsApp = construirBloquePagoTarjetaWhatsApp;
+    window.aplicarBloquePagoEnTextoCobroWA = aplicarBloquePagoEnTextoCobroWA;
+    window.alCambiarTarjetaCobroWA = alCambiarTarjetaCobroWA;
+    window.seleccionarMetodoPagoCobroWA = seleccionarMetodoPagoCobroWA;
+    window.toggleCampoPagoCobroWA = toggleCampoPagoCobroWA;
+    window.editarTarjetaSeleccionadaDesdeCobroWA = editarTarjetaSeleccionadaDesdeCobroWA;
+    window.sincronizarTarjetaGuardadaEnModalCobroWA = sincronizarTarjetaGuardadaEnModalCobroWA;
     window.limpiarTelefonoWhatsAppFinanzas = limpiarTelefonoWhatsAppFinanzas;
     window.buscarTelefonoPersonaEnMonarca = buscarTelefonoPersonaEnMonarca;
     window.resolverDatosCobroPersonaIngreso = resolverDatosCobroPersonaIngreso;

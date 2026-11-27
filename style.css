@@ -18439,6 +18439,83 @@ body.modal-open {
     line-height: 1.4;
 }
 
+.tarjeta-datos-pago-box {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(52, 211, 153, 0.28);
+    border-radius: 12px;
+    padding: 11px 12px;
+    margin-top: 12px;
+}
+
+.tarjeta-datos-pago-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #6ee7b7;
+    margin-bottom: 9px;
+}
+
+.tarjeta-datos-pago-sub {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.tarjeta-datos-pago-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.tarjeta-datos-cobro-mini {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(52, 211, 153, 0.22);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #cbd5e1;
+    line-height: 1.35;
+}
+
+.tarjeta-datos-cobro-mini.is-empty {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.18);
+    color: #94a3b8;
+}
+
+.tarjeta-datos-cobro-txt {
+    min-width: 0;
+    flex: 1 1 180px;
+    word-break: break-word;
+}
+
+.btn-tarjeta-datos-copy {
+    padding: 4px 9px;
+    border-radius: 7px;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    background: rgba(16, 185, 129, 0.14);
+    color: #6ee7b7;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .tarjeta-datos-pago-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 720px) {
     .finanzas-tasas-grid.cols-3 {
         grid-template-columns: 1fr;
@@ -27547,6 +27624,113 @@ button.ia-tool-chip.is-clickable:hover {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+}
+
+.fin-wa-pago-box {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 12px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fin-wa-pago-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.fin-wa-pago-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    color: #cbd5e1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fin-wa-tarjeta-select {
+    margin-bottom: 0 !important;
+    font-size: 12.5px !important;
+    background: #0b1120 !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(56, 189, 248, 0.32) !important;
+}
+
+.fin-wa-metodos-row,
+.fin-wa-campos-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.fin-wa-campos-row {
+    margin-top: 6px;
+}
+
+.fin-wa-metodo-pill {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    color: #bae6fd;
+    border-radius: 8px;
+    padding: 5px 9px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+
+.fin-wa-metodo-pill.is-active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    color: #e0f2fe;
+}
+
+.fin-wa-campo-chip {
+    background: rgba(30, 41, 59, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #94a3b8;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+
+.fin-wa-campo-chip.is-active {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: #34d399;
+    color: #6ee7b7;
+}
+
+.fin-wa-campo-chip.is-empty {
+    opacity: 0.62;
+    border-style: dashed;
+}
+
+.fin-wa-datos-preview {
+    margin-top: 7px;
+    font-size: 11px;
+    color: #94a3b8;
+    background: rgba(11, 17, 32, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 8px;
+    padding: 7px 9px;
+    line-height: 1.4;
+}
+
+.fin-wa-datos-preview.is-missing {
+    color: #fcd34d;
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(245, 158, 11, 0.1);
 }
 
 .fin-wa-tone-bar {
