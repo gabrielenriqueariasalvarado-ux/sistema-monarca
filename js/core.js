@@ -208,7 +208,8 @@ const DEFAULT_STATE = {
     iaConfig: {
         modelo: 'gemini-3.8-flash',
         instruccionesSistema: '',
-        contextoMonarcaDefault: false,
+        contextoMonarcaDefault: true,
+        soloLecturaHerramientas: false,
         googleSearch: false,
         sincronizarApiKeyNube: false,
         apiKeyCloud: ''
@@ -1996,7 +1997,7 @@ if (typeof window !== 'undefined') {
     window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
 }
 
-var MONARCA_APP_VERSION = '11.35';
+var MONARCA_APP_VERSION = '11.36';
 var MONARCA_APP_VERSION_FECHA = '2026-11-26';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';

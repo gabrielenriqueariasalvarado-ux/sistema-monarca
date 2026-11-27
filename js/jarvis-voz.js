@@ -624,6 +624,13 @@ async function consultarIAConJarvis(pregunta, opts) {
             nuevaConversacion: !!opts.nuevaConversacion,
             usarContextoMonarca: true,
             abortSignal: _JARVIS_IA_ABORT_CTRL ? _JARVIS_IA_ABORT_CTRL.signal : undefined,
+            onToolStatus: function(estadoTxt) {
+                if (estadoTxt) {
+                    setJarvisEstado('procesando', estadoTxt);
+                } else {
+                    setJarvisEstado('procesando', '✦ ' + estadoIA.modeloNombre + ' respondiendo...');
+                }
+            },
             onDelta: function(acumulado) {
                 var bodyEl = document.getElementById('jarvis-result-body');
                 if (bodyEl) {
@@ -642,6 +649,9 @@ async function consultarIAConJarvis(pregunta, opts) {
         var htmlFinal = (typeof window.renderizarMarkdownSeguroIA === 'function')
             ? window.renderizarMarkdownSeguroIA(res.texto)
             : _escaparHtmlJarvis(res.texto).replace(/\n/g, '<br>');
+        if (res && Array.isArray(res.herramientasUsadas) && res.herramientasUsadas.length > 0 && typeof window.renderizarChipsHerramientasIA === 'function') {
+            htmlFinal = window.renderizarChipsHerramientasIA(res.herramientasUsadas) + htmlFinal;
+        }
         var cidEsc = _escaparHtmlJarvis(res.convId || '');
 
         mostrarResultadoJarvis(
@@ -683,7 +693,7 @@ function normalizarTextoComando(txt) {
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[.,/#!$%^&*;:{}=\-_`~()¿?¡!]/g, '')
+        .replace(/[.,\/#!$%^&*;:{}=\-_`~()¿?¡!]/g, '')
         .trim();
 }
 

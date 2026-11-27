@@ -25551,6 +25551,71 @@ body.modal-open {
     color: #f3e8ff;
 }
 
+/* CHIPS Y ESTADO EN VIVO DE HERRAMIENTAS DEL ECOSISTEMA */
+.ia-tool-live-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin-bottom: 7px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    animation: iaToolPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes iaToolPulse {
+    0%, 100% { opacity: 0.78; }
+    50% { opacity: 1; }
+}
+
+.ia-tool-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.ia-tool-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: rgba(51, 65, 85, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    cursor: default;
+    transition: all 0.15s ease;
+}
+
+.ia-tool-chip.is-write {
+    color: #a7f3d0;
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(52, 211, 153, 0.38);
+}
+
+.ia-tool-chip.is-err {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(248, 113, 113, 0.42);
+}
+
+button.ia-tool-chip.is-clickable {
+    cursor: pointer;
+}
+
+button.ia-tool-chip.is-clickable:hover {
+    transform: translateY(-1px);
+    border-color: rgba(192, 132, 252, 0.6);
+    color: #f8fafc;
+}
+
 /* INDICADORES DE STREAMING */
 .ia-typing-dots {
     display: inline-flex;

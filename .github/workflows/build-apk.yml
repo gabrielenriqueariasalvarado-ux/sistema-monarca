@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.35)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.36)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.35
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.36
             Esta versión nativa incluye:
+            - 👑 **Emily IA Conectada con Todo Sistema Monarca (v11.36)**:
+              - **Contexto Vivo Omnisciente 360° (activado por defecto)**: Emily ve en tiempo real tu **Calendario y Horario Semanal** (eventos, recordatorios, destacados y próximos 3 días), **Alertas Activas**, **Finanzas en vivo** (saldos de cada tarjeta en `$` y `Bs.`, tasas `BCV`/`EUR`/`Paralelo`, ingresos/gastos, metas, deudas, retrasos), **Quests Diarios, Rutinas y Misiones**, **Estado Personal** (fatiga física por músculo y desgaste mental), **Labores** (`Boom`, `Barbería`, `Trainer`), **Ideas & Auto-PC en vivo**, **Conocimiento & Vocabulario Semanal**, **Habilidades**, **Personas**, **Inventario**, **Reproductor MP3** y **Ruleta Semanal**.
+              - **Agente con Herramientas Reales (Function Calling en Chat y Jarvis Voz)**: Emily consulta datos detallados bajo demanda y ejecuta acciones reales en tus apps sin ventanas bloqueantes — crea recordatorios/eventos, registra gastos/ingresos o abona metas, crea o completa quests, envía ideas directo a **Auto-PC**, registra conocimientos o usos de vocabulario, controla el **Reproductor MP3** (play/pausa/playlist/canción), ajusta inventario/ventas, suma horas de habilidad o gira la **Ruleta Semanal** — con tarjetas interactivas en la respuesta e interruptor de **Modo Solo Lectura** en Configuración.
             - 🎵 **Reproducción Continua Blindada en Segundo Plano y Manejo (v11.35)**:
               - **Cero Congelamiento al Terminar Canción (`03:19 / 03:19`)**: Mantiene `MediaSession` activa durante la transición entre pistas sin emitir `'paused'` falsos al finalizar una canción, pre-carga la siguiente canción de forma instantánea y activa un watchdog para garantizar el avance automático.
               - **Protección Nativa contra Doze / Pantalla Apagada (`MonarcaMediaPlugin` + `MainActivity`)**: Integra `PowerManager.PARTIAL_WAKE_LOCK` mientras suena la música, prioridad continua del renderizador WebView (`RENDERER_PRIORITY_IMPORTANT`), caché rotativa segura y desbloqueo de reproducción programática entre pistas.

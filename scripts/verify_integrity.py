@@ -119,7 +119,7 @@ def check_js_syntax(filename):
     print(f"PASS JS: {filename}")
     return True
 
-for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js', 'js/estado-personal.js', 'js/reproductor.js']:
+for f in ['js/finanzas.js', 'js/dinamicas.js', 'js/core.js', 'js/estado-personal.js', 'js/reproductor.js', 'js/ia-monarca-tools.js', 'js/ia.js', 'js/jarvis-voz.js']:
     if not check_js_syntax(f):
         sys.exit(1)
 

@@ -38,24 +38,24 @@ var MONARCA_IA_MODELOS = [
 
 var MONARCA_IA_PROMPTS_RAPIDOS = [
     {
-        icono: '💡',
-        titulo: 'Explícame algo claro',
-        texto: 'Explícame un concepto complejo de forma sencilla, con un ejemplo real y pasos prácticos:'
+        icono: '📅',
+        titulo: '¿Qué tengo para hoy?',
+        texto: '¿Qué tengo para hoy? Revisa mi calendario, horario semanal, quests pendientes, alertas y labores.'
     },
     {
-        icono: '🎯',
-        titulo: 'Planificar mi día',
-        texto: 'Ayúdame a organizar mis prioridades de hoy en bloques claros de tiempo para ser más productivo.'
+        icono: '💰',
+        titulo: 'Pulso de mis finanzas',
+        texto: '¿Cómo están mis cuentas y tarjetas hoy, mis tasas BCV/Paralelo y pagos o metas pendientes?'
     },
     {
-        icono: '✍️',
-        titulo: 'Mejorar un mensaje',
-        texto: 'Mejora el tono y la claridad de este mensaje para que suene profesional, directo y persuasivo:'
+        icono: '⚡',
+        titulo: 'Estado y entrenamiento',
+        texto: 'Analiza mi fatiga física y mental actual y dime qué rutina o hábito me conviene hacer hoy.'
     },
     {
-        icono: '🛠️',
-        titulo: 'Resolver una duda técnica',
-        texto: 'Tengo una duda técnica y necesito una solución directa paso a paso:'
+        icono: '🚀',
+        titulo: 'Ejecutar una acción',
+        texto: 'Créame un recordatorio hoy a las 6:00 PM para revisar mis pendientes y pon mi música favorita:'
     }
 ];
 
@@ -92,7 +92,19 @@ function asegurarEstadoIA() {
         cfg.instruccionesSistema = '';
     }
     if (typeof cfg.contextoMonarcaDefault !== 'boolean') {
-        cfg.contextoMonarcaDefault = false;
+        cfg.contextoMonarcaDefault = true;
+    }
+    if (!cfg._v1136ContextoUpgrade) {
+        cfg.contextoMonarcaDefault = true;
+        cfg._v1136ContextoUpgrade = true;
+        APP_STATE.iaConversaciones.forEach(function(c) {
+            if (c && (!Array.isArray(c.mensajes) || c.mensajes.length === 0)) {
+                c.usarContextoMonarca = true;
+            }
+        });
+    }
+    if (typeof cfg.soloLecturaHerramientas !== 'boolean') {
+        cfg.soloLecturaHerramientas = false;
     }
     if (typeof cfg.googleSearch !== 'boolean') {
         cfg.googleSearch = false;
@@ -587,7 +599,7 @@ function toggleContextoMonarcaChatIA() {
     if (typeof mostrarToastMonarca === 'function') {
         mostrarToastMonarca(
             activo
-                ? 'Contexto Monarca ON: la IA puede consultar tus quests, rutinas y metas'
+                ? 'Contexto Monarca ON: Emily puede consultar y operar todas tus apps'
                 : 'Contexto Monarca OFF: modo chat general libre',
             activo ? '👑' : '💬'
         );
@@ -595,40 +607,20 @@ function toggleContextoMonarcaChatIA() {
 }
 
 // ==========================================================================
-// 4. CONTEXTO MONARCA OPCIONAL & CLIENTE GEMINI INTERACTIONS API (SSE)
+// 4. CONTEXTO MONARCA 360° & CLIENTE GEMINI INTERACTIONS API (SSE + TOOLS)
 // ==========================================================================
 
 function construirContextoMonarcaParaIA() {
     if (typeof window.APP_STATE !== 'object' || !window.APP_STATE) return '';
+    if (window.MonarcaIATools && typeof window.MonarcaIATools.construirContextoCompleto === 'function') {
+        return window.MonarcaIATools.construirContextoCompleto();
+    }
     try {
         var jug = APP_STATE.jugador || {};
         var hoyISO = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().slice(0, 10);
         var quests = Array.isArray(APP_STATE.questsDiarios) ? APP_STATE.questsDiarios : [];
         var qPend = quests.filter(function(q) { return q && q.estado !== 'completada'; }).slice(0, 8);
-        var qComp = quests.filter(function(q) { return q && q.estado === 'completada'; }).length;
-        var rutinas = Array.isArray(APP_STATE.rutinas) ? APP_STATE.rutinas.slice(0, 6).map(function(r) { return r && r.nombre; }).filter(Boolean) : [];
-        var fatProm = (APP_STATE.fatiga && typeof APP_STATE.fatiga.promedioHoy === 'number') ? APP_STATE.fatiga.promedioHoy : 0;
-        var fatMente = (APP_STATE.fatigaMentalDiaria && typeof APP_STATE.fatigaMentalDiaria.nivel === 'number') ? APP_STATE.fatigaMentalDiaria.nivel : 0;
-        var metas = (APP_STATE.finanzas && Array.isArray(APP_STATE.finanzas.metas))
-            ? APP_STATE.finanzas.metas.slice(0, 4).map(function(m) {
-                return (m.nombre || 'Meta') + ' ($' + (Number(m.ahorrado) || 0) + '/$' + (Number(m.objetivo) || 0) + ')';
-            })
-            : [];
-        var vocab = Array.isArray(APP_STATE.vocabulario)
-            ? APP_STATE.vocabulario.filter(function(v) { return v && !v.dominada; }).slice(0, 5).map(function(v) { return v.palabra; })
-            : [];
-
-        var lineas = [
-            'Contexto actual del usuario en Sistema Monarca (fecha local ' + hoyISO + '):',
-            '- Usuario: ' + (jug.titulo || 'Usuario') + ' · Nivel ' + (jug.nivel || 1) + ' (' + (jug.exp || 0) + '/' + (jug.expMax || 100) + ' EXP).',
-            '- Fatiga física promedio: ' + fatProm + '% · Fatiga mental: ' + fatMente + '%.',
-            '- Quests diarios: ' + qComp + ' completadas hoy, ' + qPend.length + ' pendientes' + (qPend.length ? (' (' + qPend.map(function(q) { return q.titulo + ' [' + q.estado + ']'; }).join(', ') + ')') : '') + '.'
-        ];
-        if (rutinas.length) lineas.push('- Rutinas registradas: ' + rutinas.join(', ') + '.');
-        if (metas.length) lineas.push('- Metas financieras: ' + metas.join(', ') + '.');
-        if (vocab.length) lineas.push('- Vocabulario semanal en práctica: ' + vocab.join(', ') + '.');
-        lineas.push('Usa este contexto solo cuando sea relevante para responder mejor y de forma personalizada.');
-        return lineas.join('\n');
+        return 'Contexto Sistema Monarca (' + hoyISO + '): ' + (jug.titulo || 'Usuario') + ' Nivel ' + (jug.nivel || 1) + ', ' + qPend.length + ' quests pendientes.';
     } catch (e) {
         return '';
     }
@@ -637,7 +629,7 @@ function construirContextoMonarcaParaIA() {
 function construirSystemInstructionIA(conv) {
     asegurarEstadoIA();
     var partes = [
-        'Eres el asistente de IA integrado dentro de Sistema Monarca (Emily). Responde siempre en español claro, directo, útil y bien estructurado usando Markdown cuando ayude a la lectura.'
+        'Eres Emily, la asistente de IA integrada directamente dentro de Sistema Monarca. Responde siempre en español claro, directo, útil y bien estructurado usando Markdown cuando ayude a la lectura.'
     ];
     var custom = String(APP_STATE.iaConfig.instruccionesSistema || '').trim();
     if (custom) {
@@ -750,6 +742,32 @@ function formatearErrorGeminiIA(status, bodyText, modelo) {
     return '⚠️ Error de Gemini API (' + (status || 'red') + '): ' + (msgRaw || 'No se pudo completar la solicitud.');
 }
 
+function _finalizarStepStreamIA(tracker) {
+    if (!tracker || typeof tracker !== 'object') return null;
+    var step = Object.assign({}, tracker);
+    var rawArgs = step._argsStr;
+    delete step._argsStr;
+
+    if (step.type === 'function_call') {
+        if (typeof rawArgs === 'string' && rawArgs.trim()) {
+            try {
+                step.arguments = JSON.parse(rawArgs);
+            } catch (eArgs) {
+                step.arguments = {};
+            }
+        } else if (typeof step.arguments === 'string') {
+            try {
+                step.arguments = step.arguments.trim() ? JSON.parse(step.arguments) : {};
+            } catch (eArgs2) {
+                step.arguments = {};
+            }
+        } else if (!step.arguments || typeof step.arguments !== 'object') {
+            step.arguments = {};
+        }
+    }
+    return step;
+}
+
 async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
     var apiKey = params.apiKey;
     var modelo = params.modelo || 'gemini-3.8-flash';
@@ -762,8 +780,14 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
     if (params.systemInstruction) {
         body.system_instruction = params.systemInstruction;
     }
+
+    var toolsList = Array.isArray(params.tools) ? params.tools.slice() : [];
     if (params.googleSearch) {
-        body.tools = [{ type: 'google_search' }];
+        var yaTieneGS = toolsList.some(function(t) { return t && t.type === 'google_search'; });
+        if (!yaTieneGS) toolsList.push({ type: 'google_search' });
+    }
+    if (toolsList.length > 0) {
+        body.tools = toolsList;
     }
 
     var resp;
@@ -789,12 +813,18 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
     }
 
     var contentType = (resp.headers && resp.headers.get('content-type')) ? String(resp.headers.get('content-type')).toLowerCase() : '';
-    // Fallback limpio si la respuesta no llegó en streaming SSE
+    // Fallback limpio si la respuesta llegó como JSON completo en vez de SSE
     if (contentType.indexOf('application/json') !== -1 || !resp.body || typeof resp.body.getReader !== 'function') {
         var jsonData = await resp.json();
+        var rootJ = (jsonData && jsonData.interaction && typeof jsonData.interaction === 'object') ? jsonData.interaction : jsonData;
         var fullTxt = extraerTextoDeInteractionJson(jsonData);
         if (fullTxt && typeof onDelta === 'function') onDelta(fullTxt, fullTxt);
-        return { texto: fullTxt, usage: (jsonData && jsonData.usage) || null };
+        return {
+            texto: fullTxt,
+            usage: (rootJ && rootJ.usage) || null,
+            status: (rootJ && rootJ.status) || 'completed',
+            steps: Array.isArray(rootJ && rootJ.steps) ? rootJ.steps : []
+        };
     }
 
     var reader = resp.body.getReader();
@@ -802,7 +832,29 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
     var buffer = '';
     var acumulado = '';
     var usage = null;
+    var interactionStatus = 'completed';
+    var serverSteps = null;
+    var trackedSteps = {};
     var sseEventType = '';
+
+    function ensureTracker(idx, baseStep) {
+        var k = String(idx !== undefined && idx !== null ? idx : 0);
+        if (!trackedSteps[k]) {
+            trackedSteps[k] = { _argsStr: '' };
+        }
+        if (baseStep && typeof baseStep === 'object') {
+            Object.keys(baseStep).forEach(function(prop) {
+                if (prop === 'arguments' && typeof baseStep.arguments === 'string') {
+                    trackedSteps[k]._argsStr += baseStep.arguments;
+                } else if (prop === 'content' && Array.isArray(baseStep.content)) {
+                    trackedSteps[k].content = baseStep.content.map(function(p) { return Object.assign({}, p); });
+                } else {
+                    trackedSteps[k][prop] = baseStep[prop];
+                }
+            });
+        }
+        return trackedSteps[k];
+    }
 
     function procesarLineaSSE(linea) {
         var trimmed = linea.replace(/\r$/, '');
@@ -824,18 +876,67 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
             return;
         }
         var evType = (payload && payload.event_type) || sseEventType;
-        if ((evType === 'step.delta' || evType === 'content.delta') && payload.delta && payload.delta.type === 'text' && typeof payload.delta.text === 'string') {
-            acumulado += payload.delta.text;
-            if (typeof onDelta === 'function') onDelta(payload.delta.text, acumulado);
-        } else if (evType === 'interaction.completed' || evType === 'interaction.complete') {
-            if (payload.interaction && payload.interaction.usage) {
-                usage = payload.interaction.usage;
+
+        if (evType === 'interaction.status_update' && payload.status) {
+            interactionStatus = payload.status;
+        } else if ((evType === 'step.start' || evType === 'content.start') && payload.step) {
+            var stInit = ensureTracker(payload.index, payload.step);
+            if (payload.step.type === 'model_output' && Array.isArray(payload.step.content)) {
+                payload.step.content.forEach(function(part) {
+                    if (part && part.type === 'text' && typeof part.text === 'string' && part.text) {
+                        acumulado += part.text;
+                        if (typeof onDelta === 'function') onDelta(part.text, acumulado);
+                    }
+                });
             }
-            if (!acumulado && payload.interaction) {
-                var fallbackTxt = extraerTextoDeInteractionJson(payload.interaction);
-                if (fallbackTxt) {
-                    acumulado = fallbackTxt;
-                    if (typeof onDelta === 'function') onDelta(fallbackTxt, acumulado);
+            if (payload.step.type === 'function_call' && typeof params.onToolDeclared === 'function' && payload.step.name) {
+                params.onToolDeclared(payload.step.name);
+            }
+            void stInit;
+        } else if ((evType === 'step.delta' || evType === 'content.delta') && payload.delta) {
+            var d = payload.delta;
+            var tr = ensureTracker(payload.index);
+            if (d.type === 'text' && typeof d.text === 'string') {
+                acumulado += d.text;
+                if (!tr.type) tr.type = 'model_output';
+                if (!Array.isArray(tr.content) || tr.content.length === 0) {
+                    tr.content = [{ type: 'text', text: d.text }];
+                } else {
+                    var lastP = tr.content[tr.content.length - 1];
+                    if (lastP && lastP.type === 'text') lastP.text += d.text;
+                    else tr.content.push({ type: 'text', text: d.text });
+                }
+                if (typeof onDelta === 'function') onDelta(d.text, acumulado);
+            } else if (d.type === 'arguments_delta' || d.type === 'arguments') {
+                if (!tr.type) tr.type = 'function_call';
+                var chunkArg = (typeof d.arguments === 'string') ? d.arguments : (typeof d.partial_arguments === 'string' ? d.partial_arguments : '');
+                tr._argsStr = (tr._argsStr || '') + chunkArg;
+            } else if (d.type === 'thought_signature' && d.signature) {
+                if (!tr.type) tr.type = 'thought';
+                tr.signature = d.signature;
+            } else if (d.type === 'thought_summary' && d.content) {
+                if (!tr.type) tr.type = 'thought';
+                if (!Array.isArray(tr.summary)) tr.summary = [];
+                tr.summary.push(d.content);
+            }
+        } else if (evType === 'step.stop') {
+            var kStop = String(payload.index !== undefined && payload.index !== null ? payload.index : 0);
+            if (trackedSteps[kStop]) {
+                trackedSteps[kStop] = _finalizarStepStreamIA(trackedSteps[kStop]);
+            }
+        } else if (evType === 'interaction.completed' || evType === 'interaction.complete') {
+            if (payload.interaction) {
+                if (payload.interaction.usage) usage = payload.interaction.usage;
+                if (payload.interaction.status) interactionStatus = payload.interaction.status;
+                if (Array.isArray(payload.interaction.steps) && payload.interaction.steps.length > 0) {
+                    serverSteps = payload.interaction.steps;
+                }
+                if (!acumulado) {
+                    var fallbackTxt = extraerTextoDeInteractionJson(payload.interaction);
+                    if (fallbackTxt) {
+                        acumulado = fallbackTxt;
+                        if (typeof onDelta === 'function') onDelta(fallbackTxt, acumulado);
+                    }
                 }
             }
         } else if (evType === 'error' || (payload && payload.error)) {
@@ -858,7 +959,149 @@ async function llamarGeminiInteractionsStream(params, onDelta, abortSignal) {
         procesarLineaSSE(buffer);
     }
 
-    return { texto: acumulado, usage: usage };
+    var finalSteps;
+    if (Array.isArray(serverSteps) && serverSteps.length > 0) {
+        finalSteps = serverSteps;
+    } else {
+        finalSteps = Object.keys(trackedSteps)
+            .sort(function(a, b) { return Number(a) - Number(b); })
+            .map(function(k) { return _finalizarStepStreamIA(trackedSteps[k]); })
+            .filter(Boolean);
+    }
+
+    return {
+        texto: acumulado,
+        usage: usage,
+        status: interactionStatus,
+        steps: finalSteps
+    };
+}
+
+function _sumarUsageIA(uTotal, uRound) {
+    if (!uRound || typeof uRound !== 'object') return uTotal;
+    if (!uTotal) return Object.assign({}, uRound);
+    return {
+        total_input_tokens: (Number(uTotal.total_input_tokens) || 0) + (Number(uRound.total_input_tokens) || 0),
+        total_output_tokens: (Number(uTotal.total_output_tokens) || 0) + (Number(uRound.total_output_tokens) || 0),
+        total_tokens: (Number(uTotal.total_tokens) || 0) + (Number(uRound.total_tokens) || 0)
+    };
+}
+
+async function ejecutarFlujoGeminiConHerramientas(params, callbacks, abortSignal) {
+    callbacks = callbacks || {};
+    var workingSteps = Array.isArray(params.steps) ? params.steps.slice() : [];
+    var tools = [];
+    if (params.activarHerramientas && window.MonarcaIATools && typeof window.MonarcaIATools.obtenerDeclaracionesHerramientas === 'function') {
+        tools = window.MonarcaIATools.obtenerDeclaracionesHerramientas({ soloLectura: !!params.soloLectura });
+    }
+
+    var toolLogs = [];
+    var totalUsage = null;
+    var textoFinalAcum = '';
+    var MAX_ROUNDS = 6;
+
+    for (var round = 0; round < MAX_ROUNDS; round++) {
+        if (abortSignal && abortSignal.aborted) {
+            var abErr = new Error('Aborted');
+            abErr.name = 'AbortError';
+            throw abErr;
+        }
+
+        var prefijoRonda = textoFinalAcum ? (textoFinalAcum.trimEnd() + '\n\n') : '';
+        var roundText = '';
+
+        var resRonda = await llamarGeminiInteractionsStream(
+            {
+                apiKey: params.apiKey,
+                modelo: params.modelo,
+                steps: workingSteps,
+                systemInstruction: params.systemInstruction,
+                googleSearch: !!params.googleSearch,
+                tools: tools,
+                onToolDeclared: function(toolName) {
+                    if (typeof callbacks.onToolStatus === 'function') {
+                        var descT = (window.MonarcaIATools && window.MonarcaIATools.describirHerramientaEnCurso)
+                            ? window.MonarcaIATools.describirHerramientaEnCurso(toolName)
+                            : ('⚡ Preparando ' + toolName + '...');
+                        callbacks.onToolStatus(descT, toolLogs.slice());
+                    }
+                }
+            },
+            function(deltaTxt, acumRonda) {
+                roundText = acumRonda;
+                if (typeof callbacks.onDelta === 'function') {
+                    callbacks.onDelta(deltaTxt, prefijoRonda + acumRonda);
+                }
+            },
+            abortSignal
+        );
+
+        totalUsage = _sumarUsageIA(totalUsage, resRonda.usage);
+        if (resRonda.texto) {
+            textoFinalAcum = prefijoRonda + resRonda.texto;
+        } else if (roundText) {
+            textoFinalAcum = prefijoRonda + roundText;
+        }
+
+        var stepsRonda = Array.isArray(resRonda.steps) ? resRonda.steps : [];
+        var fcSteps = stepsRonda.filter(function(s) { return s && s.type === 'function_call' && s.name; });
+
+        if (fcSteps.length === 0) {
+            break;
+        }
+
+        // Stateless Interactions API (store: false): conservar TODOS los steps del turno del modelo
+        // incluyendo bloques 'thought' (y su signature) + 'function_call' antes de devolver 'function_result'
+        for (var mIdx = 0; mIdx < stepsRonda.length; mIdx++) {
+            workingSteps.push(stepsRonda[mIdx]);
+        }
+
+        for (var fIdx = 0; fIdx < fcSteps.length; fIdx++) {
+            if (abortSignal && abortSignal.aborted) {
+                var abErr2 = new Error('Aborted');
+                abErr2.name = 'AbortError';
+                throw abErr2;
+            }
+            var fc = fcSteps[fIdx];
+            if (typeof callbacks.onToolStatus === 'function') {
+                var descExec = (window.MonarcaIATools && window.MonarcaIATools.describirHerramientaEnCurso)
+                    ? window.MonarcaIATools.describirHerramientaEnCurso(fc.name)
+                    : ('⚡ Ejecutando ' + fc.name + '...');
+                callbacks.onToolStatus(descExec, toolLogs.slice());
+            }
+
+            var execRes = (window.MonarcaIATools && typeof window.MonarcaIATools.ejecutarHerramienta === 'function')
+                ? window.MonarcaIATools.ejecutarHerramienta(fc.name, fc.arguments, {
+                    soloLectura: !!params.soloLectura,
+                    origen: params.origen || 'chat'
+                })
+                : { resultado: { ok: false, error: 'Conector MonarcaIATools no disponible' }, meta: { herramienta: fc.name, ok: false, icono: '⚠️', label: fc.name } };
+
+            if (execRes.meta) {
+                toolLogs.push(execRes.meta);
+            }
+            if (typeof callbacks.onToolStatus === 'function') {
+                callbacks.onToolStatus('', toolLogs.slice());
+            }
+
+            var resultStep = {
+                type: 'function_result',
+                name: fc.name,
+                call_id: fc.id,
+                result: [{ type: 'text', text: JSON.stringify(execRes.resultado || {}) }]
+            };
+            if (execRes.meta && !execRes.meta.ok) {
+                resultStep.is_error = true;
+            }
+            workingSteps.push(resultStep);
+        }
+    }
+
+    return {
+        texto: textoFinalAcum,
+        usage: totalUsage,
+        herramientasUsadas: toolLogs
+    };
 }
 
 // ==========================================================================
@@ -921,7 +1164,8 @@ async function enviarMensajeIA(textoDirecto) {
         texto: '',
         modelo: conv.modelo,
         ts: ahora + 1,
-        streaming: true
+        streaming: true,
+        herramientasUsadas: []
     };
     conv.mensajes.push(msgBot);
 
@@ -935,29 +1179,44 @@ async function enviarMensajeIA(textoDirecto) {
     try {
         var steps = construirStepsHistorialParaGemini(conv.mensajes.slice(0, -1), imgPend);
         var sysInst = construirSystemInstructionIA(conv);
-        var res = await llamarGeminiInteractionsStream(
+        var res = await ejecutarFlujoGeminiConHerramientas(
             {
                 apiKey: apiKey,
                 modelo: conv.modelo,
                 steps: steps,
                 systemInstruction: sysInst,
-                googleSearch: !!APP_STATE.iaConfig.googleSearch
+                googleSearch: !!APP_STATE.iaConfig.googleSearch,
+                activarHerramientas: !!conv.usarContextoMonarca,
+                soloLectura: !!(APP_STATE.iaConfig && APP_STATE.iaConfig.soloLecturaHerramientas),
+                origen: 'chat'
             },
-            function(_delta, acumulado) {
-                msgBot.texto = acumulado;
-                _actualizarBurbujaStreamingIA(msgBot.id, acumulado);
+            {
+                onDelta: function(_delta, acumulado) {
+                    msgBot.texto = acumulado;
+                    _actualizarBurbujaStreamingIA(msgBot.id, acumulado, msgBot.estadoHerramienta, msgBot.herramientasUsadas);
+                },
+                onToolStatus: function(estadoTxt, logsParciales) {
+                    msgBot.estadoHerramienta = estadoTxt || '';
+                    if (Array.isArray(logsParciales)) msgBot.herramientasUsadas = logsParciales;
+                    _actualizarBurbujaStreamingIA(msgBot.id, msgBot.texto || '', msgBot.estadoHerramienta, msgBot.herramientasUsadas);
+                }
             },
             IA_RUNTIME.abortController ? IA_RUNTIME.abortController.signal : undefined
         );
 
         msgBot.texto = (res && res.texto) ? res.texto : (msgBot.texto || '(Sin respuesta de texto del modelo)');
+        if (res && Array.isArray(res.herramientasUsadas) && res.herramientasUsadas.length > 0) {
+            msgBot.herramientasUsadas = res.herramientasUsadas;
+        }
         if (res && res.usage && res.usage.total_tokens) {
             msgBot.tokens = res.usage.total_tokens;
         }
+        delete msgBot.estadoHerramienta;
         delete msgBot.streaming;
         delete msgBot.error;
         conv.fechaActualizacion = Date.now();
     } catch (err) {
+        delete msgBot.estadoHerramienta;
         delete msgBot.streaming;
         if (err && err.name === 'AbortError') {
             if (!msgBot.texto) {
@@ -1303,6 +1562,7 @@ function abrirModalConfigIA() {
     var selMod = document.getElementById('ia-config-modelo');
     var inInst = document.getElementById('ia-config-instrucciones');
     var chkCtx = document.getElementById('ia-config-contexto-default');
+    var chkSoloLectura = document.getElementById('ia-config-solo-lectura');
     var chkSearch = document.getElementById('ia-config-google-search');
     var chkSyncKey = document.getElementById('ia-config-sync-key');
     var elTestStatus = document.getElementById('ia-config-test-status');
@@ -1319,6 +1579,7 @@ function abrirModalConfigIA() {
     }
     if (inInst) inInst.value = APP_STATE.iaConfig.instruccionesSistema || '';
     if (chkCtx) chkCtx.checked = !!APP_STATE.iaConfig.contextoMonarcaDefault;
+    if (chkSoloLectura) chkSoloLectura.checked = !!APP_STATE.iaConfig.soloLecturaHerramientas;
     if (chkSearch) chkSearch.checked = !!APP_STATE.iaConfig.googleSearch;
     if (chkSyncKey) chkSyncKey.checked = !!APP_STATE.iaConfig.sincronizarApiKeyNube;
     if (elTestStatus) {
@@ -1350,6 +1611,7 @@ function guardarConfigIA() {
     var selMod = document.getElementById('ia-config-modelo');
     var inInst = document.getElementById('ia-config-instrucciones');
     var chkCtx = document.getElementById('ia-config-contexto-default');
+    var chkSoloLectura = document.getElementById('ia-config-solo-lectura');
     var chkSearch = document.getElementById('ia-config-google-search');
     var chkSyncKey = document.getElementById('ia-config-sync-key');
 
@@ -1360,6 +1622,7 @@ function guardarConfigIA() {
     APP_STATE.iaConfig.modelo = (selMod && selMod.value) ? selMod.value : 'gemini-3.8-flash';
     APP_STATE.iaConfig.instruccionesSistema = inInst ? String(inInst.value || '').trim() : '';
     APP_STATE.iaConfig.contextoMonarcaDefault = !!(chkCtx && chkCtx.checked);
+    APP_STATE.iaConfig.soloLecturaHerramientas = !!(chkSoloLectura && chkSoloLectura.checked);
     APP_STATE.iaConfig.googleSearch = !!(chkSearch && chkSearch.checked);
     APP_STATE.iaConfig.fechaActualizacion = Date.now();
 
@@ -1557,8 +1820,8 @@ function renderizarCabeceraChatIA() {
     if (btnCtx) {
         btnCtx.classList.toggle('active', ctxOn);
         btnCtx.title = ctxOn
-            ? 'Contexto Monarca ACTIVO (clic para apagar y usar chat libre)'
-            : 'Activar Contexto Monarca (quests, rutinas, metas)';
+            ? 'Contexto Monarca 360° ACTIVO (conectado con todas tus apps; clic para chat libre)'
+            : 'Activar Contexto Monarca 360° (Calendario, Finanzas, Quests, Música, Auto-PC...)';
     }
     if (btnExport) {
         btnExport.disabled = !tieneMsgs;
@@ -1731,6 +1994,24 @@ function exportarConversacionActualIA() {
     }
 }
 
+function renderizarChipsHerramientasIA(lista) {
+    if (!Array.isArray(lista) || lista.length === 0) return '';
+    var chips = lista.map(function(h) {
+        if (!h) return '';
+        var cls = 'ia-tool-chip' + (h.esEscritura ? ' is-write' : '') + (h.ok === false ? ' is-err' : '') + (h.vista ? ' is-clickable' : '');
+        var ico = escaparHtmlIA(h.icono || '⚡');
+        var lbl = escaparHtmlIA(h.label || h.herramienta || 'Acción');
+        if (h.vista) {
+            var vEsc = escaparHtmlIA(h.vista);
+            var sEsc = escaparHtmlIA(h.subtab || '');
+            return '<button type="button" class="' + cls + '" onclick="if(typeof abrirVistaDesdeChipIA===\'function\')abrirVistaDesdeChipIA(\'' + vEsc + '\',\'' + sEsc + '\')" title="Abrir sección en Sistema Monarca">' + ico + ' <span>' + lbl + '</span></button>';
+        }
+        return '<span class="' + cls + '">' + ico + ' <span>' + lbl + '</span></span>';
+    }).filter(Boolean);
+    if (chips.length === 0) return '';
+    return '<div class="ia-tool-chips">' + chips.join('') + '</div>';
+}
+
 function renderizarMensajesChatIA() {
     var feed = document.getElementById('ia-messages-feed');
     if (!feed) return;
@@ -1757,7 +2038,7 @@ function renderizarMensajesChatIA() {
                 '<h3 class="ia-welcome-title">¿En qué te ayudo hoy?</h3>' +
                 '<p class="ia-welcome-sub">' +
                     (apiKey
-                        ? ('Conectado con <strong>' + escaparHtmlIA(modInfo.nombre) + '</strong>. Haz cualquier pregunta, adjunta una imagen o activa <strong>👑 Contexto Monarca</strong>.')
+                        ? ('Conectado con <strong>' + escaparHtmlIA(modInfo.nombre) + '</strong> y todo tu ecosistema Sistema Monarca (<strong>👑 Contexto 360°</strong>). Pregúntame o pídeme ejecutar acciones.')
                         : 'Conecta tu llave gratuita de <strong>Google AI Studio (Gemini)</strong> en 30 segundos para empezar a conversar.') +
                 '</p>' +
                 (!apiKey
@@ -1785,9 +2066,14 @@ function renderizarMensajesChatIA() {
             );
         }
 
-        var bodyHtml = m.streaming && !m.texto
-            ? '<div class="ia-typing-dots"><span></span><span></span><span></span></div>'
+        var liveToolHtml = (m.streaming && m.estadoHerramienta)
+            ? ('<div class="ia-tool-live-status">' + escaparHtmlIA(m.estadoHerramienta) + '</div>')
+            : '';
+        var chipsHtml = renderizarChipsHerramientasIA(m.herramientasUsadas);
+        var contenidoHtml = m.streaming && !m.texto
+            ? (!liveToolHtml ? '<div class="ia-typing-dots"><span></span><span></span><span></span></div>' : '')
             : renderizarMarkdownSeguroIA(m.texto) + (m.streaming ? '<span class="ia-stream-caret"></span>' : '');
+        var bodyHtml = liveToolHtml + chipsHtml + contenidoHtml;
         var hablando = IA_RUNTIME.hablandoMsgId === String(m.id);
 
         return (
@@ -1813,10 +2099,15 @@ function renderizarMensajesChatIA() {
     }).join('');
 }
 
-function _actualizarBurbujaStreamingIA(msgId, textoAcumulado) {
+function _actualizarBurbujaStreamingIA(msgId, textoAcumulado, estadoHerramienta, herramientasUsadas) {
     var el = document.getElementById('ia-msg-body-' + msgId);
     if (!el) return;
-    el.innerHTML = renderizarMarkdownSeguroIA(textoAcumulado) + '<span class="ia-stream-caret"></span>';
+    var liveHtml = estadoHerramienta ? ('<div class="ia-tool-live-status">' + escaparHtmlIA(estadoHerramienta) + '</div>') : '';
+    var chipsHtml = renderizarChipsHerramientasIA(herramientasUsadas);
+    var mdHtml = textoAcumulado
+        ? (renderizarMarkdownSeguroIA(textoAcumulado) + '<span class="ia-stream-caret"></span>')
+        : (!liveHtml ? '<div class="ia-typing-dots"><span></span><span></span><span></span></div>' : '');
+    el.innerHTML = liveHtml + chipsHtml + mdHtml;
     _scrollChatAlFinalIA(false);
 }
 
@@ -1985,7 +2276,8 @@ async function enviarPreguntaDesdeJarvisIA(preguntaTexto, opts) {
         texto: '',
         modelo: modeloUsado,
         ts: ahora + 1,
-        streaming: true
+        streaming: true,
+        herramientasUsadas: []
     };
     conv.mensajes.push(msgBot);
 
@@ -1998,25 +2290,39 @@ async function enviarPreguntaDesdeJarvisIA(preguntaTexto, opts) {
         var sysInst = construirSystemInstructionIA(conv) +
             '\n\nEsta consulta proviene de Monarca Voz (Jarvis). Da una respuesta clara, directa y útil (si es posible, concisa y fácil de escuchar en voz alta sin perder precisión).';
 
-        var res = await llamarGeminiInteractionsStream(
+        var res = await ejecutarFlujoGeminiConHerramientas(
             {
                 apiKey: apiKey,
                 modelo: modeloUsado,
                 steps: steps,
                 systemInstruction: sysInst,
-                googleSearch: !!APP_STATE.iaConfig.googleSearch
+                googleSearch: !!APP_STATE.iaConfig.googleSearch,
+                activarHerramientas: !!conv.usarContextoMonarca,
+                soloLectura: !!(APP_STATE.iaConfig && APP_STATE.iaConfig.soloLecturaHerramientas),
+                origen: 'jarvis'
             },
-            function(delta, acumulado) {
-                msgBot.texto = acumulado;
-                if (typeof opts.onDelta === 'function') opts.onDelta(acumulado, conv.id, delta);
+            {
+                onDelta: function(delta, acumulado) {
+                    msgBot.texto = acumulado;
+                    if (typeof opts.onDelta === 'function') opts.onDelta(acumulado, conv.id, delta);
+                },
+                onToolStatus: function(estadoTxt, logsParciales) {
+                    msgBot.estadoHerramienta = estadoTxt || '';
+                    if (Array.isArray(logsParciales)) msgBot.herramientasUsadas = logsParciales;
+                    if (typeof opts.onToolStatus === 'function') opts.onToolStatus(estadoTxt, logsParciales);
+                }
             },
             opts.abortSignal
         );
 
         msgBot.texto = (res && res.texto) ? res.texto : (msgBot.texto || '(Sin respuesta de texto del modelo)');
+        if (res && Array.isArray(res.herramientasUsadas) && res.herramientasUsadas.length > 0) {
+            msgBot.herramientasUsadas = res.herramientasUsadas;
+        }
         if (res && res.usage && res.usage.total_tokens) {
             msgBot.tokens = res.usage.total_tokens;
         }
+        delete msgBot.estadoHerramienta;
         delete msgBot.streaming;
         delete msgBot.error;
         conv.fechaActualizacion = Date.now();
@@ -2032,9 +2338,11 @@ async function enviarPreguntaDesdeJarvisIA(preguntaTexto, opts) {
             msgId: msgBot.id,
             modeloId: modeloUsado,
             modeloNombre: obtenerInfoModeloIA(modeloUsado).nombre,
-            usage: (res && res.usage) || null
+            usage: (res && res.usage) || null,
+            herramientasUsadas: (res && res.herramientasUsadas) || []
         };
     } catch (err) {
+        delete msgBot.estadoHerramienta;
         delete msgBot.streaming;
         if (err && err.name === 'AbortError') {
             if (!msgBot.texto) {
@@ -2106,6 +2414,7 @@ if (typeof window !== 'undefined') {
     window.obtenerApiKeyGeminiIA = obtenerApiKeyGeminiIA;
     window.guardarApiKeyGeminiIA = guardarApiKeyGeminiIA;
     window.renderizarMarkdownSeguroIA = renderizarMarkdownSeguroIA;
+    window.renderizarChipsHerramientasIA = renderizarChipsHerramientasIA;
     window.obtenerResumenEstadoIA = obtenerResumenEstadoIA;
     window.obtenerOCrearConversacionJarvisIA = obtenerOCrearConversacionJarvisIA;
     window.enviarPreguntaDesdeJarvisIA = enviarPreguntaDesdeJarvisIA;

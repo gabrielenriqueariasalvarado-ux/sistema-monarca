@@ -1,5 +1,5 @@
 {
-  "version": "11.35",
+  "version": "11.36",
   "fecha": "2026-11-26",
-  "resumen": "Reproducción Continua Blindada en Segundo Plano y Manejo (v11.35): Corrige el congelamiento al terminar canciones (03:19/03:19), mantiene MediaSession activa durante las transiciones entre pistas, pre-carga la siguiente canción para saltos sin cortes, salta automáticamente archivos dañados fuera de rutinas, añade WakeLock + prioridad continua de WebView en Android y reanuda automáticamente la música tras avisos de GPS/notificaciones sin perder la pausa de seguridad al desconectar audífonos."
+  "resumen": "Conexión Total de Emily IA y Jarvis con Todo el Ecosistema (v11.36): Emily recibe ahora contexto vivo 360° (Calendario, Horario Semanal, Alertas, Finanzas/Tarjetas/Tasas, Quests, Rutinas, Fatiga Física/Mental, Boom/Barbería/Trainer, Ideas/Auto-PC, Conocimiento, Vocabulario, Habilidades, Personas, Inventario, Reproductor MP3 y Ruleta) y ejecuta herramientas interactivas reales vía Function Calling tanto en Chat como en Jarvis Voz."
 }

@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.35">
+    <link rel="stylesheet" href="style.css?v=11.36">
 </head>
 <body>
 
@@ -185,7 +185,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.35</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.36</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -231,7 +231,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.35</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.36</div>
                     </div>
                 </div>
             </div>
@@ -4912,7 +4912,7 @@
                         <div id="ia-chat-active-title" class="ia-chat-active-title" onclick="renombrarConversacionIA()" title="Toca para renombrar conversación">Asistente IA · Gemini</div>
                     </div>
                     <div class="ia-chat-header-actions">
-                        <button type="button" id="ia-btn-contexto-monarca" class="ia-head-chip-btn" onclick="toggleContextoMonarcaChatIA()" title="Activar Contexto Monarca">
+                        <button type="button" id="ia-btn-contexto-monarca" class="ia-head-chip-btn" onclick="toggleContextoMonarcaChatIA()" title="Conectar con todo Sistema Monarca">
                             <span>👑</span><span class="ia-head-chip-label">Contexto</span>
                         </button>
                         <button type="button" id="ia-btn-exportar-md" class="ia-head-chip-btn" onclick="exportarConversacionActualIA()" title="Exportar conversación a Markdown (.md)">
@@ -4940,7 +4940,7 @@
                         <input type="file" id="ia-file-imagen-input" accept="image/*" style="display: none;" onchange="manejarSeleccionImagenIA(this)">
                         <button type="button" class="ia-composer-icon-btn" onclick="document.getElementById('ia-file-imagen-input').click()" title="Adjuntar imagen para preguntar sobre ella">🖼️</button>
                         <button type="button" id="ia-btn-mic" class="ia-composer-icon-btn" onclick="toggleDictadoVozIA()" title="Dictar pregunta por voz">🎤</button>
-                        <textarea id="ia-composer-input" class="ia-composer-input" rows="1" placeholder="Hazle una pregunta a Gemini..." oninput="autoAjustarAlturaComposerIA()"></textarea>
+                        <textarea id="ia-composer-input" class="ia-composer-input" rows="1" placeholder="Pregunta o pide una acción a Emily..." oninput="autoAjustarAlturaComposerIA()"></textarea>
                         <button type="button" id="ia-btn-send" class="ia-btn-send" onclick="enviarMensajeIA()" title="Enviar mensaje">Enviar ➤</button>
                         <button type="button" id="ia-btn-stop" class="ia-btn-stop" onclick="detenerGeneracionIA()" style="display: none;" title="Detener respuesta">⏹ Parar</button>
                     </div>
@@ -4996,8 +4996,16 @@
                 <label class="ia-toggle-row">
                     <input type="checkbox" id="ia-config-contexto-default">
                     <span>
-                        <strong>👑 Activar Contexto Monarca por defecto en nuevos chats</strong>
-                        <span class="ia-toggle-sub">Permite que la IA consulte un resumen de tus quests, rutinas y metas. También puedes encenderlo o apagarlo en cada chat.</span>
+                        <strong>👑 Conectar Contexto Monarca 360° en nuevos chats</strong>
+                        <span class="ia-toggle-sub">Permite que Emily vea en vivo tu Calendario, Finanzas, Quests, Rutinas, Fatiga, Labores, Ideas/Auto-PC, Inventario y Música, y opere acciones si se lo pides.</span>
+                    </span>
+                </label>
+
+                <label class="ia-toggle-row">
+                    <input type="checkbox" id="ia-config-solo-lectura">
+                    <span>
+                        <strong>🔒 Modo Solo Lectura (sin modificar tus apps)</strong>
+                        <span class="ia-toggle-sub">Desactiva las acciones de creación/registro automático; Emily solo podrá consultar tus datos y abrir pantallas.</span>
                     </span>
                 </label>
 
@@ -7883,29 +7891,30 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.35"></script>
-    <script src="js/permisos.js?v=11.35"></script>
-    <script src="js/perfil.js?v=11.35"></script>
-    <script src="js/progresion.js?v=11.35"></script>
-    <script src="js/estado-personal.js?v=11.35"></script>
-    <script src="js/finanzas.js?v=11.35"></script>
-    <script src="js/ideas.js?v=11.35"></script>
-    <script src="js/mqtt-autopc.js?v=11.35"></script>
-    <script src="js/dinamicas.js?v=11.35"></script>
-    <script src="js/calendario.js?v=11.35"></script>
-    <script src="js/inventario.js?v=11.35"></script>
-    <script src="js/reproductor.js?v=11.35"></script>
-    <script src="js/ia.js?v=11.35"></script>
-    <script src="js/jarvis-voz.js?v=11.35"></script>
+    <script src="js/core.js?v=11.36"></script>
+    <script src="js/permisos.js?v=11.36"></script>
+    <script src="js/perfil.js?v=11.36"></script>
+    <script src="js/progresion.js?v=11.36"></script>
+    <script src="js/estado-personal.js?v=11.36"></script>
+    <script src="js/finanzas.js?v=11.36"></script>
+    <script src="js/ideas.js?v=11.36"></script>
+    <script src="js/mqtt-autopc.js?v=11.36"></script>
+    <script src="js/dinamicas.js?v=11.36"></script>
+    <script src="js/calendario.js?v=11.36"></script>
+    <script src="js/inventario.js?v=11.36"></script>
+    <script src="js/reproductor.js?v=11.36"></script>
+    <script src="js/ia-monarca-tools.js?v=11.36"></script>
+    <script src="js/ia.js?v=11.36"></script>
+    <script src="js/jarvis-voz.js?v=11.36"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.35"></script>
+    <script type="module" src="js/firebase-config.js?v=11.36"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.35')
+                navigator.serviceWorker.register('sw.js?v=11.36')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
