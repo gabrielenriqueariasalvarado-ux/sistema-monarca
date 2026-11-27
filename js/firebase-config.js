@@ -1520,7 +1520,7 @@ window.MonarcaCloud = {
         var payload = {
             docType: 'plan_decision',
             ideaId: '_plan_decision',
-            status: 'plan_decision',
+            status: 'pending',
             planId: planId,
             requestId: requestId,
             action: action,

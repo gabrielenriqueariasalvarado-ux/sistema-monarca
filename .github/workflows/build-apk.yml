@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.38)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.39)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.38
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.39
             Esta versión nativa incluye:
+            - 🤖 **Aprobación Remota de Implementation Plans & Sincronización Auto-PC Blindada (v11.39)**:
+              - **Corrección Definitiva de Firestore & MQTT**: Corregido el desfase que impedía que Auto-PC procesara aprobaciones/indicaciones remotas desde el teléfono cuando había desincronización de canal MQTT (`status: 'pending'` compatible en `_plan_decision` + verificación multi-URL Wi-Fi LAN real + detección automática de canal MQTT desfasado en Perfil).
+              - **Confirmación Transparente y Reintento Instantáneo**: La tarjeta del Plan en **Perfil** muestra qué canal entregó tu decisión (`🏠 Wi-Fi LAN`, `⚡ MQTT` o `☁️ Firestore`), confirma recepción real de Auto-PC y habilita botones **`🔄 Reintentar envío`** y **`✏️ Cambiar respuesta`** si Auto-PC demora más de 12 segundos en acusar recibo.
             - 🌙 **Recordatorio Inteligente de Hora de Dormir (-8h) y Conteo en Vivo de Sueño (v11.38)**:
               - **Hora Límite Automática**: Toma automáticamente como punto de referencia tu **primera Quest matutina o notificación de Calendario/Horario del día siguiente** y resta **8 horas** hacia atrás (ej. `06:00 AM → 10:00 PM`, `05:39 AM → 9:39 PM`), con opción de ajustar horas meta o referencia manual.
               - **Alerta + Botón *"Ya debería ser hora de dormir"***: Dispara notificación programada (`LocalNotifications` en móvil y campana `🔔` en app) junto al botón directo en **Inicio** y **Estado Personal → Descanso & Sueño** para iniciar el conteo al acostarte, medir la noche en tiempo real y finalizarlo al despertar guardando automáticamente las horas dormidas, calidad sugerida, historial semanal y bono de recuperación del Avatar.

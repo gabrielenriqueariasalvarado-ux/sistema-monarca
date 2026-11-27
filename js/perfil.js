@@ -120,6 +120,12 @@ function enviarRespuestaPlanPerfil() {
     }
 }
 
+function reenviarDecisionPlanPerfil(modo) {
+    if (typeof window.reintentarDecisionPlanDesdePerfil === 'function') {
+        window.reintentarDecisionPlanDesdePerfil(modo || 'resend');
+    }
+}
+
 function _renderizarBloquePlanPendientePerfil(plan) {
     if (!plan) return '';
     var fmtHtml = function(txt) {
@@ -152,17 +158,56 @@ function _renderizarBloquePlanPendientePerfil(plan) {
            </div>`
         : `<div class="perfil-ag-plan-msg-body" style="color: #cbd5e1; font-size: 12px;">Antigravity solicitó revisión del Implementation Plan y Auto-PC detuvo la cola hasta recibir tu decisión.</div>`;
 
+    var desyncWarnHtml = plan.mqttDesincronizado
+        ? `<div class="perfil-ag-plan-warn-pill">⚠️ Canal MQTT local distinto al de Auto-PC · usando Nube Firestore / LAN</div>`
+        : '';
+
     var accionesHtml = '';
     if (plan.decisionEnviada) {
-        var decLabel = plan.decisionAction === 'reply'
-            ? '📨 Indicaciones enviadas a Auto-PC'
-            : '✅ Aprobación enviada a Auto-PC';
-        accionesHtml = `
-        <div class="perfil-ag-plan-sent-note">
-            <strong>${decLabel}</strong>
-            ${plan.decisionTexto ? `<div class="perfil-ag-plan-sent-quote">"${escapeHtmlPerfil(plan.decisionTexto)}"</div>` : ''}
-            <span>Auto-PC enviará tu respuesta a Antigravity en segundos y reanudará el trabajo.</span>
-        </div>`;
+        var canales = [];
+        if (plan.decisionViaLan) canales.push('🏠 Wi-Fi LAN');
+        if (plan.decisionViaMqtt) canales.push('⚡ MQTT');
+        if (plan.decisionViaCloud) canales.push('☁️ Firestore');
+        var canalStr = canales.length > 0 ? (' · ' + canales.join(' + ')) : '';
+
+        if (plan.decisionConsumida) {
+            accionesHtml = `
+            <div class="perfil-ag-plan-sent-note is-confirmed">
+                <strong>✅ Confirmado por Auto-PC${escapeHtmlPerfil(canalStr)}</strong>
+                ${plan.decisionTexto ? `<div class="perfil-ag-plan-sent-quote">"${escapeHtmlPerfil(plan.decisionTexto)}"</div>` : ''}
+                <span>Auto-PC ya inyectó tu respuesta en Antigravity y está retomando el trabajo.</span>
+            </div>`;
+        } else if (plan.decisionDemorada) {
+            accionesHtml = `
+            <div class="perfil-ag-plan-sent-note is-delayed">
+                <strong>⏳ Auto-PC aún no confirma la recepción${escapeHtmlPerfil(canalStr)}</strong>
+                ${plan.decisionTexto ? `<div class="perfil-ag-plan-sent-quote">"${escapeHtmlPerfil(plan.decisionTexto)}"</div>` : ''}
+                <span>Verifica que Auto-PC esté abierto en la PC (sin ventana bloqueada o versión antigua) y reintenta si sigue detenido.</span>
+                <div class="perfil-ag-plan-retry-row">
+                    <button type="button" class="btn-perfil-plan-retry" onclick="reenviarDecisionPlanPerfil('resend')">
+                        🔄 Reintentar envío
+                    </button>
+                    <button type="button" class="btn-perfil-plan-edit" onclick="reenviarDecisionPlanPerfil('edit')">
+                        ✏️ Cambiar respuesta
+                    </button>
+                </div>
+            </div>`;
+        } else {
+            var decLabel = plan.decisionAction === 'reply'
+                ? '📨 Indicaciones enviadas a Auto-PC'
+                : '✅ Aprobación enviada a Auto-PC';
+            accionesHtml = `
+            <div class="perfil-ag-plan-sent-note">
+                <strong>${decLabel}${escapeHtmlPerfil(canalStr)}</strong>
+                ${plan.decisionTexto ? `<div class="perfil-ag-plan-sent-quote">"${escapeHtmlPerfil(plan.decisionTexto)}"</div>` : ''}
+                <span>Esperando confirmación de Auto-PC para reanudar Antigravity...</span>
+                <div class="perfil-ag-plan-retry-row">
+                    <button type="button" class="btn-perfil-plan-edit" onclick="reenviarDecisionPlanPerfil('edit')">
+                        ✏️ Cambiar respuesta
+                    </button>
+                </div>
+            </div>`;
+        }
     } else {
         accionesHtml = `
         <div class="perfil-ag-plan-actions">
@@ -197,6 +242,7 @@ function _renderizarBloquePlanPendientePerfil(plan) {
         </div>
         ${msgHtml}
         ${mdHtml}
+        ${desyncWarnHtml}
         ${accionesHtml}
     </div>`;
 }
@@ -269,7 +315,9 @@ function renderizarContenidoMonitorAutoPCPerfil() {
 
     var mqttSt = resumen.mqtt || (window.MonarcaMQTT && typeof window.MonarcaMQTT.getStatus === 'function' ? window.MonarcaMQTT.getStatus() : null);
     var mqttChip = '';
-    if (mqttSt && mqttSt.connected) {
+    if (resumen.mqttDesincronizado) {
+        mqttChip = `<button type="button" class="perfil-autopc-chip is-warn is-clickable" onclick="abrirModalConfigMQTT()" title="Tu teléfono está en otro canal MQTT que Auto-PC">⚠️ Canal MQTT desfasado</button>`;
+    } else if (mqttSt && mqttSt.connected) {
         var mqttLabel = mqttSt.pcOnline === true
             ? ('⚡ MQTT en vivo' + (mqttSt.lastLatencyMs ? (' · ' + mqttSt.lastLatencyMs + 'ms') : (mqttSt.encrypted ? ' · E2E' : '')))
             : (mqttSt.pcOnline === false ? '⚡ MQTT · PC cerrada' : '⚡ MQTT conectado');
@@ -807,5 +855,6 @@ if (typeof window !== 'undefined') {
     window.toggleResumenRecienteMonitorPerfil = toggleResumenRecienteMonitorPerfil;
     window.enviarAprobacionPlanPerfil = enviarAprobacionPlanPerfil;
     window.enviarRespuestaPlanPerfil = enviarRespuestaPlanPerfil;
+    window.reenviarDecisionPlanPerfil = reenviarDecisionPlanPerfil;
 }
 

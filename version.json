@@ -1,5 +1,5 @@
 {
-  "version": "11.38",
+  "version": "11.39",
   "fecha": "2026-11-26",
-  "resumen": "Hora Ideal de Dormir (-8h) y Conteo en Vivo de Sueño (v11.38): Calcula automáticamente tu hora límite para acostarte restando 8h a tu primera Quest matutina o notificación de Calendario (ej. 6:00 AM → 10:00 PM · 5:39 AM → 9:39 PM), lanza notificación/botón 'Ya debería ser hora de dormir', mide el sueño durante la noche y registra las horas dormidas al despertar."
+  "resumen": "Aprobación Remota de Planes y Emparejamiento Auto-PC Blindados (v11.39): Corregida la incompatibilidad entre el teléfono y Auto-PC al aprobar o responder Implementation Plans (estado Firestore 'pending' + validación de canal MQTT + respaldo LAN real) y añadido botón inteligente de Reintento / Edición cuando Auto-PC tarda más de 12s en confirmar recepción."
 }

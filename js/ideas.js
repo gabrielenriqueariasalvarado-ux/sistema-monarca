@@ -86,6 +86,7 @@ var AUTOPC_SOLICITUDES_MAP = {};
 var AUTOPC_TELEMETRIA_PC = null;
 var AUTOPC_PLAN_DECISION_DOC = null;
 var AUTOPC_PLAN_DECISION_LOCAL = {};
+var AUTOPC_PLAN_RETRY_TIMER = null;
 var AUTOPC_ULTIMO_PLAN_NOTIFICADO_ID = '';
 var AUTOPC_MQTT_QUEUE_SNAPSHOT = null;
 var AUTOPC_MQTT_PRESENCE = null;
@@ -2628,29 +2629,55 @@ function _sincronizarCamposResumenAutoPCEnIdea(idea, docRemoto) {
     return cambio;
 }
 
+function _detectarDesfaseMqttAutoPC(tel) {
+    var t = tel || AUTOPC_TELEMETRIA_PC || null;
+    var m = (window.MonarcaMQTT && typeof window.MonarcaMQTT.getStatus === 'function')
+        ? window.MonarcaMQTT.getStatus()
+        : null;
+    if (!t || !m || !m.channelId) return false;
+    var pcCh = String(t.mqttChannelId || '').trim();
+    if (!pcCh) return false;
+    var hb = Number(t.heartbeatAt) || 0;
+    if (hb > 0 && (Date.now() - hb) > 210000) return false;
+    return pcCh !== String(m.channelId).trim();
+}
+
 function _obtenerDecisionLocalOremotaParaPlan(planId, docRemoto) {
     if (!planId) return null;
     var pid = String(planId).trim();
+    var docMatch = Boolean(
+        AUTOPC_PLAN_DECISION_DOC &&
+        String(AUTOPC_PLAN_DECISION_DOC.planId || '').trim() === pid
+    );
+    var docConsumed = Boolean(
+        docMatch && (
+            AUTOPC_PLAN_DECISION_DOC.consumed === true ||
+            String(AUTOPC_PLAN_DECISION_DOC.status || '').toLowerCase() === 'consumed'
+        )
+    );
     if (AUTOPC_PLAN_DECISION_LOCAL[pid]) {
-        return AUTOPC_PLAN_DECISION_LOCAL[pid];
+        return Object.assign({}, AUTOPC_PLAN_DECISION_LOCAL[pid], {
+            consumed: docConsumed
+        });
     }
     if (docRemoto && docRemoto.planDecision && String(docRemoto.planDecision).trim()) {
         return {
             action: String(docRemoto.planDecision).trim().toLowerCase(),
             mensaje: String(docRemoto.planDecisionText || '').trim(),
-            ts: Number(docRemoto.planDecisionAt) || Date.now()
+            ts: Number(docRemoto.planDecisionAt) || Date.now(),
+            consumed: docConsumed
         };
     }
     if (
-        AUTOPC_PLAN_DECISION_DOC &&
-        String(AUTOPC_PLAN_DECISION_DOC.planId || '').trim() === pid &&
+        docMatch &&
         String(AUTOPC_PLAN_DECISION_DOC.action || '').trim() &&
-        String(AUTOPC_PLAN_DECISION_DOC.status || 'pending').toLowerCase() !== 'consumed'
+        !docConsumed
     ) {
         return {
             action: String(AUTOPC_PLAN_DECISION_DOC.action || '').trim().toLowerCase(),
             mensaje: String(AUTOPC_PLAN_DECISION_DOC.mensaje || '').trim(),
-            ts: Number(AUTOPC_PLAN_DECISION_DOC.updatedAt || AUTOPC_PLAN_DECISION_DOC.createdAt) || Date.now()
+            ts: Number(AUTOPC_PLAN_DECISION_DOC.updatedAt || AUTOPC_PLAN_DECISION_DOC.createdAt) || Date.now(),
+            consumed: false
         };
     }
     return null;
@@ -2721,6 +2748,9 @@ function obtenerPlanPendienteAutoPC() {
     );
 
     var dec = _obtenerDecisionLocalOremotaParaPlan(planId, planDoc);
+    var decTs = dec ? (Number(dec.ts) || 0) : 0;
+    var decAgeMs = dec && decTs > 0 ? Math.max(0, Date.now() - decTs) : 0;
+    var mqttDesincronizado = _detectarDesfaseMqttAutoPC(tel);
 
     return {
         planId: planId,
@@ -2731,7 +2761,15 @@ function obtenerPlanPendienteAutoPC() {
         planUpdatedAt: planUpdatedAt,
         decisionEnviada: Boolean(dec),
         decisionAction: dec ? dec.action : '',
-        decisionTexto: dec ? dec.mensaje : ''
+        decisionTexto: dec ? dec.mensaje : '',
+        decisionTs: decTs,
+        decisionAgeMs: decAgeMs,
+        decisionConsumida: Boolean(dec && dec.consumed),
+        decisionDemorada: Boolean(dec && !dec.consumed && decAgeMs >= 12000),
+        decisionViaMqtt: Boolean(dec && dec.viaMqtt),
+        decisionViaCloud: Boolean(dec && dec.viaCloud),
+        decisionViaLan: Boolean(dec && dec.viaLan),
+        mqttDesincronizado: mqttDesincronizado
     };
 }
 
@@ -3606,12 +3644,19 @@ function obtenerResumenMonitoreoAutoPC() {
         }
     } else if (planPendiente) {
         nivel = 'plan';
-        badgeTexto = planPendiente.decisionEnviada
-            ? 'Enviando tu respuesta...'
-            : 'Plan esperando aprobación';
-        resumenTexto = planPendiente.decisionEnviada
-            ? 'Decisión enviada a Auto-PC. Retomando Antigravity con tus indicaciones...'
-            : 'Cola detenida automáticamente hasta que apruebes o indiques qué hacer con este Implementation Plan.';
+        if (planPendiente.decisionConsumida) {
+            badgeTexto = 'Plan confirmado por PC';
+            resumenTexto = 'Auto-PC ya recibió tu respuesta y está retomando Antigravity.';
+        } else if (planPendiente.decisionDemorada) {
+            badgeTexto = 'Sin respuesta del PC aún';
+            resumenTexto = 'Han pasado más de 12s sin confirmación de Auto-PC; puedes reintentar o editar tu respuesta.';
+        } else if (planPendiente.decisionEnviada) {
+            badgeTexto = 'Enviando tu respuesta...';
+            resumenTexto = 'Decisión enviada a Auto-PC. Retomando Antigravity con tus indicaciones...';
+        } else {
+            badgeTexto = 'Plan esperando aprobación';
+            resumenTexto = 'Cola detenida automáticamente hasta que apruebes o indiques qué hacer con este Implementation Plan.';
+        }
     } else if (tel && heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_FRESH_MS) {
         if (engState === 'ERROR') {
             nivel = 'stalled';
@@ -3780,6 +3825,8 @@ function obtenerResumenMonitoreoAutoPC() {
         ? window.MonarcaMQTT.getStatus()
         : null;
 
+    var mqttDesincronizado = _detectarDesfaseMqttAutoPC(tel);
+
     return {
         nivel: nivel,
         badgeTexto: badgeTexto,
@@ -3788,6 +3835,7 @@ function obtenerResumenMonitoreoAutoPC() {
         engineState: engState || '',
         transport: (tel && tel._transport === 'mqtt') ? 'mqtt' : 'cloud',
         mqtt: mqttStatus,
+        mqttDesincronizado: mqttDesincronizado,
         antigravityVisible: agVisible,
         antigravityMinimized: agMinimized,
         heartbeatAgeMs: heartbeatAgeMs,
@@ -3807,6 +3855,19 @@ function obtenerResumenMonitoreoAutoPC() {
         alertaStuck: alertaStuck,
         detalleMotor: detailTel
     };
+}
+
+function _programarRecheckDecisionPlan() {
+    if (AUTOPC_PLAN_RETRY_TIMER) {
+        clearTimeout(AUTOPC_PLAN_RETRY_TIMER);
+        AUTOPC_PLAN_RETRY_TIMER = null;
+    }
+    AUTOPC_PLAN_RETRY_TIMER = setTimeout(function() {
+        AUTOPC_PLAN_RETRY_TIMER = null;
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+    }, 12500);
 }
 
 async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
@@ -3832,17 +3893,26 @@ async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
         msg = 'Aprobado, procede con la implementación del plan.';
     }
 
+    var ahoraMs = Date.now();
     var payload = {
         planId: plan.planId,
         requestId: plan.requestId || '',
         action: act,
-        mensaje: msg
+        mensaje: msg,
+        updatedAt: ahoraMs
     };
+
+    var mqttDesincronizado = Boolean(plan.mqttDesincronizado || _detectarDesfaseMqttAutoPC());
 
     AUTOPC_PLAN_DECISION_LOCAL[plan.planId] = {
         action: act,
         mensaje: msg,
-        ts: Date.now()
+        ts: ahoraMs,
+        viaMqtt: false,
+        viaCloud: false,
+        viaLan: false,
+        mqttDesincronizado: mqttDesincronizado,
+        consumed: false
     };
 
     // Cancelar alerta del teléfono inmediatamente para UX limpia
@@ -3855,52 +3925,118 @@ async function enviarDecisionPlanDesdePerfil(action, mensajePersonalizado) {
         window.actualizarTarjetaMonitorAutoPCPerfil();
     }
 
-    // Envío instantáneo por MQTT (<300ms) en paralelo con Firestore
+    // Envío en paralelo: MQTT (<300ms si canal emparejado) + Firestore (_plan_decision status='pending') + LAN HTTP
     var enviadoMqtt = false;
-    try {
-        if (window.MonarcaMQTT && typeof window.MonarcaMQTT.enviarDecisionPlan === 'function') {
-            enviadoMqtt = await window.MonarcaMQTT.enviarDecisionPlan(payload);
-        }
-    } catch (eMqtt) {}
+    var mqttProm = (async function() {
+        try {
+            if (window.MonarcaMQTT && typeof window.MonarcaMQTT.enviarDecisionPlan === 'function') {
+                enviadoMqtt = await window.MonarcaMQTT.enviarDecisionPlan(payload);
+            }
+        } catch (eMqtt) {}
+    })();
 
     var enviadoCloud = false;
-    try {
-        if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarDecisionPlanAntigravity === 'function') {
-            enviadoCloud = await window.MonarcaCloud.enviarDecisionPlanAntigravity(payload);
+    var cloudProm = (async function() {
+        try {
+            if (window.MonarcaCloud && typeof window.MonarcaCloud.enviarDecisionPlanAntigravity === 'function') {
+                var resCloud = await window.MonarcaCloud.enviarDecisionPlanAntigravity(payload);
+                enviadoCloud = Boolean(resCloud);
+            }
+        } catch (err) {
+            console.warn('[AutoPC Plan] Error enviando decisión a Firestore:', err);
         }
-    } catch (err) {
-        console.warn('[AutoPC Plan] Error enviando decisión a Firestore:', err);
+    })();
+
+    var enviadoLan = false;
+    var lanProm = (async function() {
+        try {
+            var urls = (typeof obtenerUrlsCandidatasAutoPCLAN === 'function') ? obtenerUrlsCandidatasAutoPCLAN() : [];
+            if (!Array.isArray(urls) || urls.length === 0) return;
+            var candList = urls.filter(Boolean).slice(0, 3);
+            for (var i = 0; i < candList.length; i++) {
+                var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+                var tid = ctrl ? setTimeout(function() { try { ctrl.abort(); } catch (eAb) {} }, 1800) : null;
+                try {
+                    var resp = await fetch(String(candList[i]).replace(/\/+$/, '') + '/api/plan-decision', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                        signal: ctrl ? ctrl.signal : undefined
+                    });
+                    if (tid) clearTimeout(tid);
+                    if (resp && resp.ok) {
+                        enviadoLan = true;
+                        break;
+                    }
+                } catch (eOne) {
+                    if (tid) clearTimeout(tid);
+                }
+            }
+        } catch (eLan) {}
+    })();
+
+    await Promise.all([mqttProm, cloudProm, lanProm]);
+
+    var enviadoMqttEfectivo = Boolean(enviadoMqtt && !mqttDesincronizado);
+    if (AUTOPC_PLAN_DECISION_LOCAL[plan.planId]) {
+        AUTOPC_PLAN_DECISION_LOCAL[plan.planId].viaMqtt = enviadoMqttEfectivo;
+        AUTOPC_PLAN_DECISION_LOCAL[plan.planId].viaCloud = enviadoCloud;
+        AUTOPC_PLAN_DECISION_LOCAL[plan.planId].viaLan = enviadoLan;
     }
 
-    // Best-effort por LAN Bridge si está en la misma Wi-Fi para respuesta instantánea (<1s)
-    try {
-        var urls = (typeof obtenerUrlsCandidatasAutoPCLAN === 'function') ? obtenerUrlsCandidatasAutoPCLAN() : [];
-        if (Array.isArray(urls) && urls.length > 0 && urls[0]) {
-            fetch(String(urls[0]).replace(/\/+$/, '') + '/api/plan-decision', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).catch(function() {});
-        }
-    } catch (eLan) {}
+    var okFinal = Boolean(enviadoMqttEfectivo || enviadoCloud || enviadoLan);
+    if (okFinal) {
+        _programarRecheckDecisionPlan();
+    } else {
+        delete AUTOPC_PLAN_DECISION_LOCAL[plan.planId];
+    }
 
-    var okFinal = Boolean(enviadoMqtt || enviadoCloud);
     if (typeof mostrarToastMonarca === 'function') {
         if (okFinal) {
+            var canalTxt = enviadoLan
+                ? 'vía Wi-Fi LAN + Nube'
+                : (enviadoMqttEfectivo ? 'al instante vía MQTT ⚡' : 'vía Nube Firestore ☁️');
             mostrarToastMonarca(
                 act === 'approve'
-                    ? (enviadoMqtt ? 'Aprobación enviada al instante vía MQTT ⚡ · Antigravity retomará ahora.' : 'Aprobación enviada a Auto-PC · Antigravity retomará la implementación.')
-                    : (enviadoMqtt ? 'Indicaciones enviadas al instante vía MQTT ⚡ · Antigravity ajustará el plan.' : 'Indicaciones enviadas a Auto-PC · Antigravity ajustará el plan.'),
+                    ? ('Aprobación enviada ' + canalTxt + ' · esperando confirmación de Auto-PC.')
+                    : ('Indicaciones enviadas ' + canalTxt + ' · esperando confirmación de Auto-PC.'),
                 act === 'approve' ? '✅' : '📨'
             );
         } else {
-            mostrarToastMonarca('No se pudo confirmar envío en la nube ni MQTT; verifica tu conexión.', '⚠️');
+            mostrarToastMonarca('No se pudo confirmar envío por MQTT, Nube ni LAN; verifica tu conexión.', '⚠️');
         }
     }
     if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
         window.actualizarTarjetaMonitorAutoPCPerfil();
     }
     return okFinal;
+}
+
+async function reintentarDecisionPlanDesdePerfil(modo) {
+    var plan = obtenerPlanPendienteAutoPC();
+    if (!plan || !plan.planId) {
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('El plan ya no está pendiente en Auto-PC.', 'ℹ️');
+        }
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+        return false;
+    }
+    if (modo === 'edit') {
+        if (AUTOPC_PLAN_RETRY_TIMER) {
+            clearTimeout(AUTOPC_PLAN_RETRY_TIMER);
+            AUTOPC_PLAN_RETRY_TIMER = null;
+        }
+        delete AUTOPC_PLAN_DECISION_LOCAL[plan.planId];
+        if (typeof window.actualizarTarjetaMonitorAutoPCPerfil === 'function') {
+            window.actualizarTarjetaMonitorAutoPCPerfil();
+        }
+        return true;
+    }
+    var act = plan.decisionAction === 'reply' ? 'reply' : 'approve';
+    var msg = plan.decisionTexto || '';
+    return await enviarDecisionPlanDesdePerfil(act, msg);
 }
 
 if (typeof window !== 'undefined') {
@@ -3918,6 +4054,7 @@ if (typeof window !== 'undefined') {
     window.obtenerResumenMonitoreoAutoPC = obtenerResumenMonitoreoAutoPC;
     window.obtenerPlanPendienteAutoPC = obtenerPlanPendienteAutoPC;
     window.enviarDecisionPlanDesdePerfil = enviarDecisionPlanDesdePerfil;
+    window.reintentarDecisionPlanDesdePerfil = reintentarDecisionPlanDesdePerfil;
     window.formatearDuracionCortaAutoPC = formatearDuracionCortaAutoPC;
     window.formatearResumenAntigravityHtml = formatearResumenAntigravityHtml;
     window.obtenerAlertasAutoPCActivas = obtenerAlertasAutoPCActivas;
