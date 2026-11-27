@@ -973,6 +973,14 @@ function refrescarVistasTrasSync() {
         if (typeof window.reRenderSiVistaIdeasActiva === 'function') {
             window.reRenderSiVistaIdeasActiva();
         }
+        var vistaPer = document.getElementById('vista-personas');
+        if (vistaPer && vistaPer.classList.contains('active') && typeof renderizarAgendaPersonas === 'function') {
+            renderizarAgendaPersonas();
+        }
+        var vistaCal = document.getElementById('vista-calendario');
+        if (vistaCal && vistaCal.classList.contains('active') && typeof renderizarCalendario === 'function') {
+            renderizarCalendario();
+        }
         if (typeof actualizarBadgeNotificaciones === 'function') {
             actualizarBadgeNotificaciones();
         }

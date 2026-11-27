@@ -1510,6 +1510,8 @@ function guardarConfigBoom() {
 
 var FILTRO_UBICACION_PERSONAS = "TODAS";
 var FILTRO_GRUPO_PERSONAS = "TODOS";
+var FILTRO_ESTADO_PERSONAS = "TODOS";
+var BUSQUEDA_PERSONAS_QUERY = "";
 
 function escHtmlPersona(str) {
     if (typeof window.monarcaEscHtml === 'function') return window.monarcaEscHtml(str);
@@ -1521,16 +1523,138 @@ function cargarAgendaPersonas() {
 }
 
 function filtrarPersonasPorUbicacion(ubicacion, btn) {
-    FILTRO_UBICACION_PERSONAS = ubicacion;
+    FILTRO_UBICACION_PERSONAS = ubicacion || "TODAS";
     var btns = document.querySelectorAll('.btn-tab-ubi');
     btns.forEach(function(b) { b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
+    if (btn) {
+        btn.classList.add('active');
+    } else if (btns.length > 0 && FILTRO_UBICACION_PERSONAS === 'TODAS') {
+        btns[0].classList.add('active');
+    }
     renderizarAgendaPersonas();
 }
 
 function filtrarPersonasPorGrupo(grupoId) {
     FILTRO_GRUPO_PERSONAS = (FILTRO_GRUPO_PERSONAS === grupoId) ? "TODOS" : grupoId;
     renderizarAgendaPersonas();
+}
+
+function filtrarPersonasPorEstado(estado) {
+    FILTRO_ESTADO_PERSONAS = estado || "TODOS";
+    renderizarAgendaPersonas();
+}
+
+function alBuscarPersonas(valor) {
+    BUSQUEDA_PERSONAS_QUERY = String(valor || '');
+    var btnClear = document.getElementById('btn-limpiar-busqueda-personas');
+    if (btnClear) btnClear.style.display = BUSQUEDA_PERSONAS_QUERY.trim() ? 'inline-flex' : 'none';
+    renderizarAgendaPersonas();
+}
+
+function limpiarBusquedaPersonas() {
+    BUSQUEDA_PERSONAS_QUERY = '';
+    var input = document.getElementById('input-buscar-personas');
+    if (input) {
+        input.value = '';
+        input.focus();
+    }
+    var btnClear = document.getElementById('btn-limpiar-busqueda-personas');
+    if (btnClear) btnClear.style.display = 'none';
+    renderizarAgendaPersonas();
+}
+
+function limpiarTodosFiltrosPersonas() {
+    FILTRO_UBICACION_PERSONAS = "TODAS";
+    FILTRO_GRUPO_PERSONAS = "TODOS";
+    FILTRO_ESTADO_PERSONAS = "TODOS";
+    BUSQUEDA_PERSONAS_QUERY = "";
+    var input = document.getElementById('input-buscar-personas');
+    if (input) input.value = '';
+    var btnClear = document.getElementById('btn-limpiar-busqueda-personas');
+    if (btnClear) btnClear.style.display = 'none';
+    var btns = document.querySelectorAll('.btn-tab-ubi');
+    btns.forEach(function(b, idx) { b.classList.toggle('active', idx === 0); });
+    renderizarAgendaPersonas();
+}
+
+function obtenerEventosCalendarioDePersona(personaObj) {
+    if (!personaObj || !APP_STATE || !Array.isArray(APP_STATE.calendario)) {
+        return { total: 0, pendientesCount: 0, proximo: null };
+    }
+    var pid = String(personaObj.id || '');
+    if (!pid) return { total: 0, pendientesCount: 0, proximo: null };
+
+    var gruposIds = (APP_STATE.gruposPersonas || []).filter(function(g) {
+        return g && Array.isArray(g.personaIds) && g.personaIds.map(String).indexOf(pid) !== -1;
+    }).map(function(g) { return String(g.id); });
+
+    var dNow = new Date();
+    var hoyClave = (typeof obtenerClaveFechaLocal === 'function')
+        ? obtenerClaveFechaLocal()
+        : (dNow.getFullYear() + '-' + String(dNow.getMonth() + 1).padStart(2, '0') + '-' + String(dNow.getDate()).padStart(2, '0'));
+
+    var vinculados = APP_STATE.calendario.filter(function(it) {
+        if (!it) return false;
+        if (String(it.personaId || '') === pid) return true;
+        if (Array.isArray(it.personaIds) && it.personaIds.map(String).indexOf(pid) !== -1) return true;
+        if (Array.isArray(it.grupoIds) && gruposIds.length > 0) {
+            return it.grupoIds.some(function(gid) { return gruposIds.indexOf(String(gid)) !== -1; });
+        }
+        return false;
+    });
+
+    var pendientes = vinculados.filter(function(it) {
+        return !it.completado && (!it.fecha || String(it.fecha) >= hoyClave);
+    }).sort(function(a, b) {
+        var fa = String(a.fecha || '9999-99-99') + ' ' + String(a.hora || a.horaInicio || '99:99');
+        var fb = String(b.fecha || '9999-99-99') + ' ' + String(b.hora || b.horaInicio || '99:99');
+        return fa.localeCompare(fb);
+    });
+
+    return {
+        total: vinculados.length,
+        pendientesCount: pendientes.length,
+        proximo: pendientes[0] || vinculados[0] || null
+    };
+}
+
+function renderizarFiltrosEstadoPersonas(personas) {
+    var contFiltros = document.getElementById('personas-estado-filters');
+    if (!contFiltros) return;
+
+    var lista = Array.isArray(personas) ? personas : [];
+    var cntPend = 0;
+    var cntAgen = 0;
+    var cntConv = 0;
+    var cntCobrar = 0;
+
+    lista.forEach(function(p) {
+        if (!p) return;
+        var st = String(p.estado || 'Pendiente');
+        if (st === 'Conversado') cntConv++;
+        else if (st === 'Agendado') cntAgen++;
+        else cntPend++;
+        if (typeof obtenerIngresosPendientesDePersonaAgenda === 'function') {
+            var cob = obtenerIngresosPendientesDePersonaAgenda(p);
+            if (cob && cob.totalUsd > 0) cntCobrar++;
+        }
+    });
+
+    var pills = [
+        { key: 'TODOS', label: 'Todos', count: lista.length },
+        { key: 'Pendiente', label: '⏳ Pendientes', count: cntPend },
+        { key: 'Agendado', label: '📅 Agendado', count: cntAgen },
+        { key: 'Conversado', label: '✅ Conversado', count: cntConv },
+        { key: 'POR_COBRAR', label: '💵 Por cobrar', count: cntCobrar }
+    ];
+
+    contFiltros.innerHTML = pills.map(function(pill) {
+        var activo = FILTRO_ESTADO_PERSONAS === pill.key ? ' active' : '';
+        return '<button type="button" class="persona-estado-pill' + activo + '" onclick="filtrarPersonasPorEstado(\'' + pill.key + '\')">' +
+            '<span>' + pill.label + '</span>' +
+            '<span class="persona-estado-cnt">' + pill.count + '</span>' +
+        '</button>';
+    }).join('');
 }
 
 function renderizarGruposPersonas() {
@@ -1632,12 +1756,13 @@ function renderizarAgendaPersonas() {
                 </div>
             </div>
             <p style="margin: 0; font-size: 12.5px; color: #94a3b8;">
-                Ten claridad de los temas a tratar con cada persona, organízalas por grupos y vincúlalas directo a tus Eventos, Recordatorios y Días Destacados del Calendario.
+                Busca, edita notas, organiza temas pendientes y agenda citas reales directo a tu Calendario o WhatsApp en 1 toque.
             </p>
         </div>`;
     }
 
     renderizarGruposPersonas();
+    renderizarFiltrosEstadoPersonas(personas);
 
     if (!cont) return;
 
@@ -1656,12 +1781,47 @@ function renderizarAgendaPersonas() {
             FILTRO_GRUPO_PERSONAS = "TODOS";
         }
     }
+    if (FILTRO_ESTADO_PERSONAS !== "TODOS") {
+        filtradas = filtradas.filter(function(p) {
+            if (FILTRO_ESTADO_PERSONAS === 'POR_COBRAR') {
+                var cobP = (typeof obtenerIngresosPendientesDePersonaAgenda === 'function')
+                    ? obtenerIngresosPendientesDePersonaAgenda(p)
+                    : { totalUsd: 0 };
+                return cobP.totalUsd > 0;
+            }
+            var stPer = p.estado || 'Pendiente';
+            return stPer === FILTRO_ESTADO_PERSONAS;
+        });
+    }
+
+    var queryNorm = String(BUSQUEDA_PERSONAS_QUERY || '').trim().toLowerCase();
+    if (queryNorm) {
+        filtradas = filtradas.filter(function(p) {
+            var temasTxt = (p.temasPendientes || []).map(function(t) { return t.texto || ''; }).join(' ');
+            var haystack = [
+                p.nombre || '',
+                p.rol || '',
+                p.ubicacionCategoria || '',
+                p.lugarProyectado || '',
+                p.fechaObjetivo || '',
+                p.telefono || p.whatsapp || '',
+                p.notas || '',
+                temasTxt
+            ].join(' ').toLowerCase();
+            return haystack.indexOf(queryNorm) !== -1;
+        });
+    }
+
+    var hayFiltrosActivos = (FILTRO_UBICACION_PERSONAS !== "TODAS" || FILTRO_GRUPO_PERSONAS !== "TODOS" || FILTRO_ESTADO_PERSONAS !== "TODOS" || !!queryNorm);
 
     if (filtradas.length === 0) {
         cont.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 28px 16px; background: #0b0e15; border: 1px dashed rgba(255, 255, 255, 0.14); border-radius: 12px;">
-            <p style="margin: 0; color: #94a3b8; font-size: 13.5px;">No hay personas registradas para este filtro.</p>
-            <button class="btn-system" style="margin-top: 12px; font-size: 12.5px;" onclick="abrirModalNuevaPersona()">+ Agregar Contacto y Temas</button>
+            <p style="margin: 0; color: #94a3b8; font-size: 13.5px;">${hayFiltrosActivos ? 'No se encontraron contactos que coincidan con los filtros o búsqueda actual.' : 'Aún no has agregado contactos a tu Directorio de Personas.'}</p>
+            <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+                ${hayFiltrosActivos ? '<button type="button" class="btn-back-system" style="margin-bottom: 0; font-size: 12.5px;" onclick="limpiarTodosFiltrosPersonas()">↺ Limpiar Filtros</button>' : ''}
+                <button type="button" class="btn-system" style="margin-top: 0; font-size: 12.5px;" onclick="abrirModalNuevaPersona()">+ Agregar Contacto y Temas</button>
+            </div>
         </div>`;
         return;
     }
@@ -1699,28 +1859,53 @@ function renderizarAgendaPersonas() {
             ? '<span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:9999px; background:rgba(245,158,11,0.14); border:1px solid rgba(251,191,36,0.38); color:#fcd34d;">💵 Por cobrar: $' + pendPer.totalUsd.toFixed(2) + '</span>'
             : '';
 
-        var estadoColor = p.estado === 'Conversado' ? '#34d399' : (p.estado === 'Agendado' ? '#7dd3fc' : '#cbd5e1');
-        var estadoBg = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.14)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(148, 163, 184, 0.14)');
-        var estadoBorder = p.estado === 'Conversado' ? 'rgba(16, 185, 129, 0.35)' : (p.estado === 'Agendado' ? 'rgba(56, 189, 248, 0.32)' : 'rgba(148, 163, 184, 0.28)');
+        var calInfo = obtenerEventosCalendarioDePersona(p);
+        var calChipHtml = '';
+        if (calInfo.proximo && calInfo.proximo.fecha) {
+            var prox = calInfo.proximo;
+            var secCal = prox.tipo === 'evento' ? 'eventos' : (prox.tipo === 'destacado' ? 'destacados' : 'recordatorios');
+            var horaTag = prox.horaInicio || prox.hora ? (' · ' + (prox.horaInicio || prox.hora)) : '';
+            calChipHtml = '<button type="button" class="persona-cal-chip" onclick="if(typeof irAFechaEnCalendario===\'function\'){irAFechaEnCalendario(\'' + escHtmlPersona(prox.fecha) + '\',\'' + secCal + '\');}else{cambiarVista(\'vista-calendario\');}" title="Ver evento/recordatorio en Calendario">' +
+                '📅 ' + escHtmlPersona(prox.titulo || 'Cita') + ' (' + escHtmlPersona(prox.fecha + horaTag) + ')' +
+                (calInfo.pendientesCount > 1 ? ' +' + (calInfo.pendientesCount - 1) : '') +
+            '</button>';
+        }
+
+        var notasTxt = String(p.notas || '').trim();
+        var notasHtml = notasTxt
+            ? '<div class="persona-notas-box"><strong>📝 Notas:</strong> ' + escHtmlPersona(notasTxt) + '</div>'
+            : '';
+
+        var estadoActual = p.estado || 'Pendiente';
+        var estadoColor = estadoActual === 'Conversado' ? '#34d399' : (estadoActual === 'Agendado' ? '#7dd3fc' : '#cbd5e1');
+        var estadoBg = estadoActual === 'Conversado' ? 'rgba(16, 185, 129, 0.14)' : (estadoActual === 'Agendado' ? 'rgba(56, 189, 248, 0.14)' : 'rgba(148, 163, 184, 0.14)');
+        var estadoBorder = estadoActual === 'Conversado' ? 'rgba(16, 185, 129, 0.35)' : (estadoActual === 'Agendado' ? 'rgba(56, 189, 248, 0.32)' : 'rgba(148, 163, 184, 0.28)');
+
+        var btnEstadoToggleHtml = estadoActual === 'Conversado'
+            ? '<button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="cambiarEstadoPersona(\'' + p.id + '\', \'Pendiente\')" title="Volver a marcar como Pendiente">↺ Reabrir</button>'
+            : '<button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.38);" onclick="cambiarEstadoPersona(\'' + p.id + '\', \'Conversado\')">✓ Conversado</button>';
 
         html += `
         <div class="knowledge-card">
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                <div>
+                <div style="min-width: 0; flex: 1;">
                     <span class="knowledge-area-tag" style="background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3);">${escHtmlPersona(p.ubicacionCategoria || '📍 Ubicación')}</span>
                     <h4 class="knowledge-title">${escHtmlPersona(p.nombre)}</h4>
                     <span style="font-size: 11.5px; color: #94a3b8; font-weight: 600;">${escHtmlPersona(p.rol || 'Contacto')}</span>
-                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${telBadgeHtml}${cobroBadgeHtml}${gruposBadges}</div>
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:5px;">${telBadgeHtml}${cobroBadgeHtml}${calChipHtml}${gruposBadges}</div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <button onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px 6px; font-size: 13px;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#94a3b8'">🗑️</button>
+                <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                    <button type="button" class="persona-card-icon-btn" onclick="abrirModalNuevaPersona('${p.id}')" title="Editar contacto" aria-label="Editar ${escHtmlPersona(p.nombre)}">✏️</button>
+                    <button type="button" class="persona-card-icon-btn is-danger" onclick="eliminarPersonaAgenda('${p.id}')" title="Eliminar persona" aria-label="Eliminar ${escHtmlPersona(p.nombre)}">🗑️</button>
                 </div>
             </div>
 
-            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; color: #cbd5e1;">
+            <div style="background: #0b0e15; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; color: #cbd5e1;">
                 <strong>📍 Lugar Proyectado:</strong> ${escHtmlPersona(p.lugarProyectado || 'Por definir')}
-                ${p.fechaObjetivo ? ` · <span style="color: #94a3b8;">📅 ${escHtmlPersona(p.fechaObjetivo)}</span>` : ''}
+                ${p.fechaObjetivo ? ` · <span style="color: #94a3b8;">🕒 ${escHtmlPersona(p.fechaObjetivo)}</span>` : ''}
             </div>
+
+            ${notasHtml}
 
             <div style="margin-bottom: 12px; flex-grow: 1;">
                 <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">
@@ -1737,12 +1922,12 @@ function renderizarAgendaPersonas() {
 
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px; flex-wrap: wrap; gap: 8px;">
                 <span class="item-badge-pill" style="background: ${estadoBg}; color: ${estadoColor}; border: 1px solid ${estadoBorder}; font-weight: 700; font-size: 11px;">
-                    ${escHtmlPersona(p.estado || 'Pendiente')}
+                    ${escHtmlPersona(estadoActual)}
                 </span>
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <button type="button" class="btn-cobro-wa-fin ${pendPer.totalUsd > 0 ? '' : 'is-scheduled'}" style="padding: 4px 9px; font-size: 11px;" onclick="abrirCobroWhatsAppParaPersona('${p.id}')" title="${pendPer.totalUsd > 0 ? 'Cobrar saldo pendiente con tus tarjetas por WhatsApp' : 'Enviar tus datos de pago por WhatsApp'}">${pendPer.totalUsd > 0 ? '💬 Cobrar WA' : '💬 WA Datos'}</button>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="cambiarEstadoPersona('${p.id}', 'Agendado')">📅 Agendar</button>
-                    <button class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.38);" onclick="cambiarEstadoPersona('${p.id}', 'Conversado')">✓ Conversado</button>
+                    <button type="button" class="btn-sheet-action" style="font-size: 11px; padding: 5px 10px;" onclick="agendarPersonaEnCalendario('${p.id}')" title="Programar cita o recordatorio real en Calendario con este contacto">📅 Agendar</button>
+                    ${btnEstadoToggleHtml}
                 </div>
             </div>
         </div>`;
@@ -1758,6 +1943,7 @@ function toggleTemaPersona(personaId, temaId) {
     if (!t) return;
     t.hecho = !t.hecho;
     if (t.hecho) sumarExp(5);
+    p.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
 }
@@ -1772,10 +1958,11 @@ function agregarTemaDirecto(personaId) {
     if (!p) return;
     if (!p.temasPendientes) p.temasPendientes = [];
     p.temasPendientes.push({
-        id: "T-" + Date.now(),
+        id: "T-" + Date.now() + "-" + Math.random().toString(36).substr(2, 3),
         texto: texto,
         hecho: false
     });
+    p.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     inTema.value = '';
     renderizarAgendaPersonas();
@@ -1785,6 +1972,7 @@ function eliminarTemaPersona(personaId, temaId) {
     var p = (APP_STATE.agendaPersonas || []).find(function(item) { return item.id === personaId; });
     if (!p || !p.temasPendientes) return;
     p.temasPendientes = p.temasPendientes.filter(function(t) { return t.id !== temaId; });
+    p.fechaActualizacion = Date.now();
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
 }
@@ -1792,10 +1980,37 @@ function eliminarTemaPersona(personaId, temaId) {
 function cambiarEstadoPersona(personaId, nuevoEstado) {
     var p = (APP_STATE.agendaPersonas || []).find(function(item) { return item.id === personaId; });
     if (!p) return;
+    var estadoPrev = String(p.estado || 'Pendiente');
     p.estado = nuevoEstado;
-    if (nuevoEstado === 'Conversado') sumarExp(20);
+    p.fechaActualizacion = Date.now();
+    if (estadoPrev !== 'Conversado' && nuevoEstado === 'Conversado') {
+        sumarExp(20);
+        if (typeof mostrarToastMonarca === 'function') {
+            mostrarToastMonarca('Conversación completada (+20 EXP)', '✅');
+        }
+    }
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
+}
+
+function agendarPersonaEnCalendario(personaId) {
+    var p = (APP_STATE.agendaPersonas || []).find(function(item) { return String(item.id) === String(personaId); });
+    if (!p) return;
+    var temasSinMarcar = (p.temasPendientes || []).filter(function(t) { return !t.hecho && t.texto; }).map(function(t) { return '• ' + t.texto; });
+    var descSug = temasSinMarcar.length > 0
+        ? ('Temas a tratar:\n' + temasSinMarcar.join('\n'))
+        : (p.notas ? String(p.notas).trim() : '');
+
+    if (typeof cambiarVista === 'function') cambiarVista('vista-calendario');
+    if (typeof abrirModalNuevoEvento === 'function') {
+        abrirModalNuevoEvento(null, 'evento', null, '09:00', '', {
+            personaId: p.id,
+            titulo: 'Conversar con ' + p.nombre,
+            descripcion: descSug
+        });
+    } else {
+        cambiarEstadoPersona(p.id, 'Agendado');
+    }
 }
 
 function eliminarPersonaAgenda(id) {
@@ -1816,17 +2031,14 @@ function eliminarPersonaAgenda(id) {
     MonarcaDB.save(APP_STATE);
     renderizarAgendaPersonas();
     if (typeof renderizarCalendario === 'function') renderizarCalendario();
+    if (typeof refrescarSelectoresPersonasCalendario === 'function') refrescarSelectoresPersonasCalendario();
 }
 
-function abrirModalNuevaPersona() {
+function abrirModalNuevaPersona(editId) {
     var m = document.getElementById('modal-nueva-persona');
-    if (m) m.style.display = 'flex';
-}
-function cerrarModalNuevaPersona() {
-    var m = document.getElementById('modal-nueva-persona');
-    if (m) m.style.display = 'none';
-}
-function guardarNuevaPersona() {
+    if (!m) return;
+
+    var inEdit = document.getElementById('input-per-edit-id');
     var inNom = document.getElementById('input-per-nombre');
     var inRol = document.getElementById('input-per-rol');
     var inUbi = document.getElementById('input-per-ubicacion');
@@ -1834,16 +2046,137 @@ function guardarNuevaPersona() {
     var inTem = document.getElementById('input-per-temas');
     var inFec = document.getElementById('input-per-fecha');
     var inTel = document.getElementById('input-per-telefono');
+    var inEst = document.getElementById('input-per-estado');
+    var inNot = document.getElementById('input-per-notas');
+    var tituloModal = document.getElementById('titulo-modal-persona');
+    var subModal = document.getElementById('subtitulo-modal-persona');
+    var btnGuardar = document.getElementById('btn-guardar-persona');
 
+    var p = editId ? (APP_STATE.agendaPersonas || []).find(function(item) { return String(item.id) === String(editId); }) : null;
+
+    if (p) {
+        if (inEdit) inEdit.value = String(p.id);
+        if (inNom) inNom.value = p.nombre || '';
+        if (inRol) inRol.value = p.rol || '';
+        if (inUbi) {
+            var optVal = p.ubicacionCategoria || '💈 Barbería';
+            var hasOpt = Array.from(inUbi.options || []).some(function(o) { return o.value === optVal; });
+            inUbi.value = hasOpt ? optVal : '💬 Otro';
+        }
+        if (inLug) inLug.value = p.lugarProyectado || '';
+        if (inTem) {
+            inTem.value = (p.temasPendientes || []).map(function(t) { return t.texto || ''; }).filter(Boolean).join('\n');
+        }
+        if (inFec) inFec.value = p.fechaObjetivo || '';
+        if (inTel) inTel.value = p.telefono || p.whatsapp || '';
+        if (inEst) inEst.value = p.estado || 'Pendiente';
+        if (inNot) inNot.value = p.notas || '';
+        if (tituloModal) tituloModal.textContent = 'EDITAR CONTACTO & CONVERSACIÓN';
+        if (subModal) subModal.textContent = 'Actualiza sus datos, temas a tratar o notas (se conserva el avance de los temas ya marcados).';
+        if (btnGuardar) btnGuardar.textContent = '💾 Guardar Cambios';
+    } else {
+        if (inEdit) inEdit.value = '';
+        if (inNom) inNom.value = '';
+        if (inRol) inRol.value = '';
+        if (inUbi) inUbi.value = '💈 Barbería';
+        if (inLug) inLug.value = '';
+        if (inTem) inTem.value = '';
+        if (inFec) inFec.value = '';
+        if (inTel) inTel.value = '';
+        if (inEst) inEst.value = 'Pendiente';
+        if (inNot) inNot.value = '';
+        if (tituloModal) tituloModal.textContent = 'AGREGAR CONTACTO & CONVERSACIÓN';
+        if (subModal) subModal.textContent = 'Registra una persona de interés, temas que debes conversar y la ubicación donde proyectas encontrarla.';
+        if (btnGuardar) btnGuardar.textContent = '👥 Guardar Contacto';
+    }
+
+    m.style.display = 'flex';
+    if (inNom) setTimeout(function() { inNom.focus(); }, 60);
+}
+
+function cerrarModalNuevaPersona() {
+    var m = document.getElementById('modal-nueva-persona');
+    if (m) m.style.display = 'none';
+}
+
+function guardarNuevaPersona() {
+    var inEdit = document.getElementById('input-per-edit-id');
+    var inNom = document.getElementById('input-per-nombre');
+    var inRol = document.getElementById('input-per-rol');
+    var inUbi = document.getElementById('input-per-ubicacion');
+    var inLug = document.getElementById('input-per-lugar');
+    var inTem = document.getElementById('input-per-temas');
+    var inFec = document.getElementById('input-per-fecha');
+    var inTel = document.getElementById('input-per-telefono');
+    var inEst = document.getElementById('input-per-estado');
+    var inNot = document.getElementById('input-per-notas');
+
+    var editId = inEdit ? inEdit.value.trim() : '';
     var nom = inNom ? inNom.value.trim() : '';
-    var rol = inRol ? inRol.value.trim() : 'Contacto';
+    var rol = inRol ? (inRol.value.trim() || 'Contacto') : 'Contacto';
     var ubi = inUbi ? inUbi.value : '💈 Barbería';
     var lug = inLug ? inLug.value.trim() : '';
     var rawTemas = inTem ? inTem.value.trim() : '';
-    var fec = inFec ? inFec.value.trim() : 'Esta semana';
+    var fec = inFec ? (inFec.value.trim() || 'Esta semana') : 'Esta semana';
     var tel = inTel ? inTel.value.trim() : '';
+    var est = inEst ? (inEst.value || 'Pendiente') : 'Pendiente';
+    var notas = inNot ? inNot.value.trim() : '';
 
     if (!nom) { alert("Ingresa el nombre de la persona."); if (inNom) inNom.focus(); return; }
+
+    if (!APP_STATE.agendaPersonas) APP_STATE.agendaPersonas = [];
+    var ahora = Date.now();
+
+    if (editId) {
+        var existente = APP_STATE.agendaPersonas.find(function(item) { return String(item.id) === String(editId); });
+        if (existente) {
+            var temasPrevios = Array.isArray(existente.temasPendientes) ? existente.temasPendientes : [];
+            var mapaPrevios = {};
+            temasPrevios.forEach(function(tp) {
+                var k = String(tp.texto || '').trim().toLowerCase();
+                if (k && !mapaPrevios[k]) mapaPrevios[k] = tp;
+            });
+
+            var nuevosTemas = [];
+            if (rawTemas) {
+                rawTemas.split('\n').forEach(function(line, seq) {
+                    var t = line.trim();
+                    if (!t) return;
+                    var prevT = mapaPrevios[t.toLowerCase()];
+                    if (prevT) {
+                        nuevosTemas.push({ id: prevT.id, texto: t, hecho: !!prevT.hecho });
+                    } else {
+                        nuevosTemas.push({ id: "T-" + ahora + "-" + seq + "-" + Math.random().toString(36).substr(2, 5), texto: t, hecho: false });
+                    }
+                });
+            }
+
+            var estadoAnterior = String(existente.estado || 'Pendiente');
+            existente.nombre = nom;
+            existente.rol = rol;
+            existente.telefono = tel;
+            existente.ubicacionCategoria = ubi;
+            existente.lugarProyectado = lug || ubi;
+            existente.temasPendientes = nuevosTemas;
+            existente.fechaObjetivo = fec;
+            existente.estado = est;
+            existente.notas = notas;
+            existente.fechaActualizacion = ahora;
+
+            if (estadoAnterior !== 'Conversado' && est === 'Conversado') {
+                sumarExp(20);
+            }
+            MonarcaDB.save(APP_STATE);
+            cerrarModalNuevaPersona();
+            renderizarAgendaPersonas();
+            if (typeof refrescarSelectoresPersonasCalendario === 'function') refrescarSelectoresPersonasCalendario();
+            if (typeof renderizarCalendario === 'function') renderizarCalendario();
+            if (typeof mostrarToastMonarca === 'function') {
+                mostrarToastMonarca("Contacto '" + nom + "' actualizado", '✏️');
+            }
+            return;
+        }
+    }
 
     var temasList = [];
     if (rawTemas) {
@@ -1853,9 +2186,8 @@ function guardarNuevaPersona() {
         });
     }
 
-    if (!APP_STATE.agendaPersonas) APP_STATE.agendaPersonas = [];
     var nuevo = {
-        id: "PER-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4),
+        id: "PER-" + ahora + "-" + Math.random().toString(36).substr(2, 4),
         nombre: nom,
         rol: rol,
         telefono: tel,
@@ -1863,20 +2195,15 @@ function guardarNuevaPersona() {
         lugarProyectado: lug || ubi,
         temasPendientes: temasList,
         fechaObjetivo: fec,
-        estado: "Pendiente",
-        timestamp: Date.now()
+        estado: est,
+        notas: notas,
+        timestamp: ahora,
+        fechaActualizacion: ahora
     };
 
     APP_STATE.agendaPersonas.unshift(nuevo);
     sumarExp(15);
     MonarcaDB.save(APP_STATE);
-
-    if (inNom) inNom.value = '';
-    if (inRol) inRol.value = '';
-    if (inLug) inLug.value = '';
-    if (inTem) inTem.value = '';
-    if (inFec) inFec.value = '';
-    if (inTel) inTel.value = '';
 
     cerrarModalNuevaPersona();
     renderizarAgendaPersonas();
@@ -1886,6 +2213,15 @@ function guardarNuevaPersona() {
     } else {
         alert("👥 Contacto '" + nom + "' agregado a la agenda con sus temas pendientes.");
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.alBuscarPersonas = alBuscarPersonas;
+    window.limpiarBusquedaPersonas = limpiarBusquedaPersonas;
+    window.filtrarPersonasPorEstado = filtrarPersonasPorEstado;
+    window.limpiarTodosFiltrosPersonas = limpiarTodosFiltrosPersonas;
+    window.obtenerEventosCalendarioDePersona = obtenerEventosCalendarioDePersona;
+    window.agendarPersonaEnCalendario = agendarPersonaEnCalendario;
 }
 
 function obtenerIngresosPendientesDePersonaAgenda(personaObj) {

@@ -837,7 +837,9 @@
                     nombre: { type: 'string', description: 'Nombre para contacto nuevo.' },
                     rol: { type: 'string', description: 'Rol o relación (Cliente, Amigo, Familia, Colega).' },
                     telefono: { type: 'string', description: 'Número WhatsApp o teléfono opcional (ej. +584121234567).' },
-                    lugar: { type: 'string', description: 'Lugar donde sueles verlo o notas.' },
+                    lugar: { type: 'string', description: 'Lugar donde sueles verlo.' },
+                    notas: { type: 'string', description: 'Notas o acuerdos adicionales del contacto.' },
+                    estado: { type: 'string', enum: ['Pendiente', 'Agendado', 'Conversado'], description: 'Estado actual de seguimiento.' },
                     fecha_objetivo: { type: 'string', description: 'Fecha YYYY-MM-DD o texto corto.' },
                     tema_o_nota: { type: 'string', description: 'Tema pendiente o recordatorio sobre esta persona.' }
                 },
@@ -1092,7 +1094,8 @@
             case 'personas': {
                 var finIngPers = (st.finanzas && Array.isArray(st.finanzas.ingresos)) ? st.finanzas.ingresos : [];
                 var pers = (st.agendaPersonas || []).filter(function(p) {
-                    return p && filTxt((p.nombre || '') + ' ' + (p.rol || '') + ' ' + (p.lugarProyectado || ''));
+                    var temasStr = Array.isArray(p && p.temasPendientes) ? p.temasPendientes.map(function(t) { return t.texto || ''; }).join(' ') : '';
+                    return p && filTxt((p.nombre || '') + ' ' + (p.rol || '') + ' ' + (p.lugarProyectado || '') + ' ' + (p.notas || '') + ' ' + temasStr);
                 }).slice(0, lim).map(function(p) {
                     var nLow = _norm(p.nombre);
                     var saldoCobrar = 0;
@@ -1102,7 +1105,14 @@
                         var m2 = !m1 && nLow.length >= 3 && _norm(ing.fuente).indexOf(nLow) !== -1;
                         if (m1 || m2) saldoCobrar += (Number(ing.monto) || 0);
                     });
-                    return Object.assign({}, p, { saldo_por_cobrar_usd: Math.round(saldoCobrar * 100) / 100 });
+                    var calInf = (typeof global.obtenerEventosCalendarioDePersona === 'function')
+                        ? global.obtenerEventosCalendarioDePersona(p)
+                        : { total: 0, pendientesCount: 0, proximo: null };
+                    return Object.assign({}, p, {
+                        saldo_por_cobrar_usd: Math.round(saldoCobrar * 100) / 100,
+                        citas_calendario_pendientes: calInf.pendientesCount || 0,
+                        proxima_cita: calInf.proximo ? { titulo: calInf.proximo.titulo, fecha: calInf.proximo.fecha, hora: calInf.proximo.horaInicio || calInf.proximo.hora || '' } : null
+                    });
                 });
                 return { data: { ok: true, total: pers.length, personas: pers, grupos: st.gruposPersonas || [] }, vista: 'vista-personas', label: 'Consultó Personas' };
             }
@@ -2354,8 +2364,17 @@
             if (!pObj) return { data: { ok: false, error: 'No encontré a esa persona en tu agenda.' }, vista: 'vista-personas', label: 'Persona no encontrada' };
             if (telArg) pObj.telefono = telArg;
             if (args.rol) pObj.rol = String(args.rol).trim();
+            if (args.ubicacion) pObj.ubicacionCategoria = String(args.ubicacion).trim();
             if (args.lugar) pObj.lugarProyectado = String(args.lugar).trim();
             if (args.fecha_objetivo) pObj.fechaObjetivo = String(args.fecha_objetivo).trim();
+            if (typeof args.notas === 'string') pObj.notas = args.notas.trim();
+            if (args.estado && ['Pendiente', 'Agendado', 'Conversado'].indexOf(String(args.estado)) !== -1) {
+                var estAnt = String(pObj.estado || 'Pendiente');
+                pObj.estado = String(args.estado);
+                if (estAnt !== 'Conversado' && pObj.estado === 'Conversado' && typeof global.sumarExp === 'function') {
+                    global.sumarExp(20);
+                }
+            }
 
             var notaTxt = String(args.tema_o_nota || '').trim();
             if (notaTxt) {
@@ -2366,7 +2385,7 @@
             _guardarYRefrescar(['personas']);
             _notificarToast('👥 Contacto actualizado: ' + pObj.nombre, '👥');
             return {
-                data: { ok: true, persona: pObj.nombre, telefono: pObj.telefono || '', tema: notaTxt || null },
+                data: { ok: true, persona: pObj.nombre, telefono: pObj.telefono || '', estado: pObj.estado || 'Pendiente', notas: pObj.notas || '', tema: notaTxt || null },
                 vista: 'vista-personas',
                 esEscritura: true,
                 label: 'Actualizó ' + _recortar(pObj.nombre, 16)
@@ -2376,6 +2395,7 @@
         var nombre = String(args.nombre || args.persona_nombre_o_id || '').trim();
         if (!nombre) return { data: { ok: false, error: 'Indica el nombre de la persona.' }, label: 'Falta nombre' };
         var temas = args.tema_o_nota ? [{ id: 'T-' + Math.random().toString(36).substr(2, 9), texto: String(args.tema_o_nota).trim(), hecho: false }] : [];
+        var estNuevo = (args.estado && ['Pendiente', 'Agendado', 'Conversado'].indexOf(String(args.estado)) !== -1) ? String(args.estado) : 'Pendiente';
         var nuevo = {
             id: 'PER-' + ahora + '-' + Math.random().toString(36).substr(2, 4),
             nombre: nombre,
@@ -2385,8 +2405,10 @@
             lugarProyectado: String(args.lugar || ''),
             temasPendientes: temas,
             fechaObjetivo: String(args.fecha_objetivo || 'Esta semana'),
-            estado: 'Pendiente',
-            timestamp: ahora
+            estado: estNuevo,
+            notas: typeof args.notas === 'string' ? args.notas.trim() : '',
+            timestamp: ahora,
+            fechaActualizacion: ahora
         };
         APP_STATE.agendaPersonas.unshift(nuevo);
         if (typeof global.sumarExp === 'function') global.sumarExp(15);

@@ -2053,7 +2053,7 @@ function recalcularFinEventoYConflictos() {
     }
 }
 
-function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredefinida, laborPredefinida) {
+function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredefinida, laborPredefinida, extrasObj) {
     var modal = document.getElementById('modal-nuevo-evento');
     if (!modal) return;
 
@@ -2125,6 +2125,25 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
 
     var tipoDestino = tipoInicial || (CALENDARIO_ESTADO.seccionActiva === 'eventos' ? 'evento' : (CALENDARIO_ESTADO.seccionActiva === 'destacados' ? 'destacado' : (CALENDARIO_ESTADO.seccionActiva === 'cronograma' ? 'cronograma' : 'recordatorio')));
 
+    // Precargar datos si viene prellenado desde otro módulo (ej: Personas)
+    if (!editId && extrasObj && typeof extrasObj === 'object') {
+        if (extrasObj.titulo) {
+            document.getElementById('cal-ev-titulo').value = String(extrasObj.titulo);
+            document.getElementById('cal-rec-titulo').value = String(extrasObj.titulo);
+            document.getElementById('cal-dest-titulo').value = String(extrasObj.titulo);
+        }
+        if (extrasObj.descripcion) {
+            document.getElementById('cal-ev-desc').value = String(extrasObj.descripcion);
+            document.getElementById('cal-rec-desc').value = String(extrasObj.descripcion);
+            document.getElementById('cal-dest-desc').value = String(extrasObj.descripcion);
+        }
+        if (Array.isArray(extrasObj.personaIds)) {
+            CALENDARIO_ESTADO.personaIdsSeleccionadosModal = extrasObj.personaIds.map(String);
+        } else if (extrasObj.personaId) {
+            CALENDARIO_ESTADO.personaIdsSeleccionadosModal = [String(extrasObj.personaId)];
+        }
+    }
+
     // Precargar datos si es edición
     if (editId) {
         if (tipoInicial === 'cronograma') {
@@ -2191,6 +2210,11 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
                 document.getElementById('cal-dest-persona').value = rawIt.personaId;
             }
         }
+    } else if (!editId && extrasObj && extrasObj.personaId) {
+        var elRecPer = document.getElementById('cal-rec-persona');
+        var elDestPer = document.getElementById('cal-dest-persona');
+        if (elRecPer) elRecPer.value = String(extrasObj.personaId);
+        if (elDestPer) elDestPer.value = String(extrasObj.personaId);
     }
 
     seleccionarTipoModalCalendario(tipoDestino);
@@ -2200,6 +2224,33 @@ function abrirModalNuevoEvento(fechaPredefinida, tipoInicial, editId, horaPredef
 function cerrarModalNuevoEvento() {
     var modal = document.getElementById('modal-nuevo-evento');
     if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Marca automáticamente como 'Agendado' a los contactos vinculados que sigan en 'Pendiente'.
+ */
+function _marcarPersonasVinculadasComoAgendadas(personaIdsLista, grupoIdsLista, fechaActualizacionMs) {
+    if (!APP_STATE || !Array.isArray(APP_STATE.agendaPersonas)) return false;
+    var idsSet = new Set((Array.isArray(personaIdsLista) ? personaIdsLista : []).filter(Boolean).map(String));
+    if (Array.isArray(grupoIdsLista) && grupoIdsLista.length > 0 && Array.isArray(APP_STATE.gruposPersonas)) {
+        var gSet = new Set(grupoIdsLista.filter(Boolean).map(String));
+        APP_STATE.gruposPersonas.forEach(function(g) {
+            if (g && gSet.has(String(g.id)) && Array.isArray(g.personaIds)) {
+                g.personaIds.forEach(function(pid) { if (pid) idsSet.add(String(pid)); });
+            }
+        });
+    }
+    if (idsSet.size === 0) return false;
+    var ts = Number(fechaActualizacionMs) || Date.now();
+    var cambio = false;
+    APP_STATE.agendaPersonas.forEach(function(per) {
+        if (per && idsSet.has(String(per.id)) && (!per.estado || per.estado === 'Pendiente')) {
+            per.estado = 'Agendado';
+            per.fechaActualizacion = ts;
+            cambio = true;
+        }
+    });
+    return cambio;
 }
 
 /**
@@ -2272,9 +2323,14 @@ function crearGuardarRecordatorioCalendario(opts) {
         APP_STATE.calendario.push(recordatorioGuardado);
     }
 
+    if (personaId) {
+        _marcarPersonasVinculadasComoAgendadas([personaId], [], ahora);
+    }
+
     if (!opts.omitirSideEffects) {
         if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
         if (typeof renderizarCalendario === 'function') renderizarCalendario();
+        if (typeof renderizarAgendaPersonas === 'function') renderizarAgendaPersonas();
         if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
         if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
         if (typeof verificarDisparadoresCalendario === 'function') verificarDisparadoresCalendario();
@@ -2403,6 +2459,7 @@ function guardarNuevoEvento() {
                 fechaActualizacion: ahora
             });
         }
+        _marcarPersonasVinculadasComoAgendadas(personaIds, grupoIds, ahora);
     } else if (tipo === 'destacado') {
         var dTitulo = document.getElementById('cal-dest-titulo').value.trim();
         var dDesc = document.getElementById('cal-dest-desc').value.trim();
@@ -2453,6 +2510,9 @@ function guardarNuevoEvento() {
                 timestamp: ahora,
                 fechaActualizacion: ahora
             });
+        }
+        if (dPersonaId) {
+            _marcarPersonasVinculadasComoAgendadas([dPersonaId], [], ahora);
         }
     } else if (tipo === 'cronograma') {
         var cTitulo = document.getElementById('cal-cro-titulo').value.trim();
@@ -2523,6 +2583,7 @@ function guardarNuevoEvento() {
     if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     cerrarModalNuevoEvento();
     renderizarCalendario();
+    if (typeof renderizarAgendaPersonas === 'function') renderizarAgendaPersonas();
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
     verificarDisparadoresCalendario();
@@ -2558,6 +2619,7 @@ function toggleCompletarEventoCalendario(id) {
     }
 
     renderizarCalendario();
+    if (typeof renderizarAgendaPersonas === 'function') renderizarAgendaPersonas();
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
     var modalNotif = document.getElementById('modal-centro-notificaciones');
@@ -2581,6 +2643,7 @@ function eliminarEventoCalendario(id) {
     }
     if (typeof MonarcaDB !== 'undefined') MonarcaDB.save(APP_STATE);
     renderizarCalendario();
+    if (typeof renderizarAgendaPersonas === 'function') renderizarAgendaPersonas();
     if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
     if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
 }
