@@ -27554,5 +27554,220 @@ button.ia-tool-chip.is-clickable:hover {
     }
 }
 
+/* ==========================================================================
+   RECORDATORIO INTELIGENTE DE HORA DE DORMIR Y SESIÓN NOCTURNA DE SUEÑO
+   ========================================================================== */
+
+.sueno-ciclo-panel {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.94));
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    border-radius: 14px;
+    padding: 14px 15px;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sueno-ciclo-panel.is-bedtime-due {
+    border-color: rgba(167, 139, 250, 0.72);
+    background: linear-gradient(145deg, rgba(67, 56, 202, 0.26), rgba(15, 23, 42, 0.96));
+    box-shadow: 0 0 24px rgba(129, 140, 248, 0.2);
+}
+
+.sueno-ciclo-panel.is-sleeping {
+    border-color: rgba(56, 189, 248, 0.6);
+    background: linear-gradient(145deg, rgba(14, 116, 144, 0.2), rgba(15, 23, 42, 0.96));
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.16);
+}
+
+.sueno-ciclo-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.sueno-ciclo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.16);
+    border: 1px solid rgba(129, 140, 248, 0.32);
+    padding: 4px 9px;
+    border-radius: 999px;
+}
+
+.sueno-ciclo-panel.is-bedtime-due .sueno-ciclo-badge {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.18);
+    border-color: rgba(251, 191, 36, 0.45);
+}
+
+.sueno-ciclo-panel.is-sleeping .sueno-ciclo-badge {
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.16);
+    border-color: rgba(56, 189, 248, 0.42);
+}
+
+.sueno-ciclo-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.sueno-ciclo-stat {
+    background: rgba(7, 10, 19, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 10px;
+    padding: 9px 11px;
+    min-width: 0;
+}
+
+.sueno-ciclo-stat-lbl {
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.sueno-ciclo-stat-val {
+    font-size: 14px;
+    font-weight: 800;
+    color: #f8fafc;
+    word-break: break-word;
+}
+
+.sueno-ciclo-stat-sub {
+    font-size: 11px;
+    color: #cbd5e1;
+    margin-top: 2px;
+    line-height: 1.3;
+}
+
+.sueno-btn-dormir-due {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 11px;
+    border: 1px solid rgba(167, 139, 250, 0.65);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.35);
+    transition: transform 0.14s ease, opacity 0.15s ease;
+}
+
+.sueno-btn-dormir-due:hover {
+    transform: translateY(-1px);
+    opacity: 0.96;
+}
+
+.sueno-btn-dormir-early {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    background: rgba(99, 102, 241, 0.14);
+    color: #c7d2fe;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.sueno-btn-despertar {
+    flex: 1;
+    padding: 11px 14px;
+    border-radius: 11px;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    color: #0b0e15;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.sueno-config-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    font-size: 11.5px;
+    color: #94a3b8;
+}
+
+.sueno-config-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sueno-mini-select {
+    background: #0b1120;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 7px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.sueno-home-banner {
+    margin-top: 10px;
+    border-radius: 13px;
+    padding: 12px 14px;
+    border: 1px solid rgba(129, 140, 248, 0.48);
+    background: linear-gradient(135deg, rgba(67, 56, 202, 0.25), rgba(15, 23, 42, 0.94));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+}
+
+.sueno-home-banner.is-sleeping {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.24), rgba(15, 23, 42, 0.94));
+}
+
+@media (max-width: 560px) {
+    .sueno-ciclo-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    .sueno-home-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 
 

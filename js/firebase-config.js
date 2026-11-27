@@ -612,7 +612,8 @@ function fusionarEstadosInteligente(local, remoto) {
         'reproductorPlaylists', 'iaConversaciones',
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
-        'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques', 'subappTrainer_sesionesActivas'
+        'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques', 'subappTrainer_sesionesActivas',
+        'sueno_registros'
     ];
     var allKeys = Array.from(new Set(baseKeys.concat(Object.keys(elL), Object.keys(elR))));
 
@@ -897,6 +898,28 @@ function fusionarEstadosInteligente(local, remoto) {
         }
     }
 
+    // 8. SUEÑO Y SESIÓN NOCTURNA ACTIVA
+    if (local.sueno || remoto.sueno) {
+        var sL = (local.sueno && typeof local.sueno === 'object') ? local.sueno : {};
+        var sR = (remoto.sueno && typeof remoto.sueno === 'object') ? remoto.sueno : {};
+        var tsSL = Number(sL.actualizadoTs) || 0;
+        var tsSR = Number(sR.actualizadoTs) || 0;
+        var baseSue = (tsSL >= tsSR) ? Object.assign({}, sR, sL) : Object.assign({}, sL, sR);
+
+        baseSue.registros = fusionarColeccionPorId(sL.registros, sR.registros, tombstones.sueno_registros);
+        baseSue.registros.sort(function(a, b) {
+            return String((b && b.fecha) || '').localeCompare(String((a && a.fecha) || ''));
+        });
+
+        var siestasMerged = Object.assign({}, sR.siestas || {});
+        Object.keys(sL.siestas || {}).forEach(function(fK) {
+            siestasMerged[fK] = Math.max(Number(siestasMerged[fK]) || 0, Number(sL.siestas[fK]) || 0);
+        });
+        baseSue.siestas = siestasMerged;
+        baseSue.metaHoras = Number(baseSue.metaHoras) || 8;
+        fusion.sueno = baseSue;
+    }
+
     // Conservar timestamp de la modificación más reciente y banderas de migración
     fusion._ultimaActualizacion = Math.max(local._ultimaActualizacion || 0, remoto._ultimaActualizacion || 0, Date.now());
     fusion.v2_clean_defaults = true;
@@ -913,6 +936,13 @@ function refrescarVistasTrasSync() {
         var vistaHome = document.getElementById('vista-home');
         if (vistaHome && vistaHome.classList.contains('active') && typeof renderizarVistaHome === 'function') {
             renderizarVistaHome();
+        }
+        var vistaEP = document.getElementById('vista-estado-personal');
+        if (vistaEP && vistaEP.classList.contains('active') && typeof renderizarModuloDescanso === 'function') {
+            renderizarModuloDescanso();
+        }
+        if (typeof window.programarAlarmaHoraDormirNativa === 'function') {
+            window.programarAlarmaHoraDormirNativa();
         }
         if (typeof renderizarInventarioSiActivo === 'function') renderizarInventarioSiActivo();
         var vistaFin = document.getElementById('vista-finanzas');

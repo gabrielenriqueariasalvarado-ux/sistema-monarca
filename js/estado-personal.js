@@ -1246,9 +1246,11 @@ function actualizarLlenadoSiluetaAvatar(seccion) {
         badgeLabel = 'HIDRATACIÓN DIARIA';
     } else if (seccion === 'descanso') {
         if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
-        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var hoy = (typeof _obtenerHoyClaveSuenoLocal === 'function')
+            ? _obtenerHoyClaveSuenoLocal()
+            : (typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0]);
         var sueno = APP_STATE.sueno || {};
-        var regHoy = (sueno.registros || []).find(function(r) { return r.fecha === hoy; });
+        var regHoy = (sueno.registros || []).find(function(r) { return r && r.fecha === hoy; });
         var horas = regHoy ? Number(regHoy.horasDormidas) || 0 : 0;
         var metaSueno = Number(sueno.metaHoras) || 8;
         pct = Math.min(100, Math.max(0, Math.round((horas / metaSueno) * 100)));
@@ -1384,14 +1386,44 @@ function actualizarPanelLateralAvatar(seccion) {
         contHud.innerHTML = htmlNut;
     } else if (seccion === 'descanso') {
         if (typeof inicializarNutricionYDescanso === 'function') inicializarNutricionYDescanso();
-        var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+        var hoy = (typeof _obtenerHoyClaveSuenoLocal === 'function')
+            ? _obtenerHoyClaveSuenoLocal()
+            : (typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0]);
         var sueno = APP_STATE.sueno || {};
-        var regHoy = (sueno.registros || []).find(function(r) { return r.fecha === hoy; });
+        var regHoy = (sueno.registros || []).find(function(r) { return r && r.fecha === hoy; });
         var horas = regHoy ? Number(regHoy.horasDormidas) || 0 : 0;
         var metaSueno = Number(sueno.metaHoras) || 8;
         var pctSueno = Math.min(100, Math.max(0, Math.round((horas / metaSueno) * 100)));
-        var calidadStr = regHoy ? (regHoy.calidad === 'excelente' ? 'Óptima' : (regHoy.calidad === 'buena' ? 'Buena' : 'Ligera')) : 'Sin registrar';
-        var bonoStr = regHoy ? (regHoy.calidad === 'excelente' ? '-15% Fatiga' : (regHoy.calidad === 'buena' ? '-10% Fatiga' : '-5% Fatiga')) : '0%';
+        var calMapHud = {
+            'reparador': '🌟 Óptima',
+            'excelente': '🌟 Óptima',
+            'bueno': '😊 Buena',
+            'buena': '😊 Buena',
+            'regular': '😐 Regular',
+            'insuficiente': '😫 Insuficiente'
+        };
+        var calidadStr = regHoy ? (calMapHud[regHoy.calidad] || 'Registrada') : 'Sin registrar';
+        var bonoStr = regHoy
+            ? ((regHoy.calidad === 'reparador' || regHoy.calidad === 'excelente' || horas >= 7.5) ? '-15% Fatiga' : (horas >= 6.5 ? '-10% Fatiga' : '-5% Fatiga'))
+            : '0%';
+
+        var cicloHud = (typeof calcularEstadoCicloSueno === 'function') ? calcularEstadoCicloSueno() : null;
+        var avisoHudHtml = '';
+        var btnPrincipalHudHtml = '<button type="button" onclick="abrirModalRegistroSueno()" style="flex: 1; background: #6366f1; color: #ffffff; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"><span>🌙</span> Registrar Descanso</button>';
+
+        if (cicloHud && cicloHud.fase === 'durmiendo') {
+            avisoHudHtml = '<div style="margin-bottom: 10px; padding: 9px 11px; border-radius: 9px; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.42); font-size: 11.5px; color: #e0f2fe; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                '<span>🌙 <strong>Conteo de sueño en curso:</strong> ' + cicloHud.duracionTranscurridaTexto + '</span>' +
+                '<span style="color: #7dd3fc;">Desde ' + formatearHora12Sueno(cicloHud.horaInicioDormir) + '</span>' +
+            '</div>';
+            btnPrincipalHudHtml = '<button type="button" onclick="finalizarCuentaSuenoAlDespertar()" style="flex: 1; background: linear-gradient(135deg, #d97706, #f59e0b); color: #0b0e15; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"><span>☀️</span> ¡Ya me desperté! Finalizar</button>';
+        } else if (cicloHud && cicloHud.fase === 'hora_de_dormir') {
+            avisoHudHtml = '<div style="margin-bottom: 10px; padding: 9px 11px; border-radius: 9px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(167, 139, 250, 0.55); font-size: 11.5px; color: #ede9fe; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+                '<span>⏰ <strong>Ya debería ser hora de dormir</strong> (Meta ' + metaSueno + 'h → ' + formatearHora12Sueno(cicloHud.bedtimeHHMM) + ')</span>' +
+                '<span style="color: #fde68a;">Despertar: ' + formatearHora12Sueno(cicloHud.cand.hora) + '</span>' +
+            '</div>';
+            btnPrincipalHudHtml = '<button type="button" onclick="iniciarCuentaSuenoNocturno()" style="flex: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"><span>🛏️</span> Ya es hora de dormir · Iniciar</button>';
+        }
 
         var htmlSue = `
         <div class="hud-muscle-card" style="border-left-color: #818cf8; background: #0f1422;">
@@ -1404,6 +1436,8 @@ function actualizarPanelLateralAvatar(seccion) {
                     ${pctSueno}%
                 </div>
             </div>
+
+            ${avisoHudHtml}
 
             <div style="margin: 14px 0 16px 0; padding: 12px 14px; border-radius: 10px; background: #07090e; border: 1px solid rgba(255,255,255,0.06);">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
@@ -1419,10 +1453,8 @@ function actualizarPanelLateralAvatar(seccion) {
                 </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 10px;">
-                <button type="button" onclick="abrirModalRegistroSueno()" style="flex: 1; background: #6366f1; color: #ffffff; font-weight: 800; font-size: 12px; padding: 9px 12px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    <span>🌙</span> Registrar Descanso
-                </button>
+            <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                ${btnPrincipalHudHtml}
                 <button type="button" onclick="cambiarSeccionEstadoPersonal('descanso')" style="background: #0b0e15; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer;">
                     Ver Historial
                 </button>
@@ -12929,12 +12961,20 @@ function inicializarNutricionYDescanso() {
         APP_STATE.sueno = {
             metaHoras: 8,
             registros: [],
-            siestas: {}
+            siestas: {},
+            sesionActiva: null,
+            modoReferencia: 'auto',
+            horaDespertarFallback: '06:00',
+            avisoDormirOkeyKey: '',
+            actualizadoTs: 0
         };
     }
-    if (!APP_STATE.sueno.registros) APP_STATE.sueno.registros = [];
-    if (!APP_STATE.sueno.siestas) APP_STATE.sueno.siestas = {};
+    if (!Array.isArray(APP_STATE.sueno.registros)) APP_STATE.sueno.registros = [];
+    if (!APP_STATE.sueno.siestas || typeof APP_STATE.sueno.siestas !== 'object') APP_STATE.sueno.siestas = {};
     if (!APP_STATE.sueno.metaHoras) APP_STATE.sueno.metaHoras = 8;
+    if (!APP_STATE.sueno.modoReferencia) APP_STATE.sueno.modoReferencia = 'auto';
+    if (!APP_STATE.sueno.horaDespertarFallback) APP_STATE.sueno.horaDespertarFallback = '06:00';
+    if (typeof APP_STATE.sueno.avisoDormirOkeyKey !== 'string') APP_STATE.sueno.avisoDormirOkeyKey = '';
 }
 
 function cambiarSeccionEstadoPersonal(seccion) {
@@ -13235,11 +13275,17 @@ function eliminarComidaNutricion(id) {
 
 function renderizarModuloDescanso() {
     inicializarNutricionYDescanso();
-    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var hoy = (typeof _obtenerHoyClaveSuenoLocal === 'function')
+        ? _obtenerHoyClaveSuenoLocal()
+        : (typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0]);
     var sueno = APP_STATE.sueno;
 
+    if (typeof renderizarPanelCicloSueno === 'function') {
+        renderizarPanelCicloSueno();
+    }
+
     var registroHoy = sueno.registros.find(function(r) {
-        return r.fecha === hoy;
+        return r && r.fecha === hoy;
     });
 
     var elHoras = document.getElementById('txt-horas-sueno-hoy');
@@ -13293,7 +13339,7 @@ function renderizarModuloDescanso() {
         }
     } else {
         if (elHoras) elHoras.textContent = '0.0';
-        if (elHorario) elHorario.textContent = 'No hay registro de sueño para hoy. Toca "+ Registrar Sueño".';
+        if (elHorario) elHorario.textContent = 'No hay registro de sueño para hoy. Toca "+ Registrar Sueño" o inicia tu sueño al acostarte.';
         if (elBadgeQ) {
             elBadgeQ.textContent = 'Pendiente';
             elBadgeQ.style.color = '#818cf8';
@@ -13309,65 +13355,86 @@ function renderizarModuloDescanso() {
 
     // Historial semanal de sueño (últimos 7 registros)
     var contHistorial = document.getElementById('contenedor-historial-sueno-semanal');
-    if (!contHistorial) return;
-
-    var ultimos = (sueno.registros || []).slice(0, 7);
-    if (ultimos.length === 0) {
-        contHistorial.innerHTML = '<div style="text-align: center; padding: 18px; color: #64748b; font-size: 12px; background: rgba(255,255,255,0.02); border-radius: 10px;">Aún no tienes noches registradas en el historial.</div>';
-        return;
+    if (contHistorial) {
+        var ultimos = (sueno.registros || []).slice(0, 7);
+        if (ultimos.length === 0) {
+            contHistorial.innerHTML = '<div style="text-align: center; padding: 18px; color: #64748b; font-size: 12px; background: rgba(255,255,255,0.02); border-radius: 10px;">Aún no tienes noches registradas en el historial.</div>';
+        } else {
+            var hHtml = '';
+            ultimos.forEach(function(r) {
+                var calText = r.calidad === 'reparador' ? '🌟 Reparador' : (r.calidad === 'bueno' ? '😊 Bueno' : (r.calidad === 'regular' ? '😐 Regular' : '😫 Insuficiente'));
+                hHtml += '<div class="sueno-item-row">' +
+                    '<div style="display: flex; align-items: center; gap: 10px;">' +
+                        '<span style="font-size: 16px;">🌙</span>' +
+                        '<div>' +
+                            '<div style="font-size: 12.5px; font-weight: 700; color: #f8fafc;">' + r.fecha + ' · <span style="color: #a5b4fc;">' + Number(r.horasDormidas).toFixed(1) + ' horas</span></div>' +
+                            '<div style="font-size: 11px; color: #94a3b8;">' + (r.horaDormir || '--:--') + ' a ' + (r.horaDespertar || '--:--') + ' · ' + calText + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<button type="button" onclick="eliminarRegistroSueno(\'' + r.id + '\')" title="Eliminar registro" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px;">✕</button>' +
+                '</div>';
+            });
+            contHistorial.innerHTML = hHtml;
+        }
     }
 
-    var hHtml = '';
-    ultimos.forEach(function(r) {
-        var calText = r.calidad === 'reparador' ? '🌟 Reparador' : (r.calidad === 'bueno' ? '😊 Bueno' : (r.calidad === 'regular' ? '😐 Regular' : '😫 Insuficiente'));
-        hHtml += '<div class="sueno-item-row">' +
-            '<div style="display: flex; align-items: center; gap: 10px;">' +
-                '<span style="font-size: 16px;">🌙</span>' +
-                '<div>' +
-                    '<div style="font-size: 12.5px; font-weight: 700; color: #f8fafc;">' + r.fecha + ' · <span style="color: #a5b4fc;">' + Number(r.horasDormidas).toFixed(1) + ' horas</span></div>' +
-                    '<div style="font-size: 11px; color: #94a3b8;">' + (r.horaDormir || '--:--') + ' a ' + (r.horaDespertar || '--:--') + ' · ' + calText + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<button type="button" onclick="eliminarRegistroSueno(\'' + r.id + '\')" title="Eliminar registro" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px;">✕</button>' +
-        '</div>';
-    });
-    contHistorial.innerHTML = hHtml;
-
-    if (window.SECCION_EP_ACTIVA === 'descanso' && typeof actualizarLlenadoSiluetaAvatar === 'function') {
-        actualizarLlenadoSiluetaAvatar('descanso');
+    if (window.SECCION_EP_ACTIVA === 'descanso') {
+        if (typeof actualizarLlenadoSiluetaAvatar === 'function') actualizarLlenadoSiluetaAvatar('descanso');
     }
 }
 
-function abrirModalRegistroSueno() {
+var _SUENO_SESION_FINALIZANDO = null;
+
+function abrirModalRegistroSueno(datosPrefill) {
     inicializarNutricionYDescanso();
     var m = document.getElementById('modal-registro-sueno');
     if (!m) return;
     var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
-    var reg = APP_STATE.sueno.registros.find(function(r) { return r.fecha === hoy; });
+    var reg = APP_STATE.sueno.registros.find(function(r) { return r && r.fecha === hoy; });
 
+    var boxLive = document.getElementById('sueno-modal-live-resumen');
     var inH = document.getElementById('input-sueno-horas');
     var inA = document.getElementById('input-sueno-acostarse');
     var inD = document.getElementById('input-sueno-despertar');
     var inQ = document.getElementById('input-sueno-calidad');
     var inN = document.getElementById('input-sueno-notas');
 
-    if (reg) {
-        if (inH) inH.value = reg.horasDormidas;
-        if (inA) inA.value = reg.horaDormir || '23:30';
-        if (inD) inD.value = reg.horaDespertar || '07:00';
-        if (inQ) inQ.value = reg.calidad || 'reparador';
-        if (inN) inN.value = reg.notas || '';
+    if (datosPrefill && typeof datosPrefill === 'object') {
+        _SUENO_SESION_FINALIZANDO = Object.assign({}, datosPrefill);
+        if (boxLive) {
+            boxLive.style.display = 'block';
+            boxLive.innerHTML = '⏱️ <strong>Conteo nocturno finalizado:</strong> ' +
+                formatearHora12Sueno(datosPrefill.horaDormir) + ' → ' + formatearHora12Sueno(datosPrefill.horaDespertar) +
+                ' · <strong style="color:#a5b4fc;">' + datosPrefill.duracionTexto + '</strong>' +
+                (datosPrefill.referenciaTitulo ? ('<div style="font-size:11px;color:#94a3b8;margin-top:3px;">Referencia matutina: ' + datosPrefill.referenciaTitulo + ' (' + formatearHora12Sueno(datosPrefill.referenciaHora) + ')</div>') : '');
+        }
+        if (inH) inH.value = Number(datosPrefill.horasDormidas || 0).toFixed(1);
+        if (inA) inA.value = datosPrefill.horaDormir || '22:00';
+        if (inD) inD.value = datosPrefill.horaDespertar || '06:00';
+        if (inQ) inQ.value = datosPrefill.calidad || 'reparador';
+        if (inN) inN.value = datosPrefill.notas || '';
     } else {
-        if (inH) inH.value = '7.5';
-        if (inA) inA.value = '23:30';
-        if (inD) inD.value = '07:00';
-        if (inQ) inQ.value = 'reparador';
-        if (inN) inN.value = '';
+        _SUENO_SESION_FINALIZANDO = null;
+        if (boxLive) boxLive.style.display = 'none';
+        if (reg) {
+            if (inH) inH.value = reg.horasDormidas;
+            if (inA) inA.value = reg.horaDormir || '23:30';
+            if (inD) inD.value = reg.horaDespertar || '07:00';
+            if (inQ) inQ.value = reg.calidad || 'reparador';
+            if (inN) inN.value = reg.notas || '';
+        } else {
+            if (inH) inH.value = '7.5';
+            if (inA) inA.value = '23:30';
+            if (inD) inD.value = '07:00';
+            if (inQ) inQ.value = 'reparador';
+            if (inN) inN.value = '';
+        }
     }
     m.style.display = 'flex';
 }
 
 function cerrarModalRegistroSueno() {
+    _SUENO_SESION_FINALIZANDO = null;
     var m = document.getElementById('modal-registro-sueno');
     if (m) m.style.display = 'none';
 }
@@ -13386,24 +13453,34 @@ function guardarRegistroSueno() {
     }
 
     inicializarNutricionYDescanso();
-    var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var refFin = _SUENO_SESION_FINALIZANDO;
+    var hoy = (refFin && refFin.fechaDespertar)
+        ? refFin.fechaDespertar
+        : (typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0]);
 
-    // Eliminar si ya existía para hoy
+    // Eliminar si ya existía para esa fecha de despertar
     APP_STATE.sueno.registros = APP_STATE.sueno.registros.filter(function(r) {
-        return r.fecha !== hoy;
+        return r && r.fecha !== hoy;
     });
 
     var nuevoRegistro = {
         id: 'SUE-' + Date.now(),
         fecha: hoy,
-        horasDormidas: horas,
+        horasDormidas: Math.round(horas * 10) / 10,
         horaDormir: inA ? inA.value : '23:30',
         horaDespertar: inD ? inD.value : '07:00',
         calidad: inQ ? inQ.value : 'reparador',
-        notas: inN ? inN.value.trim() : ''
+        notas: inN ? inN.value.trim() : '',
+        desdeConteoVivo: !!refFin,
+        fechaActualizacion: Date.now()
     };
 
     APP_STATE.sueno.registros.unshift(nuevoRegistro);
+    if (refFin && APP_STATE.sueno.sesionActiva) {
+        APP_STATE.sueno.sesionActiva = null;
+    }
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    _SUENO_SESION_FINALIZANDO = null;
 
     // Bono de Recuperación del Avatar en la fatiga acumulada
     if (horas >= 7 && APP_STATE.fatiga) {
@@ -13420,24 +13497,30 @@ function guardarRegistroSueno() {
 
     cerrarModalRegistroSueno();
     renderizarModuloDescanso();
+    if (typeof renderizarBannerSuenoHome === 'function') renderizarBannerSuenoHome();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof programarAlarmaHoraDormirNativa === 'function') programarAlarmaHoraDormirNativa();
 
     // Actualizar métricas del avatar si está en la vista
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') actualizarDesgasteDiarioAutomatico();
     if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
 
     if (typeof mostrarToastMonarca === 'function') {
-        mostrarToastMonarca('Descanso registrado exitosamente (+25 EXP Regeneración Avatar)', '🌙');
+        mostrarToastMonarca('Descanso de ' + nuevoRegistro.horasDormidas.toFixed(1) + 'h registrado (+25 EXP Regeneración)', '🌙');
     }
 }
 
 function eliminarRegistroSueno(id) {
     if (!confirm('¿Deseas eliminar este registro de descanso?')) return;
     inicializarNutricionYDescanso();
+    if (typeof registrarTombstone === 'function') registrarTombstone('sueno_registros', id);
     APP_STATE.sueno.registros = APP_STATE.sueno.registros.filter(function(r) {
-        return r.id !== id;
+        return r && r.id !== id;
     });
+    APP_STATE.sueno.actualizadoTs = Date.now();
     if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
     renderizarModuloDescanso();
+    if (typeof renderizarBannerSuenoHome === 'function') renderizarBannerSuenoHome();
 }
 
 function agregarSiestaHoy(minutos) {
@@ -13445,6 +13528,7 @@ function agregarSiestaHoy(minutos) {
     var hoy = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
     var actual = Number(APP_STATE.sueno.siestas[hoy]) || 0;
     APP_STATE.sueno.siestas[hoy] = actual + minutos;
+    APP_STATE.sueno.actualizadoTs = Date.now();
 
     // Alivio de fatiga mental por siesta
     if (APP_STATE.fatiga && typeof APP_STATE.fatiga.mente === 'number') {
@@ -13458,6 +13542,650 @@ function agregarSiestaHoy(minutos) {
     if (typeof mostrarToastMonarca === 'function') {
         mostrarToastMonarca('Siesta de ' + minutos + ' min registrada (-5% fatiga mental, +10 EXP)', '💤');
     }
+}
+
+// ==========================================================================
+// MÓDULO 3B: RECORDATORIO DE HORA DE DORMIR (-8H) Y CONTEO EN VIVO DE SUEÑO
+// ==========================================================================
+
+function _obtenerHoyClaveSuenoLocal() {
+    var dt = (typeof window !== 'undefined' && typeof window._MONARCA_SUENO_NOW_TEST_MS === 'number')
+        ? new Date(window._MONARCA_SUENO_NOW_TEST_MS)
+        : new Date();
+    return (typeof obtenerClaveFechaLocal === 'function')
+        ? obtenerClaveFechaLocal(dt)
+        : (dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'));
+}
+
+function formatearHora12Sueno(hhmm) {
+    if (!hhmm || typeof hhmm !== 'string') return '--:--';
+    var p = hhmm.trim().split(':');
+    if (p.length < 2) return hhmm;
+    var h = parseInt(p[0], 10);
+    var m = parseInt(p[1], 10);
+    if (isNaN(h) || isNaN(m)) return hhmm;
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+}
+
+function _formatearDuracionSuenoMs(ms) {
+    var totalMin = Math.max(0, Math.floor((Number(ms) || 0) / 60000));
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + 'h ' + String(m).padStart(2, '0') + 'm';
+}
+
+function _sumarDiasLocalSueno(fechaISO, delta) {
+    if (!fechaISO || String(fechaISO).length < 10) return '';
+    var p = String(fechaISO).slice(0, 10).split('-');
+    var dt = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + (delta || 0));
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
+function _obtenerHora24NormalizadaSueno(str) {
+    if (!str) return null;
+    var raw = String(str).trim().toUpperCase();
+    var mAmPm = raw.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/);
+    var hh, mm;
+    if (mAmPm) {
+        hh = parseInt(mAmPm[1], 10);
+        mm = parseInt(mAmPm[2], 10);
+        if (mAmPm[3] === 'PM' && hh < 12) hh += 12;
+        if (mAmPm[3] === 'AM' && hh === 12) hh = 0;
+    } else {
+        var p = raw.split(':');
+        if (p.length < 2) return null;
+        hh = parseInt(p[0], 10);
+        mm = parseInt(p[1], 10);
+    }
+    if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+    return {
+        hora: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'),
+        min: hh * 60 + mm
+    };
+}
+
+function _obtenerMsFechaHoraSueno(fechaStr, hhmm) {
+    if (!fechaStr || !hhmm) return NaN;
+    var fp = String(fechaStr).slice(0, 10).split('-');
+    var hp = String(hhmm).slice(0, 5).split(':');
+    if (fp.length < 3 || hp.length < 2) return NaN;
+    return new Date(
+        parseInt(fp[0], 10),
+        parseInt(fp[1], 10) - 1,
+        parseInt(fp[2], 10),
+        parseInt(hp[0], 10),
+        parseInt(hp[1], 10),
+        0,
+        0
+    ).getTime();
+}
+
+function _obtenerCandidatoDespertarParaFechaSueno(fechaStr) {
+    inicializarNutricionYDescanso();
+    var sueno = APP_STATE.sueno || {};
+    var horaManual = _obtenerHora24NormalizadaSueno(sueno.horaDespertarFallback || '06:00') || { hora: '06:00', min: 360 };
+    if (sueno.modoReferencia === 'manual') {
+        return {
+            origen: 'manual',
+            icono: '⏰',
+            titulo: 'Hora de despertar configurada',
+            hora: horaManual.hora,
+            min: horaManual.min,
+            esManual: true
+        };
+    }
+
+    var candidatos = [];
+
+    // 1. Quests Diarios programados para la mañana (03:00 a 13:00)
+    var qList = Array.isArray(APP_STATE.questsDiarios) ? APP_STATE.questsDiarios : [];
+    qList.forEach(function(q) {
+        if (!q || typeof q !== 'object') return;
+        var hRaw = (q.tipoTiempo === 'programada' && q.horaActivacion)
+            ? q.horaActivacion
+            : ((q.tipoTiempo === 'hora_limite' && q.horaLimite) ? q.horaLimite : null);
+        if (!hRaw) return;
+        var hObj = _obtenerHora24NormalizadaSueno(hRaw);
+        if (!hObj || hObj.min < 180 || hObj.min > 780) return;
+        candidatos.push({
+            origen: 'quest',
+            icono: '⚔️',
+            titulo: q.titulo || 'Quest Matutina',
+            hora: hObj.hora,
+            min: hObj.min,
+            esManual: false
+        });
+    });
+
+    // 2. Calendario, Recordatorios, Eventos y Horario Semanal/Boom para fechaStr
+    if (typeof window.obtenerCandidatosMatutinosCalendario === 'function') {
+        var calCands = window.obtenerCandidatosMatutinosCalendario(fechaStr) || [];
+        calCands.forEach(function(c) {
+            if (c && typeof c.min === 'number' && c.hora) {
+                candidatos.push({
+                    origen: c.origen || 'calendario',
+                    icono: c.icono || '🔔',
+                    titulo: c.titulo || 'Notificación matutina',
+                    hora: c.hora,
+                    min: c.min,
+                    esManual: false
+                });
+            }
+        });
+    }
+
+    if (candidatos.length === 0) {
+        return {
+            origen: 'manual',
+            icono: '⏰',
+            titulo: 'Referencia predeterminada (sin quest matutina)',
+            hora: horaManual.hora,
+            min: horaManual.min,
+            esManual: true
+        };
+    }
+
+    candidatos.sort(function(a, b) {
+        if (a.min !== b.min) return a.min - b.min;
+        return (a.origen === 'quest' ? -1 : 1);
+    });
+    return candidatos[0];
+}
+
+function calcularEstadoCicloSueno(ahoraMsOpt) {
+    inicializarNutricionYDescanso();
+    var sueno = APP_STATE.sueno;
+    var ahoraMs = (typeof ahoraMsOpt === 'number' && !isNaN(ahoraMsOpt))
+        ? ahoraMsOpt
+        : (typeof window._MONARCA_SUENO_NOW_TEST_MS === 'number' ? window._MONARCA_SUENO_NOW_TEST_MS : Date.now());
+    var ahoraDate = new Date(ahoraMs);
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function'
+        ? obtenerClaveFechaLocal(ahoraDate)
+        : (ahoraDate.getFullYear() + '-' + String(ahoraDate.getMonth() + 1).padStart(2, '0') + '-' + String(ahoraDate.getDate()).padStart(2, '0'));
+    var mananaStr = _sumarDiasLocalSueno(hoyStr, 1);
+
+    var metaHoras = Math.min(12, Math.max(4, Number(sueno.metaHoras) || 8));
+    var metaMs = Math.round(metaHoras * 3600000);
+    var regHoy = (sueno.registros || []).find(function(r) { return r && r.fecha === hoyStr; });
+
+    // Si hay una sesión nocturna activa en curso
+    if (sueno.sesionActiva && sueno.sesionActiva.inicioTs) {
+        var ses = sueno.sesionActiva;
+        var iniTs = Number(ses.inicioTs);
+        var transMs = Math.max(0, ahoraMs - iniTs);
+        var dtIni = new Date(iniTs);
+        var horaIniStr = String(dtIni.getHours()).padStart(2, '0') + ':' + String(dtIni.getMinutes()).padStart(2, '0');
+        var horasTrans = Math.round((transMs / 3600000) * 10) / 10;
+        var wakeTs = Number(ses.wakeupTargetTs) || (iniTs + metaMs);
+        return {
+            fase: 'durmiendo',
+            esHoraDeDormir: false,
+            ahoraMs: ahoraMs,
+            hoyStr: hoyStr,
+            metaHoras: metaHoras,
+            sesionActiva: ses,
+            inicioTs: iniTs,
+            horaInicioDormir: ses.horaDormir || horaIniStr,
+            transcurridoMs: transMs,
+            horasTranscurridas: horasTrans,
+            duracionTranscurridaTexto: _formatearDuracionSuenoMs(transMs),
+            pctMeta: Math.min(100, Math.round((transMs / metaMs) * 100)),
+            wakeupMs: wakeTs,
+            bedtimeMs: iniTs,
+            bedtimeHHMM: ses.horaDormir || horaIniStr,
+            cand: {
+                origen: ses.referenciaOrigen || 'quest',
+                icono: ses.referenciaIcono || '⏰',
+                titulo: ses.referenciaTitulo || 'Despertar programado',
+                hora: ses.referenciaHora || '06:00'
+            },
+            fechaObjetivo: ses.fechaObjetivoDespertar || mananaStr,
+            cycleKey: (ses.fechaObjetivoDespertar || mananaStr) + '@' + (ses.referenciaHora || '06:00')
+        };
+    }
+
+    // 1. Verificar si seguimos en la madrugada antes del despertar de HOY y sin sueño registrado hoy
+    var candHoy = _obtenerCandidatoDespertarParaFechaSueno(hoyStr);
+    if (!regHoy && candHoy) {
+        var wakeHoyMs = _obtenerMsFechaHoraSueno(hoyStr, candHoy.hora);
+        var bedHoyMs = wakeHoyMs - metaMs;
+        if (!isNaN(wakeHoyMs) && ahoraMs >= bedHoyMs && ahoraMs < wakeHoyMs) {
+            var dtBedH = new Date(bedHoyMs);
+            var bedHoyHHMM = String(dtBedH.getHours()).padStart(2, '0') + ':' + String(dtBedH.getMinutes()).padStart(2, '0');
+            return {
+                fase: 'hora_de_dormir',
+                esHoraDeDormir: true,
+                ahoraMs: ahoraMs,
+                hoyStr: hoyStr,
+                fechaObjetivo: hoyStr,
+                metaHoras: metaHoras,
+                cand: candHoy,
+                wakeupMs: wakeHoyMs,
+                bedtimeMs: bedHoyMs,
+                bedtimeHHMM: bedHoyHHMM,
+                msRetrasoDormir: ahoraMs - bedHoyMs,
+                retrasoTexto: _formatearDuracionSuenoMs(ahoraMs - bedHoyMs),
+                msRestantesHastaDespertar: Math.max(0, wakeHoyMs - ahoraMs),
+                restanteDespertarTexto: _formatearDuracionSuenoMs(Math.max(0, wakeHoyMs - ahoraMs)),
+                msHastaDormir: 0,
+                cycleKey: hoyStr + '@' + candHoy.hora
+            };
+        }
+    }
+
+    // 2. Ciclo de esta noche apuntando a la 1ª quest/notificación de MAÑANA
+    var candManana = _obtenerCandidatoDespertarParaFechaSueno(mananaStr);
+    var wakeMananaMs = _obtenerMsFechaHoraSueno(mananaStr, candManana.hora);
+    var bedMananaMs = wakeMananaMs - metaMs;
+    var dtBedM = new Date(bedMananaMs);
+    var bedMananaHHMM = String(dtBedM.getHours()).padStart(2, '0') + ':' + String(dtBedM.getMinutes()).padStart(2, '0');
+    var esHora = !isNaN(bedMananaMs) && ahoraMs >= bedMananaMs;
+
+    return {
+        fase: esHora ? 'hora_de_dormir' : 'antes_de_hora',
+        esHoraDeDormir: esHora,
+        ahoraMs: ahoraMs,
+        hoyStr: hoyStr,
+        fechaObjetivo: mananaStr,
+        metaHoras: metaHoras,
+        cand: candManana,
+        wakeupMs: wakeMananaMs,
+        bedtimeMs: bedMananaMs,
+        bedtimeHHMM: bedMananaHHMM,
+        msHastaDormir: Math.max(0, bedMananaMs - ahoraMs),
+        faltanteDormirTexto: _formatearDuracionSuenoMs(Math.max(0, bedMananaMs - ahoraMs)),
+        msRetrasoDormir: esHora ? (ahoraMs - bedMananaMs) : 0,
+        retrasoTexto: esHora ? _formatearDuracionSuenoMs(ahoraMs - bedMananaMs) : '0h 00m',
+        msRestantesHastaDespertar: Math.max(0, wakeMananaMs - ahoraMs),
+        restanteDespertarTexto: _formatearDuracionSuenoMs(Math.max(0, wakeMananaMs - ahoraMs)),
+        cycleKey: mananaStr + '@' + candManana.hora
+    };
+}
+
+function renderizarPanelCicloSueno(ahoraMsOpt) {
+    var cont = document.getElementById('panel-sueno-ciclo-inteligente');
+    if (!cont) return;
+    var st = calcularEstadoCicloSueno(ahoraMsOpt);
+    var sueno = APP_STATE.sueno || {};
+
+    cont.classList.remove('is-bedtime-due', 'is-sleeping');
+    if (st.fase === 'hora_de_dormir') cont.classList.add('is-bedtime-due');
+    else if (st.fase === 'durmiendo') cont.classList.add('is-sleeping');
+
+    var badgeTxt = '🌙 Cálculo Inteligente (-' + st.metaHoras + 'h)';
+    if (st.fase === 'hora_de_dormir') {
+        badgeTxt = '⏰ ¡Ya debería ser hora de dormir!';
+    } else if (st.fase === 'durmiendo') {
+        badgeTxt = '🛌 Conteo de Sueño Activo';
+    }
+
+    var horaDesp12 = formatearHora12Sueno(st.cand.hora);
+    var horaDorm12 = formatearHora12Sueno(st.bedtimeHHMM);
+    var labelOrigen = st.cand.icono + ' ' + st.cand.titulo;
+
+    var cuerpoHtml = '';
+    if (st.fase === 'durmiendo') {
+        cuerpoHtml =
+            '<div class="sueno-ciclo-head">' +
+                '<span class="sueno-ciclo-badge">' + badgeTxt + '</span>' +
+                '<span style="font-size:11.5px;color:#7dd3fc;font-weight:700;">Desde las ' + formatearHora12Sueno(st.horaInicioDormir) + '</span>' +
+            '</div>' +
+            '<div class="sueno-ciclo-meta-grid">' +
+                '<div class="sueno-ciclo-stat">' +
+                    '<div class="sueno-ciclo-stat-lbl">TIEMPO DORMIDO EN VIVO</div>' +
+                    '<div class="sueno-ciclo-stat-val" style="font-size:20px;color:#7dd3fc;">' + st.duracionTranscurridaTexto + '</div>' +
+                    '<div class="sueno-ciclo-stat-sub">' + st.pctMeta + '% de tu meta (' + st.metaHoras + 'h)</div>' +
+                '</div>' +
+                '<div class="sueno-ciclo-stat">' +
+                    '<div class="sueno-ciclo-stat-lbl">REFERENCIA MATUTINA</div>' +
+                    '<div class="sueno-ciclo-stat-val">' + horaDesp12 + '</div>' +
+                    '<div class="sueno-ciclo-stat-sub">' + labelOrigen + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                '<button type="button" class="sueno-btn-despertar" onclick="finalizarCuentaSuenoAlDespertar()">' +
+                    '<span>☀️</span><span>¡Ya me desperté! Finalizar y Registrar</span>' +
+                '</button>' +
+                '<button type="button" onclick="cancelarSesionSuenoActiva()" title="Cancelar sesión de sueño sin guardar" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:10px;padding:0 12px;font-size:12px;font-weight:700;cursor:pointer;">✕</button>' +
+            '</div>';
+    } else {
+        var subBedtime = st.fase === 'hora_de_dormir'
+            ? ('Pasaron ' + st.retrasoTexto + ' · Te quedan ' + st.restanteDespertarTexto + ' de sueño')
+            : ('Faltan ' + st.faltanteDormirTexto + ' para acostarte');
+        var btnAccion = st.fase === 'hora_de_dormir'
+            ? '<button type="button" class="sueno-btn-dormir-due" onclick="iniciarCuentaSuenoNocturno()"><span>🛏️</span><span>Ya debería ser hora de dormir · Iniciar conteo de sueño</span></button>'
+            : '<button type="button" class="sueno-btn-dormir-early" onclick="iniciarCuentaSuenoNocturno()"><span>🌙</span><span>Me acuesto ya · Iniciar conteo de sueño</span></button>';
+
+        cuerpoHtml =
+            '<div class="sueno-ciclo-head">' +
+                '<span class="sueno-ciclo-badge">' + badgeTxt + '</span>' +
+                '<span style="font-size:11.5px;color:#94a3b8;font-weight:600;">Meta: ' + st.metaHoras + 'h antes</span>' +
+            '</div>' +
+            '<div class="sueno-ciclo-meta-grid">' +
+                '<div class="sueno-ciclo-stat">' +
+                    '<div class="sueno-ciclo-stat-lbl">1ª NOTIFICACIÓN / QUEST MAÑANA</div>' +
+                    '<div class="sueno-ciclo-stat-val">' + horaDesp12 + '</div>' +
+                    '<div class="sueno-ciclo-stat-sub">' + labelOrigen + '</div>' +
+                '</div>' +
+                '<div class="sueno-ciclo-stat">' +
+                    '<div class="sueno-ciclo-stat-lbl">HORA IDEAL DE ACOSTARSE (-' + st.metaHoras + 'H)</div>' +
+                    '<div class="sueno-ciclo-stat-val" style="color:' + (st.fase === 'hora_de_dormir' ? '#fde68a' : '#a5b4fc') + ';">' + horaDorm12 + '</div>' +
+                    '<div class="sueno-ciclo-stat-sub">' + subBedtime + '</div>' +
+                '</div>' +
+            '</div>' +
+            btnAccion +
+            '<div class="sueno-config-row">' +
+                '<span>Ajuste rápido:</span>' +
+                '<div class="sueno-config-controls">' +
+                    '<select class="sueno-mini-select" onchange="cambiarMetaHorasSuenoUI(this.value)" title="Meta de horas de sueño">' +
+                        [6, 6.5, 7, 7.5, 8, 8.5, 9].map(function(hOpt) {
+                            return '<option value="' + hOpt + '"' + (Math.abs(st.metaHoras - hOpt) < 0.05 ? ' selected' : '') + '>' + hOpt + 'h sueño</option>';
+                        }).join('') +
+                    '</select>' +
+                    '<select class="sueno-mini-select" onchange="cambiarModoReferenciaSuenoUI(this.value)" title="Fuente de despertar">' +
+                        '<option value="auto"' + (sueno.modoReferencia !== 'manual' ? ' selected' : '') + '>Auto (1ª Quest/Notif)</option>' +
+                        '<option value="manual"' + (sueno.modoReferencia === 'manual' ? ' selected' : '') + '>Hora Manual</option>' +
+                    '</select>' +
+                    (sueno.modoReferencia === 'manual'
+                        ? '<input type="time" class="sueno-mini-select" value="' + (sueno.horaDespertarFallback || '06:00') + '" onchange="cambiarHoraDespertarManualSuenoUI(this.value)">'
+                        : '') +
+                '</div>' +
+            '</div>';
+    }
+
+    cont.innerHTML = cuerpoHtml;
+}
+
+function renderizarBannerSuenoHome(fechaRef) {
+    var banner = document.getElementById('home-sueno-banner');
+    if (!banner) return;
+    var ahoraMs = (fechaRef instanceof Date && !isNaN(fechaRef.getTime())) ? fechaRef.getTime() : undefined;
+    var st = calcularEstadoCicloSueno(ahoraMs);
+
+    if (st.fase === 'durmiendo') {
+        banner.className = 'sueno-home-banner is-sleeping';
+        banner.style.display = 'flex';
+        banner.innerHTML =
+            '<div style="min-width:0;flex:1;">' +
+                '<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#7dd3fc;letter-spacing:0.4px;">🛌 Conteo de Sueño en Curso</div>' +
+                '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;margin-top:2px;">Llevas ' + st.duracionTranscurridaTexto + ' dormidos</div>' +
+                '<div style="font-size:11.5px;color:#cbd5e1;margin-top:2px;">Acostado a las ' + formatearHora12Sueno(st.horaInicioDormir) + ' · Referencia: ' + formatearHora12Sueno(st.cand.hora) + '</div>' +
+            '</div>' +
+            '<button type="button" class="sueno-btn-despertar" style="flex:0 0 auto;padding:9px 14px;" onclick="finalizarCuentaSuenoAlDespertar()">☀️ Ya me desperté · Registrar</button>';
+    } else if (st.fase === 'hora_de_dormir') {
+        banner.className = 'sueno-home-banner';
+        banner.style.display = 'flex';
+        banner.innerHTML =
+            '<div style="min-width:0;flex:1;">' +
+                '<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#fde68a;letter-spacing:0.4px;">🌙 ¡Ya debería ser hora de dormir!</div>' +
+                '<div style="font-size:13.5px;font-weight:800;color:#f8fafc;margin-top:2px;">Hora ideal: ' + formatearHora12Sueno(st.bedtimeHHMM) + ' (-' + st.metaHoras + 'h antes de ' + formatearHora12Sueno(st.cand.hora) + ')</div>' +
+                '<div style="font-size:11.5px;color:#cbd5e1;margin-top:2px;">' + st.cand.icono + ' ' + st.cand.titulo + ' · Quedan ' + st.restanteDespertarTexto + ' de descanso</div>' +
+            '</div>' +
+            '<button type="button" class="sueno-btn-dormir-due" style="width:auto;padding:9px 14px;" onclick="iniciarCuentaSuenoNocturno()">🛏️ Me acuesto · Iniciar Sueño</button>';
+    } else {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+    }
+}
+
+function iniciarCuentaSuenoNocturno(ahoraMsOpt) {
+    inicializarNutricionYDescanso();
+    var st = calcularEstadoCicloSueno(ahoraMsOpt);
+    var nowMs = st.ahoraMs || Date.now();
+    var nowDt = new Date(nowMs);
+    var horaIni = String(nowDt.getHours()).padStart(2, '0') + ':' + String(nowDt.getMinutes()).padStart(2, '0');
+    var fechaIni = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal(nowDt) : st.hoyStr;
+
+    APP_STATE.sueno.sesionActiva = {
+        id: 'SES-SUE-' + nowMs,
+        inicioTs: nowMs,
+        fechaInicio: fechaIni,
+        horaDormir: horaIni,
+        fechaObjetivoDespertar: st.fechaObjetivo,
+        referenciaOrigen: st.cand.origen,
+        referenciaIcono: st.cand.icono,
+        referenciaTitulo: st.cand.titulo,
+        referenciaHora: st.cand.hora,
+        wakeupTargetTs: st.wakeupMs,
+        metaHorasSnapshot: st.metaHoras,
+        actualizadoTs: nowMs
+    };
+    APP_STATE.sueno.avisoDormirOkeyKey = st.cycleKey;
+    APP_STATE.sueno.actualizadoTs = nowMs;
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-sueno-hora-dormir');
+    }
+    if (typeof programarAlarmaHoraDormirNativa === 'function') programarAlarmaHoraDormirNativa();
+    renderizarModuloDescanso();
+    renderizarBannerSuenoHome(nowDt);
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Buenas noches · Conteo de sueño iniciado a las ' + formatearHora12Sueno(horaIni), '🌙');
+    }
+}
+
+function finalizarCuentaSuenoAlDespertar(ahoraMsOpt) {
+    inicializarNutricionYDescanso();
+    var ses = APP_STATE.sueno.sesionActiva;
+    if (!ses || !ses.inicioTs) {
+        abrirModalRegistroSueno();
+        return;
+    }
+
+    var finMs = (typeof ahoraMsOpt === 'number' && !isNaN(ahoraMsOpt))
+        ? ahoraMsOpt
+        : (typeof window._MONARCA_SUENO_NOW_TEST_MS === 'number' ? window._MONARCA_SUENO_NOW_TEST_MS : Date.now());
+    var durMs = Math.max(60000, finMs - Number(ses.inicioTs));
+    var horasDec = Math.max(0.1, Math.round((durMs / 3600000) * 10) / 10);
+
+    var dtIni = new Date(Number(ses.inicioTs));
+    var dtFin = new Date(finMs);
+    var horaIni = ses.horaDormir || (String(dtIni.getHours()).padStart(2, '0') + ':' + String(dtIni.getMinutes()).padStart(2, '0'));
+    var horaFin = String(dtFin.getHours()).padStart(2, '0') + ':' + String(dtFin.getMinutes()).padStart(2, '0');
+    var fechaFin = typeof obtenerClaveFechaLocal === 'function'
+        ? obtenerClaveFechaLocal(dtFin)
+        : (dtFin.getFullYear() + '-' + String(dtFin.getMonth() + 1).padStart(2, '0') + '-' + String(dtFin.getDate()).padStart(2, '0'));
+
+    var calSugerida = 'insuficiente';
+    if (horasDec >= 7.5) calSugerida = 'reparador';
+    else if (horasDec >= 6.5) calSugerida = 'bueno';
+    else if (horasDec >= 5.0) calSugerida = 'regular';
+
+    abrirModalRegistroSueno({
+        sesionId: ses.id,
+        inicioTs: ses.inicioTs,
+        finTs: finMs,
+        fechaDespertar: fechaFin,
+        horasDormidas: horasDec,
+        duracionTexto: _formatearDuracionSuenoMs(durMs),
+        horaDormir: horaIni,
+        horaDespertar: horaFin,
+        calidad: calSugerida,
+        referenciaTitulo: ses.referenciaTitulo || '',
+        referenciaHora: ses.referenciaHora || '',
+        notas: ''
+    });
+}
+
+function cancelarSesionSuenoActiva() {
+    inicializarNutricionYDescanso();
+    if (!APP_STATE.sueno.sesionActiva) return;
+    APP_STATE.sueno.sesionActiva = null;
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloDescanso();
+    renderizarBannerSuenoHome();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof programarAlarmaHoraDormirNativa === 'function') programarAlarmaHoraDormirNativa();
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Conteo de sueño cancelado', '✖');
+    }
+}
+
+function cambiarMetaHorasSuenoUI(val) {
+    inicializarNutricionYDescanso();
+    var n = parseFloat(val);
+    if (isNaN(n) || n < 4 || n > 12) return;
+    APP_STATE.sueno.metaHoras = n;
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloDescanso();
+    renderizarBannerSuenoHome();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    programarAlarmaHoraDormirNativa();
+}
+
+function cambiarModoReferenciaSuenoUI(modo) {
+    inicializarNutricionYDescanso();
+    APP_STATE.sueno.modoReferencia = (modo === 'manual') ? 'manual' : 'auto';
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloDescanso();
+    renderizarBannerSuenoHome();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    programarAlarmaHoraDormirNativa();
+}
+
+function cambiarHoraDespertarManualSuenoUI(hhmm) {
+    inicializarNutricionYDescanso();
+    var hObj = _obtenerHora24NormalizadaSueno(hhmm);
+    if (!hObj) return;
+    APP_STATE.sueno.horaDespertarFallback = hObj.hora;
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    renderizarModuloDescanso();
+    renderizarBannerSuenoHome();
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    programarAlarmaHoraDormirNativa();
+}
+
+function obtenerAlertasSuenoActivas() {
+    if (typeof window.APP_STATE !== 'object' || !APP_STATE) return [];
+    var st = calcularEstadoCicloSueno();
+    if (!st || st.fase !== 'hora_de_dormir') return [];
+    if (APP_STATE.sueno && APP_STATE.sueno.avisoDormirOkeyKey === st.cycleKey) return [];
+
+    var horaBed12 = formatearHora12Sueno(st.bedtimeHHMM);
+    var horaWake12 = formatearHora12Sueno(st.cand.hora);
+    var safeKey = String(st.cycleKey || '').replace(/'/g, "\\'");
+
+    return [{
+        id: 'alerta-sueno-hora-dormir',
+        tipo: 'sueno',
+        icono: '🌙',
+        badge: 'Hora de Dormir (-' + st.metaHoras + 'h)',
+        color: '#818cf8',
+        titulo: 'Ya deberías estar acostándote',
+        metaLinea: '🛌 Hora ideal: ' + horaBed12 + ' · ' + st.cand.icono + ' ' + st.cand.titulo + ' (' + horaWake12 + ')',
+        descripcion: 'Para cumplir tus ' + st.metaHoras + 'h de descanso antes de las ' + horaWake12 + ', inicia tu conteo nocturno al acostarte.',
+        acciones: [
+            {
+                tipo: 'primary',
+                texto: '🛏️ Me Acuesto Ahora',
+                fn: "cerrarCentroNotificaciones(); if(typeof iniciarCuentaSuenoNocturno==='function') iniciarCuentaSuenoNocturno();"
+            },
+            {
+                tipo: 'secondary',
+                texto: '✓ Okey',
+                fn: "if(typeof confirmarOkeyAlertaSueno==='function') confirmarOkeyAlertaSueno('" + safeKey + "');"
+            }
+        ],
+        _sortTs: st.bedtimeMs,
+        _dispatchKey: 'alerta-sueno-dormir@' + st.cycleKey,
+        _phoneMeta: {
+            monarcaAlertId: 'alerta-sueno-hora-dormir',
+            monarcaAlertTipo: 'sueno',
+            cycleKey: st.cycleKey
+        }
+    }];
+}
+
+function confirmarOkeyAlertaSueno(cycleKeyOpt) {
+    inicializarNutricionYDescanso();
+    var key = cycleKeyOpt || (calcularEstadoCicloSueno().cycleKey);
+    APP_STATE.sueno.avisoDormirOkeyKey = key;
+    APP_STATE.sueno.actualizadoTs = Date.now();
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    if (typeof window.cancelarNotificacionTelefonoPorAlerta === 'function') {
+        window.cancelarNotificacionTelefonoPorAlerta('alerta-sueno-hora-dormir');
+    }
+    if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+    if (typeof renderizarCentroNotificaciones === 'function') renderizarCentroNotificaciones();
+}
+
+function programarAlarmaHoraDormirNativa() {
+    try {
+        var plugins = (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
+        var ln = plugins ? plugins.LocalNotifications : null;
+        if (!ln || typeof ln.schedule !== 'function' || typeof APP_STATE !== 'object' || !APP_STATE) return;
+
+        var NOTIF_ID_DORMIR = 92100;
+        var st = calcularEstadoCicloSueno();
+        var ahora = Date.now();
+
+        if (!st || st.fase !== 'antes_de_hora' || isNaN(st.bedtimeMs) || st.bedtimeMs <= ahora + 3000) {
+            if (typeof ln.cancel === 'function') {
+                ln.cancel({ notifications: [{ id: NOTIF_ID_DORMIR }] }).catch(function() {});
+            }
+            return;
+        }
+
+        var horaBed12 = formatearHora12Sueno(st.bedtimeHHMM);
+        var horaWake12 = formatearHora12Sueno(st.cand.hora);
+        var dispatchKey = 'alerta-sueno-dormir@' + st.cycleKey;
+
+        var prepProm = (typeof window.asegurarCanalYAccionesNotifMonarca === 'function')
+            ? window.asegurarCanalYAccionesNotifMonarca()
+            : Promise.resolve(true);
+
+        prepProm.then(function() {
+            return ln.schedule({
+                notifications: [{
+                    id: NOTIF_ID_DORMIR,
+                    title: '🌙 Ya deberías estar acostándote (' + horaBed12 + ')',
+                    body: 'Para dormir ' + st.metaHoras + 'h antes de ' + st.cand.titulo + ' (' + horaWake12 + '), toca para iniciar tu sueño.',
+                    schedule: { at: new Date(st.bedtimeMs), allowWhileIdle: true },
+                    channelId: 'monarca_alerts_channel',
+                    actionTypeId: 'MONARCA_ALERT_OKEY',
+                    autoCancel: true,
+                    extra: {
+                        monarcaAlertId: 'alerta-sueno-hora-dormir',
+                        monarcaAlertTipo: 'sueno',
+                        cycleKey: st.cycleKey,
+                        dispatchKey: dispatchKey
+                    }
+                }]
+            });
+        }).catch(function() {});
+    } catch (e) {}
+}
+
+var _ULTIMO_FASE_SUENO_NOTIF = null;
+
+function verificarCicloSuenoEnVivo() {
+    try {
+        if (typeof APP_STATE !== 'object' || !APP_STATE) return;
+        var st = calcularEstadoCicloSueno();
+        if (!st) return;
+
+        if (st.fase === 'hora_de_dormir' && _ULTIMO_FASE_SUENO_NOTIF !== st.cycleKey) {
+            _ULTIMO_FASE_SUENO_NOTIF = st.cycleKey;
+            if (typeof actualizarBadgeNotificaciones === 'function') actualizarBadgeNotificaciones();
+        }
+
+        if (window.VISTA_ACTUAL === 'vista-home' && typeof renderizarBannerSuenoHome === 'function') {
+            renderizarBannerSuenoHome();
+        }
+        if (window.VISTA_ACTUAL === 'vista-estado-personal' && window.SECCION_EP_ACTIVA === 'descanso') {
+            renderizarPanelCicloSueno();
+        }
+    } catch (e) {}
 }
 
 // Exportar funciones a window
@@ -13478,7 +14206,22 @@ if (typeof window !== 'undefined') {
     window.guardarRegistroSueno = guardarRegistroSueno;
     window.eliminarRegistroSueno = eliminarRegistroSueno;
     window.agregarSiestaHoy = agregarSiestaHoy;
+    window.formatearHora12Sueno = formatearHora12Sueno;
+    window.calcularEstadoCicloSueno = calcularEstadoCicloSueno;
+    window.renderizarPanelCicloSueno = renderizarPanelCicloSueno;
+    window.renderizarBannerSuenoHome = renderizarBannerSuenoHome;
+    window.iniciarCuentaSuenoNocturno = iniciarCuentaSuenoNocturno;
+    window.finalizarCuentaSuenoAlDespertar = finalizarCuentaSuenoAlDespertar;
+    window.cancelarSesionSuenoActiva = cancelarSesionSuenoActiva;
+    window.cambiarMetaHorasSuenoUI = cambiarMetaHorasSuenoUI;
+    window.cambiarModoReferenciaSuenoUI = cambiarModoReferenciaSuenoUI;
+    window.cambiarHoraDespertarManualSuenoUI = cambiarHoraDespertarManualSuenoUI;
+    window.obtenerAlertasSuenoActivas = obtenerAlertasSuenoActivas;
+    window.confirmarOkeyAlertaSueno = confirmarOkeyAlertaSueno;
+    window.programarAlarmaHoraDormirNativa = programarAlarmaHoraDormirNativa;
+    window.verificarCicloSuenoEnVivo = verificarCicloSuenoEnVivo;
 }
+
 
 
 

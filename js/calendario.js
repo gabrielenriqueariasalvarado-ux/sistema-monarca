@@ -2799,6 +2799,10 @@ function verificarDisparadoresCalendario() {
         });
         mostrarSiguientePopupRecordatorio();
     }
+
+    if (typeof window.verificarCicloSuenoEnVivo === 'function') {
+        try { window.verificarCicloSuenoEnVivo(); } catch (eSuenoCal) {}
+    }
 }
 
 function reproducirSonidoCalendario(tipo) {
@@ -3268,6 +3272,12 @@ function confirmarOkeyAvisoBoom(fechaClave) {
 
 function programarAlarmasCalendarioNativas() {
     try {
+        if (typeof window.verificarCicloSuenoEnVivo === 'function') {
+            try { window.verificarCicloSuenoEnVivo(); } catch (eS1) {}
+        }
+        if (typeof window.programarAlarmaHoraDormirNativa === 'function') {
+            try { window.programarAlarmaHoraDormirNativa(); } catch (eS2) {}
+        }
         var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
         var ln = plugins ? plugins.LocalNotifications : null;
         if (!ln || typeof ln.schedule !== 'function' || !window.APP_STATE) return;
@@ -3410,3 +3420,71 @@ window.obtenerAlertasCalendarioActivas = obtenerAlertasCalendarioActivas;
 window.obtenerProximosRecordatoriosHoy = obtenerProximosRecordatoriosHoy;
 window.verificarDisparadoresCalendario = verificarDisparadoresCalendario;
 window.programarAlarmasCalendarioNativas = programarAlarmasCalendarioNativas;
+
+/**
+ * Devuelve los candidatos matutinos (03:00 a 13:00) de una fecha dada desde Recordatorios, Eventos y Horario Semanal/Boom.
+ */
+function obtenerCandidatosMatutinosCalendario(fechaStr) {
+    var lista = [];
+    if (!window.APP_STATE || !fechaStr) return lista;
+    try {
+        var normH = function(str) {
+            if (!str) return null;
+            var p = String(str).trim().split(':');
+            if (p.length < 2) return null;
+            var hh = parseInt(p[0], 10);
+            var mm = parseInt(p[1], 10);
+            if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+            var mins = hh * 60 + mm;
+            if (mins < 180 || mins > 780) return null;
+            return {
+                hora: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'),
+                min: mins
+            };
+        };
+
+        obtenerRecordatoriosParaFecha(fechaStr).forEach(function(r) {
+            if (!r || r.completado || !r.hora) return;
+            var hObj = normH(r.hora);
+            if (!hObj) return;
+            lista.push({
+                origen: 'recordatorio',
+                icono: '🔔',
+                titulo: r.titulo || 'Recordatorio matutino',
+                hora: hObj.hora,
+                min: hObj.min
+            });
+        });
+
+        obtenerEventosParaFecha(fechaStr).forEach(function(ev) {
+            if (!ev || ev.completado) return;
+            var hIni = ev.horaInicio || ev.hora;
+            var hObj = normH(hIni);
+            if (!hObj) return;
+            lista.push({
+                origen: 'evento',
+                icono: '📆',
+                titulo: ev.titulo || 'Evento matutino',
+                hora: hObj.hora,
+                min: hObj.min
+            });
+        });
+
+        _obtenerOcurrenciasHorarioParaFecha(fechaStr).forEach(function(oc) {
+            if (!oc || !oc.horaInicio) return;
+            var hObj = normH(oc.horaInicio);
+            if (!hObj) return;
+            lista.push({
+                origen: oc.esBoom ? 'boom' : 'horario',
+                icono: oc.esBoom ? '🚀' : '🗓️',
+                titulo: oc.titulo || 'Actividad matutina',
+                hora: hObj.hora,
+                min: hObj.min
+            });
+        });
+    } catch (e) {}
+    return lista;
+}
+
+window.obtenerCandidatosMatutinosCalendario = obtenerCandidatosMatutinosCalendario;
+

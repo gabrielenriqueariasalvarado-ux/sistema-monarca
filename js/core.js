@@ -683,6 +683,7 @@ function inicializarSistema(omitirLecturaLocal) {
     if (typeof actualizarSelectoresPlaylistRutinas === 'function') actualizarSelectoresPlaylistRutinas();
     if (typeof iniciarMotorRecordatoriosCalendario === 'function') iniciarMotorRecordatoriosCalendario();
     if (typeof programarAlarmasCalendarioNativas === 'function') programarAlarmasCalendarioNativas();
+    if (typeof window.programarAlarmaHoraDormirNativa === 'function') window.programarAlarmaHoraDormirNativa();
     if (typeof renderizarVistaHome === 'function') renderizarVistaHome();
 
     // Historial inicial para soporte del botón atrás en móvil / PWA
@@ -1764,6 +1765,9 @@ function renderizarPulsoDiarioHome(fechaRef) {
     if (typeof document === 'undefined') return;
     var ahora = (fechaRef instanceof Date && !isNaN(fechaRef.getTime())) ? fechaRef : new Date();
     var st = (typeof window !== 'undefined' && window.APP_STATE) ? window.APP_STATE : DEFAULT_STATE;
+    if (typeof window !== 'undefined' && typeof window.renderizarBannerSuenoHome === 'function') {
+        try { window.renderizarBannerSuenoHome(ahora); } catch (eSuenoHome) {}
+    }
 
     // 1. Quests de hoy
     var qList = Array.isArray(st.questsDiarios) ? st.questsDiarios.filter(Boolean) : [];
@@ -1997,7 +2001,7 @@ if (typeof window !== 'undefined') {
     window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
 }
 
-var MONARCA_APP_VERSION = '11.37';
+var MONARCA_APP_VERSION = '11.38';
 var MONARCA_APP_VERSION_FECHA = '2026-11-26';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
@@ -2677,6 +2681,10 @@ function confirmarAlertaOkeySistema(metaOrId) {
         if (typeof window.confirmarAlertaOkeyPenitenciaQuest === 'function') {
             window.confirmarAlertaOkeyPenitenciaQuest(qPenId);
         }
+    } else if (tipo === 'sueno' || alertId === 'alerta-sueno-hora-dormir') {
+        if (typeof window.confirmarOkeyAlertaSueno === 'function') {
+            window.confirmarOkeyAlertaSueno(extra && extra.cycleKey);
+        }
     } else if (alertId) {
         descartarAlertaGeneralMonarca(alertId);
     }
@@ -2722,6 +2730,16 @@ function manejarAccionNotificacionTelefono(event) {
 
         if (actionId === 'okey') {
             confirmarAlertaOkeySistema(extra);
+            return;
+        }
+
+        if (extra.monarcaAlertTipo === 'sueno') {
+            if (typeof cambiarVista === 'function') cambiarVista('vista-estado-personal');
+            setTimeout(function() {
+                if (typeof window.cambiarSeccionEstadoPersonal === 'function') {
+                    window.cambiarSeccionEstadoPersonal('descanso');
+                }
+            }, 80);
             return;
         }
 
@@ -2984,6 +3002,7 @@ function obtenerAlertasSistemaMonarca() {
     var combinadas = [];
     var fuentes = [
         window.obtenerAlertasAutoPCActivas,
+        window.obtenerAlertasSuenoActivas,
         window.obtenerAlertasCalendarioActivas,
         window.obtenerAlertasQuestsActivas,
         window.obtenerAlertasFinanzasRetrasadasActivas,

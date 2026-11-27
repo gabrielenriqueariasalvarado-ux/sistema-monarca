@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.37)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.38)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.37
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.38
             Esta versión nativa incluye:
+            - 🌙 **Recordatorio Inteligente de Hora de Dormir (-8h) y Conteo en Vivo de Sueño (v11.38)**:
+              - **Hora Límite Automática**: Toma automáticamente como punto de referencia tu **primera Quest matutina o notificación de Calendario/Horario del día siguiente** y resta **8 horas** hacia atrás (ej. `06:00 AM → 10:00 PM`, `05:39 AM → 9:39 PM`), con opción de ajustar horas meta o referencia manual.
+              - **Alerta + Botón *"Ya debería ser hora de dormir"***: Dispara notificación programada (`LocalNotifications` en móvil y campana `🔔` en app) junto al botón directo en **Inicio** y **Estado Personal → Descanso & Sueño** para iniciar el conteo al acostarte, medir la noche en tiempo real y finalizarlo al despertar guardando automáticamente las horas dormidas, calidad sugerida, historial semanal y bono de recuperación del Avatar.
             - 💬 **Recordatorio Amable de Cobro por WhatsApp en Ingresos Aleatorios y Almacén (v11.37)**:
               - **Botón Automático 3 Días Antes (`💬 Cobrar WA`)**: Aparece automáticamente en tarjetas pendientes de **Aleatorios** (préstamos, barbería, trabajos ocasionales), **Almacén** (cuotas de ventas a crédito y cobros) y **Planificación → Cobros del Día** desde **3 días antes** de la fecha acordada (mostrando cuenta regresiva `En 3d`, `Mañana`, `Hoy` o retraso), más alerta **`Cobros Próximos ≤3d`** en la campana `🔔`.
               - **Modal Dark Glass estilo Personal Trainer**: Previsualiza y edita el mensaje amable con **3 tonos instantáneos offline** (`🤝 Amable`, `😊 Cercano`, `🧾 Formal Suave`), pulido opcional **`✨ Pulir con Emily IA`**, autocompletado/guardado de **Persona** y **WhatsApp**, copia en 1 toque y envío directo por WhatsApp (`✓ Recordado Hoy`).

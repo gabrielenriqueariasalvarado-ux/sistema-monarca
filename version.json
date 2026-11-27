@@ -1,5 +1,5 @@
 {
-  "version": "11.37",
+  "version": "11.38",
   "fecha": "2026-11-26",
-  "resumen": "Cobranza Amable Programada por WhatsApp en Ingresos Aleatorios y Almacén (v11.37): 3 días antes de la fecha pautada aparece automáticamente el botón 💬 Cobrar WA con modal estilo Personal Trainer (3 tonos amables offline, edición libre, pulido con Emily IA, persona/teléfono recordados y apertura directa de WhatsApp) más alertas en la campana."
+  "resumen": "Hora Ideal de Dormir (-8h) y Conteo en Vivo de Sueño (v11.38): Calcula automáticamente tu hora límite para acostarte restando 8h a tu primera Quest matutina o notificación de Calendario (ej. 6:00 AM → 10:00 PM · 5:39 AM → 9:39 PM), lanza notificación/botón 'Ya debería ser hora de dormir', mide el sueño durante la noche y registra las horas dormidas al despertar."
 }

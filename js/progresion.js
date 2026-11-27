@@ -1525,6 +1525,12 @@ function sincronizarTonosConNativo(monarcaAlarm, qList) {
 }
 
 function programarAlarmasNativasQuests() {
+    if (typeof window.verificarCicloSuenoEnVivo === 'function') {
+        try { window.verificarCicloSuenoEnVivo(); } catch (eSueno) {}
+    }
+    if (typeof window.programarAlarmaHoraDormirNativa === 'function') {
+        try { window.programarAlarmaHoraDormirNativa(); } catch (eSuenoNat) {}
+    }
     var plugins = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : null;
     if (!plugins) return;
 
