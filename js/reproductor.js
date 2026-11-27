@@ -53,6 +53,11 @@
         _rutinaTransicionandoSalida: false,
         _fadeIntervalId: null,
         _fadeToken: 0,
+        sleepTimerModo: 'off',       // 'off' | 'minutos' | 'fin_pista'
+        sleepTimerMinutos: 0,
+        sleepTimerFinTs: 0,
+        _sleepTimerIntervalId: null,
+        _sleepFading: false,
         _dbReady: false,
         _dbReadyPromise: null,
         _initialScanDone: false,
@@ -2199,6 +2204,15 @@
             lsEnd.counted = true;
             registrarReproduccionCancion(state.cancionActual);
         }
+        if (state.sleepTimerModo === 'fin_pista') {
+            _limpiarSleepTimerInterno(true);
+            state._transicionandoCancion = false;
+            pausarActual();
+            renderizarEstadoSleepTimerUI();
+            actualizarMiniPlayer();
+            notificarPlayerToast('Pista terminada · Temporizador pausó la música', '🌙');
+            return true;
+        }
         siguienteCancion(false);
         return true;
     }
@@ -3345,6 +3359,7 @@
 
     function cambiarVolumen(val) {
         cancelarFadeAudio();
+        state._sleepFading = false;
         var num = parseFloat(val);
         if (isNaN(num)) num = 1;
         if (num < 0) num = 0;
@@ -5400,12 +5415,18 @@
 
         var elSubTxt = document.getElementById('mini-player-subtitle-text');
         if (elSubTxt) {
+            var baseMiniSub = '';
             if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
                 var plAct = state.playlists.find(function(p) { return p && p.id === state.rutinaPlaylistActivaId; });
-                elSubTxt.textContent = (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio';
+                baseMiniSub = (plAct ? plAct.nombre : 'Rutina') + ' · Aleatorio';
             } else {
-                elSubTxt.textContent = metaMini.artista || 'Emily Audio Deck';
+                baseMiniSub = metaMini.artista || 'Emily Audio Deck';
             }
+            var stSleepMini = obtenerEstadoSleepTimer();
+            if (stSleepMini.activo && stSleepMini.textoCorto) {
+                baseMiniSub += ' · 🌙 ' + stSleepMini.textoCorto;
+            }
+            elSubTxt.textContent = baseMiniSub;
         }
 
         var cachedMiniArt = state.artworkCache[state.cancionActual.id];
@@ -5426,6 +5447,142 @@
         if (iconDisc) {
             var hasArt = !!(cachedMiniArt && cachedMiniArt !== 'none');
             iconDisc.classList.toggle('spinning', state.reproduciendo && !hasArt);
+        }
+    }
+
+    function obtenerEstadoSleepTimer() {
+        var modo = state.sleepTimerModo || 'off';
+        if (modo === 'fin_pista') {
+            return { activo: true, modo: 'fin_pista', minutos: 0, restanteSeg: 0, textoCorto: 'Fin de pista', fading: !!state._sleepFading };
+        }
+        if (modo === 'minutos' && state.sleepTimerFinTs > 0) {
+            var remSeg = Math.max(0, Math.ceil((state.sleepTimerFinTs - Date.now()) / 1000));
+            var hrs = Math.floor(remSeg / 3600);
+            var mins = Math.floor((remSeg % 3600) / 60);
+            var secs = remSeg % 60;
+            var txt = hrs > 0
+                ? (hrs + ':' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0'))
+                : (String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0'));
+            return { activo: true, modo: 'minutos', minutos: state.sleepTimerMinutos || 0, restanteSeg: remSeg, textoCorto: txt, fading: !!state._sleepFading };
+        }
+        return { activo: false, modo: 'off', minutos: 0, restanteSeg: 0, textoCorto: '', fading: false };
+    }
+
+    function renderizarEstadoSleepTimerUI() {
+        var wrap = document.getElementById('player-sleep-timer-wrap');
+        var stEl = document.getElementById('player-sleep-status');
+        var btnCancel = document.getElementById('player-sleep-btn-cancel');
+        var info = obtenerEstadoSleepTimer();
+
+        if (wrap) wrap.classList.toggle('is-active', info.activo);
+        if (stEl) {
+            stEl.classList.toggle('is-active', info.activo);
+            stEl.textContent = info.activo
+                ? (info.modo === 'fin_pista' ? '🎵 Pausa al finalizar' : ('⏳ ' + info.textoCorto))
+                : 'Inactivo';
+        }
+        if (btnCancel) btnCancel.style.display = info.activo ? 'inline-flex' : 'none';
+
+        document.querySelectorAll('#player-sleep-timer-wrap .player-sleep-pill[data-sleep-preset]').forEach(function(btn) {
+            var pr = btn.getAttribute('data-sleep-preset');
+            var active = (info.activo && info.modo === 'fin_pista' && pr === 'fin_pista') ||
+                (info.activo && info.modo === 'minutos' && String(info.minutos) === pr);
+            btn.classList.toggle('is-active', active);
+        });
+    }
+
+    function _limpiarSleepTimerInterno(restaurarVolumen) {
+        if (state._sleepTimerIntervalId) {
+            clearInterval(state._sleepTimerIntervalId);
+            state._sleepTimerIntervalId = null;
+        }
+        state.sleepTimerModo = 'off';
+        state.sleepTimerMinutos = 0;
+        state.sleepTimerFinTs = 0;
+        state._sleepFading = false;
+        if (restaurarVolumen && state.audio) {
+            cancelarFadeAudio();
+            state.audio.volume = clampVol01(state.volumen);
+        }
+    }
+
+    function _ejecutarApagadoSleepTimer() {
+        var estabaRepr = !!(state.reproduciendo && state.cancionActual && state.audio && !state.audio.paused);
+        _limpiarSleepTimerInterno(false);
+        if (estabaRepr) {
+            pausarActual();
+        }
+        cancelarFadeAudio();
+        if (state.audio) {
+            state.audio.volume = clampVol01(state.volumen);
+        }
+        renderizarEstadoSleepTimerUI();
+        actualizarMiniPlayer();
+        notificarPlayerToast('Temporizador completado · Música pausada', '🌙');
+    }
+
+    function _tickSleepTimer() {
+        if (state.sleepTimerModo !== 'minutos' || !state.sleepTimerFinTs) {
+            _limpiarSleepTimerInterno(false);
+            renderizarEstadoSleepTimerUI();
+            return;
+        }
+        var remMs = state.sleepTimerFinTs - Date.now();
+        if (remMs <= 0) {
+            _ejecutarApagadoSleepTimer();
+            return;
+        }
+        if (remMs <= 8500 && !state._sleepFading && state.reproduciendo && state.audio && !state.audio.paused) {
+            state._sleepFading = true;
+            hacerFadeVolumenAudio(state.audio.volume, 0.03, Math.max(800, remMs - 150));
+        }
+        renderizarEstadoSleepTimerUI();
+        actualizarMiniPlayer();
+    }
+
+    function setSleepTimerMinutos(minutos, opts) {
+        opts = opts || {};
+        var minNum = Math.round(Number(minutos) || 0);
+        if (minNum <= 0 || minNum > 240) {
+            cancelarSleepTimer(false);
+            return obtenerEstadoSleepTimer();
+        }
+        if (!opts.noToggle && state.sleepTimerModo === 'minutos' && state.sleepTimerMinutos === minNum) {
+            cancelarSleepTimer(false);
+            return obtenerEstadoSleepTimer();
+        }
+        _limpiarSleepTimerInterno(true);
+        state.sleepTimerModo = 'minutos';
+        state.sleepTimerMinutos = minNum;
+        state.sleepTimerFinTs = Date.now() + (minNum * 60000);
+        state._sleepTimerIntervalId = setInterval(_tickSleepTimer, 1000);
+        renderizarEstadoSleepTimerUI();
+        actualizarMiniPlayer();
+        notificarPlayerToast('La música se pausará en ' + minNum + ' min', '🌙');
+        return obtenerEstadoSleepTimer();
+    }
+
+    function setSleepTimerFinPista(opts) {
+        opts = opts || {};
+        if (!opts.noToggle && state.sleepTimerModo === 'fin_pista') {
+            cancelarSleepTimer(false);
+            return obtenerEstadoSleepTimer();
+        }
+        _limpiarSleepTimerInterno(true);
+        state.sleepTimerModo = 'fin_pista';
+        renderizarEstadoSleepTimerUI();
+        actualizarMiniPlayer();
+        notificarPlayerToast('La música se pausará al terminar esta pista', '🌙');
+        return obtenerEstadoSleepTimer();
+    }
+
+    function cancelarSleepTimer(silencioso) {
+        var tenia = state.sleepTimerModo !== 'off';
+        _limpiarSleepTimerInterno(true);
+        renderizarEstadoSleepTimerUI();
+        actualizarMiniPlayer();
+        if (tenia && !silencioso) {
+            notificarPlayerToast('Temporizador de apagado cancelado', '⏱️');
         }
     }
 
@@ -5734,6 +5891,10 @@
         obtenerCancionesActivasScope: obtenerCancionesActivasScope,
         generarFirmaCancion: generarFirmaCancion,
         extraerTagsID3v2File: extraerTagsID3v2File,
+        setSleepTimerMinutos: setSleepTimerMinutos,
+        setSleepTimerFinPista: setSleepTimerFinPista,
+        cancelarSleepTimer: cancelarSleepTimer,
+        obtenerEstadoSleepTimer: obtenerEstadoSleepTimer,
         getCanciones: getCancionesMeta,
         getState: function() { return state; }
     };

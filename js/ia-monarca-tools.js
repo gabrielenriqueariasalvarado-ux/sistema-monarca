@@ -759,16 +759,17 @@
         {
             type: 'function',
             name: 'monarca_controlar_reproductor',
-            description: 'Controla el Reproductor MP3 interno de Sistema Monarca: reproducir/pausar, siguiente, anterior, buscar y poner una canción o playlist por nombre, o activar Top Canciones / Shuffle / Modo Inteligente.',
+            description: 'Controla el Reproductor MP3 interno de Sistema Monarca: reproducir/pausar, siguiente, anterior, buscar y poner una canción o playlist por nombre, activar Top Canciones / Shuffle / Modo Inteligente o programar el temporizador nocturno (Sleep Timer).',
             parameters: {
                 type: 'object',
                 properties: {
                     accion: {
                         type: 'string',
-                        enum: ['play', 'pause', 'toggle', 'siguiente', 'anterior', 'reproducir_cancion', 'reproducir_playlist', 'top_canciones', 'toggle_shuffle', 'toggle_inteligente', 'estado'],
-                        description: 'Comando de reproducción.'
+                        enum: ['play', 'pause', 'toggle', 'siguiente', 'anterior', 'reproducir_cancion', 'reproducir_playlist', 'top_canciones', 'toggle_shuffle', 'toggle_inteligente', 'sleep_timer', 'cancelar_sleep_timer', 'estado'],
+                        description: 'Comando de reproducción o temporizador.'
                     },
-                    query: { type: 'string', description: 'Nombre/artista de la canción o nombre de la playlist cuando corresponda.' }
+                    query: { type: 'string', description: 'Nombre/artista de la canción o nombre de la playlist cuando corresponda.' },
+                    minutos: { type: 'integer', description: 'Minutos para sleep_timer (ej. 15, 30, 45, 60; usar 0 o omitir para pausar al terminar la pista actual).' }
                 },
                 required: ['accion']
             }
@@ -2024,10 +2025,20 @@
                 esEscritura: true,
                 label: '🎶 Playlist: ' + _recortar(pl.nombre, 20)
             };
+        } else if (accion === 'sleep_timer') {
+            var mins = parseInt(args.minutos, 10);
+            if (mins > 0 && typeof mp.setSleepTimerMinutos === 'function') {
+                mp.setSleepTimerMinutos(mins, { noToggle: true });
+            } else if (typeof mp.setSleepTimerFinPista === 'function') {
+                mp.setSleepTimerFinPista({ noToggle: true });
+            }
+        } else if (accion === 'cancelar_sleep_timer') {
+            if (typeof mp.cancelarSleepTimer === 'function') mp.cancelarSleepTimer();
         }
 
         var stAfter = mp.getState ? (mp.getState() || {}) : {};
         var cAct = stAfter.cancionActual;
+        var stSleep = (typeof mp.obtenerEstadoSleepTimer === 'function') ? mp.obtenerEstadoSleepTimer() : null;
         return {
             data: {
                 ok: true,
@@ -2035,11 +2046,12 @@
                 reproduciendo: !!stAfter.reproduciendo,
                 cancion_actual: cAct ? ((cAct.titulo || cAct.nombre) + (cAct.artista ? (' - ' + cAct.artista) : '')) : null,
                 shuffle: !!stAfter.shuffle,
-                modo_inteligente: !!stAfter.modoInteligente
+                modo_inteligente: !!stAfter.modoInteligente,
+                sleep_timer: stSleep
             },
             vista: 'vista-reproductor',
             esEscritura: accion !== 'estado',
-            label: accion === 'estado' ? 'Consultó Música' : ('🎵 Música: ' + accion)
+            label: accion === 'estado' ? 'Consultó Música' : (accion === 'sleep_timer' ? '🌙 Temporizador Audio' : ('🎵 Música: ' + accion))
         };
     }
 

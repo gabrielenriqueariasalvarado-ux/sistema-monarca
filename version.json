@@ -1,5 +1,5 @@
 {
-  "version": "11.41",
+  "version": "11.42",
   "fecha": "2026-11-26",
-  "resumen": "Conexión Total de Pagos, Inventario, Personas y Emily IA (v11.41): envío directo de datos de tarjeta por WhatsApp, cobros WhatsApp en todo ingreso pendiente, cuotas de Inventario y contactos de Personas (con teléfono integrado), portapapeles blindado para Android APK y control completo desde Emily IA / Jarvis (datos bancarios, cobros WA y ciclo de sueño)."
+  "resumen": "Temporizador de Sueño en Reproductor MP3 (v11.42): apagado automático con presets rápidos (15, 30, 45, 60 min o al terminar la pista), cuenta regresiva en vivo en Reproductor y Mini-Player, atenuación progresiva suave de 8 segundos antes de pausar restaurando tu volumen y control por voz/chat desde Emily IA y Jarvis."
 }

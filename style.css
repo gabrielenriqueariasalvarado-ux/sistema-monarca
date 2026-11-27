@@ -16006,6 +16006,105 @@ body.modal-open {
     box-shadow: 0 0 14px rgba(99, 102, 241, 0.25);
 }
 
+.player-sleep-bar {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.62);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.player-sleep-bar.is-active {
+    border-color: rgba(129, 140, 248, 0.48);
+    background: linear-gradient(135deg, rgba(49, 46, 129, 0.26), rgba(15, 23, 42, 0.8));
+}
+
+.player-sleep-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.player-sleep-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #cbd5e1;
+    letter-spacing: 0.2px;
+}
+
+.player-sleep-status {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.player-sleep-status.is-active {
+    color: #c7d2fe;
+    background: rgba(99, 102, 241, 0.22);
+    border-color: rgba(129, 140, 248, 0.45);
+}
+
+.player-sleep-cancel {
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.player-sleep-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.player-sleep-pill {
+    flex: 1 1 auto;
+    min-width: 58px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.player-sleep-pill:hover {
+    border-color: rgba(129, 140, 248, 0.45);
+    color: #ffffff;
+}
+
+.player-sleep-pill.is-active {
+    background: rgba(99, 102, 241, 0.28);
+    border-color: #818cf8;
+    color: #eef2ff;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.22);
+}
+
 .pl-detail-banner {
     flex-direction: column;
     align-items: stretch;

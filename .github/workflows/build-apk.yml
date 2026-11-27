@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.41)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.42)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.41
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.42
             Esta versión nativa incluye:
+            - 🌙 **Temporizador de Sueño en Reproductor MP3 (v11.42)**:
+              - **Apagado Automático Inteligente**: Programa en un toque **15, 30, 45, 60 min** o **Al terminar pista** desde `#vista-reproductor` o por voz/chat con **Emily IA / Jarvis**.
+              - **Fade-Out Progresivo + Mini-Player**: Atenuación gradual en los últimos 8 segundos antes de pausar limpiamente (restaurando tu volumen para la próxima reproducción) y cuenta regresiva visible tanto en el reproductor como en el mini-player.
             - 🔗 **Conexión Total de Cobros WhatsApp, Inventario, Personas y Emily IA (v11.41)**:
               - **Envío Directo desde Tarjetas + Todo Ingreso Pendiente**: Botón **`💬 Enviar`** directo en cada tarjeta configurada para compartir tu Pago Móvil/Cuenta/Binance al instante, y botón **`💬 WA`** disponible siempre en ingresos Fijos, Aleatorios y Almacén (sin esperar 3 días), además de portapapeles blindado para Android WebView.
               - **Inventario & Personas Integrados**: Botón **`💬 WA`** directo en cada cuota pendiente de **Almacén/Crédito**, campo de teléfono WhatsApp en **Personas** con saldo por cobrar en tiempo real y cobro directo con tarjeta desde cada ficha de contacto.
