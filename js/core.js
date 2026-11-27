@@ -214,6 +214,7 @@ const DEFAULT_STATE = {
         sincronizarApiKeyNube: false,
         apiKeyCloud: ''
     },
+    relacionesIntimas: [],
     _eliminados: {
         productos: [],
         categorias: [],
@@ -237,6 +238,7 @@ const DEFAULT_STATE = {
         cronogramaSemanal: [],
         reproductorPlaylists: [],
         iaConversaciones: [],
+        relacionesIntimas: [],
         finanzas_ingresos: [],
         finanzas_gastos: [],
         finanzas_categoriasGastos: [],
@@ -2001,8 +2003,8 @@ if (typeof window !== 'undefined') {
     window.abrirVocabularioDesdeHome = abrirVocabularioDesdeHome;
 }
 
-var MONARCA_APP_VERSION = '11.43';
-var MONARCA_APP_VERSION_FECHA = '2026-11-26';
+var MONARCA_APP_VERSION = '11.44';
+var MONARCA_APP_VERSION_FECHA = '2026-11-27';
 var MONARCA_GITHUB_RELEASE_API = 'https://api.github.com/repos/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/tags/latest-apk';
 var MONARCA_GITHUB_PAGES_VERSION_URL = 'https://gabrielenriqueariasalvarado-ux.github.io/sistema-monarca/version.json';
 var MONARCA_APK_DOWNLOAD_URL = 'https://github.com/gabrielenriqueariasalvarado-ux/sistema-monarca/releases/download/latest-apk/Sistema-Monarca.apk';

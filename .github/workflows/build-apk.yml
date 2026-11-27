@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.43)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.44)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.43
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.44
             Esta versión nativa incluye:
+            - ❤️ **Registro Íntimo, Desgaste & Recuperación en Estado Personal (v11.44)**:
+              - **Acceso Rápido & Tarjeta Completa**: Nuevo botón rápido **`❤️ Relaciones`** en el tablero general de **Estado Personal** y tarjeta dedicada dentro de **Descanso & Sueño** con historial reciente.
+              - **Conteo & Fisiología Real**: Registra el día, las **veces que eyaculaste** e **intensidad física**, obteniendo tu **% de Desgaste Agudo**, **% de Recuperación**, músculos implicados (**Cadera, Core, Lumbares, Glúteos**), explicación científica real (prolactina/parasimpático/hidratación, sin mitos) y reversión exacta al editar o borrar.
             - ⚔️ **Hábitos & Misiones Renovado + Edición de Quests Diarios (v11.43)**:
               - **Interfaz Limpia Sin Redundancias**: Eliminados los botones/enlaces de notificaciones, alarma móvil y diagnóstico dentro del apartado (gestionados al iniciar sesión/abrir la app).
               - **Edición Completa de Quests Diarios**: Botón **`✏️`** directo en cada tarjeta y dentro del detalle para editar título, horario, duración, tono, rutina vinculada, penitencia, % EXP y atributos sin perder tu progreso ni duplicar misiones.

@@ -994,6 +994,7 @@
             case 'estado_personal': {
                 var met = (typeof global.calcularMetricasPurasSinActualizar === 'function') ? global.calcularMetricasPurasSinActualizar() : null;
                 var cicloSueno = (typeof global.calcularProximoDespertarYHoraDormir === 'function') ? global.calcularProximoDespertarYHoraDormir() : null;
+                var resRel = (typeof global.calcularEstadoRecuperacionRelaciones === 'function') ? global.calcularEstadoRecuperacionRelaciones() : null;
                 return {
                     data: {
                         ok: true,
@@ -1003,10 +1004,11 @@
                         fatiga_mental_diaria: st.fatigaMentalDiaria || {},
                         sueno: st.sueno || {},
                         ciclo_sueno: cicloSueno,
+                        relaciones_intimas: resRel || { registros: st.relacionesIntimas || [] },
                         historial_reciente_dias: st.registroDiarioCalendario || {}
                     },
                     vista: 'vista-estado-personal',
-                    label: 'Consultó Estado Personal y Sueño'
+                    label: 'Consultó Estado Personal, Sueño y Recuperación'
                 };
             }
             case 'boom':

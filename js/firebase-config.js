@@ -613,7 +613,7 @@ function fusionarEstadosInteligente(local, remoto) {
         'finanzas_ingresos', 'finanzas_gastos', 'finanzas_categoriasGastos', 'finanzas_deudas', 'finanzas_metas', 'finanzas_comparacionesAhorro', 'finanzas_tarjetas', 'finanzas_planificacionCompras',
         'subappBarberia_cortes', 'subappBarberia_clientes', 'subappBarberia_tiposCorte',
         'subappTrainer_alumnos', 'subappTrainer_sesiones', 'subappTrainer_enfoques', 'subappTrainer_sesionesActivas',
-        'sueno_registros'
+        'sueno_registros', 'relacionesIntimas'
     ];
     var allKeys = Array.from(new Set(baseKeys.concat(Object.keys(elL), Object.keys(elR))));
 
@@ -920,6 +920,20 @@ function fusionarEstadosInteligente(local, remoto) {
         fusion.sueno = baseSue;
     }
 
+    // 9. REGISTRO DE RELACIONES ÍNTIMAS Y RECUPERACIÓN
+    if (Array.isArray(local.relacionesIntimas) || Array.isArray(remoto.relacionesIntimas)) {
+        fusion.relacionesIntimas = fusionarColeccionPorId(
+            local.relacionesIntimas || [],
+            remoto.relacionesIntimas || [],
+            tombstones.relacionesIntimas || []
+        );
+        fusion.relacionesIntimas.sort(function(a, b) {
+            var cmpF = String((b && b.fecha) || '').localeCompare(String((a && a.fecha) || ''));
+            if (cmpF !== 0) return cmpF;
+            return (Number(b && b.fechaActualizacion) || 0) - (Number(a && a.fechaActualizacion) || 0);
+        });
+    }
+
     // Conservar timestamp de la modificación más reciente y banderas de migración
     fusion._ultimaActualizacion = Math.max(local._ultimaActualizacion || 0, remoto._ultimaActualizacion || 0, Date.now());
     fusion.v2_clean_defaults = true;
@@ -938,8 +952,9 @@ function refrescarVistasTrasSync() {
             renderizarVistaHome();
         }
         var vistaEP = document.getElementById('vista-estado-personal');
-        if (vistaEP && vistaEP.classList.contains('active') && typeof renderizarModuloDescanso === 'function') {
-            renderizarModuloDescanso();
+        if (vistaEP && vistaEP.classList.contains('active')) {
+            if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
+            if (typeof renderizarModuloDescanso === 'function') renderizarModuloDescanso();
         }
         if (typeof window.programarAlarmaHoraDormirNativa === 'function') {
             window.programarAlarmaHoraDormirNativa();

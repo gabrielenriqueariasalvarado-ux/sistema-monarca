@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.43">
+    <link rel="stylesheet" href="style.css?v=11.44">
 </head>
 <body>
 
@@ -187,7 +187,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.43</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.44</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -233,7 +233,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.43</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.44</div>
                     </div>
                 </div>
             </div>
@@ -1013,6 +1013,13 @@
                     <div id="contenedor-historial-sueno-semanal" style="display: flex; flex-direction: column; gap: 8px;">
                         <!-- Renderizado dinámico -->
                     </div>
+                </div>
+            </div>
+
+            <!-- SUB-TARJETA: SALUD ÍNTIMA, DESGASTE & RECUPERACIÓN -->
+            <div class="card ep-card-panel rel-panel-card" style="border-left: 4px solid #f43f5e;">
+                <div id="panel-relaciones-estado-personal">
+                    <!-- Renderizado dinámico por renderizarPanelRelaciones() -->
                 </div>
             </div>
         </div>
@@ -7748,6 +7755,93 @@
         </div>
     </div>
 
+    <!-- MODAL REGISTRO ÍNTIMO (RELACIONES, DESGASTE Y RECUPERACIÓN) -->
+    <div id="modal-registro-relaciones" class="modal-overlay" style="display: none; z-index: 10000;" onclick="if(event.target === this) cerrarModalRegistroRelaciones();">
+        <div class="modal-card rel-modal-card" style="max-width: 460px; width: 92%; max-height: 90vh; overflow-y: auto; border-radius: 18px; border: 1px solid rgba(244, 63, 94, 0.34); background: #0f1522; box-shadow: 0 20px 50px rgba(0,0,0,0.88); padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(244, 63, 94, 0.16); border: 1px solid rgba(244, 63, 94, 0.35); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                        ❤️
+                    </div>
+                    <div>
+                        <h3 id="modal-rel-titulo" style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">Registro Íntimo &amp; Recuperación</h3>
+                        <p style="margin: 0; font-size: 11px; color: #94a3b8;">Control de actividad, desgaste muscular y carga neuro-hormonal</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalRegistroRelaciones()" class="btn-icon" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 30px; height: 30px; color: #cbd5e1; cursor: pointer;">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Fecha:</label>
+                        <input type="date" id="input-rel-fecha" class="modal-input" onchange="alCambiarFechaModalRelaciones(this.value)" style="width: 100%; padding: 9px 10px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Hora (opcional):</label>
+                        <input type="time" id="input-rel-hora" class="modal-input" style="width: 100%; padding: 9px 10px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <!-- Stepper de Eyaculaciones en el día -->
+                <div class="rel-stepper-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div>
+                            <div style="font-size: 12.5px; font-weight: 800; color: #f8fafc;">Veces que eyaculaste ese día</div>
+                            <div style="font-size: 11px; color: #94a3b8;">Puedes poner 0 si hubo relación sin eyaculación, o 1, 2, 3+</div>
+                        </div>
+                    </div>
+                    <div class="rel-stepper-controls">
+                        <button type="button" class="rel-step-btn" onclick="ajustarVecesRelacionModal(-1)" aria-label="Disminuir veces">−</button>
+                        <input type="number" id="input-rel-veces" min="0" max="20" value="1" oninput="actualizarPreviewBiologicoRelaciones()" class="rel-step-input">
+                        <button type="button" class="rel-step-btn is-plus" onclick="ajustarVecesRelacionModal(1)" aria-label="Aumentar veces">+</button>
+                    </div>
+                </div>
+
+                <!-- Selector de Intensidad Física -->
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; display: block;">Intensidad física de la sesión:</label>
+                    <div class="rel-intensidad-grid" id="rel-intensidad-selector">
+                        <button type="button" class="rel-int-btn" data-int="suave" onclick="seleccionarIntensidadRelacionModal('suave')">😌 Suave</button>
+                        <button type="button" class="rel-int-btn active" data-int="moderada" onclick="seleccionarIntensidadRelacionModal('moderada')">⚡ Moderada</button>
+                        <button type="button" class="rel-int-btn" data-int="intensa" onclick="seleccionarIntensidadRelacionModal('intensa')">🔥 Intensa</button>
+                    </div>
+                </div>
+
+                <!-- Vista previa biológica en vivo -->
+                <div id="rel-live-bio-preview" class="rel-live-preview-box"></div>
+
+                <!-- Toggle aplicar al avatar de hoy -->
+                <label id="wrap-rel-aplicar-avatar" style="display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 9px 11px; cursor: pointer;">
+                    <input type="checkbox" id="chk-rel-aplicar-avatar" checked style="width: 17px; height: 17px; accent-color: #fb7185; cursor: pointer;">
+                    <span style="font-size: 11.5px; color: #cbd5e1; line-height: 1.35;">
+                        <strong>Reflejar desgaste en el Avatar de hoy</strong> (cadera, core, lumbares, glúteos y balance neural)
+                    </span>
+                </label>
+
+                <div>
+                    <label style="font-size: 11.5px; font-weight: 700; color: #cbd5e1; margin-bottom: 5px; display: block;">Nota rápida (opcional):</label>
+                    <input type="text" id="input-rel-notas" class="modal-input" placeholder="Ej: Noche, buena energía, hidratar después..." style="width: 100%; padding: 9px 12px; background: #161c2c; border: 1px solid rgba(255,255,255,0.12); color: #f8fafc; border-radius: 8px;">
+                </div>
+
+                <!-- Guía Fisiológica Real (Desplegable) -->
+                <details class="rel-ciencia-details">
+                    <summary>🔬 ¿En qué afecta realmente al cuerpo humano?</summary>
+                    <div class="rel-ciencia-body">
+                        <p><strong>1. Músculo y energía física (real):</strong> Equivale a un cardio ligero-moderado (~90–230 kcal) con trabajo de <em>cadera/aductores, core, glúteos y zona lumbar</em>. <strong>No cataboliza ni hace perder masa muscular</strong>.</p>
+                        <p><strong>2. Sistema neuro-hormonal (Prolactina y Dopamina):</strong> Tras eyacular sube temporalmente la <em>prolactina</em> y se activa el sistema <em>parasimpático</em> (relajación, descenso pasajero de estrés y ligera somnolencia durante unas horas). Tu testosterona basal no cae por toda la semana.</p>
+                        <p><strong>3. Frecuencia en el mismo día (1 vez vs 2–3+ veces):</strong> 1 vez ayuda a descargar tensión; 2 o más en un mismo día acumulan fatiga pélvica/lumbar, bajan momentáneamente el tono explosivo/foco y aumentan la necesidad de agua, electrolitos y buen descanso nocturno.</p>
+                    </div>
+                </details>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button type="button" class="btn-back-system" style="flex: 1; justify-content: center; margin-bottom: 0;" onclick="cerrarModalRegistroRelaciones()">Cancelar</button>
+                <button type="button" id="btn-guardar-relacion" class="btn-system" style="flex: 2; justify-content: center; margin-bottom: 0; background: linear-gradient(135deg, #f43f5e, #e11d48); color: #ffffff; font-weight: 800; border: none; border-radius: 8px;" onclick="guardarRegistroRelacion()">❤️ Guardar Registro</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL REGISTRO DE SUEÑO & DESCANSO -->
     <div id="modal-registro-sueno" class="modal-overlay" style="display: none; z-index: 10000;">
         <div class="modal-card" style="max-width: 440px; width: 92%; border-radius: 18px; border: 1px solid rgba(99, 102, 241, 0.3); background: #0f1522; box-shadow: 0 20px 50px rgba(0,0,0,0.85); padding: 20px;">
@@ -8079,30 +8173,30 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.43"></script>
-    <script src="js/permisos.js?v=11.43"></script>
-    <script src="js/perfil.js?v=11.43"></script>
-    <script src="js/progresion.js?v=11.43"></script>
-    <script src="js/estado-personal.js?v=11.43"></script>
-    <script src="js/finanzas.js?v=11.43"></script>
-    <script src="js/ideas.js?v=11.43"></script>
-    <script src="js/mqtt-autopc.js?v=11.43"></script>
-    <script src="js/dinamicas.js?v=11.43"></script>
-    <script src="js/calendario.js?v=11.43"></script>
-    <script src="js/inventario.js?v=11.43"></script>
-    <script src="js/reproductor.js?v=11.43"></script>
-    <script src="js/ia-monarca-tools.js?v=11.43"></script>
-    <script src="js/ia.js?v=11.43"></script>
-    <script src="js/jarvis-voz.js?v=11.43"></script>
+    <script src="js/core.js?v=11.44"></script>
+    <script src="js/permisos.js?v=11.44"></script>
+    <script src="js/perfil.js?v=11.44"></script>
+    <script src="js/progresion.js?v=11.44"></script>
+    <script src="js/estado-personal.js?v=11.44"></script>
+    <script src="js/finanzas.js?v=11.44"></script>
+    <script src="js/ideas.js?v=11.44"></script>
+    <script src="js/mqtt-autopc.js?v=11.44"></script>
+    <script src="js/dinamicas.js?v=11.44"></script>
+    <script src="js/calendario.js?v=11.44"></script>
+    <script src="js/inventario.js?v=11.44"></script>
+    <script src="js/reproductor.js?v=11.44"></script>
+    <script src="js/ia-monarca-tools.js?v=11.44"></script>
+    <script src="js/ia.js?v=11.44"></script>
+    <script src="js/jarvis-voz.js?v=11.44"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.43"></script>
+    <script type="module" src="js/firebase-config.js?v=11.44"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.43')
+                navigator.serviceWorker.register('sw.js?v=11.44')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);

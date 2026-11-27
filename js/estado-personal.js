@@ -850,6 +850,9 @@ function renderizarGraficoGeneralAvatar() {
     var estadoCuerpo = obtenerEstadoZona(metricas.cuerpo);
     var estadoMente = obtenerEstadoZona(metricas.mente);
     var fatiga = APP_STATE.fatiga || {};
+    var relSt = (typeof calcularEstadoRecuperacionRelaciones === 'function')
+        ? calcularEstadoRecuperacionRelaciones()
+        : { vecesHoy: 0, recuperacionPct: 100, color: '#10b981', desgasteHoyPct: 0 };
 
     var hoyFechaStr = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
     hoyFechaStr = hoyFechaStr.charAt(0).toUpperCase() + hoyFechaStr.slice(1);
@@ -859,6 +862,10 @@ function renderizarGraficoGeneralAvatar() {
         var s = obtenerEstiloFatigaGris(val);
         return `fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.3"`;
     }
+
+    var relResumenChipTxt = relSt.vecesHoy > 0
+        ? (relSt.vecesHoy + (relSt.vecesHoy === 1 ? ' vez hoy' : ' vec. hoy') + ' · ' + relSt.recuperacionPct + '% rec.')
+        : ('0 hoy · ' + relSt.recuperacionPct + '% rec.');
 
     var html = `
     <!-- 1. BARRA DE DESGASTE GENERAL DIARIO DEL AVATAR -->
@@ -882,6 +889,9 @@ function renderizarGraficoGeneralAvatar() {
             <div class="breakdown-chip" style="background: #0b0e15; border: 1px solid rgba(56, 189, 248, 0.3); color: #f8fafc;">
                 <span style="color: #38bdf8;">🧠 Mente:</span> <strong style="color: #38bdf8;">${metricas.mente}%</strong> <span class="ep-breakdown-sub" style="font-size: 10.5px; color: #94a3b8;"><span class="ep-chip-sep">· </span>${estadoMente.label}</span>
             </div>
+            <button type="button" id="btn-ep-relaciones-quick" class="breakdown-chip ep-rel-chip-btn" onclick="abrirModalRegistroRelaciones()" title="Registrar relación íntima, eyaculaciones y ver desgaste o recuperación">
+                <span style="color: #fb7185;">❤️ Relaciones:</span> <strong style="color: ${relSt.color};">${relResumenChipTxt}</strong>
+            </button>
         </div>
     </div>
 
@@ -12975,6 +12985,7 @@ function inicializarNutricionYDescanso() {
     if (!APP_STATE.sueno.modoReferencia) APP_STATE.sueno.modoReferencia = 'auto';
     if (!APP_STATE.sueno.horaDespertarFallback) APP_STATE.sueno.horaDespertarFallback = '06:00';
     if (typeof APP_STATE.sueno.avisoDormirOkeyKey !== 'string') APP_STATE.sueno.avisoDormirOkeyKey = '';
+    if (!Array.isArray(APP_STATE.relacionesIntimas)) APP_STATE.relacionesIntimas = [];
 }
 
 function cambiarSeccionEstadoPersonal(seccion) {
@@ -13283,6 +13294,9 @@ function renderizarModuloDescanso() {
     if (typeof renderizarPanelCicloSueno === 'function') {
         renderizarPanelCicloSueno();
     }
+    if (typeof renderizarPanelRelaciones === 'function') {
+        renderizarPanelRelaciones();
+    }
 
     var registroHoy = sueno.registros.find(function(r) {
         return r && r.fecha === hoy;
@@ -13504,6 +13518,7 @@ function guardarRegistroSueno() {
     // Actualizar métricas del avatar si está en la vista
     if (typeof actualizarDesgasteDiarioAutomatico === 'function') actualizarDesgasteDiarioAutomatico();
     if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
+    if (typeof renderizarPanelRelaciones === 'function') renderizarPanelRelaciones();
 
     if (typeof mostrarToastMonarca === 'function') {
         mostrarToastMonarca('Descanso de ' + nuevoRegistro.horasDormidas.toFixed(1) + 'h registrado (+25 EXP Regeneración)', '🌙');
@@ -14188,6 +14203,604 @@ function verificarCicloSuenoEnVivo() {
     } catch (e) {}
 }
 
+// ==========================================================================
+// MÓDULO: REGISTRO ÍNTIMO, DESGASTE MUSCULAR & RECUPERACIÓN NEURO-HORMONAL
+// ==========================================================================
+
+var _REL_INTENSIDAD_MODAL = 'moderada';
+var _REL_EDITANDO_ID = null;
+
+function _asegurarRelacionesIntimas() {
+    if (typeof APP_STATE === 'undefined' || !APP_STATE) return [];
+    if (!Array.isArray(APP_STATE.relacionesIntimas)) APP_STATE.relacionesIntimas = [];
+    return APP_STATE.relacionesIntimas;
+}
+
+function _escaparHtmlRel(txt) {
+    return String(txt || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/**
+ * Calcula impacto biológico realista (sin mitos) según cantidad de eyaculaciones
+ * e intensidad física de la sesión del día.
+ */
+function calcularImpactoBiologicoRelacion(vecesRaw, intensidadRaw) {
+    var veces = parseInt(vecesRaw, 10);
+    if (isNaN(veces) || veces < 0) veces = 0;
+    if (veces > 20) veces = 20;
+
+    var intensidad = (intensidadRaw === 'suave' || intensidadRaw === 'intensa') ? intensidadRaw : 'moderada';
+    var intFactor = (intensidad === 'intensa') ? 1.4 : ((intensidad === 'suave') ? 0.65 : 1.0);
+
+    var fatiga = { cadera: 0, core: 0, lumbares: 0, gluteos: 0 };
+    var estresDelta = 0;
+    var enfoqueDelta = 0;
+    var desgastePct = 0;
+    var recuperacionPct = 100;
+    var aguaExtraMl = 0;
+    var kcalAprox = 0;
+    var ventanaHoras = 0;
+    var estadoLabel = 'Reserva Completa (Sin desgaste hoy)';
+    var detalleFisiologico = '';
+    var recomendacion = 'Reserva energética intacta para entrenamientos pesados o trabajo de alto enfoque.';
+    var colorAccent = '#10b981';
+
+    if (veces === 0) {
+        fatiga.cadera = Math.min(8, Math.round(3 * intFactor));
+        fatiga.core = Math.min(6, Math.round(2 * intFactor));
+        fatiga.gluteos = Math.min(6, Math.round(2 * intFactor));
+        fatiga.lumbares = Math.min(5, Math.round(2 * intFactor));
+        desgastePct = Math.max(2, Math.round(3 * intFactor));
+        recuperacionPct = Math.max(93, 100 - desgastePct);
+        estresDelta = -4;
+        enfoqueDelta = 0;
+        aguaExtraMl = 150;
+        kcalAprox = Math.round(95 * intFactor);
+        ventanaHoras = 2;
+        estadoLabel = 'Cardio Leve · Reserva Hormonal 100%';
+        detalleFisiologico = 'Sin eyaculación: activación aeróbica suave y trabajo pélvico/core sin pico refractario de prolactina.';
+        recomendacion = 'No genera fatiga neural significativa; solo hidrátate normalmente (+150 ml).';
+        colorAccent = '#38bdf8';
+    } else if (veces === 1) {
+        fatiga.cadera = Math.min(14, Math.round(5 * intFactor));
+        fatiga.core = Math.min(12, Math.round(4 * intFactor));
+        fatiga.gluteos = Math.min(10, Math.round(3 * intFactor));
+        fatiga.lumbares = Math.min(10, Math.round(3 * intFactor));
+        desgastePct = Math.min(14, Math.max(5, Math.round(7 * intFactor)));
+        recuperacionPct = Math.max(82, Math.round(92 - (3 * intFactor)));
+        estresDelta = -5;
+        enfoqueDelta = 2;
+        aguaExtraMl = 250;
+        kcalAprox = Math.round(125 * intFactor);
+        ventanaHoras = 6;
+        estadoLabel = 'Descarga Parasimpática Normal';
+        detalleFisiologico = 'Sube brevemente la prolactina (relajación y alivio de estrés) con fatiga muscular leve en cadera/core. No frena hipertrofia ni baja tu testosterona semanal.';
+        recomendacion = 'Bebe +250 ml de agua; si entrenas fuerza máxima hoy, conviene esperar 1.5–2h para recuperar alerta neural.';
+        colorAccent = '#a78bfa';
+    } else if (veces === 2) {
+        fatiga.cadera = Math.min(19, Math.round(8 * intFactor));
+        fatiga.core = Math.min(16, Math.round(6 * intFactor));
+        fatiga.gluteos = Math.min(14, Math.round(5 * intFactor));
+        fatiga.lumbares = Math.min(14, Math.round(5 * intFactor));
+        desgastePct = Math.min(25, Math.round(14 * intFactor));
+        recuperacionPct = Math.max(60, Math.round(76 - (4 * intFactor)));
+        estresDelta = -3;
+        enfoqueDelta = 6;
+        aguaExtraMl = 400;
+        kcalAprox = Math.round(190 * intFactor);
+        ventanaHoras = 14;
+        estadoLabel = 'Carga Refractaria Moderada';
+        detalleFisiologico = 'Doble pico de prolactina y mayor demanda neuromuscular en zona pélvica/lumbar. Puede causar somnolencia temporal y menor empuje explosivo en las siguientes horas.';
+        recomendacion = 'Prioriza +400 ml de agua, comida con proteína/zinc y evita cargas máximas de gym durante las próximas 3–6h.';
+        colorAccent = '#f59e0b';
+    } else {
+        var extra = Math.min(4, veces - 2);
+        fatiga.cadera = Math.min(24, Math.round((11 + extra * 2) * intFactor));
+        fatiga.core = Math.min(20, Math.round((9 + extra * 1.5) * intFactor));
+        fatiga.gluteos = Math.min(18, Math.round((7 + extra * 1.5) * intFactor));
+        fatiga.lumbares = Math.min(18, Math.round((7 + extra * 1.5) * intFactor));
+        desgastePct = Math.min(40, Math.round((20 + extra * 5) * intFactor));
+        recuperacionPct = Math.max(36, Math.round(66 - extra * 7 - (intFactor > 1 ? 5 : 0)));
+        estresDelta = 0;
+        enfoqueDelta = Math.min(18, 9 + extra * 3);
+        aguaExtraMl = 550;
+        kcalAprox = Math.round((240 + extra * 55) * intFactor);
+        ventanaHoras = 24;
+        estadoLabel = 'Fatiga Neuro-Endocrina Aguda';
+        detalleFisiologico = veces + ' eyaculaciones en el día generan fatiga autónoma parasimpática marcada, bajón pasajero de dopamina/enfoque y sobrecarga en cadera, core y zona lumbar.';
+        recomendacion = 'Repón +550 ml de agua/electrolitos y prioriza 7.5–8h de sueño esta noche para restaurar el 100% de tu vitalidad.';
+        colorAccent = '#f43f5e';
+    }
+
+    return {
+        veces: veces,
+        intensidad: intensidad,
+        fatiga: fatiga,
+        estresDelta: estresDelta,
+        enfoqueDelta: enfoqueDelta,
+        desgastePct: desgastePct,
+        recuperacionPct: recuperacionPct,
+        aguaExtraMl: aguaExtraMl,
+        kcalAprox: kcalAprox,
+        ventanaHoras: ventanaHoras,
+        estadoLabel: estadoLabel,
+        detalleFisiologico: detalleFisiologico,
+        recomendacion: recomendacion,
+        colorAccent: colorAccent
+    };
+}
+
+function _diffDiasFechaISORel(fechaA, fechaB) {
+    if (!fechaA || !fechaB) return 0;
+    var pA = String(fechaA).split('-');
+    var pB = String(fechaB).split('-');
+    if (pA.length !== 3 || pB.length !== 3) return 0;
+    var dtA = new Date(parseInt(pA[0], 10), parseInt(pA[1], 10) - 1, parseInt(pA[2], 10), 12, 0, 0);
+    var dtB = new Date(parseInt(pB[0], 10), parseInt(pB[1], 10) - 1, parseInt(pB[2], 10), 12, 0, 0);
+    return Math.round((dtB.getTime() - dtA.getTime()) / 86400000);
+}
+
+function calcularEstadoRecuperacionRelaciones() {
+    var lista = _asegurarRelacionesIntimas().slice().sort(function(a, b) {
+        return String((b && b.fecha) || '').localeCompare(String((a && a.fecha) || ''));
+    });
+
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var regHoy = lista.find(function(r) { return r && r.fecha === hoyStr; }) || null;
+    var ultimoReg = lista[0] || null;
+    var diasDesdeUltima = ultimoReg ? Math.max(0, _diffDiasFechaISORel(ultimoReg.fecha, hoyStr)) : null;
+
+    var suenoHoy = null;
+    if (APP_STATE && APP_STATE.sueno && Array.isArray(APP_STATE.sueno.registros)) {
+        suenoHoy = APP_STATE.sueno.registros.find(function(s) { return s && s.fecha === hoyStr; }) || null;
+    }
+    var horasSueno = suenoHoy ? (Number(suenoHoy.horasDormidas) || 0) : 0;
+
+    var vecesHoy = regHoy ? (parseInt(regHoy.vecesEyaculacion, 10) || 0) : 0;
+    var tieneRegistroHoy = Boolean(regHoy);
+    var impactoHoy = regHoy
+        ? calcularImpactoBiologicoRelacion(regHoy.vecesEyaculacion, regHoy.intensidad)
+        : null;
+
+    var desgasteHoyPct = impactoHoy ? impactoHoy.desgastePct : 0;
+    var recuperacionPct = 100;
+    var estadoTexto = '100% Recuperado · Reserva Máxima';
+    var detalleEstado = 'Sin desgaste sexual registrado hoy. Reserva neuro-dopaminérgica y muscular lista para máximo rendimiento.';
+    var color = '#10b981';
+
+    if (tieneRegistroHoy && impactoHoy) {
+        recuperacionPct = impactoHoy.recuperacionPct;
+        estadoTexto = impactoHoy.estadoLabel;
+        detalleEstado = impactoHoy.detalleFisiologico;
+        color = impactoHoy.colorAccent;
+    } else if (ultimoReg && diasDesdeUltima === 1) {
+        var impAyer = calcularImpactoBiologicoRelacion(ultimoReg.vecesEyaculacion, ultimoReg.intensidad);
+        var bonoSueno = (horasSueno >= 7.5) ? 15 : ((horasSueno >= 6.5) ? 8 : 0);
+        if ((parseInt(ultimoReg.vecesEyaculacion, 10) || 0) >= 3) {
+            recuperacionPct = Math.min(100, Math.max(82, impAyer.recuperacionPct + 28 + bonoSueno));
+            estadoTexto = recuperacionPct >= 95 ? 'Recuperado tras descanso' : 'Recargando reservas de ayer';
+            detalleEstado = (horasSueno >= 7.5)
+                ? 'Dormiste bien (' + horasSueno.toFixed(1) + 'h) tras la carga de ayer; tu nivel neuro-muscular ya volvió casi al máximo.'
+                : 'Ayer registraste ' + ultimoReg.vecesEyaculacion + ' eyaculaciones; registrar descanso/agua acelera llegar al 100%.';
+            color = recuperacionPct >= 95 ? '#10b981' : '#38bdf8';
+        }
+    }
+
+    var total7Dias = 0;
+    var sesiones7Dias = 0;
+    var total30Dias = 0;
+    lista.forEach(function(r) {
+        if (!r || !r.fecha) return;
+        var diff = _diffDiasFechaISORel(r.fecha, hoyStr);
+        var v = parseInt(r.vecesEyaculacion, 10) || 0;
+        if (diff >= 0 && diff < 7) {
+            sesiones7Dias++;
+            total7Dias += v;
+        }
+        if (diff >= 0 && diff < 30) {
+            total30Dias += v;
+        }
+    });
+
+    return {
+        hoyStr: hoyStr,
+        tieneRegistroHoy: tieneRegistroHoy,
+        vecesHoy: vecesHoy,
+        desgasteHoyPct: desgasteHoyPct,
+        recuperacionPct: recuperacionPct,
+        diasDesdeUltima: diasDesdeUltima,
+        ultimoRegistro: ultimoReg,
+        regHoy: regHoy,
+        impactoHoy: impactoHoy,
+        estadoTexto: estadoTexto,
+        detalleEstado: detalleEstado,
+        color: color,
+        total7Dias: total7Dias,
+        sesiones7Dias: sesiones7Dias,
+        total30Dias: total30Dias,
+        registros: lista
+    };
+}
+
+function _revertirImpactoRelacionRecord(rec) {
+    if (!rec || !rec.impactoAplicado || !APP_STATE) return;
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    // Solo revertir sobre fatiga viva si el impacto aplicado pertenece al día actual
+    if (rec.impactoAplicado.fecha !== hoyStr) return;
+
+    var fPrev = rec.impactoAplicado.fatiga || {};
+    if (APP_STATE.fatiga) {
+        Object.keys(fPrev).forEach(function(k) {
+            if (typeof APP_STATE.fatiga[k] === 'number') {
+                APP_STATE.fatiga[k] = Math.max(0, Math.round(APP_STATE.fatiga[k] - (Number(fPrev[k]) || 0)));
+            }
+        });
+    }
+
+    if (APP_STATE.desgasteMente && rec.impactoAplicado.mente) {
+        var mPrev = rec.impactoAplicado.mente;
+        Object.keys(mPrev).forEach(function(k) {
+            var act = Number(APP_STATE.desgasteMente[k]) || 0;
+            APP_STATE.desgasteMente[k] = Math.min(100, Math.max(0, act - (Number(mPrev[k]) || 0)));
+        });
+    }
+
+    if (APP_STATE.fatigaMentalDiaria && rec.impactoAplicado.fatigaMental) {
+        var nAct = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
+        APP_STATE.fatigaMentalDiaria.nivel = Math.min(100, Math.max(0, nAct - (Number(rec.impactoAplicado.fatigaMental) || 0)));
+    }
+}
+
+function _aplicarImpactoRelacionRecord(rec) {
+    if (!rec || !APP_STATE) return;
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    if (rec.fecha !== hoyStr) {
+        rec.impactoAplicado = null;
+        return;
+    }
+
+    var imp = calcularImpactoBiologicoRelacion(rec.vecesEyaculacion, rec.intensidad);
+    if (!APP_STATE.fatiga) APP_STATE.fatiga = {};
+    asegurarDesgasteMente();
+
+    var fDelta = {};
+    Object.keys(imp.fatiga).forEach(function(k) {
+        var prev = Number(APP_STATE.fatiga[k]) || 0;
+        var next = Math.min(100, Math.max(0, prev + imp.fatiga[k]));
+        APP_STATE.fatiga[k] = next;
+        fDelta[k] = next - prev;
+    });
+
+    var mDelta = {};
+    if (imp.estresDelta !== 0) {
+        var prevEst = Number(APP_STATE.desgasteMente.estres_desconexion) || 0;
+        var nextEst = Math.min(100, Math.max(0, prevEst + imp.estresDelta));
+        APP_STATE.desgasteMente.estres_desconexion = nextEst;
+        mDelta.estres_desconexion = nextEst - prevEst;
+    }
+    if (imp.enfoqueDelta !== 0) {
+        var prevEnf = Number(APP_STATE.desgasteMente.enfoque) || 0;
+        var nextEnf = Math.min(100, Math.max(0, prevEnf + imp.enfoqueDelta));
+        APP_STATE.desgasteMente.enfoque = nextEnf;
+        mDelta.enfoque = nextEnf - prevEnf;
+    }
+
+    var fmDelta = 0;
+    if (APP_STATE.fatigaMentalDiaria && imp.enfoqueDelta > 0) {
+        var prevFm = Number(APP_STATE.fatigaMentalDiaria.nivel) || 0;
+        var nextFm = Math.min(100, Math.max(0, prevFm + Math.round(imp.enfoqueDelta * 0.8)));
+        APP_STATE.fatigaMentalDiaria.nivel = nextFm;
+        fmDelta = nextFm - prevFm;
+    }
+
+    rec.impactoAplicado = {
+        fecha: hoyStr,
+        fatiga: fDelta,
+        mente: mDelta,
+        fatigaMental: fmDelta
+    };
+}
+
+function _cargarValoresFechaEnModalRel(fechaISO) {
+    var lista = _asegurarRelacionesIntimas();
+    var existente = lista.find(function(r) { return r && r.fecha === fechaISO; }) || null;
+    _REL_EDITANDO_ID = existente ? existente.id : null;
+
+    var inHora = document.getElementById('input-rel-hora');
+    var inVeces = document.getElementById('input-rel-veces');
+    var inNotas = document.getElementById('input-rel-notas');
+    var chkAvatar = document.getElementById('chk-rel-aplicar-avatar');
+    var titModal = document.getElementById('modal-rel-titulo');
+    var btnSave = document.getElementById('btn-guardar-relacion');
+
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var ahora = new Date();
+    var hhmmNow = String(ahora.getHours()).padStart(2, '0') + ':' + String(ahora.getMinutes()).padStart(2, '0');
+
+    if (existente) {
+        if (inHora) inHora.value = existente.hora || hhmmNow;
+        if (inVeces) inVeces.value = String(existente.vecesEyaculacion !== undefined ? existente.vecesEyaculacion : 1);
+        if (inNotas) inNotas.value = existente.notas || '';
+        seleccionarIntensidadRelacionModal(existente.intensidad || 'moderada');
+        if (chkAvatar) chkAvatar.checked = (existente.fecha === hoyStr) ? Boolean(existente.aplicadoAvatar !== false) : false;
+        if (titModal) titModal.textContent = 'Editar Registro Íntimo (' + fechaISO + ')';
+        if (btnSave) btnSave.textContent = '❤️ Actualizar Registro';
+    } else {
+        if (inHora) inHora.value = hhmmNow;
+        if (inVeces) inVeces.value = '1';
+        if (inNotas) inNotas.value = '';
+        seleccionarIntensidadRelacionModal('moderada');
+        if (chkAvatar) chkAvatar.checked = (fechaISO === hoyStr);
+        if (titModal) titModal.textContent = 'Registro Íntimo & Recuperación';
+        if (btnSave) btnSave.textContent = '❤️ Guardar Registro';
+    }
+
+    var wrapCheck = document.getElementById('wrap-rel-aplicar-avatar');
+    if (wrapCheck) {
+        wrapCheck.style.display = (fechaISO === hoyStr) ? 'flex' : 'none';
+    }
+
+    actualizarPreviewBiologicoRelaciones();
+}
+
+function abrirModalRegistroRelaciones(fechaOpt) {
+    _asegurarRelacionesIntimas();
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+    var fechaTarget = fechaOpt || hoyStr;
+
+    var inFecha = document.getElementById('input-rel-fecha');
+    if (inFecha) {
+        inFecha.value = fechaTarget;
+        inFecha.max = hoyStr;
+    }
+
+    _cargarValoresFechaEnModalRel(fechaTarget);
+
+    var modal = document.getElementById('modal-registro-relaciones');
+    if (modal) modal.style.display = 'flex';
+}
+
+function cerrarModalRegistroRelaciones() {
+    _REL_EDITANDO_ID = null;
+    var modal = document.getElementById('modal-registro-relaciones');
+    if (modal) modal.style.display = 'none';
+}
+
+function alCambiarFechaModalRelaciones(fechaVal) {
+    if (!fechaVal) return;
+    _cargarValoresFechaEnModalRel(fechaVal);
+}
+
+function ajustarVecesRelacionModal(delta) {
+    var inVeces = document.getElementById('input-rel-veces');
+    if (!inVeces) return;
+    var cur = parseInt(inVeces.value, 10);
+    if (isNaN(cur)) cur = 0;
+    var next = Math.max(0, Math.min(20, cur + delta));
+    inVeces.value = String(next);
+    actualizarPreviewBiologicoRelaciones();
+}
+
+function seleccionarIntensidadRelacionModal(intensidad) {
+    _REL_INTENSIDAD_MODAL = (intensidad === 'suave' || intensidad === 'intensa') ? intensidad : 'moderada';
+    var btns = document.querySelectorAll('#rel-intensidad-selector .rel-int-btn');
+    btns.forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-int') === _REL_INTENSIDAD_MODAL);
+    });
+    actualizarPreviewBiologicoRelaciones();
+}
+
+function actualizarPreviewBiologicoRelaciones() {
+    var cont = document.getElementById('rel-live-bio-preview');
+    var inVeces = document.getElementById('input-rel-veces');
+    if (!cont) return;
+
+    var veces = inVeces ? (parseInt(inVeces.value, 10) || 0) : 1;
+    var imp = calcularImpactoBiologicoRelacion(veces, _REL_INTENSIDAD_MODAL);
+
+    cont.innerHTML =
+        '<div class="rel-preview-top">' +
+            '<span class="rel-preview-badge" style="color:' + imp.colorAccent + '; border-color:' + imp.colorAccent + '44; background:' + imp.colorAccent + '18;">' + _escaparHtmlRel(imp.estadoLabel) + '</span>' +
+            '<span style="font-size:11px; color:#94a3b8; font-weight:700;">~' + imp.kcalAprox + ' kcal · +' + imp.aguaExtraMl + ' ml agua</span>' +
+        '</div>' +
+        '<div class="rel-preview-kpis">' +
+            '<div class="rel-prev-kpi">' +
+                '<span class="rel-prev-lbl">Desgaste agudo</span>' +
+                '<strong class="rel-prev-val" style="color:#fb7185;">' + imp.desgastePct + '%</strong>' +
+            '</div>' +
+            '<div class="rel-prev-kpi">' +
+                '<span class="rel-prev-lbl">Recuperación hoy</span>' +
+                '<strong class="rel-prev-val" style="color:' + imp.colorAccent + ';">' + imp.recuperacionPct + '%</strong>' +
+            '</div>' +
+            '<div class="rel-prev-kpi">' +
+                '<span class="rel-prev-lbl">Recarga 100%</span>' +
+                '<strong class="rel-prev-val" style="color:#cbd5e1;">~' + imp.ventanaHoras + 'h</strong>' +
+            '</div>' +
+        '</div>' +
+        '<div class="rel-preview-muscles">' +
+            '<span>Cadera <strong>+' + imp.fatiga.cadera + '%</strong></span>' +
+            '<span>Core <strong>+' + imp.fatiga.core + '%</strong></span>' +
+            '<span>Lumbares <strong>+' + imp.fatiga.lumbares + '%</strong></span>' +
+            '<span>Glúteos <strong>+' + imp.fatiga.gluteos + '%</strong></span>' +
+        '</div>' +
+        '<div class="rel-preview-desc">' + _escaparHtmlRel(imp.detalleFisiologico) + '</div>' +
+        '<div class="rel-preview-tip">💡 ' + _escaparHtmlRel(imp.recomendacion) + '</div>';
+}
+
+function guardarRegistroRelacion() {
+    if (typeof actualizarDesgasteDiarioAutomatico === 'function') actualizarDesgasteDiarioAutomatico();
+    var lista = _asegurarRelacionesIntimas();
+    var hoyStr = typeof obtenerClaveFechaLocal === 'function' ? obtenerClaveFechaLocal() : new Date().toISOString().split('T')[0];
+
+    var inFecha = document.getElementById('input-rel-fecha');
+    var inHora = document.getElementById('input-rel-hora');
+    var inVeces = document.getElementById('input-rel-veces');
+    var inNotas = document.getElementById('input-rel-notas');
+    var chkAvatar = document.getElementById('chk-rel-aplicar-avatar');
+
+    var fecha = (inFecha && inFecha.value) ? inFecha.value : hoyStr;
+    var hora = (inHora && inHora.value) ? inHora.value : '';
+    var veces = inVeces ? Math.max(0, Math.min(20, parseInt(inVeces.value, 10) || 0)) : 1;
+    var intensidad = _REL_INTENSIDAD_MODAL || 'moderada';
+    var notas = inNotas ? inNotas.value.trim() : '';
+    var aplicarAvatar = (fecha === hoyStr) && (!chkAvatar || chkAvatar.checked);
+
+    // Buscar si ya existe registro para esta fecha y revertir impacto previo antes de recalcular
+    var existenteIdx = lista.findIndex(function(r) { return r && r.fecha === fecha; });
+    var registroPrevio = (existenteIdx !== -1) ? lista[existenteIdx] : null;
+    if (registroPrevio) {
+        _revertirImpactoRelacionRecord(registroPrevio);
+    }
+
+    var imp = calcularImpactoBiologicoRelacion(veces, intensidad);
+    var recId = (registroPrevio && registroPrevio.id) ? registroPrevio.id : ('REL-' + fecha + '-' + Date.now());
+    var nuevoReg = {
+        id: recId,
+        fecha: fecha,
+        hora: hora,
+        vecesEyaculacion: veces,
+        intensidad: intensidad,
+        desgastePct: imp.desgastePct,
+        recuperacionPct: imp.recuperacionPct,
+        kcalAprox: imp.kcalAprox,
+        aplicadoAvatar: aplicarAvatar,
+        notas: notas,
+        impactoAplicado: null,
+        fechaActualizacion: Date.now()
+    };
+
+    if (aplicarAvatar) {
+        _aplicarImpactoRelacionRecord(nuevoReg);
+    }
+
+    if (existenteIdx !== -1) {
+        lista[existenteIdx] = nuevoReg;
+    } else {
+        lista.unshift(nuevoReg);
+    }
+
+    lista.sort(function(a, b) {
+        return String((b && b.fecha) || '').localeCompare(String((a && a.fecha) || ''));
+    });
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+
+    cerrarModalRegistroRelaciones();
+    if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
+    if (typeof renderizarPanelRelaciones === 'function') renderizarPanelRelaciones();
+    if (typeof actualizarGraficosRadarEstadoPersonal === 'function') actualizarGraficosRadarEstadoPersonal();
+    if (typeof renderizarDesgloseCuerpo === 'function') renderizarDesgloseCuerpo();
+    if (typeof renderizarDesgloseMente === 'function') renderizarDesgloseMente();
+
+    if (typeof mostrarToastMonarca === 'function') {
+        mostrarToastMonarca('Registro íntimo guardado (' + veces + (veces === 1 ? ' vez' : ' veces') + ' · Recup. ' + imp.recuperacionPct + '%)', '❤️');
+    }
+}
+
+function eliminarRegistroRelacion(id) {
+    if (!confirm('¿Deseas eliminar este registro?')) return;
+    var lista = _asegurarRelacionesIntimas();
+    var target = lista.find(function(r) { return r && String(r.id) === String(id); });
+    if (target) {
+        _revertirImpactoRelacionRecord(target);
+    }
+    if (typeof registrarTombstone === 'function') registrarTombstone('relacionesIntimas', id);
+    APP_STATE.relacionesIntimas = lista.filter(function(r) { return r && String(r.id) !== String(id); });
+
+    if (typeof MonarcaDB !== 'undefined' && MonarcaDB.save) MonarcaDB.save(APP_STATE);
+    if (typeof renderizarGraficoGeneralAvatar === 'function') renderizarGraficoGeneralAvatar();
+    if (typeof renderizarPanelRelaciones === 'function') renderizarPanelRelaciones();
+    if (typeof actualizarGraficosRadarEstadoPersonal === 'function') actualizarGraficosRadarEstadoPersonal();
+    if (typeof renderizarDesgloseCuerpo === 'function') renderizarDesgloseCuerpo();
+    if (typeof renderizarDesgloseMente === 'function') renderizarDesgloseMente();
+}
+
+function renderizarPanelRelaciones() {
+    var cont = document.getElementById('panel-relaciones-estado-personal');
+    if (!cont) return;
+
+    var st = calcularEstadoRecuperacionRelaciones();
+    var ultLabel = st.ultimoRegistro
+        ? (st.diasDesdeUltima === 0 ? 'Hoy' : (st.diasDesdeUltima === 1 ? 'Ayer (1 día)' : ('Hace ' + st.diasDesdeUltima + ' días')))
+        : 'Sin registros';
+
+    var histHtml = '';
+    var ultimos = st.registros.slice(0, 7);
+    if (ultimos.length === 0) {
+        histHtml = '<div style="text-align:center; padding:14px; color:#64748b; font-size:12px; background:rgba(255,255,255,0.02); border-radius:10px;">Aún no has registrado días de actividad. Toca <strong>+ Registrar</strong> cuando desees llevar el control.</div>';
+    } else {
+        histHtml = ultimos.map(function(r) {
+            var v = parseInt(r.vecesEyaculacion, 10) || 0;
+            var intLbl = r.intensidad === 'intensa' ? '🔥 Intensa' : (r.intensidad === 'suave' ? '😌 Suave' : '⚡ Moderada');
+            var des = (r.desgastePct !== undefined) ? r.desgastePct : calcularImpactoBiologicoRelacion(v, r.intensidad).desgastePct;
+            var recP = (r.recuperacionPct !== undefined) ? r.recuperacionPct : calcularImpactoBiologicoRelacion(v, r.intensidad).recuperacionPct;
+            return '<div class="rel-hist-row">' +
+                '<div style="display:flex; align-items:center; gap:10px; min-width:0;">' +
+                    '<span style="font-size:15px; flex-shrink:0;">❤️</span>' +
+                    '<div style="min-width:0;">' +
+                        '<div style="font-size:12.5px; font-weight:700; color:#f8fafc;">' + _escaparHtmlRel(r.fecha) + ' · <span style="color:#fda4af;">' + v + (v === 1 ? ' eyaculación' : ' eyaculaciones') + '</span></div>' +
+                        '<div style="font-size:11px; color:#94a3b8;">' + intLbl + (r.hora ? (' · ' + _escaparHtmlRel(r.hora)) : '') + ' · Desgaste ' + des + '% · Recup. ' + recP + '%' + (r.notas ? (' · "' + _escaparHtmlRel(r.notas) + '"') : '') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="display:flex; gap:6px; flex-shrink:0;">' +
+                    '<button type="button" onclick="abrirModalRegistroRelaciones(\'' + _escaparHtmlRel(r.fecha) + '\')" title="Editar día" style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:#7dd3fc; width:26px; height:26px; border-radius:6px; cursor:pointer; font-size:11px;">✏️</button>' +
+                    '<button type="button" onclick="eliminarRegistroRelacion(\'' + _escaparHtmlRel(r.id) + '\')" title="Eliminar" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#fca5a5; width:26px; height:26px; border-radius:6px; cursor:pointer; font-size:11px;">✕</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    cont.innerHTML =
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">' +
+            '<div style="display:flex; align-items:center; gap:10px;">' +
+                '<div style="width:38px; height:38px; border-radius:12px; background:rgba(244,63,94,0.15); border:1px solid rgba(244,63,94,0.32); display:flex; align-items:center; justify-content:center; font-size:18px;">❤️</div>' +
+                '<div>' +
+                    '<h3 style="margin:0; font-size:15px; font-weight:700; color:#f8fafc;">Relaciones, Desgaste &amp; Recuperación</h3>' +
+                    '<p style="margin:0; font-size:11px; color:#94a3b8;">Registro íntimo diario e impacto biológico realista</p>' +
+                '</div>' +
+            '</div>' +
+            '<button type="button" class="btn-system" onclick="abrirModalRegistroRelaciones()" style="font-size:12px; padding:7px 14px; background:linear-gradient(135deg,#f43f5e,#e11d48); color:#ffffff; font-weight:700; border-radius:8px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">' +
+                '<span>' + (st.tieneRegistroHoy ? '✏️' : '+') + '</span> ' + (st.tieneRegistroHoy ? 'Editar Hoy' : 'Registrar') +
+            '</button>' +
+        '</div>' +
+
+        '<div class="rel-kpis-grid">' +
+            '<div class="rel-kpi-box">' +
+                '<div class="rel-kpi-lbl">Eyaculaciones Hoy</div>' +
+                '<div class="rel-kpi-val" style="color:#fda4af;">' + st.vecesHoy + '</div>' +
+            '</div>' +
+            '<div class="rel-kpi-box">' +
+                '<div class="rel-kpi-lbl">Recuperación</div>' +
+                '<div class="rel-kpi-val" style="color:' + st.color + ';">' + st.recuperacionPct + '%</div>' +
+            '</div>' +
+            '<div class="rel-kpi-box">' +
+                '<div class="rel-kpi-lbl">Desgaste Hoy</div>' +
+                '<div class="rel-kpi-val" style="color:#fbbf24;">' + st.desgasteHoyPct + '%</div>' +
+            '</div>' +
+            '<div class="rel-kpi-box">' +
+                '<div class="rel-kpi-lbl">Última vez</div>' +
+                '<div class="rel-kpi-val" style="color:#cbd5e1; font-size:13px;">' + ultLabel + '</div>' +
+            '</div>' +
+        '</div>' +
+
+        '<div class="rel-bio-summary-banner" style="border-color:' + st.color + '44;">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">' +
+                '<strong style="font-size:12.5px; color:' + st.color + ';">' + _escaparHtmlRel(st.estadoTexto) + '</strong>' +
+                '<span style="font-size:11px; color:#94a3b8;">7 días: ' + st.total7Dias + ' vec. (' + st.sesiones7Dias + ' d) · 30 días: ' + st.total30Dias + ' vec.</span>' +
+            '</div>' +
+            '<div style="font-size:11.5px; color:#cbd5e1; line-height:1.4;">' + _escaparHtmlRel(st.detalleEstado) + '</div>' +
+        '</div>' +
+
+        '<div style="margin-top:12px;">' +
+            '<h4 style="margin:0 0 8px 0; font-size:12.5px; font-weight:700; color:#f8fafc;">Historial Íntimo Reciente</h4>' +
+            '<div style="display:flex; flex-direction:column; gap:7px;">' + histHtml + '</div>' +
+        '</div>';
+}
+
 // Exportar funciones a window
 if (typeof window !== 'undefined') {
     window.cambiarSeccionEstadoPersonal = cambiarSeccionEstadoPersonal;
@@ -14220,6 +14833,17 @@ if (typeof window !== 'undefined') {
     window.confirmarOkeyAlertaSueno = confirmarOkeyAlertaSueno;
     window.programarAlarmaHoraDormirNativa = programarAlarmaHoraDormirNativa;
     window.verificarCicloSuenoEnVivo = verificarCicloSuenoEnVivo;
+    window.calcularImpactoBiologicoRelacion = calcularImpactoBiologicoRelacion;
+    window.calcularEstadoRecuperacionRelaciones = calcularEstadoRecuperacionRelaciones;
+    window.abrirModalRegistroRelaciones = abrirModalRegistroRelaciones;
+    window.cerrarModalRegistroRelaciones = cerrarModalRegistroRelaciones;
+    window.alCambiarFechaModalRelaciones = alCambiarFechaModalRelaciones;
+    window.ajustarVecesRelacionModal = ajustarVecesRelacionModal;
+    window.seleccionarIntensidadRelacionModal = seleccionarIntensidadRelacionModal;
+    window.actualizarPreviewBiologicoRelaciones = actualizarPreviewBiologicoRelaciones;
+    window.guardarRegistroRelacion = guardarRegistroRelacion;
+    window.eliminarRegistroRelacion = eliminarRegistroRelacion;
+    window.renderizarPanelRelaciones = renderizarPanelRelaciones;
 }
 
 
