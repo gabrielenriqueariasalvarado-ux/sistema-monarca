@@ -2518,12 +2518,19 @@ function sanitizarQuestsDiarios() {
         if (Array.isArray(q.atributos)) {
             q.atributos = q.atributos.filter(function(a) { return a && (typeof a === 'object' || typeof a === 'string'); }).map(function(a) {
                 if (typeof a === 'string') {
-                    return { tipo: 'disciplina', icono: '⚡', nombre: a, porcentaje: 5 };
+                    return { clave: 'enfoque', tipo: 'mente', icono: '⚡', nombre: a, porcentaje: 5 };
                 }
+                var catMatch = (!a.clave && a.nombre && typeof CATALOGO_ATRIBUTOS_SISTEMA !== 'undefined')
+                    ? CATALOGO_ATRIBUTOS_SISTEMA.find(function(item) {
+                        return item.nombre.toLowerCase() === String(a.nombre).trim().toLowerCase();
+                    })
+                    : null;
                 return {
-                    tipo: a.tipo || 'disciplina',
-                    icono: a.icono || '⚡',
-                    nombre: a.nombre || 'Atributo',
+                    clave: a.clave || (catMatch && catMatch.clave) || undefined,
+                    categoria: a.categoria || (catMatch && catMatch.categoria) || undefined,
+                    tipo: a.tipo || (catMatch && catMatch.tipo) || 'disciplina',
+                    icono: a.icono || (catMatch && catMatch.icono) || '⚡',
+                    nombre: a.nombre || (catMatch && catMatch.nombre) || 'Atributo',
                     porcentaje: Number(a.porcentaje) || 5
                 };
             });
@@ -3118,6 +3125,17 @@ function aplicarPenalizacionAutomatica(q) {
     }, 100);
 }
 
+var FILTRO_QUESTS_DIARIOS = 'todas';
+
+function cambiarFiltroQuestsDiarios(filtro) {
+    FILTRO_QUESTS_DIARIOS = (filtro === 'pendientes' || filtro === 'completadas') ? filtro : 'todas';
+    renderizarQuestsDiarios();
+}
+
+if (typeof window !== 'undefined') {
+    window.cambiarFiltroQuestsDiarios = cambiarFiltroQuestsDiarios;
+}
+
 function renderizarQuestsDiarios() {
     var cont = document.getElementById('contenedor-quests-diarios');
     var contAlertas = document.getElementById('contenedor-alertas-penitencias');
@@ -3129,7 +3147,7 @@ function renderizarQuestsDiarios() {
         var qList = APP_STATE.questsDiarios || [];
 
         // Actualizar métricas HUD y panel gráfico desplegable
-        var completadas = qList.filter(function(q) { return q.estado === 'completada'; }).length;
+        var completadas = qList.filter(function(q) { return q.estado === 'completada' || q.estado === 'penitencia_cumplida'; }).length;
         var enCurso = qList.filter(function(q) { return q.temporizadorActivo || q.estado === 'en_progreso'; }).length;
         var penalizadas = qList.filter(function(q) { return q.estado === 'penalizada'; }).length;
 
@@ -3143,6 +3161,24 @@ function renderizarQuestsDiarios() {
 
         if (typeof actualizarResumenGraficoHabitosHud === 'function') {
             actualizarResumenGraficoHabitosHud(qList);
+        }
+
+        // Actualizar barra de filtros rápida
+        var filtersBar = document.getElementById('qd-filters-bar');
+        var totalActivas = Math.max(0, qList.length - completadas);
+        if (filtersBar) {
+            filtersBar.style.display = qList.length > 0 ? 'flex' : 'none';
+            var cTodas = document.getElementById('qd-count-todas');
+            var cPend = document.getElementById('qd-count-pendientes');
+            var cComp = document.getElementById('qd-count-completadas');
+            if (cTodas) cTodas.textContent = String(qList.length);
+            if (cPend) cPend.textContent = String(totalActivas);
+            if (cComp) cComp.textContent = String(completadas);
+
+            ['todas', 'pendientes', 'completadas'].forEach(function(f) {
+                var fBtn = document.getElementById('qd-filter-' + f);
+                if (fBtn) fBtn.classList.toggle('active', FILTRO_QUESTS_DIARIOS === f);
+            });
         }
 
         // Renderizar caja de alertas de penitencia activa (100% Dark Glass Monarca v11.23)
@@ -3207,7 +3243,7 @@ function renderizarQuestsDiarios() {
                 <span style="font-size: 32px; display: block; margin-bottom: 8px;">⚔️</span>
                 <h4 style="margin: 0 0 6px 0; color: #f8fafc; font-size: 16px;">No tienes hábitos o misiones configuradas</h4>
                 <p style="color: #94a3b8; font-size: 13px; max-width: 420px; margin: 0 auto 16px auto;">
-                    Agrega tus hábitos, misiones y rutinas diarias. Puedes configurarlos con temporizador, hora fija con alarma o cumplimiento libre en el día.
+                    Agrega tus hábitos, misiones y rutinas diarias. Puedes configurarlos con temporizador, hora fija o cumplimiento libre en el día.
                 </p>
                 <button class="btn-add-finanza" onclick="abrirModalNuevaQuestDiaria()">
                     ➕ Crear Primer Hábito o Misión
@@ -3216,12 +3252,36 @@ function renderizarQuestsDiarios() {
             return;
         }
 
+        var listaFiltrada = qList.filter(function(q) {
+            if (!q) return false;
+            var cerrada = (q.estado === 'completada' || q.estado === 'penitencia_cumplida');
+            if (FILTRO_QUESTS_DIARIOS === 'pendientes') return !cerrada;
+            if (FILTRO_QUESTS_DIARIOS === 'completadas') return cerrada;
+            return true;
+        });
+
+        if (listaFiltrada.length === 0) {
+            var msgVacio = FILTRO_QUESTS_DIARIOS === 'pendientes'
+                ? '🎉 ¡Todas tus misiones y hábitos de hoy están al día!'
+                : 'Aún no has completado misiones en el filtro seleccionado.';
+            cont.innerHTML = `
+            <div style="text-align: center; padding: 28px 18px; background: rgba(15, 23, 42, 0.55); border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 14px;">
+                <div style="color: #cbd5e1; font-size: 13.5px; font-weight: 600; margin-bottom: 10px;">${msgVacio}</div>
+                <button type="button" class="btn-subfiltro-ej" onclick="cambiarFiltroQuestsDiarios('todas')" style="padding: 6px 14px; font-size: 12px;">
+                    Ver todas (${qList.length})
+                </button>
+            </div>`;
+            return;
+        }
+
+        var ahoraRender = new Date();
         var html = '';
-        qList.forEach(function(q) {
+        listaFiltrada.forEach(function(q) {
             var esLibre = (q.tipoTiempo === 'libre');
             var esPenalizada = (q.estado === 'penalizada');
             var esCompletada = (q.estado === 'completada');
             var esPenitenciaCumplida = (q.estado === 'penitencia_cumplida');
+            var esCerradaHoy = (esCompletada || esPenitenciaCumplida);
             var esEnProgreso = (q.estado === 'en_progreso' || q.temporizadorActivo);
             var esPospuesta = (q.estado === 'pospuesta');
             var esOmitible = (q.esOmitible !== false);
@@ -3253,45 +3313,85 @@ function renderizarQuestsDiarios() {
                 badgeEstado = '<span class="qd-badge qd-badge-pending">⏳ PENDIENTE</span>';
             }
 
-            // Barra de temporizador visible cuando hay un tiempo asignado
+            // Bloque de tiempo inteligente: activo si sigue pendiente/en curso, compacto sin cuenta regresiva congelada si ya cerró hoy
             var bloqueTiempo = '';
-            if (!esLibre && (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion')) {
-                var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
-                var tiempoStr = formatearSegundos(segsRest);
-                var totalSegs = (q.tiempoMinutos || 15) * 60;
-                var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
+            if (!esLibre) {
+                if (esCerradaHoy) {
+                    if (q.tipoTiempo === 'programada') {
+                        var countdownClosed = obtenerTextoActivacionQuest(q, ahoraRender);
+                        bloqueTiempo = `
+                        <div class="qd-summary-closed-band">
+                            <span id="quest-countdown-txt-${q.id}" class="qd-countdown-pill is-closed">${countdownClosed}</span>
+                            <span class="qd-dur-chip">${q.tiempoMinutos || 15} min</span>
+                        </div>`;
+                    } else if (q.tipoTiempo === 'duracion') {
+                        bloqueTiempo = `
+                        <div class="qd-summary-closed-band">
+                            <span class="qd-countdown-pill is-closed">⏱️ Sesión de ${q.tiempoMinutos || 15} min · Finalizada hoy</span>
+                        </div>`;
+                    } else if (q.tipoTiempo === 'hora_limite' && q.horaLimite) {
+                        var hLimClosed = formatearHora12h(normalizarHora24Str(q.horaLimite) || q.horaLimite);
+                        bloqueTiempo = `
+                        <div class="qd-summary-closed-band">
+                            <span class="qd-countdown-pill is-closed">⏳ Límite ${hLimClosed} · Cumplida hoy</span>
+                        </div>`;
+                    }
+                } else if (q.tipoTiempo === 'programada' || q.tipoTiempo === 'duracion') {
+                    var segsRest = (q.tiempoRestante !== undefined) ? q.tiempoRestante : (q.tiempoMinutos || 15) * 60;
+                    var tiempoStr = formatearSegundos(segsRest);
+                    var totalSegs = Math.max(60, (q.tiempoMinutos || 15) * 60);
+                    var pctRest = Math.max(0, Math.min(100, Math.round((segsRest / totalSegs) * 100)));
 
-                if (q.tipoTiempo === 'programada') {
-                    var countdownTxt = obtenerTextoActivacionQuest(q);
+                    if (q.tipoTiempo === 'programada') {
+                        var countdownTxt = obtenerTextoActivacionQuest(q, ahoraRender);
+                        bloqueTiempo = `
+                        <div class="qd-timer-box">
+                            <div class="qd-schedule-row">
+                                <span id="quest-countdown-txt-${q.id}" class="qd-countdown-pill">${countdownTxt}</span>
+                                <span class="qd-dur-chip">${q.tiempoMinutos || 15} min</span>
+                            </div>
+                            <div class="qd-timer-meta-row">
+                                <span class="qd-timer-label">⏱️ Temporizador límite</span>
+                                <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
+                                    ${tiempoStr}
+                                </span>
+                            </div>
+                            <div class="qd-timer-track">
+                                <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
+                            </div>
+                        </div>`;
+                    } else {
+                        bloqueTiempo = `
+                        <div class="qd-timer-box">
+                            <div class="qd-timer-meta-row">
+                                <span class="qd-timer-label">⏱️ Duración: <strong>${q.tiempoMinutos || 15} min</strong></span>
+                                <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
+                                    ${tiempoStr}
+                                </span>
+                            </div>
+                            <div class="qd-timer-track">
+                                <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
+                            </div>
+                        </div>`;
+                    }
+                } else if (q.tipoTiempo === 'hora_limite' && q.horaLimite) {
+                    var normLim = normalizarHora24Str(q.horaLimite) || q.horaLimite;
+                    var hLim12 = formatearHora12h(normLim);
+                    var vencidaLim = esHoraLimiteSuperada(normLim);
+                    var textoLimRest = '';
+                    if (!vencidaLim && normLim && normLim.indexOf(':') !== -1) {
+                        var partsLim = normLim.split(':');
+                        var dtLim = new Date(ahoraRender);
+                        dtLim.setHours(parseInt(partsLim[0], 10), parseInt(partsLim[1], 10), 0, 0);
+                        var diffLimMs = dtLim.getTime() - ahoraRender.getTime();
+                        if (diffLimMs > 0) textoLimRest = ' (quedan ' + formatearDiffTiempoCorto(diffLimMs) + ')';
+                    }
                     bloqueTiempo = `
-                <div class="qd-timer-box">
-                    <div class="qd-schedule-row">
-                        <span id="quest-countdown-txt-${q.id}" class="qd-countdown-pill">${countdownTxt}</span>
-                        <span class="qd-dur-chip">${q.tiempoMinutos || 15} min</span>
-                    </div>
-                    <div class="qd-timer-meta-row">
-                        <span class="qd-timer-label">⏱️ Temporizador límite</span>
-                        <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
-                            ${tiempoStr}
+                    <div class="qd-summary-closed-band" style="border-color: ${vencidaLim ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.28)'};">
+                        <span class="qd-countdown-pill" style="background: ${vencidaLim ? 'rgba(239, 68, 68, 0.14)' : 'rgba(245, 158, 11, 0.14)'}; border-color: ${vencidaLim ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.35)'}; color: ${vencidaLim ? '#fca5a5' : '#fcd34d'};">
+                            ⏳ Límite de hoy: ${hLim12}${textoLimRest}
                         </span>
-                    </div>
-                    <div class="qd-timer-track">
-                        <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
-                    </div>
-                </div>`;
-                } else {
-                    bloqueTiempo = `
-                <div class="qd-timer-box">
-                    <div class="qd-timer-meta-row">
-                        <span class="qd-timer-label">⏱️ TIEMPO: <strong>${q.tiempoMinutos || 15} MIN</strong></span>
-                        <span id="timer-val-${q.id}" class="qd-timer-val" style="color: ${esPenalizada ? '#ef4444' : (esEnProgreso ? '#38bdf8' : '#f8fafc')};">
-                            ${tiempoStr}
-                        </span>
-                    </div>
-                    <div class="qd-timer-track">
-                        <div id="timer-bar-${q.id}" class="qd-timer-fill" style="width: ${pctRest}%; background: ${esPenalizada ? '#ef4444' : (pctRest < 25 ? '#f59e0b' : '#10b981')};"></div>
-                    </div>
-                </div>`;
+                    </div>`;
                 }
             }
 
@@ -3347,36 +3447,44 @@ function renderizarQuestsDiarios() {
                 ? `<button type="button" class="btn-qd-omit" onclick="posponerQuestUnaHora('${q.id}')" title="Posponer 1 hora">⏸️ Omitir (1h)</button>`
                 : '';
 
-            var detallePenitencia = '';
-            if (esLibre || !q.penitencia || q.penitencia === 'Sin penitencia obligatoria' || q.penitenciaId === 'sin_penitencia') {
-                detallePenitencia = '<span style="color: #94a3b8; font-weight: 500;">🎯 Cumplimiento Flexible</span>';
-            } else {
-                var pNom = q.penitenciaNombre || q.penitencia || 'Penitencia';
-                var pExp = (q.penitenciaExp !== undefined) ? q.penitenciaExp : 30;
-                detallePenitencia = `<span style="color: #ef4444; font-weight: 700;">💀 Castigo: ${pNom} (-${pExp} EXP)</span>`;
-            }
+            var tienePenitenciaReal = !esLibre && q.penitencia && q.penitencia !== 'Sin penitencia obligatoria' && q.penitenciaId !== 'sin_penitencia';
+            var pNomCard = tienePenitenciaReal ? (q.penitenciaNombre || q.penitencia || 'Penitencia') : 'Cumplimiento Flexible';
+            var pExpCard = tienePenitenciaReal ? ((q.penitenciaExp !== undefined) ? q.penitenciaExp : 30) : 0;
 
             var badgeOmitible = esLibre
-                ? `<span style="color: #cbd5e1;">🗓️ Flexible</span>`
+                ? `<span class="qd-meta-chip">🗓️ Flexible</span>`
                 : (esOmitible
-                    ? `<span style="color: #cbd5e1;">⏳ Omitible</span>`
-                    : `<span style="color: #f87171; font-weight: 800;">🚨 NO OMITIBLE</span>`);
+                    ? `<span class="qd-meta-chip">⏳ Omitible</span>`
+                    : `<span class="qd-meta-chip is-mandatory">🚨 NO OMITIBLE</span>`);
+
+            var metaResumenQuick = `
+            <div class="qd-meta-pills">
+                <span class="qd-meta-chip is-exp">✨ +${q.exp || 40}% EXP</span>
+                ${badgeOmitible}
+                ${tienePenitenciaReal ? `<span class="qd-meta-chip is-penalty">💀 -${pExpCard} EXP</span>` : ''}
+            </div>`;
 
             html += `
             <div class="${cardClass}">
-                <!-- CABECERA COMPACTA RESPONSIVE (Badges arriba + Flecha fija a la derecha) -->
+                <!-- CABECERA COMPACTA RESPONSIVE (Badges arriba + Editar/Flecha a la derecha) -->
                 <div class="qd-card-header-row">
                     <div class="qd-badges-group">
                         ${badgeEstado}
                         ${badgeRutina}
                     </div>
-                    <button class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleQuest('${q.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
-                        <span>${isExpanded ? '▲' : '▼'}</span>
-                    </button>
+                    <div class="qd-card-header-actions">
+                        <button type="button" class="btn-qd-edit-icon" onclick="event.stopPropagation(); abrirModalEditarQuestDiaria('${q.id}')" title="Editar hábito o misión" aria-label="Editar">
+                            ✏️
+                        </button>
+                        <button type="button" class="btn-toggle-detalle ${isExpanded ? 'active' : ''}" onclick="toggleDetalleQuest('${q.id}')" title="${isExpanded ? 'Ocultar información' : 'Desplegar información completa'}">
+                            <span>${isExpanded ? '▲' : '▼'}</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- TÍTULO A ANCHO COMPLETO PARA LEGIBILIDAD MÓVIL -->
-                <h3 class="qd-title ${(esCompletada || esPenitenciaCumplida) ? 'is-completed' : ''}">${q.titulo}</h3>
+                <!-- TÍTULO A ANCHO COMPLETO + METADATOS CLAVE -->
+                <h3 class="qd-title ${esCerradaHoy ? 'is-completed' : ''}">${q.titulo}</h3>
+                ${metaResumenQuick}
 
                 ${bloqueTiempo}
 
@@ -3388,7 +3496,7 @@ function renderizarQuestsDiarios() {
                 <!-- PANEL DESPLEGABLE CON INFORMACIÓN COMPLETA -->
                 <div class="card-detalle-desplegable" id="quest-detalle-${q.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
                     ${q.rutinaId ? `
-                        <div style="font-size: 12px; color: #38bdf8; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div class="qd-detail-routine-box">
                             <div>
                                 <strong>🏋️ Rutina Vinculada:</strong> ${q.rutinaNombre || 'Sesión de Entrenamiento'}
                                 <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 2px;">Al finalizar esta sesión en el Arsenal Físico o Gimnasio Mental, este hábito se completará automáticamente.</span>
@@ -3400,21 +3508,28 @@ function renderizarQuestsDiarios() {
                     ` : ''}
 
                     ${q.beneficio ? `
-                        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.4;">
+                        <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.45;">
                             🎁 <strong>Beneficio / Recompensa:</strong> ${q.beneficio}
                         </div>
                     ` : ''}
 
-                    <div style="display: flex; gap: 12px; font-size: 12px; flex-wrap: wrap; align-items: center;">
-                        <span style="color: #10b981; font-weight: 700;">+${q.exp || 40}% EXP de Nivel</span>
-                        <span style="color: #4b5563;">•</span>
-                        ${detallePenitencia}
-                        <span style="color: #4b5563;">•</span>
-                        ${badgeOmitible}
+                    <div class="qd-detail-metrics-grid">
+                        <div class="qd-detail-metric-box">
+                            <span class="qd-detail-metric-lbl">Recompensa</span>
+                            <span class="qd-detail-metric-val is-exp">+${q.exp || 40}% EXP de Nivel</span>
+                        </div>
+                        <div class="qd-detail-metric-box">
+                            <span class="qd-detail-metric-lbl">Castigo si expira</span>
+                            <span class="qd-detail-metric-val ${tienePenitenciaReal ? 'is-danger' : ''}">${tienePenitenciaReal ? ('💀 ' + pNomCard + ' (-' + pExpCard + ' EXP)') : '🎯 Sin castigo'}</span>
+                        </div>
+                        <div class="qd-detail-metric-box">
+                            <span class="qd-detail-metric-lbl">Modalidad</span>
+                            <span class="qd-detail-metric-val">${esLibre ? '🗓️ Libre en el día' : (esOmitible ? '⏳ Omitible (pospone 1h)' : '🚨 Obligatoria')}</span>
+                        </div>
                     </div>
 
                     ${(q.penitenciaDesc && q.penitenciaId !== 'sin_penitencia') ? `
-                        <div style="font-size: 12px; color: #fca5a5; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 8px 10px; line-height: 1.35;">
+                        <div style="font-size: 12px; color: #fca5a5; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 8px 10px; line-height: 1.4;">
                             💀 <strong>Instrucciones de la Penitencia:</strong> ${q.penitenciaDesc}
                         </div>
                     ` : ''}
@@ -3441,18 +3556,18 @@ function renderizarQuestsDiarios() {
                         </div>
                     ` : ''}
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 8px; flex-wrap: wrap; gap: 8px;">
+                    <div class="qd-detail-footer-actions">
                         <div style="display: flex; gap: 6px; align-items: center;">
                             ${btnOmit}
-                            ${q.tipoTiempo === 'programada' ? `
-                                <button type="button" onclick="sincronizarQuestConRelojAndroid('${q.id}')" title="Configurar alarma en el Reloj del móvil" style="padding: 4px 8px; font-size: 11px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); background: #131826; color: #cbd5e1; cursor: pointer;">
-                                    ⏰ Alarma Móvil
-                                </button>
-                            ` : ''}
                         </div>
-                        <button onclick="eliminarQuestDiaria('${q.id}')" style="background: none; border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; font-size: 11px; border-radius: 6px; padding: 4px 8px; cursor: pointer;">
-                            ✕ Eliminar Hábito/Misión
-                        </button>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-left: auto; flex-wrap: wrap;">
+                            <button type="button" class="btn-qd-edit-sm" onclick="abrirModalEditarQuestDiaria('${q.id}')">
+                                ✏️ Editar
+                            </button>
+                            <button type="button" class="btn-qd-delete-sm" onclick="eliminarQuestDiaria('${q.id}')">
+                                ✕ Eliminar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -4065,6 +4180,17 @@ function poblarSelectRutinasVinculadasModalQuest() {
     sel.value = '';
 }
 
+var QUEST_EDITANDO_ID = null;
+
+function _aplicarModoModalQuest(esEdicion) {
+    var icoEl = document.getElementById('modal-qd-header-icono');
+    var titEl = document.getElementById('modal-qd-header-titulo');
+    var btnEl = document.getElementById('btn-guardar-qd-modal');
+    if (icoEl) icoEl.textContent = esEdicion ? '✏️' : '⚔️';
+    if (titEl) titEl.textContent = esEdicion ? 'EDITAR HÁBITO O MISIÓN' : 'NUEVO HÁBITO O MISIÓN';
+    if (btnEl) btnEl.textContent = esEdicion ? 'GUARDAR CAMBIOS' : 'GUARDAR HÁBITO / MISIÓN';
+}
+
 function alSeleccionarRutinaParaHabito(rutinaId) {
     var inNom = document.getElementById('modal-qd-nombre');
     var inBen = document.getElementById('modal-qd-beneficio');
@@ -4084,13 +4210,15 @@ function alSeleccionarRutinaParaHabito(rutinaId) {
 
     if (!rutina) return;
 
-    // 1. Título auto-generado
-    if (inNom) {
+    var esEdicion = !!QUEST_EDITANDO_ID;
+
+    // 1. Título auto-generado (en edición respeta títulos personalizados previos)
+    if (inNom && (!esEdicion || !inNom.value.trim() || /^Entrenar:\s*/i.test(inNom.value.trim()))) {
         inNom.value = "Entrenar: " + rutina.nombre;
     }
 
     // 2. Beneficio
-    if (inBen) {
+    if (inBen && (!esEdicion || !inBen.value.trim() || /^Completar sesi[oó]n\s+'/i.test(inBen.value.trim()))) {
         var tipoTxt = rutina.tipo === 'mental' ? 'cognitivo y agudeza mental' : (rutina.tipo === 'hibrida' ? 'físico-mental integral' : 'fuerza, hipertrofia y sobrecarga biomecánica');
         inBen.value = "Completar sesión '" + rutina.nombre + "' impulsando desarrollo " + tipoTxt + ".";
     }
@@ -4102,58 +4230,62 @@ function alSeleccionarRutinaParaHabito(rutinaId) {
         else selCat.value = '🦾 Entrenamiento Físico';
     }
 
-    // 4. Modo de activación: PROGRAMADA para obligar al usuario a trabajarla a una hora fija con notificación
-    if (selTipoT) {
-        selTipoT.value = 'programada';
-        toggleTipoTiempoQuestModal();
+    // 4. En creación configura modo programado por defecto; en edición respeta la elección si ya estaba configurada
+    if (!esEdicion) {
+        if (selTipoT) {
+            selTipoT.value = 'programada';
+            toggleTipoTiempoQuestModal();
+        }
+
+        // 5. Duración calculada en base al volumen de ejercicios
+        var numEj = (rutina.ejercicios && rutina.ejercicios.length) || 3;
+        var duracionEstimada = Math.max(20, numEj * 10);
+        if (inMin) {
+            inMin.value = duracionEstimada;
+        }
+
+        // 6. Configurar como omitible para poder posponer 1h si está ocupado
+        if (chkOmit) {
+            chkOmit.checked = true;
+            alCambiarOmitibleQuestModal();
+        }
     }
 
-    // 5. Duración calculada en base al volumen de ejercicios
-    var numEj = (rutina.ejercicios && rutina.ejercicios.length) || 3;
-    var duracionEstimada = Math.max(20, numEj * 10);
-    if (inMin) {
-        inMin.value = duracionEstimada;
-    }
+    // 7. Auto-vincular atributos desarrollados (solo en creación o si no había atributos previos)
+    if (!esEdicion || !ATRIBUTOS_MODAL_TEMP.quest || ATRIBUTOS_MODAL_TEMP.quest.length === 0) {
+        ATRIBUTOS_MODAL_TEMP.quest = [];
+        if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
+            var clavesEncontradas = [];
+            rutina.ejercicios.forEach(function(ej) {
+                if (ej.esMental) {
+                    var mId = ej.musculoPrincipal || 'enfoque';
+                    if (!clavesEncontradas.includes(mId)) clavesEncontradas.push(mId);
+                } else {
+                    var mKeys = typeof mapearTextoAMusculos === 'function' ? mapearTextoAMusculos(ej.categorias || ej.nombre || '') : [];
+                    mKeys.forEach(function(k) {
+                        if (!clavesEncontradas.includes(k)) clavesEncontradas.push(k);
+                    });
+                }
+            });
 
-    // 6. Configurar como omitible para poder posponer 1h si está ocupado
-    if (chkOmit) {
-        chkOmit.checked = true;
-        alCambiarOmitibleQuestModal();
-    }
-
-    // 7. Auto-vincular atributos desarrollados
-    ATRIBUTOS_MODAL_TEMP.quest = [];
-    if (rutina.ejercicios && Array.isArray(rutina.ejercicios)) {
-        var clavesEncontradas = [];
-        rutina.ejercicios.forEach(function(ej) {
-            if (ej.esMental) {
-                var mId = ej.musculoPrincipal || 'enfoque';
-                if (!clavesEncontradas.includes(mId)) clavesEncontradas.push(mId);
-            } else {
-                var mKeys = typeof mapearTextoAMusculos === 'function' ? mapearTextoAMusculos(ej.categorias || ej.nombre || '') : [];
-                mKeys.forEach(function(k) {
-                    if (!clavesEncontradas.includes(k)) clavesEncontradas.push(k);
-                });
-            }
-        });
-
-        var agregados = 0;
-        clavesEncontradas.forEach(function(clave) {
-            if (agregados >= 4) return;
-            var attr = CATALOGO_ATRIBUTOS_SISTEMA.find(function(a) { return a.clave === clave; });
-            if (attr) {
-                ATRIBUTOS_MODAL_TEMP.quest.push({
-                    clave: attr.clave,
-                    nombre: attr.nombre,
-                    tipo: attr.tipo,
-                    icono: attr.icono,
-                    categoria: attr.categoria,
-                    porcentaje: 20
-                });
-                agregados++;
-            }
-        });
-        renderizarFilasAtributos('quest');
+            var agregados = 0;
+            clavesEncontradas.forEach(function(clave) {
+                if (agregados >= 4) return;
+                var attr = CATALOGO_ATRIBUTOS_SISTEMA.find(function(a) { return a.clave === clave; });
+                if (attr) {
+                    ATRIBUTOS_MODAL_TEMP.quest.push({
+                        clave: attr.clave,
+                        nombre: attr.nombre,
+                        tipo: attr.tipo,
+                        icono: attr.icono,
+                        categoria: attr.categoria,
+                        porcentaje: 20
+                    });
+                    agregados++;
+                }
+            });
+            renderizarFilasAtributos('quest');
+        }
     }
 }
 
@@ -4192,8 +4324,32 @@ function alCambiarTipoTonoModalQuest() {
     }
 }
 
+function _normalizarAtributosParaEdicionQuest(listaAtrs) {
+    if (!Array.isArray(listaAtrs)) return [];
+    return listaAtrs.map(function(a) {
+        if (!a || typeof a !== 'object') return null;
+        var matchCat = null;
+        if (a.clave) {
+            matchCat = CATALOGO_ATRIBUTOS_SISTEMA.find(function(item) { return item.clave === a.clave; });
+        }
+        if (!matchCat && a.nombre) {
+            var nomLow = String(a.nombre).trim().toLowerCase();
+            matchCat = CATALOGO_ATRIBUTOS_SISTEMA.find(function(item) { return item.nombre.toLowerCase() === nomLow; });
+        }
+        return {
+            clave: (matchCat && matchCat.clave) || a.clave || ('atr_' + String(a.nombre || 'custom').toLowerCase().replace(/[^a-z0-9]+/g, '_')),
+            nombre: (a.nombre || (matchCat && matchCat.nombre) || 'Atributo'),
+            tipo: a.tipo || (matchCat && matchCat.tipo) || 'mente',
+            icono: a.icono || (matchCat && matchCat.icono) || '⚡',
+            categoria: a.categoria || (matchCat && matchCat.categoria) || '',
+            porcentaje: Number(a.porcentaje) || 20
+        };
+    }).filter(Boolean);
+}
+
 function abrirModalNuevaQuestDiaria() {
-    solicitarPermisoNotificaciones(false);
+    QUEST_EDITANDO_ID = null;
+    _aplicarModoModalQuest(false);
 
     ATRIBUTOS_MODAL_TEMP.quest = [];
     poblarSelectAtributos('quest');
@@ -4230,8 +4386,111 @@ function abrirModalNuevaQuestDiaria() {
     if (m) m.style.display = 'flex';
 }
 
+function abrirModalEditarQuestDiaria(id) {
+    if (!APP_STATE || !Array.isArray(APP_STATE.questsDiarios)) return;
+    var q = APP_STATE.questsDiarios.find(function(item) {
+        return item && String(item.id) === String(id);
+    });
+    if (!q) return;
+
+    QUEST_EDITANDO_ID = q.id;
+    _aplicarModoModalQuest(true);
+
+    ATRIBUTOS_MODAL_TEMP.quest = _normalizarAtributosParaEdicionQuest(q.atributos);
+    poblarSelectAtributos('quest');
+    renderizarFilasAtributos('quest');
+
+    poblarSelectRutinasVinculadasModalQuest();
+    poblarSelectPenitenciasModalNuevaQuest();
+    poblarSelectTonosCancionesModalQuest();
+
+    var selRut = document.getElementById('modal-qd-rutina-vinculada');
+    if (selRut) {
+        var rutVal = q.rutinaId ? String(q.rutinaId) : '';
+        if (rutVal && !Array.from(selRut.options).some(function(o) { return o.value === rutVal; })) {
+            var optR = document.createElement('option');
+            optR.value = rutVal;
+            optR.textContent = '🏋️ ' + (q.rutinaNombre || 'Rutina vinculada');
+            selRut.appendChild(optR);
+        }
+        selRut.value = rutVal;
+    }
+
+    var inNom = document.getElementById('modal-qd-nombre');
+    var inBen = document.getElementById('modal-qd-beneficio');
+    var selTipoT = document.getElementById('modal-qd-tipo-tiempo');
+    var inHoraAct = document.getElementById('modal-qd-hora-activacion');
+    var inMin = document.getElementById('modal-qd-minutos');
+    var inHoraLim = document.getElementById('modal-qd-hora');
+    var inExp = document.getElementById('modal-qd-exp');
+    var chkOmit = document.getElementById('modal-qd-es-omitible');
+
+    if (inNom) inNom.value = q.titulo || '';
+    if (inBen) inBen.value = q.beneficio || '';
+
+    var tipoT = q.tipoTiempo || 'libre';
+    if (selTipoT) selTipoT.value = tipoT;
+    if (inHoraAct) inHoraAct.value = normalizarHora24Str(q.horaActivacion) || '08:00';
+    if (inMin) inMin.value = String(q.tiempoMinutos || 15);
+    if (inHoraLim) inHoraLim.value = normalizarHora24Str(q.horaLimite) || '23:59';
+    if (inExp) inExp.value = String(q.exp || 40);
+    if (chkOmit) chkOmit.checked = (q.esOmitible !== false);
+
+    toggleTipoTiempoQuestModal();
+    alCambiarOmitibleQuestModal();
+
+    var selTonoTipo = document.getElementById('modal-qd-tono-tipo');
+    if (selTonoTipo) {
+        selTonoTipo.value = q.tonoTipo || 'tono_tactico';
+    }
+    alCambiarTipoTonoModalQuest();
+    if (q.tonoTipo === 'cancion') {
+        var selCancion = document.getElementById('modal-qd-tono-cancion');
+        if (selCancion) {
+            var cancionTarget = q.tonoCancionId ? String(q.tonoCancionId) : '';
+            if (cancionTarget && Array.from(selCancion.options).some(function(o) { return o.value === cancionTarget; })) {
+                selCancion.value = cancionTarget;
+            } else if (q.tonoCancionSig && window.MonarcaPlayer && typeof window.MonarcaPlayer.buscarCancionPorIdOSig === 'function') {
+                var cMatch = window.MonarcaPlayer.buscarCancionPorIdOSig(q.tonoCancionId, q.tonoCancionSig);
+                if (cMatch && cMatch.id) selCancion.value = String(cMatch.id);
+            }
+        }
+    }
+
+    var selPen = document.getElementById('modal-qd-penitencia-select');
+    if (selPen) {
+        var targetPenId = q.penitenciaId || '';
+        if (targetPenId === 'sin_penitencia' || (!targetPenId && (!q.penitencia || q.penitencia === 'Sin penitencia obligatoria'))) {
+            selPen.value = 'sin_penitencia';
+        } else if (targetPenId && Array.from(selPen.options).some(function(o) { return o.value === String(targetPenId); })) {
+            selPen.value = String(targetPenId);
+        } else {
+            var penNomLow = String(q.penitenciaNombre || q.penitencia || '').trim().toLowerCase();
+            var cat = obtenerCatalogoPenitencias();
+            var foundCat = cat.find(function(p) { return (p.nombre || '').trim().toLowerCase() === penNomLow; });
+            if (foundCat) {
+                selPen.value = String(foundCat.id);
+            } else if (penNomLow) {
+                var tempVal = targetPenId || ('legacy_' + q.id);
+                var optP = document.createElement('option');
+                optP.value = tempVal;
+                optP.textContent = '💀 ' + (q.penitenciaNombre || q.penitencia) + ' (-' + (q.penitenciaExp !== undefined ? q.penitenciaExp : 30) + ' EXP)';
+                selPen.appendChild(optP);
+                selPen.value = tempVal;
+            } else {
+                selPen.value = 'sin_penitencia';
+            }
+        }
+        alCambiarSelectPenitenciaQuestModal();
+    }
+
+    var m = document.getElementById('modal-nueva-quest-diaria');
+    if (m) m.style.display = 'flex';
+}
+
 function cerrarModalNuevaQuestDiaria() {
     detenerPruebaTonoAlarma();
+    QUEST_EDITANDO_ID = null;
     var m = document.getElementById('modal-nueva-quest-diaria');
     if (m) m.style.display = 'none';
 }
@@ -4256,15 +4515,15 @@ function toggleTipoTiempoQuestModal() {
         if (grpPen) grpPen.style.display = 'none';
         if (grpTono) grpTono.style.display = 'none';
     } else if (val === 'programada') {
-        if (grpHoraAct) grpHoraAct.style.display = 'block';
-        if (grpDur) grpDur.style.display = 'block';
+        if (grpHoraAct) { grpHoraAct.style.display = 'block'; grpHoraAct.style.gridColumn = 'span 1'; }
+        if (grpDur) { grpDur.style.display = 'block'; grpDur.style.gridColumn = 'span 1'; }
         if (grpHora) grpHora.style.display = 'none';
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
         if (grpTono) grpTono.style.display = 'block';
     } else if (val === 'duracion') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
-        if (grpDur) grpDur.style.display = 'block';
+        if (grpDur) { grpDur.style.display = 'block'; grpDur.style.gridColumn = 'span 2'; }
         if (grpHora) grpHora.style.display = 'none';
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
@@ -4272,7 +4531,7 @@ function toggleTipoTiempoQuestModal() {
     } else if (val === 'hora_limite') {
         if (grpHoraAct) grpHoraAct.style.display = 'none';
         if (grpDur) grpDur.style.display = 'none';
-        if (grpHora) grpHora.style.display = 'block';
+        if (grpHora) { grpHora.style.display = 'block'; grpHora.style.gridColumn = 'span 2'; }
         if (grpOmit) grpOmit.style.display = 'flex';
         if (grpPen) grpPen.style.display = 'block';
         if (grpTono) grpTono.style.display = 'none';
@@ -4293,11 +4552,11 @@ function alCambiarOmitibleQuestModal() {
     if (!chk || !desc) return;
 
     if (chk.checked) {
-        desc.innerHTML = '<strong>Omitible (Activado):</strong> Si no puedes realizarla al sonar, podrás posponerla por 1 hora. Volverá a sonar exactamente en 1 hora.';
-        desc.style.color = '#6b7280';
+        desc.innerHTML = '<strong>Omitible (Activado):</strong> Si no puedes realizarla al activarse, podrás posponerla por 1 hora.';
+        desc.style.color = '#94a3b8';
     } else {
-        desc.innerHTML = '<strong style="color: #991b1b;">🚨 OBLIGATORIA (No Omitible):</strong> Aparecerá en el momento junto con la notificación y NO se puede posponer. Si no se completa a tiempo, ¡hay penitencia obligatoria!';
-        desc.style.color = '#991b1b';
+        desc.innerHTML = '<strong style="color: #fca5a5;">🚨 OBLIGATORIA (No Omitible):</strong> Aparecerá al instante sin opción a posponer. Si expira el tiempo, ¡hay penitencia obligatoria!';
+        desc.style.color = '#fca5a5';
     }
 }
 
@@ -4319,12 +4578,23 @@ function confirmarAgregarQuestDiaria() {
         return;
     }
 
+    var esEdicion = !!QUEST_EDITANDO_ID;
+    var qEditOrig = null;
+    if (esEdicion && Array.isArray(APP_STATE.questsDiarios)) {
+        qEditOrig = APP_STATE.questsDiarios.find(function(item) {
+            return item && String(item.id) === String(QUEST_EDITANDO_ID);
+        }) || null;
+        if (!qEditOrig) esEdicion = false;
+    }
+
     var beneficio = inBen ? inBen.value.trim() : '';
-    var categoria = selCat ? selCat.value : '⚡ Misión / Hábito';
+    var categoria = selCat ? selCat.value : (qEditOrig && qEditOrig.categoria ? qEditOrig.categoria : '⚡ Misión / Hábito');
     var tipoTiempo = selTipoT ? selTipoT.value : 'libre';
     var horaActivacion = inHoraAct ? inHoraAct.value : '08:00';
     var minutos = inMin ? (parseInt(inMin.value, 10) || 15) : 15;
-    var horaLimite = inHora ? inHora.value : '23:59';
+    if (minutos < 1) minutos = 1;
+    if (minutos > 360) minutos = 360;
+    var horaLimite = inHora ? (normalizarHora24Str(inHora.value) || inHora.value) : '23:59';
     var esOmitible = chkOmit ? chkOmit.checked : true;
 
     var selTonoTipo = document.getElementById('modal-qd-tono-tipo');
@@ -4355,24 +4625,34 @@ function confirmarAgregarQuestDiaria() {
             penitenciaAtributos = (pObj.atributos && pObj.atributos.length > 0)
                 ? JSON.parse(JSON.stringify(pObj.atributos))
                 : [];
+        } else if (esEdicion && qEditOrig && (String(selPen.value) === String(qEditOrig.penitenciaId) || selPen.value === ('legacy_' + qEditOrig.id))) {
+            penitenciaId = qEditOrig.penitenciaId || 'legacy';
+            penitenciaNombre = qEditOrig.penitenciaNombre || qEditOrig.penitencia || 'Penitencia';
+            penitenciaDesc = qEditOrig.penitenciaDesc || '';
+            penitenciaExp = (qEditOrig.penitenciaExp !== undefined) ? Number(qEditOrig.penitenciaExp) : 30;
+            penitenciaAtributos = Array.isArray(qEditOrig.penitenciaAtributos) ? JSON.parse(JSON.stringify(qEditOrig.penitenciaAtributos)) : [];
         }
     }
 
     var exp = inExp ? (parseInt(inExp.value, 10) || 40) : 40;
+    if (exp < 1) exp = 1;
+    if (exp > 100) exp = 100;
 
     if (!APP_STATE.questsDiarios) APP_STATE.questsDiarios = [];
 
-    // Prevenir duplicados accidentales
+    // Prevenir duplicados accidentales (excluyendo la propia quest editada)
     var yaExiste = APP_STATE.questsDiarios.some(function(q) {
-        return q && q.titulo && q.titulo.trim().toLowerCase() === nombre.toLowerCase();
+        if (!q || !q.titulo) return false;
+        if (esEdicion && String(q.id) === String(QUEST_EDITANDO_ID)) return false;
+        return q.titulo.trim().toLowerCase() === nombre.toLowerCase();
     });
     if (yaExiste) {
-        if (!confirm("Ya tienes un hábito o misión con el título \"" + nombre + "\".\n¿Deseas agregar otro con el mismo nombre de todas formas?")) {
+        if (!confirm("Ya tienes otro hábito o misión con el título \"" + nombre + "\".\n¿Deseas guardarlo con este nombre de todas formas?")) {
             return;
         }
     }
 
-    if (APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.questsDiarios)) {
+    if (!esEdicion && APP_STATE._eliminados && Array.isArray(APP_STATE._eliminados.questsDiarios)) {
         APP_STATE._eliminados.questsDiarios = APP_STATE._eliminados.questsDiarios.filter(function(tid) {
             return tid !== "QD-" + nombre.toLowerCase();
         });
@@ -4390,6 +4670,9 @@ function confirmarAgregarQuestDiaria() {
         if (rutObj) {
             rutinaNombre = rutObj.nombre;
             rutinaTipo = rutObj.tipo;
+        } else if (esEdicion && qEditOrig && String(qEditOrig.rutinaId) === String(rutinaId)) {
+            rutinaNombre = qEditOrig.rutinaNombre || null;
+            rutinaTipo = qEditOrig.rutinaTipo || null;
         }
     }
 
@@ -4405,51 +4688,117 @@ function confirmarAgregarQuestDiaria() {
         horaActivacion = horaNormCreacion;
     }
 
-    var nuevaQ = {
-        id: "QD-" + Date.now(),
-        titulo: nombre,
-        beneficio: beneficio,
-        categoria: (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : categoria,
-        rutinaId: rutinaId || null,
-        rutinaNombre: rutinaNombre,
-        rutinaTipo: rutinaTipo,
-        tipoTiempo: tipoTiempo,
-        horaActivacion: horaActivacion,
-        tiempoMinutos: minutos,
-        horaLimite: horaLimite,
-        esOmitible: esOmitible,
-        tonoTipo: tonoTipo,
-        tonoCancionId: tonoCancionId,
-        tonoCancionSig: tonoCancionSig,
-        penitenciaId: penitenciaId,
-        penitenciaNombre: penitenciaNombre,
-        penitenciaDesc: penitenciaDesc,
-        penitenciaExp: penitenciaExp,
-        penitenciaAtributos: penitenciaAtributos,
-        penitencia: penitenciaNombre, // Compatibilidad retroactiva
-        exp: exp,
-        atributos: listaAtrsQ,
-        estado: 'pendiente',
-        tiempoRestante: (tipoTiempo === 'libre') ? 0 : minutos * 60,
-        temporizadorActivo: false,
-        ultimaActivacionFecha: (tipoTiempo === 'programada' && horaNormCreacion && horaNormCreacion < ahoraCreacionHHMM) ? hoyCreacionStr : null,
-        pospuestaHasta: null,
-        timestamp: Date.now(),
-        fechaActualizacion: Date.now()
-    };
+    if (esEdicion && qEditOrig) {
+        var prevTipo = qEditOrig.tipoTiempo;
+        var prevMin = Number(qEditOrig.tiempoMinutos) || 15;
+        var prevHora = normalizarHora24Str(qEditOrig.horaActivacion);
 
-    APP_STATE.questsDiarios.push(nuevaQ);
+        qEditOrig.titulo = nombre;
+        qEditOrig.beneficio = beneficio;
+        qEditOrig.categoria = (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : (categoria || '⚡ Misión / Hábito');
+        qEditOrig.rutinaId = rutinaId || null;
+        qEditOrig.rutinaNombre = rutinaNombre;
+        qEditOrig.rutinaTipo = rutinaTipo;
+        qEditOrig.tipoTiempo = tipoTiempo;
+        qEditOrig.horaActivacion = horaActivacion;
+        qEditOrig.tiempoMinutos = minutos;
+        qEditOrig.horaLimite = horaLimite;
+        qEditOrig.esOmitible = esOmitible;
+        qEditOrig.tonoTipo = tonoTipo;
+        qEditOrig.tonoCancionId = tonoCancionId;
+        qEditOrig.tonoCancionSig = tonoCancionSig;
+        qEditOrig.penitenciaId = penitenciaId;
+        qEditOrig.penitenciaNombre = penitenciaNombre;
+        qEditOrig.penitenciaDesc = penitenciaDesc;
+        qEditOrig.penitenciaExp = penitenciaExp;
+        qEditOrig.penitenciaAtributos = penitenciaAtributos;
+        qEditOrig.penitencia = penitenciaNombre;
+        qEditOrig.exp = exp;
+        qEditOrig.atributos = listaAtrsQ;
+
+        if (tipoTiempo === 'libre') {
+            qEditOrig.temporizadorActivo = false;
+            qEditOrig.tiempoRestante = 0;
+            qEditOrig.pospuestaHasta = null;
+            if (qEditOrig.estado === 'en_progreso' || qEditOrig.estado === 'pospuesta') {
+                qEditOrig.estado = 'pendiente';
+            }
+        } else if (tipoTiempo === 'hora_limite') {
+            qEditOrig.temporizadorActivo = false;
+            qEditOrig.tiempoRestante = 0;
+            qEditOrig.pospuestaHasta = null;
+            if (qEditOrig.estado === 'en_progreso' || qEditOrig.estado === 'pospuesta') {
+                qEditOrig.estado = 'pendiente';
+            }
+        } else {
+            if (qEditOrig.estado === 'en_progreso') {
+                if (prevTipo === 'libre' || prevTipo === 'hora_limite') {
+                    qEditOrig.tiempoRestante = minutos * 60;
+                } else if (prevMin !== minutos) {
+                    var deltaSeg = (minutos - prevMin) * 60;
+                    qEditOrig.tiempoRestante = Math.max(60, Math.min(minutos * 60, (Number(qEditOrig.tiempoRestante) || (minutos * 60)) + deltaSeg));
+                }
+            } else {
+                qEditOrig.tiempoRestante = minutos * 60;
+            }
+
+            if (tipoTiempo === 'programada' && horaNormCreacion && (horaNormCreacion !== prevHora || prevTipo !== 'programada')) {
+                qEditOrig.pospuestaHasta = null;
+                if (qEditOrig.estado === 'pendiente' || qEditOrig.estado === 'pospuesta') {
+                    qEditOrig.estado = 'pendiente';
+                    qEditOrig.temporizadorActivo = false;
+                    qEditOrig.ultimaActivacionFecha = (horaNormCreacion < ahoraCreacionHHMM) ? hoyCreacionStr : null;
+                }
+            }
+        }
+
+        qEditOrig.fechaActualizacion = Date.now();
+    } else {
+        var nuevaQ = {
+            id: "QD-" + Date.now(),
+            titulo: nombre,
+            beneficio: beneficio,
+            categoria: (tipoTiempo === 'libre') ? '⚡ Hábito Libre' : categoria,
+            rutinaId: rutinaId || null,
+            rutinaNombre: rutinaNombre,
+            rutinaTipo: rutinaTipo,
+            tipoTiempo: tipoTiempo,
+            horaActivacion: horaActivacion,
+            tiempoMinutos: minutos,
+            horaLimite: horaLimite,
+            esOmitible: esOmitible,
+            tonoTipo: tonoTipo,
+            tonoCancionId: tonoCancionId,
+            tonoCancionSig: tonoCancionSig,
+            penitenciaId: penitenciaId,
+            penitenciaNombre: penitenciaNombre,
+            penitenciaDesc: penitenciaDesc,
+            penitenciaExp: penitenciaExp,
+            penitenciaAtributos: penitenciaAtributos,
+            penitencia: penitenciaNombre, // Compatibilidad retroactiva
+            exp: exp,
+            atributos: listaAtrsQ,
+            estado: 'pendiente',
+            tiempoRestante: (tipoTiempo === 'libre' || tipoTiempo === 'hora_limite') ? 0 : minutos * 60,
+            temporizadorActivo: false,
+            ultimaActivacionFecha: (tipoTiempo === 'programada' && horaNormCreacion && horaNormCreacion < ahoraCreacionHHMM) ? hoyCreacionStr : null,
+            pospuestaHasta: null,
+            timestamp: Date.now(),
+            fechaActualizacion: Date.now()
+        };
+
+        APP_STATE.questsDiarios.push(nuevaQ);
+    }
+
     MonarcaDB.save(APP_STATE);
 
     cerrarModalNuevaQuestDiaria();
     renderizarQuestsDiarios();
     if (typeof programarAlarmasNativasQuests === 'function') programarAlarmasNativasQuests();
+}
 
-    if (tipoTiempo === 'programada' && 'Notification' in window && Notification.permission !== 'granted') {
-        setTimeout(function() {
-            solicitarPermisoNotificaciones(false);
-        }, 300);
-    }
+if (typeof window !== 'undefined') {
+    window.abrirModalEditarQuestDiaria = abrirModalEditarQuestDiaria;
 }
 
 // ==========================================================================
@@ -4722,7 +5071,7 @@ function obtenerConteosEstadoHabitosHud(qList) {
     var curso = 0;
     lista.forEach(function(q) {
         if (!q || typeof q !== 'object') return;
-        if (q.estado === 'completada') {
+        if (q.estado === 'completada' || q.estado === 'penitencia_cumplida') {
             comp++;
         } else if (q.estado === 'penalizada') {
             pen++;
@@ -4799,7 +5148,7 @@ function renderizarChartEstadoHabitosHud(res) {
     var sinDatos = !dataObj || dataObj.total <= 0;
     var values = sinDatos ? [1] : [dataObj.comp, dataObj.curso, dataObj.pend, dataObj.pen];
     var colors = sinDatos ? ['rgba(148, 163, 184, 0.2)'] : ['#10b981', '#3b82f6', '#818cf8', '#ef4444'];
-    var labels = sinDatos ? ['Sin misiones'] : ['Completadas', 'En curso', 'Pendientes / Pospuestas', 'Penitencias activas'];
+    var labels = sinDatos ? ['Sin misiones'] : ['Completadas / Saldadas', 'En curso', 'Pendientes / Pospuestas', 'Penitencias activas'];
 
     var ctx = canvas.getContext('2d');
     _CHART_HABITOS_ESTADO_INSTANCE = new Chart(ctx, {
@@ -4841,6 +5190,26 @@ function actualizarResumenGraficoHabitosHud(qList) {
 
     var denom = res.total > 0 ? res.total : 1;
     var pct = function(v) { return Math.round((v / denom) * 100); };
+
+    var miniRatio = document.getElementById('qd-chart-mini-ratio');
+    if (miniRatio) {
+        miniRatio.textContent = res.total > 0 ? (res.comp + '/' + res.total) : '0/0';
+    }
+
+    var headerPill = document.getElementById('qd-header-resumen-pill');
+    if (headerPill) {
+        if (res.total === 0) {
+            headerPill.textContent = '0 misiones';
+            headerPill.classList.remove('is-complete');
+        } else if (res.comp === res.total) {
+            headerPill.textContent = '✓ ' + res.comp + '/' + res.total + ' al día';
+            headerPill.classList.add('is-complete');
+        } else {
+            var activas = res.total - res.comp;
+            headerPill.textContent = activas + (activas === 1 ? ' pendiente' : ' pendientes');
+            headerPill.classList.remove('is-complete');
+        }
+    }
 
     var mini = document.getElementById('qd-mini-barra-progreso');
     if (mini) {
@@ -4926,6 +5295,47 @@ function cambiarFiltroChartSkills(filtro) {
     renderizarChartProductividadSkills(filtro);
 }
 
+function _partirEtiquetaChartHabitos(texto, maxChars) {
+    var limpio = String(texto || 'Misión').trim();
+    if (!limpio) return 'Misión';
+    var lim = maxChars || 18;
+    if (limpio.length <= lim) return limpio;
+
+    var maxLineas = 3;
+    var palabras = limpio.split(/\s+/);
+    var lineas = [];
+    var actual = '';
+    for (var i = 0; i < palabras.length; i++) {
+        var pal = palabras[i];
+        if (!actual) {
+            actual = pal.length > lim ? (pal.slice(0, lim - 1) + '…') : pal;
+        } else if ((actual + ' ' + pal).length <= lim) {
+            actual += ' ' + pal;
+        } else {
+            lineas.push(actual);
+            if (lineas.length >= maxLineas) {
+                var idxUlt = lineas.length - 1;
+                var prev = lineas[idxUlt];
+                if (prev.length >= lim) prev = prev.slice(0, lim - 1) + '…';
+                else if (prev.slice(-1) !== '…') prev += '…';
+                lineas[idxUlt] = prev;
+                actual = '';
+                break;
+            }
+            actual = pal.length > lim ? (pal.slice(0, lim - 1) + '…') : pal;
+        }
+    }
+    if (actual) {
+        if (lineas.length >= maxLineas) {
+            var last = lineas.length - 1;
+            lineas[last] = (lineas[last].slice(0, Math.max(4, lim - 1)) + '…');
+        } else {
+            lineas.push(actual);
+        }
+    }
+    return lineas.length === 1 ? lineas[0] : lineas;
+}
+
 function renderizarChartProductividadHabitos(filtro) {
     var canvas = document.getElementById('chart-habitos-productividad');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -4982,10 +5392,20 @@ function renderizarChartProductividadHabitos(filtro) {
         data = [0];
     }
 
+    var wrap = document.getElementById('wrap-chart-habitos-productividad') || canvas.parentElement;
+    if (wrap) {
+        var hCalc = Math.max(210, Math.min(460, labels.length * 56 + 34));
+        wrap.style.height = hCalc + 'px';
+    }
+
     if (_CHART_HABITOS_INSTANCE) {
         _CHART_HABITOS_INSTANCE.destroy();
         _CHART_HABITOS_INSTANCE = null;
     }
+
+    var esMovil = (typeof window !== 'undefined' && window.innerWidth <= 560);
+    var maxCharsLabel = esMovil ? 17 : 26;
+    var maxVal = Math.max(1, Math.max.apply(null, data));
 
     var ctx = canvas.getContext('2d');
     _CHART_HABITOS_INSTANCE = new Chart(ctx, {
@@ -4995,21 +5415,32 @@ function renderizarChartProductividadHabitos(filtro) {
             datasets: [{
                 label: 'Acciones Cumplidas',
                 data: data,
-                backgroundColor: 'rgba(16, 185, 129, 0.45)',
-                borderColor: '#10b981',
-                borderWidth: 2,
-                borderRadius: 6,
-                barPercentage: 0.6
+                backgroundColor: data.map(function(v) {
+                    return v > 0 ? 'rgba(16, 185, 129, 0.55)' : 'rgba(148, 163, 184, 0.14)';
+                }),
+                borderColor: data.map(function(v) {
+                    return v > 0 ? '#10b981' : 'rgba(148, 163, 184, 0.25)';
+                }),
+                borderWidth: 1.5,
+                borderRadius: 7,
+                barPercentage: 0.62,
+                categoryPercentage: 0.78
             }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: { left: 4, right: 12, top: 4, bottom: 2 }
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
+                        title: function(items) {
+                            return (items && items[0]) ? items[0].label : '';
+                        },
                         label: function(c) {
                             return ' ' + c.raw + ' completada' + (c.raw === 1 ? '' : 's');
                         }
@@ -5019,17 +5450,25 @@ function renderizarChartProductividadHabitos(filtro) {
             scales: {
                 x: {
                     beginAtZero: true,
+                    suggestedMax: maxVal,
                     ticks: {
                         color: '#94a3b8',
-                        stepSize: 1,
+                        stepSize: maxVal <= 5 ? 1 : Math.ceil(maxVal / 5),
+                        precision: 0,
                         font: { size: 11 }
                     },
                     grid: { color: 'rgba(255, 255, 255, 0.06)' }
                 },
                 y: {
                     ticks: {
-                        color: '#f8fafc',
-                        font: { size: 11, weight: '600' }
+                        color: '#e2e8f0',
+                        autoSkip: false,
+                        padding: 6,
+                        font: { size: esMovil ? 10.5 : 11.5, weight: '600' },
+                        callback: function(value) {
+                            var rawLabel = this.getLabelForValue ? this.getLabelForValue(value) : labels[value];
+                            return _partirEtiquetaChartHabitos(rawLabel, maxCharsLabel);
+                        }
                     },
                     grid: { display: false }
                 }

@@ -1,5 +1,5 @@
 {
-  "version": "11.42",
+  "version": "11.43",
   "fecha": "2026-11-26",
-  "resumen": "Temporizador de Sueño en Reproductor MP3 (v11.42): apagado automático con presets rápidos (15, 30, 45, 60 min o al terminar la pista), cuenta regresiva en vivo en Reproductor y Mini-Player, atenuación progresiva suave de 8 segundos antes de pausar restaurando tu volumen y control por voz/chat desde Emily IA y Jarvis."
+  "resumen": "Hábitos & Misiones renovado (v11.43): limpieza visual sin botones ni enlaces de notificaciones/diagnóstico redundantes dentro del módulo, edición completa de Quests Diarios (título, horario, duración, tono, rutina, penitencia, EXP y atributos), filtros rápidos (Todas / Activas / Cerradas), corrección de temporizador congelado en tareas cerradas y etiquetas multilínea en la gráfica de productividad."
 }

@@ -71,10 +71,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.42)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.43)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.42
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.43
             Esta versión nativa incluye:
+            - ⚔️ **Hábitos & Misiones Renovado + Edición de Quests Diarios (v11.43)**:
+              - **Interfaz Limpia Sin Redundancias**: Eliminados los botones/enlaces de notificaciones, alarma móvil y diagnóstico dentro del apartado (gestionados al iniciar sesión/abrir la app).
+              - **Edición Completa de Quests Diarios**: Botón **`✏️`** directo en cada tarjeta y dentro del detalle para editar título, horario, duración, tono, rutina vinculada, penitencia, % EXP y atributos sin perder tu progreso ni duplicar misiones.
+              - **Visualización & Gráficas Mejoradas**: Filtros rápidos (**`Todas` | `Activas` | `Cerradas`**), ocultamiento limpio del temporizador congelado al completar/saldar penitencias, contabilización precisa en **Disciplina Hoy** y etiquetas multilínea en **Productividad** sin recortes en móvil.
             - 🌙 **Temporizador de Sueño en Reproductor MP3 (v11.42)**:
               - **Apagado Automático Inteligente**: Programa en un toque **15, 30, 45, 60 min** o **Al terminar pista** desde `#vista-reproductor` o por voz/chat con **Emily IA / Jarvis**.
               - **Fade-Out Progresivo + Mini-Player**: Atenuación gradual en los últimos 8 segundos antes de pausar limpiamente (restaurando tu volumen para la próxima reproducción) y cuenta regresiva visible tanto en el reproductor como en el mini-player.
