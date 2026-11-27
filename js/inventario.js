@@ -2448,11 +2448,17 @@ function abrirCobroWhatsAppDesdeCuotaInventario(ventaId, cuotaId) {
     var cuotas = Array.isArray(venta.cuotas) ? venta.cuotas : [];
     var cuota = cuotaId ? cuotas.find(function(c) { return c && c.id === cuotaId; }) : cuotas.find(function(c) { return c && !c.cobrado; });
 
+    var varLimpia = String(venta.varianteDetalle || '').replace(/[()]/g, ' ').replace(/\s*·\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    var totalCuotas = cuotas.length > 1 ? cuotas.length : 0;
+    var cuotaTxt = (cuota && cuota.numero)
+        ? (totalCuotas > 1 ? (', cuota ' + cuota.numero + ' de ' + totalCuotas) : (', cuota ' + cuota.numero))
+        : '';
+
     window.abrirModalCobroWhatsAppFinanzas({
         modo: 'directo',
         persona: venta.cliente || '',
         telefono: venta.telefonoCliente || '',
-        concepto: (venta.productoNombre || 'venta') + (venta.varianteDetalle ? (' (' + venta.varianteDetalle + ')') : '') + (cuota && cuota.numero ? (' (Cuota ' + cuota.numero + ')') : ''),
+        concepto: (venta.productoNombre || 'venta') + (varLimpia ? (' ' + varLimpia) : '') + cuotaTxt,
         monto: cuota ? (Number(cuota.monto) || 0) : (Number(venta.totalVenta) || 0),
         fechaISO: (cuota && cuota.fecha) ? cuota.fecha : (venta.fecha || ''),
         tarjetaId: venta.tarjetaId || ''

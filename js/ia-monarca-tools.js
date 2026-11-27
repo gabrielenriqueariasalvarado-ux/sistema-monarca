@@ -704,7 +704,7 @@
                     meta_nombre_o_id: { type: 'string', description: 'Nombre o ID de la meta si accion=abonar_meta.' },
                     numero_cuenta: { type: 'string', description: 'Número de cuenta bancaria o Binance Pay ID si accion=configurar_tarjeta_pago.' },
                     banco_pago: { type: 'string', description: 'Nombre del banco/red para pagos si accion=configurar_tarjeta_pago.' },
-                    cedula: { type: 'string', description: 'Cédula o RIF afiliado si accion=configurar_tarjeta_pago.' },
+                    cedula: { type: 'string', description: 'Cédula afiliada si accion=configurar_tarjeta_pago.' },
                     telefono: { type: 'string', description: 'Teléfono Pago Móvil o WhatsApp del destinatario.' },
                     correo: { type: 'string', description: 'Correo electrónico / Binance Email si accion=configurar_tarjeta_pago.' },
                     titular: { type: 'string', description: 'Nombre del titular de la cuenta si accion=configurar_tarjeta_pago.' },

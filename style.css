@@ -27773,6 +27773,8 @@ button.ia-tool-chip.is-clickable:hover {
     background: #0b1120 !important;
     color: #f8fafc !important;
     border: 1px solid rgba(56, 189, 248, 0.32) !important;
+    padding-right: 28px !important;
+    text-overflow: ellipsis;
 }
 
 .fin-wa-metodos-row,
@@ -27849,9 +27851,9 @@ button.ia-tool-chip.is-clickable:hover {
 .fin-wa-tone-bar {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    margin-bottom: 2px;
 }
 
 .fin-wa-tone-btn {
@@ -27859,15 +27861,15 @@ button.ia-tool-chip.is-clickable:hover {
     border: 1px solid rgba(148, 163, 184, 0.25);
     color: #cbd5e1;
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 5px 9px;
     font-family: inherit;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.14s ease;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
 }
 
 .fin-wa-tone-btn:hover {
@@ -27894,14 +27896,24 @@ button.ia-tool-chip.is-clickable:hover {
     color: #ede9fe;
 }
 
+.fin-wa-footer-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    flex-shrink: 0;
+}
+
 @media (max-width: 560px) {
     .fin-cobro-wa-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
     }
     .fin-wa-tone-btn.is-ai {
         margin-left: 0;
-        width: 100%;
-        justify-content: center;
     }
     .btn-cobro-wa-fin {
         font-size: 11px;

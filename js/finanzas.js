@@ -7434,7 +7434,7 @@ var MONARCA_BANCOS_TARJETAS = {
     provincial: {
         id: 'provincial',
         nombre: 'Provincial',
-        bancoPagoNombre: 'BBVA Provincial (0108)',
+        bancoPagoNombre: 'BBVA Provincial',
         subtitulo: 'BBVA Provincial · Bolívares (Bs.)',
         monedaBase: 'VES',
         tasaPorDefecto: 'bcv',
@@ -7444,7 +7444,7 @@ var MONARCA_BANCOS_TARJETAS = {
     venezuela: {
         id: 'venezuela',
         nombre: 'Venezuela',
-        bancoPagoNombre: 'Banco de Venezuela (0102)',
+        bancoPagoNombre: 'Banco de Venezuela',
         subtitulo: 'Banco de Venezuela · Bolívares (Bs.)',
         monedaBase: 'VES',
         tasaPorDefecto: 'bcv',
@@ -9734,26 +9734,96 @@ function resolverDatosCobroPersonaIngreso(item) {
         ''
     ).trim();
 
-    var conceptoDisplay = fuenteStr || 'este cobro pendiente';
+    var conceptoDisplay = _limpiarConceptoCobroWA(fuenteStr || 'este pago pendiente', esPrestamo);
     if (esPrestamo) {
-        var mParte = fuenteStr.match(/(\(Parte\s*\d+\/\d+\))/i);
-        conceptoDisplay = 'el préstamo' + (mParte ? (' ' + mParte[1]) : '');
+        var mParte = fuenteStr.match(/\bParte\s*(\d+)\s*\/\s*(\d+)/i);
+        conceptoDisplay = 'el préstamo' + (mParte ? (', parte ' + mParte[1] + ' de ' + mParte[2]) : '');
     } else if (ventaPadre && ventaPadre.productoNombre) {
-        var varTxt = ventaPadre.varianteDetalle ? (' (' + ventaPadre.varianteDetalle + ')') : '';
-        var mCuota = fuenteStr.match(/(\((?:Cuota\s*\d+\/\d+|Pago Diferido)\))/i);
-        conceptoDisplay = ventaPadre.productoNombre + varTxt + (mCuota ? (' ' + mCuota[1]) : '');
+        var varLimpio = _limpiarVarianteCobroWA(ventaPadre.varianteDetalle || '');
+        var mCuota = fuenteStr.match(/\bCuota\s*(\d+)\s*\/\s*(\d+)/i);
+        conceptoDisplay = String(ventaPadre.productoNombre).trim() +
+            (varLimpio ? (' ' + varLimpio) : '') +
+            (mCuota ? (', cuota ' + mCuota[1] + ' de ' + mCuota[2]) : '');
     } else if (personaRaw && fuenteStr) {
-        conceptoDisplay = fuenteStr.replace(new RegExp('\\s*-\\s*' + personaRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'), '').trim() || fuenteStr;
+        var sinPers = fuenteStr.replace(new RegExp('\\s*-\\s*' + personaRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'), '').trim();
+        conceptoDisplay = _limpiarConceptoCobroWA(sinPers || fuenteStr, false);
     }
 
     return {
         personaRaw: personaRaw,
         personaDisplay: personaRaw,
         telefonoRaw: telefonoRaw,
-        conceptoDisplay: conceptoDisplay,
+        conceptoDisplay: conceptoDisplay || 'este pago pendiente',
         esPrestamo: esPrestamo,
         esCuotaAlmacen: esCuotaAlmacen
     };
+}
+
+function _limpiarVarianteCobroWA(rawVar) {
+    var v = String(rawVar || '').replace(/[()]/g, ' ').replace(/\s*·\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!v) return '';
+    return v.replace(/^Talla\b/i, 'talla').replace(/\bColor:\s*/gi, '').trim();
+}
+
+function _limpiarConceptoCobroWA(rawConcepto, esPrestamo) {
+    var s = String(rawConcepto || '').trim();
+    if (!s) return '';
+    s = s.replace(/^Cr[ée]dito:\s*/i, '');
+    s = s.replace(/\s*\(\s*Pago Diferido\s*\)/gi, '');
+    s = s.replace(/\s*\(\s*Cuota\s*(\d+)\s*\/\s*(\d+)\s*\)/gi, ', cuota $1 de $2');
+    s = s.replace(/\s*\(\s*Cuota\s*(\d+)\s*\)/gi, ', cuota $1');
+    s = s.replace(/\s*\(\s*Parte\s*(\d+)\s*\/\s*(\d+)\s*\)/gi, ', parte $1 de $2');
+    s = s.replace(/\s*\(\s*([^)]+)\s*\)/g, function(_, inside) {
+        var cleanIn = _limpiarVarianteCobroWA(inside);
+        return cleanIn ? (' ' + cleanIn) : '';
+    });
+    s = s.replace(/\s*,\s*,+/g, ', ').replace(/\s+/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '');
+    if (esPrestamo && !/^el pr[eé]stamo/i.test(s)) {
+        return 'el préstamo ' + s;
+    }
+    return s;
+}
+
+function _limpiarBancoPagoCobroWA(rawBanco) {
+    var b = String(rawBanco || '').trim();
+    if (!b) return '';
+    b = b.replace(/\s*\(\s*\d{4}\s*\)/g, '');
+    b = b.replace(/\s*\(([^)]+)\)/g, ' $1');
+    return b.replace(/\s+/g, ' ').trim();
+}
+
+function _formatearMontoNaturalCobroWA(montoUsd, item, incluirBs) {
+    var m = Number(montoUsd) || 0;
+    if (m <= 0) return '';
+    var entero = Math.abs(m - Math.round(m)) < 0.001;
+    var montoStr = entero ? ('$' + Math.round(m)) : ('$' + m.toFixed(2));
+    var bsTxt = '';
+    if (item && item.monedaOrigen === 'VES' && Number(item.montoOriginalBs) > 0) {
+        bsTxt = 'Bs. ' + Number(item.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return montoStr + ', que son ' + bsTxt;
+    }
+    if (incluirBs) {
+        var tasa = 0;
+        if (typeof leerCacheTasasBCV === 'function') {
+            var cache = leerCacheTasasBCV() || {};
+            tasa = Number(cache.usd) || 0;
+        }
+        if (tasa > 0) {
+            bsTxt = 'Bs. ' + (m * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return montoStr + ', o ' + bsTxt + ' al BCV';
+        }
+    }
+    return montoStr;
+}
+
+function _esMensajePlantillaViejaCobroWA(txt) {
+    var s = String(txt || '').trim();
+    if (!s) return false;
+    return /C[ée]dula\s*\/\s*RIF:/i.test(s) ||
+        /Paso por aqu[ií] para hacerte un recordatorio amable sobre/i.test(s) ||
+        /Quedo atento\(a\)/i.test(s) ||
+        /\(\s*en\s+\d+\s+d[ií]as\s*\)/i.test(s) ||
+        /\$\d+(?:\.\d{2})?\s*USD/i.test(s);
 }
 
 function evaluarEstadoCobroWhatsAppIngreso(item, fechaEffIng, infoOrigen, hoyISO) {
@@ -9809,6 +9879,9 @@ function evaluarEstadoCobroWhatsAppIngreso(item, fechaEffIng, infoOrigen, hoyISO
 var FINANZAS_COBRO_WA_ESTADO = {
     tarjetaId: '',
     contextoDirecto: null,
+    incluirBs: false,
+    camposVisibles: false,
+    montoActualUsd: 0,
     campos: {
         bancoPago: false,
         cedula: false,
@@ -9890,12 +9963,13 @@ function construirBloquePagoTarjetaWhatsApp(tarjeta, camposOpt) {
     var c = camposOpt ? _clonarCamposPagoCobroWA(camposOpt) : construirCamposPorDefectoTarjetaCobroWA(tarjeta, null);
     var lineas = [];
 
-    if (c.bancoPago && dp.bancoPago) lineas.push('• Banco: ' + dp.bancoPago);
+    var bancoLimpio = _limpiarBancoPagoCobroWA(dp.bancoPago);
+    if (c.bancoPago && bancoLimpio) lineas.push('• Banco: ' + bancoLimpio);
     if (c.numeroCuenta && dp.numeroCuenta) {
-        var lblCuenta = (tarjeta.banco === 'binance') ? 'Pay ID / Binance ID' : 'Nro. de Cuenta';
+        var lblCuenta = (tarjeta.banco === 'binance') ? 'Pay ID Binance' : 'Cuenta';
         lineas.push('• ' + lblCuenta + ': ' + dp.numeroCuenta);
     }
-    if (c.cedula && dp.cedula) lineas.push('• Cédula / RIF: ' + dp.cedula);
+    if (c.cedula && dp.cedula) lineas.push('• Cédula: ' + dp.cedula);
     if (c.telefono && dp.telefono) lineas.push('• Teléfono: ' + dp.telefono);
     if (c.correo && dp.correo) {
         var lblCorreo = (tarjeta.banco === 'binance') ? 'Correo Binance' : 'Correo';
@@ -9909,7 +9983,7 @@ function construirBloquePagoTarjetaWhatsApp(tarjeta, camposOpt) {
     if (c.telefono && !c.numeroCuenta && !c.correo) {
         titulo = '💳 Datos para Pago Móvil:';
     } else if (c.numeroCuenta && !c.telefono && tarjeta.banco !== 'binance') {
-        titulo = '💳 Datos para Transferencia:';
+        titulo = '💳 Datos para transferencia:';
     } else if (tarjeta.banco === 'binance' && (c.correo || c.numeroCuenta) && !c.telefono) {
         titulo = '💳 Datos Binance:';
     }
@@ -9919,7 +9993,7 @@ function construirBloquePagoTarjetaWhatsApp(tarjeta, camposOpt) {
 
 function aplicarBloquePagoEnTextoCobroWA(textoActual, bloquePago) {
     var base = String(textoActual || '')
-        .replace(/\n{0,2}💳\s*Datos (?:para Pago M[óo]vil|para Transferencia|Binance|de pago):[\s\S]*$/i, '')
+        .replace(/\n{0,2}💳\s*Datos (?:para Pago M[óo]vil|para transferencia|para Transferencia|Binance|de pago):[\s\S]*$/i, '')
         .trimEnd();
     if (!bloquePago) return base;
     return base ? (base + '\n\n' + bloquePago) : bloquePago;
@@ -9928,35 +10002,45 @@ function aplicarBloquePagoEnTextoCobroWA(textoActual, bloquePago) {
 function construirMensajeCobroWhatsAppFinanzas(item, tono, opts) {
     if (!item) return '';
     opts = opts || {};
+    var incluirBs = Boolean(opts.incluirBs);
+    var tonoSel = (tono === 'cercano' || tono === 'formal' || tono === 'solo_datos') ? tono : 'cordial';
 
     if (item.modoDirecto) {
         var personaDir = String(typeof opts.personaOverride === 'string' ? opts.personaOverride : (item.persona || '')).trim();
         var saludoDir = personaDir ? (' ' + personaDir) : '';
         var montoDir = Number(item.monto) || 0;
-        var conceptoDir = String(item.concepto || '').trim();
-        var tonoDir = (tono === 'cercano' || tono === 'formal') ? tono : 'cordial';
+        var conceptoDir = _limpiarConceptoCobroWA(String(item.concepto || '').trim(), false);
         var cuerpoDir = '';
 
-        if (montoDir > 0) {
-            var montoDirTxt = '$' + montoDir.toFixed(2) + ' USD';
-            var fechaDirTxt = (item.fechaISO && String(item.fechaISO).length >= 10)
-                ? (' del ' + formatearFechaLegibleCobroWA(String(item.fechaISO).slice(0, 10)))
-                : '';
-            var refDir = conceptoDir ? (conceptoDir + ' (' + montoDirTxt + ')') : montoDirTxt;
-            if (tonoDir === 'cercano') {
-                cuerpoDir = '¡Hola' + saludoDir + '! 👋 Te dejo por aquí con confianza los datos para lo de ' + refDir + fechaDirTxt + '. Apenas puedas me avisas. ¡Un abrazo!';
-            } else if (tonoDir === 'formal') {
-                cuerpoDir = 'Hola' + saludoDir + ', muy buen día ✨ Le comparto amablemente los datos para realizar el pago correspondiente a ' + refDir + fechaDirTxt + '. Quedo atento(a) por este medio apenas lo realice. ¡Muchas gracias!';
+        if (tonoSel === 'solo_datos') {
+            if (montoDir > 0) {
+                var montoSoloTxt = _formatearMontoNaturalCobroWA(montoDir, item, incluirBs);
+                cuerpoDir = '¡Hola' + saludoDir + '! Por aquí te dejo los datos' +
+                    (conceptoDir ? (' para lo de ' + conceptoDir) : '') +
+                    ', son ' + montoSoloTxt + '.';
             } else {
-                cuerpoDir = '¡Hola' + saludoDir + '! Espero que estés muy bien 😊 Te comparto por aquí los datos para el pago de ' + refDir + fechaDirTxt + '. Cuando lo realices me confirmas por favor. ¡Muchas gracias!';
+                cuerpoDir = '¡Hola' + saludoDir + '! Te dejo por aquí mis datos de pago:';
+            }
+        } else if (montoDir > 0) {
+            var montoDirTxt = _formatearMontoNaturalCobroWA(montoDir, item, incluirBs);
+            var fechaDirTxt = (item.fechaISO && String(item.fechaISO).length >= 10)
+                ? (' para el ' + formatearFechaLegibleCobroWA(String(item.fechaISO).slice(0, 10)))
+                : '';
+            var refDir = conceptoDir ? ('lo de ' + conceptoDir + ', de ' + montoDirTxt) : montoDirTxt;
+            if (tonoSel === 'cercano') {
+                cuerpoDir = '¡Hey' + saludoDir + '! 👋 ¿Todo bien? Te paso por aquí los datos de ' + refDir + fechaDirTxt + '. Apenas lo hagas me mandas el capture, ¡un abrazo!';
+            } else if (tonoSel === 'formal') {
+                cuerpoDir = 'Hola' + saludoDir + ', feliz día. Te comparto los datos para el pago correspondiente a ' + refDir + fechaDirTxt + '. Quedo atento por aquí apenas lo envíes, muchas gracias.';
+            } else {
+                cuerpoDir = '¡Hola' + saludoDir + '! ¿Cómo estás? 😊 Te dejo por aquí los datos para lo de ' + refDir + fechaDirTxt + '. Apenas lo hagas me avisas por favor. ¡Muchas gracias!';
             }
         } else {
-            if (tonoDir === 'cercano') {
-                cuerpoDir = '¡Hola' + saludoDir + '! 👋 Te dejo por aquí mis datos de pago para cuando los necesites. ¡Un abrazo!';
-            } else if (tonoDir === 'formal') {
-                cuerpoDir = 'Hola' + saludoDir + ', muy buen día ✨ Le comparto mis datos bancarios / método de pago para cuando desee realizar la transferencia. Quedo atento(a). ¡Muchas gracias!';
+            if (tonoSel === 'cercano') {
+                cuerpoDir = '¡Hey' + saludoDir + '! 👋 Te dejo por aquí mis datos de pago para cuando los necesites. ¡Un abrazo!';
+            } else if (tonoSel === 'formal') {
+                cuerpoDir = 'Hola' + saludoDir + ', muy buen día. Te comparto mis datos bancarios para cuando realices el pago. Quedo atento por este medio, muchas gracias.';
             } else {
-                cuerpoDir = '¡Hola' + saludoDir + '! Espero que estés muy bien 😊 Te comparto por aquí mis datos para realizar el pago. Apenas lo hagas me avisas por este medio. ¡Muchas gracias!';
+                cuerpoDir = '¡Hola' + saludoDir + '! ¿Cómo estás? 😊 Te dejo por aquí mis datos para realizar el pago. Apenas lo hagas me avisas por este medio. ¡Muchas gracias!';
             }
         }
 
@@ -9984,45 +10068,47 @@ function construirMensajeCobroWhatsAppFinanzas(item, tono, opts) {
     var saludoPersona = persona ? (' ' + persona) : '';
 
     var montoUsd = Number(item.monto) || 0;
-    var montoTxt = '$' + montoUsd.toFixed(2) + ' USD';
-    if (item.monedaOrigen === 'VES' && Number(item.montoOriginalBs) > 0) {
-        montoTxt += ' (Bs. ' + Number(item.montoOriginalBs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ')';
-    }
+    var montoTxt = _formatearMontoNaturalCobroWA(montoUsd, item, incluirBs);
 
     var fechaLegible = formatearFechaLegibleCobroWA(fechaISO);
     var fraseFecha = 'este ' + fechaLegible;
     if (dias === 0) {
-        fraseFecha = 'hoy (' + fechaLegible + ')';
+        fraseFecha = 'hoy ' + fechaLegible;
     } else if (dias === 1) {
-        fraseFecha = 'mañana (' + fechaLegible + ')';
+        fraseFecha = 'mañana ' + fechaLegible;
     } else if (dias > 1) {
-        fraseFecha = 'el ' + fechaLegible + ' (en ' + dias + ' días)';
-    } else if (dias < 0) {
-        fraseFecha = 'el pasado ' + fechaLegible;
+        fraseFecha = 'el ' + fechaLegible;
+    } else if (dias === -1) {
+        fraseFecha = 'ayer ' + fechaLegible;
+    } else if (dias < -1) {
+        fraseFecha = 'el ' + fechaLegible;
     }
 
-    var tonoSel = tono || item.tonoCobroWaPreferido || (infoOrig.tipoDestino === 'almacen' && datos.esCuotaAlmacen ? 'formal' : 'cordial');
+    if (!tono && item.tonoCobroWaPreferido) {
+        tonoSel = item.tonoCobroWaPreferido;
+    }
     var concepto = datos.conceptoDisplay || 'este pago pendiente';
 
     var cuerpo = '';
-    if (tonoSel === 'cercano') {
+    if (tonoSel === 'solo_datos') {
+        cuerpo = '¡Hola' + saludoPersona + '! Por aquí te dejo los datos para lo de ' + concepto + ', son ' + montoTxt + ' para ' + fraseFecha + '.';
+    } else if (tonoSel === 'cercano') {
         if (dias < 0) {
-            cuerpo = '¡Hola' + saludoPersona + '! 👋 ¿Cómo estás? Paso por aquí rapidito para recordarte con todo cariño sobre ' + concepto + ' (' + montoTxt + '), que había quedado para ' + fraseFecha + '. Cuando te sea posible me avisas por aquí. ¡Un abrazo y feliz día!';
+            cuerpo = '¡Hey' + saludoPersona + '! 👋 ¿Cómo va todo? Te paso el dato por aquí para cuadrar lo de ' + concepto + ', de ' + montoTxt + ' que había quedado para ' + fraseFecha + '. Apenas puedas me avisas sin problema.';
         } else {
-            cuerpo = '¡Hola' + saludoPersona + '! 👋 ¿Cómo vas? Te escribo con confianza solo para dejarte este recordatorio amable sobre ' + concepto + ' (' + montoTxt + '), acordado para ' + fraseFecha + '. Cualquier cosita me avisas sin apuro. ¡Un abrazo!';
+            cuerpo = '¡Hey' + saludoPersona + '! 👋 ¿Todo bien? Te escribo rapidito por lo de ' + concepto + ', que son ' + montoTxt + ' para ' + fraseFecha + '. Apenas lo envíes me pasas el capture por aquí, ¡un abrazo!';
         }
     } else if (tonoSel === 'formal') {
         if (dias < 0) {
-            cuerpo = 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para recordarle de manera amable el pago pendiente sobre ' + concepto + ' por un monto de ' + montoTxt + ', programado para ' + fraseFecha + '. Quedo atento(a) por este medio cuando le sea posible realizarlo. ¡Muchas gracias de antemano!';
+            cuerpo = 'Hola' + saludoPersona + ', buen día. Te saludo para recordar el pago pendiente de ' + concepto + ' por ' + montoTxt + ', pautado para ' + fraseFecha + '. Quedo atento por este medio apenas puedas completarlo, muchas gracias.';
         } else {
-            cuerpo = 'Hola' + saludoPersona + ', muy buen día ✨ Le saludo cordialmente para hacerle un recordatorio amable sobre su compromiso de pago por ' + concepto + ' (' + montoTxt + '), pautado para ' + fraseFecha + '. Quedo atento(a) por aquí para confirmar apenas se realice. ¡Muchas gracias!';
+            cuerpo = 'Hola' + saludoPersona + ', muy buen día. Te comparto los datos para realizar el pago de ' + concepto + ' por ' + montoTxt + ', acordado para ' + fraseFecha + '. Quedo atento por aquí apenas lo envíes, muchas gracias.';
         }
     } else {
-        // Tono por defecto: cordial / amable
         if (dias < 0) {
-            cuerpo = '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Te escribo para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', que teníamos programado para ' + fraseFecha + '. Cuando tengas un chance me comentas cómo vamos con eso. ¡Muchas gracias y bendiciones!';
+            cuerpo = '¡Hola' + saludoPersona + '! ¿Cómo estás? 😊 Te escribo por lo de ' + concepto + ', que son ' + montoTxt + ' de ' + fraseFecha + '. Cuando tengas un chance me comentas cómo vamos con eso. ¡Muchas gracias!';
         } else {
-            cuerpo = '¡Hola' + saludoPersona + '! Espero que estés muy bien 😊 Paso por aquí para hacerte un recordatorio amable sobre ' + concepto + ' por ' + montoTxt + ', acordado para ' + fraseFecha + '. Cuando puedas me confirmas por aquí. ¡Muchas gracias y feliz día!';
+            cuerpo = '¡Hola' + saludoPersona + '! ¿Cómo estás? 😊 Te escribo rapidito por lo de ' + concepto + ', son ' + montoTxt + ' para ' + fraseFecha + '. Apenas puedas me avisas por aquí. ¡Gracias y feliz día!';
         }
     }
 
@@ -10090,17 +10176,17 @@ function ajustarAlturaTextareaWaCobro() {
     var ta = document.getElementById('modal-cobro-wa-textarea');
     if (!ta) return;
     ta.style.height = 'auto';
-    ta.style.height = Math.max(115, Math.min(340, ta.scrollHeight + 4)) + 'px';
+    ta.style.height = Math.max(125, Math.min(340, ta.scrollHeight + 4)) + 'px';
 }
 
 function poblarSelectTarjetasCobroWA(preferidaId) {
     var sel = document.getElementById('modal-cobro-wa-tarjeta');
     if (!sel) return '';
     var tarjetas = asegurarArrayTarjetasFinanzas();
-    var html = '<option value="">Sin adjuntar datos de tarjeta</option>';
+    var html = '<option value="">Sin adjuntar datos de pago</option>';
     tarjetas.forEach(function(t) {
         var tieneDp = tieneDatosPagoConfiguradosTarjeta(t);
-        var tag = tieneDp ? ' ✓ con datos' : ' · sin datos aún';
+        var tag = tieneDp ? ' · ✓' : ' · sin datos';
         html += '<option value="' + escaparHTML(t.id) + '">' + escaparHTML(construirTituloTarjeta(t) + tag) + '</option>';
     });
     sel.innerHTML = html;
@@ -10114,27 +10200,55 @@ function poblarSelectTarjetasCobroWA(preferidaId) {
     return elegida;
 }
 
+function togglePanelCamposCobroWA() {
+    FINANZAS_COBRO_WA_ESTADO.camposVisibles = !FINANZAS_COBRO_WA_ESTADO.camposVisibles;
+    renderizarEstadoMetodosPagoCobroWA();
+}
+
+function toggleIncluirBsCobroWA() {
+    FINANZAS_COBRO_WA_ESTADO.incluirBs = !FINANZAS_COBRO_WA_ESTADO.incluirBs;
+    _actualizarBotonBsCobroWA();
+    regenerarMensajeCobroWhatsApp(true);
+}
+
+function _actualizarBotonBsCobroWA() {
+    var btnBs = document.getElementById('btn-cobro-wa-incluir-bs');
+    if (!btnBs) return;
+    var monto = Number(FINANZAS_COBRO_WA_ESTADO.montoActualUsd) || 0;
+    var tasa = (typeof leerCacheTasasBCV === 'function') ? (Number((leerCacheTasasBCV() || {}).usd) || 0) : 0;
+    if (monto <= 0 || tasa <= 0) {
+        btnBs.style.display = 'none';
+        return;
+    }
+    btnBs.style.display = 'inline-flex';
+    btnBs.classList.toggle('is-active', Boolean(FINANZAS_COBRO_WA_ESTADO.incluirBs));
+    var bsVal = (monto * tasa).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    btnBs.textContent = FINANZAS_COBRO_WA_ESTADO.incluirBs ? ('✓ Bs. ' + bsVal) : ('💱 + Bs. ' + bsVal);
+}
+
 function renderizarEstadoMetodosPagoCobroWA() {
     var wrap = document.getElementById('modal-cobro-wa-metodos-wrap');
+    var camposRow = document.getElementById('modal-cobro-wa-campos-row');
+    var btnCampos = document.getElementById('btn-cobro-wa-toggle-campos');
     var previewEl = document.getElementById('modal-cobro-wa-datos-preview');
     var btnEdit = document.getElementById('btn-cobro-wa-editar-tarjeta');
     var t = _resolverTarjetaPorIdCobroWA(FINANZAS_COBRO_WA_ESTADO.tarjetaId);
 
     if (!t) {
         if (wrap) wrap.style.display = 'none';
+        if (btnCampos) btnCampos.style.display = 'none';
         if (btnEdit) {
-            btnEdit.textContent = asegurarArrayTarjetasFinanzas().length > 0 ? '⚙️ Configurar tarjetas' : '➕ Agregar tarjeta';
+            btnEdit.textContent = asegurarArrayTarjetasFinanzas().length > 0 ? '⚙️ Configurar' : '➕ Tarjeta';
         }
         return;
     }
 
     if (wrap) wrap.style.display = 'block';
-    if (btnEdit) btnEdit.textContent = '✏️ Editar datos tarjeta';
+    if (btnEdit) btnEdit.textContent = '✏️ Editar';
 
     var dp = normalizarDatosPagoTarjeta(t);
     var c = FINANZAS_COBRO_WA_ESTADO.campos;
 
-    // Resaltado activo en botones rápidos de método
     var esPagoMovilActivo = Boolean(c.telefono && (c.bancoPago || c.cedula) && !c.numeroCuenta && !c.correo);
     var esTransferActivo = Boolean(c.numeroCuenta && !c.telefono && t.banco !== 'binance');
     var esBinanceActivo = Boolean((c.correo || (t.banco === 'binance' && c.numeroCuenta)) && !c.telefono);
@@ -10147,10 +10261,12 @@ function renderizarEstadoMetodosPagoCobroWA() {
         b.classList.toggle('is-active', act);
     });
 
+    var activosCount = 0;
     document.querySelectorAll('#modal-cobro-wa-campos-row .fin-wa-campo-chip[data-campo-cobro-wa]').forEach(function(chip) {
         var campo = chip.getAttribute('data-campo-cobro-wa');
         var tieneValor = Boolean(dp[campo]);
         var activo = Boolean(c[campo]) && tieneValor;
+        if (activo) activosCount++;
         chip.classList.toggle('is-active', activo);
         chip.classList.toggle('is-empty', !tieneValor);
         chip.title = tieneValor
@@ -10158,21 +10274,23 @@ function renderizarEstadoMetodosPagoCobroWA() {
             : 'Sin configurar en esta tarjeta · toca para agregar';
     });
 
+    var faltanDatos = !tieneDatosPagoConfiguradosTarjeta(t);
+    if (btnCampos) {
+        btnCampos.style.display = faltanDatos ? 'none' : 'inline-flex';
+        btnCampos.classList.toggle('is-active', Boolean(FINANZAS_COBRO_WA_ESTADO.camposVisibles));
+        btnCampos.textContent = '🎛️ Campos · ' + activosCount;
+    }
+    if (camposRow) {
+        camposRow.style.display = (!faltanDatos && FINANZAS_COBRO_WA_ESTADO.camposVisibles) ? 'flex' : 'none';
+    }
+
     if (previewEl) {
-        if (!tieneDatosPagoConfiguradosTarjeta(t)) {
+        if (faltanDatos) {
+            previewEl.style.display = 'block';
             previewEl.className = 'fin-wa-datos-preview is-missing';
-            previewEl.innerHTML = 'Esta tarjeta aún no tiene número de cuenta, cédula ni teléfono guardados. <button type="button" onclick="editarTarjetaSeleccionadaDesdeCobroWA()" style="background:none;border:none;color:#fde68a;font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font-size:11px;">Completar ahora →</button>';
+            previewEl.innerHTML = 'Esta tarjeta aún no tiene cuenta, cédula ni teléfono. <button type="button" onclick="editarTarjetaSeleccionadaDesdeCobroWA()" style="background:none;border:none;color:#fde68a;font-weight:800;text-decoration:underline;cursor:pointer;padding:0;font-size:11px;">Completar ahora →</button>';
         } else {
-            var bloque = construirBloquePagoTarjetaWhatsApp(t, c);
-            previewEl.className = 'fin-wa-datos-preview';
-            if (bloque) {
-                var pLineas = bloque.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
-                var pTit = pLineas.shift() || '';
-                var pBody = pLineas.map(function(l) { return l.replace(/^•\s*/, ''); }).join(' · ');
-                previewEl.textContent = pBody ? (pTit + ' ' + pBody) : pTit;
-            } else {
-                previewEl.textContent = 'Ningún campo seleccionado · marca arriba Cédula, Teléfono, Banco o Nro. de Cuenta para incluirlos.';
-            }
+            previewEl.style.display = 'none';
         }
     }
 }
@@ -10313,6 +10431,7 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
     var btnCopy = document.getElementById('btn-cobro-wa-card-copy');
     var cardEl = document.getElementById('card-cobro-wa-msg');
 
+    FINANZAS_COBRO_WA_ESTADO.camposVisibles = false;
     var tonoDef = 'cordial';
     var fechaEff = obtenerHoyISOFinanzas();
     var personaRaw = '';
@@ -10332,6 +10451,8 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
             fechaISO: String(ingresoIdOConfig.fechaISO || '').trim()
         };
         ctxObj = FINANZAS_COBRO_WA_ESTADO.contextoDirecto;
+        FINANZAS_COBRO_WA_ESTADO.montoActualUsd = ctxObj.monto;
+        FINANZAS_COBRO_WA_ESTADO.incluirBs = Boolean(ingresoIdOConfig.incluirBs);
         personaRaw = ctxObj.persona;
         personaDisplay = ctxObj.persona;
         telefonoRaw = ctxObj.telefono || (personaRaw ? buscarTelefonoPersonaEnMonarca(personaRaw) : '');
@@ -10351,11 +10472,18 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
         fechaEff = resolverFechaEfectivaMovFinanzas(item, esItemRecurrenteMensualReal(item, false), hoyAnio, hoyMes);
         var estado = evaluarEstadoCobroWhatsAppIngreso(item, fechaEff, infoOrig, hoyISO);
         var datos = resolverDatosCobroPersonaIngreso(item);
-        tonoDef = item.tonoCobroWaPreferido || (infoOrig.tipoDestino === 'almacen' && datos.esCuotaAlmacen ? 'formal' : 'cordial');
+        FINANZAS_COBRO_WA_ESTADO.montoActualUsd = Number(item.monto) || 0;
+        FINANZAS_COBRO_WA_ESTADO.incluirBs = Boolean(item.incluirBsCobroWa);
+        tonoDef = item.tonoCobroWaPreferido || 'cordial';
         personaRaw = datos.personaRaw || '';
         personaDisplay = datos.personaDisplay || '';
         telefonoRaw = datos.telefonoRaw || '';
-        prefTarjetaId = item.tarjetaCobroWaId || '';
+        prefTarjetaId = item.tarjetaCobroWaId || (APP_STATE && APP_STATE.finanzas && APP_STATE.finanzas.ultimaTarjetaCobroWaId) || '';
+        if (!prefTarjetaId) {
+            var listaTrjIng = asegurarArrayTarjetasFinanzas();
+            var firstConDatosIng = listaTrjIng.find(function(t) { return tieneDatosPagoConfiguradosTarjeta(t); });
+            if (firstConDatosIng) prefTarjetaId = firstConDatosIng.id;
+        }
         camposPrevios = item.camposPagoCobroWa || null;
         if (inId) inId.value = item.id;
         ctxObj = { infoOrig: infoOrig, estado: estado, datos: datos };
@@ -10381,21 +10509,22 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
     } else {
         renderizarEstadoMetodosPagoCobroWA();
     }
+    _actualizarBotonBsCobroWA();
 
     if (esConfigDirecto) {
-        var titTarj = tarjetaSel ? construirTituloTarjeta(tarjetaSel) : 'Datos de Pago';
-        var mStrDir = ctxObj.monto > 0 ? (' · $' + ctxObj.monto.toFixed(2)) : '';
+        var titTarj = tarjetaSel ? construirTituloTarjeta(tarjetaSel) : 'Datos de pago';
+        var mStrDir = ctxObj.monto > 0 ? (' · ' + _formatearMontoNaturalCobroWA(ctxObj.monto, ctxObj, false)) : '';
         if (resumenEl) {
-            resumenEl.textContent = (personaDisplay ? (personaDisplay + ' · ') : '') + (ctxObj.concepto || titTarj) + mStrDir;
+            resumenEl.textContent = (personaDisplay ? (personaDisplay + ' · ') : '') + (_limpiarConceptoCobroWA(ctxObj.concepto, false) || titTarj) + mStrDir;
         }
         if (badgeEl) {
-            badgeEl.textContent = ctxObj.monto > 0 ? '💳 Cobro directo' : '💳 Compartir datos de tarjeta';
+            badgeEl.textContent = ctxObj.monto > 0 ? '💳 Cobro directo' : '💳 Mis datos';
         }
     } else {
-        var montoStr = '+$' + (Number(item.monto) || 0).toFixed(2);
-        var etiquetaT = ctxObj.estado ? ctxObj.estado.etiquetaTiempo : ('Fecha: ' + fechaEff);
+        var montoStr = _formatearMontoNaturalCobroWA(Number(item.monto) || 0, item, false) || '$0';
+        var etiquetaT = ctxObj.estado ? ctxObj.estado.etiquetaTiempo : formatearFechaLegibleCobroWA(fechaEff);
         if (resumenEl) {
-            resumenEl.textContent = (personaDisplay || item.fuente || 'Ingreso') + ' · ' + montoStr + ' · ' + fechaEff + ' (' + etiquetaT + ')';
+            resumenEl.textContent = (personaDisplay || ctxObj.datos.conceptoDisplay || 'Cobro') + ' · ' + montoStr + ' · ' + formatearFechaLegibleCobroWA(fechaEff);
         }
         if (badgeEl) {
             badgeEl.textContent = (ctxObj.infoOrig.tipoDestino === 'almacen' ? '🏪 Almacén · ' : (ctxObj.infoOrig.tipoDestino === 'aleatoria' ? '⚡ Aleatorio · ' : '💵 Fijo · ')) + etiquetaT;
@@ -10407,8 +10536,9 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
     });
 
     if (ta) {
-        if (!esConfigDirecto && item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim()) {
-            ta.value = String(item.mensajeCobroPersonalizado).trim();
+        var msgCustomPrev = (!esConfigDirecto && item.mensajeCobroPersonalizado) ? String(item.mensajeCobroPersonalizado).trim() : '';
+        if (msgCustomPrev && !_esMensajePlantillaViejaCobroWA(msgCustomPrev)) {
+            ta.value = msgCustomPrev;
             if (tarjetaSel) {
                 var bloque = construirBloquePagoTarjetaWhatsApp(tarjetaSel, FINANZAS_COBRO_WA_ESTADO.campos);
                 if (bloque && !/💳\s*Datos/i.test(ta.value)) {
@@ -10420,7 +10550,8 @@ function abrirModalCobroWhatsAppFinanzas(ingresoIdOConfig) {
                 fechaISO: esConfigDirecto ? ctxObj.fechaISO : fechaEff,
                 personaOverride: personaRaw,
                 tarjeta: tarjetaSel,
-                camposPago: FINANZAS_COBRO_WA_ESTADO.campos
+                camposPago: FINANZAS_COBRO_WA_ESTADO.campos,
+                incluirBs: FINANZAS_COBRO_WA_ESTADO.incluirBs
             });
         }
     }
@@ -10463,7 +10594,7 @@ function cerrarModalCobroWhatsAppFinanzas() {
 }
 
 function seleccionarTonoCobroWhatsApp(tono) {
-    var t = (tono === 'cercano' || tono === 'formal') ? tono : 'cordial';
+    var t = (tono === 'cercano' || tono === 'formal' || tono === 'solo_datos') ? tono : 'cordial';
     var inTono = document.getElementById('modal-cobro-wa-tono');
     if (inTono) inTono.value = t;
     document.querySelectorAll('#modal-enviar-cobro-whatsapp-finanzas .fin-wa-tone-btn[data-tono-wa]').forEach(function(b) {
@@ -10505,7 +10636,7 @@ function regenerarMensajeCobroWhatsApp(forzarSobrePersonalizado) {
         if (telAuto) inTel.value = telAuto;
     }
 
-    if (item && !forzarSobrePersonalizado && item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim()) {
+    if (item && !forzarSobrePersonalizado && item.mensajeCobroPersonalizado && String(item.mensajeCobroPersonalizado).trim() && !_esMensajePlantillaViejaCobroWA(item.mensajeCobroPersonalizado)) {
         return;
     }
 
@@ -10515,7 +10646,8 @@ function regenerarMensajeCobroWhatsApp(forzarSobrePersonalizado) {
         ta.value = construirMensajeCobroWhatsAppFinanzas(item || ctxDir, tono, {
             personaOverride: personaVal,
             tarjeta: tarjetaSel,
-            camposPago: FINANZAS_COBRO_WA_ESTADO.campos
+            camposPago: FINANZAS_COBRO_WA_ESTADO.campos,
+            incluirBs: FINANZAS_COBRO_WA_ESTADO.incluirBs
         });
         ajustarAlturaTextareaWaCobro();
     }
@@ -10560,6 +10692,7 @@ function guardarDatosYMensajeCobroWhatsApp(silencioso) {
         item.telefonoCobro = tel;
     }
     item.tonoCobroWaPreferido = tono;
+    item.incluirBsCobroWa = Boolean(FINANZAS_COBRO_WA_ESTADO.incluirBs);
     item.tarjetaCobroWaId = FINANZAS_COBRO_WA_ESTADO.tarjetaId || '';
     item.camposPagoCobroWa = _clonarCamposPagoCobroWA(FINANZAS_COBRO_WA_ESTADO.campos);
     if (item.tarjetaCobroWaId) {
@@ -10612,7 +10745,7 @@ function copiarMensajeCobroWhatsAppFinanzas() {
             btnCopy.textContent = '✓ Copiado';
         }
         if (typeof mostrarToastMonarca === 'function') {
-            mostrarToastMonarca('Mensaje amable copiado al portapapeles', '📋');
+            mostrarToastMonarca('Mensaje copiado al portapapeles', '📋');
         }
     };
 
@@ -10677,17 +10810,17 @@ async function pulirMensajeCobroConIAFinanzas() {
     var persona = inPers ? inPers.value.trim() : '';
     var ctx = resumenEl ? resumenEl.textContent : '';
 
-    var txtOrigBtn = btn ? btn.textContent : '✨ Pulir con Emily IA';
+    var txtOrigBtn = btn ? btn.textContent : '✨ Emily IA';
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ Redactando...';
+        btn.textContent = '⏳ Pulir...';
     }
 
     try {
-        var sys = 'Eres experta en redacción empática de mensajes cortos de WhatsApp en español. Devuelve ÚNICAMENTE el texto final del mensaje listo para enviar, sin comillas, sin explicaciones ni encabezados.';
-        var prompt = 'Mejora y haz aún más amable, cálido y natural este mensaje de recordatorio de cobro para WhatsApp (manteniendo exactamente el monto, la fecha, el concepto, todos los datos bancarios / métodos de pago si aparecen abajo y el tono "' + tono + '")' +
-            (persona ? (' dirigido a "' + persona + '"') : '') +
-            (ctx ? (' (Contexto: ' + ctx + ')') : '') +
+        var sys = 'Eres experta en mensajes naturales y cotidianos de WhatsApp en español venezolano/latino. Devuelve ÚNICAMENTE el mensaje listo para enviar, sin comillas ni explicaciones. Reglas estrictas: NUNCA uses paréntesis ni corchetes en el texto, escribe "Cédula:" y nunca "Cédula / RIF:", evita expresiones robóticas como "USD", "atento(a)" o "(en X días)".';
+        var prompt = 'Haz más natural, humano y directo este mensaje de WhatsApp manteniendo exactamente los montos, fecha, concepto, datos bancarios y el estilo "' + tono + '"' +
+            (persona ? (' para "' + persona + '"') : '') +
+            (ctx ? (', contexto: ' + ctx) : '') +
             ':\n\n' + baseTxt;
 
         var mejorado = await window.pulirTextoRapidoGeminiIA(sys, prompt);
@@ -10695,7 +10828,7 @@ async function pulirMensajeCobroConIAFinanzas() {
             ta.value = mejorado.replace(/^["']|["']$/g, '').trim();
             ajustarAlturaTextareaWaCobro();
             if (typeof mostrarToastMonarca === 'function') {
-                mostrarToastMonarca('Mensaje suavizado con Emily IA', '✨');
+                mostrarToastMonarca('Mensaje mejorado con Emily IA', '✨');
             }
         }
     } catch (err) {
@@ -10721,6 +10854,8 @@ if (typeof window !== 'undefined') {
     window.alCambiarTarjetaCobroWA = alCambiarTarjetaCobroWA;
     window.seleccionarMetodoPagoCobroWA = seleccionarMetodoPagoCobroWA;
     window.toggleCampoPagoCobroWA = toggleCampoPagoCobroWA;
+    window.togglePanelCamposCobroWA = togglePanelCamposCobroWA;
+    window.toggleIncluirBsCobroWA = toggleIncluirBsCobroWA;
     window.editarTarjetaSeleccionadaDesdeCobroWA = editarTarjetaSeleccionadaDesdeCobroWA;
     window.sincronizarTarjetaGuardadaEnModalCobroWA = sincronizarTarjetaGuardadaEnModalCobroWA;
     window.limpiarTelefonoWhatsAppFinanzas = limpiarTelefonoWhatsAppFinanzas;

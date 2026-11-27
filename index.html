@@ -24,7 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos de la Aplicación -->
-    <link rel="stylesheet" href="style.css?v=11.45">
+    <link rel="stylesheet" href="style.css?v=11.46">
 </head>
 <body>
 
@@ -187,7 +187,7 @@
             <div class="home-update-metrics">
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">En tu dispositivo</span>
-                    <span id="home-ver-local" class="home-metric-val">v11.45</span>
+                    <span id="home-ver-local" class="home-metric-val">v11.46</span>
                 </div>
                 <div class="home-update-metric">
                     <span class="home-metric-lbl">Última publicada</span>
@@ -233,7 +233,7 @@
                     </div>
                     <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 6px 14px; text-align: center;">
                         <div style="font-size: 9.5px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.06em;">SISTEMA</div>
-                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.45</div>
+                        <div id="menu-app-version" style="font-size: 12.5px; color: #f8fafc; font-weight: 700;">v11.46</div>
                     </div>
                 </div>
             </div>
@@ -2400,36 +2400,42 @@
         </div>
     </div>
 
-    <!-- MODAL: ENVIAR RECORDATORIO AMABLE DE COBRO POR WHATSAPP (FINANZAS) -->
+    <!-- MODAL: COBRO AMABLE POR WHATSAPP (FINANZAS) -->
     <div id="modal-enviar-cobro-whatsapp-finanzas" class="modal-overlay" style="display: none;" onclick="if (event.target === this) cerrarModalCobroWhatsAppFinanzas()">
-        <div class="modal-content" style="max-width: 540px; width: 94%; max-height: 90vh; padding: 16px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid rgba(52, 211, 153, 0.35); color: #f8fafc;">
+        <div class="modal-content fin-wa-modal-shell" style="max-width: 520px; width: 94%; max-height: 92vh; padding: 15px 16px; border-radius: 16px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #0f172a; border: 1px solid rgba(52, 211, 153, 0.35); color: #f8fafc;">
             <input type="hidden" id="modal-cobro-wa-ingreso-id" value="">
             <input type="hidden" id="modal-cobro-wa-tono" value="cordial">
 
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; flex-shrink: 0;">
-                <div style="min-width: 0;">
-                    <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #f8fafc;">💬 Recordatorio Amable de Cobro · WhatsApp</h3>
-                    <div id="modal-cobro-wa-resumen-ctx" style="font-size: 11.5px; color: #94a3b8; margin-top: 3px; line-height: 1.35;">Vista previa lista para enviar</div>
+                <div style="min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap;">
+                        <h3 style="margin: 0; font-size: 15.5px; font-weight: 800; color: #f8fafc;">💬 Cobro por WhatsApp</h3>
+                        <span id="modal-cobro-wa-card-badge" class="trainer-wa-msg-badge">💬 Listo para enviar</span>
+                    </div>
+                    <div id="modal-cobro-wa-resumen-ctx" style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; line-height: 1.35;">Vista previa lista para enviar</div>
                 </div>
-                <button type="button" onclick="cerrarModalCobroWhatsAppFinanzas()" class="modal-close-btn" style="flex-shrink: 0;">&times;</button>
+                <button type="button" onclick="cerrarModalCobroWhatsAppFinanzas()" class="modal-close-btn" style="flex-shrink: 0;" aria-label="Cerrar">&times;</button>
             </div>
 
-            <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px;">
+            <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-right: 2px;">
                 <div class="fin-cobro-wa-grid">
                     <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label for="modal-cobro-wa-persona" style="font-size: 11px; color: #cbd5e1;">👤 Persona / Destinatario:</label>
-                        <input type="text" id="modal-cobro-wa-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Mamá, Carlos, Cliente..." style="margin-bottom: 0; font-size: 12.5px;" oninput="regenerarMensajeCobroWhatsApp(false)">
+                        <label for="modal-cobro-wa-persona" style="font-size: 11px; color: #cbd5e1;">👤 Destinatario:</label>
+                        <input type="text" id="modal-cobro-wa-persona" list="datalist-personas-finanzas" class="modal-input" placeholder="Ej: Gerardo, Carlos..." style="margin-bottom: 0; font-size: 12.5px;" oninput="regenerarMensajeCobroWhatsApp(false)">
                     </div>
                     <div class="modal-form-group" style="margin-bottom: 0;">
-                        <label for="modal-cobro-wa-telefono" style="font-size: 11px; color: #cbd5e1;">📱 Número WhatsApp (opcional):</label>
+                        <label for="modal-cobro-wa-telefono" style="font-size: 11px; color: #cbd5e1;">📱 WhatsApp:</label>
                         <input type="tel" id="modal-cobro-wa-telefono" class="modal-input" placeholder="Ej: +584121234567" style="margin-bottom: 0; font-size: 12.5px;">
                     </div>
                 </div>
 
                 <div class="fin-wa-pago-box">
                     <div class="fin-wa-pago-head">
-                        <label for="modal-cobro-wa-tarjeta" class="fin-wa-pago-lbl">💳 Tarjeta / Método de pago:</label>
-                        <button type="button" id="btn-cobro-wa-editar-tarjeta" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 10.5px; flex-shrink: 0;" onclick="editarTarjetaSeleccionadaDesdeCobroWA()" title="Configurar cuenta, banco, cédula o teléfono en esta tarjeta">⚙️ Configurar</button>
+                        <label for="modal-cobro-wa-tarjeta" class="fin-wa-pago-lbl">💳 Cuenta receptora</label>
+                        <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                            <button type="button" id="btn-cobro-wa-toggle-campos" class="fin-wa-tone-btn" style="padding: 3px 8px; font-size: 10.5px; display: none;" onclick="togglePanelCamposCobroWA()" title="Elegir qué datos adjuntar">🎛️ Campos</button>
+                            <button type="button" id="btn-cobro-wa-editar-tarjeta" class="fin-wa-tone-btn" style="padding: 3px 8px; font-size: 10.5px;" onclick="editarTarjetaSeleccionadaDesdeCobroWA()" title="Configurar cuenta, banco, cédula o teléfono">⚙️ Tarjeta</button>
+                        </div>
                     </div>
                     <select id="modal-cobro-wa-tarjeta" class="modal-input fin-wa-tarjeta-select" onchange="alCambiarTarjetaCobroWA()">
                         <option value="">Sin adjuntar datos de pago</option>
@@ -2437,49 +2443,48 @@
                     <div id="modal-cobro-wa-metodos-wrap" style="display: none;">
                         <div id="modal-cobro-wa-metodos-row" class="fin-wa-metodos-row">
                             <button type="button" class="fin-wa-metodo-pill" data-metodo-cobro-wa="pago_movil" onclick="seleccionarMetodoPagoCobroWA('pago_movil')">📲 Pago Móvil</button>
-                            <button type="button" class="fin-wa-metodo-pill" data-metodo-cobro-wa="transferencia" onclick="seleccionarMetodoPagoCobroWA('transferencia')">🏦 Transferencia / Cuenta</button>
-                            <button type="button" class="fin-wa-metodo-pill" data-metodo-cobro-wa="binance" onclick="seleccionarMetodoPagoCobroWA('binance')">⚡ Binance / Correo</button>
+                            <button type="button" class="fin-wa-metodo-pill" data-metodo-cobro-wa="transferencia" onclick="seleccionarMetodoPagoCobroWA('transferencia')">🏦 Cuenta</button>
+                            <button type="button" class="fin-wa-metodo-pill" data-metodo-cobro-wa="binance" onclick="seleccionarMetodoPagoCobroWA('binance')">⚡ Binance</button>
                         </div>
-                        <div id="modal-cobro-wa-campos-row" class="fin-wa-campos-row">
+                        <div id="modal-cobro-wa-campos-row" class="fin-wa-campos-row" style="display: none;">
                             <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="bancoPago" onclick="toggleCampoPagoCobroWA('bancoPago')">🏦 Banco</button>
                             <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="cedula" onclick="toggleCampoPagoCobroWA('cedula')">🆔 Cédula</button>
                             <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="telefono" onclick="toggleCampoPagoCobroWA('telefono')">📞 Teléfono</button>
-                            <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="numeroCuenta" onclick="toggleCampoPagoCobroWA('numeroCuenta')">🔢 Nro. Cuenta</button>
-                            <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="correo" onclick="toggleCampoPagoCobroWA('correo')">✉️ Correo / ID</button>
+                            <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="numeroCuenta" onclick="toggleCampoPagoCobroWA('numeroCuenta')">🔢 Cuenta</button>
+                            <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="correo" onclick="toggleCampoPagoCobroWA('correo')">✉️ Correo</button>
                             <button type="button" class="fin-wa-campo-chip" data-campo-cobro-wa="titular" onclick="toggleCampoPagoCobroWA('titular')">👤 Titular</button>
                         </div>
-                        <div id="modal-cobro-wa-datos-preview" class="fin-wa-datos-preview"></div>
+                        <div id="modal-cobro-wa-datos-preview" class="fin-wa-datos-preview" style="display: none;"></div>
                     </div>
                 </div>
 
                 <div class="fin-wa-tone-bar">
                     <button type="button" class="fin-wa-tone-btn is-active" data-tono-wa="cordial" onclick="seleccionarTonoCobroWhatsApp('cordial')">🤝 Amable</button>
                     <button type="button" class="fin-wa-tone-btn" data-tono-wa="cercano" onclick="seleccionarTonoCobroWhatsApp('cercano')">😊 Cercano</button>
-                    <button type="button" class="fin-wa-tone-btn" data-tono-wa="formal" onclick="seleccionarTonoCobroWhatsApp('formal')">🧾 Formal Suave</button>
-                    <button type="button" id="btn-cobro-wa-pulir-ia" class="fin-wa-tone-btn is-ai" onclick="pulirMensajeCobroConIAFinanzas()">✨ Pulir con Emily IA</button>
+                    <button type="button" class="fin-wa-tone-btn" data-tono-wa="formal" onclick="seleccionarTonoCobroWhatsApp('formal')">🧾 Formal</button>
+                    <button type="button" class="fin-wa-tone-btn" data-tono-wa="solo_datos" onclick="seleccionarTonoCobroWhatsApp('solo_datos')">💳 Solo datos</button>
+                    <button type="button" id="btn-cobro-wa-incluir-bs" class="fin-wa-tone-btn" style="display: none;" onclick="toggleIncluirBsCobroWA()" title="Incluir o quitar equivalente en Bolívares al BCV">💱 + Bs. BCV</button>
+                    <button type="button" id="btn-cobro-wa-pulir-ia" class="fin-wa-tone-btn is-ai" onclick="pulirMensajeCobroConIAFinanzas()">✨ Emily IA</button>
                 </div>
 
                 <div id="card-cobro-wa-msg" class="trainer-wa-msg-card">
-                    <div class="trainer-wa-msg-head" style="flex-wrap: wrap;">
-                        <span id="modal-cobro-wa-card-badge" class="trainer-wa-msg-badge">💬 Mensaje programado</span>
-                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="regenerarMensajeCobroWhatsApp(true)" title="Volver a la plantilla amable automática">↺ Plantilla</button>
-                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="guardarDatosYMensajeCobroWhatsApp(false)" title="Guardar cambios de contacto y texto en este ingreso">💾 Guardar</button>
-                            <button type="button" id="btn-cobro-wa-card-copy" class="trainer-wa-copy-btn" onclick="copiarMensajeCobroWhatsAppFinanzas()">📋 Copiar</button>
+                    <div class="trainer-wa-msg-head" style="justify-content: space-between;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8;">✏️ Mensaje editable</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="regenerarMensajeCobroWhatsApp(true)" title="Regenerar desde la plantilla natural">↺ Regenerar</button>
+                            <button type="button" class="fin-wa-tone-btn" style="padding: 4px 8px; font-size: 11px;" onclick="guardarDatosYMensajeCobroWhatsApp(false)" title="Guardar contacto y mensaje personalizado">💾 Guardar</button>
                         </div>
                     </div>
-                    <textarea id="modal-cobro-wa-textarea" class="trainer-wa-msg-textarea" rows="5" placeholder="Escribe o ajusta el mensaje amable de cobro..." oninput="if(typeof ajustarAlturaTextareaWaCobro==='function') ajustarAlturaTextareaWaCobro();"></textarea>
-                </div>
-
-                <div style="font-size: 11px; color: #94a3b8; background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 9px; padding: 8px 10px; line-height: 1.4;">
-                    💡 Puedes editar libremente el texto. Si dejas el teléfono vacío, WhatsApp se abrirá con el mensaje listo para que elijas el contacto; si colocas su número (con código de país, ej. <strong style="color:#cbd5e1;">+58...</strong>), abrirá directo en su chat y lo recordaremos para próximos cobros.
+                    <textarea id="modal-cobro-wa-textarea" class="trainer-wa-msg-textarea" rows="6" placeholder="Escribe o ajusta tu mensaje para WhatsApp..." oninput="if(typeof ajustarAlturaTextareaWaCobro==='function') ajustarAlturaTextareaWaCobro();"></textarea>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.16); flex-shrink: 0;">
+            <div class="fin-wa-footer-bar">
                 <button type="button" class="btn-back-system" style="margin: 0;" onclick="cerrarModalCobroWhatsAppFinanzas()">Cerrar</button>
-                <button type="button" id="btn-cobro-wa-copiar-todo" class="btn-system" onclick="copiarMensajeCobroWhatsAppFinanzas()" style="background: rgba(16, 185, 129, 0.16); border-color: rgba(52, 211, 153, 0.5); color: #6ee7b7; padding: 8px 13px; font-size: 12.5px;">📋 Copiar Mensaje</button>
-                <button type="button" class="btn-system" onclick="enviarCobroPorWhatsAppFinanzas()" style="background: linear-gradient(135deg, #25d366 0%, #128c7e 100%); border-color: #34d399; color: #ffffff; padding: 8px 14px; font-size: 12.5px; font-weight: 800;">💬 Enviar por WhatsApp</button>
+                <div style="display: flex; gap: 8px; flex: 1; justify-content: flex-end;">
+                    <button type="button" id="btn-cobro-wa-card-copy" class="btn-system" onclick="copiarMensajeCobroWhatsAppFinanzas()" style="background: rgba(16, 185, 129, 0.14); border-color: rgba(52, 211, 153, 0.45); color: #6ee7b7; padding: 9px 13px; font-size: 12.5px; margin: 0;">📋 Copiar</button>
+                    <button type="button" class="btn-system" onclick="enviarCobroPorWhatsAppFinanzas()" style="background: linear-gradient(135deg, #25d366 0%, #128c7e 100%); border-color: #34d399; color: #ffffff; padding: 9px 15px; font-size: 12.5px; font-weight: 800; margin: 0;">💬 WhatsApp</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3113,10 +3118,10 @@
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 0;">
                             <label for="modal-tarjeta-banco-pago" style="font-size: 11px; color: #cbd5e1;">🏦 Banco / Red:</label>
-                            <input type="text" id="modal-tarjeta-banco-pago" class="modal-input" maxlength="60" placeholder="Ej: BBVA Provincial (0108)" style="margin-bottom: 0; font-size: 12.5px;" oninput="this.dataset.customEdited='1'">
+                            <input type="text" id="modal-tarjeta-banco-pago" class="modal-input" maxlength="60" placeholder="Ej: BBVA Provincial" style="margin-bottom: 0; font-size: 12.5px;" oninput="this.dataset.customEdited='1'">
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 0;">
-                            <label for="modal-tarjeta-cedula" style="font-size: 11px; color: #cbd5e1;">🆔 Cédula / RIF:</label>
+                            <label for="modal-tarjeta-cedula" style="font-size: 11px; color: #cbd5e1;">🆔 Cédula:</label>
                             <input type="text" id="modal-tarjeta-cedula" class="modal-input" maxlength="32" placeholder="Ej: V-12.345.678" style="margin-bottom: 0; font-size: 12.5px;">
                         </div>
                         <div class="modal-form-group" style="margin-bottom: 0;">
@@ -8207,30 +8212,30 @@
     <script src="js/capacitor-bridge.js"></script>
 
     <!-- SCRIPTS MODULARES DEL SISTEMA MONARCA -->
-    <script src="js/core.js?v=11.45"></script>
-    <script src="js/permisos.js?v=11.45"></script>
-    <script src="js/perfil.js?v=11.45"></script>
-    <script src="js/progresion.js?v=11.45"></script>
-    <script src="js/estado-personal.js?v=11.45"></script>
-    <script src="js/finanzas.js?v=11.45"></script>
-    <script src="js/ideas.js?v=11.45"></script>
-    <script src="js/mqtt-autopc.js?v=11.45"></script>
-    <script src="js/dinamicas.js?v=11.45"></script>
-    <script src="js/calendario.js?v=11.45"></script>
-    <script src="js/inventario.js?v=11.45"></script>
-    <script src="js/reproductor.js?v=11.45"></script>
-    <script src="js/ia-monarca-tools.js?v=11.45"></script>
-    <script src="js/ia.js?v=11.45"></script>
-    <script src="js/jarvis-voz.js?v=11.45"></script>
+    <script src="js/core.js?v=11.46"></script>
+    <script src="js/permisos.js?v=11.46"></script>
+    <script src="js/perfil.js?v=11.46"></script>
+    <script src="js/progresion.js?v=11.46"></script>
+    <script src="js/estado-personal.js?v=11.46"></script>
+    <script src="js/finanzas.js?v=11.46"></script>
+    <script src="js/ideas.js?v=11.46"></script>
+    <script src="js/mqtt-autopc.js?v=11.46"></script>
+    <script src="js/dinamicas.js?v=11.46"></script>
+    <script src="js/calendario.js?v=11.46"></script>
+    <script src="js/inventario.js?v=11.46"></script>
+    <script src="js/reproductor.js?v=11.46"></script>
+    <script src="js/ia-monarca-tools.js?v=11.46"></script>
+    <script src="js/ia.js?v=11.46"></script>
+    <script src="js/jarvis-voz.js?v=11.46"></script>
 
     <!-- MÓDULO CLOUD: FIREBASE FIRESTORE EN TIEMPO REAL -->
-    <script type="module" src="js/firebase-config.js?v=11.45"></script>
+    <script type="module" src="js/firebase-config.js?v=11.46"></script>
 
     <!-- Registro de Service Worker PWA con Actualización Forzada -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=11.45')
+                navigator.serviceWorker.register('sw.js?v=11.46')
                     .then(function(registration) {
                         registration.update();
                         console.log('[PWA] Service Worker registrado en:', registration.scope);
