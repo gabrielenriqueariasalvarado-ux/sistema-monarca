@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.36)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.37)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.36
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.37
             Esta versión nativa incluye:
+            - 💬 **Recordatorio Amable de Cobro por WhatsApp en Ingresos Aleatorios y Almacén (v11.37)**:
+              - **Botón Automático 3 Días Antes (`💬 Cobrar WA`)**: Aparece automáticamente en tarjetas pendientes de **Aleatorios** (préstamos, barbería, trabajos ocasionales), **Almacén** (cuotas de ventas a crédito y cobros) y **Planificación → Cobros del Día** desde **3 días antes** de la fecha acordada (mostrando cuenta regresiva `En 3d`, `Mañana`, `Hoy` o retraso), más alerta **`Cobros Próximos ≤3d`** en la campana `🔔`.
+              - **Modal Dark Glass estilo Personal Trainer**: Previsualiza y edita el mensaje amable con **3 tonos instantáneos offline** (`🤝 Amable`, `😊 Cercano`, `🧾 Formal Suave`), pulido opcional **`✨ Pulir con Emily IA`**, autocompletado/guardado de **Persona** y **WhatsApp**, copia en 1 toque y envío directo por WhatsApp (`✓ Recordado Hoy`).
             - 👑 **Emily IA Conectada con Todo Sistema Monarca (v11.36)**:
               - **Contexto Vivo Omnisciente 360° (activado por defecto)**: Emily ve en tiempo real tu **Calendario y Horario Semanal** (eventos, recordatorios, destacados y próximos 3 días), **Alertas Activas**, **Finanzas en vivo** (saldos de cada tarjeta en `$` y `Bs.`, tasas `BCV`/`EUR`/`Paralelo`, ingresos/gastos, metas, deudas, retrasos), **Quests Diarios, Rutinas y Misiones**, **Estado Personal** (fatiga física por músculo y desgaste mental), **Labores** (`Boom`, `Barbería`, `Trainer`), **Ideas & Auto-PC en vivo**, **Conocimiento & Vocabulario Semanal**, **Habilidades**, **Personas**, **Inventario**, **Reproductor MP3** y **Ruleta Semanal**.
               - **Agente con Herramientas Reales (Function Calling en Chat y Jarvis Voz)**: Emily consulta datos detallados bajo demanda y ejecuta acciones reales en tus apps sin ventanas bloqueantes — crea recordatorios/eventos, registra gastos/ingresos o abona metas, crea o completa quests, envía ideas directo a **Auto-PC**, registra conocimientos o usos de vocabulario, controla el **Reproductor MP3** (play/pausa/playlist/canción), ajusta inventario/ventas, suma horas de habilidad o gira la **Ruleta Semanal** — con tarjetas interactivas en la respuesta e interruptor de **Modo Solo Lectura** en Configuración.
