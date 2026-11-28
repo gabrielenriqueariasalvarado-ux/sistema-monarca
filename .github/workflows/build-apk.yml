@@ -71,10 +71,13 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: "Sistema Monarca · Emily (APK Nativa Android v11.46)"
+          name: "Sistema Monarca · Emily (APK Nativa Android v11.47)"
           body: |
-            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.46
+            ### 📱 APK Nativa de Emily (Sistema Monarca) v11.47
             Esta versión nativa incluye:
+            - 🎵 **Reproductor MP3 · Modo Inteligente Continuo (v11.47)**:
+              - **Progresión Completa Sin Bucles**: Solucionado el fallo por el cual **Modo Inteligente** solo repetía las primeras 2 canciones; ahora avanza de forma continua por toda la lista desde la pista actual (`#1 → #2 → #3 → ... → #N`, o desde cualquier pista seleccionada `#24 → #25 → ...`) hasta completar la ronda.
+              - **Cola Estable + Navegación Anterior Real**: Mantiene estable la cola de la ronda aunque aumenten tus reproducciones durante la sesión o cambies de pestaña (`Todas`, `Carpetas`, `Listas`, `Top`), alinea la precarga de pistas y retrocede correctamente con historial real en `⏮️ Anterior`.
             - 💬 **Cobro por WhatsApp Natural & Rediseño Limpio (v11.46)**:
               - **Solo Cédula & Cero Paréntesis**: Cambiado **`Cédula / RIF`** a **`Cédula`** en mensajes, tarjetas y formularios, y eliminados todos los paréntesis robóticos de cuotas, tallas, días restantes, bancos (`BBVA Provincial`) y monedas para mensajes 100% humanos y naturales.
               - **Apartado Renovado**: Eliminada la vista previa duplicada y el doble botón copiar; nuevos modos **`💳 Solo datos`**, cálculo directo **`💱 + Bs. BCV`** en 1 toque y panel plegable **`🎛️ Campos`** para elegir exactamente qué adjuntar sin ruido visual.

@@ -41,6 +41,8 @@
         playStats: {},        // statKey -> { key, sig, id, nombre, artista, count, lastPlayedAt, firstPlayedAt }
         _playListenState: { seqId: 0, songId: null, lastTickTs: 0, elapsedSec: 0, counted: false, esPreview: false },
         _smartVisitedIds: {}, // contextKey -> { songId: true }
+        _smartQueue: null,    // { ctxKey, orderIds: [], visitedIds: {}, historyIds: [] }
+        playbackContext: null,// Contexto activo de reproducción desacoplado de la pestaña visualizada
         // Modo música continua para rutinas
         rutinaDefaultPlaylistId: null,
         rutinaModoActivo: false,
@@ -491,7 +493,7 @@
 
     function sincronizarIndiceCancionActualEnLista() {
         if (!state.cancionActual) return;
-        var lista = obtenerListaReproducibleActual();
+        var lista = obtenerListaParaReproduccionActiva();
         var curId = state.cancionActual.id;
         var curSig = state.cancionActual.sig;
         var foundIdx = -1;
@@ -1500,11 +1502,46 @@
         } catch (e) {}
     }
 
-    function _claveContextoActual() {
-        if (state.playlistSeleccionada) return 'pl:' + state.playlistSeleccionada;
-        if (state.subtabActual === 'top') return 'top';
-        if (state.carpetaSeleccionada) return 'folder:' + state.carpetaSeleccionada;
-        return 'all';
+    function _construirContextoDesdeVista() {
+        if (state.playlistSeleccionada) {
+            return { tipo: 'playlist', playlistId: state.playlistSeleccionada, carpeta: null, key: 'pl:' + state.playlistSeleccionada };
+        }
+        if (state.subtabActual === 'top') {
+            return { tipo: 'top', playlistId: null, carpeta: null, key: 'top' };
+        }
+        if (state.carpetaSeleccionada) {
+            return { tipo: 'folder', playlistId: null, carpeta: state.carpetaSeleccionada, key: 'folder:' + state.carpetaSeleccionada };
+        }
+        return { tipo: 'all', playlistId: null, carpeta: null, key: 'all' };
+    }
+
+    function _obtenerContextoPlaybackActivo() {
+        var ctx = state.playbackContext;
+        if (ctx && ctx.key) {
+            if (ctx.tipo === 'playlist') {
+                var existePl = (state.playlists || []).some(function(p) { return p && p.id === ctx.playlistId; });
+                if (existePl) return ctx;
+            } else {
+                return ctx;
+            }
+        }
+        return _construirContextoDesdeVista();
+    }
+
+    function _establecerContextoPlayback(ctxOpcional) {
+        var ctx = ctxOpcional || _construirContextoDesdeVista();
+        state.playbackContext = {
+            tipo: ctx.tipo || 'all',
+            playlistId: ctx.playlistId || null,
+            carpeta: ctx.carpeta || null,
+            key: ctx.key || 'all'
+        };
+        return state.playbackContext;
+    }
+
+    function _claveContextoActual(usarVista) {
+        var ctx = usarVista ? _construirContextoDesdeVista() : _obtenerContextoPlaybackActivo();
+        return (ctx && ctx.key) ? ctx.key : 'all';
     }
 
     function compararCancionesPorTop(a, b, origIdxMap) {
@@ -1546,6 +1583,210 @@
             return obtenerReproduccionesCancion(c) > 0;
         });
         return ordenarListaPorTop(escuchadas);
+    }
+
+    function _obtenerListaBasePorContexto(ctx) {
+        var c = ctx || _construirContextoDesdeVista();
+        if (c.tipo === 'playlist' && c.playlistId) {
+            var plTracks = obtenerCancionesDePlaylist(c.playlistId);
+            return state.modoInteligente ? ordenarListaPorTop(plTracks) : plTracks;
+        }
+        if (c.tipo === 'top') {
+            return obtenerTopCancionesLista();
+        }
+        var base = obtenerCancionesActivasScope();
+        if (c.tipo === 'folder' && c.carpeta) {
+            var folderTracks = base.filter(function(item) { return item && item.carpeta === c.carpeta; });
+            return state.modoInteligente ? ordenarListaPorTop(folderTracks) : folderTracks;
+        }
+        return state.modoInteligente ? ordenarListaPorTop(base) : base;
+    }
+
+    function _reiniciarColaInteligente(ctxKey, listaOrdenada, cancionActualId) {
+        var ids = [];
+        var seen = {};
+        (listaOrdenada || []).forEach(function(c) {
+            if (c && c.id && !seen[c.id]) {
+                seen[c.id] = true;
+                ids.push(c.id);
+            }
+        });
+        var visited = {};
+        if (cancionActualId && seen[cancionActualId]) {
+            visited[cancionActualId] = true;
+        }
+        state._smartQueue = {
+            ctxKey: ctxKey || 'all',
+            orderIds: ids,
+            visitedIds: visited,
+            historyIds: []
+        };
+        if (!state._smartVisitedIds) state._smartVisitedIds = {};
+        state._smartVisitedIds[state._smartQueue.ctxKey] = state._smartQueue.visitedIds;
+        return state._smartQueue;
+    }
+
+    function _sincronizarListaConColaInteligente(ctxKey, listaActualOrdenada) {
+        var base = Array.isArray(listaActualOrdenada) ? listaActualOrdenada : [];
+        var byId = {};
+        base.forEach(function(c) {
+            if (c && c.id && !byId[c.id]) byId[c.id] = c;
+        });
+
+        if (!state._smartQueue || state._smartQueue.ctxKey !== ctxKey || !Array.isArray(state._smartQueue.orderIds) || state._smartQueue.orderIds.length === 0) {
+            var qNueva = _reiniciarColaInteligente(ctxKey, base, null);
+            return qNueva.orderIds.map(function(id) { return byId[id]; }).filter(Boolean);
+        }
+
+        var nuevosOrderIds = [];
+        var incluidos = {};
+        state._smartQueue.orderIds.forEach(function(id) {
+            if (byId[id] && !incluidos[id]) {
+                incluidos[id] = true;
+                nuevosOrderIds.push(id);
+            }
+        });
+        base.forEach(function(c) {
+            if (c && c.id && !incluidos[c.id]) {
+                incluidos[c.id] = true;
+                nuevosOrderIds.push(c.id);
+            }
+        });
+        state._smartQueue.orderIds = nuevosOrderIds;
+        if (!state._smartQueue.visitedIds || typeof state._smartQueue.visitedIds !== 'object') {
+            state._smartQueue.visitedIds = {};
+        }
+        if (!Array.isArray(state._smartQueue.historyIds)) {
+            state._smartQueue.historyIds = [];
+        }
+        if (!state._smartVisitedIds) state._smartVisitedIds = {};
+        state._smartVisitedIds[ctxKey] = state._smartQueue.visitedIds;
+
+        return nuevosOrderIds.map(function(id) { return byId[id]; }).filter(Boolean);
+    }
+
+    function _obtenerListaPorContexto(ctx, respetarSmartQueue) {
+        var c = ctx || _construirContextoDesdeVista();
+        var lista = _obtenerListaBasePorContexto(c);
+        if (respetarSmartQueue && state.modoInteligente && !state.rutinaModoActivo) {
+            return _sincronizarListaConColaInteligente(c.key || 'all', lista);
+        }
+        return lista;
+    }
+
+    function _marcarCancionEnColaInteligente(meta, ctxKey, prevSongId, opciones) {
+        if (!state.modoInteligente || state.rutinaModoActivo || !meta || !meta.id || (opciones && opciones.esPreview)) {
+            return;
+        }
+        var ctx = _obtenerContextoPlaybackActivo();
+        var key = ctxKey || (ctx && ctx.key) || 'all';
+        var baseOrdenada = _obtenerListaBasePorContexto(ctx);
+        _sincronizarListaConColaInteligente(key, baseOrdenada);
+        if (state._smartQueue.orderIds.indexOf(meta.id) === -1) {
+            state._smartQueue.orderIds.push(meta.id);
+        }
+        state._smartQueue.visitedIds[meta.id] = true;
+        if (!state._smartVisitedIds) state._smartVisitedIds = {};
+        state._smartVisitedIds[key] = state._smartQueue.visitedIds;
+
+        if (prevSongId && prevSongId !== meta.id && !(opciones && opciones.desdeHistorialAnterior)) {
+            var hist = state._smartQueue.historyIds;
+            if (hist[hist.length - 1] !== prevSongId) {
+                hist.push(prevSongId);
+                if (hist.length > 200) hist.shift();
+            }
+        }
+    }
+
+    function _resolverSiguienteInteligente(lista, esManual, soloConsulta) {
+        var ctx = _obtenerContextoPlaybackActivo();
+        var ctxKey = (ctx && ctx.key) ? ctx.key : 'all';
+        var curId = (state.cancionActual && state.cancionActual.id) ? state.cancionActual.id : null;
+        if (!Array.isArray(lista) || lista.length === 0) {
+            return { detener: true, lista: [], idx: -1 };
+        }
+
+        _sincronizarListaConColaInteligente(ctxKey, lista);
+        var q = state._smartQueue;
+        var visitedMap = soloConsulta ? Object.assign({}, q.visitedIds) : q.visitedIds;
+        if (curId) {
+            visitedMap[curId] = true;
+        }
+
+        var curIdx = curId ? lista.findIndex(function(c) { return c && c.id === curId; }) : -1;
+        if (curIdx === -1 && state.indiceActual >= 0 && state.indiceActual < lista.length) {
+            curIdx = state.indiceActual;
+        }
+
+        // Avanzar siempre hacia adelante desde la posición actual dentro de la cola ordenada del Top
+        // y rodear circularmente solo por las pistas aún no visitadas en esta vuelta.
+        var startIdx = (curIdx >= 0 && curIdx < lista.length) ? (curIdx + 1) : 0;
+        var siguienteIdx = -1;
+        for (var step = 0; step < lista.length; step++) {
+            var candIdx = (startIdx + step) % lista.length;
+            var cand = lista[candIdx];
+            if (!cand || !cand.id) continue;
+            if (!visitedMap[cand.id] && (!curId || cand.id !== curId || lista.length === 1)) {
+                siguienteIdx = candIdx;
+                break;
+            }
+        }
+
+        if (siguienteIdx !== -1) {
+            return { detener: false, lista: lista, idx: siguienteIdx };
+        }
+
+        if (state.repeat === 'off' && !esManual) {
+            if (!soloConsulta) {
+                var freshReset = _obtenerListaBasePorContexto(ctx);
+                _reiniciarColaInteligente(ctxKey, freshReset, null);
+            }
+            return { detener: true, lista: lista, idx: -1 };
+        }
+
+        // Vuelta completa terminada: reconstruir el orden con el Top actualizado para la siguiente ronda
+        var freshLista = _obtenerListaBasePorContexto(ctx);
+        if (!freshLista || freshLista.length === 0) {
+            return { detener: true, lista: [], idx: -1 };
+        }
+        var wrapIdx = (freshLista.length > 1 && curId && freshLista[0] && freshLista[0].id === curId) ? 1 : 0;
+        if (!soloConsulta) {
+            _reiniciarColaInteligente(ctxKey, freshLista, null);
+        }
+        return { detener: false, lista: freshLista, idx: wrapIdx };
+    }
+
+    function _resolverAnteriorInteligente(lista) {
+        if (!Array.isArray(lista) || lista.length === 0) {
+            return { lista: [], idx: -1, desdeHistorialAnterior: true };
+        }
+        var ctx = _obtenerContextoPlaybackActivo();
+        var ctxKey = (ctx && ctx.key) ? ctx.key : 'all';
+        _sincronizarListaConColaInteligente(ctxKey, lista);
+        var q = state._smartQueue;
+        var curId = (state.cancionActual && state.cancionActual.id) ? state.cancionActual.id : null;
+
+        if (q && q.visitedIds && curId) {
+            delete q.visitedIds[curId];
+        }
+
+        if (q && Array.isArray(q.historyIds)) {
+            while (q.historyIds.length > 0) {
+                var prevId = q.historyIds.pop();
+                if (!prevId || prevId === curId) continue;
+                var prevIdx = lista.findIndex(function(c) { return c && c.id === prevId; });
+                if (prevIdx !== -1) {
+                    return { lista: lista, idx: prevIdx, desdeHistorialAnterior: true };
+                }
+            }
+        }
+
+        var curIdx = curId ? lista.findIndex(function(c) { return c && c.id === curId; }) : -1;
+        if (curIdx === -1 && state.indiceActual >= 0 && state.indiceActual < lista.length) {
+            curIdx = state.indiceActual;
+        }
+        var backIdx = (curIdx > 0) ? (curIdx - 1) : (lista.length - 1);
+        return { lista: lista, idx: backIdx, desdeHistorialAnterior: true };
     }
 
     function getPlaylistDefaultRutinaId() {
@@ -1759,6 +2000,7 @@
         }
         state._smartVisitedIds = state._smartVisitedIds || {};
         delete state._smartVisitedIds['pl:' + plId];
+        state._smartQueue = null;
         seleccionarPlaylist(plId);
         var lista = obtenerListaReproducibleActual();
         if (lista.length > 0) {
@@ -1780,6 +2022,7 @@
         state.shuffle = false;
         state._smartVisitedIds = state._smartVisitedIds || {};
         delete state._smartVisitedIds['pl:' + plId];
+        state._smartQueue = null;
         guardarModosReproductorStorage();
         seleccionarPlaylist(plId);
         actualizarControlesModo();
@@ -1805,6 +2048,9 @@
             reproducirPorId(songId);
             return;
         }
+        state._smartVisitedIds = state._smartVisitedIds || {};
+        delete state._smartVisitedIds['top'];
+        state._smartQueue = null;
         reproducirIndice(0);
     }
 
@@ -1897,7 +2143,7 @@
         if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
             return obtenerCancionesDePlaylist(state.rutinaPlaylistActivaId);
         }
-        return obtenerListaReproducibleActual();
+        return _obtenerListaPorContexto(_obtenerContextoPlaybackActivo(), !!state.modoInteligente);
     }
 
     function clampVol01(v) {
@@ -2229,22 +2475,17 @@
             return tracksRut[0] || null;
         }
 
-        var lista = obtenerListaReproducibleActual();
+        var lista = obtenerListaParaReproduccionActiva();
         if (!lista || lista.length === 0) return null;
         if (state.repeat === 'one') return null;
 
         var currentId = state.cancionActual ? state.cancionActual.id : null;
         if (state.modoInteligente) {
-            var ctxKey = _claveContextoActual();
-            var visitedMap = (state._smartVisitedIds && state._smartVisitedIds[ctxKey]) ? state._smartVisitedIds[ctxKey] : {};
-            for (var i = 0; i < lista.length; i++) {
-                var cand = lista[i];
-                if (!cand || !cand.id) continue;
-                if (!visitedMap[cand.id] && (!currentId || cand.id !== currentId || lista.length === 1)) {
-                    return cand;
-                }
+            var resSmartPre = _resolverSiguienteInteligente(lista, false, true);
+            if (!resSmartPre || resSmartPre.detener || resSmartPre.idx < 0 || resSmartPre.idx >= resSmartPre.lista.length) {
+                return null;
             }
-            return (lista.length > 1 && currentId && lista[0] && lista[0].id === currentId) ? lista[1] : lista[0];
+            return resSmartPre.lista[resSmartPre.idx] || null;
         }
 
         if (state.shuffle && lista.length > 1) {
@@ -2474,6 +2715,7 @@
         _cancelarEsperaInterrupcion();
 
         var yaEstabaSonandoOTransicionando = !!(state.reproduciendo || state._transicionandoCancion || (opciones && opciones.desdeFinCancion));
+        var prevSongId = state.cancionActual ? state.cancionActual.id : null;
         state._pausaManualUsuario = false;
         state._pausadoPorDesconexion = false;
         state._endHandledSeqId = 0;
@@ -2493,10 +2735,7 @@
             esPreview: !!(opciones && opciones.esPreview)
         };
         if (state.modoInteligente && !state.rutinaModoActivo && meta.id && !(opciones && opciones.esPreview)) {
-            var ctxKey = _claveContextoActual();
-            if (!state._smartVisitedIds) state._smartVisitedIds = {};
-            if (!state._smartVisitedIds[ctxKey]) state._smartVisitedIds[ctxKey] = {};
-            state._smartVisitedIds[ctxKey][meta.id] = true;
+            _marcarCancionEnColaInteligente(meta, _claveContextoActual(), prevSongId, opciones);
         }
         var fadeInMs = (opciones && typeof opciones.fadeInMs === 'number' && opciones.fadeInMs > 0) ? opciones.fadeInMs : 0;
         var seekToSec = (opciones && typeof opciones.seekToSec === 'number' && opciones.seekToSec > 0) ? opciones.seekToSec : 0;
@@ -2582,8 +2821,16 @@
         state._rutinaTransicionandoSalida = false;
         cancelarFadeAudio();
         salirModoRutinaSilencioso(false);
-        var listaActual = obtenerListaReproducibleActual();
+        var ctxVista = _construirContextoDesdeVista();
+        var cambioCtx = !state._smartQueue || state._smartQueue.ctxKey !== ctxVista.key;
+        _establecerContextoPlayback(ctxVista);
+        var listaActual = state.modoInteligente
+            ? (cambioCtx ? _obtenerListaBasePorContexto(ctxVista) : _obtenerListaPorContexto(ctxVista, true))
+            : _obtenerListaBasePorContexto(ctxVista);
         if (idx < 0 || idx >= listaActual.length) return;
+        if (state.modoInteligente && cambioCtx) {
+            _reiniciarColaInteligente(ctxVista.key, listaActual, null);
+        }
         reproducirMetaCancion(listaActual[idx], idx);
     }
 
@@ -2593,32 +2840,46 @@
         state._rutinaTransicionandoSalida = false;
         cancelarFadeAudio();
         salirModoRutinaSilencioso(false);
-        var listaActual = obtenerListaReproducibleActual();
+        var ctxVista = _construirContextoDesdeVista();
+        var listaActual = _obtenerListaBasePorContexto(ctxVista);
         var idx = listaActual.findIndex(function(c) { return c.id === songId; });
         if (idx !== -1) {
+            var cambioCtx = !state._smartQueue || state._smartQueue.ctxKey !== ctxVista.key;
+            _establecerContextoPlayback(ctxVista);
+            if (state.modoInteligente) {
+                var colaSmart = cambioCtx
+                    ? (_reiniciarColaInteligente(ctxVista.key, listaActual, null), listaActual)
+                    : _sincronizarListaConColaInteligente(ctxVista.key, listaActual);
+                var idxSmart = colaSmart.findIndex(function(c) { return c && c.id === songId; });
+                if (idxSmart !== -1) {
+                    reproducirMetaCancion(colaSmart[idxSmart], idxSmart);
+                    return;
+                }
+            }
             reproducirMetaCancion(listaActual[idx], idx);
             return;
         }
         var enTodas = state.canciones.find(function(c) { return c.id === songId; });
         if (enTodas) {
-            reproducirMetaCancion(enTodas, -1);
+            var ctxAll = { tipo: 'all', playlistId: null, carpeta: null, key: 'all' };
+            _establecerContextoPlayback(ctxAll);
+            var listaAll = _obtenerListaBasePorContexto(ctxAll);
+            if (state.modoInteligente) {
+                var cambioAll = !state._smartQueue || state._smartQueue.ctxKey !== 'all';
+                var colaAll = cambioAll
+                    ? (_reiniciarColaInteligente('all', listaAll, null), listaAll)
+                    : _sincronizarListaConColaInteligente('all', listaAll);
+                var idxAll = colaAll.findIndex(function(c) { return c && c.id === songId; });
+                reproducirMetaCancion(enTodas, idxAll);
+                return;
+            }
+            var idxAllPlain = listaAll.findIndex(function(c) { return c && c.id === songId; });
+            reproducirMetaCancion(enTodas, idxAllPlain);
         }
     }
 
     function obtenerListaReproducibleActual() {
-        if (state.playlistSeleccionada) {
-            var plTracks = obtenerCancionesDePlaylist(state.playlistSeleccionada);
-            return state.modoInteligente ? ordenarListaPorTop(plTracks) : plTracks;
-        }
-        if (state.subtabActual === 'top') {
-            return obtenerTopCancionesLista();
-        }
-        var base = obtenerCancionesActivasScope();
-        if (state.carpetaSeleccionada) {
-            var folderTracks = base.filter(function(c) { return c.carpeta === state.carpetaSeleccionada; });
-            return state.modoInteligente ? ordenarListaPorTop(folderTracks) : folderTracks;
-        }
-        return state.modoInteligente ? ordenarListaPorTop(base) : base;
+        return _obtenerListaBasePorContexto(_construirContextoDesdeVista());
     }
 
     function iniciarMusicaDeRutina(playlistIdOverride, nombreRutina) {
@@ -2659,7 +2920,14 @@
                     soloSnapTube: !!state.soloSnapTube,
                     shuffle: !!state.shuffle,
                     modoInteligente: !!state.modoInteligente,
-                    repeat: state.repeat || 'all'
+                    repeat: state.repeat || 'all',
+                    playbackContext: state.playbackContext ? Object.assign({}, state.playbackContext) : _construirContextoDesdeVista(),
+                    _smartQueue: state._smartQueue ? {
+                        ctxKey: state._smartQueue.ctxKey,
+                        orderIds: (state._smartQueue.orderIds || []).slice(),
+                        visitedIds: Object.assign({}, state._smartQueue.visitedIds || {}),
+                        historyIds: (state._smartQueue.historyIds || []).slice()
+                    } : null
                 };
             }
 
@@ -2755,14 +3023,19 @@
                 state.shuffle = !!snapshot.shuffle;
                 state.modoInteligente = !!snapshot.modoInteligente;
                 state.repeat = snapshot.repeat || 'all';
+                state.playbackContext = snapshot.playbackContext || _construirContextoDesdeVista();
+                if (snapshot._smartQueue) {
+                    state._smartQueue = snapshot._smartQueue;
+                }
                 actualizarControlesModo();
 
-                var listaScope = obtenerListaReproducibleActual();
+                var listaScope = obtenerListaParaReproduccionActiva();
                 var idxRestaurar = listaScope.findIndex(function(c) { return c.id === metaPrev.id; });
                 return reproducirMetaCancion(metaPrev, idxRestaurar, {
                     silencioso: true,
                     fadeInMs: inmediato ? 0 : fadeInRestoreMs,
-                    seekToSec: snapshot.currentTime || 0
+                    seekToSec: snapshot.currentTime || 0,
+                    desdeHistorialAnterior: true
                 });
             }
 
@@ -2805,6 +3078,13 @@
         }
         var lista = obtenerListaParaReproduccionActiva();
         if (!state.cancionActual) {
+            if (!state.rutinaModoActivo) {
+                var ctxInicio = _establecerContextoPlayback(_construirContextoDesdeVista());
+                lista = _obtenerListaBasePorContexto(ctxInicio);
+                if (state.modoInteligente) {
+                    _reiniciarColaInteligente(ctxInicio.key, lista, null);
+                }
+            }
             if (lista.length > 0) {
                 if (state.rutinaModoActivo) {
                     siguienteCancion(true);
@@ -3008,6 +3288,8 @@
         }
         state.cancionActual = null;
         state.indiceActual = -1;
+        state.playbackContext = null;
+        state._smartQueue = null;
         actualizarUIPlayerCompleto();
         actualizarMiniPlayer();
         actualizarBarraAudioRutina();
@@ -3042,7 +3324,7 @@
             return;
         }
 
-        var lista = obtenerListaReproducibleActual();
+        var lista = obtenerListaParaReproduccionActiva();
         if (lista.length === 0) return;
 
         if (!esManual && state.repeat === 'one' && state.cancionActual) {
@@ -3069,32 +3351,13 @@
 
         var siguienteIdx = -1;
         if (state.modoInteligente) {
-            var ctxKey = _claveContextoActual();
-            if (!state._smartVisitedIds) state._smartVisitedIds = {};
-            var visitedMap = state._smartVisitedIds[ctxKey] || {};
-            if (state.cancionActual && state.cancionActual.id) {
-                visitedMap[state.cancionActual.id] = true;
+            var resSmart = _resolverSiguienteInteligente(lista, !!esManual, false);
+            if (!resSmart || resSmart.detener) {
+                detenerReproductor();
+                return;
             }
-            state._smartVisitedIds[ctxKey] = visitedMap;
-
-            for (var i = 0; i < lista.length; i++) {
-                var cand = lista[i];
-                if (!cand || !cand.id) continue;
-                if (!visitedMap[cand.id] && (!state.cancionActual || cand.id !== state.cancionActual.id || lista.length === 1)) {
-                    siguienteIdx = i;
-                    break;
-                }
-            }
-
-            if (siguienteIdx === -1) {
-                if (state.repeat === 'off' && !esManual) {
-                    state._smartVisitedIds[ctxKey] = {};
-                    detenerReproductor();
-                    return;
-                }
-                state._smartVisitedIds[ctxKey] = {};
-                siguienteIdx = (lista.length > 1 && state.cancionActual && lista[0] && lista[0].id === state.cancionActual.id) ? 1 : 0;
-            }
+            lista = resSmart.lista;
+            siguienteIdx = resSmart.idx;
         } else if (state.shuffle && lista.length > 1) {
             var preShuf = state._nextPreselectedShuffle;
             state._nextPreselectedShuffle = null;
@@ -3111,7 +3374,11 @@
                 } while (siguienteIdx === state.indiceActual);
             }
         } else {
-            siguienteIdx = state.indiceActual + 1;
+            var curSeqIdx = state.indiceActual;
+            if ((curSeqIdx < 0 || curSeqIdx >= lista.length) && state.cancionActual && state.cancionActual.id) {
+                curSeqIdx = lista.findIndex(function(c) { return c && c.id === state.cancionActual.id; });
+            }
+            siguienteIdx = curSeqIdx + 1;
             if (siguienteIdx >= lista.length) {
                 if (state.repeat === 'off' && !esManual) {
                     detenerReproductor();
@@ -3121,6 +3388,7 @@
             }
         }
 
+        if (siguienteIdx < 0 || siguienteIdx >= lista.length) return;
         reproducirMetaCancion(lista[siguienteIdx], siguienteIdx, optsBase);
     }
 
@@ -3135,6 +3403,15 @@
 
         if (state.rutinaModoActivo && state.rutinaPlaylistActivaId) {
             siguienteCancion(true);
+            return;
+        }
+
+        if (state.modoInteligente) {
+            var resAnt = _resolverAnteriorInteligente(lista);
+            if (!resAnt || resAnt.idx < 0 || resAnt.idx >= resAnt.lista.length) return;
+            reproducirMetaCancion(resAnt.lista[resAnt.idx], resAnt.idx, {
+                desdeHistorialAnterior: !!resAnt.desdeHistorialAnterior
+            });
             return;
         }
 
@@ -3397,6 +3674,7 @@
             state.modoInteligente = false;
         }
         state._smartVisitedIds = {};
+        state._smartQueue = null;
         guardarModosReproductorStorage();
         sincronizarIndiceCancionActualEnLista();
         actualizarControlesModo();
@@ -3423,8 +3701,18 @@
         state.modoInteligente = activar;
         if (activar) {
             state.shuffle = false;
-            if (!state._smartVisitedIds) state._smartVisitedIds = {};
-            delete state._smartVisitedIds[_claveContextoActual()];
+            if (!state.cancionActual) {
+                state._smartVisitedIds = {};
+                state._smartQueue = null;
+                state.playbackContext = null;
+            } else {
+                var ctxAct = _establecerContextoPlayback(_obtenerContextoPlaybackActivo());
+                var baseAct = _obtenerListaBasePorContexto(ctxAct);
+                _reiniciarColaInteligente(ctxAct.key, baseAct, state.cancionActual.id);
+            }
+        } else {
+            state._smartQueue = null;
+            state._smartVisitedIds = {};
         }
         guardarModosReproductorStorage();
         sincronizarIndiceCancionActualEnLista();

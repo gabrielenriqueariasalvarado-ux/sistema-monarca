@@ -1,5 +1,5 @@
 {
-  "version": "11.46",
+  "version": "11.47",
   "fecha": "2026-11-27",
-  "resumen": "Mensajes Naturales y Rediseño de Cobro por WhatsApp (v11.46): etiquetas limpias con Cédula (sin RIF), redacción natural sin paréntesis, cálculo en Bolívares al BCV en 1 toque, modo Solo datos, campos plegables e interfaz compacta."
+  "resumen": "Reproductor MP3 · Modo Inteligente Continuo (v11.47): corregido el bucle en las primeras 2 canciones; ahora avanza secuencialmente por toda la lista desde la pista actual, mantiene la cola fija durante cada ronda aunque suban las reproducciones o cambies de pestaña, y soporta retroceso con historial real."
 }
